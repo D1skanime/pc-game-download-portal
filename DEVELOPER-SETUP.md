@@ -25,10 +25,17 @@ poetry install
 docker-compose up -d
 ```
 
-### Run the backend
+### Run the migrations
 
 ```sh
-python3 backend/main.py
+cd backend
+alembic upgrade head
+```
+
+## And finally run the backend
+
+```sh
+python main.py
 ```
 
 ## Setting up the frontend
