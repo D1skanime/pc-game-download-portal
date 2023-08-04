@@ -9,9 +9,9 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
@@ -135,9 +135,9 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
@@ -206,9 +206,9 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
