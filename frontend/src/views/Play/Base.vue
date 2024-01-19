@@ -12,6 +12,7 @@ const rom = ref<Rom | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
+const gameWindow = ref(9);
 
 const EXTENSION_REGEX = new RegExp("\.(([a-z]+\.)*)$");
 
@@ -87,9 +88,7 @@ window.EJS_onSaveState = function ({
   }
 };
 
-window.EJS_onGameStart = () => {
-  gameRunning.value = true;
-};
+window.EJS_onGameStart = () => {};
 
 onMounted(() => {
   romApi
@@ -108,59 +107,86 @@ onMounted(() => {
 });
 
 function onPlay() {
+  gameWindow.value = 12;
+  gameRunning.value = true;
   window.EJS_loadStateURL = stateRef.value?.download_path ?? null;
   document.body.appendChild(script);
 }
 </script>
 
 <template>
-  <v-container class="h-100">
-    <v-row class="h-100">
-      <v-col v-if="rom && !gameRunning" class="v-col-3">
-        <v-select
-          clearable
-          disabled
-          label="Save"
-          v-model="saveRef"
-          :items="
-            rom.saves.map((s) => ({
-              title: s.file_name,
-              subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
-              value: s,
-            }))
-          "
-        />
-        <v-select
-          clearable
-          label="State"
-          v-model="stateRef"
-          :items="
-            rom.states.map((s) => ({
-              title: s.file_name,
-              subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
-              value: s,
-            }))
-          "
-        />
-        <v-select clearable disabled label="BIOS" :items="['gba-bios.zip']" />
-        <v-select
-          clearable
-          disabled
-          label="Patch"
-          :items="[
-            'Advance Wars Balance (AW1) by Kartal',
-            'War Room Sturm (AW1) by Kartal',
-          ]"
-        />
-        <v-btn rounded="0" size="x-large" @click="onPlay()"> Play </v-btn>
-      </v-col>
-      <v-col>
-        <v-sheet rounded id="game-wrapper">
-          <div id="game"></div>
-        </v-sheet>
-      </v-col>
-    </v-row>
-  </v-container>
+  <v-row no-gutters >
+    <v-col v-if="rom && !gameRunning" cols="3" class="px-3">
+      <v-img class="mx-auto mt-6 mb-5" width="250" src="/assets/powered_by_emulatorjs.png" />
+      <v-select
+        class="my-1"
+        hide-details
+        variant="outlined"
+        clearable
+        disabled
+        label="BIOS"
+        :items="['gba-bios.zip']"
+      />
+      <v-select
+        class="my-1"
+        hide-details
+        variant="outlined"
+        clearable
+        disabled
+        label="Save"
+        v-model="saveRef"
+        :items="
+          rom.saves.map((s) => ({
+            title: s.file_name,
+            subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
+            value: s,
+          }))
+        "
+      />
+      <v-select
+        class="my-1"
+        hide-details
+        variant="outlined"
+        clearable
+        label="State"
+        v-model="stateRef"
+        :items="
+          rom.states.map((s) => ({
+            title: s.file_name,
+            subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
+            value: s,
+          }))
+        "
+      />
+      <v-select
+        class="my-1"
+        hide-details
+        variant="outlined"
+        clearable
+        disabled
+        label="Patch"
+        :items="[
+          'Advance Wars Balance (AW1) by Kartal',
+          'War Room Sturm (AW1) by Kartal',
+        ]"
+      />
+      <v-btn
+        class="mt-4"
+        block
+        rounded="0"
+        variant="outlined"
+        size="x-large"
+        @click="onPlay()"
+      >
+        <v-icon class="mr-2">mdi-play</v-icon>Play
+      </v-btn>
+    </v-col>
+
+    <v-col class="my-4 bg-primary" :cols="gameWindow" rounded id="game-wrapper">
+      <v-img v-if="!gameRunning" :src="`/assets/romm/resources/${rom?.path_cover_l}`" />
+      <div id="game"></div>
+    </v-col>
+  </v-row>
 </template>
 
 <style>
