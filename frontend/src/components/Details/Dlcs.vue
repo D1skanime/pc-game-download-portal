@@ -17,7 +17,6 @@ defineProps<{ rom: Rom }>();
           )}`"
           :aspect-ratio="3 / 4"
         />
-        <!-- <action-bar :rom="rom" /> -->
       </v-card>
     </v-col>
   </v-row>
