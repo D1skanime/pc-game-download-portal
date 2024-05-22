@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: search "Paper Mario"; fields id,name,slug,summary,total_rating,aggregated_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.slug,expansions.cover.url,expanded_games.name,expanded_games.cover.url,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.name,remakes.cover.url,remasters.name,remasters.cover.url,involved_companies.company.name,platforms.name,first_release_date,game_modes.name,player_perspectives.name,ports.name,similar_games.name,language_supports.language.name,external_games.uid,external_games.category;
+    body: search "Paper Mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url;
       where platforms=[4] ; limit 200;
     headers:
       Accept:
@@ -14,9 +14,9 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '647'
+      - '768'
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: POST
     uri: https://api.igdb.com/v4/games
   response:
@@ -26,46 +26,46 @@ interactions:
         \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
         the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
         Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
-        \ \"Discord\": \"https://discord.gg/FrvfwQg\"\n}\n"
+        \ \"Discord\": \"https://discord.gg/igdb\"\n}\n"
     headers:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 850e7d8c8a0539f7-YYZ
+      - 887d3f5ecf1536d5-YYZ
       Connection:
       - keep-alive
       Content-Length:
-      - '437'
+      - '434'
       Content-Type:
       - application/json
       Date:
-      - Mon, 05 Feb 2024 22:11:39 GMT
+      - Wed, 22 May 2024 13:45:36 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=f.9yVp1XGCTl..MM0PjjScwEBIvz6M3kZzQhD.Cpa.8-1707171099-1-AUR3hBOEmd9Vj0IqI+GpEiqaodQ14oDEpZSQNeUpP9NL4HjfEBhpsdj5yDoSwJ/k4G86Dr4tI17PzIVFd3WpVW8=;
-        path=/; expires=Mon, 05-Feb-24 22:41:39 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=HK2r.8bhiFlsF2OSvTOpHYLSLg8BJGJXH8s4p6t4aC8-1716385536-1.0.1.1-D_YN8wn3Xw77tmPf7ZIW3b73yzUOZhjoURVaSxJVh7wWJ5T2UF1DmZFWq1A2sx995tHA_GYiYJN.BZGDOUPm8w;
+        path=/; expires=Wed, 22-May-24 14:15:36 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
-      Via:
-      - 1.1 f54d987d89964f5484454d3374620b06.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - 5xuvRshkLFQz53dUEi1xiHo3n3ZanjvczOeFL_0jMJcJMo1a83qWbA==
-      X-Amz-Cf-Pop:
-      - YTO50-P1
-      X-Cache:
-      - Error from cloudfront
       X-Content-Type-Options:
       - nosniff
       alt-svc:
       - h3=":443"; ma=86400
+      via:
+      - 1.1 4ddb3602395856d6beaf04efda8919b2.cloudfront.net (CloudFront)
       x-amz-apigw-id:
-      - Srt8YHBvPHcEGzg=
-      x-amzn-ErrorType:
+      - YLOIBGZyPHcEnTw=
+      x-amz-cf-id:
+      - Tku5-FKn7FopQ_lz2cLn-pyyfSsXQoLN_cWOJk3lFAuxr_Gtw7vl3Q==
+      x-amz-cf-pop:
+      - YTO50-P1
+      x-amzn-errortype:
       - AccessDeniedException
-      x-amzn-RequestId:
-      - 1734b872-50ee-407b-be82-9fcaa9e98e73
+      x-amzn-requestid:
+      - e1e71f78-5042-4b15-b2e5-905eb5f7899b
+      x-cache:
+      - Error from cloudfront
     status:
       code: 401
       message: Unauthorized
@@ -81,12 +81,12 @@ interactions:
       Content-Length:
       - '0'
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: POST
     uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
   response:
     body:
-      string: '{"access_token":"test_token","expires_in":5125035,"token_type":"bearer"}
+      string: '{"access_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","expires_in":4765016,"token_type":"bearer"}
 
         '
     headers:
@@ -99,16 +99,16 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Mon, 05 Feb 2024 22:11:40 GMT
+      - Wed, 22 May 2024 13:45:36 GMT
       Server:
       - nginx
       X-Ctxlog-Logid:
-      - 1-65c15d1c-1d6008a4277a608565dfdb1f
+      - 1-664df700-2c327855213c54b125ae7f9a
     status:
       code: 200
       message: OK
 - request:
-    body: search "Paper Mario"; fields id,name,slug,summary,total_rating,aggregated_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.slug,expansions.cover.url,expanded_games.name,expanded_games.cover.url,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.name,remakes.cover.url,remasters.name,remasters.cover.url,involved_companies.company.name,platforms.name,first_release_date,game_modes.name,player_perspectives.name,ports.name,similar_games.name,language_supports.language.name,external_games.uid,external_games.category;
+    body: search "Paper Mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url;
       where platforms=[4] ; limit 200;
     headers:
       Accept:
@@ -116,15 +116,15 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer test_token
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '647'
+      - '768'
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: POST
     uri: https://api.igdb.com/v4/games
   response:
@@ -140,71 +140,72 @@ interactions:
         \uB9C8\uB9AC\uC624\"\n      }\n    ],\n    \"artworks\": [\n      {\n        \"id\":
         73649,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ar1ktt.jpg\"\n
         \     }\n    ],\n    \"cover\": {\n      \"id\": 80830,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1qda.jpg\"\n
-        \   },\n    \"external_games\": [\n      {\n        \"id\": 138931,\n        \"category\":
-        3,\n        \"uid\": \"19929\"\n      },\n      {\n        \"id\": 245769,\n
-        \       \"category\": 14,\n        \"uid\": \"18231\"\n      },\n      {\n
-        \       \"id\": 1931441,\n        \"category\": 20,\n        \"uid\": \"B01BLAWHKI\"\n
-        \     },\n      {\n        \"id\": 1931588,\n        \"category\": 20,\n        \"uid\":
-        \"B003ZDOH3K\"\n      },\n      {\n        \"id\": 1933352,\n        \"category\":
-        20,\n        \"uid\": \"B009LUDMJQ\"\n      }\n    ],\n    \"first_release_date\":
-        965952000,\n    \"franchises\": [\n      {\n        \"id\": 845,\n        \"name\":
-        \"Mario\"\n      }\n    ],\n    \"game_modes\": [\n      {\n        \"id\":
-        1,\n        \"name\": \"Single player\"\n      }\n    ],\n    \"genres\":
-        [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing (RPG)\"\n
-        \     },\n      {\n        \"id\": 16,\n        \"name\": \"Turn-based strategy
-        (TBS)\"\n      },\n      {\n        \"id\": 31,\n        \"name\": \"Adventure\"\n
-        \     }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\": 148214,\n
-        \       \"company\": {\n          \"id\": 70,\n          \"name\": \"Nintendo\"\n
-        \       }\n      },\n      {\n        \"id\": 148215,\n        \"company\":
-        {\n          \"id\": 765,\n          \"name\": \"Intelligent Systems Co.,
-        Ltd.\"\n        }\n      },\n      {\n        \"id\": 225578,\n        \"company\":
+        \   },\n    \"first_release_date\": 965952000,\n    \"franchises\": [\n      {\n
+        \       \"id\": 845,\n        \"name\": \"Mario\"\n      }\n    ],\n    \"game_modes\":
+        [\n      {\n        \"id\": 1,\n        \"name\": \"Single player\"\n      }\n
+        \   ],\n    \"genres\": [\n      {\n        \"id\": 12,\n        \"name\":
+        \"Role-playing (RPG)\"\n      },\n      {\n        \"id\": 16,\n        \"name\":
+        \"Turn-based strategy (TBS)\"\n      },\n      {\n        \"id\": 31,\n        \"name\":
+        \"Adventure\"\n      }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\":
+        148214,\n        \"company\": {\n          \"id\": 70,\n          \"name\":
+        \"Nintendo\"\n        }\n      },\n      {\n        \"id\": 225578,\n        \"company\":
         {\n          \"id\": 5163,\n          \"name\": \"iQue\"\n        }\n      },\n
         \     {\n        \"id\": 225579,\n        \"company\": {\n          \"id\":
-        812,\n          \"name\": \"Gradiente\"\n        }\n      }\n    ],\n    \"name\":
-        \"Paper Mario\",\n    \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\":
+        812,\n          \"name\": \"Gradiente\"\n        }\n      },\n      {\n        \"id\":
+        264416,\n        \"company\": {\n          \"id\": 25077,\n          \"name\":
+        \"Intelligent Systems\"\n        }\n      }\n    ],\n    \"name\": \"Paper
+        Mario\",\n    \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\":
         \"Nintendo 64\"\n      },\n      {\n        \"id\": 5,\n        \"name\":
         \"Wii\"\n      },\n      {\n        \"id\": 41,\n        \"name\": \"Wii U\"\n
-        \     }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
-        2,\n        \"name\": \"Third person\"\n      },\n      {\n        \"id\":
-        4,\n        \"name\": \"Side view\"\n      }\n    ],\n    \"screenshots\":
-        [\n      {\n        \"id\": 24167,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/a5r3k2lf3lgvifrycqeg.jpg\"\n
+        \     }\n    ],\n    \"screenshots\": [\n      {\n        \"id\": 24167,\n
+        \       \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/a5r3k2lf3lgvifrycqeg.jpg\"\n
         \     },\n      {\n        \"id\": 24168,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/hdxgs9nruycvrzcgvseu.jpg\"\n
         \     },\n      {\n        \"id\": 24169,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ig9ainu9fershqdinox1.jpg\"\n
         \     },\n      {\n        \"id\": 24170,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/jz66se3deczeta6hd4ys.jpg\"\n
         \     },\n      {\n        \"id\": 24171,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/kjnf90jnud6njmwto3th.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 358,\n
-        \       \"name\": \"Super Mario Bros.\"\n      },\n      {\n        \"id\":
-        660,\n        \"name\": \"Darkstone\"\n      },\n      {\n        \"id\":
-        1026,\n        \"name\": \"The Legend of Zelda: A Link to the Past\"\n      },\n
-        \     {\n        \"id\": 1035,\n        \"name\": \"The Legend of Zelda: The
-        Minish Cap\"\n      },\n      {\n        \"id\": 1068,\n        \"name\":
-        \"Super Mario Bros. 3\"\n      },\n      {\n        \"id\": 1280,\n        \"name\":
-        \"Breath of Fire IV\"\n      },\n      {\n        \"id\": 2148,\n        \"name\":
-        \"Banjo-Kazooie\"\n      },\n      {\n        \"id\": 3349,\n        \"name\":
-        \"Paper Mario: The Thousand-Year Door\"\n      },\n      {\n        \"id\":
-        3351,\n        \"name\": \"Mario \\u0026 Luigi: Superstar Saga\"\n      },\n
-        \     {\n        \"id\": 22387,\n        \"name\": \"Legrand Legacy\"\n      }\n
-        \   ],\n    \"slug\": \"paper-mario\",\n    \"summary\": \"Paper Mario, a
-        turn-based JRPG entry in the Mario franchise with a paper-based aesthetic
+        \       \"cover\": {\n          \"id\": 312995,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6pib.jpg\"\n
+        \       },\n        \"name\": \"Super Mario Bros.\",\n        \"slug\": \"super-mario-bros\"\n
+        \     },\n      {\n        \"id\": 660,\n        \"cover\": {\n          \"id\":
+        357155,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co7nkz.jpg\"\n
+        \       },\n        \"name\": \"Darkstone\",\n        \"slug\": \"darkstone\"\n
+        \     },\n      {\n        \"id\": 1026,\n        \"cover\": {\n          \"id\":
+        181427,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3vzn.jpg\"\n
+        \       },\n        \"name\": \"The Legend of Zelda: A Link to the Past\",\n
+        \       \"slug\": \"the-legend-of-zelda-a-link-to-the-past\"\n      },\n      {\n
+        \       \"id\": 1035,\n        \"cover\": {\n          \"id\": 170804,\n          \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/co3nsk.jpg\"\n        },\n        \"name\":
+        \"The Legend of Zelda: The Minish Cap\",\n        \"slug\": \"the-legend-of-zelda-the-minish-cap\"\n
+        \     },\n      {\n        \"id\": 1068,\n        \"cover\": {\n          \"id\":
+        358989,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co7ozx.jpg\"\n
+        \       },\n        \"name\": \"Super Mario Bros. 3\",\n        \"slug\":
+        \"super-mario-bros-3\"\n      },\n      {\n        \"id\": 1280,\n        \"cover\":
+        {\n          \"id\": 311972,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6opw.jpg\"\n
+        \       },\n        \"name\": \"Breath of Fire IV\",\n        \"slug\": \"breath-of-fire-iv\"\n
+        \     },\n      {\n        \"id\": 2148,\n        \"cover\": {\n          \"id\":
+        93043,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1zsj.jpg\"\n
+        \       },\n        \"name\": \"Banjo-Kazooie\",\n        \"slug\": \"banjo-kazooie\"\n
+        \     },\n      {\n        \"id\": 3349,\n        \"cover\": {\n          \"id\":
+        100900,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co25us.jpg\"\n
+        \       },\n        \"name\": \"Paper Mario: The Thousand-Year Door\",\n        \"slug\":
+        \"paper-mario-the-thousand-year-door\"\n      },\n      {\n        \"id\":
+        3351,\n        \"cover\": {\n          \"id\": 95596,\n          \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/co21rg.jpg\"\n        },\n        \"name\":
+        \"Mario \\u0026 Luigi: Superstar Saga\",\n        \"slug\": \"mario-luigi-superstar-saga\"\n
+        \     },\n      {\n        \"id\": 22387,\n        \"cover\": {\n          \"id\":
+        137538,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2y4i.jpg\"\n
+        \       },\n        \"name\": \"Legrand Legacy\",\n        \"slug\": \"legrand-legacy\"\n
+        \     }\n    ],\n    \"slug\": \"paper-mario\",\n    \"summary\": \"Paper
+        Mario, a turn-based JRPG entry in the Mario franchise with a paper-based aesthetic
         and platforming elements, sees the titular character working his way through
         the Mushroom Kingdom\\u0027s diverse locales and biomes, meeting its inhabitants,
         fighthing unruly enemies and recruiting an array of companions in order to
         once again save Princess Peach from the clutches of the evil Koopa King Bowser.\",\n
-        \   \"total_rating\": 88.63944908765737,\n    \"language_supports\": [\n      {\n
-        \       \"id\": 473450,\n        \"language\": {\n          \"id\": 3,\n          \"name\":
-        \"Chinese (Traditional)\"\n        }\n      },\n      {\n        \"id\": 473451,\n
-        \       \"language\": {\n          \"id\": 7,\n          \"name\": \"English\"\n
-        \       }\n      },\n      {\n        \"id\": 473452,\n        \"language\":
-        {\n          \"id\": 16,\n          \"name\": \"Japanese\"\n        }\n      },\n
-        \     {\n        \"id\": 492896,\n        \"language\": {\n          \"id\":
-        12,\n          \"name\": \"French\"\n        }\n      },\n      {\n        \"id\":
-        492897,\n        \"language\": {\n          \"id\": 27,\n          \"name\":
-        \"German\"\n        }\n      },\n      {\n        \"id\": 492898,\n        \"language\":
-        {\n          \"id\": 9,\n          \"name\": \"Spanish (Spain)\"\n        }\n
-        \     }\n    ],\n    \"collections\": [\n      {\n        \"id\": 240,\n        \"name\":
-        \"Super Mario\"\n      },\n      {\n        \"id\": 593,\n        \"name\":
-        \"Paper Mario\"\n      }\n    ]\n  },\n  {\n    \"id\": 257636,\n    \"cover\":
-        {\n      \"id\": 317813,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6t85.jpg\"\n
+        \   \"total_rating\": 88.6375275039134,\n    \"collections\": [\n      {\n
+        \       \"id\": 240,\n        \"name\": \"Super Mario\"\n      },\n      {\n
+        \       \"id\": 593,\n        \"name\": \"Paper Mario\"\n      }\n    ]\n
+        \ },\n  {\n    \"id\": 257636,\n    \"cover\": {\n      \"id\": 317813,\n
+        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6t85.jpg\"\n
         \   },\n    \"first_release_date\": 1691884800,\n    \"game_modes\": [\n      {\n
         \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
         \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
@@ -212,54 +213,86 @@ interactions:
         223743,\n        \"company\": {\n          \"id\": 36501,\n          \"name\":
         \"elDexter\"\n        }\n      }\n    ],\n    \"name\": \"Paper Mario TTYD64\",\n
         \   \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\": \"Nintendo
-        64\"\n      }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
-        3,\n        \"name\": \"Bird view / Isometric\"\n      },\n      {\n        \"id\":
-        4,\n        \"name\": \"Side view\"\n      }\n    ],\n    \"screenshots\":
-        [\n      {\n        \"id\": 1093074,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scnff6.jpg\"\n
+        64\"\n      }\n    ],\n    \"screenshots\": [\n      {\n        \"id\": 1093074,\n
+        \       \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scnff6.jpg\"\n
         \     },\n      {\n        \"id\": 1093075,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scnff7.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19164,\n
-        \       \"name\": \"Borderlands 3\"\n      },\n      {\n        \"id\": 25636,\n
-        \       \"name\": \"Nights of Azure 2: Bride of the New Moon\"\n      },\n
-        \     {\n        \"id\": 54775,\n        \"name\": \"Shadows: Awakening\"\n
-        \     },\n      {\n        \"id\": 55199,\n        \"name\": \"Dragon: Marked
-        for Death\"\n      },\n      {\n        \"id\": 57372,\n        \"name\":
-        \"SoulWorker\"\n      },\n      {\n        \"id\": 80916,\n        \"name\":
-        \"Omensight\"\n      },\n      {\n        \"id\": 96217,\n        \"name\":
-        \"Eternity: The Last Unicorn\"\n      },\n      {\n        \"id\": 106987,\n
-        \       \"name\": \"Torchlight III\"\n      },\n      {\n        \"id\": 113109,\n
-        \       \"name\": \"Marvel Ultimate Alliance 3: The Black Order\"\n      },\n
-        \     {\n        \"id\": 113636,\n        \"name\": \"Rangers of Oblivion\"\n
-        \     }\n    ],\n    \"slug\": \"paper-mario-ttyd64\",\n    \"summary\": \"TTYD64
-        is a PM64 romhack that adds TTYD\\u0027s gameplay into the original Paper
-        Mario plus all new items, badges, and recipes from that game, and a lot of
-        new areas to explore plus other additions.\"\n  },\n  {\n    \"id\": 268692,\n
-        \   \"cover\": {\n      \"id\": 338285,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co790t.jpg\"\n
-        \   },\n    \"first_release_date\": 1500249600,\n    \"game_modes\": [\n      {\n
-        \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
-        \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
-        (RPG)\"\n      }\n    ],\n    \"name\": \"Paper Mario: Pro Mode\",\n    \"platforms\":
-        [\n      {\n        \"id\": 4,\n        \"name\": \"Nintendo 64\"\n      }\n
-        \   ],\n    \"player_perspectives\": [\n      {\n        \"id\": 2,\n        \"name\":
-        \"Third person\"\n      },\n      {\n        \"id\": 4,\n        \"name\":
-        \"Side view\"\n      }\n    ],\n    \"screenshots\": [\n      {\n        \"id\":
-        1153560,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scoq3c.jpg\"\n
+        \       \"cover\": {\n          \"id\": 94287,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co20r3.jpg\"\n
+        \       },\n        \"name\": \"Borderlands 3\",\n        \"slug\": \"borderlands-3\"\n
+        \     },\n      {\n        \"id\": 25636,\n        \"cover\": {\n          \"id\":
+        82102,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rcm.jpg\"\n
+        \       },\n        \"name\": \"Nights of Azure 2: Bride of the New Moon\",\n
+        \       \"slug\": \"nights-of-azure-2-bride-of-the-new-moon\"\n      },\n
+        \     {\n        \"id\": 54775,\n        \"cover\": {\n          \"id\": 75809,\n
+        \         \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mht.jpg\"\n
+        \       },\n        \"name\": \"Shadows: Awakening\",\n        \"slug\": \"shadows-awakening\"\n
+        \     },\n      {\n        \"id\": 55199,\n        \"cover\": {\n          \"id\":
+        81874,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r6a.jpg\"\n
+        \       },\n        \"name\": \"Dragon: Marked for Death\",\n        \"slug\":
+        \"dragon-marked-for-death\"\n      },\n      {\n        \"id\": 57372,\n        \"cover\":
+        {\n          \"id\": 76314,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mvu.jpg\"\n
+        \       },\n        \"name\": \"SoulWorker\",\n        \"slug\": \"soulworker\"\n
+        \     },\n      {\n        \"id\": 80916,\n        \"cover\": {\n          \"id\":
+        67256,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/fq2ekyx6ac8em4lpv3zj.jpg\"\n
+        \       },\n        \"name\": \"Omensight\",\n        \"slug\": \"omensight\"\n
+        \     },\n      {\n        \"id\": 96217,\n        \"cover\": {\n          \"id\":
+        72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 106987,\n
+        \       \"cover\": {\n          \"id\": 130983,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2t2f.jpg\"\n
+        \       },\n        \"name\": \"Torchlight III\",\n        \"slug\": \"torchlight-iii\"\n
+        \     },\n      {\n        \"id\": 113109,\n        \"cover\": {\n          \"id\":
+        81944,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r88.jpg\"\n
+        \       },\n        \"name\": \"Marvel Ultimate Alliance 3: The Black Order\",\n
+        \       \"slug\": \"marvel-ultimate-alliance-3-the-black-order\"\n      },\n
+        \     {\n        \"id\": 113636,\n        \"cover\": {\n          \"id\":
+        82689,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rsx.jpg\"\n
+        \       },\n        \"name\": \"Rangers of Oblivion\",\n        \"slug\":
+        \"rangers-of-oblivion\"\n      }\n    ],\n    \"slug\": \"paper-mario-ttyd64\",\n
+        \   \"summary\": \"TTYD64 is a PM64 romhack that adds TTYD\\u0027s gameplay
+        into the original Paper Mario plus all new items, badges, and recipes from
+        that game, and a lot of new areas to explore plus other additions.\"\n  },\n
+        \ {\n    \"id\": 268692,\n    \"cover\": {\n      \"id\": 338285,\n      \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/co790t.jpg\"\n    },\n    \"first_release_date\":
+        1500249600,\n    \"game_modes\": [\n      {\n        \"id\": 1,\n        \"name\":
+        \"Single player\"\n      }\n    ],\n    \"genres\": [\n      {\n        \"id\":
+        12,\n        \"name\": \"Role-playing (RPG)\"\n      }\n    ],\n    \"name\":
+        \"Paper Mario: Pro Mode\",\n    \"platforms\": [\n      {\n        \"id\":
+        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 1153560,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scoq3c.jpg\"\n
         \     },\n      {\n        \"id\": 1153561,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scoq3d.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19404,\n
-        \       \"name\": \"Eador: Imperium\"\n      },\n      {\n        \"id\":
-        22790,\n        \"name\": \"Project Awakening\"\n      },\n      {\n        \"id\":
-        23651,\n        \"name\": \"Echo of Soul\"\n      },\n      {\n        \"id\":
-        49414,\n        \"name\": \"Oriental Blue: Ao no Tengai\"\n      },\n      {\n
-        \       \"id\": 54775,\n        \"name\": \"Shadows: Awakening\"\n      },\n
-        \     {\n        \"id\": 69007,\n        \"name\": \"Aion: Legions of War\"\n
-        \     },\n      {\n        \"id\": 96217,\n        \"name\": \"Eternity: The
-        Last Unicorn\"\n      },\n      {\n        \"id\": 99118,\n        \"name\":
-        \"Dragalia Lost\"\n      },\n      {\n        \"id\": 113910,\n        \"name\":
-        \"Forged Fantasy\"\n      },\n      {\n        \"id\": 115653,\n        \"name\":
-        \"Pok\xE9mon Shield\"\n      }\n    ],\n    \"slug\": \"paper-mario-pro-mode\",\n
-        \   \"language_supports\": [\n      {\n        \"id\": 806045,\n        \"language\":
-        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
-        \   ]\n  },\n  {\n    \"id\": 159343,\n    \"cover\": {\n      \"id\": 162594,\n
-        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3hgi.jpg\"\n
+        \       \"cover\": {\n          \"id\": 90771,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1y1f.jpg\"\n
+        \       },\n        \"name\": \"Eador: Imperium\",\n        \"slug\": \"eador-imperium\"\n
+        \     },\n      {\n        \"id\": 22790,\n        \"cover\": {\n          \"id\":
+        137745,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2ya9.jpg\"\n
+        \       },\n        \"name\": \"Project Awakening\",\n        \"slug\": \"project-awakening\"\n
+        \     },\n      {\n        \"id\": 23651,\n        \"cover\": {\n          \"id\":
+        81908,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r78.jpg\"\n
+        \       },\n        \"name\": \"Echo of Soul\",\n        \"slug\": \"echo-of-soul\"\n
+        \     },\n      {\n        \"id\": 49414,\n        \"cover\": {\n          \"id\":
+        81916,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r7g.jpg\"\n
+        \       },\n        \"name\": \"Oriental Blue: Ao no Tengai\",\n        \"slug\":
+        \"oriental-blue-ao-no-tengai\"\n      },\n      {\n        \"id\": 54775,\n
+        \       \"cover\": {\n          \"id\": 75809,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mht.jpg\"\n
+        \       },\n        \"name\": \"Shadows: Awakening\",\n        \"slug\": \"shadows-awakening\"\n
+        \     },\n      {\n        \"id\": 69007,\n        \"cover\": {\n          \"id\":
+        70957,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ir1.jpg\"\n
+        \       },\n        \"name\": \"Aion: Legions of War\",\n        \"slug\":
+        \"aion-legions-of-war\"\n      },\n      {\n        \"id\": 96217,\n        \"cover\":
+        {\n          \"id\": 72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 99118,\n
+        \       \"cover\": {\n          \"id\": 82223,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rfz.jpg\"\n
+        \       },\n        \"name\": \"Dragalia Lost\",\n        \"slug\": \"dragalia-lost\"\n
+        \     },\n      {\n        \"id\": 113910,\n        \"cover\": {\n          \"id\":
+        70723,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ikj.jpg\"\n
+        \       },\n        \"name\": \"Forged Fantasy\",\n        \"slug\": \"forged-fantasy\"\n
+        \     },\n      {\n        \"id\": 115653,\n        \"cover\": {\n          \"id\":
+        92737,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1zk1.jpg\"\n
+        \       },\n        \"name\": \"Pok\xE9mon Shield\",\n        \"slug\": \"pokemon-shield\"\n
+        \     }\n    ],\n    \"slug\": \"paper-mario-pro-mode\"\n  },\n  {\n    \"id\":
+        159343,\n    \"cover\": {\n      \"id\": 162594,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3hgi.jpg\"\n
         \   },\n    \"first_release_date\": 1625961600,\n    \"game_modes\": [\n      {\n
         \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
         \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
@@ -267,30 +300,44 @@ interactions:
         143574,\n        \"company\": {\n          \"id\": 36501,\n          \"name\":
         \"elDexter\"\n        }\n      }\n    ],\n    \"name\": \"Paper Mario: Black
         Pit\",\n    \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\":
-        \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\": [\n      {\n
-        \       \"id\": 3,\n        \"name\": \"Bird view / Isometric\"\n      },\n
-        \     {\n        \"id\": 4,\n        \"name\": \"Side view\"\n      }\n    ],\n
-        \   \"screenshots\": [\n      {\n        \"id\": 552543,\n        \"url\":
-        \"//images.igdb.com/igdb/image/upload/t_thumb/scbucf.jpg\"\n      },\n      {\n
-        \       \"id\": 552544,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scbucg.jpg\"\n
+        \"Nintendo 64\"\n      }\n    ],\n    \"screenshots\": [\n      {\n        \"id\":
+        552543,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scbucf.jpg\"\n
+        \     },\n      {\n        \"id\": 552544,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scbucg.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19164,\n
-        \       \"name\": \"Borderlands 3\"\n      },\n      {\n        \"id\": 28309,\n
-        \       \"name\": \"Tanzia\"\n      },\n      {\n        \"id\": 54775,\n
-        \       \"name\": \"Shadows: Awakening\"\n      },\n      {\n        \"id\":
-        55038,\n        \"name\": \"Immortal: Unchained\"\n      },\n      {\n        \"id\":
-        55199,\n        \"name\": \"Dragon: Marked for Death\"\n      },\n      {\n
-        \       \"id\": 57372,\n        \"name\": \"SoulWorker\"\n      },\n      {\n
-        \       \"id\": 80916,\n        \"name\": \"Omensight\"\n      },\n      {\n
-        \       \"id\": 81249,\n        \"name\": \"The Elder Scrolls VI\"\n      },\n
-        \     {\n        \"id\": 96217,\n        \"name\": \"Eternity: The Last Unicorn\"\n
-        \     },\n      {\n        \"id\": 106987,\n        \"name\": \"Torchlight
-        III\"\n      }\n    ],\n    \"slug\": \"paper-mario-black-pit\",\n    \"summary\":
-        \"Paper Mario: Black Pit is a ROM hack/mod of Paper Mario 64, developed by
-        elDexter. It adds a new level layout to the game, based on roguelike mechanics.\",\n
-        \   \"language_supports\": [\n      {\n        \"id\": 628999,\n        \"language\":
-        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
-        \   ]\n  },\n  {\n    \"id\": 159325,\n    \"cover\": {\n      \"id\": 162585,\n
-        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3hg9.jpg\"\n
+        \       \"cover\": {\n          \"id\": 94287,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co20r3.jpg\"\n
+        \       },\n        \"name\": \"Borderlands 3\",\n        \"slug\": \"borderlands-3\"\n
+        \     },\n      {\n        \"id\": 28309,\n        \"cover\": {\n          \"id\":
+        67083,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/zlb0ljqmgn8tc8vv3mij.jpg\"\n
+        \       },\n        \"name\": \"Tanzia\",\n        \"slug\": \"tanzia\"\n
+        \     },\n      {\n        \"id\": 54775,\n        \"cover\": {\n          \"id\":
+        75809,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mht.jpg\"\n
+        \       },\n        \"name\": \"Shadows: Awakening\",\n        \"slug\": \"shadows-awakening\"\n
+        \     },\n      {\n        \"id\": 55199,\n        \"cover\": {\n          \"id\":
+        81874,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r6a.jpg\"\n
+        \       },\n        \"name\": \"Dragon: Marked for Death\",\n        \"slug\":
+        \"dragon-marked-for-death\"\n      },\n      {\n        \"id\": 57372,\n        \"cover\":
+        {\n          \"id\": 76314,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mvu.jpg\"\n
+        \       },\n        \"name\": \"SoulWorker\",\n        \"slug\": \"soulworker\"\n
+        \     },\n      {\n        \"id\": 80916,\n        \"cover\": {\n          \"id\":
+        67256,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/fq2ekyx6ac8em4lpv3zj.jpg\"\n
+        \       },\n        \"name\": \"Omensight\",\n        \"slug\": \"omensight\"\n
+        \     },\n      {\n        \"id\": 81249,\n        \"cover\": {\n          \"id\":
+        91183,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ycv.jpg\"\n
+        \       },\n        \"name\": \"The Elder Scrolls VI\",\n        \"slug\":
+        \"the-elder-scrolls-vi\"\n      },\n      {\n        \"id\": 96217,\n        \"cover\":
+        {\n          \"id\": 72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 106987,\n
+        \       \"cover\": {\n          \"id\": 130983,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2t2f.jpg\"\n
+        \       },\n        \"name\": \"Torchlight III\",\n        \"slug\": \"torchlight-iii\"\n
+        \     },\n      {\n        \"id\": 113636,\n        \"cover\": {\n          \"id\":
+        82689,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rsx.jpg\"\n
+        \       },\n        \"name\": \"Rangers of Oblivion\",\n        \"slug\":
+        \"rangers-of-oblivion\"\n      }\n    ],\n    \"slug\": \"paper-mario-black-pit\",\n
+        \   \"summary\": \"Paper Mario: Black Pit is a ROM hack/mod of Paper Mario
+        64, developed by elDexter. It adds a new level layout to the game, based on
+        roguelike mechanics.\"\n  },\n  {\n    \"id\": 159325,\n    \"cover\": {\n
+        \     \"id\": 162585,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3hg9.jpg\"\n
         \   },\n    \"first_release_date\": 1489622400,\n    \"game_modes\": [\n      {\n
         \       \"id\": 1,\n        \"name\": \"Single player\"\n      },\n      {\n
         \       \"id\": 2,\n        \"name\": \"Multiplayer\"\n      },\n      {\n
@@ -300,30 +347,44 @@ interactions:
         143536,\n        \"company\": {\n          \"id\": 25040,\n          \"name\":
         \"SKELUX\"\n        }\n      }\n    ],\n    \"name\": \"Paper Mario Multiplayer\",\n
         \   \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\": \"Nintendo
-        64\"\n      }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
-        3,\n        \"name\": \"Bird view / Isometric\"\n      },\n      {\n        \"id\":
-        4,\n        \"name\": \"Side view\"\n      }\n    ],\n    \"screenshots\":
-        [\n      {\n        \"id\": 552513,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scbubl.jpg\"\n
+        64\"\n      }\n    ],\n    \"screenshots\": [\n      {\n        \"id\": 552513,\n
+        \       \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scbubl.jpg\"\n
         \     },\n      {\n        \"id\": 552514,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scbubm.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19164,\n
-        \       \"name\": \"Borderlands 3\"\n      },\n      {\n        \"id\": 27092,\n
-        \       \"name\": \"GreedFall\"\n      },\n      {\n        \"id\": 54775,\n
-        \       \"name\": \"Shadows: Awakening\"\n      },\n      {\n        \"id\":
-        55038,\n        \"name\": \"Immortal: Unchained\"\n      },\n      {\n        \"id\":
-        55199,\n        \"name\": \"Dragon: Marked for Death\"\n      },\n      {\n
-        \       \"id\": 81249,\n        \"name\": \"The Elder Scrolls VI\"\n      },\n
-        \     {\n        \"id\": 96217,\n        \"name\": \"Eternity: The Last Unicorn\"\n
-        \     },\n      {\n        \"id\": 103303,\n        \"name\": \"The Elder
-        Scrolls: Blades\"\n      },\n      {\n        \"id\": 106987,\n        \"name\":
-        \"Torchlight III\"\n      },\n      {\n        \"id\": 113360,\n        \"name\":
-        \"Hytale\"\n      }\n    ],\n    \"slug\": \"paper-mario-multiplayer\",\n
-        \   \"summary\": \"Paper Mario Multiplayer is a ROM hack/mod of Paper Mario
-        (Nintendo 64) developed by SKELUX which adds support for multiplayer, with
-        the second player controlling Mario\\u0027s partner.\",\n    \"language_supports\":
-        [\n      {\n        \"id\": 628998,\n        \"language\": {\n          \"id\":
-        7,\n          \"name\": \"English\"\n        }\n      }\n    ]\n  },\n  {\n
-        \   \"id\": 187873,\n    \"artworks\": [\n      {\n        \"id\": 107331,\n
-        \       \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ar2atf.jpg\"\n
+        \       \"cover\": {\n          \"id\": 94287,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co20r3.jpg\"\n
+        \       },\n        \"name\": \"Borderlands 3\",\n        \"slug\": \"borderlands-3\"\n
+        \     },\n      {\n        \"id\": 27092,\n        \"cover\": {\n          \"id\":
+        79980,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ppo.jpg\"\n
+        \       },\n        \"name\": \"GreedFall\",\n        \"slug\": \"greedfall\"\n
+        \     },\n      {\n        \"id\": 54775,\n        \"cover\": {\n          \"id\":
+        75809,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mht.jpg\"\n
+        \       },\n        \"name\": \"Shadows: Awakening\",\n        \"slug\": \"shadows-awakening\"\n
+        \     },\n      {\n        \"id\": 55038,\n        \"cover\": {\n          \"id\":
+        82160,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1re8.jpg\"\n
+        \       },\n        \"name\": \"Immortal: Unchained\",\n        \"slug\":
+        \"immortal-unchained\"\n      },\n      {\n        \"id\": 55199,\n        \"cover\":
+        {\n          \"id\": 81874,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r6a.jpg\"\n
+        \       },\n        \"name\": \"Dragon: Marked for Death\",\n        \"slug\":
+        \"dragon-marked-for-death\"\n      },\n      {\n        \"id\": 81249,\n        \"cover\":
+        {\n          \"id\": 91183,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ycv.jpg\"\n
+        \       },\n        \"name\": \"The Elder Scrolls VI\",\n        \"slug\":
+        \"the-elder-scrolls-vi\"\n      },\n      {\n        \"id\": 96217,\n        \"cover\":
+        {\n          \"id\": 72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 103303,\n
+        \       \"cover\": {\n          \"id\": 91145,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ybt.jpg\"\n
+        \       },\n        \"name\": \"The Elder Scrolls: Blades\",\n        \"slug\":
+        \"the-elder-scrolls-blades\"\n      },\n      {\n        \"id\": 106987,\n
+        \       \"cover\": {\n          \"id\": 130983,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2t2f.jpg\"\n
+        \       },\n        \"name\": \"Torchlight III\",\n        \"slug\": \"torchlight-iii\"\n
+        \     },\n      {\n        \"id\": 113360,\n        \"cover\": {\n          \"id\":
+        81869,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r65.jpg\"\n
+        \       },\n        \"name\": \"Hytale\",\n        \"slug\": \"hytale\"\n
+        \     }\n    ],\n    \"slug\": \"paper-mario-multiplayer\",\n    \"summary\":
+        \"Paper Mario Multiplayer is a ROM hack/mod of Paper Mario (Nintendo 64) developed
+        by SKELUX which adds support for multiplayer, with the second player controlling
+        Mario\\u0027s partner.\"\n  },\n  {\n    \"id\": 187873,\n    \"artworks\":
+        [\n      {\n        \"id\": 107331,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ar2atf.jpg\"\n
         \     }\n    ],\n    \"cover\": {\n      \"id\": 302664,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6hjc.jpg\"\n
         \   },\n    \"first_release_date\": 1576454400,\n    \"game_modes\": [\n      {\n
         \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
@@ -338,145 +399,232 @@ interactions:
         \       \"id\": 189261,\n        \"company\": {\n          \"id\": 43644,\n
         \         \"name\": \"Brotenko\"\n        }\n      }\n    ],\n    \"name\":
         \"Paper Mario: Master Quest\",\n    \"platforms\": [\n      {\n        \"id\":
-        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\":
-        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      }\n
-        \   ],\n    \"screenshots\": [\n      {\n        \"id\": 714703,\n        \"url\":
-        \"//images.igdb.com/igdb/image/upload/t_thumb/scfbgv.jpg\"\n      },\n      {\n
-        \       \"id\": 714704,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scfbgw.jpg\"\n
+        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 714703,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scfbgv.jpg\"\n
+        \     },\n      {\n        \"id\": 714704,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scfbgw.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 28309,\n
-        \       \"name\": \"Tanzia\"\n      },\n      {\n        \"id\": 30245,\n
-        \       \"name\": \"Wanderlust Adventures\"\n      },\n      {\n        \"id\":
-        55199,\n        \"name\": \"Dragon: Marked for Death\"\n      },\n      {\n
-        \       \"id\": 80916,\n        \"name\": \"Omensight\"\n      },\n      {\n
-        \       \"id\": 81249,\n        \"name\": \"The Elder Scrolls VI\"\n      },\n
-        \     {\n        \"id\": 96217,\n        \"name\": \"Eternity: The Last Unicorn\"\n
-        \     },\n      {\n        \"id\": 103168,\n        \"name\": \"Warhammer:
-        Chaosbane\"\n      },\n      {\n        \"id\": 103303,\n        \"name\":
-        \"The Elder Scrolls: Blades\"\n      },\n      {\n        \"id\": 106987,\n
-        \       \"name\": \"Torchlight III\"\n      },\n      {\n        \"id\": 115280,\n
-        \       \"name\": \"Oninaki\"\n      }\n    ],\n    \"slug\": \"paper-mario-master-quest\",\n
-        \   \"summary\": \"Paper Mario: Master Quest is a mod made for \\\"Paper Mario\\\"
-        on the N64. It was created by Emperor_Thamz, Rainchus, JaThePlayer, and Brotenko.
-        It revamps old content and adds plenty of new as well.\\nOften considered
-        \\\"The Dark Souls of Paper Mario\\\", the mod is incredibly difficult.\",\n
-        \   \"language_supports\": [\n      {\n        \"id\": 637078,\n        \"language\":
-        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
-        \   ]\n  },\n  {\n    \"id\": 248349,\n    \"cover\": {\n      \"id\": 302670,\n
-        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6hji.jpg\"\n
-        \   },\n    \"first_release_date\": 1638748800,\n    \"game_modes\": [\n      {\n
-        \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
-        \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
-        (RPG)\"\n      }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\":
-        212708,\n        \"company\": {\n          \"id\": 43641,\n          \"name\":
-        \"Emperor_Thamz\"\n        }\n      }\n    ],\n    \"name\": \"Paper Mario:
-        Master Quest + Jr.\",\n    \"platforms\": [\n      {\n        \"id\": 4,\n
-        \       \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\":
-        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      }\n
+        \       \"cover\": {\n          \"id\": 67083,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/zlb0ljqmgn8tc8vv3mij.jpg\"\n
+        \       },\n        \"name\": \"Tanzia\",\n        \"slug\": \"tanzia\"\n
+        \     },\n      {\n        \"id\": 30245,\n        \"cover\": {\n          \"id\":
+        70041,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1i1l.jpg\"\n
+        \       },\n        \"name\": \"Wanderlust Adventures\",\n        \"slug\":
+        \"wanderlust-adventures\"\n      },\n      {\n        \"id\": 55199,\n        \"cover\":
+        {\n          \"id\": 81874,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r6a.jpg\"\n
+        \       },\n        \"name\": \"Dragon: Marked for Death\",\n        \"slug\":
+        \"dragon-marked-for-death\"\n      },\n      {\n        \"id\": 80916,\n        \"cover\":
+        {\n          \"id\": 67256,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/fq2ekyx6ac8em4lpv3zj.jpg\"\n
+        \       },\n        \"name\": \"Omensight\",\n        \"slug\": \"omensight\"\n
+        \     },\n      {\n        \"id\": 81249,\n        \"cover\": {\n          \"id\":
+        91183,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ycv.jpg\"\n
+        \       },\n        \"name\": \"The Elder Scrolls VI\",\n        \"slug\":
+        \"the-elder-scrolls-vi\"\n      },\n      {\n        \"id\": 96217,\n        \"cover\":
+        {\n          \"id\": 72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 103168,\n
+        \       \"cover\": {\n          \"id\": 123801,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2nix.jpg\"\n
+        \       },\n        \"name\": \"Warhammer: Chaosbane\",\n        \"slug\":
+        \"warhammer-chaosbane\"\n      },\n      {\n        \"id\": 103303,\n        \"cover\":
+        {\n          \"id\": 91145,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ybt.jpg\"\n
+        \       },\n        \"name\": \"The Elder Scrolls: Blades\",\n        \"slug\":
+        \"the-elder-scrolls-blades\"\n      },\n      {\n        \"id\": 106987,\n
+        \       \"cover\": {\n          \"id\": 130983,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2t2f.jpg\"\n
+        \       },\n        \"name\": \"Torchlight III\",\n        \"slug\": \"torchlight-iii\"\n
+        \     },\n      {\n        \"id\": 115280,\n        \"cover\": {\n          \"id\":
+        75082,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1lxm.jpg\"\n
+        \       },\n        \"name\": \"Oninaki\",\n        \"slug\": \"oninaki\"\n
+        \     }\n    ],\n    \"slug\": \"paper-mario-master-quest\",\n    \"summary\":
+        \"Paper Mario: Master Quest is a mod made for \\\"Paper Mario\\\" on the N64.
+        It was created by Emperor_Thamz, Rainchus, JaThePlayer, and Brotenko. It revamps
+        old content and adds plenty of new as well.\\nOften considered \\\"The Dark
+        Souls of Paper Mario\\\", the mod is incredibly difficult.\"\n  },\n  {\n
+        \   \"id\": 248349,\n    \"cover\": {\n      \"id\": 302670,\n      \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/co6hji.jpg\"\n    },\n    \"first_release_date\":
+        1638748800,\n    \"game_modes\": [\n      {\n        \"id\": 1,\n        \"name\":
+        \"Single player\"\n      }\n    ],\n    \"genres\": [\n      {\n        \"id\":
+        12,\n        \"name\": \"Role-playing (RPG)\"\n      }\n    ],\n    \"involved_companies\":
+        [\n      {\n        \"id\": 212708,\n        \"company\": {\n          \"id\":
+        43641,\n          \"name\": \"Emperor_Thamz\"\n        }\n      }\n    ],\n
+        \   \"name\": \"Paper Mario: Master Quest + Jr.\",\n    \"platforms\": [\n
+        \     {\n        \"id\": 4,\n        \"name\": \"Nintendo 64\"\n      }\n
         \   ],\n    \"screenshots\": [\n      {\n        \"id\": 1044412,\n        \"url\":
         \"//images.igdb.com/igdb/image/upload/t_thumb/scmdvg.jpg\"\n      },\n      {\n
         \       \"id\": 1044413,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scmdvh.jpg\"\n
         \     },\n      {\n        \"id\": 1044414,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scmdvi.jpg\"\n
         \     },\n      {\n        \"id\": 1044415,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scmdvj.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19404,\n
-        \       \"name\": \"Eador: Imperium\"\n      },\n      {\n        \"id\":
-        23651,\n        \"name\": \"Echo of Soul\"\n      },\n      {\n        \"id\":
-        49414,\n        \"name\": \"Oriental Blue: Ao no Tengai\"\n      },\n      {\n
-        \       \"id\": 54775,\n        \"name\": \"Shadows: Awakening\"\n      },\n
-        \     {\n        \"id\": 69007,\n        \"name\": \"Aion: Legions of War\"\n
-        \     },\n      {\n        \"id\": 96217,\n        \"name\": \"Eternity: The
-        Last Unicorn\"\n      },\n      {\n        \"id\": 99118,\n        \"name\":
-        \"Dragalia Lost\"\n      },\n      {\n        \"id\": 106987,\n        \"name\":
-        \"Torchlight III\"\n      },\n      {\n        \"id\": 113910,\n        \"name\":
-        \"Forged Fantasy\"\n      },\n      {\n        \"id\": 115653,\n        \"name\":
-        \"Pok\xE9mon Shield\"\n      }\n    ],\n    \"slug\": \"paper-mario-master-quest-plus-jr\",\n
-        \   \"summary\": \"Paper Mario: Master Quest is a mod made for \u201CPaper
-        Mario\u201D on the N64. It revamps old content and adds plenty of new as well.
-        Often considered \u201CThe Dark Souls of Paper Mario\u201D, the mod is incredibly
-        difficult. It was designed with elite challenge runners in mind, and unless
-        you have extensive knowledge of Paper Mario, you may struggle with much of
-        the content.\\n\\nFor those players there is Paper Mario: Master Quest Jr.
-        which has all of the content the original has, with a much more reasonable
-        difficulty curve. If you want to stream the mod, starting with Jr. is recommended.\",\n
-        \   \"language_supports\": [\n      {\n        \"id\": 685974,\n        \"language\":
-        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
-        \   ]\n  },\n  {\n    \"id\": 266504,\n    \"cover\": {\n      \"id\": 330243,\n
-        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co72tf.jpg\"\n
-        \   },\n    \"game_modes\": [\n      {\n        \"id\": 1,\n        \"name\":
+        \       \"cover\": {\n          \"id\": 90771,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1y1f.jpg\"\n
+        \       },\n        \"name\": \"Eador: Imperium\",\n        \"slug\": \"eador-imperium\"\n
+        \     },\n      {\n        \"id\": 23651,\n        \"cover\": {\n          \"id\":
+        81908,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r78.jpg\"\n
+        \       },\n        \"name\": \"Echo of Soul\",\n        \"slug\": \"echo-of-soul\"\n
+        \     },\n      {\n        \"id\": 49414,\n        \"cover\": {\n          \"id\":
+        81916,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r7g.jpg\"\n
+        \       },\n        \"name\": \"Oriental Blue: Ao no Tengai\",\n        \"slug\":
+        \"oriental-blue-ao-no-tengai\"\n      },\n      {\n        \"id\": 54775,\n
+        \       \"cover\": {\n          \"id\": 75809,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mht.jpg\"\n
+        \       },\n        \"name\": \"Shadows: Awakening\",\n        \"slug\": \"shadows-awakening\"\n
+        \     },\n      {\n        \"id\": 69007,\n        \"cover\": {\n          \"id\":
+        70957,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ir1.jpg\"\n
+        \       },\n        \"name\": \"Aion: Legions of War\",\n        \"slug\":
+        \"aion-legions-of-war\"\n      },\n      {\n        \"id\": 96217,\n        \"cover\":
+        {\n          \"id\": 72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 99118,\n
+        \       \"cover\": {\n          \"id\": 82223,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rfz.jpg\"\n
+        \       },\n        \"name\": \"Dragalia Lost\",\n        \"slug\": \"dragalia-lost\"\n
+        \     },\n      {\n        \"id\": 106987,\n        \"cover\": {\n          \"id\":
+        130983,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2t2f.jpg\"\n
+        \       },\n        \"name\": \"Torchlight III\",\n        \"slug\": \"torchlight-iii\"\n
+        \     },\n      {\n        \"id\": 113910,\n        \"cover\": {\n          \"id\":
+        70723,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ikj.jpg\"\n
+        \       },\n        \"name\": \"Forged Fantasy\",\n        \"slug\": \"forged-fantasy\"\n
+        \     },\n      {\n        \"id\": 115653,\n        \"cover\": {\n          \"id\":
+        92737,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1zk1.jpg\"\n
+        \       },\n        \"name\": \"Pok\xE9mon Shield\",\n        \"slug\": \"pokemon-shield\"\n
+        \     }\n    ],\n    \"slug\": \"paper-mario-master-quest-plus-jr\",\n    \"summary\":
+        \"Paper Mario: Master Quest is a mod made for \u201CPaper Mario\u201D on the
+        N64. It revamps old content and adds plenty of new as well. Often considered
+        \u201CThe Dark Souls of Paper Mario\u201D, the mod is incredibly difficult.
+        It was designed with elite challenge runners in mind, and unless you have
+        extensive knowledge of Paper Mario, you may struggle with much of the content.\\n\\nFor
+        those players there is Paper Mario: Master Quest Jr. which has all of the
+        content the original has, with a much more reasonable difficulty curve. If
+        you want to stream the mod, starting with Jr. is recommended.\"\n  },\n  {\n
+        \   \"id\": 266504,\n    \"cover\": {\n      \"id\": 330243,\n      \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/co72tf.jpg\"\n    },\n    \"first_release_date\":
+        1631664000,\n    \"game_modes\": [\n      {\n        \"id\": 1,\n        \"name\":
         \"Single player\"\n      }\n    ],\n    \"genres\": [\n      {\n        \"id\":
         12,\n        \"name\": \"Role-playing (RPG)\"\n      }\n    ],\n    \"involved_companies\":
         [\n      {\n        \"id\": 231243,\n        \"company\": {\n          \"id\":
         49637,\n          \"name\": \"ShadeBlade\"\n        }\n      }\n    ],\n    \"name\":
         \"Paper Mario: Dark Star Edition\",\n    \"platforms\": [\n      {\n        \"id\":
-        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\":
-        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      }\n
-        \   ],\n    \"slug\": \"paper-mario-dark-star-edition\",\n    \"summary\":
+        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"similar_games\":
+        [\n      {\n        \"id\": 19404,\n        \"cover\": {\n          \"id\":
+        90771,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1y1f.jpg\"\n
+        \       },\n        \"name\": \"Eador: Imperium\",\n        \"slug\": \"eador-imperium\"\n
+        \     },\n      {\n        \"id\": 22790,\n        \"cover\": {\n          \"id\":
+        137745,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2ya9.jpg\"\n
+        \       },\n        \"name\": \"Project Awakening\",\n        \"slug\": \"project-awakening\"\n
+        \     },\n      {\n        \"id\": 23651,\n        \"cover\": {\n          \"id\":
+        81908,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r78.jpg\"\n
+        \       },\n        \"name\": \"Echo of Soul\",\n        \"slug\": \"echo-of-soul\"\n
+        \     },\n      {\n        \"id\": 49414,\n        \"cover\": {\n          \"id\":
+        81916,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r7g.jpg\"\n
+        \       },\n        \"name\": \"Oriental Blue: Ao no Tengai\",\n        \"slug\":
+        \"oriental-blue-ao-no-tengai\"\n      },\n      {\n        \"id\": 54775,\n
+        \       \"cover\": {\n          \"id\": 75809,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mht.jpg\"\n
+        \       },\n        \"name\": \"Shadows: Awakening\",\n        \"slug\": \"shadows-awakening\"\n
+        \     },\n      {\n        \"id\": 69007,\n        \"cover\": {\n          \"id\":
+        70957,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ir1.jpg\"\n
+        \       },\n        \"name\": \"Aion: Legions of War\",\n        \"slug\":
+        \"aion-legions-of-war\"\n      },\n      {\n        \"id\": 96217,\n        \"cover\":
+        {\n          \"id\": 72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 99118,\n
+        \       \"cover\": {\n          \"id\": 82223,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rfz.jpg\"\n
+        \       },\n        \"name\": \"Dragalia Lost\",\n        \"slug\": \"dragalia-lost\"\n
+        \     },\n      {\n        \"id\": 113910,\n        \"cover\": {\n          \"id\":
+        70723,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ikj.jpg\"\n
+        \       },\n        \"name\": \"Forged Fantasy\",\n        \"slug\": \"forged-fantasy\"\n
+        \     },\n      {\n        \"id\": 115653,\n        \"cover\": {\n          \"id\":
+        92737,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1zk1.jpg\"\n
+        \       },\n        \"name\": \"Pok\xE9mon Shield\",\n        \"slug\": \"pokemon-shield\"\n
+        \     }\n    ],\n    \"slug\": \"paper-mario-dark-star-edition\",\n    \"summary\":
         \"Paper Mario: Dark Star Edition is a mod for Paper Mario created by ShadeBlade
         that adds a lot of new content to the game and increases the difficulty. Some
         of the content (various badge and enemy sprites and maps) was taken from Master
         Quest, but most of it is entirely new. This mod is meant to be about as difficult
         as Master Quest Jr, but there are badges that increase the health and damage
-        of enemies.\",\n    \"language_supports\": [\n      {\n        \"id\": 798257,\n
-        \       \"language\": {\n          \"id\": 7,\n          \"name\": \"English\"\n
-        \       }\n      }\n    ]\n  },\n  {\n    \"id\": 186399,\n    \"cover\":
-        {\n      \"id\": 302389,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6hbp.jpg\"\n
+        of enemies.\"\n  },\n  {\n    \"id\": 186399,\n    \"cover\": {\n      \"id\":
+        302389,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6hbp.jpg\"\n
         \   },\n    \"game_modes\": [\n      {\n        \"id\": 1,\n        \"name\":
         \"Single player\"\n      }\n    ],\n    \"genres\": [\n      {\n        \"id\":
         12,\n        \"name\": \"Role-playing (RPG)\"\n      }\n    ],\n    \"involved_companies\":
         [\n      {\n        \"id\": 189250,\n        \"company\": {\n          \"id\":
         43638,\n          \"name\": \"Rain\"\n        }\n      }\n    ],\n    \"name\":
         \"The Paper Mario Christmas Special\",\n    \"platforms\": [\n      {\n        \"id\":
-        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\":
-        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      },\n
-        \     {\n        \"id\": 4,\n        \"name\": \"Side view\"\n      }\n    ],\n
-        \   \"screenshots\": [\n      {\n        \"id\": 705997,\n        \"url\":
-        \"//images.igdb.com/igdb/image/upload/t_thumb/scf4r1.jpg\"\n      },\n      {\n
-        \       \"id\": 705998,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scf4r2.jpg\"\n
+        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 705997,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scf4r1.jpg\"\n
+        \     },\n      {\n        \"id\": 705998,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scf4r2.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19164,\n
-        \       \"name\": \"Borderlands 3\"\n      },\n      {\n        \"id\": 25636,\n
-        \       \"name\": \"Nights of Azure 2: Bride of the New Moon\"\n      },\n
-        \     {\n        \"id\": 54775,\n        \"name\": \"Shadows: Awakening\"\n
-        \     },\n      {\n        \"id\": 55199,\n        \"name\": \"Dragon: Marked
-        for Death\"\n      },\n      {\n        \"id\": 57372,\n        \"name\":
-        \"SoulWorker\"\n      },\n      {\n        \"id\": 80916,\n        \"name\":
-        \"Omensight\"\n      },\n      {\n        \"id\": 96217,\n        \"name\":
-        \"Eternity: The Last Unicorn\"\n      },\n      {\n        \"id\": 106987,\n
-        \       \"name\": \"Torchlight III\"\n      },\n      {\n        \"id\": 113109,\n
-        \       \"name\": \"Marvel Ultimate Alliance 3: The Black Order\"\n      },\n
-        \     {\n        \"id\": 113636,\n        \"name\": \"Rangers of Oblivion\"\n
-        \     }\n    ],\n    \"slug\": \"the-paper-mario-christmas-special\",\n    \"summary\":
-        \"Paper Mario Christmas Special is a ROM Hack of Paper Mario. It was developed
-        by Rain, Alex, Fish, Fewffwa, and Den of the Paper Mario Modding Discord.\",\n
-        \   \"language_supports\": [\n      {\n        \"id\": 637263,\n        \"language\":
-        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
-        \   ]\n  },\n  {\n    \"id\": 245039,\n    \"cover\": {\n      \"id\": 297342,\n
-        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6dfi.jpg\"\n
+        \       \"cover\": {\n          \"id\": 94287,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co20r3.jpg\"\n
+        \       },\n        \"name\": \"Borderlands 3\",\n        \"slug\": \"borderlands-3\"\n
+        \     },\n      {\n        \"id\": 25636,\n        \"cover\": {\n          \"id\":
+        82102,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rcm.jpg\"\n
+        \       },\n        \"name\": \"Nights of Azure 2: Bride of the New Moon\",\n
+        \       \"slug\": \"nights-of-azure-2-bride-of-the-new-moon\"\n      },\n
+        \     {\n        \"id\": 54775,\n        \"cover\": {\n          \"id\": 75809,\n
+        \         \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mht.jpg\"\n
+        \       },\n        \"name\": \"Shadows: Awakening\",\n        \"slug\": \"shadows-awakening\"\n
+        \     },\n      {\n        \"id\": 55199,\n        \"cover\": {\n          \"id\":
+        81874,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r6a.jpg\"\n
+        \       },\n        \"name\": \"Dragon: Marked for Death\",\n        \"slug\":
+        \"dragon-marked-for-death\"\n      },\n      {\n        \"id\": 57372,\n        \"cover\":
+        {\n          \"id\": 76314,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mvu.jpg\"\n
+        \       },\n        \"name\": \"SoulWorker\",\n        \"slug\": \"soulworker\"\n
+        \     },\n      {\n        \"id\": 80916,\n        \"cover\": {\n          \"id\":
+        67256,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/fq2ekyx6ac8em4lpv3zj.jpg\"\n
+        \       },\n        \"name\": \"Omensight\",\n        \"slug\": \"omensight\"\n
+        \     },\n      {\n        \"id\": 96217,\n        \"cover\": {\n          \"id\":
+        72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 106987,\n
+        \       \"cover\": {\n          \"id\": 130983,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2t2f.jpg\"\n
+        \       },\n        \"name\": \"Torchlight III\",\n        \"slug\": \"torchlight-iii\"\n
+        \     },\n      {\n        \"id\": 113109,\n        \"cover\": {\n          \"id\":
+        81944,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r88.jpg\"\n
+        \       },\n        \"name\": \"Marvel Ultimate Alliance 3: The Black Order\",\n
+        \       \"slug\": \"marvel-ultimate-alliance-3-the-black-order\"\n      },\n
+        \     {\n        \"id\": 113636,\n        \"cover\": {\n          \"id\":
+        82689,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rsx.jpg\"\n
+        \       },\n        \"name\": \"Rangers of Oblivion\",\n        \"slug\":
+        \"rangers-of-oblivion\"\n      }\n    ],\n    \"slug\": \"the-paper-mario-christmas-special\",\n
+        \   \"summary\": \"Paper Mario Christmas Special is a ROM Hack of Paper Mario.
+        It was developed by Rain, Alex, Fish, Fewffwa, and Den of the Paper Mario
+        Modding Discord.\"\n  },\n  {\n    \"id\": 245039,\n    \"cover\": {\n      \"id\":
+        297342,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6dfi.jpg\"\n
         \   },\n    \"first_release_date\": 1680998400,\n    \"game_modes\": [\n      {\n
         \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
         \   \"genres\": [\n      {\n        \"id\": 31,\n        \"name\": \"Adventure\"\n
         \     }\n    ],\n    \"name\": \"Paper Mario Eggstraordinary Egg Hunt\",\n
         \   \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\": \"Nintendo
-        64\"\n      }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
-        3,\n        \"name\": \"Bird view / Isometric\"\n      },\n      {\n        \"id\":
-        4,\n        \"name\": \"Side view\"\n      }\n    ],\n    \"screenshots\":
-        [\n      {\n        \"id\": 1030891,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scm3fv.jpg\"\n
+        64\"\n      }\n    ],\n    \"screenshots\": [\n      {\n        \"id\": 1030891,\n
+        \       \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scm3fv.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 25646,\n
-        \       \"name\": \"Don\\u0027t Knock Twice\"\n      },\n      {\n        \"id\":
-        55199,\n        \"name\": \"Dragon: Marked for Death\"\n      },\n      {\n
-        \       \"id\": 80916,\n        \"name\": \"Omensight\"\n      },\n      {\n
-        \       \"id\": 81249,\n        \"name\": \"The Elder Scrolls VI\"\n      },\n
-        \     {\n        \"id\": 87622,\n        \"name\": \"Garena Free Fire\"\n
-        \     },\n      {\n        \"id\": 96217,\n        \"name\": \"Eternity: The
-        Last Unicorn\"\n      },\n      {\n        \"id\": 103292,\n        \"name\":
-        \"Gears 5\"\n      },\n      {\n        \"id\": 106805,\n        \"name\":
-        \"Call of Duty: Mobile\"\n      },\n      {\n        \"id\": 106987,\n        \"name\":
-        \"Torchlight III\"\n      },\n      {\n        \"id\": 111130,\n        \"name\":
-        \"Apsulov: End of Gods\"\n      }\n    ],\n    \"slug\": \"paper-mario-eggstraordinary-egg-hunt\",\n
+        \       \"cover\": {\n          \"id\": 82168,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1reg.jpg\"\n
+        \       },\n        \"name\": \"Don\\u0027t Knock Twice\",\n        \"slug\":
+        \"dont-knock-twice\"\n      },\n      {\n        \"id\": 55199,\n        \"cover\":
+        {\n          \"id\": 81874,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r6a.jpg\"\n
+        \       },\n        \"name\": \"Dragon: Marked for Death\",\n        \"slug\":
+        \"dragon-marked-for-death\"\n      },\n      {\n        \"id\": 80916,\n        \"cover\":
+        {\n          \"id\": 67256,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/fq2ekyx6ac8em4lpv3zj.jpg\"\n
+        \       },\n        \"name\": \"Omensight\",\n        \"slug\": \"omensight\"\n
+        \     },\n      {\n        \"id\": 81249,\n        \"cover\": {\n          \"id\":
+        91183,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ycv.jpg\"\n
+        \       },\n        \"name\": \"The Elder Scrolls VI\",\n        \"slug\":
+        \"the-elder-scrolls-vi\"\n      },\n      {\n        \"id\": 87622,\n        \"cover\":
+        {\n          \"id\": 236311,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co52c7.jpg\"\n
+        \       },\n        \"name\": \"Garena Free Fire\",\n        \"slug\": \"garena-free-fire\"\n
+        \     },\n      {\n        \"id\": 96217,\n        \"cover\": {\n          \"id\":
+        72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 103292,\n
+        \       \"cover\": {\n          \"id\": 125681,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2oz5.jpg\"\n
+        \       },\n        \"name\": \"Gears 5\",\n        \"slug\": \"gears-5\"\n
+        \     },\n      {\n        \"id\": 106805,\n        \"cover\": {\n          \"id\":
+        87782,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1vqe.jpg\"\n
+        \       },\n        \"name\": \"Call of Duty: Mobile\",\n        \"slug\":
+        \"call-of-duty-mobile\"\n      },\n      {\n        \"id\": 106987,\n        \"cover\":
+        {\n          \"id\": 130983,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2t2f.jpg\"\n
+        \       },\n        \"name\": \"Torchlight III\",\n        \"slug\": \"torchlight-iii\"\n
+        \     },\n      {\n        \"id\": 111130,\n        \"cover\": {\n          \"id\":
+        68904,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1h60.jpg\"\n
+        \       },\n        \"name\": \"Apsulov: End of Gods\",\n        \"slug\":
+        \"apsulov-end-of-gods\"\n      }\n    ],\n    \"slug\": \"paper-mario-eggstraordinary-egg-hunt\",\n
         \   \"summary\": \"Join Mario \\u0026 Luigi for the annual Easter Egg Hunt
         in Toad Town and close regions like Koopa Village and Shooting Star Summit!\\n\\nA
         Paper Mario Mod made by Miigle and Den / DenNya as a easter present for the
-        Paper Mario Modding Community.\",\n    \"language_supports\": [\n      {\n
-        \       \"id\": 674095,\n        \"language\": {\n          \"id\": 7,\n          \"name\":
-        \"English\"\n        }\n      }\n    ]\n  },\n  {\n    \"id\": 240080,\n    \"cover\":
+        Paper Mario Modding Community.\"\n  },\n  {\n    \"id\": 240080,\n    \"cover\":
         {\n      \"id\": 289994,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co67re.jpg\"\n
         \   },\n    \"first_release_date\": 1640476800,\n    \"game_modes\": [\n      {\n
         \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
@@ -485,106 +633,135 @@ interactions:
         205703,\n        \"company\": {\n          \"id\": 36501,\n          \"name\":
         \"elDexter\"\n        }\n      }\n    ],\n    \"name\": \"Paper Mario: All
         Bosses in the Same Battle\",\n    \"platforms\": [\n      {\n        \"id\":
-        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\":
-        [\n      {\n        \"id\": 3,\n        \"name\": \"Bird view / Isometric\"\n
-        \     },\n      {\n        \"id\": 4,\n        \"name\": \"Side view\"\n      }\n
-        \   ],\n    \"screenshots\": [\n      {\n        \"id\": 1005925,\n        \"url\":
-        \"//images.igdb.com/igdb/image/upload/t_thumb/sclk6d.jpg\"\n      },\n      {\n
-        \       \"id\": 1005926,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sclk6e.jpg\"\n
+        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 1005925,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sclk6d.jpg\"\n
+        \     },\n      {\n        \"id\": 1005926,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sclk6e.jpg\"\n
         \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19404,\n
-        \       \"name\": \"Eador: Imperium\"\n      },\n      {\n        \"id\":
-        35737,\n        \"name\": \"Red Stone Online\"\n      },\n      {\n        \"id\":
-        49414,\n        \"name\": \"Oriental Blue: Ao no Tengai\"\n      },\n      {\n
-        \       \"id\": 56036,\n        \"name\": \"Legends of Aria\"\n      },\n
-        \     {\n        \"id\": 59427,\n        \"name\": \"Fairy Tail Online\"\n
-        \     },\n      {\n        \"id\": 87485,\n        \"name\": \"WildCraft:
-        Wild Sim Online\"\n      },\n      {\n        \"id\": 96217,\n        \"name\":
-        \"Eternity: The Last Unicorn\"\n      },\n      {\n        \"id\": 99118,\n
-        \       \"name\": \"Dragalia Lost\"\n      },\n      {\n        \"id\": 111287,\n
-        \       \"name\": \"Heroes Legend: Idle RPG\"\n      },\n      {\n        \"id\":
-        115653,\n        \"name\": \"Pok\xE9mon Shield\"\n      }\n    ],\n    \"slug\":
-        \"paper-mario-all-bosses-in-the-same-battle\",\n    \"summary\": \"Paper Mario
-        romhack that adds all the bosses in the game in a single battle\"\n  },\n
-        \ {\n    \"id\": 155012,\n    \"alternative_names\": [\n      {\n        \"id\":
-        66963,\n        \"name\": \"Paper Mario: Bowser\\u0027s Dark Story\"\n      },\n
-        \     {\n        \"id\": 66964,\n        \"name\": \"Paper Bowser\"\n      }\n
-        \   ],\n    \"cover\": {\n      \"id\": 157875,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3dtf.jpg\"\n
-        \   },\n    \"first_release_date\": 1638748800,\n    \"game_modes\": [\n      {\n
-        \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
-        \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
-        (RPG)\"\n      }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\":
-        141442,\n        \"company\": {\n          \"id\": 35978,\n          \"name\":
-        \"Monstar Mods\"\n        }\n      }\n    ],\n    \"name\": \"Bowser\\u0027s
-        Dark Story\",\n    \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\":
-        \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\": [\n      {\n
-        \       \"id\": 3,\n        \"name\": \"Bird view / Isometric\"\n      },\n
-        \     {\n        \"id\": 4,\n        \"name\": \"Side view\"\n      }\n    ],\n
-        \   \"screenshots\": [\n      {\n        \"id\": 689665,\n        \"url\":
-        \"//images.igdb.com/igdb/image/upload/t_thumb/sces5d.jpg\"\n      }\n    ],\n
-        \   \"similar_games\": [\n      {\n        \"id\": 19164,\n        \"name\":
-        \"Borderlands 3\"\n      },\n      {\n        \"id\": 27092,\n        \"name\":
-        \"GreedFall\"\n      },\n      {\n        \"id\": 54775,\n        \"name\":
-        \"Shadows: Awakening\"\n      },\n      {\n        \"id\": 55038,\n        \"name\":
-        \"Immortal: Unchained\"\n      },\n      {\n        \"id\": 55199,\n        \"name\":
-        \"Dragon: Marked for Death\"\n      },\n      {\n        \"id\": 81249,\n
-        \       \"name\": \"The Elder Scrolls VI\"\n      },\n      {\n        \"id\":
-        96217,\n        \"name\": \"Eternity: The Last Unicorn\"\n      },\n      {\n
-        \       \"id\": 103303,\n        \"name\": \"The Elder Scrolls: Blades\"\n
-        \     },\n      {\n        \"id\": 106987,\n        \"name\": \"Torchlight
-        III\"\n      },\n      {\n        \"id\": 113360,\n        \"name\": \"Hytale\"\n
-        \     }\n    ],\n    \"slug\": \"bowsers-dark-story\",\n    \"summary\": \"Bowser\\u0027s
-        Dark Story is a ROM hack/mod of Paper Mario. The game is an alternative take
-        on the story, from the perspective that tells how it would be if Bowser won
-        against Mario and conquered the Mushroom Kingdom. The player controls the
-        villain, Bowser, through an adventure, finding allies and battling enemies.\",\n
-        \   \"language_supports\": [\n      {\n        \"id\": 628981,\n        \"language\":
-        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
-        \   ]\n  }\n]"
+        \       \"cover\": {\n          \"id\": 90771,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1y1f.jpg\"\n
+        \       },\n        \"name\": \"Eador: Imperium\",\n        \"slug\": \"eador-imperium\"\n
+        \     },\n      {\n        \"id\": 35737,\n        \"cover\": {\n          \"id\":
+        40115,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ikyu6xlrsnyspoi85pzz.jpg\"\n
+        \       },\n        \"name\": \"Red Stone Online\",\n        \"slug\": \"red-stone-online\"\n
+        \     },\n      {\n        \"id\": 49414,\n        \"cover\": {\n          \"id\":
+        81916,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r7g.jpg\"\n
+        \       },\n        \"name\": \"Oriental Blue: Ao no Tengai\",\n        \"slug\":
+        \"oriental-blue-ao-no-tengai\"\n      },\n      {\n        \"id\": 56036,\n
+        \       \"cover\": {\n          \"id\": 95539,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co21pv.jpg\"\n
+        \       },\n        \"name\": \"Legends of Aria\",\n        \"slug\": \"legends-of-aria\"\n
+        \     },\n      {\n        \"id\": 59427,\n        \"cover\": {\n          \"id\":
+        81897,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r6x.jpg\"\n
+        \       },\n        \"name\": \"Fairy Tail Online\",\n        \"slug\": \"fairy-tail-online\"\n
+        \     },\n      {\n        \"id\": 87485,\n        \"cover\": {\n          \"id\":
+        63521,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ya5hcqhbgpynct8zreib.jpg\"\n
+        \       },\n        \"name\": \"WildCraft: Wild Sim Online\",\n        \"slug\":
+        \"wildcraft-wild-sim-online\"\n      },\n      {\n        \"id\": 96217,\n
+        \       \"cover\": {\n          \"id\": 72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 99118,\n
+        \       \"cover\": {\n          \"id\": 82223,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rfz.jpg\"\n
+        \       },\n        \"name\": \"Dragalia Lost\",\n        \"slug\": \"dragalia-lost\"\n
+        \     },\n      {\n        \"id\": 111287,\n        \"cover\": {\n          \"id\":
+        68969,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1h7t.jpg\"\n
+        \       },\n        \"name\": \"Heroes Legend: Idle RPG\",\n        \"slug\":
+        \"heroes-legend-idle-rpg\"\n      },\n      {\n        \"id\": 115653,\n        \"cover\":
+        {\n          \"id\": 92737,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1zk1.jpg\"\n
+        \       },\n        \"name\": \"Pok\xE9mon Shield\",\n        \"slug\": \"pokemon-shield\"\n
+        \     }\n    ],\n    \"slug\": \"paper-mario-all-bosses-in-the-same-battle\",\n
+        \   \"summary\": \"Paper Mario romhack that adds all the bosses in the game
+        in a single battle\"\n  },\n  {\n    \"id\": 155012,\n    \"alternative_names\":
+        [\n      {\n        \"id\": 66963,\n        \"name\": \"Paper Mario: Bowser\\u0027s
+        Dark Story\"\n      },\n      {\n        \"id\": 66964,\n        \"name\":
+        \"Paper Bowser\"\n      }\n    ],\n    \"cover\": {\n      \"id\": 157875,\n
+        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3dtf.jpg\"\n
+        \   },\n    \"game_modes\": [\n      {\n        \"id\": 1,\n        \"name\":
+        \"Single player\"\n      }\n    ],\n    \"genres\": [\n      {\n        \"id\":
+        12,\n        \"name\": \"Role-playing (RPG)\"\n      }\n    ],\n    \"involved_companies\":
+        [\n      {\n        \"id\": 141442,\n        \"company\": {\n          \"id\":
+        35978,\n          \"name\": \"Monstar Mods\"\n        }\n      }\n    ],\n
+        \   \"name\": \"Bowser\\u0027s Dark Story\",\n    \"platforms\": [\n      {\n
+        \       \"id\": 4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 689665,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sces5d.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19164,\n
+        \       \"cover\": {\n          \"id\": 94287,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co20r3.jpg\"\n
+        \       },\n        \"name\": \"Borderlands 3\",\n        \"slug\": \"borderlands-3\"\n
+        \     },\n      {\n        \"id\": 54775,\n        \"cover\": {\n          \"id\":
+        75809,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1mht.jpg\"\n
+        \       },\n        \"name\": \"Shadows: Awakening\",\n        \"slug\": \"shadows-awakening\"\n
+        \     },\n      {\n        \"id\": 55038,\n        \"cover\": {\n          \"id\":
+        82160,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1re8.jpg\"\n
+        \       },\n        \"name\": \"Immortal: Unchained\",\n        \"slug\":
+        \"immortal-unchained\"\n      },\n      {\n        \"id\": 55199,\n        \"cover\":
+        {\n          \"id\": 81874,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r6a.jpg\"\n
+        \       },\n        \"name\": \"Dragon: Marked for Death\",\n        \"slug\":
+        \"dragon-marked-for-death\"\n      },\n      {\n        \"id\": 81249,\n        \"cover\":
+        {\n          \"id\": 91183,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ycv.jpg\"\n
+        \       },\n        \"name\": \"The Elder Scrolls VI\",\n        \"slug\":
+        \"the-elder-scrolls-vi\"\n      },\n      {\n        \"id\": 96217,\n        \"cover\":
+        {\n          \"id\": 72919,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1k9j.jpg\"\n
+        \       },\n        \"name\": \"Eternity: The Last Unicorn\",\n        \"slug\":
+        \"eternity-the-last-unicorn\"\n      },\n      {\n        \"id\": 103303,\n
+        \       \"cover\": {\n          \"id\": 91145,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1ybt.jpg\"\n
+        \       },\n        \"name\": \"The Elder Scrolls: Blades\",\n        \"slug\":
+        \"the-elder-scrolls-blades\"\n      },\n      {\n        \"id\": 106987,\n
+        \       \"cover\": {\n          \"id\": 130983,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co2t2f.jpg\"\n
+        \       },\n        \"name\": \"Torchlight III\",\n        \"slug\": \"torchlight-iii\"\n
+        \     },\n      {\n        \"id\": 113360,\n        \"cover\": {\n          \"id\":
+        81869,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1r65.jpg\"\n
+        \       },\n        \"name\": \"Hytale\",\n        \"slug\": \"hytale\"\n
+        \     },\n      {\n        \"id\": 113636,\n        \"cover\": {\n          \"id\":
+        82689,\n          \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1rsx.jpg\"\n
+        \       },\n        \"name\": \"Rangers of Oblivion\",\n        \"slug\":
+        \"rangers-of-oblivion\"\n      }\n    ],\n    \"slug\": \"bowsers-dark-story\",\n
+        \   \"summary\": \"Bowser\\u0027s Dark Story is a ROM hack/mod of Paper Mario.
+        The game is an alternative take on the story, from the perspective that tells
+        how it would be if Bowser won against Mario and conquered the Mushroom Kingdom.
+        The player controls the villain, Bowser, through an adventure, finding allies
+        and battling enemies.\"\n  }\n]"
     headers:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 850e7d92dbf636fe-YYZ
+      - 887d3f640e8ca1e6-YYZ
       Connection:
       - keep-alive
       Content-Encoding:
       - gzip
       Content-Length:
-      - '4720'
+      - '5627'
       Content-Type:
       - application/json
       Date:
-      - Mon, 05 Feb 2024 22:11:40 GMT
+      - Wed, 22 May 2024 13:45:37 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=S_OFfVP7KhE95gmxVb3iFL1dAPO0bEOtuBmPkzO.7L0-1707171100-1-AT63rOdiZVZuuWGyy6Ob3xnvAlI6XLxa9fuQSj8dEcTK3XXATIO+j2p/FwLDz+dL1qkvGwSJIyM7IfSn1Gl8DGE=;
-        path=/; expires=Mon, 05-Feb-24 22:41:40 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=VVnDcIln_w5HEdsZRlko_DD9R_Q25hr.wzZn66ID0aQ-1716385537-1.0.1.1-yj.ZupGupWmagQqA33TYHF_WZuFOaHSthmdvq6eN8287055fYlx1DCVbveMjS7QUCbCwf2CiW5dJD4J2ANw4Hg;
+        path=/; expires=Wed, 22-May-24 14:15:37 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
-      Via:
-      - 1.1 412b0215b557780a6efcc1651037dc90.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - N_Un5sRtiTagAyaGSLZ9Z6sSVEO1_QFKPRy_ZOiuR6nsDaGssjKXjA==
-      X-Amz-Cf-Pop:
-      - YTO50-P1
-      X-Cache:
-      - Miss from cloudfront
       X-Content-Type-Options:
       - nosniff
-      X-Count:
-      - '12'
       alt-svc:
       - h3=":443"; ma=86400
+      via:
+      - 1.1 4e4d9ea09cd9de42a68977a2ab50f752.cloudfront.net (CloudFront)
       x-amz-apigw-id:
-      - Srt8hFh3vHcEBkQ=
-      x-amzn-Remapped-Content-Length:
-      - '4720'
-      x-amzn-Remapped-Date:
-      - Mon, 05 Feb 2024 22:11:40 GMT
-      x-amzn-RequestId:
-      - 3a7cfc0b-473b-43a5-9da6-4461caa7f06e
+      - YLOILGXPPHcEu2w=
+      x-amz-cf-id:
+      - 8BZzd1rX1dN9KA5DW5JlQfA4jiwwhKoL8_tiPPNMpQzm0hQndCw-Lg==
+      x-amz-cf-pop:
+      - YUL62-P2
+      x-amzn-remapped-content-length:
+      - '5627'
+      x-amzn-remapped-date:
+      - Wed, 22 May 2024 13:45:36 GMT
+      x-amzn-requestid:
+      - 1109a6c8-3d85-4c0f-9b10-092296d26084
+      x-cache:
+      - Miss from cloudfront
+      x-count:
+      - '12'
     status:
       code: 200
       message: OK
@@ -598,7 +775,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: GET
     uri: https://images.igdb.com/igdb/image/upload/t_cover_small/co1qda.jpg
   response:
@@ -692,7 +869,7 @@ interactions:
         U8MMVvlXeva41CEc0IPk/E95/9k=
     headers:
       Age:
-      - '11930'
+      - '32342'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -702,7 +879,7 @@ interactions:
       Content-Type:
       - image/jpeg
       Date:
-      - Mon, 05 Feb 2024 18:52:51 GMT
+      - Wed, 22 May 2024 04:46:35 GMT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
@@ -710,11 +887,11 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 e6bfe249d47d39a52673337cf444c9ce.cloudfront.net (CloudFront)
+      - 1.1 764453ad26f42978656c5c159a3b32ce.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - FJNKxx5bf8Jwbh-mrVeNaoAu1pkp2OSj_XGZ2BT0hHY2C0axOeRLug==
+      - gqhn8R1vGgq5ie49g9myhQDk9R4dkvw7RbIqGYQFKlsfXF1M7bysvg==
       X-Amz-Cf-Pop:
-      - YTO50-P2
+      - YUL62-P2
       X-Cache:
       - Hit from cloudfront
       X-Powered-By:
@@ -732,7 +909,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: GET
     uri: https://images.igdb.com/igdb/image/upload/t_cover_big/co1qda.jpg
   response:
@@ -1200,7 +1377,7 @@ interactions:
         ot6r3HmzJEsGBprpl7D9ldT/2Q==
     headers:
       Age:
-      - '28768'
+      - '38451'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -1210,7 +1387,7 @@ interactions:
       Content-Type:
       - image/jpeg
       Date:
-      - Mon, 05 Feb 2024 14:12:13 GMT
+      - Wed, 22 May 2024 03:04:46 GMT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
@@ -1218,11 +1395,11 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 0e761f7a5b2481acd893422a702c9fa8.cloudfront.net (CloudFront)
+      - 1.1 72620161c44640062c801bfda3ae46f2.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 2j7lIzFpc2VtJI8f3N4FwOTT484X_tL4xKoBN2RaonFD1OsdIV3t2g==
+      - gogC4OLjJSoh_2vKaeYpTyw2eVLowBBNrVkIgHSQnGkIiKOTaDkaZQ==
       X-Amz-Cf-Pop:
-      - YTO50-P2
+      - YUL62-P2
       X-Cache:
       - Hit from cloudfront
       X-Powered-By:
@@ -1240,7 +1417,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: GET
     uri: https://images.igdb.com/igdb/image/upload/t_original/a5r3k2lf3lgvifrycqeg.jpg
   response:
@@ -37370,7 +37547,7 @@ interactions:
         OTdL/KYoLr71/wN7Pr4rOFlYAAAAAABJRU5ErkJggg==
     headers:
       Age:
-      - '48190'
+      - '59418'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -37380,7 +37557,7 @@ interactions:
       Content-Type:
       - image/png
       Date:
-      - Mon, 05 Feb 2024 08:48:31 GMT
+      - Tue, 21 May 2024 21:15:19 GMT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
@@ -37388,11 +37565,11 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 7293b56f3a0eb541aadcbcaa0146d528.cloudfront.net (CloudFront)
+      - 1.1 72620161c44640062c801bfda3ae46f2.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 5rruTUYX202QOPyGlJf8nt85i3qN5u251AJ-4fdxpl3Cj6UbYm6VXQ==
+      - ERQ6NYzud8NfJB0Jk_jx0KqVBnGwM8B4pwLpW_us3BhC-YX1xbgpWw==
       X-Amz-Cf-Pop:
-      - YTO50-P2
+      - YUL62-P2
       X-Cache:
       - Hit from cloudfront
       X-Powered-By:
@@ -37410,7 +37587,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: GET
     uri: https://images.igdb.com/igdb/image/upload/t_original/hdxgs9nruycvrzcgvseu.jpg
   response:
@@ -67349,7 +67526,7 @@ interactions:
         eTkxIAAAAABJRU5ErkJggg==
     headers:
       Age:
-      - '48192'
+      - '59151'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -67359,7 +67536,7 @@ interactions:
       Content-Type:
       - image/png
       Date:
-      - Mon, 05 Feb 2024 08:48:29 GMT
+      - Tue, 21 May 2024 21:19:46 GMT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
@@ -67367,11 +67544,11 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 bc9d715161855640c4738aa7390d934e.cloudfront.net (CloudFront)
+      - 1.1 2080aae7ace369c71819923852e1b17e.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - DscGmBYkUDV6vlyBZBD-92uVht6sNzaPM19TVR7lrFEGNIAxEOzXaA==
+      - mI39zD7yLcBWodUZCgSKdSn870l2OpEQcPa02NLiixK2aTxyPCzFrg==
       X-Amz-Cf-Pop:
-      - YTO50-P2
+      - YUL62-P2
       X-Cache:
       - Hit from cloudfront
       X-Powered-By:
@@ -67389,7 +67566,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: GET
     uri: https://images.igdb.com/igdb/image/upload/t_original/ig9ainu9fershqdinox1.jpg
   response:
@@ -95346,7 +95523,7 @@ interactions:
         TkSuQmCC
     headers:
       Age:
-      - '48193'
+      - '2295'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -95356,7 +95533,7 @@ interactions:
       Content-Type:
       - image/png
       Date:
-      - Mon, 05 Feb 2024 08:48:28 GMT
+      - Wed, 22 May 2024 13:07:22 GMT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
@@ -95364,11 +95541,11 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 71eaa9eb77c2eecb57c03cdcdad1cf76.cloudfront.net (CloudFront)
+      - 1.1 4afe58622c53f3abab57af35bd692fb4.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - Xz-7AZMNHH7zGJwOD2GeBnhp4xHcrLtgG6H7jS6_MsKCAFXdCgTr-w==
+      - PHYX4vDgODpakWbiyEYIHfQ0Y_fuc-FarM5SYA5Mi1Om8UDy2RhlEA==
       X-Amz-Cf-Pop:
-      - YTO50-P2
+      - YUL62-P2
       X-Cache:
       - Hit from cloudfront
       X-Powered-By:
@@ -95386,7 +95563,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: GET
     uri: https://images.igdb.com/igdb/image/upload/t_original/jz66se3deczeta6hd4ys.jpg
   response:
@@ -120450,7 +120627,7 @@ interactions:
         BMHKtHNbZER4XFxcSkpSenpSRkZCampUQgLsaPP2Hf8fnccqze1Vl38AAAAASUVORK5CYII=
     headers:
       Age:
-      - '48191'
+      - '59150'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -120460,7 +120637,7 @@ interactions:
       Content-Type:
       - image/png
       Date:
-      - Mon, 05 Feb 2024 08:48:30 GMT
+      - Tue, 21 May 2024 21:19:47 GMT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
@@ -120468,11 +120645,11 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 fa19153a28b66c7bbfaddbf2e4a92f90.cloudfront.net (CloudFront)
+      - 1.1 764453ad26f42978656c5c159a3b32ce.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - bdW53r7jdW1j1QUwHW4-FFAOq0qViXyswHorP_SIOwlbvgu_2LH-WQ==
+      - MIJ32vs5U5T8t08gBL5l2psoe4DW_DqQIFodnMGRGDgjPOvC8WX6mg==
       X-Amz-Cf-Pop:
-      - YTO50-P2
+      - YUL62-P2
       X-Cache:
       - Hit from cloudfront
       X-Powered-By:
@@ -120490,7 +120667,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - python-requests/2.31.0
+      - python-requests/2.32.2
     method: GET
     uri: https://images.igdb.com/igdb/image/upload/t_original/kjnf90jnud6njmwto3th.jpg
   response:
@@ -144648,7 +144825,7 @@ interactions:
         cN0tU5IZlAAAAABJRU5ErkJggg==
     headers:
       Age:
-      - '48192'
+      - '59149'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -144658,7 +144835,7 @@ interactions:
       Content-Type:
       - image/png
       Date:
-      - Mon, 05 Feb 2024 08:48:29 GMT
+      - Tue, 21 May 2024 21:19:48 GMT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
@@ -144666,11 +144843,11 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 12aa3fefbdb5e80269e58f34f94a99e8.cloudfront.net (CloudFront)
+      - 1.1 212f3832d7f59d71fd3926166fcc89ae.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 5fsCR60ykLg81MvhTjm4wh0yVh5JpY0EGQRhUgLBGnHbfiqmAD_o8A==
+      - ifyCceNx3p1fbRbsHwD3cvY7oTwL-liYgYArlzmQfy2mx4oND6oV6A==
       X-Amz-Cf-Pop:
-      - YTO50-P2
+      - YUL62-P2
       X-Cache:
       - Hit from cloudfront
       X-Powered-By:
