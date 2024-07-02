@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import RDialog from "@/components/common/RDialog.vue";
+import CollectionCard from "@/components/common/Collection/Card.vue";
 import collectionApi from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
@@ -11,22 +12,17 @@ import { useDisplay, useTheme } from "vuetify";
 const theme = useTheme();
 const { smAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const collectionName = ref("");
-const collectionDescription = ref("");
+const collection = ref<{ name: string; description: string }>({
+  name: "",
+  description: "",
+});
 const collectionsStore = storeCollections();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on(
-  "showCreateCollectionDialog",
-  (collectionToEdit: Collection | null) => {
-    if (collectionToEdit) {
-      collectionName.value = collectionToEdit.name;
-      collectionDescription.value = collectionToEdit.description;
-    }
-    show.value = true;
-  }
-);
+emitter?.on("showCreateCollectionDialog", () => {
+  show.value = true;
+});
 
 // Functions
 function triggerFileInput() {
@@ -53,17 +49,19 @@ async function removeArtwork() {
 }
 
 async function createCollection() {
+  if (!collection.value) return;
+
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await collectionApi
     .createCollection({
-      name: collectionName.value,
-      description: collectionDescription.value,
+      name: collection.value.name,
+      description: collection.value.description,
     })
     .then(({ data }) => {
       collectionsStore.add(data);
       emitter?.emit("snackbarShow", {
-        msg: `Collection ${collectionName.value} created successfully!`,
+        msg: `Collection ${data.name} created successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
@@ -86,25 +84,29 @@ async function createCollection() {
 
 function closeDialog() {
   show.value = false;
+  collection.value = {
+    name: "",
+    description: "",
+  };
   imagePreviewUrl.value = "";
 }
 </script>
 
 <template>
   <r-dialog
+    v-if="collection"
     @close="closeDialog"
     v-model="show"
-    icon="mdi-pencil-box"
-    :width="lgAndUp ? '65vw' : '95vw'"
+    icon="mdi-bookmark-box-multiple"
+    :width="lgAndUp ? '45vw' : '95vw'"
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
-        <v-col cols="12" md="8" lg="8" xl="9">
+        <v-col>
           <v-row class="pa-2" no-gutters>
             <v-col>
               <v-text-field
-                v-model="collectionName"
-                class="py-2"
+                v-model="collection.name"
                 label="Name"
                 variant="outlined"
                 required
@@ -115,9 +117,9 @@ function closeDialog() {
           </v-row>
           <v-row class="pa-2" no-gutters>
             <v-col>
-              <v-textarea
-                v-model="collectionDescription"
-                class="py-2"
+              <v-text-field
+                v-model="collection.description"
+                class="mt-1"
                 label="Description"
                 variant="outlined"
                 required
@@ -130,7 +132,7 @@ function closeDialog() {
         <!-- <v-col>
           <v-row class="pa-2 justify-center" no-gutters>
             <v-col class="cover">
-              <collection-card :src="imagePreviewUrl">
+              <collection-card :collection="collection">
                 <template #append-inner>
                   <v-chip-group class="pa-0">
                     <v-chip
@@ -142,7 +144,7 @@ function closeDialog() {
                       <v-icon>mdi-pencil</v-icon>
                       <v-file-input
                         id="file-input"
-                        v-model="rom.artwork"
+                        v-model="collection.artwork"
                         accept="image/*"
                         hide-details
                         class="file-input"
