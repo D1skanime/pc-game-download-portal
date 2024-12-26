@@ -56,7 +56,7 @@ async function fetchRoms() {
   await romApi
     .getRoms({
       collectionId: romsStore.currentCollection?.id,
-      searchTerm: normalizeString(galleryFilterStore.filterSearch),
+      searchTerm: normalizeString(galleryFilterStore.filterText),
     })
     .then(({ data }) => {
       romsStore.set(data);
@@ -204,6 +204,7 @@ function onScroll() {
 function resetGallery() {
   romsStore.reset();
   galleryFilterStore.reset();
+  galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
   noCollectionError.value = false;
   itemsShown.value = itemsPerBatch.value;
