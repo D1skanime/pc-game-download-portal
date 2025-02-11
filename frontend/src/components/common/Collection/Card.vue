@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
+import { computed, ref, watchEffect } from "vue";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
-import { computed } from "vue";
 
 // Props
 const props = withDefaults(
@@ -24,12 +24,65 @@ const props = withDefaults(
 );
 
 const galleryViewStore = storeGalleryView();
+
+const memoizedCovers = ref({
+  large: ["", ""],
+  small: ["", ""],
+});
+
 const collectionCoverImage = computed(() =>
-  getCollectionCoverImage(props.collection.name),
+  props.collection.name?.toLowerCase() == "favourites"
+    ? getFavoriteCoverImage(props.collection.name)
+    : getCollectionCoverImage(props.collection.name),
 );
-const favoriteCoverImage = computed(() =>
-  getFavoriteCoverImage(props.collection.name),
-);
+
+watchEffect(() => {
+  if (props.src) {
+    memoizedCovers.value = {
+      large: [props.src, props.src],
+      small: [props.src, props.src],
+    };
+    return;
+  }
+
+  if (props.collection.path_cover_large && props.collection.path_cover_small) {
+    memoizedCovers.value = {
+      large: [
+        props.collection.path_cover_large,
+        props.collection.path_cover_large,
+      ],
+      small: [
+        props.collection.path_cover_small,
+        props.collection.path_cover_small,
+      ],
+    };
+    return;
+  }
+
+  const largeCoverUrls = props.collection.path_covers_large || [];
+  const smallCoverUrls = props.collection.path_covers_small || [];
+
+  if (largeCoverUrls.length < 2) {
+    memoizedCovers.value = {
+      large: [collectionCoverImage.value, collectionCoverImage.value],
+      small: [collectionCoverImage.value, collectionCoverImage.value],
+    };
+    return;
+  }
+
+  const shuffledLarge = [...largeCoverUrls].sort(() => Math.random() - 0.5);
+  const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
+
+  memoizedCovers.value = {
+    large: [shuffledLarge[0], shuffledLarge[1]],
+    small: [shuffledSmall[0], shuffledSmall[1]],
+  };
+});
+
+const firstCover = computed(() => memoizedCovers.value.large[0]);
+const secondCover = computed(() => memoizedCovers.value.large[1]);
+const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
+const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 </script>
 
 <template>
@@ -49,61 +102,35 @@ const favoriteCoverImage = computed(() =>
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
-      <v-img
-        cover
-        :src="
-          src
-            ? src
-            : collection.has_cover
-              ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
-              : collection.name && collection.name.toLowerCase() == 'favourites'
-                ? favoriteCoverImage
-                : collectionCoverImage
-        "
-        :lazy-src="
-          src
-            ? src
-            : collection.has_cover
-              ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
-              : collection.name && collection.name.toLowerCase() == 'favourites'
-                ? favoriteCoverImage
-                : collectionCoverImage
-        "
-        :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-      >
-        <template v-if="titleOnHover">
-          <v-expand-transition>
-            <div
-              v-if="isHovering || !collection.has_cover"
-              class="translucent-dark text-caption text-center text-white"
-            >
-              <v-list-item>{{ collection.name }}</v-list-item>
-            </div>
-          </v-expand-transition>
-        </template>
-
-        <div class="position-absolute append-inner">
-          <slot name="append-inner"></slot>
+      <v-row class="pa-1 justify-center bg-primary">
+        <div
+          :title="collection.name?.toString()"
+          class="py-4 px-6 text-truncate text-caption"
+        >
+          <span>{{ collection.name }}</span>
         </div>
-
-        <template #error>
+      </v-row>
+      <div
+        class="image-container"
+        :style="{ aspectRatio: galleryViewStore.defaultAspectRatioCollection }"
+      >
+        <div class="split-image first-image">
           <v-img
-            :src="collectionCoverImage"
             cover
+            :src="firstCover"
+            :lazy-src="firstSmallCover"
             :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
           />
-        </template>
-        <template #placeholder>
-          <div class="d-flex align-center justify-center fill-height">
-            <v-progress-circular
-              :width="2"
-              :size="40"
-              color="primary"
-              indeterminate
-            />
-          </div>
-        </template>
-      </v-img>
+        </div>
+        <div class="split-image second-image">
+          <v-img
+            cover
+            :src="secondCover"
+            :lazy-src="secondSmallCover"
+            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+          />
+        </div>
+      </div>
       <v-chip
         v-if="showRomCount"
         class="bg-background position-absolute"
@@ -116,9 +143,28 @@ const favoriteCoverImage = computed(() =>
     </v-card>
   </v-hover>
 </template>
+
 <style scoped>
-.append-inner {
-  bottom: 0rem;
-  right: 0rem;
+.image-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.split-image {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.first-image {
+  clip-path: polygon(0 0, 100% 0, 0% 100%, 0 100%);
+  z-index: 1;
+}
+
+.second-image {
+  clip-path: polygon(0% 100%, 100% 0, 100% 100%);
+  z-index: 0;
 }
 </style>
