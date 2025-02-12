@@ -36,7 +36,7 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
           <collection-card
             show-rom-count
             transform-scale
-            :key="collection.updated_at"
+            :key="collection.id"
             :collection="collection"
             with-link
             title-on-hover
