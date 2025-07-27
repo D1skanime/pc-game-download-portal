@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
+import DeleteSmartCollectionDialog from "@/components/common/Collection/Dialog/DeleteSmartCollection.vue";
 import RSection from "@/components/common/RSection.vue";
 import type { UpdatedCollection } from "@/services/api/collection";
 import storeCollection from "@/stores/collections";
@@ -26,19 +27,6 @@ const romsStore = storeRoms();
 const collectionsStore = storeCollection();
 const { currentCollection } = storeToRefs(romsStore);
 const navigationStore = storeNavigation();
-
-// Get the currently active collection (any type)
-const activeCollection = computed(() => currentCollection.value);
-
-// Check if the active collection is editable (only regular collections are editable for now)
-const isCollectionEditable = computed(() => {
-  return (
-    currentCollection.value &&
-    currentCollection.value.user__username === auth.user?.username &&
-    auth.scopes.includes("collections.write")
-  );
-});
-
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const heartbeat = storeHeartbeat();
@@ -143,7 +131,7 @@ async function updateCollection() {
 
 <template>
   <v-navigation-drawer
-    v-if="activeCollection"
+    v-if="currentCollection"
     mobile
     floating
     width="500"
@@ -158,7 +146,12 @@ async function updateCollection() {
       <v-col style="max-width: 240px" cols="12">
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right mr-5">
-            <template v-if="isCollectionEditable">
+            <template
+              v-if="
+                currentCollection.user__username === auth.user?.username &&
+                auth.scopes.includes('collections.write')
+              "
+            >
               <v-btn
                 v-if="!isEditable"
                 :loading="updating"
@@ -190,10 +183,10 @@ async function updateCollection() {
             </template>
           </div>
           <collection-card
-            :key="activeCollection.updated_at"
+            :key="currentCollection.updated_at"
             :show-title="false"
             :with-link="false"
-            :collection="activeCollection"
+            :collection="currentCollection"
             :src="imagePreviewUrl"
           >
             <template v-if="isEditable" #append-inner>
@@ -207,7 +200,7 @@ async function updateCollection() {
                   class="translucent-dark"
                   @click="
                     emitter?.emit('showSearchCoverDialog', {
-                      term: activeCollection.name as string,
+                      term: currentCollection.name as string,
                       aspectRatio: null,
                     })
                   "
@@ -248,23 +241,23 @@ async function updateCollection() {
           <div v-if="!isEditable">
             <div>
               <span class="text-h5 font-weight-bold pl-0">{{
-                activeCollection.name
+                currentCollection.name
               }}</span>
             </div>
             <div>
               <span class="text-subtitle-2">{{
-                activeCollection.description
+                currentCollection.description
               }}</span>
             </div>
             <v-chip
               class="mt-4"
               size="small"
-              :color="activeCollection.is_public ? 'primary' : ''"
+              :color="currentCollection.is_public ? 'primary' : ''"
               ><v-icon class="mr-1">{{
-                activeCollection.is_public ? "mdi-lock-open" : "mdi-lock"
+                currentCollection.is_public ? "mdi-lock-open" : "mdi-lock"
               }}</v-icon
               >{{
-                activeCollection.is_public
+                currentCollection.is_public
                   ? t("collection.public")
                   : t("collection.private")
               }}</v-chip
@@ -310,20 +303,17 @@ async function updateCollection() {
       </v-col>
       <v-col cols="12">
         <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
-          <v-card-text class="pa-4">
-            <template
-              v-for="(field, index) in collectionInfoFields"
-              :key="field.key"
-            >
-              <div :class="{ 'mt-4': index !== 0 }">
+          <v-card-text class="pa-4 d-flex">
+            <template v-for="field in collectionInfoFields" :key="field.key">
+              <div>
                 <v-chip size="small" class="mr-2 px-0" label>
                   <v-chip label>{{ field.label }}</v-chip
                   ><span class="px-2">{{
-                    activeCollection[
-                      field.key as keyof typeof activeCollection
+                    currentCollection[
+                      field.key as keyof typeof currentCollection
                     ]?.toString()
-                      ? activeCollection[
-                          field.key as keyof typeof activeCollection
+                      ? currentCollection[
+                          field.key as keyof typeof currentCollection
                         ]
                       : "N/A"
                   }}</span>
@@ -337,7 +327,7 @@ async function updateCollection() {
     <r-section
       v-if="
         auth.scopes.includes('collections.write') &&
-        activeCollection.user__username === auth.user?.username
+        currentCollection.user__username === auth.user?.username
       "
       icon="mdi-alert"
       icon-color="red"
@@ -353,7 +343,7 @@ async function updateCollection() {
             class="text-romm-red bg-toplayer ma-2"
             variant="flat"
             @click="
-              emitter?.emit('showDeleteCollectionDialog', activeCollection)
+              emitter?.emit('showDeleteCollectionDialog', currentCollection)
             "
           >
             <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
@@ -365,6 +355,7 @@ async function updateCollection() {
   </v-navigation-drawer>
 
   <delete-collection-dialog />
+  <delete-smart-collection-dialog />
 </template>
 <style scoped>
 .append-top-right {
