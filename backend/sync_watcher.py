@@ -46,32 +46,26 @@ Change = tuple[str, str]
 def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
     """Extract device_id, platform_slug, and filename from a sync incoming path.
 
-    Expected path format: {build_incoming_path(device_id, platform_slug)}/filename.ext
-    i.e. {SYNC_BASE_PATH}/{device_id}/incoming/{platform_slug}/filename.ext
+    Expected path format: {SYNC_BASE_PATH}/{device_id}/incoming/{platform_slug}/filename.ext
     """
     try:
-        rel_path = os.path.relpath(path)
+        rel_path = os.path.relpath(path, start=str(fs_sync_handler.base_path))
         parts = rel_path.split(os.sep)
-        # Minimum: device_id / incoming / platform_slug / filename
         if len(parts) < 4 or parts[1] != "incoming":
             return None
         device_id = parts[0]
         platform_slug = parts[2]
         filename = parts[-1]
-
-        # Validate path matches the canonical incoming path structure
-        expected_prefix = fs_sync_handler.build_incoming_path(device_id, platform_slug)
-        if not rel_path.startswith(expected_prefix):
-            return None
-
         return (device_id, platform_slug, filename)
     except (ValueError, IndexError):
         return None
 
 
 def _ensure_conflicts_dir(device_id: str, platform_slug: str) -> str:
-    """Ensure the conflicts directory exists and return its path."""
-    conflicts_dir = fs_sync_handler.build_conflicts_path(device_id, platform_slug)
+    conflicts_dir = str(
+        fs_sync_handler.base_path
+        / fs_sync_handler.build_conflicts_path(device_id, platform_slug)
+    )
     os.makedirs(conflicts_dir, exist_ok=True)
     return conflicts_dir
 

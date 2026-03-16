@@ -21,7 +21,7 @@ depends_on = None
 def upgrade() -> None:
     connection = op.get_bind()
     if is_postgresql(connection):
-        rom_user_status_enum = ENUM(
+        sync_session_status_enum = ENUM(
             "PENDING",
             "IN_PROGRESS",
             "COMPLETED",
@@ -30,9 +30,9 @@ def upgrade() -> None:
             name="syncsessionstatus",
             create_type=False,
         )
-        rom_user_status_enum.create(connection, checkfirst=False)
+        sync_session_status_enum.create(connection, checkfirst=False)
     else:
-        rom_user_status_enum = sa.Enum(
+        sync_session_status_enum = sa.Enum(
             "PENDING",
             "IN_PROGRESS",
             "COMPLETED",
@@ -86,7 +86,11 @@ def upgrade() -> None:
             "updated_at",
             sa.TIMESTAMP(timezone=True),
             nullable=False,
-            server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
+            server_default=(
+                sa.text("CURRENT_TIMESTAMP")
+                if is_postgresql(connection)
+                else sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+            ),
         ),
         sa.ForeignKeyConstraint(["device_id"], ["devices.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
@@ -107,3 +111,7 @@ def downgrade() -> None:
     op.drop_index("ix_sync_sessions_device_id", table_name="sync_sessions")
 
     op.drop_table("sync_sessions")
+
+    connection = op.get_bind()
+    if is_postgresql(connection):
+        ENUM(name="syncsessionstatus").drop(connection, checkfirst=True)

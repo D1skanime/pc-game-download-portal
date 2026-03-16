@@ -17,8 +17,7 @@ class FSSyncHandler(FSHandler):
     def build_incoming_path(
         self, device_id: str, platform_slug: str | None = None
     ) -> str:
-        """Build the relative incoming path for a device (and optional platform)."""
-        parts = [self.base_path, device_id, "incoming"]
+        parts = [device_id, "incoming"]
         if platform_slug:
             parts.append(platform_slug)
         return os.path.join(*parts)
@@ -26,8 +25,7 @@ class FSSyncHandler(FSHandler):
     def build_outgoing_path(
         self, device_id: str, platform_slug: str | None = None
     ) -> str:
-        """Build the relative outgoing path for a device (and optional platform)."""
-        parts = [self.base_path, device_id, "outgoing"]
+        parts = [device_id, "outgoing"]
         if platform_slug:
             parts.append(platform_slug)
         return os.path.join(*parts)
@@ -35,16 +33,14 @@ class FSSyncHandler(FSHandler):
     def build_conflicts_path(
         self, device_id: str, platform_slug: str | None = None
     ) -> str:
-        """Build the relative conflicts path for a device (and optional platform)."""
-        parts = [self.base_path, device_id, "conflicts"]
+        parts = [device_id, "conflicts"]
         if platform_slug:
             parts.append(platform_slug)
         return os.path.join(*parts)
 
     def ensure_device_directories(self, device_id: str) -> None:
-        """Create incoming/outgoing directory structure for a device."""
-        incoming = Path(self.build_incoming_path(device_id))
-        outgoing = Path(self.build_outgoing_path(device_id))
+        incoming = self.base_path / self.build_incoming_path(device_id)
+        outgoing = self.base_path / self.build_outgoing_path(device_id)
 
         incoming.mkdir(parents=True, exist_ok=True)
         outgoing.mkdir(parents=True, exist_ok=True)

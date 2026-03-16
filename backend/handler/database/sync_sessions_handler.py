@@ -75,7 +75,22 @@ class DBSyncSessionsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(SyncSession).filter_by(id=session_id).one()
+        return session.scalar(select(SyncSession).filter_by(id=session_id))
+
+    @begin_session
+    def increment_operations_completed(
+        self,
+        session_id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        session.execute(
+            update(SyncSession)
+            .where(SyncSession.id == session_id)
+            .values(
+                operations_completed=SyncSession.operations_completed + 1,
+            )
+            .execution_options(synchronize_session="evaluate")
+        )
 
     @begin_session
     def complete_session(
@@ -96,7 +111,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(SyncSession).filter_by(id=session_id).one()
+        return session.scalar(select(SyncSession).filter_by(id=session_id))
 
     @begin_session
     def fail_session(
@@ -115,7 +130,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(SyncSession).filter_by(id=session_id).one()
+        return session.scalar(select(SyncSession).filter_by(id=session_id))
 
     @begin_session
     def cancel_active_sessions(
