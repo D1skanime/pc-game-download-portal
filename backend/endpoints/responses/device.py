@@ -1,8 +1,12 @@
-from pydantic import ConfigDict
+from typing import Any
+
+from pydantic import ConfigDict, field_serializer
 
 from models.device import SyncMode
 
 from .base import BaseModel, UTCDatetime
+
+SENSITIVE_SYNC_CONFIG_KEYS = {"ssh_password", "ssh_key_path"}
 
 
 class DeviceSyncSchema(BaseModel):
@@ -33,6 +37,16 @@ class DeviceSchema(BaseModel):
     last_seen: UTCDatetime | None
     created_at: UTCDatetime
     updated_at: UTCDatetime
+
+    @field_serializer("sync_config")
+    @classmethod
+    def mask_sensitive_fields(cls, v: dict | None) -> dict[str, Any] | None:
+        if not v:
+            return v
+        return {
+            k: "********" if k in SENSITIVE_SYNC_CONFIG_KEYS else val
+            for k, val in v.items()
+        }
 
 
 class DeviceCreateResponse(BaseModel):

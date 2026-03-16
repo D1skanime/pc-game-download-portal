@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
@@ -75,7 +76,25 @@ class DBSyncSessionsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(SyncSession).filter_by(id=session_id).one()
+        result = session.scalar(select(SyncSession).filter_by(id=session_id))
+        if not result:
+            raise NoResultFound(f"SyncSession {session_id} not found after update")
+        return result
+
+    @begin_session
+    def increment_operations_completed(
+        self,
+        session_id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        session.execute(
+            update(SyncSession)
+            .where(SyncSession.id == session_id)
+            .values(
+                operations_completed=SyncSession.operations_completed + 1,
+            )
+            .execution_options(synchronize_session="evaluate")
+        )
 
     @begin_session
     def complete_session(
@@ -96,7 +115,10 @@ class DBSyncSessionsHandler(DBBaseHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(SyncSession).filter_by(id=session_id).one()
+        result = session.scalar(select(SyncSession).filter_by(id=session_id))
+        if not result:
+            raise NoResultFound(f"SyncSession {session_id} not found after complete")
+        return result
 
     @begin_session
     def fail_session(
@@ -115,7 +137,10 @@ class DBSyncSessionsHandler(DBBaseHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(SyncSession).filter_by(id=session_id).one()
+        result = session.scalar(select(SyncSession).filter_by(id=session_id))
+        if not result:
+            raise NoResultFound(f"SyncSession {session_id} not found after fail")
+        return result
 
     @begin_session
     def cancel_active_sessions(

@@ -1,10 +1,10 @@
 from datetime import datetime
 
 from fastapi import HTTPException, Request, status
-from pydantic import BaseModel
 
 from config import TASK_TIMEOUT
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.sync import (
     SyncNegotiateResponse,
     SyncOperationSchema,
@@ -359,6 +359,7 @@ def trigger_push_pull(
     high_prio_queue.enqueue(
         "tasks.sync_push_pull_task.run_push_pull_sync",
         device_id=device.id,
+        session_id=sync_session.id,
         force=True,
         job_timeout=TASK_TIMEOUT,
         meta={

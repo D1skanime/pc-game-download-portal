@@ -42,8 +42,9 @@ class UserSchema(BaseModel):
         if not db_user:
             return None
 
-        db_user.current_device_id = request.session.get("device_id")  # type: ignore
-        return cls.model_validate(db_user)
+        schema = cls.model_validate(db_user)
+        schema.current_device_id = request.session.get("device_id")
+        return schema
 
 
 class InviteLinkSchema(BaseModel):

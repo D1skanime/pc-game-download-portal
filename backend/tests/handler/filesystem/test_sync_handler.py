@@ -27,36 +27,28 @@ class TestFSSyncHandler:
 
     def test_build_incoming_path(self, handler: FSSyncHandler):
         path = handler.build_incoming_path("device-1")
-        assert "device-1" in path
-        assert "incoming" in path
+        assert path == os.path.join("device-1", "incoming")
 
     def test_build_incoming_path_with_platform(self, handler):
         path = handler.build_incoming_path("device-1", "gba")
-        assert "device-1" in path
-        assert "incoming" in path
-        assert "gba" in path
+        assert path == os.path.join("device-1", "incoming", "gba")
 
     def test_build_outgoing_path(self, handler: FSSyncHandler):
         path = handler.build_outgoing_path("device-1")
-        assert "device-1" in path
-        assert "outgoing" in path
+        assert path == os.path.join("device-1", "outgoing")
 
     def test_build_outgoing_path_with_platform(self, handler: FSSyncHandler):
         path = handler.build_outgoing_path("device-1", "snes")
-        assert "device-1" in path
-        assert "outgoing" in path
-        assert "snes" in path
+        assert path == os.path.join("device-1", "outgoing", "snes")
 
     def test_build_conflicts_path(self, handler: FSSyncHandler):
         path = handler.build_conflicts_path("device-1", "gba")
-        assert "device-1" in path
-        assert "conflicts" in path
-        assert "gba" in path
+        assert path == os.path.join("device-1", "conflicts", "gba")
 
     def test_ensure_device_directories(self, handler: FSSyncHandler, temp_dir):
         handler.ensure_device_directories("test-device")
-        incoming = handler.build_incoming_path("test-device")
-        outgoing = handler.build_outgoing_path("test-device")
+        incoming = handler.base_path / handler.build_incoming_path("test-device")
+        outgoing = handler.base_path / handler.build_outgoing_path("test-device")
         assert os.path.isdir(incoming)
         assert os.path.isdir(outgoing)
 
@@ -65,9 +57,10 @@ class TestFSSyncHandler:
         assert result == []
 
     def test_list_incoming_files(self, handler: FSSyncHandler, temp_dir):
-        # Set up: create incoming/platform/file structure
         handler.ensure_device_directories("dev-1")
-        incoming_path = handler.build_incoming_path("dev-1", "gba")
+        incoming_path = str(
+            handler.base_path / handler.build_incoming_path("dev-1", "gba")
+        )
         os.makedirs(incoming_path, exist_ok=True)
         test_file = os.path.join(incoming_path, "save.sav")
         with open(test_file, "wb") as f:
@@ -114,7 +107,7 @@ class TestFSSyncHandler:
 
     def test_remove_incoming_file(self, handler: FSSyncHandler, temp_dir):
         handler.ensure_device_directories("dev-1")
-        incoming = handler.build_incoming_path("dev-1", "gba")
+        incoming = str(handler.base_path / handler.build_incoming_path("dev-1", "gba"))
         os.makedirs(incoming, exist_ok=True)
         test_file = os.path.join(incoming, "to_remove.sav")
         with open(test_file, "wb") as f:

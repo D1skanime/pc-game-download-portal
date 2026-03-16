@@ -26,7 +26,11 @@ from models.sync_session import SyncSessionStatus
 from tasks.tasks import PeriodicTask, TaskType
 
 
-async def run_push_pull_sync(device_id: str | None = None, force: bool = False) -> dict:
+async def run_push_pull_sync(
+    device_id: str | None = None,
+    session_id: int | None = None,
+    force: bool = False,
+) -> dict:
     """Execute push-pull sync for one or all push_pull devices."""
     if not ENABLE_SYNC_PUSH_PULL and not force:
         log.info("Push-pull sync not enabled, skipping")
@@ -50,13 +54,13 @@ async def run_push_pull_sync(device_id: str | None = None, force: bool = False) 
     for device in devices:
         if not device.sync_enabled:
             continue
-        result = await _sync_device(device)
+        result = await _sync_device(device, session_id=session_id)
         results.append(result)
 
     return {"status": "completed", "device_results": results}
 
 
-async def _sync_device(device: Device) -> dict:
+async def _sync_device(device: Device, session_id: int | None = None) -> dict:
     """Perform push-pull sync for a single device."""
     sync_config = device.sync_config or {}
     if not sync_config.get("ssh_host"):
@@ -71,10 +75,21 @@ async def _sync_device(device: Device) -> dict:
         emit_sync_started,
     )
 
-    # Create sync session
-    sync_session = db_sync_session_handler.create_session(
-        device_id=device.id, user_id=device.user_id
-    )
+    if session_id:
+        sync_session = db_sync_session_handler.get_session(
+            session_id=session_id, user_id=device.user_id
+        )
+        if not sync_session:
+            log.warning(
+                f"Push-pull: session {session_id} not found, creating new session"
+            )
+            sync_session = db_sync_session_handler.create_session(
+                device_id=device.id, user_id=device.user_id
+            )
+    else:
+        sync_session = db_sync_session_handler.create_session(
+            device_id=device.id, user_id=device.user_id
+        )
 
     await emit_sync_started(
         user_id=device.user_id,
@@ -110,7 +125,6 @@ async def _sync_device(device: Device) -> dict:
             db_sync_session_handler.complete_session(session_id=sync_session.id)
             return {"device_id": device.id, "status": "no_directories"}
 
-        # List remote saves
         remote_saves = await ssh_sync_handler.list_remote_saves(conn, save_directories)
         log.info(
             f"Push-pull: found {len(remote_saves)} remote saves on device {device.id}"
@@ -126,7 +140,6 @@ async def _sync_device(device: Device) -> dict:
 
         operations_planned = len(remote_saves)
 
-        # Process each remote save
         for remote_save in remote_saves:
             try:
                 action = await _process_remote_save(device, conn, remote_save)
@@ -158,13 +171,10 @@ async def _sync_device(device: Device) -> dict:
                 current_file=remote_save.file_name,
             )
 
-        # Check for server saves that need to be pushed to the device
         push_count = await _push_missing_saves(
             device, conn, remote_saves, save_directories
         )
         completed += push_count
-
-        conn.close()
 
     except Exception as e:
         log.error(f"Push-pull sync failed for device {device.id}: {e}", exc_info=True)
@@ -178,6 +188,8 @@ async def _sync_device(device: Device) -> dict:
             error_message=str(e),
         )
         return {"device_id": device.id, "status": "failed", "error": str(e)}
+    finally:
+        conn.close()
 
     db_sync_session_handler.complete_session(
         session_id=sync_session.id,
@@ -227,21 +239,11 @@ async def _process_remote_save(
             break
 
     if not matched_save:
-        # New save from device - download it
-        local_path, content_hash = await ssh_sync_handler.download_save(
-            conn, remote_save.path
+        log.info(
+            f"Push-pull: remote save {hl(remote_save.file_name)} "
+            f"on platform {remote_save.platform_slug} - no matching server save, skipping"
         )
-        try:
-            # We have the file locally, but we need a ROM to attach it to.
-            # Without a clear ROM match, skip for now.
-            log.info(
-                f"Push-pull: new remote save {hl(remote_save.file_name)} "
-                f"on platform {remote_save.platform_slug} - no matching server save"
-            )
-            return "skipped"
-        finally:
-            if os.path.exists(local_path):
-                os.unlink(local_path)
+        return "skipped"
 
     # Compare with existing save
     device_sync = db_device_save_sync_handler.get_sync(

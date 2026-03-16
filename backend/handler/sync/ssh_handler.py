@@ -106,6 +106,10 @@ class SSHSyncHandler:
                 "provide ssh_key_path/ssh_password in sync_config."
             )
 
+        log.warning(
+            f"SSH host key verification disabled for {host} -- "
+            "connection is vulnerable to MITM attacks"
+        )
         log.info(f"Connecting to {username}@{host}:{port}")
         return await asyncssh.connect(**connect_kwargs)
 
