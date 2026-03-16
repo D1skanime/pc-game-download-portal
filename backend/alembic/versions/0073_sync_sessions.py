@@ -30,7 +30,7 @@ def upgrade() -> None:
             name="syncsessionstatus",
             create_type=False,
         )
-        sync_session_status_enum.create(connection, checkfirst=False)
+        sync_session_status_enum.create(connection, checkfirst=True)
     else:
         sync_session_status_enum = sa.Enum(
             "PENDING",
