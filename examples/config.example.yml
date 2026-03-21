@@ -134,6 +134,10 @@
 #     - logo  # Transparent logo
 #     # Other media assets (might be used in the future)
 #     - marquee  # Custom marquee
+#   # Auto-export metadata files after scan completes
+#   export:
+#     gamelist_xml: false  # Export gamelist.xml (ES-DE format)
+#     pegasus: false       # Export metadata.pegasus.txt (Pegasus Frontend format)
 
 # EmulatorJS per-core options
 # emulatorjs:

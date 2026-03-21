@@ -45,6 +45,7 @@ DEFAULT_EXCLUDED_FILES: Final = [
     ".stfolder",
     "@SynoResource",
     "gamelist.xml",
+    "metadata.pegasus.txt",
 ]
 DEFAULT_EXCLUDED_DIRS: Final = [
     "@eaDir",
@@ -106,7 +107,8 @@ class Config:
     EXCLUDED_MULTI_FILES: list[str]
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
-    GAMELIST_AUTO_EXPORT_ON_SCAN: bool
+    SCAN_EXPORT_GAMELIST_XML: bool
+    SCAN_EXPORT_PEGASUS: bool
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
@@ -266,8 +268,11 @@ class ConfigManager:
             FIRMWARE_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.firmware_folder", "bios"
             ),
-            GAMELIST_AUTO_EXPORT_ON_SCAN=pydash.get(
-                self._raw_config, "scan.export_gamelist", False
+            SCAN_EXPORT_GAMELIST_XML=pydash.get(
+                self._raw_config, "scan.export.gamelist_xml", False
+            ),
+            SCAN_EXPORT_PEGASUS=pydash.get(
+                self._raw_config, "scan.export.pegasus", False
             ),
             SKIP_HASH_CALCULATION=pydash.get(
                 self._raw_config, "filesystem.skip_hash_calculation", False
@@ -410,8 +415,14 @@ class ConfigManager:
                 "Invalid config.yml: exclude.roms.multi_file.parts.names must be a list"
             )
             sys.exit(3)
-        if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
-            log.critical("Invalid config.yml: scan.export_gamelist must be a boolean")
+        if not isinstance(self.config.SCAN_EXPORT_GAMELIST_XML, bool):
+            log.critical(
+                "Invalid config.yml: scan.export.gamelist_xml must be a boolean"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.SCAN_EXPORT_PEGASUS, bool):
+            log.critical("Invalid config.yml: scan.export.pegasus must be a boolean")
             sys.exit(3)
 
         if not isinstance(self.config.PLATFORMS_BINDING, dict):
@@ -619,7 +630,10 @@ class ConfigManager:
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,
-                "export_gamelist": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
+                "export": {
+                    "gamelist_xml": self.config.SCAN_EXPORT_GAMELIST_XML,
+                    "pegasus": self.config.SCAN_EXPORT_PEGASUS,
+                },
             },
         }
 
