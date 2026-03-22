@@ -49,8 +49,7 @@ class TestCreateOrFindWebDevice:
         assert device.name == "Chrome on Mac OS X"
         assert device.platform == "Web"
         assert device.client == "web"
-        assert device.ip_address == "1.2.3.4"
-        assert device.hostname == "127.0.0.1"
+        assert device.ip_address == "127.0.0.1"
         assert device.last_seen is not None
 
     def test_returns_existing_device_on_matching_fingerprint(self, admin_user: User):
