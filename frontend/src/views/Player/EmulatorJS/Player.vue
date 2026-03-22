@@ -11,6 +11,7 @@ import type {
   NetplayICEServer,
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
+import playSessionApi from "@/services/api/play-session";
 import { saveApi as api } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import storeLanguage from "@/stores/language";
@@ -51,6 +52,7 @@ const props = defineProps<{
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
+const sessionStartTime = ref<Date | null>(null);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 const { playing, fullScreen } = storeToRefs(playingStore);
@@ -348,6 +350,7 @@ window.EJS_onSaveState = async function ({
 };
 
 window.EJS_onGameStart = async () => {
+  sessionStartTime.value = new Date();
   setTimeout(async () => {
     if (props.save) await loadSave(props.save);
     if (props.state) await loadState(props.state);
@@ -434,10 +437,36 @@ window.EJS_onGameStart = async () => {
 };
 
 function immediateExit() {
-  router
-    .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
-    .catch((error) => {
-      console.error("Error navigating to console rom", error);
+  if (!sessionStartTime.value) {
+    return router
+      .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
+      .catch((error) => {
+        console.error("Error navigating to console rom", error);
+      });
+  }
+
+  const endTime = new Date();
+  const durationMs = endTime.getTime() - sessionStartTime.value.getTime();
+
+  playSessionApi
+    .ingestPlaySessions({
+      sessions: [
+        {
+          rom_id: romRef.value.id,
+          start_time: sessionStartTime.value.toISOString(),
+          end_time: endTime.toISOString(),
+          duration_ms: durationMs,
+        },
+      ],
+    })
+    .catch((err) => console.error("Failed to submit play session:", err))
+    .finally(() => {
+      sessionStartTime.value = null;
+      router
+        .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
+        .catch((error) => {
+          console.error("Error navigating to console rom", error);
+        });
     });
 }
 
