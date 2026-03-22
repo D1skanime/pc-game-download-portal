@@ -60,7 +60,9 @@ def _parse_pegasus(content: str) -> ParsedPegasus:
                 val = line.strip()
                 if val == ".":
                     val = ""
-                current_game[current_key] += "\n" + val
+                existing = current_game[current_key]
+                if isinstance(existing, str):
+                    current_game[current_key] = existing + "\n" + val
             continue
 
         if ":" not in line:

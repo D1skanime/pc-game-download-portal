@@ -185,8 +185,9 @@ class FSHandler:
 
         except Exception:
             # Clean up temporary file on error
-            if temp_path.exists():
-                temp_path.unlink()
+            async_temp = AnyioPath(temp_path)
+            if await async_temp.exists():
+                await async_temp.unlink()
             raise
 
     def get_file_name_with_no_extension(self, file_name: str) -> str:

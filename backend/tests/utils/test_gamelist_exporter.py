@@ -1,4 +1,4 @@
-from xml.etree.ElementTree import fromstring  # trunk-ignore(bandit/B405)
+from xml.etree.ElementTree import fromstring
 
 import pytest
 
