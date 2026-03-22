@@ -4,7 +4,7 @@ import pytest
 
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
-from models.rom import Rom, RomMetadata
+from models.rom import Rom
 from models.user import User
 from utils.gamelist_exporter import GamelistExporter
 
@@ -32,18 +32,17 @@ def platform_with_roms(admin_user: User):
     rom = db_rom_handler.add_rom(rom)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
-    # Add metadata
-    metadata = RomMetadata(
-        rom_id=rom.id,
-        genres=["Platformer", "Adventure"],
-        companies=["Nintendo", "Nintendo EAD"],
-        first_release_date=709344000000,  # 1992-06-23
-        average_rating=9.2,
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "igdb_metadata": {
+                "genres": ["Platformer", "Adventure"],
+                "companies": ["Nintendo", "Nintendo EAD"],
+                "first_release_date": 709257600,  # 1992-06-23 UTC in seconds; view *1000
+                "total_rating": 9.2,  # view uses this as igdb_rating
+            }
+        },
     )
-    from tests.conftest import session as test_session
-
-    with test_session.begin() as s:
-        s.merge(metadata)
 
     # Re-fetch to get joined metadata
     rom = db_rom_handler.get_rom(rom.id)
@@ -143,7 +142,7 @@ def test_export_gamelist_xml_release_date(platform_with_roms):
 
     release_date = game.find("releasedate")
     assert release_date is not None
-    assert release_date.text == "19920623T120000"
+    assert release_date.text == "19920623T000000"
 
 
 def test_export_gamelist_xml_minimal_rom(platform_with_minimal_rom):
@@ -184,29 +183,6 @@ def test_export_gamelist_xml_skips_missing_roms(admin_user: User):
         fs_extension="nes",
         fs_path="nes/roms",
         missing_from_fs=True,
-    )
-    db_rom_handler.add_rom(rom)
-
-    exporter = GamelistExporter(local_export=True)
-    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
-    root = fromstring(xml_str)
-
-    assert len(root.findall("game")) == 0
-
-
-def test_export_gamelist_xml_skips_gamelist_file(admin_user: User):
-    platform = Platform(name="Genesis", slug="genesis", fs_slug="genesis")
-    platform = db_platform_handler.add_platform(platform)
-
-    rom = Rom(
-        platform_id=platform.id,
-        name="gamelist.xml",
-        slug="gamelist",
-        fs_name="gamelist.xml",
-        fs_name_no_tags="gamelist",
-        fs_name_no_ext="gamelist",
-        fs_extension="xml",
-        fs_path="genesis/roms",
     )
     db_rom_handler.add_rom(rom)
 

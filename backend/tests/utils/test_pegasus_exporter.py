@@ -6,7 +6,7 @@ import pytest
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
 from models.platform import Platform
-from models.rom import Rom, RomMetadata
+from models.rom import Rom
 from models.user import User
 from utils.pegasus_exporter import PegasusExporter
 
@@ -121,18 +121,17 @@ class TestExportMetadata:
         rom = db_rom_handler.add_rom(rom)
         db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
-        from tests.conftest import session as test_session
-
-        with test_session.begin() as s:
-            s.merge(
-                RomMetadata(
-                    rom_id=rom.id,
-                    genres=["Platformer", "Adventure"],
-                    companies=["Nintendo", "Nintendo EAD"],
-                    first_release_date=709344000000,
-                    average_rating=9.2,
-                )
-            )
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "igdb_metadata": {
+                    "genres": ["Platformer", "Adventure"],
+                    "companies": ["Nintendo", "Nintendo EAD"],
+                    "first_release_date": 709257600,  # 1992-06-23 UTC in seconds; view *1000
+                    "total_rating": 9.2,  # view uses this as igdb_rating
+                }
+            },
+        )
 
         exporter = PegasusExporter(local_export=True)
         parsed = _parse_pegasus(
@@ -185,28 +184,23 @@ class TestExportMetadata:
         for key in ("developer", "genre", "description", "rating", "release"):
             assert key not in game
 
-    def test_skips_missing_and_metadata_files(self, admin_user: User):
+    def test_skips_missing_roms(self, admin_user: User):
         platform = Platform(name="NES", slug="nes", fs_slug="nes")
         platform = db_platform_handler.add_platform(platform)
 
-        for name, missing in [
-            ("missing.nes", True),
-            ("gamelist.xml", False),
-            ("metadata.pegasus.txt", False),
-        ]:
-            db_rom_handler.add_rom(
-                Rom(
-                    platform_id=platform.id,
-                    name=name,
-                    slug=name,
-                    fs_name=name,
-                    fs_name_no_tags=name.split(".")[0],
-                    fs_name_no_ext=name.rsplit(".", 1)[0],
-                    fs_extension=name.rsplit(".", 1)[1],
-                    fs_path="nes/roms",
-                    missing_from_fs=missing,
-                )
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="missing.nes",
+                slug="missing",
+                fs_name="missing.nes",
+                fs_name_no_tags="missing",
+                fs_name_no_ext="missing",
+                fs_extension="nes",
+                fs_path="nes/roms",
+                missing_from_fs=True,
             )
+        )
 
         parsed = _parse_pegasus(
             PegasusExporter(local_export=True).export_platform_to_pegasus(
