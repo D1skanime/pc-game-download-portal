@@ -54,6 +54,10 @@ class CleanupTaskMeta(TypedDict):
     cleanup_stats: CleanupStats | None
 
 
+class SyncTaskMeta(TypedDict):
+    pass
+
+
 class WatcherTaskMeta(TypedDict):
     pass
 
@@ -68,6 +72,7 @@ TaskMeta = Union[
     ConversionTaskMeta,
     UpdateTaskMeta,
     CleanupTaskMeta,
+    SyncTaskMeta,
     WatcherTaskMeta,
     GenericTaskMeta,
 ]
@@ -106,6 +111,11 @@ class CleanupTaskStatusResponse(BaseTaskStatusResponse):
     meta: CleanupTaskMeta
 
 
+class SyncTaskStatusResponse(BaseTaskStatusResponse):
+    task_type: Literal[TaskType.SYNC]
+    meta: SyncTaskMeta
+
+
 class WatcherTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.WATCHER]
     meta: WatcherTaskMeta
@@ -121,6 +131,7 @@ TaskStatusResponse = Union[
     ConversionTaskStatusResponse,
     UpdateTaskStatusResponse,
     CleanupTaskStatusResponse,
+    SyncTaskStatusResponse,
     WatcherTaskStatusResponse,
     GenericTaskStatusResponse,
 ]

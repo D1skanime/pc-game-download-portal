@@ -40,13 +40,10 @@ def create_or_find_web_device(request: Request, user: User) -> Device:
 
     user_agent = parse_ua(request.headers.get("user-agent", ""))
     client_version = user_agent.user_agent.major if user_agent.user_agent else None
-
-    hostname = request.client.host if request.client else None
-    ip_address = request.headers.get("x-forwarded-for", None)
+    ip_address = request.client.host if request.client else None
 
     existing = db_device_handler.get_device_by_fingerprint(
         user_id=user.id,
-        hostname=hostname,
         ip_address=ip_address,
         platform=device_type.platform,
     )
@@ -62,7 +59,6 @@ def create_or_find_web_device(request: Request, user: User) -> Device:
         client=device_type.client,
         client_version=client_version,
         sync_mode=device_type.sync_mode,
-        hostname=hostname,
         ip_address=ip_address,
         last_seen=datetime.now(timezone.utc),
     )

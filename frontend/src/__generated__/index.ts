@@ -126,6 +126,8 @@ export type { SyncNegotiatePayload } from './models/SyncNegotiatePayload';
 export type { SyncNegotiateResponse } from './models/SyncNegotiateResponse';
 export type { SyncOperationSchema } from './models/SyncOperationSchema';
 export type { SyncSessionSchema } from './models/SyncSessionSchema';
+export type { SyncTaskMeta } from './models/SyncTaskMeta';
+export type { SyncTaskStatusResponse } from './models/SyncTaskStatusResponse';
 export type { SystemDict } from './models/SystemDict';
 export type { TaskExecutionResponse } from './models/TaskExecutionResponse';
 export type { TaskInfo } from './models/TaskInfo';

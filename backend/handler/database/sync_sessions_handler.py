@@ -85,11 +85,12 @@ class DBSyncSessionsHandler(DBBaseHandler):
     def increment_operations_completed(
         self,
         session_id: int,
+        user_id: int,
         session: Session = None,  # type: ignore
     ) -> None:
         session.execute(
             update(SyncSession)
-            .where(SyncSession.id == session_id)
+            .where(SyncSession.id == session_id, SyncSession.user_id == user_id)
             .values(
                 operations_completed=SyncSession.operations_completed + 1,
             )

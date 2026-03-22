@@ -1,7 +1,8 @@
-"""Periodic task to scan sync folders for unprocessed files.
+"""Manual scan task for sync folders with unprocessed files.
 
 This serves as a fallback for the file watcher, handling cases where
 filesystem events are missed (e.g., server restart, NFS mounts).
+Triggered on demand, not scheduled automatically.
 """
 
 from typing import Any
