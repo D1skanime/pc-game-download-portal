@@ -1,9 +1,12 @@
+import os
+import shutil
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import Request
 
 from handler.database import db_platform_handler, db_rom_handler
-from handler.filesystem import fs_platform_handler
+from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
 
@@ -27,14 +30,62 @@ class PegasusExporter:
         lines = text.strip().splitlines()
         if len(lines) <= 1:
             return text.strip()
-        # First line is on the same line as the key, subsequent lines are indented
         return (
             lines[0]
             + "\n"
             + "\n".join(f"  {line}" if line.strip() else "  ." for line in lines[1:])
         )
 
-    def _create_game_entry(self, rom: Rom, request: Request | None) -> str:
+    def _collect_assets(self, rom: Rom) -> dict[str, Path]:
+        """Collect available media assets for a ROM using model properties.
+
+        Returns a dict mapping Pegasus asset key to the absolute source file path.
+        """
+        assets: dict[str, Path] = {}
+
+        if rom.path_cover_l:
+            if p := fs_resource_handler.base_path / rom.path_cover_l:
+                assets["boxFront"] = p
+
+        if rom.path_screenshots:
+            if p := fs_resource_handler.base_path / rom.path_screenshots[0]:
+                assets["screenshot"] = p
+
+        if rom.path_video:
+            if p := fs_resource_handler.base_path / rom.path_video:
+                assets["video"] = p
+
+        # Extended media from screenscraper / gamelist metadata
+        ss = rom.ss_metadata or {}
+        gl = rom.gamelist_metadata or {}
+
+        media_map: dict[str, list[str]] = {
+            "boxFull": [ss.get("box3d_path", ""), gl.get("box3d_path", "")],
+            "boxBack": [ss.get("box2d_back_path", ""), gl.get("box2d_back", "")],
+            "marquee": [ss.get("logo_path", ""), gl.get("marquee_path", "")],
+            "cartridge": [ss.get("physical_path", ""), gl.get("physical_path", "")],
+        }
+        for pegasus_key, candidates in media_map.items():
+            if pegasus_key in assets:
+                continue
+            for candidate in candidates:
+                if candidate:
+                    if p := fs_resource_handler.base_path / candidate:
+                        assets[pegasus_key] = p
+                        break
+
+        return assets
+
+    def _game_media_dir_name(self, rom: Rom) -> str:
+        """Get the media subdirectory name for a ROM (filename without extension)."""
+        return rom.fs_name_no_ext
+
+    def _create_game_entry(
+        self,
+        rom: Rom,
+        request: Request | None,
+        exported_assets: dict[str, str] | None = None,
+    ) -> str:
         """Create a game entry for a ROM in Pegasus metadata format"""
         lines: list[str] = []
 
@@ -75,13 +126,8 @@ class PegasusExporter:
                 lines.append(f"tag: {tag}")
 
         # Player count
-        player_count = None
-        if rom.gamelist_metadata and rom.gamelist_metadata.get("player_count"):
-            player_count = rom.gamelist_metadata["player_count"]
-        elif rom.metadatum and rom.metadatum.player_count:
-            player_count = rom.metadatum.player_count
-        if player_count:
-            lines.append(f"players: {player_count}")
+        if rom.metadatum and rom.metadatum.player_count:
+            lines.append(f"players: {rom.metadatum.player_count}")
 
         # Summary / description
         if rom.summary:
@@ -97,6 +143,11 @@ class PegasusExporter:
         if rom.metadatum and rom.metadatum.average_rating is not None:
             lines.append(f"rating: {self._format_rating(rom.metadatum.average_rating)}")
 
+        # Asset references (relative paths to media files)
+        if exported_assets:
+            for asset_key, rel_path in exported_assets.items():
+                lines.append(f"assets.{asset_key}: {rel_path}")
+
         # RomM-specific extensions (x-* fields)
         if rom.regions:
             lines.append(f"x-region: {', '.join(rom.regions)}")
@@ -104,10 +155,26 @@ class PegasusExporter:
         if rom.languages:
             lines.append(f"x-language: {', '.join(rom.languages)}")
 
-        if rom.gamelist_id:
-            lines.append(f"x-romm-gamelist-id: {rom.gamelist_id}")
+        lines.append(f"x-romm-id: {rom.id}")
 
         return "\n".join(lines)
+
+    def _copy_asset(self, source: Path, dest: Path) -> bool:
+        """Hard-link or copy a file from source to dest. Returns True on success."""
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists():
+            return True
+
+        try:
+            os.link(source, dest)
+            return True
+        except OSError:
+            try:
+                shutil.copy2(source, dest)
+                return True
+            except OSError as e:
+                log.warning(f"Failed to copy {source} -> {dest}: {e}")
+                return False
 
     def export_platform_to_pegasus(
         self, platform_id: int, request: Request | None
@@ -137,15 +204,7 @@ class PegasusExporter:
         # Game entries
         game_count = 0
         for rom in roms:
-            if (
-                rom
-                and not rom.missing_from_fs
-                and rom.fs_name
-                not in (
-                    "gamelist.xml",
-                    "metadata.pegasus.txt",
-                )
-            ):
+            if not rom.missing_from_fs:
                 if game_count > 0:
                     lines.append("")
                 lines.append(self._create_game_entry(rom, request=request))
@@ -159,7 +218,8 @@ class PegasusExporter:
         platform_id: int,
         request: Request | None,
     ) -> bool:
-        """Export platform ROMs to metadata.pegasus.txt file in the platform's directory
+        """Export platform ROMs to metadata.pegasus.txt file in the platform's directory,
+        including media assets copied into a local media/ folder.
 
         Args:
             platform_id: Platform ID to export
@@ -177,8 +237,50 @@ class PegasusExporter:
             platform_fs_structure = fs_platform_handler.get_platform_fs_structure(
                 platform.fs_slug
             )
+            platform_dir = fs_platform_handler.base_path / platform_fs_structure
 
-            content = self.export_platform_to_pegasus(platform_id, request=request)
+            roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
+
+            lines: list[str] = []
+
+            # Collection header
+            lines.append(f"collection: {platform.custom_name or platform.name}")
+            lines.append(f"shortname: {platform.slug}")
+            lines.append("")
+
+            game_count = 0
+            for rom in roms:
+                if rom.missing_from_fs:
+                    continue
+
+                exported_assets: dict[str, str] = {}
+
+                if self.local_export:
+                    assets = self._collect_assets(rom)
+                    media_dir_name = self._game_media_dir_name(rom)
+
+                    for asset_key, source_path in assets.items():
+                        dest_name = f"{asset_key}{source_path.suffix}"
+                        dest_path = platform_dir / "media" / media_dir_name / dest_name
+
+                        if self._copy_asset(source_path, dest_path):
+                            exported_assets[asset_key] = (
+                                f"media/{media_dir_name}/{dest_name}"
+                            )
+
+                if game_count > 0:
+                    lines.append("")
+
+                lines.append(
+                    self._create_game_entry(
+                        rom,
+                        request=request,
+                        exported_assets=exported_assets if exported_assets else None,
+                    )
+                )
+                game_count += 1
+
+            content = "\n".join(lines) + "\n"
             await fs_platform_handler.write_file(
                 content.encode("utf-8"),
                 platform_fs_structure,
@@ -186,7 +288,7 @@ class PegasusExporter:
             )
 
             log.info(
-                f"Exported metadata.pegasus.txt to {platform_fs_structure}/metadata.pegasus.txt"
+                f"Exported metadata.pegasus.txt with {game_count} ROMs for platform {platform.name}"
             )
             return True
         except Exception as e:

@@ -57,6 +57,7 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     ".fseventsd",
     ".DocumentRevisions-V100",
     "System Volume Information",
+    "media",
 ]
 
 
