@@ -100,8 +100,6 @@ def downgrade() -> None:
     op.drop_column("devices", "sync_config")
 
     op.drop_index("ix_sync_sessions_status", table_name="sync_sessions")
-    op.drop_index("ix_sync_sessions_user_id", table_name="sync_sessions")
-    op.drop_index("ix_sync_sessions_device_id", table_name="sync_sessions")
 
     op.drop_table("sync_sessions")
 
