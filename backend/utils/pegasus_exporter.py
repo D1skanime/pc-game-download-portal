@@ -15,10 +15,13 @@ ASSET_DIRS: dict[str, str] = {
     "box_back": "backcovers",
     "box_full": "boxes",
     "screenshot": "screenshots",
+    "titlescreen": "titlescreens",
     "video": "videos",
     "marquee": "marquees",
     "cartridge": "cartridges",
     "logo": "logos",
+    "background": "backgrounds",
+    "bezel": "bezels",
 }
 
 
@@ -80,6 +83,9 @@ class PegasusExporter:
             "logo": [ss.get("logo_path", "")],
             "marquee": [gl.get("marquee_path", "")],
             "cartridge": [ss.get("physical_path", ""), gl.get("physical_path", "")],
+            "background": [ss.get("fanart_path", ""), gl.get("fanart", "")],
+            "titlescreen": [ss.get("title_screen", ""), gl.get("title_screen", "")],
+            "bezel": [ss.get("bezel_path", "")],
         }
         for pegasus_key, candidates in extended.items():
             if pegasus_key in assets:
