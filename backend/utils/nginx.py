@@ -43,7 +43,7 @@ class ZipResponse(Response):
         kwargs["content"] = "\n".join(str(line) for line in content_lines)
         kwargs.setdefault("headers", {}).update(
             {
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}; filename=\"{quote(filename)}\"",
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}; filename=\"{filename}\"",
                 "X-Archive-Files": "zip",
                 "X-Archive-Charset": "UTF-8",
             }
