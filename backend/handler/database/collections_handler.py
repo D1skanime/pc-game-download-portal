@@ -133,9 +133,7 @@ class DBCollectionsHandler(DBBaseHandler):
                 # Filter out rom_ids that no longer exist in the roms table to
                 # avoid foreign key constraint violations (e.g. after a rescan)
                 valid_rom_ids = set(
-                    session.scalars(
-                        select(Rom.id).where(Rom.id.in_(rom_ids))
-                    ).all()
+                    session.scalars(select(Rom.id).where(Rom.id.in_(rom_ids))).all()
                 )
                 if valid_rom_ids:
                     session.execute(
