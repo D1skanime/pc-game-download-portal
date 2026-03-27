@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from contextvars import ContextVar, Token
@@ -13,6 +14,32 @@ ctx_aiohttp_session: ContextVar[aiohttp.ClientSession] = ContextVar("aiohttp_ses
 ctx_httpx_client: ContextVar[httpx.AsyncClient] = ContextVar("httpx_client")
 
 
+def has_proxy_env() -> bool:
+    return any(
+        os.environ.get(var)
+        for var in (
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "NO_PROXY",
+            "http_proxy",
+            "https_proxy",
+            "no_proxy",
+        )
+    )
+
+
+def create_aiohttp_session() -> aiohttp.ClientSession:
+    return aiohttp.ClientSession(trust_env=has_proxy_env())
+
+
+def create_httpx_async_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(trust_env=has_proxy_env())
+
+
+def create_httpx_client() -> httpx.Client:
+    return httpx.Client(trust_env=has_proxy_env())
+
+
 @asynccontextmanager
 async def set_context_var(var: ContextVar[_T], value: _T) -> AsyncGenerator[Token[_T]]:
     """Temporarily set a context variables."""
@@ -25,8 +52,8 @@ async def set_context_var(var: ContextVar[_T], value: _T) -> AsyncGenerator[Toke
 async def initialize_context() -> AsyncGenerator[None]:
     """Initialize context variables."""
     async with (
-        aiohttp.ClientSession() as aiohttp_session,
-        httpx.AsyncClient() as httpx_client,
+        create_aiohttp_session() as aiohttp_session,
+        create_httpx_async_client() as httpx_client,
         set_context_var(ctx_aiohttp_session, aiohttp_session),
         set_context_var(ctx_httpx_client, httpx_client),
     ):
