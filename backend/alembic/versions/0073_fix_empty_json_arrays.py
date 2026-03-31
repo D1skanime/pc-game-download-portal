@@ -1,6 +1,6 @@
 """Fix roms_metadata view: empty JSON arrays should not win COALESCE over populated ones
 
-Revision ID: 0073_fix_metadata_view_empty_arrays
+Revision ID: 0073_fix_empty_json_arrays
 Revises: 0072_client_tokens
 Create Date: 2026-03-31 00:00:00.000000
 
