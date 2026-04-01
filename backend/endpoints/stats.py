@@ -26,7 +26,9 @@ def stats(include_platform_stats: bool = False) -> StatsReturn:
     }
 
     if include_platform_stats:
-        result["METADATA_COVERAGE"] = db_stats_handler.get_metadata_coverage_by_platform()
+        result["METADATA_COVERAGE"] = (
+            db_stats_handler.get_metadata_coverage_by_platform()
+        )
         result["REGION_BREAKDOWN"] = db_stats_handler.get_region_breakdown_by_platform()
 
     return result
