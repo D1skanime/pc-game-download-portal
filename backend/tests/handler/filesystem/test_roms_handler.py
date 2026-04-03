@@ -27,11 +27,11 @@ class TestFSRomsHandler:
     def config(self):
         return Config(
             EXCLUDED_PLATFORMS=[],
-            EXCLUDED_SINGLE_EXT={"tmp"},
-            EXCLUDED_SINGLE_FILES={"excluded_test.tmp"},
-            EXCLUDED_MULTI_FILES={"excluded_multi"},
-            EXCLUDED_MULTI_PARTS_EXT={"tmp"},
-            EXCLUDED_MULTI_PARTS_FILES={"excluded_part.bin"},
+            EXCLUDED_SINGLE_EXT=["tmp"],
+            EXCLUDED_SINGLE_FILES=["excluded_test.tmp"],
+            EXCLUDED_MULTI_FILES=["excluded_multi"],
+            EXCLUDED_MULTI_PARTS_EXT=["tmp"],
+            EXCLUDED_MULTI_PARTS_FILES=["excluded_part.bin"],
             PLATFORMS_BINDING={},
             PLATFORMS_VERSIONS={},
             ROMS_FOLDER_NAME="roms",

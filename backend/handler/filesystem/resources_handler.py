@@ -20,6 +20,16 @@ from utils.validation import validate_url_for_http_request
 from .base_handler import CoverSize, FSHandler
 
 
+def _check_content_type(
+    response: httpx.Response, allowed_prefixes: tuple[str, ...], label: str
+) -> bool:
+    content_type = response.headers.get("content-type", "").lower()
+    if not any(content_type.startswith(p) for p in allowed_prefixes):
+        log.warning(f"Unexpected content type for {label}: {content_type}")
+        return False
+    return True
+
+
 class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
@@ -106,11 +116,7 @@ class FSResourcesHandler(FSHandler):
                     "GET", url_cover, timeout=120
                 ) as response:
                     if response.status_code == status.HTTP_200_OK:
-                        content_type = response.headers.get("content-type", "").lower()
-                        if not content_type.startswith("image/"):
-                            log.warning(
-                                f"Unexpected content type for cover: {content_type}"
-                            )
+                        if not _check_content_type(response, ("image/",), "cover"):
                             return None
 
                         # Check if content is gzipped from response headers
@@ -283,11 +289,7 @@ class FSResourcesHandler(FSHandler):
                     "GET", url_screenhot, timeout=120
                 ) as response:
                     if response.status_code == status.HTTP_200_OK:
-                        content_type = response.headers.get("content-type", "").lower()
-                        if not content_type.startswith("image/"):
-                            log.warning(
-                                f"Unexpected content type for screenshot: {content_type}"
-                            )
+                        if not _check_content_type(response, ("image/",), "screenshot"):
                             return None
 
                         # Check if content is gzipped from response headers
@@ -407,11 +409,9 @@ class FSResourcesHandler(FSHandler):
                     "GET", url_manual, timeout=120
                 ) as response:
                     if response.status_code == status.HTTP_200_OK:
-                        content_type = response.headers.get("content-type", "").lower()
-                        if not content_type.startswith("application/pdf"):
-                            log.warning(
-                                f"Unexpected content type for manual: {content_type}"
-                            )
+                        if not _check_content_type(
+                            response, ("application/pdf",), "manual"
+                        ):
                             return None
 
                         # Check if content is gzipped from response headers
@@ -481,11 +481,7 @@ class FSResourcesHandler(FSHandler):
         try:
             async with httpx_client.stream("GET", url, timeout=120) as response:
                 if response.status_code == status.HTTP_200_OK:
-                    content_type = response.headers.get("content-type", "").lower()
-                    if not content_type.startswith("image/"):
-                        log.warning(
-                            f"Unexpected content type for badge: {content_type}"
-                        )
+                    if not _check_content_type(response, ("image/",), "badge"):
                         return
 
                     async with await self.write_file_streamed(
@@ -551,15 +547,11 @@ class FSResourcesHandler(FSHandler):
                     "GET", url_media, timeout=120
                 ) as response:
                     if response.status_code == status.HTTP_200_OK:
-                        content_type = response.headers.get("content-type", "").lower()
-                        if not (
-                            content_type.startswith("image/")
-                            or content_type.startswith("video/")
-                            or content_type.startswith("application/pdf")
+                        if not _check_content_type(
+                            response,
+                            ("image/", "video/", "application/pdf"),
+                            "media",
                         ):
-                            log.warning(
-                                f"Unexpected content type for media: {content_type}"
-                            )
                             return None
 
                         async with await self.write_file_streamed(
