@@ -124,6 +124,92 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     assert body["successful_items"] == 1
 
 
+@patch(
+    "endpoints.roms.fs_rom_handler.remove_file",
+    new_callable=AsyncMock,
+)
+@patch(
+    "endpoints.roms.fs_rom_handler.validate_path",
+)
+def test_delete_roms_from_fs_flat(
+    mock_validate_path,
+    mock_remove_file,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """Test that flat (non-directory) ROM files are deleted from filesystem."""
+    from pathlib import Path
+    from unittest.mock import MagicMock
+
+    mock_path = MagicMock(spec=Path)
+    mock_path.is_dir.return_value = False
+    mock_path.parent.is_dir.return_value = False
+    mock_validate_path.return_value = mock_path
+
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id], "delete_from_fs": [rom.id]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    assert body["failed_items"] == 0
+    mock_remove_file.assert_called_once()
+
+
+@patch(
+    "endpoints.roms.fs_rom_handler.remove_directory",
+    new_callable=AsyncMock,
+)
+@patch(
+    "endpoints.roms.fs_rom_handler.validate_path",
+)
+def test_delete_roms_from_fs_nested(
+    mock_validate_path,
+    mock_remove_directory,
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+):
+    """Test that nested (directory) ROMs are deleted using remove_directory."""
+    from pathlib import Path
+    from unittest.mock import MagicMock
+
+    from handler.database import db_rom_handler
+    from models.rom import Rom
+
+    nested_rom = Rom(
+        platform_id=platform.id,
+        name="Nested Game",
+        slug="nested-game",
+        fs_name="Nested Game",
+        fs_name_no_tags="Nested Game",
+        fs_name_no_ext="Nested Game",
+        fs_extension="",
+        fs_path=f"{platform.slug}/roms",
+    )
+    nested_rom = db_rom_handler.add_rom(nested_rom)
+
+    mock_path = MagicMock(spec=Path)
+    mock_path.is_dir.return_value = True
+    mock_validate_path.return_value = mock_path
+
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [nested_rom.id], "delete_from_fs": [nested_rom.id]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    assert body["failed_items"] == 0
+    mock_remove_directory.assert_called_once()
+
+
 def test_update_rom_user_props_with_data_envelope(
     client: TestClient, access_token: str, rom: Rom
 ):

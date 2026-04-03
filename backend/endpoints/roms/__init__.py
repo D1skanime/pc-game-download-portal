@@ -1472,6 +1472,32 @@ async def delete_roms(
             continue
 
         try:
+            if id in delete_from_fs:
+                log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
+                try:
+                    rom_path = f"{rom.fs_path}/{rom.fs_name}"
+                    full_path = fs_rom_handler.validate_path(rom_path)
+                    if full_path.is_dir():
+                        await fs_rom_handler.remove_directory(rom_path)
+                    else:
+                        await fs_rom_handler.remove_file(file_path=rom_path)
+                        # Clean up empty parent directory if it becomes empty
+                        parent = full_path.parent
+                        if (
+                            parent != fs_rom_handler.base_path
+                            and parent.is_dir()
+                            and not any(parent.iterdir())
+                        ):
+                            await fs_rom_handler.remove_directory(
+                                str(parent.relative_to(fs_rom_handler.base_path))
+                            )
+                except FileNotFoundError:
+                    error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
+                    log.error(error)
+                    errors.append(error)
+                    failed_items += 1
+                    continue
+
             log.info(
                 f"Deleting {hl(str(rom.name or 'ROM'), color=BLUE)} [{hl(rom.fs_name)}] from database"
             )
@@ -1483,18 +1509,6 @@ async def delete_roms(
                 log.warning(
                     f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
                 )
-
-            if id in delete_from_fs:
-                log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
-                try:
-                    file_path = f"{rom.fs_path}/{rom.fs_name}"
-                    await fs_rom_handler.remove_file(file_path=file_path)
-                except FileNotFoundError:
-                    error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
-                    log.error(error)
-                    errors.append(error)
-                    failed_items += 1
-                    continue
 
             successful_items += 1
         except Exception as e:
