@@ -1480,7 +1480,7 @@ async def delete_roms(
                     if full_path.is_dir():
                         await fs_rom_handler.remove_directory(rom_path)
                     else:
-                        await fs_rom_handler.remove_file(file_path=rom_path)
+                        await fs_rom_handler.remove_file(rom_path)
                         # Clean up empty parent directory if it becomes empty
                         parent = full_path.parent
                         if (
