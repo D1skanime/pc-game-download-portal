@@ -34,6 +34,8 @@ export type { BulkOperationResponse } from './models/BulkOperationResponse';
 export type { CleanupStats } from './models/CleanupStats';
 export type { CleanupTaskMeta } from './models/CleanupTaskMeta';
 export type { CleanupTaskStatusResponse } from './models/CleanupTaskStatusResponse';
+export type { MissingRomsCleanupStats } from './models/MissingRomsCleanupStats';
+export type { OrphanedResourcesCleanupStats } from './models/OrphanedResourcesCleanupStats';
 export type { ClientTokenAdminSchema } from './models/ClientTokenAdminSchema';
 export type { ClientTokenCreatePayload } from './models/ClientTokenCreatePayload';
 export type { ClientTokenCreateSchema } from './models/ClientTokenCreateSchema';
