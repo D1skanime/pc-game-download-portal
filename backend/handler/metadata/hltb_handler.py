@@ -258,7 +258,7 @@ class HLTBHandler(MetadataHandler):
         :return: A dictionary with the json result.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
-        if not self.security_token:
+        if not self.security_token or not self.hp_key or not self.hp_val:
             return {}
 
         httpx_client = ctx_httpx_client.get()
@@ -273,8 +273,7 @@ class HLTBHandler(MetadataHandler):
         }
 
         # Some HLTB endpoints require the key:val in the payload
-        if self.hp_key and self.hp_val:
-            payload[self.hp_key] = self.hp_val
+        payload[self.hp_key] = self.hp_val
 
         log.debug(
             "HowLongToBeat API request: URL=%s, Headers=%s, Payload=%s, Timeout=%s",

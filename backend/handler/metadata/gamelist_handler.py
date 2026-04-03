@@ -99,9 +99,9 @@ XML_TAG_MAP: Final = {
 
 def _make_file_uri(platform_dir: str, raw_text: str) -> str:
     cleaned_text = raw_text.replace("./", "")
-    joined_path = os.path.join(platform_dir, cleaned_text)
-    fs_platform_handler.validate_path(joined_path)
-    return f"file://{joined_path}"
+    joined_path = Path(platform_dir, cleaned_text)
+    fs_platform_handler.validate_path(str(joined_path))
+    return f"file://{joined_path.as_posix()}"
 
 
 def extract_media_from_gamelist_rom(

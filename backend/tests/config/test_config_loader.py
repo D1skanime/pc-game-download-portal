@@ -86,7 +86,7 @@ def test_empty_config_loader():
         )
     )
 
-    assert loader.config.EXCLUDED_PLATFORMS == DEFAULT_EXCLUDED_DIRS
+    assert loader.config.EXCLUDED_PLATFORMS == sorted(DEFAULT_EXCLUDED_DIRS)
     assert loader.config.EXCLUDED_SINGLE_EXT == sorted(
         {e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS}
     )
