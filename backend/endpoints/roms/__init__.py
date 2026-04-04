@@ -164,19 +164,6 @@ class RomUserData(BaseModel):
     )
 
 
-class RomUserUpdatePayload(BaseModel):
-    data: RomUserData = Field(
-        default_factory=RomUserData,
-        description="Partial rom user data to update. Only provided fields will be updated.",
-    )
-    update_last_played: bool = Field(
-        default=False, description="Set last played timestamp to now."
-    )
-    remove_last_played: bool = Field(
-        default=False, description="Clear the last played timestamp."
-    )
-
-
 async def parse_rom_update_form(
     request: Request,
     igdb_id: str | None = Form(default=None),
@@ -1536,7 +1523,13 @@ async def delete_roms(
 async def update_rom_user(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    payload: Annotated[RomUserUpdatePayload, Body()],
+    data: Annotated[RomUserData, Body()],
+    update_last_played: Annotated[
+        bool, Query(description="Set last played timestamp to now.")
+    ] = False,
+    remove_last_played: Annotated[
+        bool, Query(description="Clear the last played timestamp.")
+    ] = False,
 ) -> RomUserSchema:
     """Update rom data associated to the current user."""
     rom = db_rom_handler.get_rom(id)
@@ -1548,11 +1541,11 @@ async def update_rom_user(
         id, request.user.id
     ) or db_rom_handler.add_rom_user(id, request.user.id)
 
-    cleaned_data = payload.data.model_dump(exclude_unset=True)
+    cleaned_data = data.model_dump(exclude_unset=True)
 
-    if payload.update_last_played:
+    if update_last_played:
         cleaned_data.update({"last_played": datetime.now(timezone.utc)})
-    elif payload.remove_last_played:
+    elif remove_last_played:
         cleaned_data.update({"last_played": None})
 
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)

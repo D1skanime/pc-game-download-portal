@@ -342,6 +342,55 @@ class TestValidateUrlForHttpRequest:
             validate_url_for_http_request("http://server.localhost", "test_url")
         assert "internal domain names are not allowed" in exc_info.value.message
 
+    def test_invalid_non_standard_ip_representations(self):
+        """Test that non-standard IP representations are blocked (SSRF bypass vectors)."""
+        # Hexadecimal integer for 127.0.0.1
+        with pytest.raises(ValidationError) as exc_info:
+            validate_url_for_http_request("http://0x7f000001", "test_url")
+        assert (
+            "private, internal, and reserved IP addresses are not allowed"
+            in exc_info.value.message
+        )
+
+        # Decimal integer for 127.0.0.1
+        with pytest.raises(ValidationError) as exc_info:
+            validate_url_for_http_request("http://2130706433", "test_url")
+        assert (
+            "private, internal, and reserved IP addresses are not allowed"
+            in exc_info.value.message
+        )
+
+        # Shorthand dotted for 127.0.0.1
+        with pytest.raises(ValidationError) as exc_info:
+            validate_url_for_http_request("http://127.1", "test_url")
+        assert (
+            "private, internal, and reserved IP addresses are not allowed"
+            in exc_info.value.message
+        )
+
+        # Hexadecimal integer for 10.0.0.1
+        with pytest.raises(ValidationError) as exc_info:
+            validate_url_for_http_request("http://0x0a000001", "test_url")
+        assert (
+            "private, internal, and reserved IP addresses are not allowed"
+            in exc_info.value.message
+        )
+
+        # Decimal integer for 192.168.1.1
+        with pytest.raises(ValidationError) as exc_info:
+            validate_url_for_http_request("http://3232235777", "test_url")
+        assert (
+            "private, internal, and reserved IP addresses are not allowed"
+            in exc_info.value.message
+        )
+
+        # Hexadecimal integer for 169.254.169.254 (cloud metadata)
+        with pytest.raises(ValidationError) as exc_info:
+            validate_url_for_http_request("http://0xa9fea9fe", "test_url")
+        assert (
+            "cloud metadata service addresses are not allowed" in exc_info.value.message
+        )
+
     def test_invalid_missing_hostname(self):
         """Test that URLs without hostnames fail validation."""
         with pytest.raises(ValidationError) as exc_info:

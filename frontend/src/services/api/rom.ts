@@ -5,7 +5,6 @@ import type {
   BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
-  RomUserUpdatePayload,
   RomUserSchema,
   SearchRomSchema,
   SimpleRomSchema,
@@ -549,12 +548,14 @@ async function updateUserRomProps({
   updateLastPlayed?: boolean;
   removeLastPlayed?: boolean;
 }) {
-  const payload: RomUserUpdatePayload = {
-    data: data,
-    update_last_played: updateLastPlayed,
-    remove_last_played: removeLastPlayed,
-  };
-  return api.put<RomUserSchema>(`/roms/${romId}/props`, payload);
+  const params = new URLSearchParams();
+  if (updateLastPlayed) params.set("update_last_played", "true");
+  if (removeLastPlayed) params.set("remove_last_played", "true");
+  const query = params.toString();
+  return api.put<RomUserSchema>(
+    `/roms/${romId}/props${query ? `?${query}` : ""}`,
+    data,
+  );
 }
 
 async function deleteRoms({

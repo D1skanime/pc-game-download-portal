@@ -1,5 +1,6 @@
 import ipaddress
 import re
+import socket
 from urllib.parse import urlparse
 
 from logger.logger import log
@@ -202,8 +203,33 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
             log.error(f"SSRF prevention: {msg} - IP '{ip}'")
             raise ValidationError(msg, field_name)
 
-    except ValueError as e:
-        # Not a direct IP address, which is fine - it's a domain name
+    except ValueError:
+        # ipaddress.ip_address() only handles standard notation. HTTP clients
+        # also accept hex integers (0x7f000001), decimal integers (2130706433),
+        # shorthand dotted (127.1), and octal (0177.0.0.1). Use socket.inet_aton()
+        # which handles these non-standard IPv4 representations.
+        try:
+            packed = socket.inet_aton(hostname)
+            ip = ipaddress.IPv4Address(packed)
+
+            if isinstance(ip, ipaddress.IPv4Address) and str(ip).startswith("169.254."):
+                msg = f"Invalid {field_name}: cloud metadata service addresses are not allowed"
+                log.error(f"SSRF prevention: {msg} - IP '{ip}'")
+                raise ValidationError(msg, field_name)
+
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                msg = f"Invalid {field_name}: private, internal, and reserved IP addresses are not allowed"
+                log.error(f"SSRF prevention: {msg} - IP '{ip}'")
+                raise ValidationError(msg, field_name)
+
+            if ip.is_multicast:
+                msg = f"Invalid {field_name}: multicast addresses are not allowed"
+                log.error(f"SSRF prevention: {msg} - IP '{ip}'")
+                raise ValidationError(msg, field_name)
+
+        except OSError:
+            pass  # Not an IP address at all - fall through to domain name checks
+
         # Additional checks for suspicious domain patterns
         hostname_lower = hostname.lower()
 
@@ -212,4 +238,4 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
         if any(hostname_lower.endswith(tld) for tld in internal_tlds):
             msg = f"Invalid {field_name}: internal domain names are not allowed"
             log.error(f"SSRF prevention: {msg} - hostname '{hostname}'")
-            raise ValidationError(msg, field_name) from e
+            raise ValidationError(msg, field_name)
