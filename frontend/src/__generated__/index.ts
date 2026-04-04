@@ -102,7 +102,6 @@ export type { RomSSMetadata } from './models/RomSSMetadata';
 export type { RomUserData } from './models/RomUserData';
 export type { RomUserSchema } from './models/RomUserSchema';
 export type { RomUserStatus } from './models/RomUserStatus';
-export type { RomUserUpdatePayload } from './models/RomUserUpdatePayload';
 export type { RoomsResponse } from './models/RoomsResponse';
 export type { SaveSchema } from './models/SaveSchema';
 export type { SaveSummarySchema } from './models/SaveSummarySchema';
