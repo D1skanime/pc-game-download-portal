@@ -372,7 +372,8 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://0xa9fea9fe", "test_url")
         assert (
-            "cloud metadata service addresses are not allowed" in exc_info.value.message
+            "private, internal, and reserved IP addresses are not allowed"
+            in exc_info.value.message
         )
 
     def test_invalid_missing_hostname(self):
