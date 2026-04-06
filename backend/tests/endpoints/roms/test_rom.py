@@ -261,13 +261,13 @@ def test_delete_roms_from_fs_nested(
     mock_remove_directory.assert_called_once()
 
 
-def test_update_rom_user_props_with_data_envelope(
+def test_update_rom_user_props_flat_payload(
     client: TestClient, access_token: str, rom: Rom
 ):
     response = client.put(
         f"/api/roms/{rom.id}/props",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {"backlogged": True, "rating": 7}},
+        json={"backlogged": True, "rating": 7},
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -283,7 +283,7 @@ def test_update_rom_user_props_partial_update(
     setup_response = client.put(
         f"/api/roms/{rom.id}/props",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {"backlogged": True, "rating": 5, "hidden": True}},
+        json={"backlogged": True, "rating": 5, "hidden": True},
     )
     assert setup_response.status_code == status.HTTP_200_OK
 
@@ -291,7 +291,7 @@ def test_update_rom_user_props_partial_update(
     response = client.put(
         f"/api/roms/{rom.id}/props",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {"rating": 9}},
+        json={"rating": 9},
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -305,17 +305,17 @@ def test_update_rom_user_props_last_played_flags(
     client: TestClient, access_token: str, rom: Rom
 ):
     mark_played_response = client.put(
-        f"/api/roms/{rom.id}/props",
+        f"/api/roms/{rom.id}/props?update_last_played=true",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {}, "update_last_played": True},
+        json={},
     )
     assert mark_played_response.status_code == status.HTTP_200_OK
     assert mark_played_response.json()["last_played"] is not None
 
     clear_played_response = client.put(
-        f"/api/roms/{rom.id}/props",
+        f"/api/roms/{rom.id}/props?remove_last_played=true",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {}, "remove_last_played": True},
+        json={},
     )
     assert clear_played_response.status_code == status.HTTP_200_OK
     assert clear_played_response.json()["last_played"] is None
