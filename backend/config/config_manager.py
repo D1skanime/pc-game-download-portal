@@ -127,8 +127,8 @@ class Config:
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
-    GAMELIST_MEDIA_THUMBNAIL: str
-    GAMELIST_MEDIA_IMAGE: str
+    GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
+    GAMELIST_MEDIA_IMAGE: MetadataMediaType
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
