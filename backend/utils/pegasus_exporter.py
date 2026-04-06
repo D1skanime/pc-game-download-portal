@@ -37,7 +37,8 @@ class PegasusExporter:
 
     def _format_rating(self, average_rating: float) -> str:
         """Format rating as percentage (0-100%). Input is on 0-10 scale."""
-        return f"{int(average_rating * 10)}%"
+        clamped_rating = max(0, min(100, average_rating))
+        return f"{int(clamped_rating)}%"
 
     def _escape_multiline(self, text: str) -> str:
         """Indent continuation lines for multi-line values in Pegasus format"""
@@ -74,14 +75,18 @@ class PegasusExporter:
 
         extended: dict[str, list[str]] = {
             "box_full": [ss.get("box3d_path", ""), gl.get("box3d_path", "")],
-            "box_back": [ss.get("box2d_back_path", ""), gl.get("box2d_back", "")],
+            "box_back": [ss.get("box2d_back_path", ""), gl.get("box2d_back_path", "")],
             "logo": [ss.get("logo_path", "")],
             "marquee": [gl.get("marquee_path", "")],
             "cartridge": [ss.get("physical_path", ""), gl.get("physical_path", "")],
-            "background": [ss.get("fanart_path", ""), gl.get("fanart", "")],
-            "titlescreen": [ss.get("title_screen", ""), gl.get("title_screen", "")],
+            "background": [ss.get("fanart_path", ""), gl.get("fanart_path", "")],
+            "titlescreen": [
+                ss.get("title_screen_path", ""),
+                gl.get("title_screen_path", ""),
+            ],
             "bezel": [ss.get("bezel_path", "")],
         }
+
         for pegasus_key, candidates in extended.items():
             if pegasus_key in assets:
                 continue

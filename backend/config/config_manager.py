@@ -57,7 +57,6 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     ".fseventsd",
     ".DocumentRevisions-V100",
     "System Volume Information",
-    "assets",
 ]
 
 
@@ -456,8 +455,13 @@ class ConfigManager:
                 "Invalid config.yml: exclude.roms.multi_file.parts.names must be a list"
             )
             sys.exit(3)
+
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical("Invalid config.yml: scan.gamelist.export must be a boolean")
+            sys.exit(3)
+
+        if not isinstance(self.config.PEGASUS_AUTO_EXPORT_ON_SCAN, bool):
+            log.critical("Invalid config.yml: scan.pegasus.export must be a boolean")
             sys.exit(3)
 
         if not isinstance(self.config.PLATFORMS_BINDING, dict):

@@ -175,8 +175,8 @@ class FSHandler:
     async def _atomic_write(self, target_path: Path):
         """Context manager for atomic file writing.
 
-        Creates the temp file in the same directory as the target so that
-        os.rename is always an atomic same-filesystem operation.
+        Creates the temp file in the same directory as the target so the
+        final os.replace() occurs on the same filesystem.
         """
         fd, temp_path_str = tempfile.mkstemp(
             dir=str(target_path.parent), prefix=".romm_tmp_"

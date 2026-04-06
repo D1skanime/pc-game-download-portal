@@ -128,7 +128,7 @@ class TestExportMetadata:
                     "genres": ["Platformer", "Adventure"],
                     "companies": ["Nintendo", "Nintendo EAD"],
                     "first_release_date": 709257600,  # 1992-06-23 UTC in seconds; view *1000
-                    "total_rating": 9.2,  # view uses this as igdb_rating
+                    "total_rating": 92.0,  # view uses this directly as a 0-100 igdb_rating
                 }
             },
         )

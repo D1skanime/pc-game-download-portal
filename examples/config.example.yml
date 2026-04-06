@@ -142,7 +142,7 @@
 #       thumbnail: box2d # Use as the <thumbnail> tag in the exported gamelist.xml
 #       image: screenshot  # Use as the <image> tag in the exported gamelist.xml
 #   pegasus:
-#     export: false # Whether to export gamelist.xml for Pegasus
+#     export: false # Whether to export metadata.pegasus.txt for Pegasus
 
 # EmulatorJS per-core options
 # emulatorjs:
