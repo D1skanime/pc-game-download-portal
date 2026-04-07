@@ -92,22 +92,21 @@ def ingest_play_sessions(
         valid.append((idx, resolved_rom_id, item))
 
     # Phase 2: Batch dedup check
-    dedup_keys = [
-        (resolved_device_id, rom_id, to_utc(item["start_time"]))
-        for _, rom_id, item in valid
+    rom_start_pairs = [
+        (rom_id, to_utc(item["start_time"])) for _, rom_id, item in valid
     ]
-    existing_keys = db_play_session_handler.find_existing_sesssion(
-        user_id=user_id, keys=dedup_keys
+    existing = db_play_session_handler.find_existing(
+        user_id=user_id, device_id=resolved_device_id, rom_start_pairs=rom_start_pairs
     )
 
-    seen_keys: set[tuple[str | None, int | None, datetime]] = set()
+    seen: set[tuple[int | None, datetime]] = set()
     to_insert: list[tuple[int, int | None, PlaySession]] = []
 
-    for (idx, resolved_rom_id, item), key in zip(valid, dedup_keys, strict=True):
-        if key in seen_keys or key in existing_keys:
+    for (idx, resolved_rom_id, item), key in zip(valid, rom_start_pairs, strict=True):
+        if key in seen or key in existing:
             results.append({"index": idx, "status": "duplicate"})
             continue
-        seen_keys.add(key)
+        seen.add(key)
 
         to_insert.append(
             (

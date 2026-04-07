@@ -22,37 +22,39 @@ class DBPlaySessionsHandler(DBBaseHandler):
         return play_sessions
 
     @begin_session
-    def find_existing_sesssion(
+    def find_existing(
         self,
         user_id: int,
-        keys: list[tuple[str | None, int | None, datetime]],
+        device_id: str | None,
+        rom_start_pairs: list[tuple[int | None, datetime]],
         session: Session = None,  # type: ignore
-    ) -> set[tuple[str | None, int | None, datetime]]:
-        if not keys:
+    ) -> set[tuple[int | None, datetime]]:
+        """Return which (rom_id, start_time) pairs already exist for this user+device."""
+        if not rom_start_pairs:
             return set()
 
-        clauses = []
-        for device_id, rom_id, start_time in keys:
-            parts = [PlaySession.start_time == start_time]
-            if device_id is None:
-                parts.append(PlaySession.device_id.is_(None))
-            else:
-                parts.append(PlaySession.device_id == device_id)
-            if rom_id is None:
-                parts.append(PlaySession.rom_id.is_(None))
-            else:
-                parts.append(PlaySession.rom_id == rom_id)
-            clauses.append(and_(*parts))
+        device_clause = (
+            PlaySession.device_id.is_(None)
+            if device_id is None
+            else PlaySession.device_id == device_id
+        )
+
+        rom_clauses = []
+        for rom_id, start_time in rom_start_pairs:
+            rom_match = (
+                PlaySession.rom_id.is_(None)
+                if rom_id is None
+                else PlaySession.rom_id == rom_id
+            )
+            rom_clauses.append(and_(rom_match, PlaySession.start_time == start_time))
 
         stmt = select(
-            PlaySession.device_id,
             PlaySession.rom_id,
             PlaySession.start_time,
-        ).where(PlaySession.user_id == user_id, or_(*clauses))
-        rows = session.execute(stmt).all()
+        ).where(PlaySession.user_id == user_id, device_clause, or_(*rom_clauses))
+
         return {
             (
-                r.device_id,
                 r.rom_id,
                 (
                     r.start_time.replace(tzinfo=timezone.utc)
@@ -60,7 +62,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
                     else r.start_time
                 ),
             )
-            for r in rows
+            for r in session.execute(stmt).all()
         }
 
     @begin_session
