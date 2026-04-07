@@ -8,6 +8,7 @@ from sqlalchemy import (
     BigInteger,
     ForeignKey,
     Index,
+    Integer,
     String,
     UniqueConstraint,
 )
@@ -18,6 +19,7 @@ from models.base import BaseModel
 if TYPE_CHECKING:
     from models.device import Device
     from models.rom import Rom
+    from models.sync_session import SyncSession
     from models.user import User
 
 
@@ -44,6 +46,9 @@ class PlaySession(BaseModel):
     rom_id: Mapped[int | None] = mapped_column(
         ForeignKey("roms.id", ondelete="SET NULL")
     )
+    sync_session_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("sync_sessions.id", ondelete="SET NULL"), default=None
+    )
     save_slot: Mapped[str | None] = mapped_column(String(255), default=None)
     start_time: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
     end_time: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
@@ -52,3 +57,4 @@ class PlaySession(BaseModel):
     user: Mapped[User] = relationship(lazy="raise", back_populates="play_sessions")
     device: Mapped[Device | None] = relationship(lazy="raise")
     rom: Mapped[Rom | None] = relationship(lazy="raise")
+    sync_session: Mapped[SyncSession | None] = relationship(lazy="raise")

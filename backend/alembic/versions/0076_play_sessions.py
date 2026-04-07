@@ -23,6 +23,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("device_id", sa.String(length=255), nullable=True),
         sa.Column("rom_id", sa.Integer(), nullable=True),
+        sa.Column("sync_session_id", sa.Integer(), nullable=True),
         sa.Column("save_slot", sa.String(length=255), nullable=True),
         sa.Column("start_time", sa.TIMESTAMP(timezone=True), nullable=False),
         sa.Column("end_time", sa.TIMESTAMP(timezone=True), nullable=False),
@@ -42,6 +43,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["device_id"], ["devices.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(
+            ["sync_session_id"], ["sync_sessions.id"], ondelete="SET NULL"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("play_sessions") as batch_op:
