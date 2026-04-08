@@ -2,6 +2,8 @@ import hashlib
 import os
 import zipfile
 
+from anyio import open_file
+
 from config import ASSETS_BASE_PATH
 from logger.logger import log
 from models.user import User
@@ -70,7 +72,7 @@ class FSAssetsHandler(FSHandler):
 
     async def _compute_file_hash(self, file_path: str) -> str:
         hash_obj = hashlib.md5(usedforsecurity=False)
-        async with await self.stream_file(file_path=file_path) as f:
+        async with await open_file(file_path, "rb") as f:
             while chunk := await f.read(8192):
                 hash_obj.update(chunk)
         return hash_obj.hexdigest()
