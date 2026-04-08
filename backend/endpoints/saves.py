@@ -508,8 +508,19 @@ async def update_save(
         await fs_asset_handler.write_file(
             file=saveFile, path=db_save.file_path, filename=db_save.file_name
         )
+        scanned_save = await scan_save(
+            file_name=db_save.file_name,
+            user=request.user,
+            platform_fs_slug=db_save.rom.platform_fs_slug,
+            rom_id=db_save.rom_id,
+            emulator=db_save.emulator,
+        )
         db_save = db_save_handler.update_save(
-            db_save.id, {"file_size_bytes": saveFile.size}
+            db_save.id,
+            {
+                "file_size_bytes": scanned_save.file_size_bytes,
+                "content_hash": scanned_save.content_hash,
+            },
         )
 
     if screenshotFile and screenshotFile.filename:
