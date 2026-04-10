@@ -90,9 +90,15 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         if_not_exists=True,
     )
-    op.create_index("ix_sync_sessions_device_id", "sync_sessions", ["device_id"])
-    op.create_index("ix_sync_sessions_user_id", "sync_sessions", ["user_id"])
-    op.create_index("ix_sync_sessions_status", "sync_sessions", ["status"])
+    op.create_index(
+        "ix_sync_sessions_device_id", "sync_sessions", ["device_id"], if_not_exists=True
+    )
+    op.create_index(
+        "ix_sync_sessions_user_id", "sync_sessions", ["user_id"], if_not_exists=True
+    )
+    op.create_index(
+        "ix_sync_sessions_status", "sync_sessions", ["status"], if_not_exists=True
+    )
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
@@ -105,7 +111,7 @@ def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_column("sync_config", if_exists=True)
 
-    op.drop_index("ix_sync_sessions_status", table_name="sync_sessions")
+    op.drop_index("ix_sync_sessions_status", table_name="sync_sessions", if_exists=True)
 
     op.drop_table("sync_sessions", if_exists=True)
 

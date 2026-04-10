@@ -37,12 +37,14 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column("path_manual", sa.Text(), nullable=True), if_not_exists=True
         )
-        batch_op.create_index("idx_roms_ss_id", ["ss_id"], unique=False)
+        batch_op.create_index(
+            "idx_roms_ss_id", ["ss_id"], unique=False, if_not_exists=True
+        )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_ss_id")
+        batch_op.drop_index("idx_roms_ss_id", if_exists=True)
         batch_op.drop_column("ss_id", if_exists=True)
         batch_op.drop_column("ss_metadata", if_exists=True)
         batch_op.drop_column("url_manual", if_exists=True)

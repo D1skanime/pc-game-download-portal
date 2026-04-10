@@ -35,7 +35,10 @@ def upgrade() -> None:
     )
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.create_index(
-            batch_op.f("ix_users_username"), ["username"], unique=True
+            batch_op.f("ix_users_username"),
+            ["username"],
+            unique=True,
+            if_not_exists=True,
         )
 
 
@@ -43,7 +46,7 @@ def downgrade() -> None:
     connection = op.get_bind()
 
     with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_users_username"))
+        batch_op.drop_index(batch_op.f("ix_users_username"), if_exists=True)
 
     op.drop_table("users", if_exists=True)
 

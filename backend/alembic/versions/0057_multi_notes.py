@@ -52,9 +52,13 @@ def upgrade() -> None:
     )
 
     # Create indexes for performance
-    op.create_index("idx_rom_notes_public", "rom_notes", ["is_public"])
-    op.create_index("idx_rom_notes_rom_user", "rom_notes", ["rom_id", "user_id"])
-    op.create_index("idx_rom_notes_title", "rom_notes", ["title"])
+    op.create_index(
+        "idx_rom_notes_public", "rom_notes", ["is_public"], if_not_exists=True
+    )
+    op.create_index(
+        "idx_rom_notes_rom_user", "rom_notes", ["rom_id", "user_id"], if_not_exists=True
+    )
+    op.create_index("idx_rom_notes_title", "rom_notes", ["title"], if_not_exists=True)
 
     # Add default values to old note columns to prevent insertion errors
     # This allows new rom_user records to be created without specifying note fields
@@ -147,8 +151,8 @@ def downgrade() -> None:
         )
 
     # These indexes were created with op.create_index for all dialects.
-    op.drop_index("idx_rom_notes_title", table_name="rom_notes")
-    op.drop_index("idx_rom_notes_rom_user", table_name="rom_notes")
-    op.drop_index("idx_rom_notes_public", table_name="rom_notes")
+    op.drop_index("idx_rom_notes_title", table_name="rom_notes", if_exists=True)
+    op.drop_index("idx_rom_notes_rom_user", table_name="rom_notes", if_exists=True)
+    op.drop_index("idx_rom_notes_public", table_name="rom_notes", if_exists=True)
 
     op.drop_table("rom_notes", if_exists=True)
