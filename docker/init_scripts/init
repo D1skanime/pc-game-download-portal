@@ -196,7 +196,8 @@ start_bin_rq_scheduler() {
 		RQ_REDIS_SSL=${REDIS_SSL:-0} \
 		rqscheduler \
 		--path /backend \
-		--pid /tmp/rq_scheduler.pid &
+		--pid /tmp/rq_scheduler.pid \
+		--logging_level "${LOGLEVEL}" &
 }
 
 # Commands to start RQ worker
@@ -219,6 +220,7 @@ start_bin_rq_worker() {
 		--pid /tmp/rq_worker.pid \
 		--url "${redis_url}" \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
+		--logging_level "${LOGLEVEL}" \
 		high default low &
 }
 
