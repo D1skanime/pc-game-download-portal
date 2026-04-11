@@ -922,7 +922,6 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    @with_details
     def get_roms_by_fs_name(
         self,
         platform_id: int,
@@ -967,36 +966,77 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def bulk_mark_present(
+        self,
+        platform_id: int,
+        rom_ids: list[int],
+        session: Session = None,  # type: ignore
+    ) -> None:
+        """Bulk set missing_from_fs=False for a list of ROM IDs."""
+        if not rom_ids:
+            return
+
+        for i in range(0, len(rom_ids), 1000):
+            chunk = rom_ids[i : i + 1000]
+            session.execute(
+                update(Rom)
+                .where(
+                    and_(
+                        Rom.platform_id == platform_id,
+                        Rom.id.in_(chunk),
+                    )
+                )
+                .values(missing_from_fs=False)
+                .execution_options(synchronize_session="evaluate")
+            )
+
+    @begin_session
     def mark_missing_roms(
         self,
         platform_id: int,
         fs_roms_to_keep: list[str],
         session: Session = None,  # type: ignore
     ) -> Sequence[Rom]:
+        # Mark ALL ROMs for this platform as missing
+        session.execute(
+            update(Rom)
+            .where(Rom.platform_id == platform_id)
+            .values(missing_from_fs=True)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+        # Un-mark ROMs that exist on filesystem (in chunks)
+        for i in range(0, len(fs_roms_to_keep), 1000):
+            chunk = fs_roms_to_keep[i : i + 1000]
+            session.execute(
+                update(Rom)
+                .where(
+                    and_(
+                        Rom.platform_id == platform_id,
+                        Rom.fs_name.in_(chunk),
+                    )
+                )
+                .values(missing_from_fs=False)
+                .execution_options(synchronize_session="evaluate")
+            )
+
+        # Return the ones that remained marked as missing (for logging)
         missing_roms = (
             session.scalars(
                 select(Rom)
+                .options(load_only(Rom.id, Rom.fs_name))
                 .order_by(Rom.fs_name.asc())
                 .where(
                     and_(
                         Rom.platform_id == platform_id,
-                        Rom.fs_name.not_in(fs_roms_to_keep),
+                        Rom.missing_from_fs.is_(True),
                     )
                 )
             )
             .unique()
             .all()
         )
-        session.execute(
-            update(Rom)
-            .where(
-                and_(
-                    Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms_to_keep)
-                )
-            )
-            .values(**{"missing_from_fs": True})
-            .execution_options(synchronize_session="evaluate")
-        )
+
         return missing_roms
 
     @begin_session
