@@ -105,31 +105,32 @@ def upgrade():
 
 
 def downgrade():
-    # Determine the FK constraint name that MariaDB assigned for saves.rom_id so we
-    # can temporarily drop it before removing the composite index it depends on.
     conn = op.get_bind()
-    fk_rows = conn.execute(
-        sa.text(
-            "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE "
-            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'saves' "
-            "AND COLUMN_NAME = 'rom_id' AND REFERENCED_TABLE_NAME IS NOT NULL"
-        )
-    ).fetchall()
+    fk_names: list[str] = []
 
-    fk_names = [row[0] for row in fk_rows]
-
-    # Drop FKs that rely on rom_id so the composite index can be removed
-    for fk_name in fk_names:
-        op.drop_constraint(fk_name, "saves", type_="foreignkey")
+    if not is_postgresql(conn):
+        # MariaDB won't let us drop an index that backs a FK constraint, so we
+        # need to temporarily drop the FK on saves.rom_id first.
+        fk_rows = conn.execute(
+            sa.text(
+                "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'saves' "
+                "AND COLUMN_NAME = 'rom_id' AND REFERENCED_TABLE_NAME IS NOT NULL"
+            )
+        ).fetchall()
+        fk_names = [row[0] for row in fk_rows]
+        for fk_name in fk_names:
+            op.drop_constraint(fk_name, "saves", type_="foreignkey")
 
     op.drop_index("ix_saves_rom_user_hash", "saves", if_exists=True)
     op.drop_index("ix_saves_slot", "saves", if_exists=True)
 
-    # Re-create the FK (MariaDB will auto-create an implicit index for it)
-    for fk_name in fk_names:
-        op.create_foreign_key(
-            fk_name, "saves", "roms", ["rom_id"], ["id"], ondelete="CASCADE"
-        )
+    if not is_postgresql(conn):
+        # Re-create the FK (MariaDB will auto-create an implicit index for it)
+        for fk_name in fk_names:
+            op.create_foreign_key(
+                fk_name, "saves", "roms", ["rom_id"], ["id"], ondelete="CASCADE"
+            )
 
     with op.batch_alter_table("saves", schema=None) as batch_op:
         batch_op.drop_column("content_hash", if_exists=True)
