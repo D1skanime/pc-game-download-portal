@@ -53,6 +53,7 @@ function onPlay() {
       allowFullScreen: true,
       autoplay: "on",
       backgroundColor: backgroundColor.value,
+      letterbox: "on",
       openUrlMode: "confirm",
       publicPath: "/assets/ruffle/",
       url: getDownloadPath({ rom: rom.value }),
