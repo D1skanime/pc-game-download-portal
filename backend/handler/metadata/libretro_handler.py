@@ -168,7 +168,7 @@ class LibretroHandler(MetadataHandler):
         )
 
         url_screenshots: list[str] = []
-        for art_type, listing in zip(extra_art_types, listings[1:]):
+        for art_type, listing in zip(extra_art_types, listings[1:], strict=False):
             if not listing:
                 continue
             extra = self._find_matching_art(fs_name, listing)
