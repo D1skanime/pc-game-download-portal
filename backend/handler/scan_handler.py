@@ -182,10 +182,12 @@ async def scan_platform(
     tgdb_platform = meta_tgdb_handler.get_platform(platform_attrs["slug"])
     flashpoint_platform = meta_flashpoint_handler.get_platform(platform_attrs["slug"])
     hltb_platform = meta_hltb_handler.get_platform(platform_attrs["slug"])
+    libretro_platform = meta_libretro_handler.get_platform(platform_attrs["slug"])
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
         {
+            **libretro_platform,
             **hltb_platform,
             **flashpoint_platform,
             **tgdb_platform,
@@ -228,6 +230,7 @@ async def scan_platform(
         or tgdb_platform["tgdb_id"]
         or flashpoint_platform["flashpoint_id"]
         or hltb_platform["hltb_slug"]
+        or libretro_platform["libretro_slug"]
     ):
         log.info(
             f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} {emoji.EMOJI_VIDEO_GAME}",

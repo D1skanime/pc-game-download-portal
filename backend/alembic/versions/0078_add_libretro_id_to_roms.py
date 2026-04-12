@@ -29,8 +29,17 @@ def upgrade() -> None:
             if_not_exists=True,
         )
 
+    with op.batch_alter_table("platforms", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("libretro_slug", sa.String(length=100), nullable=True),
+            if_not_exists=True,
+        )
+
 
 def downgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_index("idx_roms_libretro_id", if_exists=True)
         batch_op.drop_column("libretro_id", if_exists=True)
+
+    with op.batch_alter_table("platforms", schema=None) as batch_op:
+        batch_op.drop_column("libretro_slug", if_exists=True)

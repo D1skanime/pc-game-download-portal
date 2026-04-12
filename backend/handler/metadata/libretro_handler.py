@@ -1,96 +1,23 @@
 import hashlib
 import os
 import re
+from sys import platform
 from typing import Final, NotRequired, TypedDict
 
-from adapters.services.libretro_thumbnails import (
-    LIBRETRO_THUMBNAIL_ROOT,
-    LibretroThumbnailsService,
-)
+from adapters.services.libretro_thumbnails import LibretroThumbnailsService
 from adapters.services.libretro_thumbnails_types import LibretroArtType
+from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
 from logger.logger import log
 
-from .base_handler import MetadataHandler, UniversalPlatformSlug
-
-# Mapping of RomM UniversalPlatformSlug values to libretro thumbnail
-# directory names (https://thumbnails.libretro.com/).
-LIBRETRO_PLATFORM_LIST: Final[dict[UniversalPlatformSlug, str]] = {
-    UniversalPlatformSlug.ADVENTURE_VISION: "Entex - Adventure Vision",
-    UniversalPlatformSlug.AMIGA: "Commodore - Amiga",
-    UniversalPlatformSlug.AMIGA_CD32: "Commodore - Amiga",
-    UniversalPlatformSlug.ACPC: "Amstrad - CPC",
-    UniversalPlatformSlug.ATARI2600: "Atari - 2600",
-    UniversalPlatformSlug.ATARI5200: "Atari - 5200",
-    UniversalPlatformSlug.ATARI7800: "Atari - 7800",
-    UniversalPlatformSlug.ATARI_ST: "Atari - ST",
-    UniversalPlatformSlug.JAGUAR: "Atari - Jaguar",
-    UniversalPlatformSlug.LYNX: "Atari - Lynx",
-    UniversalPlatformSlug.WONDERSWAN: "Bandai - WonderSwan",
-    UniversalPlatformSlug.WONDERSWAN_COLOR: "Bandai - WonderSwan Color",
-    UniversalPlatformSlug.COLECOVISION: "Coleco - ColecoVision",
-    UniversalPlatformSlug.C64: "Commodore - 64",
-    UniversalPlatformSlug.VIC_20: "Commodore - VIC-20",
-    UniversalPlatformSlug.DOS: "DOS",
-    UniversalPlatformSlug.FAIRCHILD_CHANNEL_F: "Fairchild - Channel F",
-    UniversalPlatformSlug.VECTREX: "GCE - Vectrex",
-    UniversalPlatformSlug.ODYSSEY_2: "Magnavox - Odyssey2",
-    UniversalPlatformSlug.INTELLIVISION: "Mattel - Intellivision",
-    UniversalPlatformSlug.MSX: "Microsoft - MSX",
-    UniversalPlatformSlug.MSX2: "Microsoft - MSX2",
-    UniversalPlatformSlug.XBOX: "Microsoft - XBOX",
-    UniversalPlatformSlug.PC_8800_SERIES: "NEC - PC Engine - TurboGrafx 16",
-    UniversalPlatformSlug.PC_FX: "NEC - PC-FX",
-    UniversalPlatformSlug.PC_9800_SERIES: "NEC - PC-98",
-    UniversalPlatformSlug.SUPERGRAFX: "NEC - PC Engine SuperGrafx",
-    UniversalPlatformSlug.TG16: "NEC - PC Engine - TurboGrafx 16",
-    UniversalPlatformSlug.TURBOGRAFX_CD: "NEC - PC Engine CD - TurboGrafx-CD",
-    UniversalPlatformSlug.FDS: "Nintendo - Family Computer Disk System",
-    UniversalPlatformSlug.GB: "Nintendo - Game Boy",
-    UniversalPlatformSlug.GBA: "Nintendo - Game Boy Advance",
-    UniversalPlatformSlug.GBC: "Nintendo - Game Boy Color",
-    UniversalPlatformSlug.NGC: "Nintendo - GameCube",
-    UniversalPlatformSlug.N64: "Nintendo - Nintendo 64",
-    UniversalPlatformSlug.N64DD: "Nintendo - Nintendo 64DD",
-    UniversalPlatformSlug.N3DS: "Nintendo - Nintendo 3DS",
-    UniversalPlatformSlug.NDS: "Nintendo - Nintendo DS",
-    UniversalPlatformSlug.NES: "Nintendo - Nintendo Entertainment System",
-    UniversalPlatformSlug.FAMICOM: "Nintendo - Nintendo Entertainment System",
-    UniversalPlatformSlug.POKEMON_MINI: "Nintendo - Pokemon Mini",
-    UniversalPlatformSlug.SATELLAVIEW: "Nintendo - Satellaview",
-    UniversalPlatformSlug.SUFAMI_TURBO: "Nintendo - Sufami Turbo",
-    UniversalPlatformSlug.SNES: "Nintendo - Super Nintendo Entertainment System",
-    UniversalPlatformSlug.SFAM: "Nintendo - Super Nintendo Entertainment System",
-    UniversalPlatformSlug.VIRTUALBOY: "Nintendo - Virtual Boy",
-    UniversalPlatformSlug.WII: "Nintendo - Wii",
-    UniversalPlatformSlug.WIIU: "Nintendo - Wii U",
-    UniversalPlatformSlug.SCUMMVM: "ScummVM",
-    UniversalPlatformSlug.SEGA32: "Sega - 32X",
-    UniversalPlatformSlug.DC: "Sega - Dreamcast",
-    UniversalPlatformSlug.GAMEGEAR: "Sega - Game Gear",
-    UniversalPlatformSlug.GENESIS: "Sega - Mega Drive - Genesis",
-    UniversalPlatformSlug.SEGACD: "Sega - Mega-CD - Sega CD",
-    UniversalPlatformSlug.SMS: "Sega - Master System - Mark III",
-    UniversalPlatformSlug.SG1000: "Sega - SG-1000",
-    UniversalPlatformSlug.SATURN: "Sega - Saturn",
-    UniversalPlatformSlug.X1: "Sharp - X1",
-    UniversalPlatformSlug.SHARP_X68000: "Sharp - X68000",
-    UniversalPlatformSlug.ZX81: "Sinclair - ZX 81",
-    UniversalPlatformSlug.ZXS: "Sinclair - ZX Spectrum",
-    UniversalPlatformSlug.NEOGEOAES: "SNK - Neo Geo",
-    UniversalPlatformSlug.NEOGEOMVS: "SNK - Neo Geo",
-    UniversalPlatformSlug.NEO_GEO_CD: "SNK - Neo Geo CD",
-    UniversalPlatformSlug.NEO_GEO_POCKET: "SNK - Neo Geo Pocket",
-    UniversalPlatformSlug.NEO_GEO_POCKET_COLOR: "SNK - Neo Geo Pocket Color",
-    UniversalPlatformSlug.PSX: "Sony - PlayStation",
-    UniversalPlatformSlug.PS2: "Sony - PlayStation 2",
-    UniversalPlatformSlug.PSP: "Sony - PlayStation Portable",
-    UniversalPlatformSlug.TIC_80: "TIC-80",
-    UniversalPlatformSlug.TOMY_TUTOR: "Tomy - Tutor",
-    UniversalPlatformSlug.SUPERVISION: "Watara - Supervision",
-}
-
+from .base_handler import MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 
 _PAREN_TAG_PATTERN = re.compile(r"\([^)]*\)")
+
+
+class LibretroPlatform(TypedDict):
+    slug: str
+    libretro_slug: str | None
 
 
 class LibretroRom(TypedDict):
@@ -131,7 +58,6 @@ class LibretroHandler(MetadataHandler):
 
     @classmethod
     def is_enabled(cls) -> bool:
-        # Public server, no API key required. Always enabled.
         return True
 
     async def heartbeat(self) -> bool:
@@ -141,12 +67,13 @@ class LibretroHandler(MetadataHandler):
             log.error("Error checking libretro thumbnails: %s", exc)
             return False
 
-    def _resolve_system(self, platform_slug: str) -> str | None:
-        try:
-            ups = UniversalPlatformSlug(platform_slug)
-        except ValueError:
-            return None
-        return LIBRETRO_PLATFORM_LIST.get(ups)
+    def get_platform(self, slug: str) -> LibretroPlatform:
+        if slug in LIBRETRO_PLATFORM_LIST:
+            libretro_slug = LIBRETRO_PLATFORM_LIST[UPS(slug)]
+
+            return LibretroPlatform(slug=slug, libretro_slug=libretro_slug)
+
+        return LibretroPlatform(slug=slug, libretro_slug=None)
 
     def _find_exact_match(self, target: str, listing: list[str]) -> str | None:
         """Case-insensitive exact match on filename (extension stripped)."""
@@ -197,11 +124,13 @@ class LibretroHandler(MetadataHandler):
         omitted because libretro artwork filenames are not proper game names —
         letting them overwrite a real name from IGDB/Moby would be wrong.
         """
-        system_name = self._resolve_system(platform_slug)
-        if not system_name:
+        platform = self.get_platform(platform_slug)
+        if not platform or not platform["libretro_slug"]:
             return LibretroRom(libretro_id=None)
 
-        listing = await self.service.fetch_listing(system_name, LibretroArtType.BOX_ART)
+        listing = await self.service.fetch_listing(
+            platform["libretro_slug"], LibretroArtType.BOX_ART
+        )
         if not listing:
             return LibretroRom(libretro_id=None)
 
@@ -210,7 +139,7 @@ class LibretroHandler(MetadataHandler):
             return LibretroRom(libretro_id=None)
 
         url = LibretroThumbnailsService.build_art_url(
-            system_name, LibretroArtType.BOX_ART, matched
+            platform["libretro_slug"], LibretroArtType.BOX_ART, matched
         )
         return LibretroRom(
             libretro_id=libretro_id_for(matched),
@@ -226,11 +155,13 @@ class LibretroHandler(MetadataHandler):
         tag-stripped title matches the search term on either an exact or
         fuzzy basis.
         """
-        system_name = self._resolve_system(platform_slug)
-        if not system_name:
+        platform = self.get_platform(platform_slug)
+        if not platform or not platform["libretro_slug"]:
             return []
 
-        listing = await self.service.fetch_listing(system_name, LibretroArtType.BOX_ART)
+        listing = await self.service.fetch_listing(
+            platform["libretro_slug"], LibretroArtType.BOX_ART
+        )
         if not listing:
             return []
 
@@ -260,7 +191,7 @@ class LibretroHandler(MetadataHandler):
                 LibretroRom(
                     libretro_id=libretro_id_for(filename),
                     url_cover=LibretroThumbnailsService.build_art_url(
-                        system_name, LibretroArtType.BOX_ART, filename
+                        platform["libretro_slug"], LibretroArtType.BOX_ART, filename
                     ),
                     name=stripped,
                 )
@@ -276,9 +207,85 @@ class LibretroHandler(MetadataHandler):
                 LibretroRom(
                     libretro_id=libretro_id_for(fuzzy),
                     url_cover=LibretroThumbnailsService.build_art_url(
-                        system_name, LibretroArtType.BOX_ART, fuzzy
+                        platform["libretro_slug"], LibretroArtType.BOX_ART, fuzzy
                     ),
                     name=_strip_paren_tags(_remove_file_extension(fuzzy)),
                 )
             )
         return matches[:limit]
+
+
+LIBRETRO_PLATFORM_LIST: Final[dict[UPS, str]] = {
+    UPS.ADVENTURE_VISION: "Entex - Adventure Vision",
+    UPS.AMIGA: "Commodore - Amiga",
+    UPS.AMIGA_CD32: "Commodore - Amiga",
+    UPS.ACPC: "Amstrad - CPC",
+    UPS.ATARI2600: "Atari - 2600",
+    UPS.ATARI5200: "Atari - 5200",
+    UPS.ATARI7800: "Atari - 7800",
+    UPS.ATARI_ST: "Atari - ST",
+    UPS.JAGUAR: "Atari - Jaguar",
+    UPS.LYNX: "Atari - Lynx",
+    UPS.WONDERSWAN: "Bandai - WonderSwan",
+    UPS.WONDERSWAN_COLOR: "Bandai - WonderSwan Color",
+    UPS.COLECOVISION: "Coleco - ColecoVision",
+    UPS.C64: "Commodore - 64",
+    UPS.VIC_20: "Commodore - VIC-20",
+    UPS.DOS: "DOS",
+    UPS.FAIRCHILD_CHANNEL_F: "Fairchild - Channel F",
+    UPS.VECTREX: "GCE - Vectrex",
+    UPS.ODYSSEY_2: "Magnavox - Odyssey2",
+    UPS.INTELLIVISION: "Mattel - Intellivision",
+    UPS.MSX: "Microsoft - MSX",
+    UPS.MSX2: "Microsoft - MSX2",
+    UPS.XBOX: "Microsoft - XBOX",
+    UPS.PC_8800_SERIES: "NEC - PC Engine - TurboGrafx 16",
+    UPS.PC_FX: "NEC - PC-FX",
+    UPS.PC_9800_SERIES: "NEC - PC-98",
+    UPS.SUPERGRAFX: "NEC - PC Engine SuperGrafx",
+    UPS.TG16: "NEC - PC Engine - TurboGrafx 16",
+    UPS.TURBOGRAFX_CD: "NEC - PC Engine CD - TurboGrafx-CD",
+    UPS.FDS: "Nintendo - Family Computer Disk System",
+    UPS.GB: "Nintendo - Game Boy",
+    UPS.GBA: "Nintendo - Game Boy Advance",
+    UPS.GBC: "Nintendo - Game Boy Color",
+    UPS.NGC: "Nintendo - GameCube",
+    UPS.N64: "Nintendo - Nintendo 64",
+    UPS.N64DD: "Nintendo - Nintendo 64DD",
+    UPS.N3DS: "Nintendo - Nintendo 3DS",
+    UPS.NDS: "Nintendo - Nintendo DS",
+    UPS.NES: "Nintendo - Nintendo Entertainment System",
+    UPS.FAMICOM: "Nintendo - Nintendo Entertainment System",
+    UPS.POKEMON_MINI: "Nintendo - Pokemon Mini",
+    UPS.SATELLAVIEW: "Nintendo - Satellaview",
+    UPS.SUFAMI_TURBO: "Nintendo - Sufami Turbo",
+    UPS.SNES: "Nintendo - Super Nintendo Entertainment System",
+    UPS.SFAM: "Nintendo - Super Nintendo Entertainment System",
+    UPS.VIRTUALBOY: "Nintendo - Virtual Boy",
+    UPS.WII: "Nintendo - Wii",
+    UPS.WIIU: "Nintendo - Wii U",
+    UPS.SCUMMVM: "ScummVM",
+    UPS.SEGA32: "Sega - 32X",
+    UPS.DC: "Sega - Dreamcast",
+    UPS.GAMEGEAR: "Sega - Game Gear",
+    UPS.GENESIS: "Sega - Mega Drive - Genesis",
+    UPS.SEGACD: "Sega - Mega-CD - Sega CD",
+    UPS.SMS: "Sega - Master System - Mark III",
+    UPS.SG1000: "Sega - SG-1000",
+    UPS.SATURN: "Sega - Saturn",
+    UPS.X1: "Sharp - X1",
+    UPS.SHARP_X68000: "Sharp - X68000",
+    UPS.ZX81: "Sinclair - ZX 81",
+    UPS.ZXS: "Sinclair - ZX Spectrum",
+    UPS.NEOGEOAES: "SNK - Neo Geo",
+    UPS.NEOGEOMVS: "SNK - Neo Geo",
+    UPS.NEO_GEO_CD: "SNK - Neo Geo CD",
+    UPS.NEO_GEO_POCKET: "SNK - Neo Geo Pocket",
+    UPS.NEO_GEO_POCKET_COLOR: "SNK - Neo Geo Pocket Color",
+    UPS.PSX: "Sony - PlayStation",
+    UPS.PS2: "Sony - PlayStation 2",
+    UPS.PSP: "Sony - PlayStation Portable",
+    UPS.TIC_80: "TIC-80",
+    UPS.TOMY_TUTOR: "Tomy - Tutor",
+    UPS.SUPERVISION: "Watara - Supervision",
+}
