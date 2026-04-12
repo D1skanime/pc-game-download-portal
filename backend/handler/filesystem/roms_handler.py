@@ -450,7 +450,6 @@ class FSRomsHandler(FSHandler):
                     rom_ra_h = await RAHasherService().calculate_hash(
                         ra_platform,
                         f"{abs_fs_path}/{rom.fs_name}/*",
-                        rom.fs_extension,
                     )
 
             for f_path, file_name in iter_files(
@@ -542,7 +541,6 @@ class FSRomsHandler(FSHandler):
                     rom_ra_h = await RAHasherService().calculate_hash(
                         ra_platform,
                         f"{abs_fs_path}/{rom.fs_name}",
-                        rom.fs_extension,
                     )
 
             file_hash = FileHash(

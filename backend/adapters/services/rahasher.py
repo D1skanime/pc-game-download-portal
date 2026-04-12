@@ -94,6 +94,10 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.WONDERSWAN_COLOR: 53,
 }
 
+RA_BUFFER_HASH_UNSUPPORTED_IDS: frozenset[int] = frozenset(
+    PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups] for ups in RA_BUFFER_HASH_UNSUPPORTED
+)
+
 
 class RAHasherError(Exception): ...
 
@@ -101,29 +105,22 @@ class RAHasherError(Exception): ...
 class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
-    async def calculate_hash(
-        self, platform: RAGamesPlatform, file_path: str, file_extension: str
-    ) -> str:
+    async def calculate_hash(self, platform: RAGamesPlatform, file_path: str) -> str:
         # Skip the subprocess entirely when the file is an archive and the
         # RA platform needs an on-disk disc image. RAHasher would just spawn,
         # fail with "Unsupported console for buffer hash: {id}", and return
         # nothing — paying process-spawn overhead per ROM for no result.
-        normalized_ext = f".{file_extension.lstrip('.').lower()}"
-        if normalized_ext in COMPRESSED_FILE_EXTENSIONS:
-            unsupported_ids = {
-                PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups]
-                for ups in RA_BUFFER_HASH_UNSUPPORTED
-            }
-            if platform["ra_id"] in unsupported_ids:
+        if file_path.endswith(tuple(COMPRESSED_FILE_EXTENSIONS)):
+            if platform["ra_id"] in RA_BUFFER_HASH_UNSUPPORTED_IDS:
                 log.debug(
                     f"Skipping {hl('RAHasher', color=LIGHTMAGENTA)} for archived "
-                    f"{hl(platform['slug'], color=LIGHTMAGENTA)} file {hl(file_path.split('/')[-1])}: "
+                    f"{platform['slug']} file {hl(file_path)}: "
                     f"disc-based platforms don't support buffer hashing"
                 )
                 return ""
 
         log.debug(
-            f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(platform['slug'], color=LIGHTMAGENTA)} - file: {hl(file_path.split('/')[-1])}"
+            f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(platform['slug'], color=LIGHTMAGENTA)} - file: {hl(file_path)}"
         )
         args = (str(platform["ra_id"]), file_path)
 
