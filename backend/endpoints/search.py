@@ -96,7 +96,6 @@ async def search_rom(
     ss_matched_roms: list[SSRom] = []
     flashpoint_matched_roms: list[FlashpointRom] = []
     launchbox_matched_roms: list[LaunchboxRom] = []
-    libretro_matched_roms: list[LibretroRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -124,7 +123,6 @@ async def search_rom(
             ss_matched_roms,
             flashpoint_matched_roms,
             launchbox_matched_roms,
-            libretro_matched_roms,
         ) = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
                 search_term, get_main_platform_igdb_id(rom.platform)
@@ -139,9 +137,6 @@ async def search_rom(
                 search_term, rom.platform.slug
             ),
             meta_launchbox_handler.get_matched_roms_by_name(
-                search_term, rom.platform.slug
-            ),
-            meta_libretro_handler.get_matched_roms_by_name(
                 search_term, rom.platform.slug
             ),
         )
@@ -174,12 +169,6 @@ async def search_rom(
             "launchbox_url_cover",
         ),
         MetadataSource.SS: (ss_matched_roms, meta_ss_handler, "ss_id", "ss_url_cover"),
-        MetadataSource.LIBRETRO: (
-            libretro_matched_roms,
-            meta_libretro_handler,
-            "libretro_id",
-            "libretro_url_cover",
-        ),
     }
 
     ordered_sources = get_priority_ordered_metadata_sources(
@@ -208,8 +197,13 @@ async def search_rom(
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:
         return name, await meta_sgdb_handler.get_details_by_names([name])
 
-    sgdb_roms = await asyncio.gather(
-        *[get_sgdb_rom(name) for name in list(merged_dict.keys())]
+    async def get_libretro_rom(name: str) -> tuple[str, LibretroRom]:
+        return name, await meta_libretro_handler.get_rom(name, rom.platform.slug)
+
+    merged_names = list(merged_dict.keys())
+    sgdb_roms, libretro_roms = await asyncio.gather(
+        asyncio.gather(*[get_sgdb_rom(name) for name in merged_names]),
+        asyncio.gather(*[get_libretro_rom(name) for name in merged_names]),
     )
 
     for name, sgdb_rom in sgdb_roms:
@@ -218,6 +212,14 @@ async def search_rom(
                 **merged_dict[name],
                 "sgdb_id": sgdb_rom.get("sgdb_id", ""),
                 "sgdb_url_cover": sgdb_rom.get("url_cover", ""),
+            }
+
+    for name, libretro_rom in libretro_roms:
+        if libretro_rom["libretro_id"]:
+            merged_dict[name] = {
+                **merged_dict[name],
+                "libretro_id": libretro_rom.get("libretro_id", ""),
+                "libretro_url_cover": libretro_rom.get("url_cover", ""),
             }
 
     matched_roms: list = list(merged_dict.values())

@@ -53,13 +53,13 @@ def test_strip_paren_tags_preserves_when_no_tags():
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_system_supported_platform(handler: LibretroHandler):
+def test_get_platform_supported_platform(handler: LibretroHandler):
     # PSX is explicitly mapped to "Sony - PlayStation"
-    assert handler._resolve_system("psx") == "Sony - PlayStation"
+    assert handler.get_platform("psx")["libretro_slug"] == "Sony - PlayStation"
 
 
-def test_resolve_system_unsupported_platform(handler: LibretroHandler):
-    assert handler._resolve_system("not-a-real-platform") is None
+def test_get_platform_unsupported_platform(handler: LibretroHandler):
+    assert handler.get_platform("not-a-real-platform") is None
 
 
 def test_platform_list_uses_ups_keys():
@@ -189,41 +189,6 @@ async def test_get_rom_empty_listing_returns_empty(handler: LibretroHandler):
         result = await handler.get_rom("Whatever.iso", "psx")
 
     assert result == {"libretro_id": None}
-
-
-# ---------------------------------------------------------------------------
-# get_matched_roms_by_name (search path)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_get_matched_roms_returns_tag_stripped_name(handler: LibretroHandler):
-    with patch.object(
-        handler.service,
-        "fetch_listing",
-        AsyncMock(return_value=PSX_LISTING),
-    ):
-        results = await handler.get_matched_roms_by_name(
-            "Castlevania - Symphony of the Night", "psx"
-        )
-
-    assert len(results) == 3  # USA, Europe, Japan
-    ids = {r["libretro_id"] for r in results}
-    # Each region produces a distinct SHA1 of its own filename.
-    assert len(ids) == 3
-    for r in results:
-        # Exposed name is tag-stripped so merging by normalized name lines up
-        # with IGDB/Moby etc. in /search/roms.
-        assert r.get("name", "") == "Castlevania - Symphony of the Night"
-        assert r["libretro_id"]
-        assert len(r["libretro_id"]) == 40  # SHA1 hex
-        assert r.get("url_cover", "").startswith("https://thumbnails.libretro.com/")
-
-
-@pytest.mark.asyncio
-async def test_get_matched_roms_unsupported_platform_empty(handler: LibretroHandler):
-    results = await handler.get_matched_roms_by_name("Foo", "not-a-real-platform")
-    assert results == []
 
 
 # ---------------------------------------------------------------------------

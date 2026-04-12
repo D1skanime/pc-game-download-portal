@@ -846,7 +846,26 @@ async def scan_rom(
 
     sgdb_hander_rom = await fetch_sgdb_details()
     if sgdb_hander_rom.get("sgdb_id"):
-        rom_attrs.update({**sgdb_hander_rom})
+        rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
+
+        # Apply SGDB's cover only when it outranks every other source that
+        # already produced one under SCAN_ARTWORK_PRIORITY, and never over a
+        # manually uploaded cover preserved by the UNMATCHED/UPDATE block above.
+        sgdb_cover = sgdb_hander_rom.get("url_cover")
+        manual_cover_preserved = (
+            not newly_added
+            and scan_type in (ScanType.UNMATCHED, ScanType.UPDATE)
+            and rom.path_cover_s
+        )
+        if sgdb_cover and not manual_cover_preserved:
+            cover_sources = [
+                name for name, h in metadata_handlers.items() if h.get("url_cover")
+            ]
+            ranked = get_priority_ordered_metadata_sources(
+                cover_sources + [MetadataSource.SGDB], "artwork"
+            )
+            if ranked[0] == MetadataSource.SGDB:
+                rom_attrs["url_cover"] = sgdb_cover
 
     log.info(
         f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
