@@ -997,47 +997,48 @@ class DBRomsHandler(DBBaseHandler):
         fs_roms_to_keep: list[str],
         session: Session = None,  # type: ignore
     ) -> Sequence[Rom]:
-        # Mark ALL ROMs for this platform as missing
-        session.execute(
-            update(Rom)
-            .where(Rom.platform_id == platform_id)
-            .values(missing_from_fs=True)
-            .execution_options(synchronize_session="evaluate")
-        )
+        """Sync `missing_from_fs` for a platform against the keep-list.
 
-        # Un-mark ROMs that exist on filesystem (in chunks)
-        for i in range(0, len(fs_roms_to_keep), 1000):
-            chunk = fs_roms_to_keep[i : i + 1000]
-            session.execute(
-                update(Rom)
-                .where(
-                    and_(
-                        Rom.platform_id == platform_id,
-                        Rom.fs_name.in_(chunk),
-                    )
-                )
-                .values(missing_from_fs=False)
-                .execution_options(synchronize_session="evaluate")
+        Reads the rows once and writes only those whose state actually
+        changes, so a re-scan of an unchanged platform issues no updates.
+        """
+        keep_set = set(fs_roms_to_keep)
+        rows = session.execute(
+            select(Rom.id, Rom.fs_name, Rom.missing_from_fs).where(
+                Rom.platform_id == platform_id
             )
+        ).all()
 
-        # Return the ones that remained marked as missing (for logging)
-        missing_roms = (
+        flips: dict[bool, list[int]] = {True: [], False: []}
+        for rom_id, fs_name, was_missing in rows:
+            is_missing = fs_name not in keep_set
+            if is_missing != was_missing:
+                flips[is_missing].append(rom_id)
+
+        for desired, ids in flips.items():
+            for i in range(0, len(ids), 1000):
+                session.execute(
+                    update(Rom)
+                    .where(Rom.id.in_(ids[i : i + 1000]))
+                    .values(missing_from_fs=desired)
+                    .execution_options(synchronize_session="evaluate")
+                )
+
+        return (
             session.scalars(
                 select(Rom)
                 .options(load_only(Rom.id, Rom.fs_name))
-                .order_by(Rom.fs_name.asc())
                 .where(
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.missing_from_fs.is_(True),
                     )
                 )
+                .order_by(Rom.fs_name.asc())
             )
             .unique()
             .all()
         )
-
-        return missing_roms
 
     @begin_session
     def add_rom_user(

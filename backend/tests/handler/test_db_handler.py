@@ -451,7 +451,7 @@ def test_mark_missing_roms_small_platform(platform: Platform):
             fs_path=f"{platform.slug}/roms",
         )
     )
-    rom_c = db_rom_handler.add_rom(
+    db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
             name="rom_c",
@@ -594,7 +594,7 @@ def test_mark_missing_roms_does_not_affect_other_platforms(platform: Platform):
         )
     )
 
-    rom_on_target = db_rom_handler.add_rom(
+    db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
             name="target_rom",
