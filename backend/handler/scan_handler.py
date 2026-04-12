@@ -4,7 +4,6 @@ from typing import Any
 
 import socketio  # type: ignore
 
-from config import ASSETS_BASE_PATH
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
@@ -17,6 +16,7 @@ from handler.metadata import (
     meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
+    meta_libretro_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
@@ -31,6 +31,7 @@ from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST, HLTBRom
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
 from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom
+from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST, LibretroRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
 from handler.metadata.playmatch_handler import PlaymatchRomMatch
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAGameRom
@@ -72,6 +73,7 @@ class MetadataSource(enum.StrEnum):
     FLASHPOINT = "flashpoint"  # Flashpoint Project
     HLTB = "hltb"  # HowLongToBeat
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
+    LIBRETRO = "libretro"  # Libretro thumbnails
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -180,10 +182,12 @@ async def scan_platform(
     tgdb_platform = meta_tgdb_handler.get_platform(platform_attrs["slug"])
     flashpoint_platform = meta_flashpoint_handler.get_platform(platform_attrs["slug"])
     hltb_platform = meta_hltb_handler.get_platform(platform_attrs["slug"])
+    libretro_platform = meta_libretro_handler.get_platform(platform_attrs["slug"])
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
         {
+            **libretro_platform,
             **hltb_platform,
             **flashpoint_platform,
             **tgdb_platform,
@@ -199,6 +203,7 @@ async def scan_platform(
             "ra_id": ra_platform.get("ra_id") or hasheous_platform.get("ra_id") or None,
             "tgdb_id": moby_platform.get("tgdb_id")
             or hasheous_platform.get("tgdb_id")
+            or tgdb_platform.get("tgdb_id")
             or None,
             "name": igdb_platform.get("name")
             or ss_platform.get("name")
@@ -226,6 +231,7 @@ async def scan_platform(
         or tgdb_platform["tgdb_id"]
         or flashpoint_platform["flashpoint_id"]
         or hltb_platform["hltb_slug"]
+        or libretro_platform["libretro_slug"]
     ):
         log.info(
             f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} {emoji.EMOJI_VIDEO_GAME}",
@@ -349,6 +355,7 @@ async def scan_rom(
                 "gamelist_id": rom.gamelist_id,
                 "flashpoint_id": rom.flashpoint_id,
                 "hltb_id": rom.hltb_id,
+                "libretro_id": rom.libretro_id,
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
                 "ss_metadata": rom.ss_metadata,
@@ -510,6 +517,23 @@ async def scan_rom(
                 )
 
         return FlashpointRom(flashpoint_id=None)
+
+    async def fetch_libretro_rom() -> LibretroRom:
+        if (
+            MetadataSource.LIBRETRO in metadata_sources
+            and platform.slug in LIBRETRO_PLATFORM_LIST
+            and (
+                newly_added
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.UPDATE and rom.libretro_id)
+                or (scan_type == ScanType.UNMATCHED and not rom.libretro_id)
+            )
+        ):
+            return await meta_libretro_handler.get_rom(
+                rom_attrs["fs_name"], platform.slug
+            )
+
+        return LibretroRom(libretro_id=None)
 
     async def fetch_hltb_rom() -> HLTBRom:
         if (
@@ -690,6 +714,7 @@ async def scan_rom(
         flashpoint_handler_rom,
         hltb_handler_rom,
         gamelist_handler_rom,
+        libretro_handler_rom,
     ) = await asyncio.gather(
         fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
         fetch_moby_rom(),
@@ -700,6 +725,7 @@ async def scan_rom(
         fetch_flashpoint_rom(),
         fetch_hltb_rom(),
         fetch_gamelist_rom(),
+        fetch_libretro_rom(),
     )
 
     metadata_handlers = {
@@ -712,6 +738,7 @@ async def scan_rom(
         MetadataSource.FLASHPOINT: flashpoint_handler_rom,
         MetadataSource.HLTB: hltb_handler_rom,
         MetadataSource.GAMELIST: gamelist_handler_rom,
+        MetadataSource.LIBRETRO: libretro_handler_rom,
     }
 
     # Determine which metadata sources are available
@@ -820,7 +847,26 @@ async def scan_rom(
 
     sgdb_hander_rom = await fetch_sgdb_details()
     if sgdb_hander_rom.get("sgdb_id"):
-        rom_attrs.update({**sgdb_hander_rom})
+        rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
+
+        # Apply SGDB's cover only when it outranks every other source that
+        # already produced one under SCAN_ARTWORK_PRIORITY, and never over a
+        # manually uploaded cover preserved by the UNMATCHED/UPDATE block above.
+        sgdb_cover = sgdb_hander_rom.get("url_cover")
+        manual_cover_preserved = (
+            not newly_added
+            and scan_type in (ScanType.UNMATCHED, ScanType.UPDATE)
+            and rom.path_cover_s
+        )
+        if sgdb_cover and not manual_cover_preserved:
+            cover_sources = [
+                name for name, h in metadata_handlers.items() if h.get("url_cover")
+            ]
+            ranked = get_priority_ordered_metadata_sources(
+                cover_sources + [MetadataSource.SGDB], "artwork"
+            )
+            if ranked[0] == MetadataSource.SGDB:
+                rom_attrs["url_cover"] = sgdb_cover
 
     log.info(
         f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
@@ -852,9 +898,7 @@ async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False
     }
 
     if should_hash:
-        result["content_hash"] = await fs_asset_handler.compute_content_hash(
-            f"{ASSETS_BASE_PATH}/{file_path}"
-        )
+        result["content_hash"] = await fs_asset_handler.compute_content_hash(file_path)
 
     return result
 
