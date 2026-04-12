@@ -26,7 +26,7 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from utils.archive_7zip import process_file_7z
-from utils.filesystem import iter_files
+from utils.filesystem import COMPRESSED_FILE_EXTENSIONS, iter_files
 from utils.hashing import crc32_to_hex
 
 from .base_handler import (
@@ -46,17 +46,6 @@ COMPRESSED_MIME_TYPES: Final = frozenset(
         "application/x-gzip",
         "application/x-tar",
         "application/zip",
-    )
-)
-
-# Known file extensions that are compressed
-COMPRESSED_FILE_EXTENSIONS = frozenset(
-    (
-        ".7z",
-        ".bz2",
-        ".gz",
-        ".tar",
-        ".zip",
     )
 )
 

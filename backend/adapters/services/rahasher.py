@@ -1,12 +1,36 @@
 import asyncio
+import os
 import re
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
+
+# Platforms whose hash algorithm requires an on-disk disc image
+# (ISO9660/bin+cue/CHD). When the source file is an archive, RAHasher falls
+# back to "buffer hash" mode which these consoles don't support, failing
+# with "Unsupported console for buffer hash: <id>" after paying a full
+# subprocess spawn.
+RA_BUFFER_HASH_UNSUPPORTED: frozenset[UPS] = frozenset(
+    {
+        UPS.SEGACD,
+        UPS.PSX,
+        UPS.PS2,
+        UPS.SATURN,
+        UPS.DC,
+        UPS.PSP,
+        UPS._3DO,
+        UPS.PC_FX,
+        UPS.NEO_GEO_CD,
+        UPS.TURBOGRAFX_CD,
+        UPS.ATARI_JAGUAR_CD,
+        UPS.WII,
+    }
+)
 
 PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS._3DO: 43,
@@ -79,6 +103,24 @@ class RAHasherService:
 
     async def calculate_hash(self, platform_id: int, file_path: str) -> str:
         from handler.metadata.ra_handler import RA_ID_TO_SLUG
+
+        # Skip the subprocess entirely when the file is an archive and the
+        # RA platform needs an on-disk disc image. RAHasher would just spawn,
+        # fail with "Unsupported console for buffer hash: {id}", and return
+        # nothing — paying process-spawn overhead per ROM for no result.
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext in COMPRESSED_FILE_EXTENSIONS:
+            unsupported_ids = {
+                PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups]
+                for ups in RA_BUFFER_HASH_UNSUPPORTED
+            }
+            if platform_id in unsupported_ids:
+                log.debug(
+                    f"Skipping {hl('RAHasher', color=LIGHTMAGENTA)} for archived "
+                    f"{hl(RA_ID_TO_SLUG[platform_id])} file {hl(file_path.split('/')[-1])}: "
+                    f"disc-based platforms don't support buffer hashing"
+                )
+                return ""
 
         log.debug(
             f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(RA_ID_TO_SLUG[platform_id])} - file: {hl(file_path.split('/')[-1])}"

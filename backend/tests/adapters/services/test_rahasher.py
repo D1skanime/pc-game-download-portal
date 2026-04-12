@@ -4,10 +4,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from adapters.services.rahasher import (
+    PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID,
+    RA_BUFFER_HASH_UNSUPPORTED,
     RAHASHER_VALID_HASH_REGEX,
     RAHasherError,
     RAHasherService,
 )
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 
 
 class TestRAHasherValidHashRegex:
@@ -229,6 +232,101 @@ class TestRAHasherService:
                 result = await service.calculate_hash(7, "/path/to/game.nes")
 
         assert result == ""
+
+
+class TestRAHasherArchiveSkip:
+    """Verify RAHasher is skipped when an archive is fed to a disc-based platform."""
+
+    @pytest.fixture
+    def service(self):
+        return RAHasherService()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "ups,ext",
+        [
+            (UPS.PSP, ".zip"),
+            (UPS.PS2, ".7z"),
+            (UPS.PSX, ".tar"),
+            (UPS.SATURN, ".gz"),
+            (UPS.DC, ".bz2"),
+            (UPS.WII, ".rar"),
+        ],
+    )
+    async def test_skips_subprocess_for_archive_on_disc_platform(
+        self, service, ups, ext
+    ):
+        """No subprocess should be spawned; calculate_hash returns '' immediately."""
+        assert ups in RA_BUFFER_HASH_UNSUPPORTED
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[ups]
+
+        with (
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+            patch(
+                "handler.metadata.ra_handler.RA_ID_TO_SLUG",
+                {platform_id: "disc-platform"},
+            ),
+        ):
+            result = await service.calculate_hash(platform_id, f"/path/to/game{ext}")
+
+        assert result == ""
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_skips_subprocess_case_insensitive_extension(self, service):
+        """Extension match is case-insensitive (.ZIP, .Zip, etc.)."""
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
+        with (
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+            patch("handler.metadata.ra_handler.RA_ID_TO_SLUG", {platform_id: "psp"}),
+        ):
+            result = await service.calculate_hash(platform_id, "/path/to/GAME.ZIP")
+
+        assert result == ""
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_does_not_skip_archive_for_cartridge_platform(self, service):
+        """Cartridge platforms (e.g. NES) support buffer hash; don't skip."""
+        assert UPS.NES not in RA_BUFFER_HASH_UNSUPPORTED
+        nes_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.NES]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+            patch("handler.metadata.ra_handler.RA_ID_TO_SLUG", {nes_id: "nes"}),
+        ):
+            result = await service.calculate_hash(nes_id, "/path/to/game.zip")
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_subprocess.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_does_not_skip_raw_iso_for_disc_platform(self, service):
+        """Raw disc images must still go through RAHasher for disc platforms."""
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSP]
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with (
+            patch(
+                "asyncio.create_subprocess_exec", return_value=mock_proc
+            ) as mock_subprocess,
+            patch("handler.metadata.ra_handler.RA_ID_TO_SLUG", {platform_id: "psp"}),
+        ):
+            result = await service.calculate_hash(platform_id, "/path/to/game.iso")
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_subprocess.assert_called_once()
 
 
 class TestRAHasherError:
