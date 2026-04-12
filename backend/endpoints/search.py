@@ -11,6 +11,7 @@ from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
+    meta_libretro_handler,
     meta_moby_handler,
     meta_sgdb_handler,
     meta_ss_handler,
@@ -18,6 +19,7 @@ from handler.metadata import (
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler.types import LaunchboxRom
+from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
@@ -94,6 +96,7 @@ async def search_rom(
     ss_matched_roms: list[SSRom] = []
     flashpoint_matched_roms: list[FlashpointRom] = []
     launchbox_matched_roms: list[LaunchboxRom] = []
+    libretro_matched_roms: list[LibretroRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -121,6 +124,7 @@ async def search_rom(
             ss_matched_roms,
             flashpoint_matched_roms,
             launchbox_matched_roms,
+            libretro_matched_roms,
         ) = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
                 search_term, get_main_platform_igdb_id(rom.platform)
@@ -135,6 +139,9 @@ async def search_rom(
                 search_term, rom.platform.slug
             ),
             meta_launchbox_handler.get_matched_roms_by_name(
+                search_term, rom.platform.slug
+            ),
+            meta_libretro_handler.get_matched_roms_by_name(
                 search_term, rom.platform.slug
             ),
         )
@@ -167,6 +174,12 @@ async def search_rom(
             "launchbox_url_cover",
         ),
         MetadataSource.SS: (ss_matched_roms, meta_ss_handler, "ss_id", "ss_url_cover"),
+        MetadataSource.LIBRETRO: (
+            libretro_matched_roms,
+            meta_libretro_handler,
+            "libretro_id",
+            "libretro_url_cover",
+        ),
     }
 
     ordered_sources = get_priority_ordered_metadata_sources(

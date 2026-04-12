@@ -1,0 +1,261 @@
+"""Tests for the libretro thumbnails metadata handler."""
+
+import hashlib
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from adapters.services.libretro_thumbnails import LibretroThumbnailsService
+from adapters.services.libretro_thumbnails_types import LibretroArtType
+from handler.metadata.libretro_handler import (
+    LIBRETRO_PLATFORM_LIST,
+    LibretroHandler,
+    _strip_paren_tags,
+    libretro_id_for,
+)
+
+# Sample directory listing for Sony - PlayStation
+PSX_LISTING = [
+    "Castlevania - Symphony of the Night (USA).png",
+    "Castlevania - Symphony of the Night (Europe).png",
+    "Castlevania - Symphony of the Night (Japan).png",
+    "Final Fantasy VII (USA).png",
+    "Final Fantasy VII (Europe).png",
+    "Metal Gear Solid (USA).png",
+    "Sonic _ Knuckles Collection (USA).png",
+]
+
+
+@pytest.fixture
+def handler() -> LibretroHandler:
+    return LibretroHandler()
+
+
+# ---------------------------------------------------------------------------
+# Pure utilities
+# ---------------------------------------------------------------------------
+
+
+def test_strip_paren_tags_removes_single_tag():
+    assert _strip_paren_tags("Foo (USA)") == "Foo"
+
+
+def test_strip_paren_tags_removes_multiple_tags():
+    assert _strip_paren_tags("Foo (USA) (Rev 1)") == "Foo"
+
+
+def test_strip_paren_tags_preserves_when_no_tags():
+    assert _strip_paren_tags("Foo") == "Foo"
+
+
+# ---------------------------------------------------------------------------
+# Platform resolution
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_system_supported_platform(handler: LibretroHandler):
+    # PSX is explicitly mapped to "Sony - PlayStation"
+    assert handler._resolve_system("psx") == "Sony - PlayStation"
+
+
+def test_resolve_system_unsupported_platform(handler: LibretroHandler):
+    assert handler._resolve_system("not-a-real-platform") is None
+
+
+def test_platform_list_uses_ups_keys():
+    """Every entry in LIBRETRO_PLATFORM_LIST should be a UniversalPlatformSlug."""
+    from handler.metadata.base_handler import UniversalPlatformSlug
+
+    for key in LIBRETRO_PLATFORM_LIST.keys():
+        assert isinstance(key, UniversalPlatformSlug)
+
+
+# ---------------------------------------------------------------------------
+# Matching logic
+# ---------------------------------------------------------------------------
+
+
+def test_find_matching_art_exact_case_insensitive(handler: LibretroHandler):
+    # The match should prefer the exact case-insensitive filename — region tag
+    # included — so a PAL ROM lands on the (Europe) artwork.
+    result = handler._find_matching_art(
+        "Castlevania - Symphony of the Night (Europe).iso", PSX_LISTING
+    )
+    assert result == "Castlevania - Symphony of the Night (Europe).png"
+
+
+def test_find_matching_art_different_case(handler: LibretroHandler):
+    result = handler._find_matching_art(
+        "CASTLEVANIA - SYMPHONY OF THE NIGHT (USA).bin", PSX_LISTING
+    )
+    assert result == "Castlevania - Symphony of the Night (USA).png"
+
+
+def test_find_matching_art_ampersand_normalized(handler: LibretroHandler):
+    # Libretro filenames replace `&` with `_`; ROM filename uses `&`.
+    result = handler._find_matching_art(
+        "Sonic & Knuckles Collection (USA).iso", PSX_LISTING
+    )
+    assert result == "Sonic _ Knuckles Collection (USA).png"
+
+
+def test_find_matching_art_fuzzy_fallback(handler: LibretroHandler):
+    # No exact match — ROM has an extra `(Rev 1)` tag that libretro doesn't
+    # index. Fuzzy fallback strips tags from both sides; the Europe variant
+    # is the first tag-stripped candidate and wins.
+    result = handler._find_matching_art(
+        "Castlevania - Symphony of the Night (Europe) (Rev 1).iso", PSX_LISTING
+    )
+    assert result is not None
+    assert result.startswith("Castlevania - Symphony of the Night")
+
+
+def test_find_matching_art_no_match(handler: LibretroHandler):
+    result = handler._find_matching_art(
+        "Completely Made Up Game Title XYZ.iso", PSX_LISTING
+    )
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# get_rom (scan path)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_rom_unsupported_platform_returns_empty(handler: LibretroHandler):
+    result = await handler.get_rom("whatever.iso", "not-a-real-platform")
+    assert result == {"libretro_id": None}
+
+
+@pytest.mark.asyncio
+async def test_get_rom_matched_returns_cover_url(handler: LibretroHandler):
+    with patch.object(
+        handler.service,
+        "fetch_listing",
+        AsyncMock(return_value=PSX_LISTING),
+    ) as mock_fetch:
+        result = await handler.get_rom(
+            "Castlevania - Symphony of the Night (Europe).iso", "psx"
+        )
+
+    mock_fetch.assert_awaited_once()
+    # libretro_id is the SHA1 hex of the matched libretro filename
+    expected_id = libretro_id_for("Castlevania - Symphony of the Night (Europe).png")
+    assert result["libretro_id"]
+    assert result["libretro_id"] == expected_id
+    assert len(result["libretro_id"]) == 40  # SHA1 hex
+    assert result.get("url_cover", "").startswith("https://thumbnails.libretro.com/")
+    assert "Sony%20-%20PlayStation" in result.get("url_cover", "")
+    assert "Named_Boxarts" in result.get("url_cover", "")
+    assert "Europe" in result.get("url_cover", "")
+    # Scan path intentionally does not populate `name` so it doesn't
+    # overwrite a real IGDB name.
+    assert "name" not in result
+
+
+def test_libretro_id_for_is_deterministic():
+    f = "Castlevania - Symphony of the Night (Europe).png"
+    assert libretro_id_for(f) == libretro_id_for(f)
+    # Sanity-check the algorithm so the ID is stable across releases.
+    assert libretro_id_for(f) == hashlib.sha1(f.encode("utf-8")).hexdigest()
+
+
+def test_libretro_id_for_distinguishes_regions():
+    assert libretro_id_for(
+        "Castlevania - Symphony of the Night (USA).png"
+    ) != libretro_id_for("Castlevania - Symphony of the Night (Europe).png")
+
+
+@pytest.mark.asyncio
+async def test_get_rom_no_match_returns_empty(handler: LibretroHandler):
+    with patch.object(
+        handler.service,
+        "fetch_listing",
+        AsyncMock(return_value=PSX_LISTING),
+    ):
+        result = await handler.get_rom("Totally Unknown Title.iso", "psx")
+
+    assert result == {"libretro_id": None}
+
+
+@pytest.mark.asyncio
+async def test_get_rom_empty_listing_returns_empty(handler: LibretroHandler):
+    with patch.object(
+        handler.service,
+        "fetch_listing",
+        AsyncMock(return_value=[]),
+    ):
+        result = await handler.get_rom("Whatever.iso", "psx")
+
+    assert result == {"libretro_id": None}
+
+
+# ---------------------------------------------------------------------------
+# get_matched_roms_by_name (search path)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_matched_roms_returns_tag_stripped_name(handler: LibretroHandler):
+    with patch.object(
+        handler.service,
+        "fetch_listing",
+        AsyncMock(return_value=PSX_LISTING),
+    ):
+        results = await handler.get_matched_roms_by_name(
+            "Castlevania - Symphony of the Night", "psx"
+        )
+
+    assert len(results) == 3  # USA, Europe, Japan
+    ids = {r["libretro_id"] for r in results}
+    # Each region produces a distinct SHA1 of its own filename.
+    assert len(ids) == 3
+    for r in results:
+        # Exposed name is tag-stripped so merging by normalized name lines up
+        # with IGDB/Moby etc. in /search/roms.
+        assert r.get("name", "") == "Castlevania - Symphony of the Night"
+        assert r["libretro_id"]
+        assert len(r["libretro_id"]) == 40  # SHA1 hex
+        assert r.get("url_cover", "").startswith("https://thumbnails.libretro.com/")
+
+
+@pytest.mark.asyncio
+async def test_get_matched_roms_unsupported_platform_empty(handler: LibretroHandler):
+    results = await handler.get_matched_roms_by_name("Foo", "not-a-real-platform")
+    assert results == []
+
+
+# ---------------------------------------------------------------------------
+# LibretroThumbnailsService helpers
+# ---------------------------------------------------------------------------
+
+
+def test_build_art_url_encodes_spaces_and_special_chars():
+    url = LibretroThumbnailsService.build_art_url(
+        "Sony - PlayStation",
+        LibretroArtType.BOX_ART,
+        "Castlevania - Symphony of the Night (Europe).png",
+    )
+    assert url.startswith("https://thumbnails.libretro.com/")
+    assert "Sony%20-%20PlayStation" in url
+    assert "Named_Boxarts" in url
+    # Filename-level encoding is strict (space → %20, paren encoded).
+    assert "Castlevania%20-%20Symphony%20of%20the%20Night" in url
+
+
+def test_art_type_values():
+    assert LibretroArtType.BOX_ART.value == "Named_Boxarts"
+    assert LibretroArtType.TITLE_SCREEN.value == "Named_Titles"
+    assert LibretroArtType.LOGO.value == "Named_Logos"
+    assert LibretroArtType.SCREENSHOT.value == "Named_Snaps"
+
+
+# ---------------------------------------------------------------------------
+# Handler basics
+# ---------------------------------------------------------------------------
+
+
+def test_is_enabled_always_true():
+    # No API key required — public server.
+    assert LibretroHandler.is_enabled() is True

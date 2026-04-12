@@ -342,6 +342,7 @@ class ConfigManager:
                     "igdb",
                     "moby",
                     "ss",
+                    "libretro",
                     "ra",
                     "launchbox",
                     "gamelist",
