@@ -18,11 +18,8 @@
 const path = require("path");
 const fs = require("fs");
 
-// Resolve RomPatcher.js from the frontend node_modules
-const ROM_PATCHER_BASE = path.resolve(
-  __dirname,
-  "../../frontend/node_modules/rom-patcher/rom-patcher-js"
-);
+// Resolve RomPatcher.js from the sibling node_modules (installed via package.json here).
+const ROM_PATCHER_BASE = path.resolve(__dirname, "rom-patcher-js");
 
 // Load the library (sets globals that RomPatcher.js expects)
 require(path.join(ROM_PATCHER_BASE, "modules", "BinFile.js"));
@@ -85,10 +82,21 @@ try {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  fs.writeFileSync(outputPath, Buffer.from(data.buffer, data.byteOffset, data.byteLength));
-  console.log(JSON.stringify({ success: true, output: outputPath, size: data.byteLength }));
+  fs.writeFileSync(
+    outputPath,
+    Buffer.from(data.buffer, data.byteOffset, data.byteLength),
+  );
+  console.log(
+    JSON.stringify({
+      success: true,
+      output: outputPath,
+      size: data.byteLength,
+    }),
+  );
   process.exit(0);
 } catch (err) {
-  console.error(JSON.stringify({ success: false, error: err.message || String(err) }));
+  console.error(
+    JSON.stringify({ success: false, error: err.message || String(err) }),
+  );
   process.exit(2);
 }
