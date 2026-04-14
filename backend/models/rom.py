@@ -64,6 +64,8 @@ class SiblingRom(BaseModel):
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
+    __table_args__ = (Index("idx_rom_files_rom_id", "rom_id"),)
+
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     file_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
