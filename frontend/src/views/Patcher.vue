@@ -3,7 +3,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type { RomFileSchema, SimpleRomSchema } from "@/__generated__";
+import type { RomFileSchema } from "@/__generated__";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import api from "@/services/api";
@@ -11,6 +11,7 @@ import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
@@ -21,6 +22,8 @@ const emitter = inject<Emitter<Events>>("emitter");
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
 const heartbeat = storeHeartbeat();
+const romsStore = storeRoms();
+const { currentRom } = storeToRefs(romsStore);
 const scanningStore = storeScanning();
 const uploadStore = storeUpload();
 
@@ -36,10 +39,6 @@ const supportedPatchExtensions = [
   ".vcdiff",
 ];
 
-const SEARCH_DEBOUNCE_MS = 300;
-const SEARCH_MIN_CHARS = 2;
-const SEARCH_LIMIT = 30;
-
 function getExt(name: string) {
   const match = name.match(/\.[^.]+$/);
   return match ? match[0].toLowerCase() : "";
@@ -52,32 +51,23 @@ function isPatchFile(file: RomFileSchema) {
   );
 }
 
-// Base ROM state
-const romSearchResults = ref<SimpleRomSchema[]>([]);
-const loadingRoms = ref(false);
-const selectedRom = ref<SimpleRomSchema | null>(null);
 const selectedRomFile = ref<RomFileSchema | null>(null);
-
-// Patch state
-const patchSearchResults = ref<SimpleRomSchema[]>([]);
-const loadingPatches = ref(false);
-const selectedPatchRom = ref<SimpleRomSchema | null>(null);
 const selectedPatchFile = ref<RomFileSchema | null>(null);
 
-// Output options
 const downloadLocally = ref(true);
 const saveIntoRomM = ref(false);
 const selectedPlatform = ref<Platform | null>(null);
 const customFileName = ref("");
 
-// Request state
 const applying = ref(false);
 const loadError = ref<string | null>(null);
 const statusMessage = ref<string | null>(null);
 
-const baseFiles = computed(() => selectedRom.value?.files ?? []);
+const baseFiles = computed(() =>
+  (currentRom.value?.files ?? []).filter((f) => f.category === "game"),
+);
 const patchFiles = computed(() =>
-  (selectedPatchRom.value?.files ?? []).filter(isPatchFile),
+  (currentRom.value?.files ?? []).filter(isPatchFile),
 );
 
 const romExtension = computed(() =>
@@ -93,69 +83,21 @@ const filenamePlaceholder = computed(() => {
   return "";
 });
 
-let romSearchTimer: ReturnType<typeof setTimeout> | null = null;
-let patchSearchTimer: ReturnType<typeof setTimeout> | null = null;
-
-async function runSearch(term: string, forPatch: boolean) {
-  const loading = forPatch ? loadingPatches : loadingRoms;
-  const results = forPatch ? patchSearchResults : romSearchResults;
-  loading.value = true;
-  try {
-    const { data } = await romApi.getRoms({
-      searchTerm: term,
-      limit: SEARCH_LIMIT,
-      orderBy: "name",
-    });
-    results.value = data.items ?? [];
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    loadError.value = message;
-  } finally {
-    loading.value = false;
-  }
-}
-
-function onRomSearch(term: string) {
-  if (romSearchTimer) clearTimeout(romSearchTimer);
-  if (!term || term.length < SEARCH_MIN_CHARS) {
-    romSearchResults.value = [];
-    return;
-  }
-  romSearchTimer = setTimeout(() => runSearch(term, false), SEARCH_DEBOUNCE_MS);
-}
-
-function onPatchSearch(term: string) {
-  if (patchSearchTimer) clearTimeout(patchSearchTimer);
-  if (!term || term.length < SEARCH_MIN_CHARS) {
-    patchSearchResults.value = [];
-    return;
-  }
-  patchSearchTimer = setTimeout(
-    () => runSearch(term, true),
-    SEARCH_DEBOUNCE_MS,
-  );
-}
-
-watch(selectedRom, (rom) => {
-  selectedRomFile.value = null;
-  if (!rom) return;
-  const files = rom.files ?? [];
-  const nonPatch = files.filter((f) => !isPatchFile(f));
-  if (nonPatch.length === 1) {
-    selectedRomFile.value = nonPatch[0];
-  } else if (files.length === 1) {
-    selectedRomFile.value = files[0];
-  }
-});
-
-watch(selectedPatchRom, (rom) => {
-  selectedPatchFile.value = null;
-  if (!rom) return;
-  const patches = (rom.files ?? []).filter(isPatchFile);
-  if (patches.length === 1) {
-    selectedPatchFile.value = patches[0];
-  }
-});
+watch(
+  currentRom,
+  (rom) => {
+    selectedRomFile.value = null;
+    selectedPatchFile.value = null;
+    if (!rom) return;
+    if (baseFiles.value.length === 1) {
+      selectedRomFile.value = baseFiles.value[0];
+    }
+    if (patchFiles.value.length === 1) {
+      selectedPatchFile.value = patchFiles.value[0];
+    }
+  },
+  { immediate: true },
+);
 
 async function readErrorDetail(err: unknown): Promise<string> {
   const anyErr = err as {
@@ -347,53 +289,38 @@ async function uploadPatchedFile(file: File, platformId: number) {
                 <div class="text-subtitle-1 mb-3">
                   {{ t("patcher.rom-file") }}
                 </div>
-                <v-autocomplete
-                  v-model="selectedRom"
-                  :items="romSearchResults"
-                  :loading="loadingRoms"
-                  :label="t('patcher.search-rom-library')"
-                  :no-data-text="t('patcher.start-typing')"
-                  item-title="name"
-                  return-object
-                  prepend-inner-icon="mdi-magnify"
-                  variant="outlined"
-                  density="comfortable"
-                  hide-details
-                  clearable
-                  no-filter
-                  @update:search="onRomSearch"
+
+                <div
+                  v-if="currentRom"
+                  class="d-flex align-center flex-wrap mb-3"
                 >
-                  <template #item="{ props, item }">
-                    <v-list-item
-                      v-bind="props"
-                      class="py-2"
-                      :title="item.raw.name ?? item.raw.fs_name"
-                      :subtitle="item.raw.fs_name"
-                    >
-                      <template #prepend>
-                        <PlatformIcon
-                          :slug="item.raw.platform_slug"
-                          :name="item.raw.platform_display_name"
-                          :fs-slug="item.raw.platform_fs_slug"
-                          :size="30"
-                        />
-                      </template>
-                      <template #append>
-                        <MissingFromFSIcon
-                          v-if="item.raw.missing_from_fs"
-                          text="Missing from filesystem"
-                          chip
-                          chip-label
-                          chip-density="compact"
-                          class="ml-2"
-                        />
-                      </template>
-                    </v-list-item>
-                  </template>
-                </v-autocomplete>
+                  <PlatformIcon
+                    :slug="currentRom.platform_slug"
+                    :name="currentRom.platform_display_name"
+                    :fs-slug="currentRom.platform_fs_slug"
+                    :size="30"
+                    class="mr-2"
+                  />
+                  <div class="d-flex flex-column">
+                    <span class="text-body-2">
+                      {{ currentRom.name ?? currentRom.fs_name }}
+                    </span>
+                    <span class="text-caption text-medium-emphasis">
+                      {{ currentRom.fs_name }}
+                    </span>
+                  </div>
+                  <MissingFromFSIcon
+                    v-if="currentRom.missing_from_fs"
+                    text="Missing from filesystem"
+                    chip
+                    chip-label
+                    chip-density="compact"
+                    class="ml-2"
+                  />
+                </div>
 
                 <v-select
-                  v-if="selectedRom && baseFiles.length > 1"
+                  v-if="baseFiles.length > 1"
                   v-model="selectedRomFile"
                   :items="baseFiles"
                   :label="t('patcher.select-file')"
@@ -402,7 +329,6 @@ async function uploadPatchedFile(file: File, platformId: number) {
                   variant="outlined"
                   density="comfortable"
                   hide-details
-                  class="mt-3"
                 >
                   <template #item="{ props, item }">
                     <v-list-item
@@ -415,7 +341,7 @@ async function uploadPatchedFile(file: File, platformId: number) {
 
                 <div
                   v-else-if="selectedRomFile"
-                  class="mt-3 d-flex align-center flex-wrap"
+                  class="d-flex align-center flex-wrap"
                 >
                   <v-chip size="small" label class="mr-2 mb-1">
                     {{ selectedRomFile.file_name }}
@@ -426,8 +352,8 @@ async function uploadPatchedFile(file: File, platformId: number) {
                 </div>
 
                 <div
-                  v-if="selectedRom && baseFiles.length === 0"
-                  class="mt-3 text-body-2 text-warning"
+                  v-if="currentRom && baseFiles.length === 0"
+                  class="text-body-2 text-warning"
                 >
                   {{ t("patcher.no-files") }}
                 </div>
@@ -439,43 +365,9 @@ async function uploadPatchedFile(file: File, platformId: number) {
                 <div class="text-subtitle-1 mb-3">
                   {{ t("patcher.patch-file") }}
                 </div>
-                <v-autocomplete
-                  v-model="selectedPatchRom"
-                  :items="patchSearchResults"
-                  :loading="loadingPatches"
-                  :label="t('patcher.search-patch-library')"
-                  :no-data-text="t('patcher.start-typing')"
-                  item-title="name"
-                  return-object
-                  prepend-inner-icon="mdi-magnify"
-                  variant="outlined"
-                  density="comfortable"
-                  hide-details
-                  clearable
-                  no-filter
-                  @update:search="onPatchSearch"
-                >
-                  <template #item="{ props, item }">
-                    <v-list-item
-                      v-bind="props"
-                      class="py-2"
-                      :title="item.raw.name ?? item.raw.fs_name"
-                      :subtitle="item.raw.fs_name"
-                    >
-                      <template #prepend>
-                        <PlatformIcon
-                          :slug="item.raw.platform_slug"
-                          :name="item.raw.platform_display_name"
-                          :fs-slug="item.raw.platform_fs_slug"
-                          :size="30"
-                        />
-                      </template>
-                    </v-list-item>
-                  </template>
-                </v-autocomplete>
 
                 <v-select
-                  v-if="selectedPatchRom && patchFiles.length > 1"
+                  v-if="patchFiles.length > 1"
                   v-model="selectedPatchFile"
                   :items="patchFiles"
                   :label="t('patcher.select-patch-file')"
@@ -484,7 +376,6 @@ async function uploadPatchedFile(file: File, platformId: number) {
                   variant="outlined"
                   density="comfortable"
                   hide-details
-                  class="mt-3"
                 >
                   <template #item="{ props, item }">
                     <v-list-item
@@ -497,7 +388,7 @@ async function uploadPatchedFile(file: File, platformId: number) {
 
                 <div
                   v-else-if="selectedPatchFile"
-                  class="mt-3 d-flex align-center flex-wrap"
+                  class="d-flex align-center flex-wrap"
                 >
                   <v-chip size="small" label class="mr-2 mb-1">
                     {{ selectedPatchFile.file_name }}
@@ -508,8 +399,8 @@ async function uploadPatchedFile(file: File, platformId: number) {
                 </div>
 
                 <div
-                  v-if="selectedPatchRom && patchFiles.length === 0"
-                  class="mt-3 text-body-2 text-warning"
+                  v-if="currentRom && patchFiles.length === 0"
+                  class="text-body-2 text-warning"
                 >
                   {{ t("patcher.no-patch-files") }}
                 </div>

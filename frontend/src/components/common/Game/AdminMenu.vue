@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { inject } from "vue";
+import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import romApi from "@/services/api/rom";
@@ -8,6 +8,7 @@ import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
@@ -20,8 +21,15 @@ const heartbeat = storeHeartbeat();
 const auth = storeAuth();
 const collectionsStore = storeCollections();
 const { toggleFavorite } = useFavoriteToggle(emitter);
+const navigationStore = storeNavigation();
 const romsStore = storeRoms();
 const scanningStore = storeScanning();
+
+const hasNestedFiles = computed(
+  () =>
+    props.rom.has_multiple_files &&
+    props.rom.files.some((f) => !f.is_top_level),
+);
 
 async function switchFromFavorites() {
   await toggleFavorite(props.rom);
@@ -107,6 +115,14 @@ async function onScan() {
           <v-icon icon="mdi-magnify-scan" class="mr-2" />{{
             t("rom.refresh-metadata")
           }}
+        </v-list-item-title>
+      </v-list-item>
+      <v-divider />
+    </template>
+    <template v-if="hasNestedFiles">
+      <v-list-item class="py-4 pr-5" @click="navigationStore.goPatcher(rom.id)">
+        <v-list-item-title class="d-flex">
+          <v-icon icon="mdi-file-cog" class="mr-2" />{{ t("common.patcher") }}
         </v-list-item-title>
       </v-list-item>
       <v-divider />
