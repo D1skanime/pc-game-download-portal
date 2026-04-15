@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { CollectionSchema } from "@/__generated__";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import type { CollectionSchema } from "@/__generated__";
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
