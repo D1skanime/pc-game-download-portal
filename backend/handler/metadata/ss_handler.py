@@ -38,7 +38,9 @@ def get_preferred_regions() -> list[str]:
     """Get preferred regions from config"""
     config = cm.get_config()
     return list(
-        dict.fromkeys(config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp"])
+        dict.fromkeys(
+            config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp", "cus"]
+        )
     ) + ["unk"]
 
 
