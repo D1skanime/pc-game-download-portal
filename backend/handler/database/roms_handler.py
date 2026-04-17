@@ -1144,6 +1144,20 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
 
     @begin_session
+    def get_rom_file_by_path(
+        self,
+        rom_id: int,
+        file_path: str,
+        file_name: str,
+        session: Session = None,  # type: ignore
+    ) -> RomFile | None:
+        return session.scalar(
+            select(RomFile)
+            .filter_by(rom_id=rom_id, file_path=file_path, file_name=file_name)
+            .limit(1)
+        )
+
+    @begin_session
     def update_rom_file(
         self,
         id: int,
@@ -1174,6 +1188,18 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return purged_rom_files
+
+    @begin_session
+    def delete_rom_file(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        session.execute(
+            delete(RomFile)
+            .where(RomFile.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
 
     # Note management methods
     @begin_session

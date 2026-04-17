@@ -48,6 +48,7 @@ class RomFileCategory(enum.StrEnum):
     TRANSLATION = "translation"
     PROTOTYPE = "prototype"
     CHEAT = "cheat"
+    SOUNDTRACK = "soundtrack"
 
 
 class SiblingRom(BaseModel):
@@ -307,6 +308,14 @@ class Rom(BaseModel):
     @cached_property
     def has_manual(self) -> bool:
         return bool(self.path_manual)
+
+    @cached_property
+    def has_manual_files(self) -> bool:
+        return any(f.category == RomFileCategory.MANUAL for f in self.files)
+
+    @cached_property
+    def has_soundtrack(self) -> bool:
+        return any(f.category == RomFileCategory.SOUNDTRACK for f in self.files)
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
