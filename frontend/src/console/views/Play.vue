@@ -21,7 +21,9 @@ import { useThemeAssets } from "@/console/composables/useThemeAssets";
 import { ROUTES } from "@/plugins/router";
 import api from "@/services/api";
 import firmwareApi from "@/services/api/firmware";
+import playSessionApi from "@/services/api/play-session";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeLanguage from "@/stores/language";
 import type { DetailedRom } from "@/stores/roms";
@@ -54,6 +56,7 @@ const createPlayerStorage = (romId: number, platformSlug: string) => ({
 const route = useRoute();
 const router = useRouter();
 const { getBezelImagePath } = useThemeAssets();
+const authStore = storeAuth();
 const configStore = storeConfig();
 const languageStore = storeLanguage();
 const { selectedLanguage } = storeToRefs(languageStore);
@@ -71,8 +74,6 @@ const loaderError = ref("");
 const loaderStatus = ref<
   "idle" | "loading-local" | "loading-cdn" | "loaded" | "failed"
 >("idle");
-
-let pausedByPrompt = false;
 
 const exitOptions = computed(() => [
   {
@@ -94,16 +95,54 @@ const exitOptions = computed(() => [
 
 const { subscribe } = useInputScope();
 let exitScopeOff: (() => void) | null = null;
+let pausedByPrompt = false;
+let sessionStartTime: Date | null = null;
 let requestedAnimationFrame: number | null = null;
 let lastPressedKeys: Record<number, number> = { 8: 0, 9: 0 };
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
 function immediateExit() {
-  router
-    .push({ name: ROUTES.CONSOLE_ROM, params: { rom: romId } })
-    .catch((error) => {
-      console.error("Error navigating to console rom", error);
+  if (!sessionStartTime || !romRef.value) {
+    return router
+      .push({ name: ROUTES.CONSOLE_ROM, params: { rom: romId } })
+      .catch((error) => {
+        console.error("Error navigating to console rom", error);
+      });
+  }
+
+  const endTime = new Date();
+  const durationMs = endTime.getTime() - sessionStartTime.getTime();
+  if (durationMs < 1000) {
+    // Don't log sessions under 1s, likely accidental opens
+    return router
+      .push({ name: ROUTES.CONSOLE_ROM, params: { rom: romId } })
+      .catch((error) => {
+        console.error("Error navigating to console rom", error);
+      });
+  }
+
+  playSessionApi
+    .ingestPlaySessions({
+      deviceId: authStore.user?.current_device_id ?? undefined,
+      sessions: [
+        {
+          rom_id: romRef.value.id,
+          start_time: sessionStartTime.toISOString(),
+          end_time: endTime.toISOString(),
+          duration_ms: durationMs,
+        },
+      ],
+    })
+    .catch((err) => console.error("Failed to submit play session:", err))
+    .finally(() => {
+      sessionStartTime = null;
+
+      router
+        .push({ name: ROUTES.CONSOLE_ROM, params: { rom: romId } })
+        .catch((error) => {
+          console.error("Error navigating to console rom", error);
+        });
     });
 }
 
@@ -527,6 +566,7 @@ async function boot() {
 
   // Ensure a controller is auto-assigned to Player 1 when available
   window.EJS_onGameStart = () => {
+    sessionStartTime = new Date();
     if (!window.EJS_emulator) return;
     const waitForGameManager = async () => {
       const deadline = Date.now() + 5000; // 5s timeout
@@ -700,9 +740,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    class="play-root fixed inset-0 bg-black text-white z-[70] overflow-hidden"
-  >
+  <div class="play-root fixed inset-0 bg-black text-white z-70 overflow-hidden">
     <div id="game" class="w-full h-full" />
     <div
       v-if="bezelSrc"
@@ -741,7 +779,7 @@ onBeforeUnmount(() => {
           <div class="text-red-300 font-medium">
             {{ t("console.emulator-failed") }}
           </div>
-          <div class="mt-1 text-[11px] max-w-xs leading-snug break-words">
+          <div class="mt-1 text-[11px] max-w-xs leading-snug wrap-break-words">
             {{ loaderError }}
           </div>
         </template>
@@ -771,7 +809,7 @@ onBeforeUnmount(() => {
           borderColor: 'var(--console-modal-border)',
           boxShadow: 'var(--console-modal-shadow)',
         }"
-        class="relative w-full max-w-[560px] mx-auto rounded-2xl pa-10 md:p-9 flex flex-col gap-6 focus:outline-none border"
+        class="relative w-full max-w-140 mx-auto rounded-2xl pa-10 md:p-9 flex flex-col gap-6 focus:outline-none border"
       >
         <div class="flex items-center justify-between">
           <h2
@@ -799,7 +837,7 @@ onBeforeUnmount(() => {
                 ? 'opacity-40 cursor-not-allowed'
                 : '',
               focusedExitIndex === i
-                ? 'shadow-[0_0_0_2px_var(--console-modal-tile-selected-border),_0_0_18px_-4px_var(--console-modal-tile-selected-border)]'
+                ? 'shadow-[0_0_0_2px_var(--console-modal-tile-selected-border),0_0_18px_-4px_var(--console-modal-tile-selected-border)]'
                 : '',
             ]"
             :style="

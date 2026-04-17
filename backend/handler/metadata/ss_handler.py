@@ -38,7 +38,9 @@ def get_preferred_regions() -> list[str]:
     """Get preferred regions from config"""
     config = cm.get_config()
     return list(
-        dict.fromkeys(config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp"])
+        dict.fromkeys(
+            config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp", "cus"]
+        )
     ) + ["unk"]
 
 
@@ -116,6 +118,7 @@ class SSMetadataMedia(TypedDict):
     physical_path: str | None
     marquee_path: str | None
     logo_path: str | None
+    title_screen_path: str | None
     video_path: str | None
     video_normalized_path: str | None
 
@@ -166,6 +169,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         physical_path=None,
         marquee_path=None,
         logo_path=None,
+        title_screen_path=None,
         video_path=None,
         video_normalized_path=None,
     )
@@ -281,6 +285,10 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["title_screen_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
                 )
+                if MetadataMediaType.TITLE_SCREEN in preferred_media_types:
+                    ss_media["title_screen_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.TITLE_SCREEN)}/title_screen.png"
+                    )
             elif media.get("type") == "video" and not ss_media["video_url"]:
                 ss_media["video_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS

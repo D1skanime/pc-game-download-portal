@@ -64,6 +64,8 @@ class SiblingRom(BaseModel):
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
+    __table_args__ = (Index("idx_rom_files_rom_id", "rom_id"),)
+
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     file_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
@@ -160,8 +162,10 @@ class Rom(BaseModel):
     flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
     __table_args__ = (
+        Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
         Index("idx_roms_ss_id", "ss_id"),
@@ -173,7 +177,7 @@ class Rom(BaseModel):
         Index("idx_roms_flashpoint_id", "flashpoint_id"),
         Index("idx_roms_hltb_id", "hltb_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
-        Index("idx_roms_fs_name_no_tags", "fs_name_no_tags"),
+        Index("idx_roms_libretro_id", "libretro_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))

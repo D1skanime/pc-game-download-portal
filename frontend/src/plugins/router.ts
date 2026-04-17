@@ -37,6 +37,7 @@ export const ROUTES = {
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   PAIR: "pair",
+  APRIL_FOOLS: "april-fools",
   NOT_FOUND: "404",
   CONSOLE_HOME: "console-home",
   CONSOLE_PLATFORM: "console-platform",
@@ -182,6 +183,11 @@ const routes = [
         path: "rom/:rom/ruffle",
         name: ROUTES.RUFFLE,
         component: () => import("@/views/Player/RuffleRS/Base.vue"),
+      },
+      {
+        path: "april-fools",
+        name: ROUTES.APRIL_FOOLS,
+        component: () => import("@/views/Player/AprilFools.vue"),
       },
       {
         path: "scan",
@@ -334,16 +340,25 @@ const routePermissions: RoutePermissions[] = [
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
 ];
 
+const authExemptRoutes = [
+  ROUTES.LOGIN,
+  ROUTES.SETUP,
+  ROUTES.RESET_PASSWORD,
+  ROUTES.REGISTER,
+  ROUTES.PAIR,
+] as const;
+
+type AuthExemptRoute = (typeof authExemptRoutes)[number];
+
+export function isAuthExemptRoute(route: string): route is AuthExemptRoute {
+  return (authExemptRoutes as readonly string[]).includes(route);
+}
+
 function checkRoutePermissions(route: string, user: User | null): boolean {
   // No checks needed for login and setup pages
-  if (
-    route === ROUTES.LOGIN ||
-    route === ROUTES.SETUP ||
-    route === ROUTES.RESET_PASSWORD ||
-    route === ROUTES.REGISTER ||
-    route === ROUTES.PAIR
-  )
+  if (isAuthExemptRoute(route)) {
     return true;
+  }
 
   // No user, no access
   if (!user) return false;
@@ -371,17 +386,11 @@ router.beforeEach(async (to, _from, next) => {
     }
 
     // Handle authentication
-    if (
-      !user.value &&
-      currentRoute !== ROUTES.LOGIN &&
-      currentRoute !== ROUTES.RESET_PASSWORD &&
-      currentRoute !== ROUTES.REGISTER &&
-      currentRoute !== ROUTES.PAIR
-    ) {
+    if (!user.value && (!currentRoute || !isAuthExemptRoute(currentRoute))) {
       return next({
         name: ROUTES.LOGIN,
         query: {
-          next: to.query.next ?? (to.path !== "/login" ? to.path : "/"),
+          next: to.query.next ?? to.fullPath,
         },
       });
     }

@@ -21,8 +21,8 @@ ARG NODE_VERSION=24.13
 ARG NODE_ALPINE_SHA256=4f696fbf39f383c1e486030ba6b289a5d9af541642fc78ab197e584a113b9c03
 ARG NGINX_VERSION=1.29.5
 ARG NGINX_SHA256=1d13701a5f9f3fb01aaa88cef2344d65b6b5bf6b7d9fa4cf0dca557a8d7702ba
-ARG UV_VERSION=0.8.24
-ARG UV_SHA256=779f3d612539b4696a1b228724cd79b6e8b8604075a9ac7d15378bccf4053373
+ARG UV_VERSION=0.11.2
+ARG UV_SHA256=db7642df9c7e6214d4d7df81cfc3e8327768dd15565b1eb414bb83004f64d463
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -81,18 +81,10 @@ RUN apk add --no-cache \
     make \
     zlib-dev
 
-ARG RALIBRETRO_VERSION=1.8.1
+ARG RALIBRETRO_VERSION=1.8.3
 
-# TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
-# TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
-#       Related pull request: https://github.com/madler/zlib/pull/1022
 RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
-    sed -i '22a #include <ctime>' ./src/Util.h && \
-    sed -i '6a #include <unistd.h>' \
-      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 

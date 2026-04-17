@@ -59,6 +59,8 @@ const DS_3DS_PLATFORMS = new Set([
   "nintendo-dsi",
   "3ds",
   "new-nintendo-3ds",
+  "psx",
+  "dc",
 ]);
 const PSP_PLATFORMS = new Set(["psp", "psp-minis"]);
 const SWITCH_PLATFORMS = new Set(["switch", "switch-2"]);
@@ -342,7 +344,6 @@ watch(
             <v-text-field
               v-model="updatedPlatform.display_name"
               variant="outlined"
-              class="text-white"
               hide-details
               density="compact"
               :readonly="!isEditable"
@@ -388,7 +389,7 @@ watch(
         </div>
         <v-row
           v-if="currentPlatform.is_identified"
-          class="text-white text-shadow mt-2 text-center"
+          class="mt-2 text-center"
           no-gutters
         >
           <v-col cols="12">
@@ -397,6 +398,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.igdb.com/platforms/${currentPlatform.igdb_slug}`"
               target="_blank"
+              rel="noopener noreferrer"
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
@@ -411,6 +413,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.screenscraper.fr/gamesinfos.php?plateforme=${currentPlatform.ss_id}`"
               target="_blank"
+              rel="noopener noreferrer"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -429,6 +432,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.mobygames.com/platform/${currentPlatform.moby_slug}`"
               target="_blank"
+              rel="noopener noreferrer"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -444,6 +448,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://retroachievements.org/system/${currentPlatform.ra_id}/games`"
               target="_blank"
+              rel="noopener noreferrer"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -462,6 +467,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://gamesdb.launchbox-app.com/platforms/games/${currentPlatform.launchbox_id}`"
               target="_blank"
+              rel="noopener noreferrer"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -483,6 +489,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id=${currentPlatform.hasheous_id}`"
               target="_blank"
+              rel="noopener"
               class="ml-1"
               :tabindex="tabIndex"
             >
@@ -501,6 +508,32 @@ watch(
                   <v-img src="/assets/scrappers/hasheous.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.hasheous_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.tgdb_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://thegamesdb.net/platform.php?id=${currentPlatform.tgdb_id}`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="ml-1"
+              :tabindex="tabIndex"
+            >
+              <v-chip
+                class="pl-0 mt-1"
+                size="small"
+                title="TheGamesDB ID"
+                @click.stop
+              >
+                <v-avatar
+                  variant="text"
+                  class="mr-2 bg-surface pa-1"
+                  size="30"
+                  rounded="0"
+                >
+                  <v-img src="/assets/scrappers/tgdb.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.tgdb_id }}</span>
               </v-chip>
             </a>
             <v-chip
@@ -523,13 +556,19 @@ watch(
                 <v-img src="/assets/scrappers/hltb.png" />
               </v-avatar>
             </v-chip>
+            <v-chip
+              v-if="currentPlatform.libretro_slug"
+              class="px-0 ml-1 mt-1"
+              size="small"
+              title="Libretro"
+            >
+              <v-avatar variant="text" class="bg-surface" size="30" rounded="0">
+                <v-img src="/assets/scrappers/libretro.png" />
+              </v-avatar>
+            </v-chip>
           </v-col>
         </v-row>
-        <v-row
-          v-else
-          class="text-white text-shadow mt-2 text-center"
-          no-gutters
-        >
+        <v-row v-else class="mt-2 text-center" no-gutters>
           <v-col cols="12">
             <v-chip color="red" size="small" label>
               <v-icon class="mr-1"> mdi-close </v-icon>

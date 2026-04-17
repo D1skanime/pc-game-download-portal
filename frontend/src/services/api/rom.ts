@@ -5,7 +5,7 @@ import type {
   BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
-  RomUserUpdatePayload,
+  RomUserData,
   RomUserSchema,
   SearchRomSchema,
   SimpleRomSchema,
@@ -447,6 +447,7 @@ async function updateRom({
     ["hasheous_id", toFormIdValue(rom.hasheous_id)],
     ["tgdb_id", toFormIdValue(rom.tgdb_id)],
     ["hltb_id", toFormIdValue(rom.hltb_id)],
+    ["libretro_id", toFormIdValue(rom.libretro_id)],
   ];
 
   if (rom.manual_metadata) {
@@ -545,16 +546,21 @@ async function updateUserRomProps({
   removeLastPlayed = false,
 }: {
   romId: number;
-  data: Partial<RomUserSchema>;
+  data: Partial<RomUserData>;
   updateLastPlayed?: boolean;
   removeLastPlayed?: boolean;
 }) {
-  const payload: RomUserUpdatePayload = {
-    data: data,
-    update_last_played: updateLastPlayed,
-    remove_last_played: removeLastPlayed,
-  };
-  return api.put<RomUserSchema>(`/roms/${romId}/props`, payload);
+  const params = new URLSearchParams();
+  if (updateLastPlayed) {
+    params.set("update_last_played", "true");
+  } else if (removeLastPlayed) {
+    params.set("remove_last_played", "true");
+  }
+  const query = params.toString();
+  return api.put<RomUserSchema>(
+    `/roms/${romId}/props${query ? `?${query}` : ""}`,
+    data,
+  );
 }
 
 async function deleteRoms({

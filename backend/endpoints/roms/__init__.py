@@ -102,6 +102,7 @@ class RomUpdateForm(BaseModel):
     tgdb_id: str | None = Field(default=None, description="TheGamesDB game ID.")
     flashpoint_id: str | None = Field(default=None, description="Flashpoint game ID.")
     hltb_id: str | None = Field(default=None, description="HowLongToBeat game ID.")
+    libretro_id: str | None = Field(default=None, description="Libretro thumbnail ID.")
     raw_igdb_metadata: str | None = Field(
         default=None, description="Raw IGDB metadata as JSON string."
     )
@@ -164,19 +165,6 @@ class RomUserData(BaseModel):
     )
 
 
-class RomUserUpdatePayload(BaseModel):
-    data: RomUserData = Field(
-        default_factory=RomUserData,
-        description="Partial rom user data to update. Only provided fields will be updated.",
-    )
-    update_last_played: bool = Field(
-        default=False, description="Set last played timestamp to now."
-    )
-    remove_last_played: bool = Field(
-        default=False, description="Clear the last played timestamp."
-    )
-
-
 async def parse_rom_update_form(
     request: Request,
     igdb_id: str | None = Form(default=None),
@@ -189,6 +177,7 @@ async def parse_rom_update_form(
     tgdb_id: str | None = Form(default=None),
     flashpoint_id: str | None = Form(default=None),
     hltb_id: str | None = Form(default=None),
+    libretro_id: str | None = Form(default=None),
     raw_igdb_metadata: str | None = Form(default=None),
     raw_moby_metadata: str | None = Form(default=None),
     raw_ss_metadata: str | None = Form(default=None),
@@ -216,6 +205,7 @@ async def parse_rom_update_form(
         "tgdb_id": tgdb_id,
         "flashpoint_id": flashpoint_id,
         "hltb_id": hltb_id,
+        "libretro_id": libretro_id,
         "raw_igdb_metadata": raw_igdb_metadata,
         "raw_moby_metadata": raw_moby_metadata,
         "raw_ss_metadata": raw_ss_metadata,
@@ -1100,6 +1090,7 @@ async def update_rom(
                 "tgdb_id": None,
                 "flashpoint_id": None,
                 "hltb_id": None,
+                "libretro_id": None,
                 "name": rom.fs_name,
                 "summary": "",
                 "url_screenshots": [],
@@ -1179,6 +1170,11 @@ async def update_rom(
             safe_int_or_none(form_data.hltb_id)
             if "hltb_id" in provided_fields
             else rom.hltb_id
+        ),
+        "libretro_id": (
+            form_data.libretro_id or None
+            if "libretro_id" in provided_fields
+            else rom.libretro_id
         ),
     }
 
@@ -1472,6 +1468,37 @@ async def delete_roms(
             continue
 
         try:
+            if id in delete_from_fs:
+                log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
+                try:
+                    rom_path = f"{rom.fs_path}/{rom.fs_name}"
+                    full_path = fs_rom_handler.validate_path(rom_path)
+                    if full_path.is_dir():
+                        await fs_rom_handler.remove_directory(rom_path)
+                    else:
+                        await fs_rom_handler.remove_file(rom_path)
+                        # Clean up empty parent directory if it becomes empty
+                        parent = full_path.parent
+                        if (
+                            parent != fs_rom_handler.base_path
+                            and parent.is_dir()
+                            and not any(parent.iterdir())
+                        ):
+                            try:
+                                await fs_rom_handler.remove_directory(
+                                    str(parent.relative_to(fs_rom_handler.base_path))
+                                )
+                            except OSError as dir_err:
+                                log.warning(
+                                    f"Couldn't clean up empty parent directory for {hl(rom.fs_name)}: {dir_err}"
+                                )
+                except FileNotFoundError:
+                    error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
+                    log.error(error)
+                    errors.append(error)
+                    failed_items += 1
+                    continue
+
             log.info(
                 f"Deleting {hl(str(rom.name or 'ROM'), color=BLUE)} [{hl(rom.fs_name)}] from database"
             )
@@ -1483,18 +1510,6 @@ async def delete_roms(
                 log.warning(
                     f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
                 )
-
-            if id in delete_from_fs:
-                log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
-                try:
-                    file_path = f"{rom.fs_path}/{rom.fs_name}"
-                    await fs_rom_handler.remove_file(file_path=file_path)
-                except FileNotFoundError:
-                    error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
-                    log.error(error)
-                    errors.append(error)
-                    failed_items += 1
-                    continue
 
             successful_items += 1
         except Exception as e:
@@ -1517,7 +1532,13 @@ async def delete_roms(
 async def update_rom_user(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    payload: Annotated[RomUserUpdatePayload, Body()],
+    data: Annotated[RomUserData, Body()],
+    update_last_played: Annotated[
+        bool, Query(description="Set last played timestamp to now.")
+    ] = False,
+    remove_last_played: Annotated[
+        bool, Query(description="Clear the last played timestamp.")
+    ] = False,
 ) -> RomUserSchema:
     """Update rom data associated to the current user."""
     rom = db_rom_handler.get_rom(id)
@@ -1529,11 +1550,17 @@ async def update_rom_user(
         id, request.user.id
     ) or db_rom_handler.add_rom_user(id, request.user.id)
 
-    cleaned_data = payload.data.model_dump(exclude_unset=True)
+    if update_last_played and remove_last_played:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="update_last_played and remove_last_played are mutually exclusive.",
+        )
 
-    if payload.update_last_played:
+    cleaned_data = data.model_dump(exclude_unset=True)
+
+    if update_last_played:
         cleaned_data.update({"last_played": datetime.now(timezone.utc)})
-    elif payload.remove_last_played:
+    elif remove_last_played:
         cleaned_data.update({"last_played": None})
 
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)

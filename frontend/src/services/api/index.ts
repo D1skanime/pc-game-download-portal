@@ -2,7 +2,7 @@ import axios from "axios";
 import { default as Cookies } from "js-cookie";
 import { debounce } from "lodash";
 import router from "@/plugins/router";
-import { ROUTES } from "@/plugins/router";
+import { ROUTES, isAuthExemptRoute } from "@/plugins/router";
 
 const api = axios.create({
   // This will keep the url query params on refresh
@@ -70,12 +70,20 @@ api.interceptors.response.use(
       await refetchCSRFToken();
 
       const pathname = window.location.pathname;
-      const params = new URLSearchParams(window.location.search);
+      const search = window.location.search;
+      const params = new URLSearchParams(search);
+      const fullPath = pathname + search;
+
+      // Don't redirect to login if already on an auth-exempt route
+      const currentRoute = router.currentRoute.value.name?.toString() ?? "";
+      if (isAuthExemptRoute(currentRoute)) {
+        return Promise.reject(error);
+      }
 
       router.push({
         name: ROUTES.LOGIN,
         query: {
-          next: params.get("next") ?? (pathname !== "/login" ? pathname : "/"),
+          next: params.get("next") ?? (pathname !== "/login" ? fullPath : "/"),
         },
       });
     }

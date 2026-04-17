@@ -674,7 +674,7 @@ onMounted(async () => {
                           />
                           <v-row
                             v-if="item.raw.is_identified"
-                            class="text-white text-shadow text-center"
+                            class="text-center"
                             no-gutters
                           >
                             <v-col cols="12">
@@ -758,13 +758,19 @@ onMounted(async () => {
                               >
                                 <v-img src="/assets/scrappers/hltb.png" />
                               </v-avatar>
+
+                              <v-avatar
+                                v-if="item.raw.libretro_slug"
+                                class="bg-surface"
+                                variant="text"
+                                size="25"
+                                rounded
+                              >
+                                <v-img src="/assets/scrappers/libretro.png" />
+                              </v-avatar>
                             </v-col>
                           </v-row>
-                          <v-row
-                            v-else
-                            class="text-white text-shadow text-center"
-                            no-gutters
-                          >
+                          <v-row v-else class="text-center" no-gutters>
                             <v-chip color="red" size="small" label>
                               <v-icon class="mr-1"> mdi-close </v-icon>
                               {{ t("scan.not-identified").toUpperCase() }}
