@@ -81,18 +81,10 @@ RUN apk add --no-cache \
     make \
     zlib-dev
 
-ARG RALIBRETRO_VERSION=1.8.1
+ARG RALIBRETRO_VERSION=1.8.3
 
-# TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
-# TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
-#       Related pull request: https://github.com/madler/zlib/pull/1022
 RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
-    sed -i '22a #include <ctime>' ./src/Util.h && \
-    sed -i '6a #include <unistd.h>' \
-      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
