@@ -81,7 +81,7 @@ RUN apk add --no-cache \
     make \
     zlib-dev
 
-ARG RALIBRETRO_VERSION=1.8.1
+ARG RALIBRETRO_VERSION=1.8.3
 
 # TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
 # TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
