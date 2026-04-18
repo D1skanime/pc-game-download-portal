@@ -124,6 +124,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     meta.value = m;
     currentTime.value = 0;
     duration.value = m.duration ?? 0;
+    isBuffering.value = true;
   }
 
   const currentIndex = computed(() => {

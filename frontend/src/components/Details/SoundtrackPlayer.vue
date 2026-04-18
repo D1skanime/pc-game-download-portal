@@ -26,6 +26,7 @@ const player = useSoundtrackPlayer();
 const {
   track: activeStoreTrack,
   isPlaying,
+  isBuffering,
   currentTime,
   duration,
   hasPrevious,
@@ -279,6 +280,17 @@ function fmt(s: number | undefined | null) {
         >
           <v-icon size="64">mdi-music-note</v-icon>
         </div>
+        <div
+          v-if="isBuffering"
+          class="buffering-overlay position-absolute d-flex align-center justify-center rounded-circle"
+        >
+          <v-progress-circular
+            indeterminate
+            size="40"
+            width="3"
+            color="white"
+          />
+        </div>
       </div>
       <div class="flex-grow-1" style="min-width: 200px">
         <div class="text-h6 text-truncate">{{ activeTitle }}</div>
@@ -354,7 +366,7 @@ function fmt(s: number | undefined | null) {
       >
         <template #prepend>
           <div
-            class="track-thumb mr-3 rounded overflow-hidden d-flex align-center justify-center flex-shrink-0"
+            class="track-thumb mr-3 rounded overflow-hidden d-flex align-center justify-center flex-shrink-0 position-relative"
           >
             <img
               v-if="thumbForTrack(track.id)"
@@ -370,6 +382,17 @@ function fmt(s: number | undefined | null) {
                   : "mdi-music-note"
               }}
             </v-icon>
+            <div
+              v-if="activeTrackId === track.id && isBuffering"
+              class="buffering-overlay position-absolute d-flex align-center justify-center rounded"
+            >
+              <v-progress-circular
+                indeterminate
+                size="18"
+                width="2"
+                color="white"
+              />
+            </div>
           </div>
         </template>
         <v-list-item-title>
@@ -476,5 +499,11 @@ function fmt(s: number | undefined | null) {
 
 .track-thumb img {
   object-fit: cover;
+}
+
+.buffering-overlay {
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 3;
 }
 </style>
