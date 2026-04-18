@@ -1,20 +1,19 @@
 <script setup lang="ts">
-// jsmediatags's package.json `browser` field points to a missing file; import the
-// shipped browser bundle directly. Types come from the standard package.
-// @ts-expect-error: no declaration file for the dist sub-path.
-import jsmediatags from "jsmediatags/dist/jsmediatags.min.js";
-import type { PictureType, TagType, jsmediatagsError } from "jsmediatags/types";
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  shallowRef,
-  watch,
-} from "vue";
+import axios, { type AxiosRequestConfig } from "axios";
+import { storeToRefs } from "pinia";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import VolumeControl from "@/components/common/VolumeControl.vue";
+import romApi, {
+  type SoundtrackAudioMeta,
+  type SoundtrackTrackMeta,
+} from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
-import { formatBytes } from "@/utils";
+import useSoundtrackPlayer, {
+  type PlayerMeta,
+  type PlayerTrack,
+} from "@/stores/soundtrackPlayer";
+import { formatBytes, FRONTEND_RESOURCES_PATH } from "@/utils";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const emit = defineEmits<{
@@ -22,6 +21,16 @@ const emit = defineEmits<{
   (e: "delete-track", fileId: number): void;
 }>();
 const { t } = useI18n();
+
+const player = useSoundtrackPlayer();
+const {
+  track: activeStoreTrack,
+  isPlaying,
+  currentTime,
+  duration,
+  hasPrevious,
+  hasNext,
+} = storeToRefs(player);
 
 const AUDIO_EXTS = new Set([
   "mp3",
@@ -34,17 +43,6 @@ const AUDIO_EXTS = new Set([
   "flac",
 ]);
 const COVER_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
-
-interface TrackMeta {
-  title?: string;
-  artist?: string;
-  album?: string;
-  year?: string;
-  genre?: string;
-  track?: string;
-  disc?: string;
-  pictureUrl?: string;
-}
 
 function getExt(name: string): string {
   return name.split(".").pop()?.toLowerCase() ?? "";
@@ -72,30 +70,33 @@ const folderCoverUrl = computed(() => {
   return cover ? fileUrl(cover.id, cover.file_name) : null;
 });
 
-const tracksMeta = shallowRef(new Map<number, TrackMeta>());
-const objectUrls: string[] = [];
-const activeTrackId = ref<number | null>(null);
-const audioEl = ref<HTMLAudioElement | null>(null);
-const isPlaying = ref(false);
+const tracksMeta = ref<Map<number, SoundtrackAudioMeta>>(new Map());
+const isLoadingMeta = ref(false);
+let metaAbort: AbortController | null = null;
+
+const activeTrackId = computed(() =>
+  activeStoreTrack.value && activeStoreTrack.value.romId === props.rom.id
+    ? activeStoreTrack.value.fileId
+    : null,
+);
 
 const activeTrack = computed(() =>
   tracks.value.find((t) => t.id === activeTrackId.value),
 );
 
-const activeTrackUrl = computed(() =>
-  activeTrack.value
-    ? fileUrl(activeTrack.value.id, activeTrack.value.file_name)
-    : "",
-);
-
-const activeMeta = computed<TrackMeta | undefined>(() =>
+const activeMeta = computed<SoundtrackAudioMeta | undefined>(() =>
   activeTrackId.value != null
     ? tracksMeta.value.get(activeTrackId.value)
     : undefined,
 );
 
+function coverUrlForMeta(m: SoundtrackAudioMeta | undefined): string | null {
+  if (m?.cover_path) return `${FRONTEND_RESOURCES_PATH}/${m.cover_path}`;
+  return null;
+}
+
 const activeArtUrl = computed(
-  () => activeMeta.value?.pictureUrl ?? folderCoverUrl.value,
+  () => coverUrlForMeta(activeMeta.value) ?? folderCoverUrl.value,
 );
 
 const activeTitle = computed(
@@ -106,6 +107,15 @@ const activeTitle = computed(
       : ""),
 );
 
+const totalDurationSeconds = computed(() => {
+  let total = 0;
+  for (const t of tracks.value) {
+    const d = tracksMeta.value.get(t.id)?.duration_seconds;
+    if (d) total += d;
+  }
+  return total;
+});
+
 function trackTitleFor(fileId: number, fallback: string): string {
   return (
     tracksMeta.value.get(fileId)?.title ?? fallback.replace(/\.[^.]+$/, "")
@@ -113,69 +123,73 @@ function trackTitleFor(fileId: number, fallback: string): string {
 }
 
 function trackArtistFor(fileId: number): string | undefined {
-  return tracksMeta.value.get(fileId)?.artist;
+  return tracksMeta.value.get(fileId)?.artist ?? undefined;
+}
+
+function trackDurationFor(fileId: number): number | undefined {
+  return tracksMeta.value.get(fileId)?.duration_seconds ?? undefined;
 }
 
 function thumbForTrack(fileId: number): string | null {
   return (
-    tracksMeta.value.get(fileId)?.pictureUrl ?? folderCoverUrl.value ?? null
+    coverUrlForMeta(tracksMeta.value.get(fileId)) ??
+    folderCoverUrl.value ??
+    null
   );
-}
-
-function pictureToObjectUrl(picture: PictureType): string {
-  const bytes = new Uint8Array(picture.data);
-  const blob = new Blob([bytes], { type: picture.format });
-  const url = URL.createObjectURL(blob);
-  objectUrls.push(url);
-  return url;
-}
-
-async function readMeta(url: string): Promise<TrackMeta> {
-  let blob: Blob;
-  try {
-    const resp = await fetch(url, { credentials: "same-origin" });
-    if (!resp.ok) return {};
-    blob = await resp.blob();
-  } catch {
-    return {};
-  }
-
-  return await new Promise((resolve) => {
-    jsmediatags.read(blob, {
-      onSuccess: ({ tags }: TagType) => {
-        const tpos = (tags as Record<string, { data?: string } | undefined>)
-          ?.TPOS?.data;
-        const meta: TrackMeta = {
-          title: tags.title,
-          artist: tags.artist,
-          album: tags.album,
-          year: tags.year,
-          genre: tags.genre,
-          track: tags.track,
-          disc: tpos,
-        };
-        if (tags.picture) {
-          meta.pictureUrl = pictureToObjectUrl(tags.picture);
-        }
-        resolve(meta);
-      },
-      onError: (err: jsmediatagsError) => {
-        console.warn("[SoundtrackPlayer] tag read failed:", err);
-        resolve({});
-      },
-    });
-  });
 }
 
 async function loadAllMetadata() {
-  const next = new Map<number, TrackMeta>();
-  await Promise.all(
-    tracks.value.map(async (track) => {
-      const meta = await readMeta(fileUrl(track.id, track.file_name));
-      next.set(track.id, meta);
-    }),
-  );
-  tracksMeta.value = next;
+  metaAbort?.abort();
+  metaAbort = new AbortController();
+  isLoadingMeta.value = true;
+  try {
+    const { data } = await romApi.getSoundtrackMetadata({
+      romId: props.rom.id,
+      signal: metaAbort.signal,
+    });
+    const next = new Map<number, SoundtrackAudioMeta>();
+    for (const row of data as SoundtrackTrackMeta[]) {
+      if (row.audio_meta) next.set(row.file_id, row.audio_meta);
+    }
+    tracksMeta.value = next;
+    syncStorePlaylist();
+  } catch (err: unknown) {
+    const maybeCfg = err as { config?: AxiosRequestConfig };
+    if (axios.isCancel(err) || maybeCfg.config?.signal?.aborted) return;
+    console.warn("[SoundtrackPlayer] metadata fetch failed:", err);
+  } finally {
+    isLoadingMeta.value = false;
+  }
+}
+
+function toPlayerMeta(m: SoundtrackAudioMeta | undefined): PlayerMeta {
+  return {
+    title: m?.title ?? undefined,
+    artist: m?.artist ?? undefined,
+    album: m?.album ?? undefined,
+    year: m?.year ?? undefined,
+    genre: m?.genre ?? undefined,
+    track: m?.track ?? undefined,
+    disc: m?.disc ?? undefined,
+    duration: m?.duration_seconds ?? undefined,
+    coverUrl: coverUrlForMeta(m) ?? undefined,
+    folderCoverUrl: folderCoverUrl.value ?? undefined,
+  };
+}
+
+function syncStorePlaylist() {
+  if (player.activePlaylistRomId !== props.rom.id) return;
+  const playerTracks: PlayerTrack[] = tracks.value.map((t) => ({
+    romId: props.rom.id,
+    fileId: t.id,
+    fileName: t.file_name,
+    url: fileUrl(t.id, t.file_name),
+  }));
+  const metas: Record<number, PlayerMeta> = {};
+  for (const t of tracks.value) {
+    metas[t.id] = toPlayerMeta(tracksMeta.value.get(t.id));
+  }
+  player.loadPlaylistForRom(props.rom.id, playerTracks, metas);
 }
 
 onMounted(() => {
@@ -192,22 +206,36 @@ watch(tracks, (newTracks, oldTracks) => {
 });
 
 onBeforeUnmount(() => {
-  for (const url of objectUrls) URL.revokeObjectURL(url);
+  metaAbort?.abort();
 });
 
 function selectTrack(fileId: number) {
-  activeTrackId.value = fileId;
+  const track = tracks.value.find((t) => t.id === fileId);
+  if (!track) return;
+
+  const playerTracks: PlayerTrack[] = tracks.value.map((t) => ({
+    romId: props.rom.id,
+    fileId: t.id,
+    fileName: t.file_name,
+    url: fileUrl(t.id, t.file_name),
+  }));
+  const metas: Record<number, PlayerMeta> = {};
+  for (const t of tracks.value) {
+    metas[t.id] = toPlayerMeta(tracksMeta.value.get(t.id));
+  }
+  player.loadPlaylistForRom(props.rom.id, playerTracks, metas);
+  const target = playerTracks.find((p) => p.fileId === fileId)!;
+  player.play(target, metas[fileId]);
 }
 
 function onDelete(fileId: number) {
   if (activeTrackId.value === fileId) {
-    activeTrackId.value = null;
-    isPlaying.value = false;
+    player.stop();
   }
   emit("delete-track", fileId);
 }
 
-function chips(meta: TrackMeta | undefined) {
+function chips(meta: SoundtrackAudioMeta | undefined) {
   if (!meta) return [];
   const items: { icon: string; label: string }[] = [];
   if (meta.album) items.push({ icon: "mdi-album", label: meta.album });
@@ -221,14 +249,34 @@ function chips(meta: TrackMeta | undefined) {
     items.push({ icon: "mdi-disc", label: `${t("rom.disc")} ${meta.disc}` });
   return items;
 }
+
+function fmt(s: number | undefined | null) {
+  if (s == null || !Number.isFinite(s) || s < 0) return "0:00";
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${m}:${sec}`;
+}
 </script>
 
 <template>
   <div class="pa-2">
     <div v-if="activeTrack" class="d-flex align-center mb-4 ga-4 flex-wrap">
-      <div class="disc-wrapper" :class="{ spinning: isPlaying }">
-        <img v-if="activeArtUrl" :src="activeArtUrl" class="disc" alt="" />
-        <div v-else class="disc disc-placeholder">
+      <div
+        class="disc-wrapper rounded-circle overflow-hidden position-relative flex-shrink-0"
+        :class="{ spinning: isPlaying }"
+      >
+        <img
+          v-if="activeArtUrl"
+          :src="activeArtUrl"
+          class="disc w-100 h-100 d-block rounded-circle"
+          alt=""
+        />
+        <div
+          v-else
+          class="disc w-100 h-100 rounded-circle d-flex align-center justify-center bg-toplayer text-medium-emphasis"
+        >
           <v-icon size="64">mdi-music-note</v-icon>
         </div>
       </div>
@@ -253,19 +301,50 @@ function chips(meta: TrackMeta | undefined) {
         </div>
       </div>
     </div>
-    <!-- eslint-disable-next-line vuejs-accessibility/media-has-caption -->
-    <audio
-      v-if="activeTrackUrl"
-      ref="audioEl"
-      :src="activeTrackUrl"
-      controls
-      autoplay
-      preload="metadata"
-      class="w-100 mb-3"
-      @play="isPlaying = true"
-      @pause="isPlaying = false"
-      @ended="isPlaying = false"
-    />
+    <div v-if="activeTrack" class="d-flex align-center mb-3 ga-2 px-2">
+      <v-btn
+        icon="mdi-skip-previous"
+        variant="text"
+        size="default"
+        :disabled="!hasPrevious"
+        @click="player.previous()"
+      />
+      <v-btn
+        :icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
+        variant="text"
+        size="large"
+        @click="player.togglePlayPause()"
+      />
+      <v-btn
+        icon="mdi-skip-next"
+        variant="text"
+        size="default"
+        :disabled="!hasNext"
+        @click="player.next()"
+      />
+      <span class="text-caption text-medium-emphasis" style="width: 40px">
+        {{ fmt(currentTime) }}
+      </span>
+      <v-slider
+        :model-value="currentTime"
+        :max="duration || 0"
+        :step="0.1"
+        density="compact"
+        hide-details
+        color="primary"
+        thumb-size="14"
+        track-size="3"
+        class="flex-grow-1"
+        @update:model-value="(v: number) => player.seek(v)"
+      />
+      <span
+        class="text-caption text-medium-emphasis text-right"
+        style="width: 40px"
+      >
+        {{ fmt(duration) }}
+      </span>
+      <VolumeControl btn-size="default" />
+    </div>
     <v-list density="compact" class="bg-toplayer rounded">
       <v-list-item
         v-for="track in tracks"
@@ -274,10 +353,14 @@ function chips(meta: TrackMeta | undefined) {
         @click="selectTrack(track.id)"
       >
         <template #prepend>
-          <div class="track-thumb mr-3">
+          <div
+            class="track-thumb mr-3 rounded overflow-hidden d-flex align-center justify-center flex-shrink-0"
+          >
             <img
               v-if="thumbForTrack(track.id)"
               :src="thumbForTrack(track.id) ?? ''"
+              class="w-100 h-100"
+              loading="lazy"
               alt=""
             />
             <v-icon v-else>
@@ -296,6 +379,12 @@ function chips(meta: TrackMeta | undefined) {
           {{ trackArtistFor(track.id) }}
         </v-list-item-subtitle>
         <template #append>
+          <span
+            v-if="trackDurationFor(track.id)"
+            class="text-caption text-medium-emphasis mr-3"
+          >
+            {{ fmt(trackDurationFor(track.id)) }}
+          </span>
           <span class="text-caption text-medium-emphasis mr-2">
             {{ formatBytes(track.file_size_bytes) }}
           </span>
@@ -309,7 +398,14 @@ function chips(meta: TrackMeta | undefined) {
         </template>
       </v-list-item>
     </v-list>
-    <div class="d-flex justify-end mt-3">
+    <div class="d-flex align-center justify-space-between mt-3">
+      <span
+        v-if="totalDurationSeconds > 0"
+        class="text-caption text-medium-emphasis"
+      >
+        {{ tracks.length }} · {{ fmt(totalDurationSeconds) }}
+      </span>
+      <span v-else />
       <v-btn
         prepend-icon="mdi-cloud-upload-outline"
         variant="tonal"
@@ -326,10 +422,6 @@ function chips(meta: TrackMeta | undefined) {
 .disc-wrapper {
   width: 180px;
   height: 180px;
-  border-radius: 50%;
-  overflow: hidden;
-  position: relative;
-  flex-shrink: 0;
   box-shadow:
     0 0 0 6px rgba(0, 0, 0, 0.55),
     0 8px 24px rgba(0, 0, 0, 0.45);
@@ -358,23 +450,13 @@ function chips(meta: TrackMeta | undefined) {
 }
 
 .disc {
-  width: 100%;
-  height: 100%;
   object-fit: cover;
-  border-radius: 50%;
-  display: block;
-}
-
-.disc-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(var(--v-theme-toplayer), 1);
-  color: rgba(var(--v-theme-on-surface), 0.5);
-}
-
-.spinning .disc {
   animation: spin 12s linear infinite;
+  animation-play-state: paused;
+}
+
+.disc-wrapper.spinning .disc {
+  animation-play-state: running;
 }
 
 @keyframes spin {
@@ -389,18 +471,10 @@ function chips(meta: TrackMeta | undefined) {
 .track-thumb {
   width: 40px;
   height: 40px;
-  border-radius: 4px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: rgba(0, 0, 0, 0.25);
-  flex-shrink: 0;
 }
 
 .track-thumb img {
-  width: 100%;
-  height: 100%;
   object-fit: cover;
 }
 </style>

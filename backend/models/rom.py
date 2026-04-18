@@ -80,6 +80,9 @@ class RomFile(BaseModel):
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )
+    audio_meta: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=None, nullable=True
+    )
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")

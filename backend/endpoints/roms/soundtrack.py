@@ -5,11 +5,13 @@ from fastapi import Header, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
 from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict
 from starlette.requests import ClientDisconnect
 from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
+from endpoints.responses.rom import RomFileAudioMetaSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
@@ -18,6 +20,11 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile, RomFileCategory
+from utils.audio_tags import (
+    extract_audio_meta,
+    persist_embedded_cover,
+    remove_persisted_cover,
+)
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -103,21 +110,26 @@ async def add_rom_soundtracks(
         ) from exc
 
     stat = os.stat(file_location)
+    audio_meta = extract_audio_meta(str(file_location))
     existing = db_rom_handler.get_rom_file_by_path(
         rom_id=rom.id, file_path=soundtrack_dir_rel, file_name=filename
     )
     if existing:
-        db_rom_handler.update_rom_file(
+        # Reuploading: drop stale cover first so a new id-based path can replace it.
+        if existing.audio_meta and existing.audio_meta.get("cover_path"):
+            remove_persisted_cover(existing.audio_meta["cover_path"])
+        saved = db_rom_handler.update_rom_file(
             existing.id,
             {
                 "file_size_bytes": stat.st_size,
                 "last_modified": stat.st_mtime,
                 "category": RomFileCategory.SOUNDTRACK,
+                "audio_meta": audio_meta,
                 "missing_from_fs": False,
             },
         )
     else:
-        db_rom_handler.add_rom_file(
+        saved = db_rom_handler.add_rom_file(
             RomFile(
                 rom_id=rom.id,
                 file_name=filename,
@@ -125,8 +137,21 @@ async def add_rom_soundtracks(
                 file_size_bytes=stat.st_size,
                 last_modified=stat.st_mtime,
                 category=RomFileCategory.SOUNDTRACK,
+                audio_meta=audio_meta,
             )
         )
+
+    if audio_meta and audio_meta.get("has_embedded_cover"):
+        cover_path = persist_embedded_cover(
+            audio_full_path=str(file_location),
+            platform_id=rom.platform_id,
+            rom_id=rom.id,
+            file_id=saved.id,
+        )
+        if cover_path:
+            persisted_meta = dict(audio_meta)
+            persisted_meta["cover_path"] = cover_path
+            db_rom_handler.update_rom_file(saved.id, {"audio_meta": persisted_meta})
 
     return Response()
 
@@ -178,6 +203,9 @@ async def delete_rom_soundtrack(
             detail="There was an error deleting the soundtrack",
         ) from exc
 
+    if rom_file.audio_meta and rom_file.audio_meta.get("cover_path"):
+        remove_persisted_cover(rom_file.audio_meta["cover_path"])
+
     db_rom_handler.delete_rom_file(file_id)
 
     log.info(
@@ -186,3 +214,46 @@ async def delete_rom_soundtrack(
     )
 
     return Response()
+
+
+class SoundtrackTrackMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    file_id: int
+    file_name: str
+    file_size_bytes: int
+    audio_meta: RomFileAudioMetaSchema | None = None
+
+
+@protected_route(
+    router.get,
+    "/{id}/soundtracks/metadata",
+    [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def get_rom_soundtrack_metadata(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> list[SoundtrackTrackMetaSchema]:
+    """Return compact audio metadata for every soundtrack file of a ROM."""
+
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    tracks = [f for f in rom.files if f.category == RomFileCategory.SOUNDTRACK]
+    tracks.sort(key=lambda f: f.file_name)
+
+    return [
+        SoundtrackTrackMetaSchema(
+            file_id=f.id,
+            file_name=f.file_name,
+            file_size_bytes=f.file_size_bytes,
+            audio_meta=(
+                RomFileAudioMetaSchema.model_validate(f.audio_meta)
+                if f.audio_meta
+                else None
+            ),
+        )
+        for f in tracks
+    ]

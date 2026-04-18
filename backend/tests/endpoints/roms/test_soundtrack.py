@@ -255,3 +255,205 @@ def test_delete_soundtrack_wrong_category_returns_404(
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# ---------- audio metadata extraction on upload ----------
+
+
+def test_upload_soundtrack_extracts_audio_meta(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    fake_meta = {
+        "title": "The Theme",
+        "artist": "Composer X",
+        "album": "OST",
+        "year": "1995",
+        "genre": "Chiptune",
+        "track": "01",
+        "disc": "1",
+        "duration_seconds": 123.4,
+        "has_embedded_cover": True,
+        "file_mtime": 1_700_000_000.0,
+        "file_size": len(MP3_BYTES),
+    }
+    monkeypatch.setattr(
+        soundtrack_endpoint, "extract_audio_meta", lambda _path: fake_meta
+    )
+    monkeypatch.setattr(
+        soundtrack_endpoint,
+        "persist_embedded_cover",
+        lambda **_kwargs: f"roms/{_kwargs['platform_id']}/{_kwargs['rom_id']}"
+        f"/soundtracks/{_kwargs['file_id']}.jpg",
+    )
+
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+        files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    rom_after = db_rom_handler.get_rom(multi_file_rom.id)
+    soundtracks = [
+        f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
+    ]
+    assert len(soundtracks) == 1
+    track = soundtracks[0]
+    assert track.audio_meta is not None
+    assert track.audio_meta["title"] == "The Theme"
+    assert track.audio_meta["duration_seconds"] == 123.4
+    assert track.audio_meta["has_embedded_cover"] is True
+    assert (
+        track.audio_meta["cover_path"]
+        == f"roms/{multi_file_rom.platform_id}/{multi_file_rom.id}"
+        f"/soundtracks/{track.id}.jpg"
+    )
+
+
+def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        soundtrack_endpoint,
+        "extract_audio_meta",
+        lambda _path: {"has_embedded_cover": False},
+    )
+    cover_calls: list[dict] = []
+    monkeypatch.setattr(
+        soundtrack_endpoint,
+        "persist_embedded_cover",
+        lambda **kw: cover_calls.append(kw) or None,
+    )
+
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+        files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert cover_calls == []  # never called when has_embedded_cover is False
+
+    rom_after = db_rom_handler.get_rom(multi_file_rom.id)
+    track = next(f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK)
+    assert track.audio_meta.get("cover_path") is None
+
+
+# ---------- GET /api/roms/{id}/soundtracks/metadata ----------
+
+
+def test_get_soundtrack_metadata_returns_tracks_sorted(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+):
+    meta_b = {
+        "title": "B side",
+        "artist": "A",
+        "album": None,
+        "year": None,
+        "genre": None,
+        "track": None,
+        "disc": None,
+        "duration_seconds": 42.0,
+        "has_embedded_cover": False,
+    }
+    meta_a = {**meta_b, "title": "A side", "has_embedded_cover": True}
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=multi_file_rom.id,
+            file_name="b_track.mp3",
+            file_path=f"{multi_file_rom.full_path}/soundtrack",
+            file_size_bytes=10,
+            category=RomFileCategory.SOUNDTRACK,
+            audio_meta=meta_b,
+        )
+    )
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=multi_file_rom.id,
+            file_name="a_track.mp3",
+            file_path=f"{multi_file_rom.full_path}/soundtrack",
+            file_size_bytes=10,
+            category=RomFileCategory.SOUNDTRACK,
+            audio_meta=meta_a,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/soundtracks/metadata",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert [t["file_name"] for t in body] == ["a_track.mp3", "b_track.mp3"]
+    assert body[0]["audio_meta"]["title"] == "A side"
+    assert body[0]["audio_meta"]["has_embedded_cover"] is True
+    assert body[1]["audio_meta"]["duration_seconds"] == 42.0
+
+
+def test_get_soundtrack_metadata_empty_for_rom_without_tracks(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+):
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/soundtracks/metadata",
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == []
+
+
+# ---------- cover cleanup on delete ----------
+
+
+def test_delete_soundtrack_removes_persisted_cover(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    (soundtrack_fs / "track1.mp3").write_bytes(MP3_BYTES)
+    track = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=multi_file_rom.id,
+            file_name="track1.mp3",
+            file_path=f"{multi_file_rom.full_path}/soundtrack",
+            file_size_bytes=len(MP3_BYTES),
+            category=RomFileCategory.SOUNDTRACK,
+            audio_meta={
+                "has_embedded_cover": True,
+                "cover_path": (
+                    f"roms/{multi_file_rom.platform_id}/{multi_file_rom.id}"
+                    "/soundtracks/9999.jpg"
+                ),
+            },
+        )
+    )
+    removed: list[str] = []
+    monkeypatch.setattr(
+        soundtrack_endpoint,
+        "remove_persisted_cover",
+        lambda p: removed.append(p),
+    )
+
+    response = client.delete(
+        f"/api/roms/{multi_file_rom.id}/soundtracks/{track.id}",
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert removed == [
+        f"roms/{multi_file_rom.platform_id}/{multi_file_rom.id}" "/soundtracks/9999.jpg"
+    ]
+    assert db_rom_handler.get_rom_file_by_id(track.id) is None

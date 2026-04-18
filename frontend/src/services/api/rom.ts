@@ -590,6 +590,38 @@ async function removeSoundtrack({
   return api.delete(`/roms/${romId}/soundtracks/${fileId}`);
 }
 
+export interface SoundtrackAudioMeta {
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  year: string | null;
+  genre: string | null;
+  track: string | null;
+  disc: string | null;
+  duration_seconds: number | null;
+  has_embedded_cover: boolean;
+  cover_path: string | null;
+}
+
+export interface SoundtrackTrackMeta {
+  file_id: number;
+  file_name: string;
+  file_size_bytes: number;
+  audio_meta: SoundtrackAudioMeta | null;
+}
+
+async function getSoundtrackMetadata({
+  romId,
+  signal,
+}: {
+  romId: number;
+  signal?: AbortSignal;
+}) {
+  return api.get<SoundtrackTrackMeta[]>(`/roms/${romId}/soundtracks/metadata`, {
+    signal,
+  });
+}
+
 async function uploadManualFiles({
   romId,
   filesToUpload,
@@ -760,6 +792,7 @@ export default {
   deleteManualFile,
   uploadSoundtracks,
   removeSoundtrack,
+  getSoundtrackMetadata,
   updateUserRomProps,
   deleteRoms,
   createRomNote,
