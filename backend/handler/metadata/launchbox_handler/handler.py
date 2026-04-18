@@ -162,6 +162,8 @@ class LaunchboxHandler(MetadataHandler):
             remote=index_entry,
             remote_images=remote_images,
             remote_enabled=remote_available,
+            platform_name=get_platform(platform_slug).get("name"),
+            fs_name=fs_name,
         )
 
         return build_rom(

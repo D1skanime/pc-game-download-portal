@@ -54,11 +54,19 @@ def remote_media_req(
     remote: dict | None,
     remote_images: list[dict] | None,
     remote_enabled: bool,
+    platform_name: str | None = None,
+    fs_name: str = "",
 ) -> MediaRequest:
     title = ((remote or {}).get("Name") or "").strip()
+    # Without a platform_name, _build_local_media_context bails and local
+    # Images/Manuals/Videos never get searched. Fall back to the platform
+    # recorded on the remote entry so remote-matched ROMs can still surface
+    # on-disk media.
+    if not platform_name and remote:
+        platform_name = (remote.get("Platform") or "").strip() or None
     return MediaRequest(
-        None,
-        "",
+        platform_name,
+        fs_name,
         title,
         None,
         remote_images,

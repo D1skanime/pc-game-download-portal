@@ -24,6 +24,7 @@ from handler.metadata.launchbox_handler.media import (
     build_launchbox_metadata,
     build_rom,
     populate_rom_specific_paths,
+    remote_media_req,
 )
 from handler.metadata.launchbox_handler.platforms import get_platform
 from handler.metadata.launchbox_handler.remote_source import RemoteSource
@@ -808,6 +809,105 @@ class TestPopulateRomSpecificPaths:
             mock_preferred.return_value = []
             populate_rom_specific_paths(metadata, self._rom())
         assert "video_path" not in metadata
+
+
+class TestRemoteMediaReq:
+    def test_explicit_platform_name_wins(self):
+        req = remote_media_req(
+            remote={"Name": "Super Mario Bros.", "Platform": "Wii"},
+            remote_images=None,
+            remote_enabled=True,
+            platform_name="Nintendo Entertainment System",
+            fs_name="mario.nes",
+        )
+        assert req.platform_name == "Nintendo Entertainment System"
+        assert req.fs_name == "mario.nes"
+        assert req.title == "Super Mario Bros."
+
+    def test_falls_back_to_remote_platform(self):
+        req = remote_media_req(
+            remote={"Name": "H.E.R.O.", "Platform": "Atari 2600"},
+            remote_images=None,
+            remote_enabled=True,
+        )
+        assert req.platform_name == "Atari 2600"
+        assert req.fs_name == ""
+        assert req.title == "H.E.R.O."
+
+    def test_no_platform_available_is_none(self):
+        req = remote_media_req(
+            remote={"Name": "Some Game"},
+            remote_images=None,
+            remote_enabled=True,
+        )
+        assert req.platform_name is None
+
+
+class TestRemoteMatchLocalImages:
+    """Regression test for bug where remote-matched roms skipped local image lookup.
+
+    When a ROM matches only via the remote Metadata.xml (no local XML entry),
+    the handler previously passed platform_name=None to remote_media_req, which
+    caused _build_local_media_context to bail and never search on-disk images.
+    """
+
+    async def test_remote_match_finds_local_images(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        # Arrange: images on disk, no local XML match, remote returns a hit.
+        # Use "Clear Logo" + "Box - Front" to exercise both _get_images and
+        # _get_cover through the same remote-match path.
+        lb_root = tmp_path / "launchbox"
+        images_root = lb_root / "Images"
+        logo_dir = images_root / "Atari 2600" / "Clear Logo"
+        box_dir = images_root / "Atari 2600" / "Box - Front"
+        logo_dir.mkdir(parents=True)
+        box_dir.mkdir(parents=True)
+        (logo_dir / "H.E.R.O-01.png").write_bytes(b"")
+        (box_dir / "H.E.R.O-01.png").write_bytes(b"")
+
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.media.LAUNCHBOX_IMAGES_DIR",
+            images_root,
+        )
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.utils.LAUNCHBOX_LOCAL_DIR",
+            lb_root,
+        )
+
+        h = LaunchboxHandler()
+        h._local = MagicMock(spec=LocalSource)
+        h._remote = MagicMock(spec=RemoteSource)
+        h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_rom = AsyncMock(  # type: ignore[method-assign]
+            return_value={
+                "DatabaseID": "42",
+                "Name": "H.E.R.O.",
+                "Platform": "Atari 2600",
+            }
+        )
+        h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
+        monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
+
+        with patch(
+            "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+        ) as mock_fs:
+            mock_fs.get_file_name_with_no_tags.return_value = "hero"
+            result = await h.get_rom("hero.a26", "atari2600")
+
+        # Assert: both the clear logo and box-front cover resolved to
+        # launchbox-file:// URLs, even though the local XML never matched.
+        images = result["launchbox_metadata"]["images"]
+        assert len(images) == 1
+        assert images[0]["type"] == "Clear Logo"
+        assert images[0]["url"] == (
+            "launchbox-file://Images/Atari 2600/Clear Logo/H.E.R.O-01.png"
+        )
+        assert result["url_cover"] == (
+            "launchbox-file://Images/Atari 2600/Box - Front/H.E.R.O-01.png"
+        )
 
 
 class TestBuildRom:
