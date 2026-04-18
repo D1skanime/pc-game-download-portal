@@ -30,6 +30,8 @@ from .utils import (
     sanitize_filename,
 )
 
+VIDEO_EXTS: tuple[str, ...] = (".mp4", ".webm", ".avi", ".mkv", ".mov", ".wmv")
+
 
 def local_media_req(
     *,
@@ -353,9 +355,8 @@ def _get_video(req: MediaRequest) -> str | None:
     if ctx is None:
         return None
 
-    video_exts = (".mp4", ".webm", ".avi", ".mkv", ".mov", ".wmv")
     for stem in ctx["stems"]:
-        for ext in video_exts:
+        for ext in VIDEO_EXTS:
             candidate = ctx["base"] / f"{stem}{ext}"
             if candidate.is_file():
                 return file_uri_for_local_path(candidate)
