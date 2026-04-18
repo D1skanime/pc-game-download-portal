@@ -29,6 +29,7 @@ from handler.metadata.gamelist_handler import GamelistRom
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST, HLTBRom
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
+from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST, LibretroRom
@@ -635,10 +636,6 @@ async def scan_rom(
 
             metadata = launchbox_rom.get("launchbox_metadata")
             if metadata:
-                from handler.metadata.launchbox_handler.media import (
-                    populate_rom_specific_paths,
-                )
-
                 populate_rom_specific_paths(metadata, rom)
 
             return launchbox_rom

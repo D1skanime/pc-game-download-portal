@@ -128,15 +128,15 @@ class LaunchboxHandler(MetadataHandler):
         else:
             search_term = fs_name
 
-        # Resolve MAME arcade filename (e.g. pacman.zip) to its full title
+        # Resolve MAME arcade filename (e.g. wrlok_l3.zip) to its full title
         # via LaunchBox's Mame.xml before name-based lookup.
         if platform_slug == UPS.ARCADE:
             mame_entry = await self._remote.get_mame_entry(fs_name)
             if mame_entry:
-                description = (mame_entry.get("Description") or "").strip()
-                if description:
-                    search_term = description
-                    fallback_rom = LaunchboxRom(launchbox_id=None, name=description)
+                name = (mame_entry.get("Name") or "").strip()
+                if name:
+                    search_term = name
+                    fallback_rom = LaunchboxRom(launchbox_id=None, name=name)
 
         # We replace " - "/"- " with ": " to match Launchbox's naming convention
         search_term = re.sub(DASH_COLON_REGEX, ": ", search_term).lower()

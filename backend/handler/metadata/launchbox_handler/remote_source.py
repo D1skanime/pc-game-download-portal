@@ -78,17 +78,28 @@ class RemoteSource:
     async def get_mame_entry(self, file_name: str) -> dict | None:
         """Resolve a MAME arcade filename to its LaunchBox MAME entry.
 
-        LaunchBox's Mame.xml indexes `<MameFile>` records by `<FileName>` (e.g.
-        `pacman.zip`). The entry carries `Description` — the full title to
-        search for in Metadata.xml.
+        LaunchBox's Mame.xml indexes `<MameFile>` records by `<FileName>` — the
+        MAME short name without an extension (e.g. `wrlok_l3` for `wrlok_l3.zip`).
+        The entry carries `<Name>` — the full title to search for in Metadata.xml.
         """
         file_name_clean = (file_name or "").strip()
         if not file_name_clean:
             return None
-        entry = await async_cache.hget(LAUNCHBOX_MAME_KEY, file_name_clean)
-        if not entry:
-            return None
-        return json.loads(entry)
+
+        # Try the raw filename first, then the stem (sans extension).
+        candidates: list[str] = [file_name_clean]
+        from pathlib import Path
+
+        stem = Path(file_name_clean).stem
+        if stem and stem != file_name_clean:
+            candidates.append(stem)
+
+        for candidate in candidates:
+            entry = await async_cache.hget(LAUNCHBOX_MAME_KEY, candidate)
+            if entry:
+                return json.loads(entry)
+
+        return None
 
     async def fetch_images(
         self,

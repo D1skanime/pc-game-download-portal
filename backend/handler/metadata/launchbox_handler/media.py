@@ -1,6 +1,9 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from config.config_manager import MetadataMediaType
+from handler.filesystem import fs_resource_handler
+from handler.metadata.ss_handler import get_preferred_media_types
 from utils.database import safe_str_to_bool
 
 if TYPE_CHECKING:
@@ -344,32 +347,16 @@ def _get_video(req: MediaRequest) -> str | None:
     (no region or category subdirectories). Return a `launchbox-file://` URL
     to the first match, or None.
     """
-    if not req.platform_name:
-        return None
-
-    base = (LAUNCHBOX_VIDEOS_DIR / req.platform_name).resolve()
-    if not base.is_dir():
-        return None
-
-    stems: list[str] = []
-    if req.fs_name:
-        stems.append(Path(req.fs_name).stem)
-    if req.title:
-        stems.append(req.title)
-
-    stems_clean: list[str] = []
-    for s in stems:
-        clean = sanitize_filename(s)
-        if clean and clean not in stems_clean:
-            stems_clean.append(clean)
-
-    if not stems_clean:
+    ctx = _build_local_media_context(
+        req, LAUNCHBOX_VIDEOS_DIR, include_region_hints=False
+    )
+    if ctx is None:
         return None
 
     video_exts = (".mp4", ".webm", ".avi", ".mkv", ".mov", ".wmv")
-    for stem in stems_clean:
+    for stem in ctx["stems"]:
         for ext in video_exts:
-            candidate = base / f"{stem}{ext}"
+            candidate = ctx["base"] / f"{stem}{ext}"
             if candidate.is_file():
                 return file_uri_for_local_path(candidate)
 
@@ -556,10 +543,6 @@ def populate_rom_specific_paths(
     destination path for local media that the handler surfaced a URL for.
     Currently just covers video.
     """
-    from config.config_manager import MetadataMediaType
-    from handler.filesystem import fs_resource_handler
-    from handler.metadata.ss_handler import get_preferred_media_types
-
     if MetadataMediaType.VIDEO in get_preferred_media_types() and metadata.get(
         "video_url"
     ):

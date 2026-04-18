@@ -542,10 +542,12 @@ class TestRemoteSourceGetMameEntry:
         assert result is None
 
     async def test_cache_hit_returns_dict(self, source: RemoteSource):
+        # Real LaunchBox Mame.xml indexes by stem (e.g. `wrlok_l3`, no ext)
+        # and carries `<Name>` as the full title.
         mame_entry = {
-            "FileName": "pacman.zip",
-            "GameName": "pacman",
-            "Description": "Pac-Man",
+            "FileName": "wrlok_l3",
+            "Name": "Warlok",
+            "Year": "1982",
         }
         with patch.object(
             async_cache,
@@ -553,8 +555,26 @@ class TestRemoteSourceGetMameEntry:
             new_callable=AsyncMock,
             return_value=json.dumps(mame_entry),
         ) as mock_hget:
-            result = await source.get_mame_entry("pacman.zip")
-        mock_hget.assert_called_once_with(LAUNCHBOX_MAME_KEY, "pacman.zip")
+            result = await source.get_mame_entry("wrlok_l3")
+        mock_hget.assert_called_once_with(LAUNCHBOX_MAME_KEY, "wrlok_l3")
+        assert result == mame_entry
+
+    async def test_falls_back_to_stem_when_given_filename_with_ext(
+        self, source: RemoteSource
+    ):
+        mame_entry = {"FileName": "wrlok_l3", "Name": "Warlok"}
+
+        async def fake_hget(_key, field):
+            return json.dumps(mame_entry) if field == "wrlok_l3" else None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=fake_hget
+        ) as mock_hget:
+            result = await source.get_mame_entry("wrlok_l3.zip")
+        # First lookup by raw filename (miss), then by stem (hit).
+        assert mock_hget.call_count == 2
+        assert mock_hget.call_args_list[0].args == (LAUNCHBOX_MAME_KEY, "wrlok_l3.zip")
+        assert mock_hget.call_args_list[1].args == (LAUNCHBOX_MAME_KEY, "wrlok_l3")
         assert result == mame_entry
 
     async def test_empty_input_returns_none(self, source: RemoteSource):
@@ -565,8 +585,9 @@ class TestRemoteSourceGetMameEntry:
         with patch.object(
             async_cache, "hget", new_callable=AsyncMock, return_value=None
         ) as mock_hget:
-            await source.get_mame_entry("  pacman.zip  ")
-        mock_hget.assert_called_once_with(LAUNCHBOX_MAME_KEY, "pacman.zip")
+            await source.get_mame_entry("  wrlok_l3  ")
+        # First call uses the trimmed filename.
+        assert mock_hget.call_args_list[0].args == (LAUNCHBOX_MAME_KEY, "wrlok_l3")
 
 
 class TestRemoteSourceFetchImages:
@@ -772,7 +793,7 @@ class TestPopulateRomSpecificPaths:
     def test_no_video_url_is_noop(self):
         metadata: LaunchboxMetadata = {"first_release_date": None, "images": []}
         with patch(
-            "handler.metadata.ss_handler.get_preferred_media_types"
+            "handler.metadata.launchbox_handler.media.get_preferred_media_types"
         ) as mock_preferred:
             from config.config_manager import MetadataMediaType
 
@@ -787,7 +808,7 @@ class TestPopulateRomSpecificPaths:
             "video_url": "launchbox-file://Videos/NES/Mario.mp4",
         }
         with patch(
-            "handler.metadata.ss_handler.get_preferred_media_types"
+            "handler.metadata.launchbox_handler.media.get_preferred_media_types"
         ) as mock_preferred:
             from config.config_manager import MetadataMediaType
 
@@ -804,7 +825,7 @@ class TestPopulateRomSpecificPaths:
             "video_url": "launchbox-file://Videos/NES/Mario.mp4",
         }
         with patch(
-            "handler.metadata.ss_handler.get_preferred_media_types"
+            "handler.metadata.launchbox_handler.media.get_preferred_media_types"
         ) as mock_preferred:
             mock_preferred.return_value = []
             populate_rom_specific_paths(metadata, self._rom())
@@ -1146,12 +1167,8 @@ class TestLaunchboxHandlerGetRom:
     async def test_arcade_mame_resolves_shortname_to_full_title(
         self, handler: LaunchboxHandler
     ):
-        mame_entry = {
-            "FileName": "pacman.zip",
-            "GameName": "pacman",
-            "Description": "Pac-Man",
-        }
-        remote_entry = {"DatabaseID": "999", "Name": "Pac-Man"}
+        mame_entry = {"FileName": "wrlok_l3", "Name": "Warlok"}
+        remote_entry = {"DatabaseID": "999", "Name": "Warlok"}
         with (
             patch.object(
                 handler._remote,
@@ -1167,13 +1184,13 @@ class TestLaunchboxHandlerGetRom:
                 "handler.metadata.launchbox_handler.handler.fs_rom_handler"
             ) as mock_fs,
         ):
-            mock_fs.get_file_name_with_no_tags.return_value = "pacman"
-            result = await handler.get_rom("pacman.zip", "arcade")
+            mock_fs.get_file_name_with_no_tags.return_value = "wrlok_l3"
+            result = await handler.get_rom("wrlok_l3.zip", "arcade")
 
-        mock_mame.assert_called_once_with("pacman.zip")
-        # search term should be the MAME Description, lowercased
-        assert mock_get_rom.call_args.args[0] == "pac-man"
-        assert result.get("name", None) == "Pac-Man"
+        mock_mame.assert_called_once_with("wrlok_l3.zip")
+        # Search term should be the MAME Name, lowercased.
+        assert mock_get_rom.call_args.args[0] == "warlok"
+        assert result.get("name", None) == "Warlok"
         assert result.get("launchbox_id", None) == 999
 
     async def test_arcade_mame_miss_falls_back_to_filename_search(
@@ -1189,22 +1206,18 @@ class TestLaunchboxHandlerGetRom:
                 "handler.metadata.launchbox_handler.handler.fs_rom_handler"
             ) as mock_fs,
         ):
-            mock_fs.get_file_name_with_no_tags.return_value = "pacman"
-            result = await handler.get_rom("pacman.zip", "arcade")
+            mock_fs.get_file_name_with_no_tags.return_value = "wrlok_l3"
+            result = await handler.get_rom("wrlok_l3.zip", "arcade")
 
-        mock_mame.assert_called_once_with("pacman.zip")
+        mock_mame.assert_called_once_with("wrlok_l3.zip")
         assert result["launchbox_id"] is None
 
     async def test_arcade_mame_only_match_sets_fallback_name(
         self, handler: LaunchboxHandler
     ):
         # MAME entry exists but Metadata.xml has no matching game: still surface
-        # the MAME description as the rom name.
-        mame_entry = {
-            "FileName": "pacman.zip",
-            "GameName": "pacman",
-            "Description": "Pac-Man",
-        }
+        # the MAME name as the rom name.
+        mame_entry = {"FileName": "wrlok_l3", "Name": "Warlok"}
         with (
             patch.object(
                 handler._remote,
@@ -1215,11 +1228,11 @@ class TestLaunchboxHandlerGetRom:
                 "handler.metadata.launchbox_handler.handler.fs_rom_handler"
             ) as mock_fs,
         ):
-            mock_fs.get_file_name_with_no_tags.return_value = "pacman"
-            result = await handler.get_rom("pacman.zip", "arcade")
+            mock_fs.get_file_name_with_no_tags.return_value = "wrlok_l3"
+            result = await handler.get_rom("wrlok_l3.zip", "arcade")
 
         assert result["launchbox_id"] is None
-        assert result.get("name", None) == "Pac-Man"
+        assert result.get("name", None) == "Warlok"
 
     async def test_non_arcade_platform_skips_mame_lookup(
         self, handler: LaunchboxHandler
@@ -1232,8 +1245,8 @@ class TestLaunchboxHandlerGetRom:
                 "handler.metadata.launchbox_handler.handler.fs_rom_handler"
             ) as mock_fs,
         ):
-            mock_fs.get_file_name_with_no_tags.return_value = "pacman"
-            await handler.get_rom("pacman.zip", "nes")
+            mock_fs.get_file_name_with_no_tags.return_value = "wrlok_l3"
+            await handler.get_rom("wrlok_l3.zip", "nes")
 
         mock_mame.assert_not_called()
 
