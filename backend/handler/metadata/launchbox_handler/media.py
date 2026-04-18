@@ -1,10 +1,15 @@
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from utils.database import safe_str_to_bool
+
+if TYPE_CHECKING:
+    from models.rom import Rom
 
 from .types import (
     LAUNCHBOX_IMAGES_DIR,
     LAUNCHBOX_MANUALS_DIR,
+    LAUNCHBOX_VIDEOS_DIR,
     LaunchboxImage,
     LaunchboxMetadata,
     LaunchboxRom,
@@ -324,6 +329,45 @@ def _get_manuals(req: MediaRequest) -> str | None:
     return manual
 
 
+def _get_video(req: MediaRequest) -> str | None:
+    """Resolve a local LaunchBox video for the given ROM.
+
+    LaunchBox stores videos flat under `Videos/<Platform>/<GameStem>.<ext>`
+    (no region or category subdirectories). Return a `launchbox-file://` URL
+    to the first match, or None.
+    """
+    if not req.platform_name:
+        return None
+
+    base = (LAUNCHBOX_VIDEOS_DIR / req.platform_name).resolve()
+    if not base.is_dir():
+        return None
+
+    stems: list[str] = []
+    if req.fs_name:
+        stems.append(Path(req.fs_name).stem)
+    if req.title:
+        stems.append(req.title)
+
+    stems_clean: list[str] = []
+    for s in stems:
+        clean = sanitize_filename(s)
+        if clean and clean not in stems_clean:
+            stems_clean.append(clean)
+
+    if not stems_clean:
+        return None
+
+    video_exts = (".mp4", ".webm", ".avi", ".mkv", ".mov", ".wmv")
+    for stem in stems_clean:
+        for ext in video_exts:
+            candidate = base / f"{stem}{ext}"
+            if candidate.is_file():
+                return file_uri_for_local_path(candidate)
+
+    return None
+
+
 def _get_images(req: MediaRequest) -> list[LaunchboxImage]:
     images: list[LaunchboxImage] = []
 
@@ -495,6 +539,29 @@ def build_launchbox_metadata(
     )
 
 
+def populate_rom_specific_paths(
+    metadata: LaunchboxMetadata, rom: "Rom"
+) -> LaunchboxMetadata:
+    """Populate rom-specific media paths on a LaunchBox metadata dict.
+
+    Called after the Rom is known (in the scan pipeline) to compute the
+    destination path for local media that the handler surfaced a URL for.
+    Currently just covers video.
+    """
+    from config.config_manager import MetadataMediaType
+    from handler.filesystem import fs_resource_handler
+    from handler.metadata.ss_handler import get_preferred_media_types
+
+    if MetadataMediaType.VIDEO in get_preferred_media_types() and metadata.get(
+        "video_url"
+    ):
+        base = fs_resource_handler.get_media_resources_path(
+            rom.platform_id, rom.id, MetadataMediaType.VIDEO
+        )
+        metadata["video_path"] = f"{base}/video.mp4"
+    return metadata
+
+
 def build_rom(
     *,
     local: dict[str, str] | None,
@@ -509,10 +576,12 @@ def build_rom(
     url_cover: str | None = None
     url_screenshots: list[str] = []
     url_manual: str | None = None
+    video_url: str | None = None
     if media_req is not None:
         url_cover = _get_cover(media_req)
         url_screenshots = _get_screenshots(media_req)
         url_manual = _get_manuals(media_req)
+        video_url = _get_video(media_req)
     url_screenshots = url_screenshots or []
 
     name = (
@@ -532,6 +601,13 @@ def build_rom(
     ).strip()
 
     launchbox_id = int(launchbox_id) if launchbox_id is not None else None
+    metadata = build_launchbox_metadata(
+        local=local,
+        remote=remote,
+        images=images,
+    )
+    if video_url:
+        metadata["video_url"] = video_url
     return LaunchboxRom(
         launchbox_id=launchbox_id,
         name=name,
@@ -539,9 +615,5 @@ def build_rom(
         url_cover=url_cover or "",
         url_screenshots=url_screenshots,
         url_manual=url_manual or "",
-        launchbox_metadata=build_launchbox_metadata(
-            local=local,
-            remote=remote,
-            images=images,
-        ),
+        launchbox_metadata=metadata,
     )

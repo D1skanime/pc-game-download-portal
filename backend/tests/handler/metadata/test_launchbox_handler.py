@@ -19,7 +19,12 @@ from defusedxml import ElementTree as ET
 
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
-from handler.metadata.launchbox_handler.media import build_launchbox_metadata, build_rom
+from handler.metadata.launchbox_handler.media import (
+    _get_video,
+    build_launchbox_metadata,
+    build_rom,
+    populate_rom_specific_paths,
+)
 from handler.metadata.launchbox_handler.platforms import get_platform
 from handler.metadata.launchbox_handler.remote_source import RemoteSource
 from handler.metadata.launchbox_handler.types import (
@@ -29,6 +34,8 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LaunchboxImage,
+    LaunchboxMetadata,
+    MediaRequest,
 )
 from handler.metadata.launchbox_handler.utils import (
     coalesce,
@@ -675,6 +682,132 @@ class TestBuildLaunchboxMetadata:
         ]
         meta = build_launchbox_metadata(local=None, remote=None, images=images)
         assert meta.get("images", []) == images
+
+
+class TestGetVideo:
+    @pytest.fixture
+    def videos_dir(self, tmp_path: Path, monkeypatch) -> Path:
+        videos_root = tmp_path / "Videos"
+        videos_root.mkdir()
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.media.LAUNCHBOX_VIDEOS_DIR",
+            videos_root,
+        )
+        # file_uri_for_local_path is rooted at LAUNCHBOX_LOCAL_DIR: patch so our
+        # tmp videos sit under it and produce a well-formed URL.
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.utils.LAUNCHBOX_LOCAL_DIR",
+            tmp_path,
+        )
+        return videos_root
+
+    def _req(
+        self, fs_name: str, title: str = "", platform: str = "NES"
+    ) -> MediaRequest:
+        return MediaRequest(
+            platform_name=platform,
+            fs_name=fs_name,
+            title=title,
+            region_hint=None,
+            remote_images=None,
+            remote_enabled=False,
+        )
+
+    def test_no_platform_returns_none(self, videos_dir: Path):
+        req = MediaRequest(
+            platform_name=None,
+            fs_name="game.nes",
+            title="",
+            region_hint=None,
+            remote_images=None,
+            remote_enabled=False,
+        )
+        assert _get_video(req) is None
+
+    def test_missing_platform_dir_returns_none(self, videos_dir: Path):
+        # videos_dir has no "NES" subdirectory
+        assert _get_video(self._req("mario.nes")) is None
+
+    def test_finds_mp4_by_fs_stem(self, videos_dir: Path):
+        platform_dir = videos_dir / "NES"
+        platform_dir.mkdir()
+        (platform_dir / "Mario.mp4").write_bytes(b"")
+
+        url = _get_video(self._req("Mario.nes"))
+        assert url == "launchbox-file://Videos/NES/Mario.mp4"
+
+    def test_falls_back_to_title_stem(self, videos_dir: Path):
+        platform_dir = videos_dir / "NES"
+        platform_dir.mkdir()
+        (platform_dir / "Super Mario Bros.webm").write_bytes(b"")
+
+        url = _get_video(self._req("roms-mario-1.nes", title="Super Mario Bros"))
+        assert url == "launchbox-file://Videos/NES/Super Mario Bros.webm"
+
+    def test_multiple_extensions_tried(self, videos_dir: Path):
+        platform_dir = videos_dir / "NES"
+        platform_dir.mkdir()
+        (platform_dir / "Mario.mkv").write_bytes(b"")
+
+        url = _get_video(self._req("Mario.nes"))
+        assert url is not None
+        assert url.endswith(".mkv")
+
+    def test_no_match_returns_none(self, videos_dir: Path):
+        platform_dir = videos_dir / "NES"
+        platform_dir.mkdir()
+        (platform_dir / "Zelda.mp4").write_bytes(b"")
+
+        assert _get_video(self._req("Mario.nes")) is None
+
+
+class TestPopulateRomSpecificPaths:
+    def _rom(self) -> MagicMock:
+        rom = MagicMock()
+        rom.platform_id = 7
+        rom.id = 42
+        return rom
+
+    def test_no_video_url_is_noop(self):
+        metadata: LaunchboxMetadata = {"first_release_date": None, "images": []}
+        with patch(
+            "handler.metadata.ss_handler.get_preferred_media_types"
+        ) as mock_preferred:
+            from config.config_manager import MetadataMediaType
+
+            mock_preferred.return_value = [MetadataMediaType.VIDEO]
+            populate_rom_specific_paths(metadata, self._rom())
+        assert "video_path" not in metadata
+
+    def test_video_url_populates_path(self):
+        metadata: LaunchboxMetadata = {
+            "first_release_date": None,
+            "images": [],
+            "video_url": "launchbox-file://Videos/NES/Mario.mp4",
+        }
+        with patch(
+            "handler.metadata.ss_handler.get_preferred_media_types"
+        ) as mock_preferred:
+            from config.config_manager import MetadataMediaType
+
+            mock_preferred.return_value = [MetadataMediaType.VIDEO]
+            populate_rom_specific_paths(metadata, self._rom())
+        path = metadata.get("video_path", "")
+        assert path.endswith("/video.mp4")
+        assert "7" in path and "42" in path
+
+    def test_video_not_in_preferred_media_skips(self):
+        metadata: LaunchboxMetadata = {
+            "first_release_date": None,
+            "images": [],
+            "video_url": "launchbox-file://Videos/NES/Mario.mp4",
+        }
+        with patch(
+            "handler.metadata.ss_handler.get_preferred_media_types"
+        ) as mock_preferred:
+            mock_preferred.return_value = []
+            populate_rom_specific_paths(metadata, self._rom())
+        assert "video_path" not in metadata
 
 
 class TestBuildRom:
