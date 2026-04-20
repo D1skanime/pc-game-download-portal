@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import axios from "axios";
 import type { Emitter } from "mitt";
-import { computed, inject, ref, watch } from "vue";
+import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import PdfViewer from "@/components/Details/PDFViewer.vue";
-import SoundtrackPlayer from "@/components/Details/SoundtrackPlayer.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+
+const PdfViewer = defineAsyncComponent(
+  () => import("@/components/Details/PDFViewer.vue"),
+);
+const SoundtrackPlayer = defineAsyncComponent(
+  () => import("@/components/Details/SoundtrackPlayer.vue"),
+);
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
