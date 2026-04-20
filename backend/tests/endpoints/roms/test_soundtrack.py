@@ -289,10 +289,12 @@ def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
         lambda _path: {"has_embedded_cover": False},
     )
     cover_calls: list[dict] = []
+
+    def _record_cover_call(**kw: object) -> None:
+        cover_calls.append(kw)
+
     monkeypatch.setattr(
-        soundtrack_endpoint,
-        "persist_embedded_cover",
-        lambda **kw: cover_calls.append(kw) or None,
+        soundtrack_endpoint, "persist_embedded_cover", _record_cover_call
     )
 
     response = client.post(
