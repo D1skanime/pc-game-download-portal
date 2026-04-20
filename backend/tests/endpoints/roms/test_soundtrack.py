@@ -7,51 +7,13 @@ from fastapi.testclient import TestClient
 
 from endpoints.roms import soundtrack as soundtrack_endpoint
 from handler.database import db_rom_handler
-from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-from models.user import User
 
 MP3_BYTES = b"ID3\x03\x00\x00\x00\x00\x00\x21fake mp3 payload"
 
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
-
-
-@pytest.fixture
-def multi_file_rom(admin_user: User, platform: Platform) -> Rom:
-    rom = Rom(
-        platform_id=platform.id,
-        name="multi_rom",
-        slug="multi_rom_slug",
-        fs_name="multi_rom",
-        fs_name_no_tags="multi_rom",
-        fs_name_no_ext="multi_rom",
-        fs_extension="",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    file_path = f"{platform.slug}/roms/multi_rom"
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="game.bin",
-            file_path=file_path,
-            file_size_bytes=10,
-            category=RomFileCategory.GAME,
-        )
-    )
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="readme.txt",
-            file_path=file_path,
-            file_size_bytes=5,
-            category=RomFileCategory.GAME,
-        )
-    )
-    return db_rom_handler.get_rom(rom.id)
 
 
 @pytest.fixture
@@ -415,6 +377,177 @@ def test_get_soundtrack_metadata_empty_for_rom_without_tracks(
 
 
 # ---------- cover cleanup on delete ----------
+
+
+# ---------- permissions ----------
+
+
+def test_upload_soundtrack_forbidden_viewer(
+    client: TestClient,
+    viewer_access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+):
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/soundtracks",
+        headers={
+            **_auth(viewer_access_token),
+            "x-upload-filename": "track1.mp3",
+        },
+        files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_soundtrack_forbidden_viewer(
+    client: TestClient,
+    viewer_access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+):
+    track = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=multi_file_rom.id,
+            file_name="track1.mp3",
+            file_path=f"{multi_file_rom.full_path}/soundtrack",
+            file_size_bytes=10,
+            category=RomFileCategory.SOUNDTRACK,
+        )
+    )
+
+    response = client.delete(
+        f"/api/roms/{multi_file_rom.id}/soundtracks/{track.id}",
+        headers=_auth(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+# ---------- path traversal ----------
+
+
+def test_upload_soundtrack_rejects_traversal_filename(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+):
+    """x-upload-filename containing path components must be rejected with 400,
+    exercising the real sanitizer — not the mocked validate_path."""
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/soundtracks",
+        headers={
+            **_auth(access_token),
+            "x-upload-filename": "../../evil.mp3",
+        },
+        files={"../../evil.mp3": ("evil.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "plain file name" in response.json()["detail"]
+    # Nothing must escape the library sandbox.
+    assert not (soundtrack_fs.parent / "evil.mp3").exists()
+    assert not (soundtrack_fs / "evil.mp3").exists()
+
+
+def test_upload_soundtrack_rejects_slash_filename(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+):
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/soundtracks",
+        headers={
+            **_auth(access_token),
+            "x-upload-filename": "sub/track.mp3",
+        },
+        files={"sub/track.mp3": ("track.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_upload_soundtrack_rejects_dotdot_only_filename(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+):
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": ".."},
+        files={"..": ("..", MP3_BYTES, "audio/mpeg")},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "filename" in response.json()["detail"].lower()
+
+
+# ---------- 404 metadata ----------
+
+
+def test_get_soundtrack_metadata_unknown_rom_returns_404(
+    client: TestClient,
+    access_token: str,
+):
+    response = client.get(
+        "/api/roms/999999/soundtracks/metadata",
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# ---------- malformed audio: real extract_audio_meta ----------
+
+
+def test_upload_soundtrack_with_malformed_audio_still_succeeds(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+):
+    """The real extract_audio_meta must never raise — garbage bytes produce
+    audio_meta=None, not a 500."""
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": "bad.mp3"},
+        files={"bad.mp3": ("bad.mp3", b"\x00\x01\x02 not audio", "audio/mpeg")},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    rom_after = db_rom_handler.get_rom(multi_file_rom.id)
+    soundtracks = [
+        f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
+    ]
+    assert len(soundtracks) == 1
+    # audio_meta is either None or a dict — garbage in must not raise.
+    meta = soundtracks[0].audio_meta
+    assert meta is None or isinstance(meta, dict)
+
+
+# ---------- missing-file delete ----------
+
+
+def test_delete_soundtrack_tolerates_missing_disk_file(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    soundtrack_fs: Path,
+):
+    """DB row should still be dropped if the on-disk file is already gone."""
+    track = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=multi_file_rom.id,
+            file_name="missing.mp3",
+            file_path=f"{multi_file_rom.full_path}/soundtrack",
+            file_size_bytes=10,
+            category=RomFileCategory.SOUNDTRACK,
+        )
+    )
+
+    response = client.delete(
+        f"/api/roms/{multi_file_rom.id}/soundtracks/{track.id}",
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert db_rom_handler.get_rom_file_by_id(track.id) is None
 
 
 def test_delete_soundtrack_removes_persisted_cover(

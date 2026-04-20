@@ -55,6 +55,16 @@ async def add_rom_manuals(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    # The stored filename is always `{rom.id}.pdf`; we only use `filename` as
+    # the form-field key, but normalise it to a safe basename first.
+    try:
+        safe_field_name = fs_resource_handler._sanitize_filename(filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid upload filename: {exc}",
+        ) from exc
+
     manuals_path = f"{rom.fs_resources_path}/manual"
     file_location = fs_resource_handler.validate_path(f"{manuals_path}/{rom.id}.pdf")
     log.info(f"Uploading manual to {hl(str(file_location))}")
@@ -63,7 +73,7 @@ async def add_rom_manuals(
 
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
-    parser.register(filename, FileTarget(str(file_location)))
+    parser.register(safe_field_name, FileTarget(str(file_location)))
 
     def cleanup_partial_file():
         if file_location.exists():
@@ -72,16 +82,10 @@ async def add_rom_manuals(
     try:
         async for chunk in request.stream():
             parser.data_received(chunk)
-
-        db_rom_handler.update_rom(
-            id,
-            {
-                "path_manual": f"{manuals_path}/{rom.id}.pdf",
-            },
-        )
     except ClientDisconnect:
         log.error("Client disconnected during upload")
         cleanup_partial_file()
+        raise
     except Exception as exc:
         log.error("Error uploading files", exc_info=exc)
         cleanup_partial_file()
@@ -89,6 +93,13 @@ async def add_rom_manuals(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error uploading the manual",
         ) from exc
+
+    db_rom_handler.update_rom(
+        id,
+        {
+            "path_manual": f"{manuals_path}/{rom.id}.pdf",
+        },
+    )
 
     return Response()
 
@@ -172,7 +183,21 @@ async def add_rom_manual_file(
             detail="Manual files can only be uploaded to folder-based ROMs",
         )
 
-    if not _is_allowed_manual_file(filename):
+    try:
+        safe_filename = fs_rom_handler._sanitize_filename(filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid upload filename: {exc}",
+        ) from exc
+
+    if safe_filename != filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload filename must be a plain file name, not a path",
+        )
+
+    if not _is_allowed_manual_file(safe_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -182,7 +207,7 @@ async def add_rom_manual_file(
         )
 
     manual_dir_rel = f"{rom.full_path}/{MANUAL_FOLDER}"
-    file_rel_path = f"{manual_dir_rel}/{filename}"
+    file_rel_path = f"{manual_dir_rel}/{safe_filename}"
     file_location = fs_rom_handler.validate_path(file_rel_path)
     log.info(f"Uploading manual file to {hl(str(file_location))}")
 
@@ -190,7 +215,7 @@ async def add_rom_manual_file(
 
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
-    parser.register(filename, FileTarget(str(file_location)))
+    parser.register(safe_filename, FileTarget(str(file_location)))
 
     def cleanup_partial_file():
         if file_location.exists():
@@ -202,7 +227,7 @@ async def add_rom_manual_file(
     except ClientDisconnect:
         log.error("Client disconnected during upload")
         cleanup_partial_file()
-        return Response()
+        raise
     except Exception as exc:
         log.error("Error uploading manual file", exc_info=exc)
         cleanup_partial_file()
@@ -213,7 +238,7 @@ async def add_rom_manual_file(
 
     stat = os.stat(file_location)
     existing = db_rom_handler.get_rom_file_by_path(
-        rom_id=rom.id, file_path=manual_dir_rel, file_name=filename
+        rom_id=rom.id, file_path=manual_dir_rel, file_name=safe_filename
     )
     if existing:
         db_rom_handler.update_rom_file(
@@ -229,7 +254,7 @@ async def add_rom_manual_file(
         db_rom_handler.add_rom_file(
             RomFile(
                 rom_id=rom.id,
-                file_name=filename,
+                file_name=safe_filename,
                 file_path=manual_dir_rel,
                 file_size_bytes=stat.st_size,
                 last_modified=stat.st_mtime,

@@ -5,13 +5,12 @@ from fastapi import Header, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
 from fastapi.responses import Response
-from pydantic import BaseModel, ConfigDict
 from starlette.requests import ClientDisconnect
 from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
-from endpoints.responses.rom import RomFileAudioMetaSchema
+from endpoints.responses.rom import RomFileAudioMetaSchema, SoundtrackTrackMetaSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
@@ -21,7 +20,9 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile, RomFileCategory
 from utils.audio_tags import (
+    ALLOWED_AUDIO_EXTENSIONS,
     extract_audio_meta,
+    is_allowed_audio_file,
     persist_embedded_cover,
     remove_persisted_cover,
 )
@@ -30,14 +31,6 @@ from utils.router import APIRouter
 router = APIRouter()
 
 SOUNDTRACK_FOLDER = "soundtrack"
-ALLOWED_AUDIO_EXTENSIONS = frozenset(
-    {".mp3", ".ogg", ".oga", ".opus", ".m4a", ".aac", ".wav", ".flac"}
-)
-
-
-def _is_allowed_audio_file(file_name: str) -> bool:
-    _, ext = os.path.splitext(file_name)
-    return ext.lower() in ALLOWED_AUDIO_EXTENSIONS
 
 
 @protected_route(
@@ -70,7 +63,23 @@ async def add_rom_soundtracks(
             detail="Soundtracks can only be uploaded to folder-based ROMs",
         )
 
-    if not _is_allowed_audio_file(filename):
+    try:
+        safe_filename = fs_rom_handler._sanitize_filename(filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid upload filename: {exc}",
+        ) from exc
+
+    # Reject rather than silently strip — otherwise the client's form-field
+    # name won't match what we register with the parser below.
+    if safe_filename != filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload filename must be a plain file name, not a path",
+        )
+
+    if not is_allowed_audio_file(safe_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -80,7 +89,7 @@ async def add_rom_soundtracks(
         )
 
     soundtrack_dir_rel = f"{rom.full_path}/{SOUNDTRACK_FOLDER}"
-    file_rel_path = f"{soundtrack_dir_rel}/{filename}"
+    file_rel_path = f"{soundtrack_dir_rel}/{safe_filename}"
     file_location = fs_rom_handler.validate_path(file_rel_path)
     log.info(f"Uploading soundtrack to {hl(str(file_location))}")
 
@@ -88,7 +97,7 @@ async def add_rom_soundtracks(
 
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
-    parser.register(filename, FileTarget(str(file_location)))
+    parser.register(safe_filename, FileTarget(str(file_location)))
 
     def cleanup_partial_file():
         if file_location.exists():
@@ -100,7 +109,7 @@ async def add_rom_soundtracks(
     except ClientDisconnect:
         log.error("Client disconnected during upload")
         cleanup_partial_file()
-        return Response()
+        raise
     except Exception as exc:
         log.error("Error uploading soundtrack", exc_info=exc)
         cleanup_partial_file()
@@ -112,7 +121,7 @@ async def add_rom_soundtracks(
     stat = os.stat(file_location)
     audio_meta = extract_audio_meta(str(file_location))
     existing = db_rom_handler.get_rom_file_by_path(
-        rom_id=rom.id, file_path=soundtrack_dir_rel, file_name=filename
+        rom_id=rom.id, file_path=soundtrack_dir_rel, file_name=safe_filename
     )
     if existing:
         # Reuploading: drop stale cover first so a new id-based path can replace it.
@@ -132,7 +141,7 @@ async def add_rom_soundtracks(
         saved = db_rom_handler.add_rom_file(
             RomFile(
                 rom_id=rom.id,
-                file_name=filename,
+                file_name=safe_filename,
                 file_path=soundtrack_dir_rel,
                 file_size_bytes=stat.st_size,
                 last_modified=stat.st_mtime,
@@ -141,7 +150,7 @@ async def add_rom_soundtracks(
             )
         )
 
-    if audio_meta and audio_meta.get("has_embedded_cover"):
+    if saved and audio_meta and audio_meta.get("has_embedded_cover"):
         cover_path = persist_embedded_cover(
             audio_full_path=str(file_location),
             platform_id=rom.platform_id,
@@ -216,15 +225,6 @@ async def delete_rom_soundtrack(
     return Response()
 
 
-class SoundtrackTrackMetaSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    file_id: int
-    file_name: str
-    file_size_bytes: int
-    audio_meta: RomFileAudioMetaSchema | None = None
-
-
 @protected_route(
     router.get,
     "/{id}/soundtracks/metadata",
@@ -241,8 +241,9 @@ async def get_rom_soundtrack_metadata(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    tracks = [f for f in rom.files if f.category == RomFileCategory.SOUNDTRACK]
-    tracks.sort(key=lambda f: f.file_name)
+    tracks = db_rom_handler.get_rom_files_by_category(
+        rom_id=rom.id, category=RomFileCategory.SOUNDTRACK
+    )
 
     return [
         SoundtrackTrackMetaSchema(

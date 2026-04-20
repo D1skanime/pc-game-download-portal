@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -11,6 +12,15 @@ import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+
+function errorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === "string" && detail) return detail;
+    return err.message;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
@@ -268,11 +278,9 @@ async function redownloadManual() {
       icon: "mdi-check-bold",
       color: "green",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     emitter?.emit("snackbarShow", {
-      msg: t("rom.manual-redownload-failed", {
-        error: error.response?.data?.detail || error.message,
-      }),
+      msg: t("rom.manual-redownload-failed", { error: errorMessage(error) }),
       icon: "mdi-close-circle",
       color: "red",
     });
@@ -300,13 +308,13 @@ async function deleteManual() {
       icon: "mdi-check-bold",
       color: "green",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     emitter?.emit("snackbarShow", {
       msg: t(
         entry.isPrimary
           ? "rom.manual-remove-failed"
           : "rom.manual-file-remove-failed",
-        { error: error.response?.data?.detail || error.message },
+        { error: errorMessage(error) },
       ),
       icon: "mdi-close-circle",
       color: "red",
@@ -323,11 +331,9 @@ async function deleteSoundtrack(fileId: number) {
       icon: "mdi-check-bold",
       color: "green",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     emitter?.emit("snackbarShow", {
-      msg: t("rom.soundtrack-remove-failed", {
-        error: error.response?.data?.detail || error.message,
-      }),
+      msg: t("rom.soundtrack-remove-failed", { error: errorMessage(error) }),
       icon: "mdi-close-circle",
       color: "red",
     });

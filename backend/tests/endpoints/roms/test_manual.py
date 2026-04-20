@@ -7,52 +7,13 @@ from fastapi.testclient import TestClient
 
 from endpoints.roms import manual as manual_endpoint
 from handler.database import db_rom_handler
-from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-from models.user import User
 
 PDF_BYTES = b"%PDF-1.4\n%mock pdf\n%%EOF"
 
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
-
-
-@pytest.fixture
-def multi_file_rom(admin_user: User, platform: Platform) -> Rom:
-    """A folder-based ROM with two top-level files (so has_simple_single_file is False)."""
-    rom = Rom(
-        platform_id=platform.id,
-        name="multi_rom",
-        slug="multi_rom_slug",
-        fs_name="multi_rom",
-        fs_name_no_tags="multi_rom",
-        fs_name_no_ext="multi_rom",
-        fs_extension="",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    file_path = f"{platform.slug}/roms/multi_rom"
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="game.bin",
-            file_path=file_path,
-            file_size_bytes=10,
-            category=RomFileCategory.GAME,
-        )
-    )
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="readme.txt",
-            file_path=file_path,
-            file_size_bytes=5,
-            category=RomFileCategory.GAME,
-        )
-    )
-    return db_rom_handler.get_rom(rom.id)
 
 
 @pytest.fixture
@@ -193,8 +154,7 @@ def test_upload_manual_to_folder_upserts_on_reupload(
 def test_upload_manual_to_folder_rejects_single_file_rom(
     client: TestClient,
     access_token: str,
-    rom: Rom,  # the default fixture has zero files → has_simple_single_file is False too,
-    # so we add a single file to make it explicitly simple-single
+    rom: Rom,
     manual_fs_folder: Path,
 ):
     # Single non-nested file → has_simple_single_file is True
@@ -411,6 +371,115 @@ def test_delete_manual_file_wrong_category_returns_404(
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# ---------- permissions ----------
+
+
+def test_upload_manual_to_resources_forbidden_viewer(
+    client: TestClient,
+    viewer_access_token: str,
+    rom: Rom,
+    manual_fs_resources: Path,
+):
+    response = client.post(
+        f"/api/roms/{rom.id}/manuals",
+        headers={
+            **_auth(viewer_access_token),
+            "x-upload-filename": "manual.pdf",
+        },
+        files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_upload_manual_to_folder_forbidden_viewer(
+    client: TestClient,
+    viewer_access_token: str,
+    multi_file_rom: Rom,
+    manual_fs_folder: Path,
+):
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/manuals/files",
+        headers={
+            **_auth(viewer_access_token),
+            "x-upload-filename": "english.pdf",
+        },
+        files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_redownload_manual_forbidden_viewer(
+    client: TestClient,
+    viewer_access_token: str,
+    rom: Rom,
+):
+    response = client.post(
+        f"/api/roms/{rom.id}/manuals/redownload",
+        headers=_auth(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_manual_file_forbidden_viewer(
+    client: TestClient,
+    viewer_access_token: str,
+    multi_file_rom: Rom,
+    manual_fs_folder: Path,
+):
+    manual_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=multi_file_rom.id,
+            file_name="english.pdf",
+            file_path=f"{multi_file_rom.full_path}/manual",
+            file_size_bytes=len(PDF_BYTES),
+            category=RomFileCategory.MANUAL,
+        )
+    )
+
+    response = client.delete(
+        f"/api/roms/{multi_file_rom.id}/manuals/files/{manual_file.id}",
+        headers=_auth(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+# ---------- path traversal ----------
+
+
+def test_upload_manual_file_rejects_dotdot_filename(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    manual_fs_folder: Path,
+):
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/manuals/files",
+        headers={**_auth(access_token), "x-upload-filename": ".."},
+        files={"..": ("..", PDF_BYTES, "application/pdf")},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_upload_manual_file_rejects_path_components(
+    client: TestClient,
+    access_token: str,
+    multi_file_rom: Rom,
+    manual_fs_folder: Path,
+):
+    """Path components in the upload filename must be rejected with 400."""
+    response = client.post(
+        f"/api/roms/{multi_file_rom.id}/manuals/files",
+        headers={
+            **_auth(access_token),
+            "x-upload-filename": "../../evil.pdf",
+        },
+        files={"../../evil.pdf": ("evil.pdf", PDF_BYTES, "application/pdf")},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert not (manual_fs_folder.parent / "evil.pdf").exists()
+    assert not (manual_fs_folder / "evil.pdf").exists()
 
 
 def test_delete_manual_file_tolerates_missing_disk_file(

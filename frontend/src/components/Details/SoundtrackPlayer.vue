@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import axios, { type AxiosRequestConfig } from "axios";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VolumeControl from "@/components/common/VolumeControl.vue";
 import romApi, {
@@ -13,6 +14,7 @@ import useSoundtrackPlayer, {
   type PlayerMeta,
   type PlayerTrack,
 } from "@/stores/soundtrackPlayer";
+import type { Events } from "@/types/emitter";
 import { formatBytes, FRONTEND_RESOURCES_PATH } from "@/utils";
 
 const props = defineProps<{ rom: DetailedRom }>();
@@ -21,6 +23,7 @@ const emit = defineEmits<{
   (e: "delete-track", fileId: number): void;
 }>();
 const { t } = useI18n();
+const emitter = inject<Emitter<Events>>("emitter");
 
 const player = useSoundtrackPlayer();
 const {
@@ -157,7 +160,12 @@ async function loadAllMetadata() {
   } catch (err: unknown) {
     const maybeCfg = err as { config?: AxiosRequestConfig };
     if (axios.isCancel(err) || maybeCfg.config?.signal?.aborted) return;
-    console.warn("[SoundtrackPlayer] metadata fetch failed:", err);
+    emitter?.emit("snackbarShow", {
+      msg: t("rom.soundtrack-metadata-error"),
+      icon: "mdi-alert",
+      color: "red",
+      timeout: 3000,
+    });
   } finally {
     isLoadingMeta.value = false;
   }
@@ -259,6 +267,10 @@ function fmt(s: number | undefined | null) {
     .padStart(2, "0");
   return `${m}:${sec}`;
 }
+
+function seekValueText(v: number): string {
+  return `${fmt(v)} of ${fmt(duration.value)}`;
+}
 </script>
 
 <template>
@@ -313,18 +325,27 @@ function fmt(s: number | undefined | null) {
         </div>
       </div>
     </div>
-    <div v-if="activeTrack" class="d-flex align-center mb-3 ga-2 px-2">
+    <div
+      v-if="activeTrack"
+      class="d-flex align-center mb-3 ga-2 px-2"
+      role="region"
+      :aria-label="t('rom.soundtrack-player')"
+    >
       <v-btn
         icon="mdi-skip-previous"
         variant="text"
         size="default"
         :disabled="!hasPrevious"
+        :aria-label="t('rom.soundtrack-previous')"
         @click="player.previous()"
       />
       <v-btn
         :icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
         variant="text"
         size="large"
+        :aria-label="
+          isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+        "
         @click="player.togglePlayPause()"
       />
       <v-btn
@@ -332,6 +353,7 @@ function fmt(s: number | undefined | null) {
         variant="text"
         size="default"
         :disabled="!hasNext"
+        :aria-label="t('rom.soundtrack-next')"
         @click="player.next()"
       />
       <span class="text-caption text-medium-emphasis" style="width: 40px">
@@ -347,6 +369,8 @@ function fmt(s: number | undefined | null) {
         thumb-size="14"
         track-size="3"
         class="flex-grow-1"
+        :aria-label="t('rom.soundtrack-seek')"
+        :aria-valuetext="seekValueText(currentTime)"
         @update:model-value="(v: number) => player.seek(v)"
       />
       <span
@@ -416,6 +440,7 @@ function fmt(s: number | undefined | null) {
             variant="text"
             size="small"
             class="text-romm-red"
+            :aria-label="t('rom.soundtrack-delete-track')"
             @click.stop="onDelete(track.id)"
           />
         </template>
@@ -488,6 +513,13 @@ function fmt(s: number | undefined | null) {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disc,
+  .disc-wrapper.spinning .disc {
+    animation: none;
   }
 }
 

@@ -1,28 +1,10 @@
+import { useLocalStorage } from "@vueuse/core";
 import { throttle } from "lodash";
 import { defineStore } from "pinia";
-import { computed, ref, shallowRef, watch } from "vue";
+import { computed, ref, shallowRef } from "vue";
 
-const VOLUME_KEY = "settings.soundtrackVolume";
-const MUTED_KEY = "settings.soundtrackMuted";
-
-function loadInitialVolume(): number {
-  try {
-    const raw = localStorage.getItem(VOLUME_KEY);
-    if (raw == null) return 1;
-    const n = parseFloat(raw);
-    return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 1;
-  } catch {
-    return 1;
-  }
-}
-
-function loadInitialMuted(): boolean {
-  try {
-    return localStorage.getItem(MUTED_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
+const volumeStorage = useLocalStorage<number>("soundtrack.volume", 1);
+const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
 
 export interface PlayerTrack {
   romId: number;
@@ -49,29 +31,15 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const meta = ref<PlayerMeta>({});
   const isPlaying = ref(false);
   const isBuffering = ref(false);
+  const hasError = ref(false);
   const currentTime = ref(0);
   const duration = ref(0);
   const audioRef = shallowRef<HTMLAudioElement | null>(null);
-  const volume = ref(loadInitialVolume());
-  const muted = ref(loadInitialMuted());
+  const volume = volumeStorage;
+  const muted = mutedStorage;
   const playlist = ref<PlayerTrack[]>([]);
   const playlistMeta = ref<Record<number, PlayerMeta>>({});
   const activePlaylistRomId = ref<number | null>(null);
-
-  watch(volume, (v) => {
-    try {
-      localStorage.setItem(VOLUME_KEY, String(v));
-    } catch {
-      // ignore
-    }
-  });
-  watch(muted, (m) => {
-    try {
-      localStorage.setItem(MUTED_KEY, m ? "true" : "false");
-    } catch {
-      // ignore
-    }
-  });
 
   function setAudioRef(el: HTMLAudioElement | null) {
     audioRef.value = el;
@@ -109,6 +77,22 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     setCurrentTimeThrottled(t);
   }
 
+  function setPlaying(v: boolean) {
+    isPlaying.value = v;
+    if (v) hasError.value = false;
+  }
+  function setBuffering(v: boolean) {
+    isBuffering.value = v;
+  }
+  function setDuration(d: number) {
+    duration.value = Number.isFinite(d) && d >= 0 ? d : 0;
+  }
+  function setError() {
+    hasError.value = true;
+    isPlaying.value = false;
+    isBuffering.value = false;
+  }
+
   function loadPlaylistForRom(
     romId: number,
     tracks: PlayerTrack[],
@@ -120,11 +104,15 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   }
 
   function play(t: PlayerTrack, m: PlayerMeta) {
+    // Drop any buffered time-update from the previous track so the slider
+    // doesn't briefly snap to an old value before `timeupdate` fires.
+    setCurrentTimeThrottled.cancel();
     track.value = t;
     meta.value = m;
     currentTime.value = 0;
     duration.value = m.duration ?? 0;
     isBuffering.value = true;
+    hasError.value = false;
   }
 
   const currentIndex = computed(() => {
@@ -153,6 +141,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   }
 
   function stop() {
+    setCurrentTimeThrottled.cancel();
     const el = audioRef.value;
     if (el) {
       el.pause();
@@ -167,6 +156,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     meta.value = {};
     isPlaying.value = false;
     isBuffering.value = false;
+    hasError.value = false;
     currentTime.value = 0;
     duration.value = 0;
     playlist.value = [];
@@ -194,6 +184,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     meta,
     isPlaying,
     isBuffering,
+    hasError,
     currentTime,
     duration,
     volume,
@@ -210,6 +201,10 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     seek,
     setVolume,
     toggleMute,
+    setPlaying,
+    setBuffering,
+    setDuration,
+    setError,
     next,
     previous,
     loadPlaylistForRom,

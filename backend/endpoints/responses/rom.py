@@ -182,6 +182,15 @@ class RomFileSchema(BaseModel):
     audio_meta: RomFileAudioMetaSchema | None = None
 
 
+class SoundtrackTrackMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    file_id: int
+    file_name: str
+    file_size_bytes: int
+    audio_meta: RomFileAudioMetaSchema | None = None
+
+
 class RomMetadataSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

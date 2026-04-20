@@ -92,21 +92,23 @@ async def get_romfile_content(
     media_type = (
         _guess_media_type(file_name) if is_audio else "application/octet-stream"
     )
+    disposition = "inline" if is_audio else "attachment"
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         rom_path = fs_rom_handler.validate_path(file.full_path)
-        # Audio: serve inline so the browser streams + seeks via Range. Other
-        # categories: keep the attachment disposition so navigation downloads.
-        # In both cases Starlette sets Content-Length and honors Range natively.
+        # Starlette sets Content-Length and honors Range natively — inline
+        # disposition lets <audio> seek via Range requests.
         return FileResponse(
             path=rom_path,
             filename=file_name,
             media_type=media_type,
-            content_disposition_type="inline" if is_audio else "attachment",
+            content_disposition_type=disposition,
         )
 
-    # Otherwise proxy through nginx
+    # Otherwise proxy through nginx (which parses Range itself via X-Accel-Redirect)
     return FileRedirectResponse(
         download_path=Path(f"/library/{file.full_path}"),
+        disposition=disposition,
+        media_type=media_type,
     )

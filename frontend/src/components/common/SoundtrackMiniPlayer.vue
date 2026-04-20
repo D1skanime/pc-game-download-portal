@@ -1,11 +1,16 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import VolumeControl from "@/components/common/VolumeControl.vue";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
+import type { Events } from "@/types/emitter";
 
 const route = useRoute();
+const { t } = useI18n();
+const emitter = inject<Emitter<Events>>("emitter");
 const store = useSoundtrackPlayer();
 const {
   track,
@@ -19,6 +24,11 @@ const {
 } = storeToRefs(store);
 
 const audioEl = ref<HTMLAudioElement | null>(null);
+
+// Generation token — bumped every time we reassign `src`. Any async `play()`
+// promise resolves against the token that was current when it was kicked off,
+// so stale awaits from prior tracks don't clobber the current state.
+let loadToken = 0;
 
 const onSoundtrackSubtab = computed(
   () =>
@@ -46,12 +56,20 @@ onBeforeUnmount(() => {
 watch(track, async (t) => {
   const el = audioEl.value;
   if (!el) return;
+  const token = ++loadToken;
   if (t) {
     el.src = t.url;
     try {
+      el.load();
+    } catch {
+      // ignore
+    }
+    try {
       await el.play();
     } catch {
-      // autoplay may be blocked; user can click play in the UI
+      if (token !== loadToken) return; // a newer track has superseded this one
+      // Autoplay may be blocked; user can click play in the UI. Don't surface
+      // an error snackbar for that — real load failures come via `@error`.
     }
   } else {
     el.pause();
@@ -65,27 +83,36 @@ watch(track, async (t) => {
 });
 
 function onPlay() {
-  isPlaying.value = true;
-  isBuffering.value = false;
+  store.setPlaying(true);
+  store.setBuffering(false);
 }
 function onPause() {
-  isPlaying.value = false;
+  store.setPlaying(false);
 }
 function onEnded() {
-  isPlaying.value = false;
+  store.setPlaying(false);
   if (hasNext.value) store.next();
 }
 function onTimeUpdate() {
   if (audioEl.value) store.reportCurrentTime(audioEl.value.currentTime || 0);
 }
 function onLoadedMetadata() {
-  if (audioEl.value) duration.value = audioEl.value.duration || 0;
+  if (audioEl.value) store.setDuration(audioEl.value.duration || 0);
 }
 function onWaiting() {
-  isBuffering.value = true;
+  store.setBuffering(true);
 }
 function onCanPlay() {
-  isBuffering.value = false;
+  store.setBuffering(false);
+}
+function onError() {
+  store.setError();
+  emitter?.emit("snackbarShow", {
+    msg: t("rom.soundtrack-playback-error"),
+    icon: "mdi-alert",
+    color: "red",
+    timeout: 3000,
+  });
 }
 
 function fmt(s: number) {
@@ -96,6 +123,10 @@ function fmt(s: number) {
     .padStart(2, "0");
   return `${m}:${sec}`;
 }
+
+function seekValueText(v: number): string {
+  return `${fmt(v)} of ${fmt(duration.value)}`;
+}
 </script>
 
 <template>
@@ -105,6 +136,7 @@ function fmt(s: number) {
     ref="audioEl"
     class="d-none"
     preload="metadata"
+    aria-hidden="true"
     @play="onPlay"
     @pause="onPause"
     @ended="onEnded"
@@ -112,17 +144,21 @@ function fmt(s: number) {
     @loadedmetadata="onLoadedMetadata"
     @waiting="onWaiting"
     @canplay="onCanPlay"
+    @error="onError"
   />
 
   <Transition name="mini-player">
     <v-card
       v-if="showMiniPlayer && track"
       class="mini-player position-fixed elevation-12"
+      role="region"
+      :aria-label="t('rom.soundtrack-player')"
     >
       <div class="d-flex align-stretch pt-4 px-4 ga-3">
         <div
           class="mini-disc rounded-circle overflow-hidden d-flex align-center justify-center flex-shrink-0 align-self-center position-relative"
           :class="{ spinning: isPlaying }"
+          aria-hidden="true"
         >
           <img v-if="coverUrl" :src="coverUrl" class="w-100 h-100" alt="" />
           <v-icon v-else size="40">mdi-music-note</v-icon>
@@ -155,6 +191,7 @@ function fmt(s: number) {
               icon="mdi-close"
               variant="text"
               size="small"
+              :aria-label="t('rom.soundtrack-close-player')"
               @click="store.stop()"
             />
           </div>
@@ -164,12 +201,16 @@ function fmt(s: number) {
               variant="text"
               size="small"
               :disabled="!hasPrevious"
+              :aria-label="t('rom.soundtrack-previous')"
               @click="store.previous()"
             />
             <v-btn
               :icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
               variant="text"
               size="default"
+              :aria-label="
+                isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+              "
               @click="store.togglePlayPause()"
             />
             <v-btn
@@ -177,6 +218,7 @@ function fmt(s: number) {
               variant="text"
               size="small"
               :disabled="!hasNext"
+              :aria-label="t('rom.soundtrack-next')"
               @click="store.next()"
             />
             <v-divider vertical class="mx-1 my-2" />
@@ -198,6 +240,8 @@ function fmt(s: number) {
           thumb-size="12"
           track-size="2"
           class="flex-grow-1"
+          :aria-label="t('rom.soundtrack-seek')"
+          :aria-valuetext="seekValueText(currentTime)"
           @update:model-value="(v: number) => store.seek(v)"
         />
         <span class="text-caption text-medium-emphasis">
@@ -247,6 +291,13 @@ function fmt(s: number) {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .mini-disc img,
+  .mini-disc.spinning img {
+    animation: none;
+  }
+}
+
 .mini-player-enter-from,
 .mini-player-leave-to {
   transform: translate(20%, 120%);
@@ -257,5 +308,15 @@ function fmt(s: number) {
   transition:
     transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.25s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mini-player-enter-active,
+  .mini-player-leave-active {
+    transition: opacity 0.2s ease;
+  }
+  .mini-player-enter-from,
+  .mini-player-leave-to {
+    transform: none;
+  }
 }
 </style>
