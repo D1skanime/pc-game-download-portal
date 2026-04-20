@@ -358,10 +358,10 @@ def test_delete_manual_file_wrong_category_returns_404(
     not_manual = db_rom_handler.add_rom_file(
         RomFile(
             rom_id=multi_file_rom.id,
-            file_name="cheat.txt",
-            file_path=f"{multi_file_rom.full_path}/cheat",
+            file_name="savegame.dat",
+            file_path=f"{multi_file_rom.full_path}/saves",
             file_size_bytes=10,
-            category=RomFileCategory.CHEAT,
+            category=RomFileCategory.GAME,
         )
     )
 
