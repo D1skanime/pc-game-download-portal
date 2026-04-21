@@ -103,6 +103,30 @@ def test_update_rom(
     assert get_rom_by_id_mock.called
 
 
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_reparses_tags_on_fs_name_change(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "Patapon (Fr, En) (Rev 1).iso"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["fs_name"] == "Patapon (Fr, En) (Rev 1).iso"
+    assert body["languages"] == ["French", "English"]
+    assert body["regions"] == []
+    assert body["revision"] == "1"
+    assert body["tags"] == []
+
+
 def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     response = client.post(
         "/api/roms/delete",

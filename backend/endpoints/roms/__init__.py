@@ -1296,6 +1296,20 @@ async def update_rom(
         }
     )
 
+    # Re-parse tags from the filename so region/language/revision/version/tags
+    # stay in sync whenever the fs_name changes.
+    if new_fs_name != rom.fs_name:
+        parsed_tags = fs_rom_handler.parse_tags(new_fs_name)
+        cleaned_data.update(
+            {
+                "regions": parsed_tags.regions,
+                "languages": parsed_tags.languages,
+                "tags": parsed_tags.other_tags,
+                "revision": parsed_tags.revision,
+                "version": parsed_tags.version,
+            }
+        )
+
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
