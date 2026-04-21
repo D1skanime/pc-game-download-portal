@@ -110,6 +110,7 @@
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "サウンドトラックのメタデータの読み込みに失敗しました",
   "soundtrack-next": "次のトラック",
+  "soundtrack-open-rom": "Open ROM details",
   "soundtrack-pause": "一時停止",
   "soundtrack-play": "再生",
   "soundtrack-playback-error": "オーディオ再生に失敗しました",

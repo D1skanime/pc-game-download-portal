@@ -110,6 +110,7 @@
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Échec du chargement des métadonnées de la bande son",
   "soundtrack-next": "Piste suivante",
+  "soundtrack-open-rom": "Open ROM details",
   "soundtrack-pause": "Pause",
   "soundtrack-play": "Lecture",
   "soundtrack-playback-error": "Échec de la lecture audio",

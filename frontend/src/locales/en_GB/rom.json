@@ -110,6 +110,7 @@
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "Failed to load soundtrack metadata",
   "soundtrack-next": "Next track",
+  "soundtrack-open-rom": "Open ROM details",
   "soundtrack-pause": "Pause",
   "soundtrack-play": "Play",
   "soundtrack-playback-error": "Audio playback failed",

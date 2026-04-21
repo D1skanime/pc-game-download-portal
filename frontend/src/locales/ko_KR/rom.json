@@ -110,6 +110,7 @@
   "soundtrack-folder-only": "Available for folder-based ROMs only",
   "soundtrack-metadata-error": "사운드트랙 메타데이터를 불러오지 못했습니다",
   "soundtrack-next": "다음 트랙",
+  "soundtrack-open-rom": "Open ROM details",
   "soundtrack-pause": "일시정지",
   "soundtrack-play": "재생",
   "soundtrack-playback-error": "오디오 재생 실패",
