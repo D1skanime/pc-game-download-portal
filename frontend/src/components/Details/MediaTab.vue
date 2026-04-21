@@ -84,11 +84,12 @@ type ManualEntry = {
 
 const manualEntries = computed<ManualEntry[]>(() => {
   const entries: ManualEntry[] = [];
+  const cacheBust = encodeURIComponent(props.rom.updated_at);
   if (props.rom.has_manual && props.rom.path_manual) {
     entries.push({
       id: "primary",
       label: t("rom.scraped-manual"),
-      url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}`,
+      url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}?v=${cacheBust}`,
       isPrimary: true,
     });
   }
@@ -97,7 +98,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
       entries.push({
         id: `file-${file.id}`,
         label: file.file_name.replace(/\.[^.]+$/, ""),
-        url: `/api/roms/${file.id}/files/content/${encodeURIComponent(file.file_name)}`,
+        url: `/api/roms/${file.id}/files/content/${encodeURIComponent(file.file_name)}?v=${cacheBust}`,
         isPrimary: false,
       });
     }
@@ -106,15 +107,25 @@ const manualEntries = computed<ManualEntry[]>(() => {
 });
 
 const selectedManualId = ref<string>("");
+let previousManualIds = new Set<string>();
 
 watch(
   manualEntries,
   (entries) => {
+    const currentIds = new Set(entries.map((e) => e.id));
     if (entries.length === 0) {
       selectedManualId.value = "";
-    } else if (!entries.some((e) => e.id === selectedManualId.value)) {
-      selectedManualId.value = entries[0].id;
+    } else {
+      // If a new entry appeared after a previous snapshot, auto-select it so
+      // the user lands on the manual they just uploaded.
+      const added = entries.filter((e) => !previousManualIds.has(e.id));
+      if (added.length > 0 && previousManualIds.size > 0) {
+        selectedManualId.value = added[added.length - 1].id;
+      } else if (!entries.some((e) => e.id === selectedManualId.value)) {
+        selectedManualId.value = entries[0].id;
+      }
     }
+    previousManualIds = currentIds;
   },
   { immediate: true },
 );
@@ -127,10 +138,7 @@ const soundtrackSupported = computed(() => !props.rom.has_simple_single_file);
 
 const manualUploadInput = ref<HTMLInputElement | null>(null);
 const soundtrackUploadInput = ref<HTMLInputElement | null>(null);
-const showConfirmDeleteManual = ref(false);
 const redownloadingManual = ref(false);
-const showUploadTargetDialog = ref(false);
-const pendingManualFiles = ref<File[]>([]);
 
 function triggerManualUpload() {
   manualUploadInput.value?.click();
@@ -156,84 +164,10 @@ function onManualUpload(event: Event) {
   input.value = "";
   if (files.length === 0) return;
 
-  if (props.rom.has_simple_single_file) {
-    void uploadManualsToResources(files);
-    return;
-  }
-
-  pendingManualFiles.value = files;
-  showUploadTargetDialog.value = true;
-}
-
-async function handleManualUploadResult(
-  responses: PromiseSettledResult<unknown>[],
-  successKey: string,
-  skippedKey: string,
-) {
-  const successful = responses.filter((r) => r.status === "fulfilled").length;
-  const failed = responses.length - successful;
-
-  if (failed === 0) {
-    uploadStore.reset();
-  }
-
-  if (successful > 0) {
-    emitter?.emit("snackbarShow", {
-      msg: t(successKey, { count: successful, failed }),
-      icon: "mdi-check-bold",
-      color: "green",
-      timeout: 3000,
-    });
-    await refreshRom();
-  } else {
-    emitter?.emit("snackbarShow", {
-      msg: t(skippedKey),
-      icon: "mdi-close-circle",
-      color: "orange",
-      timeout: 5000,
-    });
-  }
-}
-
-async function uploadManualsToResources(files: File[]) {
-  const responses = await romApi.uploadManuals({
-    romId: props.rom.id,
-    filesToUpload: files,
+  emitter?.emit("showManualUploadTargetDialog", {
+    rom: props.rom,
+    files,
   });
-  await handleManualUploadResult(
-    responses,
-    "rom.manuals-upload-success",
-    "rom.manuals-upload-skipped",
-  );
-}
-
-async function uploadManualsToFolder(files: File[]) {
-  const responses = await romApi.uploadManualFiles({
-    romId: props.rom.id,
-    filesToUpload: files,
-  });
-  await handleManualUploadResult(
-    responses,
-    "rom.manual-files-upload-success",
-    "rom.manual-files-upload-skipped",
-  );
-}
-
-async function chooseUploadTarget(target: "resources" | "folder") {
-  const files = pendingManualFiles.value;
-  pendingManualFiles.value = [];
-  showUploadTargetDialog.value = false;
-  if (files.length === 0) return;
-  if (target === "resources") {
-    await uploadManualsToResources(files);
-  } else {
-    await uploadManualsToFolder(files);
-  }
-}
-
-function cancelUploadTarget() {
-  pendingManualFiles.value = [];
-  showUploadTargetDialog.value = false;
 }
 
 async function onSoundtrackUpload(event: Event) {
@@ -294,37 +228,16 @@ async function redownloadManual() {
   }
 }
 
-async function deleteManual() {
-  showConfirmDeleteManual.value = false;
+function requestDeleteManual() {
   const entry = selectedManual.value;
   if (!entry) return;
-  try {
-    if (entry.isPrimary) {
-      await romApi.removeManual({ romId: props.rom.id });
-    } else {
-      const fileId = Number(entry.id.replace(/^file-/, ""));
-      await romApi.deleteManualFile({ romId: props.rom.id, fileId });
-    }
-    await refreshRom();
-    emitter?.emit("snackbarShow", {
-      msg: t(
-        entry.isPrimary ? "rom.manual-removed" : "rom.manual-file-removed",
-      ),
-      icon: "mdi-check-bold",
-      color: "green",
-    });
-  } catch (error: unknown) {
-    emitter?.emit("snackbarShow", {
-      msg: t(
-        entry.isPrimary
-          ? "rom.manual-remove-failed"
-          : "rom.manual-file-remove-failed",
-        { error: errorMessage(error) },
-      ),
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-  }
+  emitter?.emit("showDeleteManualDialog", {
+    rom: props.rom,
+    isPrimary: entry.isPrimary,
+    fileId: entry.isPrimary
+      ? undefined
+      : Number(entry.id.replace(/^file-/, "")),
+  });
 }
 
 async function deleteSoundtrack(fileId: number) {
@@ -460,12 +373,16 @@ async function deleteSoundtrack(fileId: number) {
                 variant="tonal"
                 size="small"
                 class="text-romm-red"
-                @click="showConfirmDeleteManual = true"
+                @click="requestDeleteManual"
               >
                 {{ t("rom.delete") }}
               </v-btn>
             </div>
-            <PdfViewer v-if="selectedManual" :pdf-url="selectedManual.url" />
+            <PdfViewer
+              v-if="selectedManual"
+              :key="`${selectedManual.id}-${rom.updated_at}`"
+              :pdf-url="selectedManual.url"
+            />
           </div>
         </v-tabs-window-item>
         <v-tabs-window-item value="soundtrack">
@@ -502,70 +419,4 @@ async function deleteSoundtrack(fileId: number) {
       </v-tabs-window>
     </v-col>
   </v-row>
-
-  <v-dialog v-model="showConfirmDeleteManual" max-width="420">
-    <v-card>
-      <v-card-text class="pa-4">
-        <p class="text-body-1 mb-3">
-          {{ t("rom.delete-manual-confirm-title") }}
-        </p>
-        <p class="text-body-2 text-medium-emphasis">
-          {{ t("rom.delete-manual-confirm-body") }}
-        </p>
-      </v-card-text>
-      <v-card-actions class="justify-center pb-4">
-        <v-btn class="bg-toplayer" @click="showConfirmDeleteManual = false">
-          {{ t("common.cancel") }}
-        </v-btn>
-        <v-btn class="text-romm-red bg-toplayer" @click="deleteManual">
-          {{ t("rom.delete-manual-button") }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-
-  <v-dialog v-model="showUploadTargetDialog" max-width="520" persistent>
-    <v-card>
-      <v-card-title class="text-h6 pt-4">
-        {{ t("rom.manual-upload-target-title") }}
-      </v-card-title>
-      <v-card-text class="pt-2">
-        <v-list class="bg-transparent" lines="two">
-          <v-list-item
-            class="bg-toplayer rounded mb-2"
-            @click="chooseUploadTarget('resources')"
-          >
-            <template #prepend>
-              <v-icon class="mr-2">mdi-database-edit-outline</v-icon>
-            </template>
-            <v-list-item-title>
-              {{ t("rom.manual-upload-target-resources-title") }}
-            </v-list-item-title>
-            <v-list-item-subtitle class="text-wrap">
-              {{ t("rom.manual-upload-target-resources-desc") }}
-            </v-list-item-subtitle>
-          </v-list-item>
-          <v-list-item
-            class="bg-toplayer rounded"
-            @click="chooseUploadTarget('folder')"
-          >
-            <template #prepend>
-              <v-icon class="mr-2">mdi-folder-plus-outline</v-icon>
-            </template>
-            <v-list-item-title>
-              {{ t("rom.manual-upload-target-folder-title") }}
-            </v-list-item-title>
-            <v-list-item-subtitle class="text-wrap">
-              {{ t("rom.manual-upload-target-folder-desc") }}
-            </v-list-item-subtitle>
-          </v-list-item>
-        </v-list>
-      </v-card-text>
-      <v-card-actions class="justify-end pb-4 px-4">
-        <v-btn class="bg-toplayer" @click="cancelUploadTarget">
-          {{ t("common.cancel") }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
 </template>

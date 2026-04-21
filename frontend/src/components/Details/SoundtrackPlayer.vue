@@ -205,14 +205,13 @@ onMounted(() => {
   void loadAllMetadata();
 });
 
-watch(tracks, (newTracks, oldTracks) => {
-  if (!oldTracks) return;
-  const oldIds = new Set(oldTracks.map((t) => t.id));
-  const newIds = new Set(newTracks.map((t) => t.id));
-  const changed =
-    oldIds.size !== newIds.size || [...newIds].some((id) => !oldIds.has(id));
-  if (changed) void loadAllMetadata();
-});
+// Refetch metadata whenever the rom is updated server-side — covers both the
+// "new track added" case (IDs grow) and the "same track re-uploaded" case
+// (same IDs, new audio_meta) which a track-IDs diff would miss.
+watch(
+  () => props.rom.updated_at,
+  () => void loadAllMetadata(),
+);
 
 onBeforeUnmount(() => {
   metaAbort?.abort();
