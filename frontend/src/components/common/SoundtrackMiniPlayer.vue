@@ -3,12 +3,13 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import VolumeControl from "@/components/common/VolumeControl.vue";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
 
 const route = useRoute();
+const router = useRouter();
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const store = useSoundtrackPlayer();
@@ -175,7 +176,7 @@ function seekValueText(v: number): string {
           </div>
         </div>
         <div class="d-flex flex-column flex-grow-1" style="min-width: 0">
-          <div class="d-flex align-center ga-2">
+          <div class="d-flex align-center">
             <div class="flex-grow-1" style="min-width: 0">
               <div class="text-body-2 text-truncate">
                 {{ meta.title || track.fileName }}
@@ -187,6 +188,15 @@ function seekValueText(v: number): string {
                 {{ meta.artist }}
               </div>
             </div>
+            <v-btn
+              icon="mdi-open-in-new"
+              variant="text"
+              size="small"
+              :aria-label="t('rom.soundtrack-open-rom')"
+              @click="
+                router.push({ name: 'rom', params: { rom: track.romId } })
+              "
+            />
             <v-btn
               icon="mdi-close"
               variant="text"
