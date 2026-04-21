@@ -1,4 +1,3 @@
-import asyncio
 import binascii
 import json
 from base64 import b64encode
@@ -64,6 +63,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomUserStatus
+from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -75,16 +75,6 @@ from .files import router as files_router
 from .manual import router as manual_router
 from .notes import router as notes_router
 from .upload import router as upload_router
-
-# The event loop only holds weak refs to tasks; hold strong refs until they finish.
-_background_tasks: set[asyncio.Task[Any]] = set()
-
-
-def _fire_and_forget(coro: Any) -> None:
-    task = asyncio.create_task(coro)
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
-
 
 router = APIRouter(
     prefix="/roms",
@@ -1453,7 +1443,7 @@ async def update_rom(
         raise RomNotFoundInDatabaseException(id)
 
     if meta_playmatch_handler.is_manual_match(form_data.model_fields_set):
-        _fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
+        fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
