@@ -1,0 +1,25 @@
+/*
+ * RomM v2 global styles. Scoped under .r-v2 so the v1 UI is never affected.
+ * Keep this minimal — component styling belongs in the R-components themselves.
+ */
+
+@import "./tokens.css";
+
+.r-v2 {
+  background-color: var(--r-color-bg);
+  color: var(--r-color-fg);
+  font-family: var(--r-font-family-sans);
+  font-size: var(--r-font-size-md);
+  line-height: var(--r-line-height-normal);
+  min-height: 100%;
+}
+
+.r-v2 *:focus-visible {
+  outline: var(--r-focus-ring-width) solid var(--r-color-focus);
+  outline-offset: var(--r-focus-ring-offset);
+}
+
+.r-v2 ::selection {
+  background-color: var(--r-color-brand-primary);
+  color: #fff;
+}

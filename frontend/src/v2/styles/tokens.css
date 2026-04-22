@@ -1,0 +1,126 @@
+/*
+ * RomM v2 Design Tokens — CSS Custom Properties
+ *
+ * Mirrors src/v2/tokens/index.ts. Keep the two in sync.
+ * Scoped under .r-v2 so v1 CSS is unaffected. The v2 root component
+ * applies the .r-v2 class and the dark/light theme class.
+ */
+
+.r-v2 {
+  /* Brand */
+  --r-color-brand-primary: #8b74e8;
+  --r-color-brand-primary-hover: #a18fff;
+  --r-color-brand-primary-pressed: #6043c8;
+  --r-color-brand-accent: #e1a38d;
+  --r-color-romm-red: #da3633;
+  --r-color-romm-green: #3fb950;
+  --r-color-romm-blue: #0070f3;
+  --r-color-romm-gold: #ffd700;
+
+  /* Status */
+  --r-color-success: #3fb950;
+  --r-color-warning: #e3b341;
+  --r-color-danger: #da3633;
+  --r-color-info: #0070f3;
+
+  /* Typography */
+  --r-font-family-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --r-font-family-display: var(--r-font-family-sans);
+  --r-font-family-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --r-font-size-xs: 0.75rem;
+  --r-font-size-sm: 0.875rem;
+  --r-font-size-md: 1rem;
+  --r-font-size-lg: 1.125rem;
+  --r-font-size-xl: 1.25rem;
+  --r-font-size-2xl: 1.5rem;
+  --r-font-size-3xl: 1.875rem;
+  --r-font-size-4xl: 2.25rem;
+
+  --r-line-height-tight: 1.2;
+  --r-line-height-normal: 1.4;
+  --r-line-height-relaxed: 1.6;
+
+  --r-font-weight-regular: 400;
+  --r-font-weight-medium: 500;
+  --r-font-weight-semibold: 600;
+  --r-font-weight-bold: 700;
+
+  /* Spacing (4px base) */
+  --r-space-0: 0;
+  --r-space-1: 0.25rem;
+  --r-space-2: 0.5rem;
+  --r-space-3: 0.75rem;
+  --r-space-4: 1rem;
+  --r-space-5: 1.25rem;
+  --r-space-6: 1.5rem;
+  --r-space-8: 2rem;
+  --r-space-10: 2.5rem;
+  --r-space-12: 3rem;
+
+  /* Radius */
+  --r-radius-sm: 4px;
+  --r-radius-md: 8px;
+  --r-radius-lg: 12px;
+  --r-radius-xl: 20px;
+  --r-radius-full: 9999px;
+
+  /* Elevation */
+  --r-elev-1:
+    0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --r-elev-2:
+    0 4px 12px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --r-elev-3:
+    0 6px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --r-elev-4:
+    0 10px 32px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --r-elev-5:
+    0 18px 48px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(255, 255, 255, 0.05);
+
+  /* Motion */
+  --r-motion-fast: 150ms;
+  --r-motion-med: 220ms;
+  --r-motion-slow: 360ms;
+  --r-motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --r-motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Focus (per input modality) */
+  --r-focus-ring-width: 2px;
+  --r-focus-ring-color: var(--r-color-brand-primary-hover);
+  --r-focus-ring-offset: 2px;
+}
+
+/* Modality-sensitive focus ring width. <html data-input="..."> is set by
+   useInputModality; CSS reads it here so every focusable R-component
+   gets the right ring size without per-component logic. */
+html[data-input="key"] .r-v2 {
+  --r-focus-ring-width: 3px;
+}
+html[data-input="pad"] .r-v2 {
+  --r-focus-ring-width: 4px;
+}
+
+/* Dark semantic palette */
+.r-v2.r-v2-dark {
+  --r-color-bg: #0d1117;
+  --r-color-bg-elevated: #161b22;
+  --r-color-surface: #1c2330;
+  --r-color-fg: #f0f3fa;
+  --r-color-fg-muted: #9ba1ad;
+  --r-color-border: #262c36;
+  --r-color-focus: #a18fff;
+}
+
+/* Light semantic palette */
+.r-v2.r-v2-light {
+  --r-color-bg: #f2f4f8;
+  --r-color-bg-elevated: #ffffff;
+  --r-color-surface: #e4e9f0;
+  --r-color-fg: #0d1117;
+  --r-color-fg-muted: #5d6472;
+  --r-color-border: #d5dae2;
+  --r-color-focus: #371f69;
+}
