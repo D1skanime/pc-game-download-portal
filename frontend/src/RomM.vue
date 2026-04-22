@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
+import SoundtrackMiniPlayer from "@/components/common/SoundtrackMiniPlayer.vue";
 import { useUiVersion } from "@/composables/useUiVersion";
 import storeConsole from "@/stores/console";
 import storeLanguage from "@/stores/language";
@@ -98,6 +99,7 @@ const isV2 = computed(() => uiVersion.value === "v2");
       </router-view>
       <router-view v-else name="v2" />
     </v-main>
+    <SoundtrackMiniPlayer />
   </v-app>
 </template>
 
