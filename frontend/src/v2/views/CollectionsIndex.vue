@@ -12,6 +12,8 @@ import storeCollections, {
 } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
+import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import PageHeader from "@/v2/components/shared/PageHeader.vue";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type Kind = "regular" | "virtual" | "smart";
@@ -104,10 +106,7 @@ const count = computed(() => tiles.value.length);
 
 <template>
   <section class="r-v2-cidx">
-    <header class="r-v2-cidx__head">
-      <h1 class="r-v2-cidx__title">Collections</h1>
-      <span class="r-v2-cidx__count">{{ count }}</span>
-    </header>
+    <PageHeader title="Collections" :count="count" />
 
     <div v-if="fetchingCollections && !count" class="r-v2-cidx__grid">
       <RSkeletonBlock
@@ -119,10 +118,10 @@ const count = computed(() => tiles.value.length);
       />
     </div>
 
-    <div v-else-if="!count" class="r-v2-cidx__empty">
-      You don't have any collections yet. Favourite a game or create one from
-      any ROM's action bar to populate this view.
-    </div>
+    <EmptyState
+      v-else-if="!count"
+      message="You don't have any collections yet. Favourite a game or create one from any ROM's action bar to populate this view."
+    />
 
     <div v-else class="r-v2-cidx__grid">
       <CollectionTile
@@ -144,41 +143,10 @@ const count = computed(() => tiles.value.length);
   padding: 32px var(--r-row-pad) 60px;
 }
 
-.r-v2-cidx__head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.r-v2-cidx__title {
-  font-size: var(--r-font-size-3xl);
-  font-weight: var(--r-font-weight-extrabold);
-  letter-spacing: -0.025em;
-  color: #fff;
-  margin: 0;
-}
-
-.r-v2.r-v2-light .r-v2-cidx__title {
-  color: var(--r-color-fg);
-}
-
-.r-v2-cidx__count {
-  font-size: var(--r-font-size-md);
-  color: rgba(255, 255, 255, 0.4);
-}
-
 .r-v2-cidx__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 20px 16px;
-}
-
-.r-v2-cidx__empty {
-  padding: 80px 16px;
-  color: rgba(255, 255, 255, 0.25);
-  font-size: 13.5px;
-  text-align: center;
 }
 
 @media (max-width: 768px) {

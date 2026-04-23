@@ -15,10 +15,10 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  location: "bottom end",
+  location: "bottom",
   offset: 8,
   closeOnContentClick: true,
-  transition: "fade-transition",
+  transition: "slide-y-transition",
   openOnClick: true,
 });
 

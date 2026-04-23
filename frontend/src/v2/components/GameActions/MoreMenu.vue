@@ -23,7 +23,7 @@ const open = ref(false);
 </script>
 
 <template>
-  <RMenu v-model="open" location="bottom end" :offset="[8, 0]">
+  <RMenu v-model="open" :offset="[8, 0]">
     <template #activator="{ props: activatorProps }">
       <slot name="activator" :props="activatorProps" />
     </template>

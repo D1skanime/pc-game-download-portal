@@ -7,6 +7,8 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted } from "vue";
 import storePlatforms from "@/stores/platforms";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
+import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import PageHeader from "@/v2/components/shared/PageHeader.vue";
 
 const platformsStore = storePlatforms();
 const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
@@ -22,10 +24,7 @@ const count = computed(() => filledPlatforms.value.length);
 
 <template>
   <section class="r-v2-pidx">
-    <header class="r-v2-pidx__head">
-      <h1 class="r-v2-pidx__title">Platforms</h1>
-      <span class="r-v2-pidx__count">{{ count }}</span>
-    </header>
+    <PageHeader title="Platforms" :count="count" />
 
     <div v-if="fetchingPlatforms && !count" class="r-v2-pidx__grid">
       <RSkeletonBlock
@@ -37,9 +36,10 @@ const count = computed(() => filledPlatforms.value.length);
       />
     </div>
 
-    <div v-else-if="!count" class="r-v2-pidx__empty">
-      No platforms found. Run a scan to populate your library.
-    </div>
+    <EmptyState
+      v-else-if="!count"
+      message="No platforms found. Run a scan to populate your library."
+    />
 
     <div v-else class="r-v2-pidx__grid">
       <PlatformTile
@@ -60,41 +60,10 @@ const count = computed(() => filledPlatforms.value.length);
   padding: 32px var(--r-row-pad) 60px;
 }
 
-.r-v2-pidx__head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.r-v2-pidx__title {
-  font-size: var(--r-font-size-3xl);
-  font-weight: var(--r-font-weight-extrabold);
-  letter-spacing: -0.025em;
-  color: #fff;
-  margin: 0;
-}
-
-.r-v2.r-v2-light .r-v2-pidx__title {
-  color: var(--r-color-fg);
-}
-
-.r-v2-pidx__count {
-  font-size: var(--r-font-size-md);
-  color: rgba(255, 255, 255, 0.4);
-}
-
 .r-v2-pidx__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 16px;
-}
-
-.r-v2-pidx__empty {
-  padding: 80px 0;
-  color: rgba(255, 255, 255, 0.25);
-  font-size: 13.5px;
-  text-align: center;
 }
 
 @media (max-width: 768px) {

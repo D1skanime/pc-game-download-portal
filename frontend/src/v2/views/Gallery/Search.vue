@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RChip, RIcon, RTextField } from "@v2/lib";
+import { RChip, RTextField } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
@@ -7,6 +7,8 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import GameGrid from "@/v2/components/Gallery/GameGrid.vue";
 import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
+import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import PageHeader from "@/v2/components/shared/PageHeader.vue";
 
 const romsStore = storeRoms();
 const galleryFilterStore = storeGalleryFilter();
@@ -82,9 +84,8 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="r-v2-search">
-    <header class="r-v2-search__head">
-      <div class="r-v2-search__title-wrap">
-        <h1 class="r-v2-search__title">Search</h1>
+    <PageHeader title="Search" class="r-v2-search__head">
+      <template #count>
         <RChip
           v-if="initialSearch && !fetchingRoms"
           size="small"
@@ -92,25 +93,26 @@ onBeforeUnmount(() => {
         >
           {{ fetchTotalRoms }} results
         </RChip>
-      </div>
-      <RTextField
-        v-model="input"
-        variant="outlined"
-        density="comfortable"
-        placeholder="Search by name, filename, hash…"
-        prepend-inner-icon="mdi-magnify"
-        clearable
-        hide-details
-        class="r-v2-search__input"
-      />
-    </header>
+      </template>
+    </PageHeader>
 
-    <template v-if="!initialSearch && !searchTerm">
-      <div class="r-v2-search__empty">
-        <RIcon icon="mdi-magnify" size="36" />
-        <p>Type to search across your whole library.</p>
-      </div>
-    </template>
+    <RTextField
+      v-model="input"
+      variant="outlined"
+      density="comfortable"
+      placeholder="Search by name, filename, hash…"
+      prepend-inner-icon="mdi-magnify"
+      clearable
+      hide-details
+      class="r-v2-search__input"
+    />
+
+    <EmptyState
+      v-if="!initialSearch && !searchTerm"
+      variant="boxed"
+      icon="mdi-magnify"
+      message="Type to search across your whole library."
+    />
 
     <template v-else>
       <GameGrid
@@ -120,13 +122,12 @@ onBeforeUnmount(() => {
         :show-platform="true"
       />
 
-      <div
+      <EmptyState
         v-if="!fetchingRoms && allRoms.length === 0 && searchTerm"
-        class="r-v2-search__empty"
-      >
-        <RIcon icon="mdi-emoticon-confused-outline" size="36" />
-        <p>No games match "{{ searchTerm }}".</p>
-      </div>
+        variant="boxed"
+        icon="mdi-emoticon-confused-outline"
+        :message="`No games match &quot;${searchTerm}&quot;.`"
+      />
 
       <LoadMore
         v-if="hasMore"
@@ -143,41 +144,16 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--r-space-5);
-}
-
-.r-v2-search__head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-3);
-}
-
-.r-v2-search__title-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-3);
-}
-
-.r-v2-search__title {
-  margin: 0;
-  font-size: var(--r-font-size-3xl);
-  font-weight: var(--r-font-weight-bold);
-  line-height: var(--r-line-height-tight);
+  padding: 32px var(--r-row-pad) 60px;
 }
 
 .r-v2-search__input {
   max-width: 640px;
 }
 
-.r-v2-search__empty {
-  padding: var(--r-space-10) var(--r-space-6);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--r-space-3);
-  color: var(--r-color-fg-muted);
-  background: var(--r-color-bg-elevated);
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  text-align: center;
+@media (max-width: 768px) {
+  .r-v2-search {
+    padding: 16px 14px 80px;
+  }
 }
 </style>

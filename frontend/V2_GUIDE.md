@@ -290,6 +290,8 @@ Cross-feature helpers that don't belong to any one feature but aren't general en
 | `AuthCard.vue`         | Card frame used by every auth view — logo + translucent dark gradient + padded inner column. Content goes in the default slot                                                     |
 | `PasswordField.vue`    | RTextField with the show/hide eye toggle baked in. Default `variant="underlined"` for auth; override for other contexts                                                           |
 | `AuthBackLink.vue`     | Small right-aligned "← Back to login" link (Register + ResetPassword). `to` overrides the default `/login`                                                                        |
+| `PageHeader.vue`       | Top-of-page `h1` + optional count. `count` prop for the plain dim span, `#count` slot for richer content (chips). Default slot sits at the end of the header                      |
+| `EmptyState.vue`       | Centered empty / no-results block. `variant="plain"` (dim centered text — index views) or `variant="boxed"` (dashed-border panel with MDI icon — search results)                  |
 
 ### `src/v2/components/Gallery/`
 
