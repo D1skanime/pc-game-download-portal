@@ -10,6 +10,7 @@ import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
+import PasswordField from "@/v2/components/shared/PasswordField.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -26,7 +27,6 @@ const emitter = inject<Emitter<Events>>("emitter");
 
 const username = ref("");
 const password = ref("");
-const visiblePassword = ref(false);
 const loggingIn = ref(false);
 
 async function submit() {
@@ -84,17 +84,11 @@ defineExpose({ loggingIn });
       prepend-inner-icon="mdi-account"
       :disabled="loggingIn"
     />
-    <RTextField
+    <PasswordField
       v-model="password"
       :label="t('login.password')"
-      :type="visiblePassword ? 'text' : 'password'"
-      variant="underlined"
-      autocomplete="current-password"
       name="password"
-      prepend-inner-icon="mdi-lock"
-      :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
       :disabled="loggingIn"
-      @click:append-inner="visiblePassword = !visiblePassword"
     />
     <RBtn
       type="submit"

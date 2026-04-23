@@ -13,8 +13,8 @@
 // Emits actions so Home/Gallery can wire favourite/download/bookmark.
 import { computed, ref } from "vue";
 import type { SimpleRom } from "@/stores/roms";
+import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
-import { useOpenGameContextMenu } from "@/v2/composables/useGameContextMenu";
 import RIcon from "@/v2/lib/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -39,7 +39,6 @@ type CardAction = "play" | "download" | "bookmark" | "favorite" | "info";
 
 const emit = defineEmits<{
   (e: CardAction, rom: SimpleRom): void;
-  (e: "more", rom: SimpleRom, event: MouseEvent): void;
 }>();
 
 const EXTENSION_REGEX = /\.(png|jpg|jpeg)$/i;
@@ -75,21 +74,6 @@ function handle(eventName: CardAction, e: MouseEvent) {
   emit(eventName, props.rom);
 }
 
-const openContextMenu = useOpenGameContextMenu();
-
-function openMore(e: MouseEvent) {
-  e.preventDefault();
-  e.stopPropagation();
-  emit("more", props.rom, e);
-  openContextMenu(props.rom, e);
-}
-
-// Right-click anywhere on the card opens the menu as well.
-function onContextMenu(e: MouseEvent) {
-  e.preventDefault();
-  openContextMenu(props.rom, e);
-}
-
 const ratingLabel = computed(() => {
   const r = props.rom.rom_user?.rating;
   return r && r > 0 ? r.toString() : null;
@@ -103,7 +87,6 @@ const ratingLabel = computed(() => {
     :class="{ 'r-gc--hero': hero, 'r-gc--focused': focused }"
     :aria-label="title"
     @mouseenter="onMouseEnter"
-    @contextmenu="onContextMenu"
   >
     <div class="r-gc__art" :class="{ 'r-v2-shimmer': !imgLoaded && !imgError }">
       <img
@@ -183,14 +166,19 @@ const ratingLabel = computed(() => {
               size="18"
             />
           </button>
-          <button
-            type="button"
-            class="r-gc__action-btn"
-            aria-label="More actions"
-            @click="openMore"
-          >
-            <RIcon icon="mdi-dots-horizontal" size="18" />
-          </button>
+          <MoreMenu :rom="rom">
+            <template #activator="{ props: activatorProps }">
+              <button
+                v-bind="activatorProps"
+                type="button"
+                class="r-gc__action-btn"
+                aria-label="More actions"
+                @click.prevent.stop
+              >
+                <RIcon icon="mdi-dots-horizontal" size="18" />
+              </button>
+            </template>
+          </MoreMenu>
         </div>
       </div>
     </div>

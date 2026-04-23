@@ -2,16 +2,11 @@
 // AuthLayout — full-viewport blurred background with a centred card stage
 // for the auth flows (Login / Register / ResetPassword / Setup). Bottom
 // corners hold the LanguageSelector (left) and VersionTag (right).
-import { computed } from "vue";
-import { useTheme } from "vuetify";
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
 import VersionTag from "@/v2/components/shared/VersionTag.vue";
-import { V2_THEME_DARK } from "@/v2/theme/vuetify";
+import { useThemeClass } from "@/v2/composables/useThemeClass";
 
-const theme = useTheme();
-const themeClass = computed(() =>
-  theme.global.name.value === V2_THEME_DARK ? "r-v2-dark" : "r-v2-light",
-);
+const themeClass = useThemeClass();
 </script>
 
 <template>
@@ -44,25 +39,6 @@ const themeClass = computed(() =>
   background-size: cover;
   background-position: center;
   z-index: 0;
-}
-
-.r-v2-auth__bg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(13, 17, 23, 0.5) 0%,
-    rgba(13, 17, 23, 0.85) 100%
-  );
-}
-
-.r-v2-auth.r-v2-light .r-v2-auth__bg::after {
-  background: linear-gradient(
-    180deg,
-    rgba(242, 244, 248, 0.6) 0%,
-    rgba(242, 244, 248, 0.9) 100%
-  );
 }
 
 .r-v2-auth__stage {

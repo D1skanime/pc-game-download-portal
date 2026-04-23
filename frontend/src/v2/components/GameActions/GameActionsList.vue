@@ -1,11 +1,9 @@
 <script setup lang="ts">
 // GameActionsList — the full RMenuItem list for a ROM, inside whatever
-// RMenuPanel mounts it. Single source of truth for the context / more-menu
-// actions. Consumed by:
-//   * GameContextMenu (right-click, teleported popover)
-//   * MoreMenu        (header More button, RMenu dropdown)
-//
-// Every action emits `close` after firing so the parent menu can dismiss.
+// RMenuPanel mounts it. Single source of truth for the more-menu actions.
+// Consumed by every MoreMenu dropdown (on RGameCard, in the GameDetails
+// header, …). Every action emits `close` after firing so the parent menu
+// can dismiss.
 import { RMenuDivider, RMenuItem } from "@v2/lib";
 import { computed, toRef } from "vue";
 import type { SimpleRom } from "@/stores/roms";

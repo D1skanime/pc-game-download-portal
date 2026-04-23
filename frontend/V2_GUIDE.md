@@ -105,14 +105,13 @@ frontend/
         │   └── Gallery/          # Platform / Collection / Search
         │
         ├── components/           # VIEW-specific composites (not lib-grade)
-        │   ├── GameContextMenu.vue
+        │   ├── GameActions/      # per-ROM action surface (list, MoreMenu, action row)
         │   └── GameDetails/
         │       ├── MediaTab.vue
         │       └── SoundtrackPanel.vue
         │
         ├── composables/
         │   ├── useBackgroundArt/ # inject/provide setter for the backdrop art
-        │   ├── useGameContextMenu/  # inject/provide opener for the ROM context menu
         │   └── useInputModality/ # tracks mouse/touch/key/pad for focus-ring scaling
         │
         └── lib/                  # ── THE CUSTOM COMPONENT LIBRARY ──
@@ -274,7 +273,7 @@ Rule of thumb: if the same block appears in more than one feature area, promote 
 
 | File             | Purpose                                                                                             |
 | ---------------- | --------------------------------------------------------------------------------------------------- |
-| `LoginForm.vue`  | Username + password form; owns the API call + snackbar                                              |
+| `LoginForm.vue`  | Username + password form (password uses `PasswordField`); owns the API call + snackbar              |
 | `ResetForm.vue`  | Username-only forgot-password form                                                                  |
 | `OIDCButton.vue` | OIDC button with provider dashboard-icon (falls back to `mdi-key`); exposes `login()` for autologin |
 
@@ -287,7 +286,10 @@ Cross-feature helpers that don't belong to any one feature but aren't general en
 | `BackBtn.vue`          | Pill-style "go back" button (topbars on Gallery + GameDetails). Renders a `router-link` if `to` set, else emits `@click` for things like `router.back()`                          |
 | `Stat.vue`             | KPI column — big value + tiny uppercase label. Used by InfoPanel and anywhere a stat column is shown                                                                              |
 | `VersionTag.vue`       | Renders `SYSTEM.VERSION` from heartbeat; `link` prop renders as an anchor to the GitHub release. AuthLayout uses the plain variant; About dialog (future) uses the linked variant |
-| `LanguageSelector.vue` | v-select bound to the language store + syncs vue-i18n + persists to ui-settings. Shared by AuthLayout and (future) v2 Settings                                                    |
+| `LanguageSelector.vue` | Glass-pill RMenu dropdown bound to the language store; syncs vue-i18n + persists to ui-settings. Shared by AuthLayout and (future) v2 Settings                                    |
+| `AuthCard.vue`         | Card frame used by every auth view — logo + translucent dark gradient + padded inner column. Content goes in the default slot                                                     |
+| `PasswordField.vue`    | RTextField with the show/hide eye toggle baked in. Default `variant="underlined"` for auth; override for other contexts                                                           |
+| `AuthBackLink.vue`     | Small right-aligned "← Back to login" link (Register + ResetPassword). `to` overrides the default `/login`                                                                        |
 
 ### `src/v2/components/Gallery/`
 
@@ -320,7 +322,7 @@ Cross-feature helpers that don't belong to any one feature but aren't general en
 
 ### `src/v2/components/GameActions/`
 
-Reusable, ROM-level action surface. Single source of truth for all per-ROM actions — both the right-click `GameContextMenu` and the header More dropdown render `GameActionsList` so the action set never diverges.
+Reusable, ROM-level action surface. Single source of truth for all per-ROM actions — every MoreMenu (on RGameCard, in GameDetails header, …) renders `GameActionsList` so the action set never diverges. Right-click is intentionally left to the browser (Open in new tab etc.).
 
 | File                  | Purpose                                                                                                                                                             |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -353,13 +355,13 @@ Reusable, ROM-level action surface. Single source of truth for all per-ROM actio
 
 ## 4c. v2 composables (non-visual shared logic)
 
-| File                              | Purpose                                                                                                                                                                                |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `composables/useBackgroundArt/`   | Inject `r-v2-set-background-art` — views call with a URL to cross-fade the app backdrop                                                                                                |
-| `composables/useGameContextMenu/` | Inject `r-v2-open-game-context-menu` — cards/tiles call with a `(rom, event)` pair                                                                                                     |
-| `composables/useInputModality/`   | Tracks last input device (mouse/touch/key/pad); stamps `<html data-input>`                                                                                                             |
-| `composables/useLetterGroups/`    | Groups a flat ROM list into A–Z (+ `#`) buckets + scroll-spy sync for `AlphaStrip`                                                                                                     |
-| `composables/useGameActions/`     | Shared per-ROM action handlers (play / download / favorite / share / match / refresh / edit / remove). Consumed by `GameActionsList`, `GameActions`, and right-click `GameContextMenu` |
+| File                            | Purpose                                                                                                                                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `composables/useBackgroundArt/` | Inject `r-v2-set-background-art` — views call with a URL to cross-fade the app backdrop                                                                                                |
+| `composables/useInputModality/` | Tracks last input device (mouse/touch/key/pad); stamps `<html data-input>`                                                                                                             |
+| `composables/useLetterGroups/`  | Groups a flat ROM list into A–Z (+ `#`) buckets + scroll-spy sync for `AlphaStrip`                                                                                                     |
+| `composables/useGameActions/`   | Shared per-ROM action handlers (play / download / favorite / share / match / refresh / edit / remove). Consumed by `GameActionsList`, `GameActions`, and right-click `GameContextMenu` |
+| `composables/useThemeClass/`    | Returns reactive `"r-v2-dark" \| "r-v2-light"` derived from the active Vuetify theme. Every layout root calls it so theme-scoped CSS flips correctly                                   |
 
 ---
 
@@ -407,12 +409,11 @@ V1 components still consumed by v2 (temporary — flagged for replacement):
 
 All wired through `AppLayout.vue` + singleton composables — v2 views should _only_ consume these (never build a parallel channel).
 
-| Service                                 | Provide key                   | Consumer composable                                            |
-| --------------------------------------- | ----------------------------- | -------------------------------------------------------------- |
-| Background art cross-fade               | `r-v2-set-background-art`     | `useBackgroundArt()`                                           |
-| Game context menu opener                | `r-v2-open-game-context-menu` | `useOpenGameContextMenu()`                                     |
-| Last input device (mouse/touch/key/pad) | —                             | `useInputModality()` (installs listeners on `AppLayout` mount) |
-| UI version toggle                       | —                             | `useUiVersion()` (singleton ref, backs `settings.uiVersion`)   |
+| Service                                 | Provide key               | Consumer composable                                            |
+| --------------------------------------- | ------------------------- | -------------------------------------------------------------- |
+| Background art cross-fade               | `r-v2-set-background-art` | `useBackgroundArt()`                                           |
+| Last input device (mouse/touch/key/pad) | —                         | `useInputModality()` (installs listeners on `AppLayout` mount) |
+| UI version toggle                       | —                         | `useUiVersion()` (singleton ref, backs `settings.uiVersion`)   |
 
 AppLayout also mounts the following dialogs so the v1 mitt emitter events route correctly in v2:
 
@@ -420,7 +421,6 @@ AppLayout also mounts the following dialogs so the v1 mitt emitter events route 
 - `EditRomDialog`, `DeleteRomDialog`, `MatchRomDialog`, `RefreshMetadataDialog`, `ShowQRCodeDialog`
 - `AddRomsToCollectionDialog`
 - `Notification`, `UploadProgress`
-- `GameContextMenu` (the v2-native one)
 
 Any new v2 view that needs a dialog should emit the existing v1 event first (`emitter.emit("showFooDialog", payload)`) and add the dialog to AppLayout if it's not mounted yet. Building a v2-native replacement dialog comes later and lives in `src/v2/components/dialogs/…` when it does.
 
@@ -501,11 +501,9 @@ Soundtrack feature branch (`feat/soundtrack-support`) was merged in during Wave 
 
 ## 9. Known gaps / debt
 
-- `GameContextMenu.vue` owns its own positioning (click-at-cursor), which Vuetify's `v-menu` doesn't support cleanly. The _content_ now uses `RMenuPanel/Header/Item/Divider` — visually identical to any other menu. Fine to leave.
 - `RomMV2.vue` is likely dead code now (AppLayout is the real entry for v2). Sweep it when convenient.
 - Mini-player (`SoundtrackMiniPlayer.vue`) is still the v1 component. Hide-on-media-tab logic is wired through URL query params.
-- No v2-native `RIconBtn` yet — icon-only buttons are still inline styled via `r-v2-nav__icon-btn`, `r-v2-det__icon-btn`, `r-gc__action-btn`, etc. Candidate for the next refactor pass.
-- Storybook has stories for most leaves but not yet for the view-level compositions (Home row, Info panel, etc.). Add as the pending extractions happen.
+- Storybook has stories for every lib primitive; view-level compositions don't have stories (and won't — that's the rule).
 - Backend `audio_tags` parsing sometimes fails to pull artist/album for OGG/Vorbis with unusual tag casing — not a frontend issue, flagged here so it's not re-diagnosed in v2 session.
 
 ---
@@ -518,7 +516,7 @@ Soundtrack feature branch (`feat/soundtrack-support`) was merged in during Wave 
 4. If it's a v2-only route (no v1 equivalent), add it to `src/plugins/router.ts` with `components: { default: fallback, v2: v2For(ROUTES.X) }`.
 5. If it needs a new emitter event, check v1 first — most dialog triggers exist. Add the dialog to `AppLayout.vue`'s dialog mounts if missing.
 6. If it wants to hook the background art, `const setBg = useBackgroundArt()` and call `setBg(url)` on hover/mount.
-7. If it wants to open the game context menu, `const openMenu = useOpenGameContextMenu()`.
+7. For a per-ROM action dropdown, drop in `<MoreMenu :rom="rom">` with the trigger button in the `#activator` slot — no app-wide provider needed.
 8. Run `npm run typecheck && npm run build` — both must be clean before moving on.
 9. Update this guide's §4 (if you added an R-component) and §5 (if you migrated a route).
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // RMenuPanel — the shared glass "menu body" from the mockup.
 //
-// Use inside any menu surface (RMenu's default slot, a custom popover like
-// GameContextMenu, settings drawers) to get the consistent visual
+// Use inside any menu surface (RMenu's default slot, a custom popover,
+// settings drawers) to get the consistent visual
 // language: 14px rounded, 28px backdrop blur, double-layer drop shadow,
 // subtle white border. The caller composes its own content (RMenuHeader,
 // RMenuItem, RMenuDivider) inside.

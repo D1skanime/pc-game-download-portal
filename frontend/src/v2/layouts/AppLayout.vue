@@ -1,44 +1,23 @@
 <script setup lang="ts">
-// AppLayout — top-level v2 shell. Thin orchestrator: owns shared
-// providers (background art, context-menu opener), mounts the sub-
-// components that make up the visual chrome.
+// AppLayout — top-level v2 shell. Thin orchestrator: owns the background-art
+// provider and mounts the visual chrome.
 //
-//   * BackgroundArt   — two-layer blurred backdrop with cross-fade
-//   * AppNav          — logo · centered tab pill · user menu
-//   * GlobalDialogs   — emitter-driven dialog + notification stack
-//   * GameContextMenu — right-click / long-press ROM menu
-import { computed, onMounted, provide, ref } from "vue";
-import { useTheme } from "vuetify";
-import type { SimpleRom } from "@/stores/roms";
+//   * BackgroundArt — two-layer blurred backdrop with cross-fade
+//   * AppNav        — logo · centred tab pill · user menu
+//   * GlobalDialogs — emitter-driven dialog + notification stack
+//
+// Per-ROM action menus are not app-wide: each GameCard owns its own
+// `MoreMenu` dropdown on the three-dots button. Right-click is left to
+// the browser so "Open in new tab" etc. keep working.
+import { onMounted, provide, ref } from "vue";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import GlobalDialogs from "@/v2/components/AppShell/GlobalDialogs.vue";
-import GameContextMenu from "@/v2/components/GameContextMenu.vue";
-import {
-  GAME_CONTEXT_MENU_KEY,
-  type OpenGameContextMenu,
-} from "@/v2/composables/useGameContextMenu";
+import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
 import { useInputModality } from "@/v2/composables/useInputModality";
-import { V2_THEME_DARK } from "@/v2/theme/vuetify";
+import { useThemeClass } from "@/v2/composables/useThemeClass";
 
-const theme = useTheme();
-const themeClass = computed(() =>
-  theme.global.name.value === V2_THEME_DARK ? "r-v2-dark" : "r-v2-light",
-);
-
-// Shared context-menu state. Cards and tiles call the provided opener.
-const ctxOpen = ref(false);
-const ctxRom = ref<SimpleRom | null>(null);
-const ctxX = ref(0);
-const ctxY = ref(0);
-
-const openGameContextMenu: OpenGameContextMenu = (rom, event) => {
-  ctxRom.value = rom;
-  ctxX.value = event.clientX;
-  ctxY.value = event.clientY;
-  ctxOpen.value = true;
-};
-provide(GAME_CONTEXT_MENU_KEY, openGameContextMenu);
+const themeClass = useThemeClass();
 
 // Shared reactive background art — views paint covers via the injected setter.
 const layerA = ref<string | null>(null);
@@ -56,7 +35,7 @@ function setBackgroundArt(url: string | null) {
     activeLayer.value = "a";
   }
 }
-provide("r-v2-set-background-art", setBackgroundArt);
+provide(BACKGROUND_ART_KEY, setBackgroundArt);
 
 const { install: installInputModality } = useInputModality();
 onMounted(() => {
@@ -80,8 +59,6 @@ onMounted(() => {
     </div>
 
     <GlobalDialogs />
-
-    <GameContextMenu v-model:open="ctxOpen" :rom="ctxRom" :x="ctxX" :y="ctxY" />
   </div>
 </template>
 
