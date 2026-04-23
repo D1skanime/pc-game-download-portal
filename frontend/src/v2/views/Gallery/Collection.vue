@@ -1,24 +1,36 @@
 <script setup lang="ts">
-// Collection gallery — mirror of Platform.vue but with a CollectionMosaic
-// in the info panel instead of an RPlatformIcon. Uses the same
-// LetterGroupedGrid + useLetterGroups primitives.
+// Collection gallery — mirror of Platform.vue with a CollectionMosaic in
+// the info panel. Shares the same useGalleryMode-driven grid/list/grouped
+// orchestration.
 import { RChip } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeCollections, {
   type Collection,
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
+import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
+import GameGrid from "@/v2/components/Gallery/GameGrid.vue";
+import GameList from "@/v2/components/Gallery/GameList.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import LetterGroupedGrid from "@/v2/components/Gallery/LetterGroupedGrid.vue";
-import BackBtn from "@/v2/components/shared/BackBtn.vue";
+import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
+import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useLetterGroups } from "@/v2/composables/useLetterGroups";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
@@ -28,16 +40,21 @@ const route = useRoute();
 const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 const heartbeatStore = storeHeartbeat();
+const galleryFilterStore = storeGalleryFilter();
+const { searchTerm } = storeToRefs(galleryFilterStore);
 
 const {
   _allRoms: allRoms,
   fetchingRoms,
   fetchTotalRoms,
+  characterIndex,
+  romIdIndex,
 } = storeToRefs(romsStore);
 
 const notFound = ref(false);
 const currentKind = ref<CollectionKind>("regular");
 const currentCollection = ref<AnyCollection | null>(null);
+const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
 const supportsWebp = computed<boolean>(() =>
   Boolean(
@@ -77,10 +94,11 @@ const {
   letterGroups,
   availableLetters,
   currentLetter,
+  visibleLetters,
   setLetterRef,
   scrollToLetter,
   onGridScroll,
-} = useLetterGroups(allRoms);
+} = useLetterGroups(allRoms, { characterIndex, romIdIndex });
 
 function kindFromRoute(
   name: string | symbol | null | undefined,
@@ -178,14 +196,43 @@ function loadMore() {
   if (fetchingRoms.value || !hasMore.value) return;
   romsStore.fetchRoms();
 }
+
+// ── Search filter (debounced) ───────────────────────────────────────
+const searchInput = ref(searchTerm.value ?? "");
+let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+function setSearch(value: string) {
+  searchInput.value = value;
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    const normalized = value.trim();
+    if (normalized === (searchTerm.value ?? "")) return;
+    searchTerm.value = normalized || null;
+    romsStore.resetPagination();
+    romsStore._allRoms = [];
+    romsStore.fetchRoms();
+  }, 300);
+}
+onBeforeUnmount(() => {
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchTerm.value = null;
+});
+
+type SortEntry = {
+  key: keyof import("@/stores/roms").SimpleRom;
+  order: "asc" | "desc";
+};
+function onListSort(options: { sortBy: SortEntry[] }) {
+  const first = options.sortBy[0];
+  if (!first) return;
+  romsStore.resetPagination();
+  romsStore.setOrderBy(first.key);
+  romsStore.setOrderDir(first.order);
+  romsStore.fetchRoms();
+}
 </script>
 
 <template>
   <section class="r-v2-coll">
-    <header class="r-v2-coll__header">
-      <BackBtn to="/collections" label="Collections" />
-    </header>
-
     <div
       :ref="(el) => (scrollEl = el as HTMLElement | null)"
       class="r-v2-coll__scroll r-v2-scroll-hidden"
@@ -210,10 +257,23 @@ function loadMore() {
         </template>
       </InfoPanel>
 
+      <GalleryToolbar
+        v-if="toolbarPosition === 'header'"
+        :group-by="groupBy"
+        :layout="layout"
+        :position="toolbarPosition"
+        show-search
+        :search="searchInput"
+        search-placeholder="Filter this collection…"
+        @update:group-by="groupBy = $event"
+        @update:layout="layout = $event"
+        @update:search="setSearch"
+      />
+
       <div v-if="notFound" class="r-v2-coll__empty">Collection not found.</div>
 
       <LetterGroupedGrid
-        v-else
+        v-else-if="layout === 'grid' && groupBy === 'letter'"
         :groups="letterGroups"
         :fetching="fetchingRoms"
         :has-more="hasMore"
@@ -224,13 +284,46 @@ function loadMore() {
         :set-letter-ref="setLetterRef"
         @load-more="loadMore"
       />
+
+      <template v-else-if="layout === 'grid'">
+        <GameGrid
+          :roms="allRoms"
+          :loading="fetchingRoms"
+          :webp="supportsWebp"
+        />
+        <LoadMore
+          v-if="hasMore"
+          :loading="fetchingRoms"
+          :remaining="remaining"
+          @load="loadMore"
+        />
+      </template>
+
+      <GameList
+        v-else
+        :roms="allRoms"
+        :total-roms="fetchTotalRoms"
+        :loading="fetchingRoms"
+        :webp="supportsWebp"
+        @update:options="onListSort"
+      />
     </div>
 
     <AlphaStrip
-      v-if="letterGroups.length"
+      v-if="letterGroups.length > 0"
       :available="availableLetters"
       :current="currentLetter"
+      :visible="visibleLetters"
       @pick="scrollToLetter"
+    />
+
+    <GalleryToolbar
+      v-if="toolbarPosition === 'floating'"
+      :group-by="groupBy"
+      :layout="layout"
+      :position="toolbarPosition"
+      @update:group-by="groupBy = $event"
+      @update:layout="layout = $event"
     />
   </section>
 </template>
@@ -244,27 +337,11 @@ function loadMore() {
   position: relative;
 }
 
-.r-v2-coll__header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  padding: 20px var(--r-row-pad) 0;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  pointer-events: none;
-}
-.r-v2-coll__header > * {
-  pointer-events: auto;
-}
-
 .r-v2-coll__scroll {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 56px var(--r-row-pad) 60px;
+  padding: 32px var(--r-row-pad) 60px;
 }
 
 .r-v2-coll__panel-cover {
@@ -284,7 +361,7 @@ function loadMore() {
 
 @media (max-width: 768px) {
   .r-v2-coll__scroll {
-    padding: 48px 14px 80px;
+    padding: 16px 14px 80px;
   }
   .r-v2-coll__panel-cover {
     width: 100px;

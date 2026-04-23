@@ -89,7 +89,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
       :count="continuePlayingRoms.length"
     >
       <template #icon>
-        <RIcon icon="mdi-play" />
+        <RIcon icon="mdi-play" size="20" />
       </template>
       <template v-if="fetchingContinue && !continuePlayingRoms.length">
         <RSkeletonBlock
@@ -114,7 +114,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
     <!-- Recently added -->
     <CardRow title="Recently added" :count="recentRoms.length">
       <template #icon>
-        <RIcon icon="mdi-clock-outline" />
+        <RIcon icon="mdi-shimmer" size="20" />
       </template>
       <template v-if="fetchingRecent && !recentRoms.length">
         <RSkeletonBlock
@@ -139,13 +139,13 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
     </CardRow>
 
     <!-- Favorites -->
-    <CardRow
+    <!-- <CardRow
       v-if="favoriteRoms.length"
       title="Favorites"
       :count="favoriteRoms.length"
     >
       <template #icon>
-        <RIcon icon="mdi-heart" />
+        <RIcon icon="mdi-heart" size="20" />
       </template>
       <RGameCard
         v-for="rom in favoriteRoms"
@@ -153,12 +153,12 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
         :rom="rom"
         :webp="supportsWebp"
       />
-    </CardRow>
+    </CardRow> -->
 
     <!-- Platforms -->
     <CardRow title="Platforms" :count="filledPlatforms.length" gap="16px">
       <template #icon>
-        <RIcon icon="mdi-gamepad-variant-outline" />
+        <RIcon icon="mdi-controller" size="20" />
       </template>
       <template v-if="fetchingPlatforms && !filledPlatforms.length">
         <RSkeletonBlock
@@ -174,7 +174,8 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
         v-else
         :key="`plat-${p.id}`"
         :id="p.id"
-        :slug="p.name"
+        :slug="p.slug"
+        :fs-slug="p.fs_slug"
         :display-name="p.display_name"
         :rom-count="p.rom_count"
         variant="row"
@@ -189,7 +190,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
       gap="16px"
     >
       <template #icon>
-        <RIcon icon="mdi-bookmark-outline" />
+        <RIcon icon="mdi-bookmark-box-multiple" size="20" />
       </template>
       <CollectionTile
         v-for="c in allCollections"

@@ -10,8 +10,10 @@ defineOptions({ inheritAttrs: false });
 type Variant = "row" | "grid";
 
 interface Props {
-  /** Platform slug / `name` used to locate /assets/platforms/<slug>.ico */
+  /** Platform slug used to locate /assets/platforms/<slug>.{svg,ico} */
   slug: string;
+  /** Filesystem slug (tried first — matches v1's fallback chain). */
+  fsSlug?: string;
   displayName: string;
   romCount?: number | null;
   /** Override destination; otherwise derived from `id`. */
@@ -21,6 +23,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  fsSlug: undefined,
   romCount: null,
   to: undefined,
   id: undefined,
@@ -38,7 +41,12 @@ const href = computed(() => props.to ?? `/platform/${props.id ?? ""}`);
     :class="[`plat-tile--${variant}`]"
   >
     <div class="plat-tile__icon">
-      <RPlatformIcon :name="slug" :alt="displayName" :size="72" />
+      <RPlatformIcon
+        :slug="slug"
+        :fs-slug="fsSlug"
+        :alt="displayName"
+        :size="72"
+      />
     </div>
     <div class="plat-tile__name">
       {{ displayName }}

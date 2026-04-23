@@ -1,37 +1,57 @@
 <script setup lang="ts">
-// Platform gallery — data/orchestration only. All visuals delegated:
-//   * InfoPanel + RPlatformIcon — hero card with stats
-//   * LetterGroupedGrid         — the A-Z grid (shared with Collection.vue)
-//   * AlphaStrip                — letter jump sidebar
-//   * useLetterGroups           — grouping + scroll-spy logic
+// Platform gallery — data/orchestration. Renders one of three gallery
+// bodies based on `useGalleryMode`:
+//   * grid + flat    → GameGrid
+//   * grid + grouped → LetterGroupedGrid (+ AlphaStrip sidebar)
+//   * list           → GameList (sortable columns; grouping ignored)
+//
+// GalleryToolbar exposes the toggles and can dock inline (header) or
+// floating (top-right) based on the user's position preference.
 import { RChip, RPlatformIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
+import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
+import GameGrid from "@/v2/components/Gallery/GameGrid.vue";
+import GameList from "@/v2/components/Gallery/GameList.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import LetterGroupedGrid from "@/v2/components/Gallery/LetterGroupedGrid.vue";
-import BackBtn from "@/v2/components/shared/BackBtn.vue";
+import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
+import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useLetterGroups } from "@/v2/composables/useLetterGroups";
 
 const route = useRoute();
 const platformsStore = storePlatforms();
 const romsStore = storeRoms();
 const heartbeatStore = storeHeartbeat();
+const galleryFilterStore = storeGalleryFilter();
+const { searchTerm } = storeToRefs(galleryFilterStore);
 
 const {
   _allRoms: allRoms,
   currentPlatform,
   fetchingRoms,
   fetchTotalRoms,
+  characterIndex,
+  romIdIndex,
 } = storeToRefs(romsStore);
 
 const notFound = ref(false);
+const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
 const supportsWebp = computed<boolean>(() =>
   Boolean(
@@ -85,10 +105,11 @@ const {
   letterGroups,
   availableLetters,
   currentLetter,
+  visibleLetters,
   setLetterRef,
   scrollToLetter,
   onGridScroll,
-} = useLetterGroups(allRoms);
+} = useLetterGroups(allRoms, { characterIndex, romIdIndex });
 
 async function ensurePlatforms() {
   if (platformsStore.allPlatforms.length === 0) {
@@ -138,14 +159,44 @@ function loadMore() {
   if (fetchingRoms.value || !hasMore.value) return;
   romsStore.fetchRoms();
 }
+
+// ── Search filter (debounced) ───────────────────────────────────────
+const searchInput = ref(searchTerm.value ?? "");
+let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+function setSearch(value: string) {
+  searchInput.value = value;
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    const normalized = value.trim();
+    if (normalized === (searchTerm.value ?? "")) return;
+    searchTerm.value = normalized || null;
+    romsStore.resetPagination();
+    romsStore._allRoms = [];
+    romsStore.fetchRoms();
+  }, 300);
+}
+onBeforeUnmount(() => {
+  if (searchDebounce) clearTimeout(searchDebounce);
+  // Don't leak the term to the next gallery — clear on leave.
+  searchTerm.value = null;
+});
+
+type SortEntry = {
+  key: keyof import("@/stores/roms").SimpleRom;
+  order: "asc" | "desc";
+};
+function onListSort(options: { sortBy: SortEntry[] }) {
+  const first = options.sortBy[0];
+  if (!first) return;
+  romsStore.resetPagination();
+  romsStore.setOrderBy(first.key);
+  romsStore.setOrderDir(first.order);
+  romsStore.fetchRoms();
+}
 </script>
 
 <template>
   <section class="r-v2-plat">
-    <header class="r-v2-plat__header">
-      <BackBtn to="/platforms" label="Platforms" />
-    </header>
-
     <div
       :ref="(el) => (scrollEl = el as HTMLElement | null)"
       class="r-v2-plat__scroll r-v2-scroll-hidden"
@@ -155,7 +206,8 @@ function loadMore() {
         <template #cover>
           <div class="r-v2-plat__panel-icon">
             <RPlatformIcon
-              :name="currentPlatform.name"
+              :slug="currentPlatform.slug"
+              :fs-slug="currentPlatform.fs_slug"
               :alt="currentPlatform.display_name"
               :size="148"
             />
@@ -182,10 +234,25 @@ function loadMore() {
         </template>
       </InfoPanel>
 
+      <!-- Inline toolbar (rendered here when the user chose the "header" dock). -->
+      <GalleryToolbar
+        v-if="toolbarPosition === 'header'"
+        :group-by="groupBy"
+        :layout="layout"
+        :position="toolbarPosition"
+        show-search
+        :search="searchInput"
+        search-placeholder="Filter this platform…"
+        @update:group-by="groupBy = $event"
+        @update:layout="layout = $event"
+        @update:search="setSearch"
+      />
+
       <div v-if="notFound" class="r-v2-plat__empty">Platform not found.</div>
 
+      <!-- Grid + grouped by letter -->
       <LetterGroupedGrid
-        v-else
+        v-else-if="layout === 'grid' && groupBy === 'letter'"
         :groups="letterGroups"
         :fetching="fetchingRoms"
         :has-more="hasMore"
@@ -197,13 +264,50 @@ function loadMore() {
         :set-letter-ref="setLetterRef"
         @load-more="loadMore"
       />
+
+      <!-- Grid + flat -->
+      <template v-else-if="layout === 'grid'">
+        <GameGrid
+          :roms="allRoms"
+          :loading="fetchingRoms"
+          :webp="supportsWebp"
+          :show-platform="false"
+        />
+        <LoadMore
+          v-if="hasMore"
+          :loading="fetchingRoms"
+          :remaining="remaining"
+          @load="loadMore"
+        />
+      </template>
+
+      <!-- List -->
+      <GameList
+        v-else
+        :roms="allRoms"
+        :total-roms="fetchTotalRoms"
+        :loading="fetchingRoms"
+        :webp="supportsWebp"
+        @update:options="onListSort"
+      />
     </div>
 
     <AlphaStrip
-      v-if="letterGroups.length"
+      v-if="letterGroups.length > 0"
       :available="availableLetters"
       :current="currentLetter"
+      :visible="visibleLetters"
       @pick="scrollToLetter"
+    />
+
+    <!-- Floating toolbar — docked top-right of the gallery body. -->
+    <GalleryToolbar
+      v-if="toolbarPosition === 'floating'"
+      :group-by="groupBy"
+      :layout="layout"
+      :position="toolbarPosition"
+      @update:group-by="groupBy = $event"
+      @update:layout="layout = $event"
     />
   </section>
 </template>
@@ -217,28 +321,11 @@ function loadMore() {
   position: relative;
 }
 
-.r-v2-plat__header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  padding: 20px var(--r-row-pad) 0;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  pointer-events: none;
-}
-
-.r-v2-plat__header > * {
-  pointer-events: auto;
-}
-
 .r-v2-plat__scroll {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 56px var(--r-row-pad) 60px;
+  padding: 32px var(--r-row-pad) 60px;
 }
 
 .r-v2-plat__panel-icon {
@@ -257,7 +344,7 @@ function loadMore() {
 
 @media (max-width: 768px) {
   .r-v2-plat__scroll {
-    padding: 48px 14px 80px;
+    padding: 16px 14px 80px;
   }
   .r-v2-plat__panel-icon {
     width: 80px;

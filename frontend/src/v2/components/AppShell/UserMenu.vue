@@ -1,7 +1,10 @@
 <script setup lang="ts">
-// UserMenu — the avatar pill in the nav that opens the Profile / Interface /
-// Log out dropdown. The logout flow is owned here: it calls the identity
-// API, clears stores, and navigates back to /login.
+// UserMenu — the avatar pill in the nav that opens the full settings
+// dropdown. Items mirror v1's SettingsDrawer (Profile / User interface /
+// Library management / Metadata sources / Client API tokens /
+// Administration / Server stats / About / Log out) and are gated by the
+// same scope/role checks so unauthorised users don't see options they
+// can't use.
 import {
   RIcon,
   RMenu,
@@ -25,7 +28,7 @@ defineOptions({ inheritAttrs: false });
 const router = useRouter();
 const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
-const { user } = storeToRefs(authStore);
+const { user, scopes } = storeToRefs(authStore);
 
 const open = ref(false);
 
@@ -33,6 +36,13 @@ const userInitials = computed(() => {
   const name = user.value?.username ?? "?";
   return name.slice(0, 2).toUpperCase();
 });
+
+const isAdmin = computed(() => user.value?.role === "admin");
+
+function showAbout() {
+  open.value = false;
+  emitter?.emit("showAboutDialog", null);
+}
 
 async function onLogout() {
   open.value = false;
@@ -85,7 +95,7 @@ async function onLogout() {
       </button>
     </template>
 
-    <RMenuPanel width="240px">
+    <RMenuPanel width="260px">
       <RMenuHeader
         compact
         :title="user?.username ?? 'Guest'"
@@ -98,8 +108,9 @@ async function onLogout() {
 
       <RMenuDivider />
 
+      <!-- Profile — gated by me.write scope (matches v1). -->
       <RMenuItem
-        v-if="user?.id"
+        v-if="user?.id && scopes.includes('me.write')"
         :to="`/user/${user.id}`"
         icon="mdi-account-outline"
         label="Profile"
@@ -107,9 +118,49 @@ async function onLogout() {
       />
       <RMenuItem
         to="/user-interface"
-        icon="mdi-cog-outline"
-        label="Interface"
+        icon="mdi-palette-outline"
+        label="User interface"
         @click="open = false"
+      />
+      <RMenuItem
+        v-if="scopes.includes('platforms.write')"
+        to="/library-management"
+        icon="mdi-table-cog"
+        label="Library management"
+        @click="open = false"
+      />
+      <RMenuItem
+        to="/metadata-sources"
+        icon="mdi-database-cog-outline"
+        label="Metadata sources"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="scopes.includes('me.write')"
+        to="/client-api-tokens"
+        icon="mdi-key-variant"
+        label="Client API tokens"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="scopes.includes('users.write')"
+        to="/administration"
+        icon="mdi-shield-account-outline"
+        label="Administration"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="isAdmin"
+        to="/server-stats"
+        icon="mdi-server"
+        label="Server stats"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="isAdmin"
+        icon="mdi-help-circle-outline"
+        label="About"
+        @click="showAbout"
       />
 
       <RMenuDivider />

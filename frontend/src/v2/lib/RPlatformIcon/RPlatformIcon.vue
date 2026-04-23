@@ -3,12 +3,28 @@ import { computed, ref, watch } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
-// RPlatformIcon — renders the platform's .ico served from /assets/platforms
-// and falls back to a generic controller glyph if the platform icon 404s.
-// Accepts either a platform name (preferred, matches v1's /assets/platforms
-// filenames) or an explicit src.
+// RPlatformIcon — renders the platform icon served from /assets/platforms
+// with the same fallback chain v1 uses:
+//   1. {fsSlug}.svg
+//   2. {fsSlug}.ico
+//   3. {slug}.svg
+//   4. {slug}.ico
+//   5. default.ico
+//
+// `fsSlug` falls back to `slug` (and `name` is still accepted as an alias
+// for `slug` to stay compatible with older callers). Most entries in the
+// /assets/platforms catalogue are .svg — the older `.ico`-only fallback
+// was why only the handful of platforms that ship .ico (amiga, wii, …)
+// were rendering.
+
 interface Props {
+  /** Primary slug (platform.name in the stores). */
   name?: string;
+  /** Alias accepted for callers using `slug`. */
+  slug?: string;
+  /** Filesystem slug — tried first (matches v1). */
+  fsSlug?: string;
+  /** Explicit override. */
   src?: string;
   size?: number | string;
   alt?: string;
@@ -17,22 +33,48 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   name: undefined,
+  slug: undefined,
+  fsSlug: undefined,
   src: undefined,
   size: 28,
   alt: "",
   title: undefined,
 });
 
-const resolvedSrc = computed(() => {
-  if (props.src) return props.src;
-  if (props.name) return `/assets/platforms/${props.name.toLowerCase()}.ico`;
-  return null;
+const resolvedSlug = computed(
+  () => props.slug ?? props.name ?? props.fsSlug ?? "",
+);
+const resolvedFsSlug = computed(() => props.fsSlug ?? resolvedSlug.value);
+
+// Ordered candidate URL list. We try each one in sequence; `stepIdx` walks
+// through them until one loads (or we fall back to default.ico).
+const candidates = computed(() => {
+  if (props.src) return [props.src];
+  const fs = resolvedFsSlug.value.toLowerCase().trim();
+  const s = resolvedSlug.value.toLowerCase().trim();
+  const out: string[] = [];
+  if (fs) {
+    out.push(`/assets/platforms/${fs}.svg`, `/assets/platforms/${fs}.ico`);
+  }
+  if (s && s !== fs) {
+    out.push(`/assets/platforms/${s}.svg`, `/assets/platforms/${s}.ico`);
+  }
+  out.push("/assets/platforms/default.ico");
+  return out;
 });
 
-const errored = ref(false);
-watch(resolvedSrc, () => {
-  errored.value = false;
+const stepIdx = ref(0);
+const currentSrc = computed(() => candidates.value[stepIdx.value] ?? null);
+
+watch(candidates, () => {
+  stepIdx.value = 0;
 });
+
+function onError() {
+  if (stepIdx.value < candidates.value.length - 1) {
+    stepIdx.value += 1;
+  }
+}
 
 const resolvedSize = computed(() =>
   typeof props.size === "number" ? `${props.size}px` : props.size,
@@ -43,26 +85,16 @@ const resolvedSize = computed(() =>
   <span
     class="r-platform-icon"
     :style="{ width: resolvedSize, height: resolvedSize }"
-    :title="title ?? alt ?? name"
+    :title="title ?? alt ?? resolvedSlug"
   >
     <img
-      v-if="resolvedSrc && !errored"
-      :src="resolvedSrc"
-      :alt="alt ?? name ?? ''"
+      v-if="currentSrc"
+      :key="currentSrc"
+      :src="currentSrc"
+      :alt="alt ?? resolvedSlug ?? ''"
       class="r-platform-icon__img"
-      @error="errored = true"
+      @error="onError"
     />
-    <svg
-      v-else
-      class="r-platform-icon__fallback"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path
-        fill="currentColor"
-        d="M7.5 6A5.5 5.5 0 0 0 2 11.5v1A5.5 5.5 0 0 0 7.5 18a4.48 4.48 0 0 0 3.8-2.1l.7-1.1L12.7 16c.3.5.8 1.3 1.8 1.7a5 5 0 0 0 2 .3a5.5 5.5 0 0 0 5.5-5.5v-1A5.5 5.5 0 0 0 16.5 6h-9Zm1 3h1v1.5H11v1H9.5V13h-1v-1.5H7v-1h1.5V9Zm7 1.5a1 1 0 1 1 0 2a1 1 0 0 1 0-2Zm3 0a1 1 0 1 1 0 2a1 1 0 0 1 0-2Z"
-      />
-    </svg>
   </span>
 </template>
 
@@ -80,10 +112,5 @@ const resolvedSize = computed(() =>
   height: 100%;
   object-fit: contain;
   image-rendering: pixelated;
-}
-
-.r-platform-icon__fallback {
-  width: 100%;
-  height: 100%;
 }
 </style>

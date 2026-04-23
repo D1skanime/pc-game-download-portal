@@ -1,0 +1,205 @@
+<script setup lang="ts">
+// Pair — device pairing target. Lands here via a pairing link from a
+// native client; either displays the code for manual entry or auto-exchanges
+// it and redirects to the client's custom URL scheme.
+//
+// Ported verbatim from src/views/Pair.vue — the token-exchange flow is the
+// contract with the client device and must not drift.
+import { RBtn, RIcon } from "@v2/lib";
+import axios from "axios";
+import { computed, onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
+
+const route = useRoute();
+
+const code = computed(() => (route.query.code as string) || "");
+const callback = computed(() => (route.query.callback as string) || "");
+
+const status = ref<"idle" | "exchanging" | "error">("idle");
+const errorMessage = ref("");
+
+function isCustomScheme(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol !== "http:" && parsed.protocol !== "https:";
+  } catch {
+    return false;
+  }
+}
+
+async function exchange(pairCode: string): Promise<string> {
+  const resp = await axios.post<{ raw_token: string }>(
+    "/api/client-tokens/exchange",
+    { code: pairCode },
+  );
+  return resp.data.raw_token;
+}
+
+onMounted(async () => {
+  if (!code.value) {
+    status.value = "error";
+    errorMessage.value = "No pairing code provided.";
+    return;
+  }
+
+  if (callback.value) {
+    if (!isCustomScheme(callback.value)) {
+      status.value = "error";
+      errorMessage.value =
+        "Only custom URL schemes are supported for callbacks (no http/https).";
+      return;
+    }
+
+    status.value = "exchanging";
+    try {
+      const token = await exchange(code.value);
+      const separator = callback.value.includes("?") ? "&" : "?";
+      window.location.href = `${callback.value}${separator}token=${encodeURIComponent(token)}`;
+    } catch (err: unknown) {
+      status.value = "error";
+      const axiosErr = err as {
+        response?: { data?: { detail?: string } };
+      };
+      errorMessage.value =
+        axiosErr.response?.data?.detail ?? "Failed to exchange pairing code.";
+    }
+    return;
+  }
+
+  status.value = "idle";
+});
+
+const formattedCode = computed(() => {
+  const c = code.value.replace("-", "").toUpperCase();
+  if (c.length === 8) return c.slice(0, 4) + "-" + c.slice(4);
+  return c;
+});
+
+async function copyCode() {
+  try {
+    await navigator.clipboard.writeText(formattedCode.value);
+  } catch {
+    // no-op: clipboard access may be denied
+  }
+}
+</script>
+
+<template>
+  <div class="r-v2-pair">
+    <div v-if="status === 'exchanging'" class="r-v2-pair__state">
+      <div class="r-v2-pair__spinner" aria-label="Exchanging" />
+      <p class="r-v2-pair__body">Exchanging pairing code…</p>
+    </div>
+
+    <div v-else-if="status === 'error'" class="r-v2-pair__state">
+      <div class="r-v2-pair__icon-wrap r-v2-pair__icon-wrap--danger">
+        <RIcon icon="mdi-alert-circle" size="32" />
+      </div>
+      <p class="r-v2-pair__body">
+        {{ errorMessage }}
+      </p>
+    </div>
+
+    <div v-else class="r-v2-pair__state">
+      <div class="r-v2-pair__icon-wrap">
+        <RIcon icon="mdi-key-variant" size="32" />
+      </div>
+      <p class="r-v2-pair__body">
+        Enter this code on your device to complete pairing:
+      </p>
+      <div class="r-v2-pair__code" aria-label="Pairing code">
+        {{ formattedCode }}
+      </div>
+      <RBtn
+        variant="tonal"
+        color="primary"
+        prepend-icon="mdi-content-copy"
+        @click="copyCode"
+      >
+        Copy code
+      </RBtn>
+      <p class="r-v2-pair__hint">
+        This code expires shortly. Return to the web interface to generate a new
+        one if needed.
+      </p>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.r-v2-pair {
+  background: rgba(13, 17, 23, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-radius-lg);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  padding: 40px 32px;
+  box-shadow:
+    0 22px 60px rgba(0, 0, 0, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.r-v2-pair__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.r-v2-pair__icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(139, 116, 232, 0.15);
+  color: var(--r-color-brand-primary);
+}
+.r-v2-pair__icon-wrap--danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.r-v2-pair__body {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--r-font-size-md);
+  max-width: 320px;
+}
+
+.r-v2-pair__code {
+  font-family: var(--r-font-family-mono, monospace);
+  font-size: 40px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.14em;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-radius-md);
+  padding: 18px 28px;
+  margin: 4px 0;
+  user-select: all;
+}
+
+.r-v2-pair__hint {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: var(--r-font-size-sm);
+  max-width: 360px;
+}
+
+.r-v2-pair__spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--r-color-brand-primary);
+  animation: r-v2-pair-spin 0.8s linear infinite;
+}
+@keyframes r-v2-pair-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>

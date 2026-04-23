@@ -393,7 +393,7 @@ const routes = [
   {
     path: "/pair",
     name: ROUTES.PAIR,
-    component: () => import("@/views/Pair.vue"),
+    component: () => import("@/v2/views/PairDispatcher.vue"),
   },
   // Console mode (separate UI namespace under /console) — v1 only; v2 merges
   // console behavior into the main UI via the universal input system.

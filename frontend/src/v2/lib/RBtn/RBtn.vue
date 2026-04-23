@@ -17,6 +17,9 @@ interface Props {
   disabled?: boolean;
   block?: boolean;
   size?: "x-small" | "small" | "default" | "large" | "x-large";
+  density?: "default" | "comfortable" | "compact";
+  icon?: string | boolean;
+  ripple?: boolean;
   prependIcon?: string;
   appendIcon?: string;
   type?: "button" | "submit" | "reset";
@@ -27,9 +30,12 @@ withDefaults(defineProps<Props>(), {
   color: "primary",
   rounded: "md",
   size: "default",
+  density: "default",
   type: "button",
   prependIcon: undefined,
   appendIcon: undefined,
+  icon: undefined,
+  ripple: undefined,
 });
 </script>
 
@@ -44,6 +50,9 @@ withDefaults(defineProps<Props>(), {
     :disabled="disabled"
     :block="block"
     :size="size"
+    :density="density"
+    :icon="icon"
+    :ripple="ripple"
     :prepend-icon="prependIcon"
     :append-icon="appendIcon"
     :type="type"

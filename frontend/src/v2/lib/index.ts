@@ -23,6 +23,7 @@ export * from "./RToolbar";
 // Buttons + interactive primitives
 export * from "./RBtn";
 export * from "./RRating";
+export * from "./RSliderBtnGroup";
 export * from "./RTooltip";
 
 // Menus
@@ -42,6 +43,12 @@ export * from "./RPlatformIcon";
 export * from "./RProgressCircular";
 export * from "./RSkeletonBlock";
 export * from "./RSpinner";
+
+// Data
+export * from "./RTable";
+
+// Overlays
+export * from "./RDialog";
 
 // Domain-specific primitive
 export * from "./RGameCard";

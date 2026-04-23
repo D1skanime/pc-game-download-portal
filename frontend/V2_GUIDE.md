@@ -225,6 +225,12 @@ Every lib primitive below has a story. Missing a story = not a primitive yet.
 | `RSkeletonBlock`    | _(presentational — shimmer block)_                               |
 | `RSpinner`          | delegates to `RProgressCircular`                                 |
 
+### Data
+
+| Component | Wraps                                                                                                                                                                 |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RTable`  | `v-data-table-server` / `v-data-table-virtual` / `v-data-table` via `variant` prop. v2 glass visuals; keeps sort / select / row-click / pagination. Slot pass-through |
+
 ### Domain-specific primitive
 
 | Component   | Wraps                                                                 |
@@ -298,10 +304,12 @@ Cross-feature helpers that don't belong to any one feature but aren't general en
 | File                    | Purpose                                                                                                                  |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `InfoPanel.vue`         | Hero strip at the top of Platform / Collection gallery pages. Slots for cover / eyebrow / title / tags / stats / actions |
-| `AlphaStrip.vue`        | A-Z-# jump sidebar for letter-grouped grids                                                                              |
+| `AlphaStrip.vue`        | A-Z-# jump sidebar for letter-grouped grids (only shown when `groupBy === "letter" && layout === "grid"`)                |
 | `GameGrid.vue`          | Responsive auto-fill grid of `RGameCard`s with skeleton placeholders on initial load                                     |
+| `GameList.vue`          | Sortable list layout — wraps `RTable` with ROM columns (Title / Size / Added / Released / ⭐ / 🔠 / 🌎 / Actions)        |
 | `LoadMore.vue`          | "Load N more" button + IntersectionObserver sentinel for auto-fetch on scroll                                            |
-| `LetterGroupedGrid.vue` | Skeletons / empty / letter-grouped RGameCard grid / "Load N more" — used by Platform + Collection                        |
+| `LetterGroupedGrid.vue` | Skeletons / empty / letter-grouped RGameCard grid / "Load N more" — used only in `grid + grouped` mode                   |
+| `GalleryToolbar.vue`    | GroupBy + Layout segmented controls + kebab mirror. Renders inline (`header`) or floating top-right (`floating`)         |
 
 ### `src/v2/components/Home/`
 
@@ -364,46 +372,54 @@ Reusable, ROM-level action surface. Single source of truth for all per-ROM actio
 | `composables/useLetterGroups/`  | Groups a flat ROM list into A–Z (+ `#`) buckets + scroll-spy sync for `AlphaStrip`                                                                                                     |
 | `composables/useGameActions/`   | Shared per-ROM action handlers (play / download / favorite / share / match / refresh / edit / remove). Consumed by `GameActionsList`, `GameActions`, and right-click `GameContextMenu` |
 | `composables/useThemeClass/`    | Returns reactive `"r-v2-dark" \| "r-v2-light"` derived from the active Vuetify theme. Every layout root calls it so theme-scoped CSS flips correctly                                   |
+| `composables/useGalleryMode/`   | Global gallery-view prefs (localStorage): `groupBy` (`"letter" \| "none"`), `layout` (`"grid" \| "list"`), `toolbarPosition` (`"header" \| "floating"`)                                |
 
 ---
 
 ## 5. Views — migration status
 
-| Route                    | v2 file                  | Status | Notes                                                                                                              |
-| ------------------------ | ------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------ |
-| `/`                      | `Home.vue`               | ✅     | Mockup dashboard rows (Continue Playing, Recently Added, Favorites, Platforms, Collections)                        |
-| `/login`                 | `Auth/Login.vue`         | ✅     | Password + forgot-password toggle + OIDC                                                                           |
-| `/reset-password`        | `Auth/ResetPassword.vue` | ✅     | —                                                                                                                  |
-| `/register`              | `Auth/Register.vue`      | ✅     | —                                                                                                                  |
-| `/setup`                 | —                        | 🛑     | Still v1 (Setup wizard — big)                                                                                      |
-| `/platforms`             | `PlatformsIndex.vue`     | ✅     | V2-only route, V1 redirects to Home                                                                                |
-| `/platform/:p`           | `Gallery/Platform.vue`   | ✅     | Info panel + alpha strip + letter groups                                                                           |
-| `/collections`           | `CollectionsIndex.vue`   | ✅     | Regular + smart + virtual with "Smart"/"Virtual" badge                                                             |
-| `/collection/:c`         | `Gallery/Collection.vue` | ✅     | Mosaic cover + same body as Platform                                                                               |
-| `/collection/virtual/:c` | `Gallery/Collection.vue` | ✅     | Dispatches by route name                                                                                           |
-| `/collection/smart/:c`   | `Gallery/Collection.vue` | ✅     | —                                                                                                                  |
-| `/search`                | `Gallery/Search.vue`     | ✅     | Debounced search into the shared roms store                                                                        |
-| `/rom/:r`                | `GameDetails.vue`        | ✅     | Full-viewport blurred cover layout, tabs: Overview / Personal / Media / Screenshots / Additional / Related / Files |
-| `/rom/:r/ejs`            | —                        | 🛑     | Wave 5 (Players)                                                                                                   |
-| `/rom/:r/ruffle`         | —                        | 🛑     | Wave 5 (Players)                                                                                                   |
-| `/scan`                  | —                        | ⬜     | Wave 6                                                                                                             |
-| `/patcher`               | —                        | ⬜     | Wave 6                                                                                                             |
-| `/pair`                  | —                        | ⬜     | Wave 6                                                                                                             |
-| `/user/:u`               | —                        | ⬜     | Wave 7 (Settings suite)                                                                                            |
-| `/user-interface`        | —                        | ⬜     | Wave 7                                                                                                             |
-| `/library-management`    | —                        | ⬜     | Wave 7                                                                                                             |
-| `/metadata-sources`      | —                        | ⬜     | Wave 7                                                                                                             |
-| `/client-api-tokens`     | —                        | ⬜     | Wave 7                                                                                                             |
-| `/administration`        | —                        | ⬜     | Wave 7                                                                                                             |
-| `/server-stats`          | —                        | ⬜     | Wave 7                                                                                                             |
-| `/console/*`             | —                        | ❌     | Gone in v2 — universal input merges console + normal                                                               |
+| Route                    | v2 file                           | Status | Notes                                                                                                              |
+| ------------------------ | --------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| `/`                      | `Home.vue`                        | ✅     | Mockup dashboard rows (Continue Playing, Recently Added, Favorites, Platforms, Collections)                        |
+| `/login`                 | `Auth/Login.vue`                  | ✅     | Password + forgot-password toggle + OIDC                                                                           |
+| `/reset-password`        | `Auth/ResetPassword.vue`          | ✅     | —                                                                                                                  |
+| `/register`              | `Auth/Register.vue`               | ✅     | —                                                                                                                  |
+| `/setup`                 | —                                 | 🛑     | Still v1 (Setup wizard — big)                                                                                      |
+| `/platforms`             | `PlatformsIndex.vue`              | ✅     | V2-only route, V1 redirects to Home                                                                                |
+| `/platform/:p`           | `Gallery/Platform.vue`            | ✅     | Info panel + alpha strip + letter groups                                                                           |
+| `/collections`           | `CollectionsIndex.vue`            | ✅     | Regular + smart + virtual with "Smart"/"Virtual" badge                                                             |
+| `/collection/:c`         | `Gallery/Collection.vue`          | ✅     | Mosaic cover + same body as Platform                                                                               |
+| `/collection/virtual/:c` | `Gallery/Collection.vue`          | ✅     | Dispatches by route name                                                                                           |
+| `/collection/smart/:c`   | `Gallery/Collection.vue`          | ✅     | —                                                                                                                  |
+| `/search`                | `Gallery/Search.vue`              | ✅     | Debounced search into the shared roms store                                                                        |
+| `/rom/:r`                | `GameDetails.vue`                 | ✅     | Full-viewport blurred cover layout, tabs: Overview / Personal / Media / Screenshots / Additional / Related / Files |
+| `/rom/:r/ejs`            | `Player/EmulatorJS.vue`           | ✅     | v2 chrome wrapping the v1 `<Player>` component verbatim (EJS\_\* globals + loader fallback preserved)              |
+| `/rom/:r/ruffle`         | `Player/Ruffle.vue`               | ✅     | v2 chrome wrapping the v1 Ruffle injection verbatim (script loader + `createPlayer` preserved)                     |
+| `/scan`                  | `Scan.vue`                        | ✅     | Glass config panel + live scan log; reuses `ScanPlatform` v1 primitive inside v2 expansion panels                  |
+| `/patcher`               | `Patcher.vue`                     | ✅     | Glass drop-zones + controls; rom-patcher-js + web-worker pipeline ported verbatim from v1                          |
+| `/pair`                  | `Pair.vue` (via `PairDispatcher`) | ✅     | Standalone card inside `PairShell` (AuthLayout-equivalent); dispatcher picks v1/v2 from `uiVersion` setting        |
+| `/user/:u`               | `Settings/UserProfile.vue`        | ✅     | Avatar upload + account form (v2-native), wraps v1 RetroAchievements section                                       |
+| `/user-interface`        | `Settings/UserInterface.vue`      | ✅     | v2-native UIVersion / Language / Theme cards; v1 Interface (advanced home toggles) embedded for now                |
+| `/library-management`    | `Settings/LibraryManagement.vue`  | ✅     | v2 tabs (mapping / excluded / missing) wrapping v1 sub-components; config-not-mounted/writable alerts preserved    |
+| `/metadata-sources`      | `Settings/MetadataSources.vue`    | ✅     | v2-native provider tiles with live API-key + heartbeat status indicators                                           |
+| `/client-api-tokens`     | `Settings/ClientApiTokens.vue`    | ✅     | v2 shell around v1 ClientTokensTable                                                                               |
+| `/administration`        | `Settings/Administration.vue`     | ✅     | v2 shell around v1 UsersTable / TokensTable / Tasks (scope-gated as in v1)                                         |
+| `/server-stats`          | `Settings/ServerStats.vue`        | ✅     | v2 shell around v1 SummaryStats + PlatformsStats                                                                   |
+| `/console/*`             | —                                 | ❌     | Gone in v2 — universal input merges console + normal                                                               |
 
 V1 components still consumed by v2 (temporary — flagged for replacement):
 
 - `frontend/src/components/Details/PDFViewer.vue` (used by `v2/components/GameDetails/MediaTab.vue`)
 - `frontend/src/components/common/SoundtrackMiniPlayer.vue` (rendered by `RomM.vue`)
 - `frontend/src/components/common/VolumeControl.vue` (lazy-imported by `v2/components/GameDetails/SoundtrackPanel.vue`)
-- Dialogs mounted in `v2/layouts/AppLayout.vue` (EditRom, DeleteRom, MatchRom, RefreshMetadata, ShowQRCode, AddRomsToCollection, ManualUploadTarget, DeleteManual, Notification, UploadProgress).
+- `frontend/src/components/common/Notifications/{Notification,UploadProgress}.vue` (global toast hosts — shared with v1 on the same emitter; rebuild scheduled after Wave 8)
+- `frontend/src/components/common/Game/Card/Base.vue` (reused inside v2 `EditRomDialog` + `MatchRomDialog` as the cover-preview primitive)
+- `frontend/src/components/common/Game/Dialog/EditRom/{AdditionalDetails,MetadataIdSection,MetadataSections}.vue` (metadata expansion panels inside v2 `EditRomDialog`)
+- `frontend/src/components/common/Collection/RAvatar.vue` (collection avatar inside v2 `AddRomsToCollectionDialog`)
+- `frontend/src/components/common/Game/AssetCard.vue` (inside v2 `SelectSave/StateDialog` grids)
+- `frontend/src/components/Scan/ScanPlatform.vue` (inside v2 `Scan` view expansion body)
+- `frontend/src/components/common/{MissingFromFSIcon,Platform/PlatformIcon}.vue` (inside v2 `Scan`/`Patcher` platform pickers)
+- Settings sub-components embedded in v2 Settings views: `UserInterface/Interface.vue` (home toggles), `Administration/{UsersTable,TokensTable,Tasks}.vue`, `ClientApiTokens/ClientTokensTable.vue`, `LibraryManagement/Config/{FolderMappings,Excluded,MissingGames}.vue`, `ServerStats/{SummaryStats,PlatformsStats}.vue`, `UserProfile/RetroAchievements.vue`
 
 ---
 
@@ -417,14 +433,15 @@ All wired through `AppLayout.vue` + singleton composables — v2 views should _o
 | Last input device (mouse/touch/key/pad) | —                         | `useInputModality()` (installs listeners on `AppLayout` mount) |
 | UI version toggle                       | —                         | `useUiVersion()` (singleton ref, backs `settings.uiVersion`)   |
 
-AppLayout also mounts the following dialogs so the v1 mitt emitter events route correctly in v2:
+AppLayout mounts `<GlobalDialogs />` which hosts every emitter-driven dialog so they overlay every v2 route. All of these are v2-native under `src/v2/components/Dialogs/`, `src/v2/components/Player/`, and `src/v2/components/AppShell/`:
 
-- `ManualUploadTargetDialog`, `DeleteManualDialog`
-- `EditRomDialog`, `DeleteRomDialog`, `MatchRomDialog`, `RefreshMetadataDialog`, `ShowQRCodeDialog`
-- `AddRomsToCollectionDialog`
-- `Notification`, `UploadProgress`
+- **Game actions**: `EditRomDialog`, `DeleteRomDialog`, `MatchRomDialog`, `RefreshMetadataDialog`, `ShowQRCodeDialog`, `ManualUploadTargetDialog`, `DeleteManualDialog`
+- **Collections**: `AddRomsToCollectionDialog`
+- **About**: `AboutDialog`
+- **Player**: `SelectSaveDialog`, `SelectStateDialog`, `EmulatorJSCacheDialog`
+- **Toasts (still v1)**: `Notification`, `UploadProgress` — same emitter as v1, rebuild scheduled
 
-Any new v2 view that needs a dialog should emit the existing v1 event first (`emitter.emit("showFooDialog", payload)`) and add the dialog to AppLayout if it's not mounted yet. Building a v2-native replacement dialog comes later and lives in `src/v2/components/dialogs/…` when it does.
+Any new v2 view that needs a dialog should emit the existing event (`emitter.emit("showFooDialog", payload)`) and either find the dialog already mounted here or add a v2-native one under `src/v2/components/Dialogs/`.
 
 ---
 
@@ -487,11 +504,16 @@ Ticked off relative to `V2_PLAN.md`:
 - ✅ Wave 2 — App shell + Home (rewritten in the mockup restyle)
 - ✅ Wave 3 — Gallery (Platform / Collection / Search + index pages)
 - ✅ Wave 4 — Game Details (hero + tabs, media tab w/ manual + soundtrack)
+- ✅ Wave 5 — Players (EmulatorJS + Ruffle — v2 chrome around reused v1 player integrations; SelectSave/SelectState/CacheDialog rebuilt as v2 RDialog variants)
+- ✅ Wave 6 — Scan + Patcher + Pair (scan log + live stats, patch dropzones + worker pipeline verbatim, pair via runtime dispatcher)
+- ✅ Wave 7 — Settings suite (shared `SettingsShell` + `SettingsNav` pill strip; UserInterface/MetadataSources/UserProfile rebuilt v2-native, rest are v2 chrome around v1 content)
+- ✅ Wave 8 — Global dialogs (8 ROM/collection dialogs rebuilt v2-native under `src/v2/components/Dialogs/`: EditRom, DeleteRom, MatchRom, RefreshMetadata, ShowQRCode, ManualUploadTarget, DeleteManual, AddRomsToCollection — glass panels + v2 primitives throughout)
+- ✅ Wave 9 — Universal input polish (gamepad → synthetic keyboard translator, modality-gated focus-visible rings, skip-to-content link, `/` + `g h/p/c` hotkeys, `MissingFSBadge` v2 primitive, `PlatformIcon` → `RPlatformIcon` swap across Scan/Patcher)
 - ✅ Mockup restyle — full palette/layout pass to match artist design
 - ✅ Context menu + user menu + menu library primitives
 - ✅ View decomposition pass — GameDetails (967 → 343), Platform (395 → 266), Collection (418 → 295), AppLayout (531 → 115), Login (291 → 99) all split into feature-scoped sub-components under `src/v2/components/<feature>/` (see §4b)
-- 🔜 **Wave 5 — Players (`/rom/:r/ejs`, `/rom/:r/ruffle`)** ← next
-- ⬜ Wave 6 — Scan + Patcher + Pair
+- 🔜 **Wave 10 — Flip default to v2 + delete v1** ← next (blocking on outstanding v1 embeds — see backlog)
+
 - ⬜ Wave 7 — Settings suite
 - ⬜ Wave 8 — Global dialogs (rebuild as v2-native replacements for the v1 dialogs we're currently reusing)
 - ⬜ Wave 9 — Gamepad / universal input polish

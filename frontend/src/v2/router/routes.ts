@@ -32,11 +32,28 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   "smart-collection": () => import("@/v2/views/Gallery/Collection.vue"),
   // Wave 4 — Game details
   rom: () => import("@/v2/views/GameDetails.vue"),
+  // Wave 5 — Players
+  emulatorjs: () => import("@/v2/views/Player/EmulatorJS.vue"),
+  ruffle: () => import("@/v2/views/Player/Ruffle.vue"),
+  // Wave 6 — Scan + Patcher + Pair
+  scan: () => import("@/v2/views/Scan.vue"),
+  patcher: () => import("@/v2/views/Patcher.vue"),
+  // Pair is wired via a top-level PairDispatcher (see plugins/router.ts); no
+  // named-view entry is needed — the dispatcher picks v1 or v2 itself.
+  // Wave 7 — Settings suite
+  "user-profile": () => import("@/v2/views/Settings/UserProfile.vue"),
+  "user-interface": () => import("@/v2/views/Settings/UserInterface.vue"),
+  "library-management": () =>
+    import("@/v2/views/Settings/LibraryManagement.vue"),
+  "metadata-sources": () => import("@/v2/views/Settings/MetadataSources.vue"),
+  "client-api-tokens": () => import("@/v2/views/Settings/ClientApiTokens.vue"),
+  administration: () => import("@/v2/views/Settings/Administration.vue"),
+  "server-stats": () => import("@/v2/views/Settings/ServerStats.vue"),
   // V2-only index pages (no v1 equivalent — the v1 UI uses its drawer)
   "platforms-index": () => import("@/v2/views/PlatformsIndex.vue"),
   "collections-index": () => import("@/v2/views/CollectionsIndex.vue"),
   // Setup wizard deferred — remains v1-only for now
-  // Wave 4 onwards adds the remaining routes.
+  // Wave 7 onwards adds the remaining routes.
 };
 
 export const fallbackComponent: V2Route = () =>

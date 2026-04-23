@@ -1,6 +1,16 @@
 <script setup lang="ts">
 // AlphaStrip — A-Z-# jump sidebar for letter-grouped grids (Platform and
 // Collection gallery). Feature composite — not a design-system primitive.
+//
+// Two highlight signals are supported:
+//   * `current` — single letter used to mark a deliberate jump (e.g. the
+//     user clicked "F"). One active at a time.
+//   * `visible` — a Set of every letter whose section currently intersects
+//     the viewport. Multiple letters light up together when the first row
+//     of the grid spans several groups (A, B, C, …).
+//
+// When both are set, `visible` wins visually because it reflects the real
+// scroll position.
 import { computed } from "vue";
 
 defineOptions({ inheritAttrs: false });
@@ -10,11 +20,13 @@ const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#".split("");
 interface Props {
   available?: Set<string> | string[];
   current?: string;
+  visible?: Set<string> | string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
   available: () => new Set<string>(),
   current: "",
+  visible: () => new Set<string>(),
 });
 
 defineEmits<{
@@ -25,6 +37,16 @@ const availableSet = computed(() => {
   const a = props.available;
   return a instanceof Set ? a : new Set(a);
 });
+
+const visibleSet = computed(() => {
+  const v = props.visible;
+  return v instanceof Set ? v : new Set(v);
+});
+
+function isActive(letter: string): boolean {
+  if (visibleSet.value.size > 0) return visibleSet.value.has(letter);
+  return props.current === letter;
+}
 </script>
 
 <template>
@@ -36,7 +58,7 @@ const availableSet = computed(() => {
       class="alpha-strip__btn"
       :class="{
         'alpha-strip__btn--has': availableSet.has(l),
-        'alpha-strip__btn--current': current === l,
+        'alpha-strip__btn--current': isActive(l),
       }"
       :disabled="!availableSet.has(l)"
       :aria-label="`Jump to ${l}`"
@@ -56,6 +78,9 @@ const availableSet = computed(() => {
   align-items: center;
   justify-content: center;
   padding: 8px 0;
+  /* Breathe away from the viewport edge — the strip shouldn't touch the
+     right border of the gallery section. */
+  margin-right: 12px;
   user-select: none;
 }
 
@@ -74,8 +99,8 @@ const availableSet = computed(() => {
   text-align: center;
   border-radius: 3px;
   transition:
-    color 0.1s,
-    background 0.1s;
+    color var(--r-motion-med) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
 .alpha-strip__btn--has {
@@ -87,9 +112,16 @@ const availableSet = computed(() => {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.alpha-strip__btn--current {
-  color: #fff !important;
+/* Scroll-spied letter — primary brand colour to stand out against the
+   plain-white `--has` letters. */
+.alpha-strip__btn--current,
+.alpha-strip__btn--has.alpha-strip__btn--current {
+  color: var(--r-color-brand-primary) !important;
   background: rgba(255, 255, 255, 0.15);
+}
+.alpha-strip__btn--has.alpha-strip__btn--current:hover {
+  color: var(--r-color-brand-primary-hover) !important;
+  background: rgba(139, 116, 232, 0.12);
 }
 
 @media (max-width: 768px) {

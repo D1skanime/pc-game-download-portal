@@ -3,6 +3,7 @@
 // provider that has a linked ID on this ROM (IGDB, MobyGames, RA, HLTB…).
 // Clicking opens the provider's page for that ID in a new tab. Unlinked
 // providers are hidden so the row only shows what's actually there.
+import { RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import type { DetailedRom } from "@/stores/roms";
 
@@ -104,7 +105,6 @@ const linked = computed<Linked[]>(() =>
       :href="entry.provider.url ? entry.provider.url(entry.id) : undefined"
       :target="entry.provider.url ? '_blank' : undefined"
       :rel="entry.provider.url ? 'noopener' : undefined"
-      :title="`${entry.provider.name}: ${entry.id}`"
     >
       <span
         class="r-v2-det-providers__dot"

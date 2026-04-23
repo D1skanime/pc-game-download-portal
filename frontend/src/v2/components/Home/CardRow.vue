@@ -6,7 +6,12 @@
 // Renders: header (icon + title + count), the default slot as a
 // horizontal track, and gradient left/right arrow buttons that appear
 // only when the track actually overflows in that direction.
+//
+// The icon slot sizes to its content — whatever size the caller's inner
+// RIcon renders at drives the layout, and the title always stays
+// vertically centred with it (flex align-items:center on the head).
 import { RIcon } from "@v2/lib";
+import { computed } from "vue";
 import { onMounted, ref } from "vue";
 
 defineOptions({ inheritAttrs: false });
@@ -14,15 +19,50 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   title?: string;
   count?: number | string;
-  /** Extra horizontal gap between children, e.g. "12px" (default) or "16px". */
+  /** Horizontal gap between children in the scroll track. */
   gap?: string;
+  /** Title font size — defaults to 14.5px. Accepts any CSS length. */
+  titleSize?: string | number;
+  /**
+   * Title font weight — defaults to semibold. Accepts the named weights
+   * used elsewhere (regular / medium / semibold / bold) or a raw number.
+   */
+  titleWeight?: "regular" | "medium" | "semibold" | "bold" | number;
+  /** Space between icon and title. Grows naturally as icons get bigger. */
+  iconGap?: string;
+  /** Icon opacity — default 0.6 keeps it subdued against the title. Set
+   *  to 1 when you want the icon to read as prominent as the title. */
+  iconOpacity?: number;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   title: undefined,
   count: undefined,
   gap: "12px",
+  titleSize: "14.5px",
+  titleWeight: "semibold",
+  iconGap: "10px",
+  iconOpacity: 0.6,
 });
+
+const resolvedTitleSize = computed(() =>
+  typeof props.titleSize === "number"
+    ? `${props.titleSize}px`
+    : props.titleSize,
+);
+
+const WEIGHT_MAP = {
+  regular: "var(--r-font-weight-regular)",
+  medium: "var(--r-font-weight-medium)",
+  semibold: "var(--r-font-weight-semibold)",
+  bold: "var(--r-font-weight-bold)",
+} as const;
+
+const resolvedTitleWeight = computed(() =>
+  typeof props.titleWeight === "number"
+    ? `${props.titleWeight}`
+    : WEIGHT_MAP[props.titleWeight],
+);
 
 const scrollEl = ref<HTMLElement | null>(null);
 const canLeft = ref(false);
@@ -48,12 +88,23 @@ onMounted(() => {
 
 <template>
   <section class="card-row">
-    <header v-if="title || $slots.icon || $slots.title" class="card-row__head">
+    <header
+      v-if="title || $slots.icon || $slots.title"
+      class="card-row__head"
+      :style="{
+        gap: iconGap,
+        '--card-row-title-size': resolvedTitleSize,
+        '--card-row-title-weight': resolvedTitleWeight,
+        '--card-row-icon-opacity': iconOpacity,
+      }"
+    >
       <span v-if="$slots.icon" class="card-row__icon">
         <slot name="icon" />
       </span>
       <h2 class="card-row__title">
-        <slot name="title">{{ title }}</slot>
+        <slot name="title">
+          {{ title }}
+        </slot>
       </h2>
       <span v-if="count != null" class="card-row__count">{{ count }}</span>
       <slot name="title-append" />
@@ -99,7 +150,7 @@ onMounted(() => {
 .card-row__head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  /* gap is driven inline via the --card-row icon gap prop. */
   padding: 0 var(--r-row-pad);
   margin-bottom: 12px;
   color: rgba(255, 255, 255, 0.88);
@@ -108,23 +159,23 @@ onMounted(() => {
   color: rgba(17, 17, 23, 0.88);
 }
 
+/* Icon slot — sizes to its content so the caller's RIcon `size` drives
+   the layout. Flex align-items:center on the head keeps it vertically
+   centred with the title at any icon size. */
 .card-row__icon {
-  width: 14px;
-  height: 14px;
-  display: inline-grid;
-  place-items: center;
-  opacity: 0.5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: var(--card-row-icon-opacity, 0.6);
   flex-shrink: 0;
-}
-
-.card-row__icon :deep(.mdi) {
-  font-size: 14px;
+  line-height: 0;
 }
 
 .card-row__title {
-  font-size: 14.5px;
-  font-weight: var(--r-font-weight-semibold);
+  font-size: var(--card-row-title-size, 14.5px);
+  font-weight: var(--card-row-title-weight, var(--r-font-weight-semibold));
   letter-spacing: 0.01em;
+  line-height: 1.2;
   margin: 0;
 }
 

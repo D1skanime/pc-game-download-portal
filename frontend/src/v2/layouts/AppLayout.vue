@@ -14,6 +14,8 @@ import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import GlobalDialogs from "@/v2/components/AppShell/GlobalDialogs.vue";
 import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
+import { useGamepad } from "@/v2/composables/useGamepad";
+import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useThemeClass } from "@/v2/composables/useThemeClass";
 
@@ -38,13 +40,19 @@ function setBackgroundArt(url: string | null) {
 provide(BACKGROUND_ART_KEY, setBackgroundArt);
 
 const { install: installInputModality } = useInputModality();
+const { install: installGamepad } = useGamepad();
+const { install: installGlobalHotkeys } = useGlobalHotkeys();
 onMounted(() => {
   installInputModality();
+  installGamepad();
+  installGlobalHotkeys();
 });
 </script>
 
 <template>
   <div class="r-v2 r-v2-shell" :class="themeClass">
+    <a href="#r-v2-main" class="r-v2-skip-link">Skip to main content</a>
+
     <BackgroundArt
       :layer-a="layerA"
       :layer-b="layerB"
@@ -53,7 +61,7 @@ onMounted(() => {
 
     <div class="r-v2-shell__app">
       <AppNav />
-      <main class="r-v2-shell__main">
+      <main id="r-v2-main" class="r-v2-shell__main" tabindex="-1">
         <router-view name="v2" />
       </main>
     </div>
@@ -82,5 +90,29 @@ onMounted(() => {
   min-height: 0;
   position: relative;
   overflow-x: hidden;
+  outline: none;
+}
+
+/* Skip link — stays off-screen until focused via keyboard, then lands in
+   the top-left as an always-on-top focusable anchor. */
+.r-v2-skip-link {
+  position: absolute;
+  top: 6px;
+  left: -200px;
+  z-index: 9999;
+  padding: 8px 14px;
+  border-radius: var(--r-radius-pill);
+  background: var(--r-color-brand-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: var(--r-font-weight-semibold);
+  text-decoration: none;
+  transition: left var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-v2-skip-link:focus,
+.r-v2-skip-link:focus-visible {
+  left: 12px;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 </style>

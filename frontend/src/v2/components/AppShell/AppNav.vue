@@ -3,7 +3,7 @@
 // "switch to classic UI" icon + user menu on the right. Highlighting
 // is derived from `route.path` rather than route names so gallery
 // subroutes (e.g. /rom/:id) still light up the Home tab.
-import { RBtn } from "@v2/lib";
+import { RBtn, RSliderBtnGroup, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
@@ -18,19 +18,17 @@ function switchToV1() {
   uiVersion.value = "v1";
 }
 
-type TabId = "home" | "favorites" | "platforms" | "collections" | "search";
-const tabs: { id: TabId; label: string; to: string }[] = [
-  { id: "home", label: "Home", to: "/" },
-  { id: "favorites", label: "Favorites", to: "/collection/favorites" },
-  { id: "platforms", label: "Platforms", to: "/platforms" },
-  { id: "collections", label: "Collections", to: "/collections" },
-  { id: "search", label: "Search", to: "/search" },
+type TabId = "home" | "platforms" | "collections" | "search";
+const tabs = [
+  { id: "home" as const, label: "Home", to: "/" },
+  { id: "platforms" as const, label: "Platforms", to: "/platforms" },
+  { id: "collections" as const, label: "Collections", to: "/collections" },
+  { id: "search" as const, label: "Search", to: "/search" },
 ];
 
 const activeTab = computed<TabId | null>(() => {
   const path = route.path;
-  if (path === "/" || path.startsWith("/rom") || path === "/home")
-    return "home";
+  if (path === "/") return "home";
   if (path.startsWith("/platform")) return "platforms";
   if (path.startsWith("/collection")) return "collections";
   if (path.startsWith("/search")) return "search";
@@ -46,29 +44,28 @@ const activeTab = computed<TabId | null>(() => {
     </router-link>
 
     <div class="r-v2-nav__center">
-      <div class="r-v2-nav__pill">
-        <router-link
-          v-for="tab in tabs"
-          :key="tab.id"
-          :to="tab.to"
-          class="r-v2-nav__tab"
-          :class="{ 'r-v2-nav__tab--active': activeTab === tab.id }"
-        >
-          {{ tab.label }}
-        </router-link>
-      </div>
+      <RSliderBtnGroup
+        :model-value="activeTab"
+        :items="tabs"
+        variant="tab"
+        aria-label="Primary navigation"
+      />
     </div>
 
     <div class="r-v2-nav__right">
-      <RBtn
-        icon="mdi-backup-restore"
-        size="small"
-        variant="text"
-        class="r-v2-nav__classic"
-        aria-label="Switch to classic UI"
-        title="Classic UI"
-        @click="switchToV1"
-      />
+      <RTooltip text="Switch to classic UI" location="bottom">
+        <template #activator="{ props: tooltipProps }">
+          <RBtn
+            v-bind="tooltipProps"
+            icon="mdi-backup-restore"
+            size="small"
+            variant="text"
+            class="r-v2-nav__classic"
+            aria-label="Switch to classic UI"
+            @click="switchToV1"
+          />
+        </template>
+      </RTooltip>
 
       <UserMenu />
     </div>
@@ -110,59 +107,6 @@ const activeTab = computed<TabId | null>(() => {
   flex: 1;
   display: flex;
   justify-content: center;
-}
-
-.r-v2-nav__pill {
-  display: flex;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--r-radius-pill);
-  padding: 4px;
-  gap: 2px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-:global(.r-v2.r-v2-light) .r-v2-nav__pill {
-  background: rgba(17, 17, 23, 0.06);
-  border-color: rgba(17, 17, 23, 0.1);
-}
-
-.r-v2-nav__tab {
-  padding: 7px 22px;
-  border-radius: var(--r-radius-pill);
-  font-size: 13.5px;
-  font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.62);
-  text-decoration: none;
-  transition:
-    color var(--r-motion-fast) var(--r-motion-ease-out),
-    background var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-:global(.r-v2.r-v2-light) .r-v2-nav__tab {
-  color: rgba(17, 17, 23, 0.62);
-}
-
-.r-v2-nav__tab:hover {
-  color: var(--r-color-fg);
-  background: rgba(255, 255, 255, 0.09);
-}
-
-:global(.r-v2.r-v2-light) .r-v2-nav__tab:hover {
-  background: rgba(17, 17, 23, 0.09);
-}
-
-.r-v2-nav__tab--active {
-  color: #111 !important;
-  background: #fff;
-  font-weight: var(--r-font-weight-semibold);
-}
-
-:global(.r-v2.r-v2-light) .r-v2-nav__tab--active {
-  color: #fff !important;
-  background: #111;
 }
 
 .r-v2-nav__right {

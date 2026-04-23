@@ -86,6 +86,7 @@ const ratingLabel = computed(() => {
     class="r-gc"
     :class="{ 'r-gc--hero': hero, 'r-gc--focused': focused }"
     :aria-label="title"
+    :data-rom-id="rom.id"
     @mouseenter="onMouseEnter"
   >
     <div class="r-gc__art" :class="{ 'r-v2-shimmer': !imgLoaded && !imgError }">
