@@ -54,6 +54,7 @@ from handler.metadata import (
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
+    meta_playmatch_handler,
     meta_ra_handler,
     meta_ss_handler,
 )
@@ -62,6 +63,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomUserStatus
+from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -1441,6 +1443,9 @@ async def update_rom(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    if meta_playmatch_handler.is_manual_match(form_data.model_fields_set):
+        fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
