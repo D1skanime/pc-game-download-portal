@@ -1,4 +1,7 @@
 <script setup lang="ts">
+// LoadMore — "Load N more" button with an IntersectionObserver sentinel
+// that auto-triggers when the user scrolls it into view. Pure composition
+// of RBtn + RSpinner; lives here because only Gallery/Search uses it.
 import { RBtn, RSpinner } from "@v2/lib";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 
@@ -7,8 +10,10 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   loading?: boolean;
   disabled?: boolean;
-  autoTrigger?: boolean; // Auto-load when scrolled into view
-  remaining?: number; // optional label hint
+  /** Auto-load when scrolled into view. */
+  autoTrigger?: boolean;
+  /** Optional count hint, e.g. "Load 42 more". */
+  remaining?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -51,8 +56,8 @@ const label = computed(() => {
 </script>
 
 <template>
-  <div class="r-load-more">
-    <div v-if="autoTrigger" ref="sentinel" class="r-load-more__sentinel" />
+  <div class="load-more">
+    <div v-if="autoTrigger" ref="sentinel" class="load-more__sentinel" />
     <RBtn
       :disabled="disabled || loading"
       variant="outlined"
@@ -68,14 +73,14 @@ const label = computed(() => {
 </template>
 
 <style scoped>
-.r-load-more {
+.load-more {
   position: relative;
   display: flex;
   justify-content: center;
   padding: var(--r-space-6) 0;
 }
 
-.r-load-more__sentinel {
+.load-more__sentinel {
   position: absolute;
   inset: 0;
   pointer-events: none;

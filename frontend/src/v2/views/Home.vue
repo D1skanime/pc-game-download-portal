@@ -1,19 +1,39 @@
 <script setup lang="ts">
-import { RBtn, RChip, RIcon, RSkeletonBlock } from "@v2/lib";
+// Home dashboard — composed of primitives + feature components. Each
+// section is a CardRow with its own tile type in the default slot.
+import { RGameCard, RIcon, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted } from "vue";
-import storeAuth from "@/stores/auth";
+import { computed, onMounted, ref } from "vue";
 import storeCollections from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
+import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
+import CardRow from "@/v2/components/Home/CardRow.vue";
+import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 
-const authStore = storeAuth();
+const romsStore = storeRoms();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
+const heartbeatStore = storeHeartbeat();
 
-const { user } = storeToRefs(authStore);
-const { filledPlatforms, fetchingPlatforms, allPlatforms } =
-  storeToRefs(platformsStore);
-const { allCollections, fetchingCollections } = storeToRefs(collectionsStore);
+const { recentRoms, continuePlayingRoms } = storeToRefs(romsStore);
+const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
+const { allCollections, favoriteCollection, fetchingCollections } =
+  storeToRefs(collectionsStore);
+
+const supportsWebp = computed<boolean>(() =>
+  Boolean(
+    (
+      heartbeatStore.value as unknown as {
+        FRONTEND?: { IMAGES_WEBP?: boolean };
+      }
+    )?.FRONTEND?.IMAGES_WEBP,
+  ),
+);
+
+const fetchingRecent = ref(false);
+const fetchingContinue = ref(false);
 
 onMounted(() => {
   if (platformsStore.allPlatforms.length === 0) {
@@ -22,386 +42,179 @@ onMounted(() => {
   if (collectionsStore.allCollections.length === 0) {
     collectionsStore.fetchCollections();
   }
+  if (recentRoms.value.length === 0) {
+    fetchingRecent.value = true;
+    romsStore.fetchRecentRoms().finally(() => (fetchingRecent.value = false));
+  }
+  if (continuePlayingRoms.value.length === 0) {
+    fetchingContinue.value = true;
+    romsStore
+      .fetchContinuePlayingRoms()
+      .finally(() => (fetchingContinue.value = false));
+  }
 });
 
-const greeting = computed(() => {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+// Favorite ROMs — derived from the Favorites collection's rom_ids.
+const favoriteRoms = computed<SimpleRom[]>(() => {
+  const favIds = favoriteCollection.value?.rom_ids ?? [];
+  if (!favIds.length) return [];
+  const pool = new Map<number, SimpleRom>();
+  for (const r of recentRoms.value) pool.set(r.id, r);
+  for (const r of continuePlayingRoms.value) pool.set(r.id, r);
+  const out: SimpleRom[] = [];
+  for (const id of favIds) {
+    const hit = pool.get(id);
+    if (hit) out.push(hit);
+  }
+  return out;
 });
 
-const totalRoms = computed(() =>
-  filledPlatforms.value.reduce((acc, p) => acc + p.rom_count, 0),
-);
-
-function platformCover(platformName: string) {
-  // v1 serves platform icons from /assets/platforms. Use the lowercase name.
-  return `/assets/platforms/${platformName.toLowerCase()}.ico`;
+// Pick a small set of cover URLs to seed the collection tile mosaic.
+function collectionCovers(pathCovers: string[] | undefined): string[] {
+  const paths = pathCovers ?? [];
+  return paths
+    .slice(0, 4)
+    .map((p) =>
+      supportsWebp.value ? p.replace(/\.(png|jpg|jpeg)$/i, ".webp") : p,
+    );
 }
 </script>
 
 <template>
-  <section class="r-v2-home">
-    <!-- Greeting / stats strip -->
-    <header class="r-v2-home__hero">
-      <div class="r-v2-home__greeting">
-        <div class="r-v2-home__eyebrow">Library</div>
-        <h1 class="r-v2-home__title">
-          {{ greeting }}<template v-if="user"> , {{ user.username }} </template>
-        </h1>
-        <p class="r-v2-home__subtitle">
-          Jump back in — your whole catalogue, one click away.
-        </p>
+  <div class="r-v2-home">
+    <!-- Continue playing -->
+    <CardRow
+      v-if="continuePlayingRoms.length || fetchingContinue"
+      title="Continue playing"
+      :count="continuePlayingRoms.length"
+    >
+      <template #icon>
+        <RIcon icon="mdi-play" />
+      </template>
+      <template v-if="fetchingContinue && !continuePlayingRoms.length">
+        <RSkeletonBlock
+          v-for="n in 4"
+          :key="`cs-${n}`"
+          width="300px"
+          height="169px"
+          rounded="lg"
+        />
+      </template>
+      <template v-else>
+        <RGameCard
+          v-for="rom in continuePlayingRoms"
+          :key="`cont-${rom.id}`"
+          :rom="rom"
+          :webp="supportsWebp"
+          hero
+        />
+      </template>
+    </CardRow>
+
+    <!-- Recently added -->
+    <CardRow title="Recently added" :count="recentRoms.length">
+      <template #icon>
+        <RIcon icon="mdi-clock-outline" />
+      </template>
+      <template v-if="fetchingRecent && !recentRoms.length">
+        <RSkeletonBlock
+          v-for="n in 6"
+          :key="`rs-${n}`"
+          width="158px"
+          height="213px"
+          rounded="md"
+        />
+      </template>
+      <div v-else-if="!recentRoms.length" class="r-v2-home__empty">
+        No games added yet.
       </div>
-      <div class="r-v2-home__stats">
-        <div class="r-v2-home__stat">
-          <div class="r-v2-home__stat-value">
-            <template v-if="!fetchingPlatforms">
-              {{ allPlatforms.length }}
-            </template>
-            <RSkeletonBlock v-else :width="56" :height="30" />
-          </div>
-          <div class="r-v2-home__stat-label">Platforms</div>
-        </div>
-        <div class="r-v2-home__stat">
-          <div class="r-v2-home__stat-value">
-            <template v-if="!fetchingPlatforms">
-              {{ totalRoms.toLocaleString() }}
-            </template>
-            <RSkeletonBlock v-else :width="72" :height="30" />
-          </div>
-          <div class="r-v2-home__stat-label">Games</div>
-        </div>
-        <div class="r-v2-home__stat">
-          <div class="r-v2-home__stat-value">
-            <template v-if="!fetchingCollections">
-              {{ allCollections.length }}
-            </template>
-            <RSkeletonBlock v-else :width="56" :height="30" />
-          </div>
-          <div class="r-v2-home__stat-label">Collections</div>
-        </div>
-      </div>
-    </header>
+      <template v-else>
+        <RGameCard
+          v-for="rom in recentRoms"
+          :key="`rec-${rom.id}`"
+          :rom="rom"
+          :webp="supportsWebp"
+        />
+      </template>
+    </CardRow>
+
+    <!-- Favorites -->
+    <CardRow
+      v-if="favoriteRoms.length"
+      title="Favorites"
+      :count="favoriteRoms.length"
+    >
+      <template #icon>
+        <RIcon icon="mdi-heart" />
+      </template>
+      <RGameCard
+        v-for="rom in favoriteRoms"
+        :key="`fav-${rom.id}`"
+        :rom="rom"
+        :webp="supportsWebp"
+      />
+    </CardRow>
 
     <!-- Platforms -->
-    <section class="r-v2-home__section">
-      <div class="r-v2-home__section-head">
-        <h2 class="r-v2-home__section-title">
-          <RIcon icon="mdi-controller" class="r-v2-home__section-icon" />
-          Platforms
-        </h2>
-        <RChip v-if="!fetchingPlatforms" size="small" variant="tonal">
-          {{ filledPlatforms.length }}
-        </RChip>
-      </div>
-
-      <div class="r-v2-home__grid">
-        <template v-if="fetchingPlatforms && filledPlatforms.length === 0">
-          <div v-for="n in 8" :key="n" class="r-v2-home__platform-card">
-            <RSkeletonBlock :width="64" :height="64" rounded="md" />
-            <RSkeletonBlock :width="120" :height="14" />
-            <RSkeletonBlock :width="64" :height="12" />
-          </div>
-        </template>
-        <template v-else>
-          <router-link
-            v-for="platform in filledPlatforms"
-            :key="platform.id"
-            :to="`/platform/${platform.id}`"
-            class="r-v2-home__platform-card"
-          >
-            <img
-              :src="platformCover(platform.name)"
-              :alt="platform.display_name"
-              class="r-v2-home__platform-icon"
-              loading="lazy"
-              @error="
-                (e) =>
-                  ((e.target as HTMLImageElement).style.visibility = 'hidden')
-              "
-            />
-            <span class="r-v2-home__platform-name">
-              {{ platform.display_name }}
-            </span>
-            <span class="r-v2-home__platform-count">
-              {{ platform.rom_count }} games
-            </span>
-          </router-link>
-        </template>
-      </div>
-
-      <div
-        v-if="!fetchingPlatforms && filledPlatforms.length === 0"
-        class="r-v2-home__empty"
-      >
-        No platforms found. Run a scan to populate your library.
-        <RBtn class="mt-3" to="/scan" prepend-icon="mdi-magnify-scan">
-          Open scanner
-        </RBtn>
-      </div>
-    </section>
+    <CardRow title="Platforms" :count="filledPlatforms.length" gap="16px">
+      <template #icon>
+        <RIcon icon="mdi-gamepad-variant-outline" />
+      </template>
+      <template v-if="fetchingPlatforms && !filledPlatforms.length">
+        <RSkeletonBlock
+          v-for="n in 8"
+          :key="`ps-${n}`"
+          width="150px"
+          height="140px"
+          rounded="card"
+        />
+      </template>
+      <PlatformTile
+        v-for="p in filledPlatforms"
+        v-else
+        :key="`plat-${p.id}`"
+        :id="p.id"
+        :slug="p.name"
+        :display-name="p.display_name"
+        :rom-count="p.rom_count"
+        variant="row"
+      />
+    </CardRow>
 
     <!-- Collections -->
-    <section class="r-v2-home__section">
-      <div class="r-v2-home__section-head">
-        <h2 class="r-v2-home__section-title">
-          <RIcon
-            icon="mdi-bookmark-box-multiple"
-            class="r-v2-home__section-icon"
-          />
-          Collections
-        </h2>
-        <RChip v-if="!fetchingCollections" size="small" variant="tonal">
-          {{ allCollections.length }}
-        </RChip>
-      </div>
-
-      <div class="r-v2-home__collections">
-        <template v-if="fetchingCollections && allCollections.length === 0">
-          <RSkeletonBlock
-            v-for="n in 4"
-            :key="n"
-            :width="220"
-            :height="76"
-            rounded="md"
-          />
-        </template>
-        <template v-else>
-          <router-link
-            v-for="collection in allCollections"
-            :key="collection.id"
-            :to="`/collection/${collection.id}`"
-            class="r-v2-home__collection-card"
-          >
-            <div class="r-v2-home__collection-cover">
-              <RIcon
-                :icon="
-                  collection.is_favorite ? 'mdi-star' : 'mdi-bookmark-multiple'
-                "
-                size="32"
-                :color="collection.is_favorite ? 'romm-gold' : 'primary'"
-              />
-            </div>
-            <div class="r-v2-home__collection-body">
-              <div class="r-v2-home__collection-name">
-                {{ collection.name }}
-              </div>
-              <div class="r-v2-home__collection-count">
-                {{ collection.rom_count }} games
-              </div>
-            </div>
-          </router-link>
-        </template>
-      </div>
-
-      <div
-        v-if="!fetchingCollections && allCollections.length === 0"
-        class="r-v2-home__empty"
-      >
-        You don't have any collections yet. Create one from any ROM's action
-        bar.
-      </div>
-    </section>
-  </section>
+    <CardRow
+      v-if="allCollections.length || fetchingCollections"
+      title="Collections"
+      :count="allCollections.length"
+      gap="16px"
+    >
+      <template #icon>
+        <RIcon icon="mdi-bookmark-outline" />
+      </template>
+      <CollectionTile
+        v-for="c in allCollections"
+        :key="`coll-${c.id}`"
+        :to="`/collection/${c.id}`"
+        :name="c.name"
+        :rom-count="c.rom_count"
+        :covers="collectionCovers(c.path_covers_small ?? [])"
+        variant="row"
+      />
+    </CardRow>
+  </div>
 </template>
 
 <style scoped>
 .r-v2-home {
+  padding: 16px 0 48px;
   display: flex;
   flex-direction: column;
-  gap: var(--r-space-10);
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-/* Hero */
-.r-v2-home__hero {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--r-space-6);
-  align-items: flex-end;
-  justify-content: space-between;
-}
-
-.r-v2-home__eyebrow {
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
-  font-weight: var(--r-font-weight-medium);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: var(--r-space-2);
-}
-
-.r-v2-home__title {
-  font-size: var(--r-font-size-4xl);
-  font-weight: var(--r-font-weight-bold);
-  line-height: var(--r-line-height-tight);
-  margin: 0;
-}
-
-.r-v2-home__subtitle {
-  color: var(--r-color-fg-muted);
-  margin: var(--r-space-2) 0 0 0;
-}
-
-.r-v2-home__stats {
-  display: flex;
-  gap: var(--r-space-8);
-  padding: var(--r-space-4) var(--r-space-6);
-  background-color: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-lg);
-  box-shadow: var(--r-elev-2);
-}
-
-.r-v2-home__stat-value {
-  font-size: var(--r-font-size-3xl);
-  font-weight: var(--r-font-weight-bold);
-  line-height: 1;
-  min-height: 30px;
-}
-
-.r-v2-home__stat-label {
-  margin-top: var(--r-space-1);
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-/* Sections */
-.r-v2-home__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-4);
-}
-
-.r-v2-home__section-head {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-3);
-}
-
-.r-v2-home__section-title {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-2);
-  font-size: var(--r-font-size-xl);
-  font-weight: var(--r-font-weight-semibold);
-  margin: 0;
-}
-
-.r-v2-home__section-icon {
-  color: var(--r-color-brand-primary);
+  gap: 6px;
 }
 
 .r-v2-home__empty {
-  padding: var(--r-space-6);
-  color: var(--r-color-fg-muted);
-  background: var(--r-color-bg-elevated);
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  text-align: center;
-}
-
-/* Platforms grid */
-.r-v2-home__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--r-space-3);
-}
-
-.r-v2-home__platform-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--r-space-2);
-  padding: var(--r-space-4);
-  background-color: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg);
-  text-decoration: none;
-  text-align: center;
-  transition:
-    transform var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-.r-v2-home__platform-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--r-color-brand-primary);
-  box-shadow: var(--r-elev-3);
-}
-
-.r-v2-home__platform-icon {
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
-  image-rendering: pixelated;
-}
-
-.r-v2-home__platform-name {
-  font-weight: var(--r-font-weight-medium);
-  font-size: var(--r-font-size-sm);
-}
-
-.r-v2-home__platform-count {
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-}
-
-/* Collections */
-.r-v2-home__collections {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--r-space-3);
-}
-
-.r-v2-home__collection-card {
-  display: flex;
-  gap: var(--r-space-3);
-  padding: var(--r-space-3);
-  background-color: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg);
-  text-decoration: none;
-  align-items: center;
-  transition:
-    transform var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-.r-v2-home__collection-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--r-color-brand-primary);
-}
-
-.r-v2-home__collection-cover {
-  width: 52px;
-  height: 52px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(
-    135deg,
-    var(--r-color-surface),
-    var(--r-color-bg)
-  );
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-}
-
-.r-v2-home__collection-name {
-  font-weight: var(--r-font-weight-medium);
-}
-
-.r-v2-home__collection-count {
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 13px;
+  padding: 24px var(--r-row-pad);
 }
 </style>

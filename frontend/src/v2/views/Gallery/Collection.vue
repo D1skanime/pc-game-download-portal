@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { RBtn, RChip, RGameGrid, RIcon, RLoadMore } from "@v2/lib";
+// Collection gallery — mirror of Platform.vue but with a CollectionMosaic
+// in the info panel instead of an RPlatformIcon. Uses the same
+// LetterGroupedGrid + useLetterGroups primitives.
+import { RChip } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeCollections, {
   type Collection,
@@ -10,6 +13,13 @@ import storeCollections, {
 } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
+import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
+import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
+import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
+import LetterGroupedGrid from "@/v2/components/Gallery/LetterGroupedGrid.vue";
+import BackBtn from "@/v2/components/shared/BackBtn.vue";
+import Stat from "@/v2/components/shared/Stat.vue";
+import { useLetterGroups } from "@/v2/composables/useLetterGroups";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type CollectionKind = "regular" | "virtual" | "smart";
@@ -39,10 +49,38 @@ const supportsWebp = computed<boolean>(() =>
   ),
 );
 
-const remaining = computed(() =>
-  Math.max(0, fetchTotalRoms.value - allRoms.value.length),
+const mosaicCovers = computed<string[]>(() => {
+  const paths =
+    (currentCollection.value as { path_covers_small?: string[] } | null)
+      ?.path_covers_small ?? [];
+  return paths
+    .slice(0, 4)
+    .map((p) =>
+      supportsWebp.value ? p.replace(/\.(png|jpg|jpeg)$/i, ".webp") : p,
+    );
+});
+
+const description = computed(
+  () =>
+    (currentCollection.value as { description?: string | null } | null)
+      ?.description ?? "",
 );
-const hasMore = computed(() => remaining.value > 0);
+
+const kindLabel = computed(() => {
+  if (currentKind.value === "virtual") return "Virtual collection";
+  if (currentKind.value === "smart") return "Smart collection";
+  return "Collection";
+});
+
+const {
+  scrollEl,
+  letterGroups,
+  availableLetters,
+  currentLetter,
+  setLetterRef,
+  scrollToLetter,
+  onGridScroll,
+} = useLetterGroups(allRoms);
 
 function kindFromRoute(
   name: string | symbol | null | undefined,
@@ -90,7 +128,6 @@ async function loadForRoute(kind: CollectionKind, id: string) {
     currentCollection.value = null;
     return;
   }
-
   notFound.value = false;
   currentCollection.value = collection;
 
@@ -113,21 +150,16 @@ async function loadForRoute(kind: CollectionKind, id: string) {
 
   document.title = collection.name;
   await romsStore.fetchRoms();
-}
-
-function loadMore() {
-  if (fetchingRoms.value || !hasMore.value) return;
-  romsStore.fetchRoms();
+  await nextTick();
+  onGridScroll();
 }
 
 onMounted(() => {
-  const kind = kindFromRoute(route.name);
-  loadForRoute(kind, String(route.params.collection));
+  loadForRoute(kindFromRoute(route.name), String(route.params.collection));
 });
 
 onBeforeRouteUpdate((to) => {
-  const kind = kindFromRoute(to.name);
-  loadForRoute(kind, String(to.params.collection));
+  loadForRoute(kindFromRoute(to.name), String(to.params.collection));
 });
 
 watch(
@@ -138,132 +170,125 @@ watch(
   },
 );
 
-const kindLabel = computed(() => {
-  if (currentKind.value === "virtual") return "Virtual";
-  if (currentKind.value === "smart") return "Smart";
-  return "Collection";
-});
+watch(allRoms, () => onGridScroll(), { deep: false });
+
+const hasMore = computed(() => allRoms.value.length < fetchTotalRoms.value);
+const remaining = computed(() => fetchTotalRoms.value - allRoms.value.length);
+function loadMore() {
+  if (fetchingRoms.value || !hasMore.value) return;
+  romsStore.fetchRoms();
+}
 </script>
 
 <template>
-  <section class="r-v2-gallery">
-    <header v-if="currentCollection" class="r-v2-gallery__head">
-      <div class="r-v2-gallery__cover">
-        <RIcon
-          :icon="
-            currentKind === 'smart' ? 'mdi-filter' : 'mdi-bookmark-multiple'
-          "
-          size="28"
-          color="primary"
-        />
-      </div>
-      <div>
-        <div class="r-v2-gallery__eyebrow">
-          {{ kindLabel }}
-        </div>
-        <h1 class="r-v2-gallery__title">
-          {{ currentCollection.name }}
-        </h1>
-        <div class="r-v2-gallery__meta">
-          <RChip size="small" variant="tonal">
-            {{ currentCollection.rom_count }} games
-          </RChip>
-        </div>
-      </div>
+  <section class="r-v2-coll">
+    <header class="r-v2-coll__header">
+      <BackBtn to="/collections" label="Collections" />
     </header>
 
-    <div v-if="notFound" class="r-v2-gallery__empty">
-      <RIcon icon="mdi-alert-circle-outline" size="36" />
-      <p>Collection not found.</p>
-      <RBtn to="/" variant="outlined" prepend-icon="mdi-home">
-        Back to home
-      </RBtn>
+    <div
+      :ref="(el) => (scrollEl = el as HTMLElement | null)"
+      class="r-v2-coll__scroll r-v2-scroll-hidden"
+      @scroll="onGridScroll"
+    >
+      <InfoPanel v-if="currentCollection" :title="currentCollection.name">
+        <template #cover>
+          <div class="r-v2-coll__panel-cover">
+            <CollectionMosaic :covers="mosaicCovers" aspect-ratio="140 / 188" />
+          </div>
+        </template>
+        <template #eyebrow>
+          <span class="r-eyebrow">{{ kindLabel }}</span>
+        </template>
+        <template v-if="description" #tags>
+          <RChip size="small" variant="tonal" :rounded="20">
+            {{ description }}
+          </RChip>
+        </template>
+        <template #stats>
+          <Stat :value="currentCollection.rom_count" label="Games" />
+        </template>
+      </InfoPanel>
+
+      <div v-if="notFound" class="r-v2-coll__empty">Collection not found.</div>
+
+      <LetterGroupedGrid
+        v-else
+        :groups="letterGroups"
+        :fetching="fetchingRoms"
+        :has-more="hasMore"
+        :remaining="remaining"
+        :webp="supportsWebp"
+        empty-label="This collection is empty."
+        :skeleton-count="12"
+        :set-letter-ref="setLetterRef"
+        @load-more="loadMore"
+      />
     </div>
 
-    <template v-else>
-      <RGameGrid
-        :roms="allRoms"
-        :loading="fetchingRoms"
-        :webp="supportsWebp"
-        :show-platform="true"
-      />
-
-      <div
-        v-if="!fetchingRoms && allRoms.length === 0 && !notFound"
-        class="r-v2-gallery__empty"
-      >
-        <RIcon icon="mdi-bookmark-outline" size="36" />
-        <p>This collection is empty.</p>
-      </div>
-
-      <RLoadMore
-        v-if="hasMore"
-        :loading="fetchingRoms"
-        :remaining="remaining"
-        @load="loadMore"
-      />
-    </template>
+    <AlphaStrip
+      v-if="letterGroups.length"
+      :available="availableLetters"
+      :current="currentLetter"
+      @pick="scrollToLetter"
+    />
   </section>
 </template>
 
 <style scoped>
-.r-v2-gallery {
+.r-v2-coll {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: var(--r-space-5);
+  overflow: hidden;
+  height: calc(100vh - var(--r-nav-h));
+  position: relative;
 }
 
-.r-v2-gallery__head {
+.r-v2-coll__header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  padding: 20px var(--r-row-pad) 0;
   display: flex;
   align-items: center;
-  gap: var(--r-space-4);
+  gap: 14px;
+  pointer-events: none;
+}
+.r-v2-coll__header > * {
+  pointer-events: auto;
 }
 
-.r-v2-gallery__cover {
-  width: 64px;
-  height: 64px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(
-    135deg,
-    var(--r-color-surface),
-    var(--r-color-bg)
-  );
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
+.r-v2-coll__scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 56px var(--r-row-pad) 60px;
 }
 
-.r-v2-gallery__eyebrow {
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs);
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+.r-v2-coll__panel-cover {
+  width: 140px;
+  height: 188px;
+  border-radius: var(--r-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--r-elev-2);
 }
 
-.r-v2-gallery__title {
-  margin: 2px 0 0 0;
-  font-size: var(--r-font-size-3xl);
-  font-weight: var(--r-font-weight-bold);
-  line-height: var(--r-line-height-tight);
-}
-
-.r-v2-gallery__meta {
-  display: flex;
-  gap: var(--r-space-2);
-  margin-top: var(--r-space-2);
-}
-
-.r-v2-gallery__empty {
-  padding: var(--r-space-8);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--r-space-3);
-  color: var(--r-color-fg-muted);
-  background: var(--r-color-bg-elevated);
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
+.r-v2-coll__empty {
+  padding: 80px 0;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 13.5px;
   text-align: center;
+}
+
+@media (max-width: 768px) {
+  .r-v2-coll__scroll {
+    padding: 48px 14px 80px;
+  }
+  .r-v2-coll__panel-cover {
+    width: 100px;
+    height: 134px;
+  }
 }
 </style>

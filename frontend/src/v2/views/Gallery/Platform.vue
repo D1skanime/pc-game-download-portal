@@ -1,18 +1,23 @@
 <script setup lang="ts">
-import {
-  RBtn,
-  RChip,
-  RGameGrid,
-  RIcon,
-  RLoadMore,
-  RPlatformIcon,
-} from "@v2/lib";
+// Platform gallery — data/orchestration only. All visuals delegated:
+//   * InfoPanel + RPlatformIcon — hero card with stats
+//   * LetterGroupedGrid         — the A-Z grid (shared with Collection.vue)
+//   * AlphaStrip                — letter jump sidebar
+//   * useLetterGroups           — grouping + scroll-spy logic
+import { RChip, RPlatformIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeHeartbeat from "@/stores/heartbeat";
-import storePlatforms from "@/stores/platforms";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
+import { formatBytes } from "@/utils";
+import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
+import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
+import LetterGroupedGrid from "@/v2/components/Gallery/LetterGroupedGrid.vue";
+import BackBtn from "@/v2/components/shared/BackBtn.vue";
+import Stat from "@/v2/components/shared/Stat.vue";
+import { useLetterGroups } from "@/v2/composables/useLetterGroups";
 
 const route = useRoute();
 const platformsStore = storePlatforms();
@@ -24,7 +29,6 @@ const {
   currentPlatform,
   fetchingRoms,
   fetchTotalRoms,
-  fetchOffset,
 } = storeToRefs(romsStore);
 
 const notFound = ref(false);
@@ -39,10 +43,52 @@ const supportsWebp = computed<boolean>(() =>
   ),
 );
 
-const remaining = computed(() =>
-  Math.max(0, fetchTotalRoms.value - allRoms.value.length),
-);
-const hasMore = computed(() => remaining.value > 0);
+const tags = computed<string[]>(() => {
+  const p = currentPlatform.value as
+    | (Platform & {
+        category?: string | null;
+        family_name?: string | null;
+        generation?: number | null;
+      })
+    | null;
+  if (!p) return [];
+  const out: string[] = [];
+  if (p.category) out.push(p.category);
+  if (p.family_name) out.push(p.family_name);
+  if (p.generation) out.push(`Generation ${p.generation}`);
+  return out;
+});
+
+type StatRow = { label: string; value: string };
+const platformStats = computed<StatRow[]>(() => {
+  const p = currentPlatform.value as
+    | (Platform & {
+        fs_size_bytes?: number | null;
+        firmware_count?: number | null;
+      })
+    | null;
+  if (!p) return [];
+  const rows: StatRow[] = [
+    { label: "In Library", value: String(p.rom_count ?? allRoms.value.length) },
+  ];
+  if (p.fs_size_bytes) {
+    rows.push({ label: "On Disk", value: formatBytes(p.fs_size_bytes) });
+  }
+  if (p.firmware_count) {
+    rows.push({ label: "Firmware", value: String(p.firmware_count) });
+  }
+  return rows;
+});
+
+const {
+  scrollEl,
+  letterGroups,
+  availableLetters,
+  currentLetter,
+  setLetterRef,
+  scrollToLetter,
+  onGridScroll,
+} = useLetterGroups(allRoms);
 
 async function ensurePlatforms() {
   if (platformsStore.allPlatforms.length === 0) {
@@ -58,7 +104,6 @@ async function loadForId(platformId: number) {
     return;
   }
   notFound.value = false;
-
   if (currentPlatform.value?.id !== platform.id) {
     romsStore.resetPagination();
     romsStore._allRoms = [];
@@ -66,11 +111,8 @@ async function loadForId(platformId: number) {
   }
   document.title = platform.display_name;
   await romsStore.fetchRoms();
-}
-
-function loadMore() {
-  if (fetchingRoms.value || !hasMore.value) return;
-  romsStore.fetchRoms();
+  await nextTick();
+  onGridScroll();
 }
 
 onMounted(() => {
@@ -78,9 +120,7 @@ onMounted(() => {
 });
 
 onBeforeRouteUpdate((to) => {
-  if (to.name === "platform") {
-    loadForId(Number(to.params.platform));
-  }
+  if (to.name === "platform") loadForId(Number(to.params.platform));
 });
 
 watch(
@@ -90,108 +130,138 @@ watch(
   },
 );
 
-// Unused but imported — referenced inline in the future
-void fetchOffset;
+watch(allRoms, () => onGridScroll(), { deep: false });
+
+const hasMore = computed(() => allRoms.value.length < fetchTotalRoms.value);
+const remaining = computed(() => fetchTotalRoms.value - allRoms.value.length);
+function loadMore() {
+  if (fetchingRoms.value || !hasMore.value) return;
+  romsStore.fetchRoms();
+}
 </script>
 
 <template>
-  <section class="r-v2-gallery">
-    <header v-if="currentPlatform" class="r-v2-gallery__head">
-      <RPlatformIcon
-        :name="currentPlatform.name"
-        :alt="currentPlatform.display_name"
-        :size="48"
-        class="r-v2-gallery__platform-icon"
-      />
-      <div>
-        <h1 class="r-v2-gallery__title">
-          {{ currentPlatform.display_name }}
-        </h1>
-        <div class="r-v2-gallery__meta">
-          <RChip size="small" variant="tonal">
-            {{ currentPlatform.rom_count }} games
-          </RChip>
-        </div>
-      </div>
+  <section class="r-v2-plat">
+    <header class="r-v2-plat__header">
+      <BackBtn to="/platforms" label="Platforms" />
     </header>
 
-    <div v-if="notFound" class="r-v2-gallery__empty">
-      <RIcon icon="mdi-alert-circle-outline" size="36" />
-      <p>Platform not found.</p>
-      <RBtn to="/" variant="outlined" prepend-icon="mdi-home">
-        Back to home
-      </RBtn>
+    <div
+      :ref="(el) => (scrollEl = el as HTMLElement | null)"
+      class="r-v2-plat__scroll r-v2-scroll-hidden"
+      @scroll="onGridScroll"
+    >
+      <InfoPanel v-if="currentPlatform" :title="currentPlatform.display_name">
+        <template #cover>
+          <div class="r-v2-plat__panel-icon">
+            <RPlatformIcon
+              :name="currentPlatform.name"
+              :alt="currentPlatform.display_name"
+              :size="148"
+            />
+          </div>
+        </template>
+        <template v-if="tags.length" #tags>
+          <RChip
+            v-for="t in tags"
+            :key="t"
+            size="small"
+            variant="tonal"
+            :rounded="20"
+          >
+            {{ t }}
+          </RChip>
+        </template>
+        <template v-if="platformStats.length" #stats>
+          <Stat
+            v-for="s in platformStats"
+            :key="s.label"
+            :value="s.value"
+            :label="s.label"
+          />
+        </template>
+      </InfoPanel>
+
+      <div v-if="notFound" class="r-v2-plat__empty">Platform not found.</div>
+
+      <LetterGroupedGrid
+        v-else
+        :groups="letterGroups"
+        :fetching="fetchingRoms"
+        :has-more="hasMore"
+        :remaining="remaining"
+        :webp="supportsWebp"
+        :show-platform-badge="false"
+        empty-label="No games in this platform yet."
+        :skeleton-count="18"
+        :set-letter-ref="setLetterRef"
+        @load-more="loadMore"
+      />
     </div>
 
-    <template v-else>
-      <RGameGrid
-        :roms="allRoms"
-        :loading="fetchingRoms"
-        :webp="supportsWebp"
-        :show-platform="false"
-      />
-
-      <div
-        v-if="!fetchingRoms && allRoms.length === 0 && !notFound"
-        class="r-v2-gallery__empty"
-      >
-        <RIcon icon="mdi-nintendo-game-boy" size="36" />
-        <p>No games in this platform yet.</p>
-      </div>
-
-      <RLoadMore
-        v-if="hasMore"
-        :loading="fetchingRoms"
-        :remaining="remaining"
-        @load="loadMore"
-      />
-    </template>
+    <AlphaStrip
+      v-if="letterGroups.length"
+      :available="availableLetters"
+      :current="currentLetter"
+      @pick="scrollToLetter"
+    />
   </section>
 </template>
 
 <style scoped>
-.r-v2-gallery {
+.r-v2-plat {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: var(--r-space-5);
+  overflow: hidden;
+  height: calc(100vh - var(--r-nav-h));
+  position: relative;
 }
 
-.r-v2-gallery__head {
+.r-v2-plat__header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  padding: 20px var(--r-row-pad) 0;
   display: flex;
   align-items: center;
-  gap: var(--r-space-4);
+  gap: 14px;
+  pointer-events: none;
 }
 
-.r-v2-gallery__platform-icon {
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  padding: var(--r-space-2);
+.r-v2-plat__header > * {
+  pointer-events: auto;
 }
 
-.r-v2-gallery__title {
-  margin: 0;
-  font-size: var(--r-font-size-3xl);
-  font-weight: var(--r-font-weight-bold);
-  line-height: var(--r-line-height-tight);
+.r-v2-plat__scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 56px var(--r-row-pad) 60px;
 }
 
-.r-v2-gallery__meta {
-  display: flex;
-  gap: var(--r-space-2);
-  margin-top: var(--r-space-1);
+.r-v2-plat__panel-icon {
+  width: 200px;
+  height: 148px;
+  display: grid;
+  place-items: center;
 }
 
-.r-v2-gallery__empty {
-  padding: var(--r-space-8);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--r-space-3);
-  color: var(--r-color-fg-muted);
-  background: var(--r-color-bg-elevated);
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
+.r-v2-plat__empty {
+  padding: 80px 0;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 13.5px;
   text-align: center;
+}
+
+@media (max-width: 768px) {
+  .r-v2-plat__scroll {
+    padding: 48px 14px 80px;
+  }
+  .r-v2-plat__panel-icon {
+    width: 80px;
+    height: 60px;
+  }
 }
 </style>

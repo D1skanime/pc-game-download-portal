@@ -1,12 +1,13 @@
 <script setup lang="ts">
+// GameGrid — responsive grid of ROM covers with skeleton placeholders on
+// initial load. Feature composition around RGameCard + RSkeletonBlock;
+// Search is the main caller.
 import { RGameCard, RSkeletonBlock } from "@v2/lib";
 import { computed } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 
-// RGameGrid — responsive grid of game covers. Caller controls density via
-// `minCardWidth` (CSS grid auto-fill). Shows skeletons during initial load.
 interface Props {
   roms: SimpleRom[];
   loading?: boolean;
@@ -36,12 +37,12 @@ const gridStyle = computed(() => ({
 </script>
 
 <template>
-  <div class="r-game-grid" :style="gridStyle">
+  <div class="game-grid" :style="gridStyle">
     <template v-if="isInitialLoad">
       <div
         v-for="n in skeletonCount"
         :key="`sk-${n}`"
-        class="r-game-grid__skeleton"
+        class="game-grid__skeleton"
       >
         <RSkeletonBlock width="100%" height="100%" rounded="md" />
         <RSkeletonBlock :width="120" :height="14" class="mt-2" />
@@ -62,19 +63,19 @@ const gridStyle = computed(() => ({
 </template>
 
 <style scoped>
-.r-game-grid {
+.game-grid {
   display: grid;
   gap: var(--r-space-5) var(--r-space-4);
 }
 
-.r-game-grid__skeleton {
+.game-grid__skeleton {
   display: flex;
   flex-direction: column;
   gap: var(--r-space-2);
   aspect-ratio: 2 / 3;
 }
 
-.r-game-grid__skeleton > :first-child {
+.game-grid__skeleton > :first-child {
   flex: 1;
   min-height: 0;
 }

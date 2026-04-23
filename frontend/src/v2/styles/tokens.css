@@ -1,84 +1,96 @@
 /*
  * RomM v2 Design Tokens — CSS Custom Properties
  *
- * Mirrors src/v2/tokens/index.ts. Keep the two in sync.
- * Scoped under .r-v2 so v1 CSS is unaffected. The v2 root component
- * applies the .r-v2 class and the dark/light theme class.
+ * Mirrors src/v2/tokens/index.ts (artist mockup palette). Scoped under
+ * `.r-v2` so v1 CSS is unaffected.
  */
 
 .r-v2 {
-  /* Brand */
+  /* Brand — aligned with v1's purple palette. */
   --r-color-brand-primary: #8b74e8;
   --r-color-brand-primary-hover: #a18fff;
   --r-color-brand-primary-pressed: #6043c8;
+  --r-color-brand-secondary: #9e8cd6;
+  --r-color-brand-secondary-hover: #ebe7fa;
+  --r-color-brand-secondary-pressed: #7a6bb4;
   --r-color-brand-accent: #e1a38d;
+  --r-color-brand-accent-hover: #f0c8b8;
+  --r-color-avatar-gradient: linear-gradient(135deg, #a18fff, #6043c8);
   --r-color-romm-red: #da3633;
   --r-color-romm-green: #3fb950;
   --r-color-romm-blue: #0070f3;
   --r-color-romm-gold: #ffd700;
+  --r-color-fav: #ff4f6b;
 
   /* Status */
-  --r-color-success: #3fb950;
-  --r-color-warning: #e3b341;
-  --r-color-danger: #da3633;
-  --r-color-info: #0070f3;
+  --r-color-success: #4ade80;
+  --r-color-warning: #fbbf24;
+  --r-color-danger: #ff5050;
+  --r-color-info: #93c5fd;
 
   /* Typography */
   --r-font-family-sans:
-    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
     sans-serif;
   --r-font-family-display: var(--r-font-family-sans);
   --r-font-family-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  --r-font-size-xs: 0.75rem;
-  --r-font-size-sm: 0.875rem;
-  --r-font-size-md: 1rem;
-  --r-font-size-lg: 1.125rem;
-  --r-font-size-xl: 1.25rem;
-  --r-font-size-2xl: 1.5rem;
-  --r-font-size-3xl: 1.875rem;
-  --r-font-size-4xl: 2.25rem;
+  --r-font-size-xs: 10.5px;
+  --r-font-size-sm: 11.5px;
+  --r-font-size-md: 13px;
+  --r-font-size-lg: 14.5px;
+  --r-font-size-xl: 17px;
+  --r-font-size-2xl: 22px;
+  --r-font-size-3xl: 32px;
+  --r-font-size-4xl: 38px;
 
-  --r-line-height-tight: 1.2;
+  --r-line-height-tight: 1.1;
   --r-line-height-normal: 1.4;
-  --r-line-height-relaxed: 1.6;
+  --r-line-height-relaxed: 1.7;
 
   --r-font-weight-regular: 400;
   --r-font-weight-medium: 500;
   --r-font-weight-semibold: 600;
   --r-font-weight-bold: 700;
+  --r-font-weight-extrabold: 800;
 
   /* Spacing (4px base) */
   --r-space-0: 0;
-  --r-space-1: 0.25rem;
-  --r-space-2: 0.5rem;
-  --r-space-3: 0.75rem;
-  --r-space-4: 1rem;
-  --r-space-5: 1.25rem;
-  --r-space-6: 1.5rem;
-  --r-space-8: 2rem;
-  --r-space-10: 2.5rem;
-  --r-space-12: 3rem;
+  --r-space-1: 4px;
+  --r-space-2: 8px;
+  --r-space-3: 12px;
+  --r-space-4: 16px;
+  --r-space-5: 20px;
+  --r-space-6: 24px;
+  --r-space-7: 28px;
+  --r-space-8: 32px;
+  --r-space-10: 40px;
+  --r-space-12: 48px;
+  --r-space-14: 56px;
+  --r-row-pad: 36px;
 
-  /* Radius */
+  /* Radii */
+  --r-radius-none: 0;
+  --r-radius-xs: 3px;
   --r-radius-sm: 4px;
+  --r-radius-chip: 6px;
   --r-radius-md: 8px;
-  --r-radius-lg: 12px;
+  --r-radius-art: 8px;
+  --r-radius-lg: 10px;
+  --r-radius-card: 14px;
   --r-radius-xl: 20px;
+  --r-radius-pill: 100px;
   --r-radius-full: 9999px;
 
   /* Elevation */
-  --r-elev-1:
-    0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.02);
-  --r-elev-2:
-    0 4px 12px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.02);
-  --r-elev-3:
-    0 6px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03);
-  --r-elev-4:
-    0 10px 32px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --r-elev-5:
-    0 18px 48px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --r-elev-0: none;
+  --r-elev-1: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --r-elev-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --r-elev-3: 0 8px 30px rgba(0, 0, 0, 0.6);
+  --r-elev-4: 0 20px 60px rgba(0, 0, 0, 0.7);
+  --r-elev-5: 0 32px 96px rgba(0, 0, 0, 0.7);
+  --r-elev-cover: 0 24px 48px rgba(0, 0, 0, 0.8);
 
   /* Motion */
   --r-motion-fast: 150ms;
@@ -87,40 +99,54 @@
   --r-motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --r-motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
-  /* Focus (per input modality) */
+  /* Focus */
   --r-focus-ring-width: 2px;
-  --r-focus-ring-color: var(--r-color-brand-primary-hover);
-  --r-focus-ring-offset: 2px;
+  --r-focus-ring-color: rgba(255, 255, 255, 0.45);
+  --r-focus-ring-offset: 3px;
+
+  /* Layout constants lifted from the mockup. */
+  --r-nav-h: 58px;
+  --r-card-art-w: 158px;
+  --r-card-art-h: 213px;
+  --r-hero-w: 300px;
+  --r-hero-h: 169px;
+  --r-cover-w: 240px;
 }
 
-/* Modality-sensitive focus ring width. <html data-input="..."> is set by
-   useInputModality; CSS reads it here so every focusable R-component
-   gets the right ring size without per-component logic. */
 html[data-input="key"] .r-v2 {
-  --r-focus-ring-width: 3px;
+  --r-focus-ring-width: 2.5px;
 }
 html[data-input="pad"] .r-v2 {
-  --r-focus-ring-width: 4px;
+  --r-focus-ring-width: 3.5px;
 }
 
-/* Dark semantic palette */
+/* Dark (default) surface palette — rgba over the near-black base gives the
+   "glass over artwork" feel of the mockup. */
 .r-v2.r-v2-dark {
-  --r-color-bg: #0d1117;
-  --r-color-bg-elevated: #161b22;
-  --r-color-surface: #1c2330;
-  --r-color-fg: #f0f3fa;
-  --r-color-fg-muted: #9ba1ad;
-  --r-color-border: #262c36;
-  --r-color-focus: #a18fff;
+  --r-color-bg: #07070f;
+  --r-color-bg-elevated: rgba(255, 255, 255, 0.045);
+  --r-color-surface: rgba(255, 255, 255, 0.07);
+  --r-color-surface-hover: rgba(255, 255, 255, 0.12);
+  --r-color-fg: #ffffff;
+  --r-color-fg-secondary: rgba(255, 255, 255, 0.75);
+  --r-color-fg-muted: rgba(255, 255, 255, 0.45);
+  --r-color-fg-faint: rgba(255, 255, 255, 0.25);
+  --r-color-border: rgba(255, 255, 255, 0.07);
+  --r-color-border-strong: rgba(255, 255, 255, 0.15);
+  --r-color-focus: rgba(255, 255, 255, 0.45);
 }
 
-/* Light semantic palette */
+/* Light-mode variant — keeps the translucent language but flips the alpha. */
 .r-v2.r-v2-light {
-  --r-color-bg: #f2f4f8;
-  --r-color-bg-elevated: #ffffff;
-  --r-color-surface: #e4e9f0;
-  --r-color-fg: #0d1117;
-  --r-color-fg-muted: #5d6472;
-  --r-color-border: #d5dae2;
-  --r-color-focus: #371f69;
+  --r-color-bg: #f5f5fa;
+  --r-color-bg-elevated: rgba(0, 0, 0, 0.045);
+  --r-color-surface: rgba(0, 0, 0, 0.07);
+  --r-color-surface-hover: rgba(0, 0, 0, 0.12);
+  --r-color-fg: #111117;
+  --r-color-fg-secondary: rgba(17, 17, 23, 0.75);
+  --r-color-fg-muted: rgba(17, 17, 23, 0.45);
+  --r-color-fg-faint: rgba(17, 17, 23, 0.25);
+  --r-color-border: rgba(0, 0, 0, 0.07);
+  --r-color-border-strong: rgba(0, 0, 0, 0.15);
+  --r-color-focus: rgba(0, 0, 0, 0.45);
 }

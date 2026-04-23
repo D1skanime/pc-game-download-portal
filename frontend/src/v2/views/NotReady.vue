@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RBtn } from "@v2/lib";
 import { useRoute } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
 
@@ -17,9 +18,7 @@ function switchToV1() {
       <code>{{ route.fullPath }}</code> hasn't been migrated to v2. Switch back
       to v1 to use it, or navigate to a v2-ready route.
     </p>
-    <button class="r-v2-notready__btn" @click="switchToV1">
-      Switch back to v1
-    </button>
+    <RBtn color="primary" @click="switchToV1"> Switch back to v1 </RBtn>
   </section>
 </template>
 
@@ -48,21 +47,5 @@ function switchToV1() {
   background-color: var(--r-color-surface);
   padding: 2px 6px;
   border-radius: var(--r-radius-sm);
-}
-
-.r-v2-notready__btn {
-  appearance: none;
-  border: 0;
-  background-color: var(--r-color-brand-primary);
-  color: #fff;
-  padding: var(--r-space-3) var(--r-space-5);
-  border-radius: var(--r-radius-md);
-  font-size: var(--r-font-size-sm);
-  font-weight: var(--r-font-weight-medium);
-  cursor: pointer;
-}
-
-.r-v2-notready__btn:hover {
-  background-color: var(--r-color-brand-primary-hover);
 }
 </style>

@@ -1,34 +1,47 @@
 // RomM v2 Component Library — barrel export.
 //
-// Import from @v2/lib regardless of which wave added a given component:
-//   import { RBtn, RTextField } from "@v2/lib";
+// Only design-system *primitives* live here. Specializations (BackBtn,
+// PlatformTile, InfoPanel, …) belong under src/v2/components/<feature>/
+// and are imported directly, not through this barrel.
+//
+// Rule: every export below must be general enough that two or more
+// features depend on it, and must ship a Storybook story.
 
-// Wave 1 — Leaves & form inputs
-export * from "./RAlert";
-export * from "./RBtn";
-export * from "./RCard";
+// Form + text primitives
 export * from "./RCheckbox";
-export * from "./RDivider";
-export * from "./RIcon";
-export * from "./RImg";
-export * from "./RProgressCircular";
+export * from "./RSelect";
 export * from "./RTextField";
 
-// Wave 2 — Shell primitives
+// Layout + surface primitives
+export * from "./RAlert";
+export * from "./RCard";
+export * from "./RDivider";
+export * from "./RList";
+export * from "./RListItem";
+export * from "./RToolbar";
+
+// Buttons + interactive primitives
+export * from "./RBtn";
+export * from "./RRating";
+export * from "./RTooltip";
+
+// Menus
+export * from "./RMenu";
+export * from "./RMenuDivider";
+export * from "./RMenuHeader";
+export * from "./RMenuItem";
+export * from "./RMenuPanel";
+
+// Display atoms
 export * from "./RAvatar";
 export * from "./RBadge";
 export * from "./RChip";
-export * from "./RList";
-export * from "./RListItem";
-export * from "./RMenu";
+export * from "./RIcon";
+export * from "./RImg";
+export * from "./RPlatformIcon";
+export * from "./RProgressCircular";
 export * from "./RSkeletonBlock";
 export * from "./RSpinner";
-export * from "./RToolbar";
-export * from "./RTooltip";
 
-// Wave 3 — Media + gallery
-export * from "./RCover";
+// Domain-specific primitive
 export * from "./RGameCard";
-export * from "./RGameGrid";
-export * from "./RLoadMore";
-export * from "./RPlatformIcon";

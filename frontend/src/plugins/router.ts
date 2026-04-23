@@ -43,6 +43,9 @@ export const ROUTES = {
   SERVER_STATS: "server-stats",
   PAIR: "pair",
   APRIL_FOOLS: "april-fools",
+  // V2-only routes (no v1 equivalent — v1 uses its drawer for these).
+  PLATFORMS_INDEX: "platforms-index",
+  COLLECTIONS_INDEX: "collections-index",
   NOT_FOUND: "404",
   CONSOLE_HOME: "console-home",
   CONSOLE_PLATFORM: "console-platform",
@@ -358,6 +361,26 @@ const routes = [
         },
       },
       {
+        // V2-only index of platforms. V1 uses its drawer for navigation so
+        // it redirects this URL home; v2 renders PlatformsIndex.vue.
+        path: "platforms",
+        name: ROUTES.PLATFORMS_INDEX,
+        meta: { title: "Platforms" },
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.PLATFORMS_INDEX),
+        },
+      },
+      {
+        path: "collections",
+        name: ROUTES.COLLECTIONS_INDEX,
+        meta: { title: "Collections" },
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.COLLECTIONS_INDEX),
+        },
+      },
+      {
         path: ":pathMatch(.*)*",
         name: ROUTES.NOT_FOUND,
         components: {
@@ -488,15 +511,18 @@ router.beforeEach(async (to, _from, next) => {
       return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
     }
 
-    // Handle authentication
-    // if (!user.value && (!currentRoute || !isAuthExemptRoute(currentRoute))) {
-    //   return next({
-    //     name: ROUTES.LOGIN,
-    //     query: {
-    //       next: to.query.next ?? to.fullPath,
-    //     },
-    //   });
-    // }
+    // Handle authentication — unauth'd users visiting a non-exempt route
+    // land on /login. Without this branch, they fall through to the
+    // permission check below, fail it, get redirected to the catch-all 404
+    // (which matches /), and the guard re-runs forever.
+    if (!user.value && (!currentRoute || !isAuthExemptRoute(currentRoute))) {
+      return next({
+        name: ROUTES.LOGIN,
+        query: {
+          next: to.query.next ?? to.fullPath,
+        },
+      });
+    }
 
     if (user.value && currentRoute == ROUTES.SETUP) {
       return next({ name: ROUTES.HOME });

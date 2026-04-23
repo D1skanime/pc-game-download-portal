@@ -33,7 +33,11 @@ export const Count: Story = {
 };
 
 export const Dot: Story = {
-  args: { dot: true, color: "success" },
+  args: {
+    dot: true,
+    color: "success",
+    content: "test",
+  },
   render: (args) => ({
     components: { RBadge, RAvatar },
     setup: () => ({ args }),

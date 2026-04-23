@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { RChip, RGameGrid, RIcon, RLoadMore, RTextField } from "@v2/lib";
+import { RChip, RIcon, RTextField } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
+import GameGrid from "@/v2/components/Gallery/GameGrid.vue";
+import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
 
 const romsStore = storeRoms();
 const galleryFilterStore = storeGalleryFilter();
@@ -111,7 +113,7 @@ onBeforeUnmount(() => {
     </template>
 
     <template v-else>
-      <RGameGrid
+      <GameGrid
         :roms="allRoms"
         :loading="fetchingRoms"
         :webp="supportsWebp"
@@ -126,7 +128,7 @@ onBeforeUnmount(() => {
         <p>No games match "{{ searchTerm }}".</p>
       </div>
 
-      <RLoadMore
+      <LoadMore
         v-if="hasMore"
         :loading="fetchingRoms"
         :remaining="remaining"

@@ -1,8 +1,13 @@
 // v2 Vuetify theme definitions. Palette derives from src/v2/tokens/index.ts so
 // Vuetify components (those we wrap with R-components) use the same colors as
 // our design tokens.
+//
+// Note on rgba tokens: Vuetify accepts hex / named colors but some internal
+// calculations (opacity multipliers, contrast) expect solid values. We keep
+// `background` / `surface` / `toplayer` solid here and let the mockup's
+// translucent glass surfaces come from CSS variables on R-components.
 import type { ThemeDefinition } from "vuetify";
-import { colorBrand, colorDark, colorLight, colorStatus } from "@/v2/tokens";
+import { colorBrand, colorStatus } from "@/v2/tokens";
 
 const commonColors = {
   "romm-red": colorBrand.rommRed,
@@ -15,13 +20,17 @@ export const v2Dark: ThemeDefinition = {
   dark: true,
   colors: {
     primary: colorBrand.primary,
-    secondary: colorBrand.accent,
+    secondary: colorBrand.secondary,
     accent: colorBrand.accent,
-    background: colorDark.bg,
-    surface: colorDark.bgElevated,
-    toplayer: colorDark.surface,
-    "on-surface": colorDark.fg,
-    "on-background": colorDark.fg,
+    background: "#07070f",
+    surface: "#15151f",
+    toplayer: "#1f1f2b",
+    "on-surface": "#ffffff",
+    "on-background": "#ffffff",
+    "primary-lighten": colorBrand.primaryHover,
+    "primary-darken": colorBrand.primaryPressed,
+    "secondary-lighten": colorBrand.secondaryHover,
+    "secondary-darken": colorBrand.secondaryPressed,
     success: colorStatus.success,
     warning: colorStatus.warning,
     error: colorStatus.danger,
@@ -33,14 +42,19 @@ export const v2Dark: ThemeDefinition = {
 export const v2Light: ThemeDefinition = {
   dark: false,
   colors: {
-    primary: colorBrand.primary,
-    secondary: colorBrand.accent,
+    // v1's light-mode primary was a deeper purple for contrast; keep that.
+    primary: "#371f69",
+    secondary: "#553e98",
     accent: colorBrand.accent,
-    background: colorLight.bg,
-    surface: colorLight.bgElevated,
-    toplayer: colorLight.surface,
-    "on-surface": colorLight.fg,
-    "on-background": colorLight.fg,
+    background: "#f5f5fa",
+    surface: "#ffffff",
+    toplayer: "#ebebf2",
+    "on-surface": "#111117",
+    "on-background": "#111117",
+    "primary-lighten": "#7850e6",
+    "primary-darken": "#452788",
+    "secondary-lighten": "#f0ebfa",
+    "secondary-darken": "#9b8bd0",
     success: colorStatus.success,
     warning: colorStatus.warning,
     error: colorStatus.danger,

@@ -1,10 +1,13 @@
 <script setup lang="ts">
+// AuthLayout — full-viewport blurred background with a centred card stage
+// for the auth flows (Login / Register / ResetPassword / Setup). Bottom
+// corners hold the LanguageSelector (left) and VersionTag (right).
 import { computed } from "vue";
 import { useTheme } from "vuetify";
-import storeHeartbeat from "@/stores/heartbeat";
+import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
+import VersionTag from "@/v2/components/shared/VersionTag.vue";
 import { V2_THEME_DARK } from "@/v2/theme/vuetify";
 
-const heartbeatStore = storeHeartbeat();
 const theme = useTheme();
 const themeClass = computed(() =>
   theme.global.name.value === V2_THEME_DARK ? "r-v2-dark" : "r-v2-light",
@@ -17,9 +20,10 @@ const themeClass = computed(() =>
     <main class="r-v2-auth__stage">
       <router-view name="v2" />
     </main>
-    <span class="r-v2-auth__version">
-      {{ heartbeatStore.value.SYSTEM.VERSION }}
-    </span>
+    <div class="r-v2-auth__lang">
+      <LanguageSelector />
+    </div>
+    <VersionTag class="r-v2-auth__version" />
   </div>
 </template>
 
@@ -68,14 +72,17 @@ const themeClass = computed(() =>
   max-width: 440px;
 }
 
+.r-v2-auth__lang {
+  position: absolute;
+  left: var(--r-space-4);
+  bottom: var(--r-space-3);
+  z-index: 1;
+}
+
 .r-v2-auth__version {
   position: absolute;
   right: var(--r-space-4);
   bottom: var(--r-space-3);
   z-index: 1;
-  color: var(--r-color-fg-muted);
-  font-family: var(--r-font-family-mono);
-  font-size: var(--r-font-size-xs);
-  letter-spacing: 0.02em;
 }
 </style>

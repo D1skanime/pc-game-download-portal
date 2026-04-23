@@ -1,6 +1,9 @@
 /*
  * RomM v2 global styles. Scoped under .r-v2 so the v1 UI is never affected.
- * Keep this minimal — component styling belongs in the R-components themselves.
+ * The mockup's visual centre-piece is a blurred art backdrop with a dark
+ * gradient overlay; the AppLayout provides the DOM, this file provides the
+ * styling hooks so any view can drop in a background without re-declaring
+ * its own layers.
  */
 
 @import "./tokens.css";
@@ -12,6 +15,8 @@
   font-size: var(--r-font-size-md);
   line-height: var(--r-line-height-normal);
   min-height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .r-v2 *:focus-visible {
@@ -22,4 +27,118 @@
 .r-v2 ::selection {
   background-color: var(--r-color-brand-primary);
   color: #fff;
+}
+
+/* ── Background art layers ─────────────────────────────────────
+   Two layers (A / B) so we can cross-fade between backdrops when the user
+   hovers a new game without a flash. The overlay blends the blur down so
+   text stays readable.
+──────────────────────────────────────────────────────────────── */
+
+.r-v2-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.r-v2-bg__layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 20%;
+  background-repeat: no-repeat;
+  filter: blur(28px) brightness(0.45);
+  transform: scale(1.08);
+  transition: opacity 0.7s ease;
+  will-change: opacity;
+}
+
+.r-v2-bg__layer--a {
+  opacity: 1;
+}
+.r-v2-bg__layer--b {
+  opacity: 0;
+}
+
+.r-v2-bg__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to right,
+      rgba(7, 7, 15, 0.72) 0%,
+      rgba(7, 7, 15, 0.3) 55%,
+      rgba(7, 7, 15, 0.55) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(7, 7, 15, 0.1) 0%,
+      rgba(7, 7, 15, 0) 35%,
+      rgba(7, 7, 15, 0.7) 72%,
+      rgba(7, 7, 15, 0.92) 100%
+    );
+}
+
+.r-v2.r-v2-light .r-v2-bg__overlay {
+  background:
+    linear-gradient(
+      to right,
+      rgba(245, 245, 250, 0.72) 0%,
+      rgba(245, 245, 250, 0.3) 55%,
+      rgba(245, 245, 250, 0.55) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(245, 245, 250, 0.1) 0%,
+      rgba(245, 245, 250, 0) 35%,
+      rgba(245, 245, 250, 0.7) 72%,
+      rgba(245, 245, 250, 0.92) 100%
+    );
+}
+
+/* ── Utility classes ───────────────────────────────────────── */
+
+.r-v2-surface {
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.r-v2-scroll-hidden {
+  scrollbar-width: none;
+}
+.r-v2-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Typography utility: small uppercase label ("eyebrow") used above titles. */
+.r-eyebrow {
+  font-size: 10px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+}
+.r-v2.r-v2-light .r-eyebrow {
+  color: var(--r-color-fg-muted);
+}
+
+/* Shimmer loading — matches the mockup's card skeleton. */
+.r-v2-shimmer {
+  animation: r-v2-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes r-v2-shimmer {
+  0% {
+    background-color: #1a1a2e;
+  }
+  50% {
+    background-color: #252540;
+  }
+  100% {
+    background-color: #1a1a2e;
+  }
 }

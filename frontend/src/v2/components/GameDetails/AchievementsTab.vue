@@ -1,0 +1,365 @@
+<script setup lang="ts">
+// AchievementsTab — RetroAchievements summary + filter row + per-achievement
+// list. The backend currently surfaces per-game achievement metadata
+// (merged_ra_metadata.achievements) but not the per-user "earned" state —
+// so every row renders as "locked" until that data is added. The visual
+// language is already there for when it is.
+import { computed, ref } from "vue";
+import type { RAGameRomAchievement, RomRAMetadata } from "@/__generated__";
+
+defineOptions({ inheritAttrs: false });
+
+const props = defineProps<{
+  metadata: RomRAMetadata | null | undefined;
+  apiBase?: string;
+}>();
+
+type TypeFilter = "all" | "progression" | "missable" | "win_condition";
+type StatusFilter = "all" | "earned" | "locked";
+
+const typeFilter = ref<TypeFilter>("all");
+const statusFilter = ref<StatusFilter>("all");
+
+const achievements = computed<RAGameRomAchievement[]>(
+  () => props.metadata?.achievements ?? [],
+);
+
+const totalPoints = computed(() =>
+  achievements.value.reduce((sum, a) => sum + (a.points ?? 0), 0),
+);
+const progressionCount = computed(
+  () => achievements.value.filter((a) => a.type === "progression").length,
+);
+const missableCount = computed(
+  () => achievements.value.filter((a) => a.type === "missable").length,
+);
+
+// Until per-user earned state ships, all achievements render as locked.
+function isEarned(_a: RAGameRomAchievement) {
+  return false;
+}
+const earnedCount = computed(() => achievements.value.filter(isEarned).length);
+
+const filtered = computed<RAGameRomAchievement[]>(() => {
+  let list = achievements.value;
+  if (typeFilter.value !== "all") {
+    list = list.filter((a) => a.type === typeFilter.value);
+  }
+  if (statusFilter.value === "earned") {
+    list = list.filter(isEarned);
+  } else if (statusFilter.value === "locked") {
+    list = list.filter((a) => !isEarned(a));
+  }
+  return list;
+});
+
+function badgeSrc(a: RAGameRomAchievement) {
+  const path = isEarned(a) ? a.badge_path : a.badge_path_lock;
+  if (path && props.apiBase) return `${props.apiBase}${path}`;
+  return (isEarned(a) ? a.badge_url : a.badge_url_lock) ?? "";
+}
+
+function toggleStatus(target: StatusFilter) {
+  statusFilter.value = statusFilter.value === target ? "all" : target;
+}
+</script>
+
+<template>
+  <section class="r-v2-det-ach">
+    <div v-if="!achievements.length" class="r-v2-det-ach__empty">
+      No RetroAchievements data for this game.
+    </div>
+
+    <template v-else>
+      <header class="r-v2-det-ach__summary">
+        <div class="r-v2-det-ach__stat">
+          <div class="r-v2-det-ach__stat-val">
+            {{ earnedCount }} / {{ achievements.length }}
+          </div>
+          <div class="r-v2-det-ach__stat-lbl">Achievements</div>
+        </div>
+        <div class="r-v2-det-ach__stat">
+          <div class="r-v2-det-ach__stat-val">
+            {{ totalPoints }}
+          </div>
+          <div class="r-v2-det-ach__stat-lbl">Total Points</div>
+        </div>
+        <div v-if="progressionCount" class="r-v2-det-ach__stat">
+          <div class="r-v2-det-ach__stat-val">
+            {{ progressionCount }}
+          </div>
+          <div class="r-v2-det-ach__stat-lbl">Progression</div>
+        </div>
+        <div v-if="missableCount" class="r-v2-det-ach__stat">
+          <div class="r-v2-det-ach__stat-val r-v2-det-ach__stat-val--missable">
+            {{ missableCount }}
+          </div>
+          <div class="r-v2-det-ach__stat-lbl">Missable</div>
+        </div>
+      </header>
+
+      <div class="r-v2-det-ach__filters">
+        <button
+          v-for="f in [
+            'all',
+            'progression',
+            'missable',
+            'win_condition',
+          ] as TypeFilter[]"
+          :key="f"
+          type="button"
+          class="r-v2-det-ach__filter"
+          :class="{ 'r-v2-det-ach__filter--active': typeFilter === f }"
+          @click="typeFilter = f"
+        >
+          {{ f === "all" ? "All" : f.replace("_", " ") }}
+        </button>
+        <span class="r-v2-det-ach__filter-sep" />
+        <button
+          type="button"
+          class="r-v2-det-ach__filter r-v2-det-ach__filter--earned"
+          :class="{ 'r-v2-det-ach__filter--active': statusFilter === 'earned' }"
+          @click="toggleStatus('earned')"
+        >
+          ✓ Earned
+        </button>
+        <button
+          type="button"
+          class="r-v2-det-ach__filter r-v2-det-ach__filter--locked"
+          :class="{ 'r-v2-det-ach__filter--active': statusFilter === 'locked' }"
+          @click="toggleStatus('locked')"
+        >
+          ⊘ Locked
+        </button>
+      </div>
+
+      <div class="r-v2-det-ach__grid">
+        <article
+          v-for="a in filtered"
+          :key="a.ra_id ?? a.title ?? undefined"
+          class="r-v2-det-ach__row"
+          :class="{ 'r-v2-det-ach__row--locked': !isEarned(a) }"
+        >
+          <div class="r-v2-det-ach__badge">
+            <img
+              v-if="badgeSrc(a)"
+              :src="badgeSrc(a)"
+              :alt="a.title ?? ''"
+              loading="lazy"
+              @error="
+                ($event.target as HTMLImageElement).style.visibility = 'hidden'
+              "
+            />
+          </div>
+          <div class="r-v2-det-ach__text">
+            <div class="r-v2-det-ach__title">
+              {{ a.title }}
+            </div>
+            <div class="r-v2-det-ach__desc">
+              {{ a.description }}
+            </div>
+          </div>
+          <div class="r-v2-det-ach__right">
+            <div class="r-v2-det-ach__points">{{ a.points ?? 0 }} pts</div>
+            <span
+              v-if="a.type"
+              class="r-v2-det-ach__type"
+              :class="`r-v2-det-ach__type--${a.type}`"
+            >
+              {{ a.type.replace("_", " ") }}
+            </span>
+          </div>
+        </article>
+      </div>
+    </template>
+  </section>
+</template>
+
+<style scoped>
+.r-v2-det-ach {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.r-v2-det-ach__empty {
+  padding: 30px 0;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
+  font-style: italic;
+  text-align: center;
+}
+
+/* ── Summary ─────────────────────────────────────────── */
+.r-v2-det-ach__summary {
+  display: flex;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-radius-lg);
+  padding: 14px 0;
+}
+.r-v2-det-ach__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0 12px;
+}
+.r-v2-det-ach__stat:last-child {
+  border-right: none;
+}
+.r-v2-det-ach__stat-val {
+  font-size: 20px;
+  font-weight: var(--r-font-weight-bold);
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+.r-v2-det-ach__stat-val--missable {
+  color: #fbbf24;
+}
+.r-v2-det-ach__stat-lbl {
+  font-size: 10px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Filters ─────────────────────────────────────────── */
+.r-v2-det-ach__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.r-v2-det-ach__filter {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-radius-pill);
+  color: rgba(255, 255, 255, 0.55);
+  padding: 5px 13px;
+  font-size: 11.5px;
+  font-weight: var(--r-font-weight-medium);
+  cursor: pointer;
+  font-family: inherit;
+  text-transform: capitalize;
+  transition:
+    background var(--r-motion-fast),
+    color var(--r-motion-fast),
+    border-color var(--r-motion-fast);
+}
+.r-v2-det-ach__filter:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+}
+.r-v2-det-ach__filter--active {
+  color: #111;
+  background: #fff;
+  border-color: #fff;
+}
+.r-v2-det-ach__filter--earned.r-v2-det-ach__filter--active {
+  color: #fff;
+  background: rgba(34, 197, 94, 0.3);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+.r-v2-det-ach__filter--locked.r-v2-det-ach__filter--active {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.24);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+.r-v2-det-ach__filter-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 4px;
+}
+
+/* ── List ────────────────────────────────────────────── */
+.r-v2-det-ach__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.r-v2-det-ach__row {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--r-radius-md);
+}
+.r-v2-det-ach__row--locked {
+  opacity: 0.55;
+}
+
+.r-v2-det-ach__badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+}
+.r-v2-det-ach__badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.r-v2-det-ach__title {
+  font-size: 13px;
+  font-weight: var(--r-font-weight-semibold);
+  color: rgba(255, 255, 255, 0.92);
+}
+.r-v2-det-ach__desc {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.r-v2-det-ach__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+}
+.r-v2-det-ach__points {
+  font-size: 12px;
+  font-weight: var(--r-font-weight-bold);
+  color: rgba(255, 255, 255, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+.r-v2-det-ach__type {
+  font-size: 9.5px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.55);
+}
+.r-v2-det-ach__type--progression {
+  background: rgba(99, 102, 241, 0.18);
+  color: rgba(165, 180, 252, 0.95);
+}
+.r-v2-det-ach__type--missable {
+  background: rgba(251, 191, 36, 0.18);
+  color: rgba(253, 224, 71, 0.95);
+}
+.r-v2-det-ach__type--win_condition {
+  background: rgba(34, 197, 94, 0.18);
+  color: rgba(134, 239, 172, 0.95);
+}
+</style>

@@ -1,0 +1,66 @@
+<script setup lang="ts">
+// BackBtn — pill-style "go back" button shared by gallery + detail
+// topbars. Composes RIcon; not a design-system primitive (RBtn is), just a
+// recurring feature pattern that three views use verbatim.
+import { RIcon } from "@v2/lib";
+import { computed } from "vue";
+
+defineOptions({ inheritAttrs: false });
+
+interface Props {
+  label?: string;
+  to?: string | object;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  label: "Back",
+  to: undefined,
+});
+
+defineEmits<{
+  (e: "click", event: MouseEvent): void;
+}>();
+
+const tag = computed(() => (props.to ? "router-link" : "button"));
+</script>
+
+<template>
+  <component
+    :is="tag"
+    v-bind="$attrs"
+    :to="to"
+    :type="tag === 'button' ? 'button' : undefined"
+    class="back-btn"
+    @click="(e: MouseEvent) => $emit('click', e)"
+  >
+    <RIcon icon="mdi-chevron-left" size="16" />
+    <span>{{ label }}</span>
+  </component>
+</template>
+
+<style scoped>
+.back-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--r-radius-pill);
+  padding: 5px 14px 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: var(--r-font-weight-medium);
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  font-family: inherit;
+  transition:
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+</style>

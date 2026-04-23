@@ -30,6 +30,11 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   collection: () => import("@/v2/views/Gallery/Collection.vue"),
   "virtual-collection": () => import("@/v2/views/Gallery/Collection.vue"),
   "smart-collection": () => import("@/v2/views/Gallery/Collection.vue"),
+  // Wave 4 — Game details
+  rom: () => import("@/v2/views/GameDetails.vue"),
+  // V2-only index pages (no v1 equivalent — the v1 UI uses its drawer)
+  "platforms-index": () => import("@/v2/views/PlatformsIndex.vue"),
+  "collections-index": () => import("@/v2/views/CollectionsIndex.vue"),
   // Setup wizard deferred — remains v1-only for now
   // Wave 4 onwards adds the remaining routes.
 };

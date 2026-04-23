@@ -55,9 +55,14 @@ withDefaults(defineProps<Props>(), {
 
 defineEmits<{
   (e: "update:modelValue", value: string): void;
-  (e: "click:append-inner", payload: MouseEvent): void;
-  (e: "click:prepend-inner", payload: MouseEvent): void;
 }>();
+// click:append-inner / click:prepend-inner are *not* declared here on
+// purpose. Vuetify only makes the inner icon tabbable when a click
+// listener is attached, so we let the parent's listener flow through
+// `$attrs` instead of always forwarding it. That way `prepend-inner-icon`
+// stays decorative (no focus ring, no tab stop) unless the parent
+// genuinely subscribes — which is what you want for the password-reveal
+// eye icon, but not for a plain mdi-account adornment.
 </script>
 
 <template>
@@ -84,8 +89,6 @@ defineEmits<{
     :error="error"
     :error-messages="errorMessages"
     @update:model-value="(v) => $emit('update:modelValue', v)"
-    @click:append-inner="(e: MouseEvent) => $emit('click:append-inner', e)"
-    @click:prepend-inner="(e: MouseEvent) => $emit('click:prepend-inner', e)"
   >
     <template v-for="(_, slot) in $slots" #[slot]="slotProps">
       <slot :name="slot" v-bind="slotProps || {}" />

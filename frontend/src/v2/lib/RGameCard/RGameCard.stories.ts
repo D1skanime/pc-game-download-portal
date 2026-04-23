@@ -20,9 +20,11 @@ const meta: Meta<typeof RGameCard> = {
   title: "Media/RGameCard",
   component: RGameCard,
   argTypes: {
-    showPlatform: { control: "boolean" },
-    showTitle: { control: "boolean" },
-    selected: { control: "boolean" },
+    hero: { control: "boolean" },
+    focused: { control: "boolean" },
+    isFavorite: { control: "boolean" },
+    isBookmarked: { control: "boolean" },
+    showPlatformBadge: { control: "boolean" },
   },
 };
 
@@ -38,9 +40,19 @@ export const Default: Story = {
   }),
 };
 
-export const Selected: Story = {
+export const Focused: Story = {
   ...Default,
-  args: { selected: true },
+  args: { focused: true },
+};
+
+export const Favorited: Story = {
+  ...Default,
+  args: { isFavorite: true },
+};
+
+export const Hero: Story = {
+  ...Default,
+  args: { hero: true },
 };
 
 export const Grid: Story = {
@@ -48,42 +60,16 @@ export const Grid: Story = {
     components: { RGameCard },
     setup: () => {
       const roms: SimpleRom[] = [
-        {
-          ...sampleRom,
-          id: 1,
-          name: "Super Mario World",
-          platform_slug: "snes",
-        } as SimpleRom,
-        {
-          ...sampleRom,
-          id: 2,
-          name: "Chrono Trigger",
-          platform_slug: "snes",
-        } as SimpleRom,
+        { ...sampleRom, id: 1, name: "Super Mario World" } as SimpleRom,
+        { ...sampleRom, id: 2, name: "Chrono Trigger" } as SimpleRom,
         {
           ...sampleRom,
           id: 3,
           name: "Legend of Zelda: A Link to the Past",
-          platform_slug: "snes",
         } as SimpleRom,
-        {
-          ...sampleRom,
-          id: 4,
-          name: "Earthbound",
-          platform_slug: "snes",
-        } as SimpleRom,
-        {
-          ...sampleRom,
-          id: 5,
-          name: "Super Metroid",
-          platform_slug: "snes",
-        } as SimpleRom,
-        {
-          ...sampleRom,
-          id: 6,
-          name: "F-Zero",
-          platform_slug: "snes",
-        } as SimpleRom,
+        { ...sampleRom, id: 4, name: "Earthbound" } as SimpleRom,
+        { ...sampleRom, id: 5, name: "Super Metroid" } as SimpleRom,
+        { ...sampleRom, id: 6, name: "F-Zero" } as SimpleRom,
       ];
       return { roms };
     },
