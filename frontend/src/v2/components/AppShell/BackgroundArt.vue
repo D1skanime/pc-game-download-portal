@@ -17,12 +17,20 @@ defineProps<{
     <div
       class="r-v2-bg__layer r-v2-bg__layer--a"
       :class="{ 'r-v2-bg__layer--active': activeLayer === 'a' }"
-      :style="layerA ? { backgroundImage: `url('${layerA}')` } : undefined"
+      :style="
+        layerA
+          ? { backgroundImage: `url('${layerA}')` }
+          : { backgroundImage: `url('/assets/auth_background.svg')` }
+      "
     />
     <div
       class="r-v2-bg__layer r-v2-bg__layer--b"
       :class="{ 'r-v2-bg__layer--active': activeLayer === 'b' }"
-      :style="layerB ? { backgroundImage: `url('${layerB}')` } : undefined"
+      :style="
+        layerB
+          ? { backgroundImage: `url('${layerB}')` }
+          : { backgroundImage: `url('/assets/auth_background.svg')` }
+      "
     />
   </div>
   <div class="r-v2-bg__overlay" />

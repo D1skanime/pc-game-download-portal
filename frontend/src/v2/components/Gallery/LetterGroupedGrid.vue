@@ -3,13 +3,14 @@
 // Collection.vue. Given an already-grouped list, it paints:
 //   * skeletons while first-loading
 //   * an empty-state message when there is nothing to render
-//   * the letter-heading + RGameCard grid per group
+//   * the letter-heading + GameCard grid per group
 //   * a "Load N more" button when there are more results to page in
 //
 // The scroll container itself lives in the parent (it also wraps
 // RInfoPanel), so we only render the content. `setLetterRef` comes from
 // `useLetterGroups` and is how the composable spies on scroll position.
-import { RGameCard, RSkeletonBlock } from "@v2/lib";
+import { RSkeletonBlock } from "@v2/lib";
+import { GameCard } from "@/v2/components/Gallery/GameCard";
 import type { LetterGroup } from "@/v2/composables/useLetterGroups";
 
 defineOptions({ inheritAttrs: false });
@@ -57,7 +58,7 @@ defineEmits<{ (e: "load-more"): void }>();
         {{ group.letter }}
       </div>
       <div class="r-v2-lgg__grid">
-        <RGameCard
+        <GameCard
           v-for="rom in group.games"
           :key="rom.id"
           :rom="rom"

@@ -3,7 +3,7 @@
 // "switch to classic UI" icon + user menu on the right. Highlighting
 // is derived from `route.path` rather than route names so gallery
 // subroutes (e.g. /rom/:id) still light up the Home tab.
-import { RBtn, RSliderBtnGroup, RTooltip } from "@v2/lib";
+import { RBtn, RSliderBtnGroup, RTooltip, RImg } from "@v2/lib";
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
@@ -39,8 +39,20 @@ const activeTab = computed<TabId | null>(() => {
 <template>
   <nav class="r-v2-nav">
     <router-link to="/" class="r-v2-nav__logo" aria-label="Home">
-      <img src="/assets/isotipo.svg" alt="RomM" />
-      <span class="r-v2-nav__wordmark">RomM</span>
+      <RImg
+        src="/assets/isotipo.svg"
+        alt="RomM isotipo"
+        aria-hidden="true"
+        class="r-v2-nav__logo-mark"
+        :width="32"
+      />
+      <RImg
+        src="/assets/logotipo.svg"
+        alt="RomM logotipo"
+        aria-hidden="true"
+        class="r-v2-nav__logo-word"
+        :width="70"
+      />
     </router-link>
 
     <div class="r-v2-nav__center">
@@ -57,13 +69,14 @@ const activeTab = computed<TabId | null>(() => {
         <template #activator="{ props: tooltipProps }">
           <RBtn
             v-bind="tooltipProps"
-            icon="mdi-backup-restore"
+            prepend-icon="mdi-backup-restore"
             size="small"
             variant="text"
             class="r-v2-nav__classic"
             aria-label="Switch to classic UI"
             @click="switchToV1"
-          />
+            >Classic UI</RBtn
+          >
         </template>
       </RTooltip>
 
@@ -89,18 +102,27 @@ const activeTab = computed<TabId | null>(() => {
   text-decoration: none;
   color: var(--r-color-fg);
   flex-shrink: 0;
+  /* Both marks transition together so the glow reads as one gesture. */
+  transition: filter var(--r-motion-med) var(--r-motion-ease-out);
+}
+.r-v2-nav__logo:hover,
+.r-v2-nav__logo:focus-visible {
+  filter: drop-shadow(0 0 6px rgba(139, 116, 232, 0.55));
+}
+.r-v2-nav__logo:focus-visible {
+  outline: none;
 }
 
-.r-v2-nav__logo img {
+.r-v2-nav__logo-mark {
   width: 32px;
   height: 32px;
   display: block;
 }
 
-.r-v2-nav__wordmark {
-  font-size: var(--r-font-size-lg);
-  font-weight: var(--r-font-weight-semibold);
-  letter-spacing: 0.02em;
+.r-v2-nav__logo-word {
+  height: 22px;
+  width: auto;
+  display: block;
 }
 
 .r-v2-nav__center {
@@ -135,7 +157,7 @@ const activeTab = computed<TabId | null>(() => {
     justify-content: space-between;
   }
 
-  .r-v2-nav__wordmark {
+  .r-v2-nav__logo-word {
     display: none;
   }
 

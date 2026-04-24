@@ -7,7 +7,7 @@
 // as cells. When the input modality flips to `"pad"` (gamepad detected
 // or pressed) we autofocus the first cell so the synthetic keys
 // dispatched by `useGamepad` have somewhere to go.
-import { RGameCard, RIcon, RSkeletonBlock } from "@v2/lib";
+import { RIcon, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import storeCollections from "@/stores/collections";
@@ -15,6 +15,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
+import { GameCard } from "@/v2/components/Gallery/GameCard";
 import CardRow from "@/v2/components/Home/CardRow.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";
@@ -111,7 +112,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
         />
       </template>
       <template v-else>
-        <RGameCard
+        <GameCard
           v-for="rom in continuePlayingRoms"
           :key="`cont-${rom.id}`"
           :rom="rom"
@@ -139,7 +140,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
         No games added yet.
       </div>
       <template v-else>
-        <RGameCard
+        <GameCard
           v-for="rom in recentRoms"
           :key="`rec-${rom.id}`"
           :rom="rom"
@@ -157,7 +158,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
       <template #icon>
         <RIcon icon="mdi-heart" size="20" />
       </template>
-      <RGameCard
+      <GameCard
         v-for="rom in favoriteRoms"
         :key="`fav-${rom.id}`"
         :rom="rom"

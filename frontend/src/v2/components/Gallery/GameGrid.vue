@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // GameGrid — responsive grid of ROM covers with skeleton placeholders on
-// initial load. Feature composition around RGameCard + RSkeletonBlock;
+// initial load. Feature composition around GameCard + RSkeletonBlock;
 // Search is the main caller.
-import { RGameCard, RSkeletonBlock } from "@v2/lib";
+import { RSkeletonBlock } from "@v2/lib";
 import { computed } from "vue";
 import type { SimpleRom } from "@/stores/roms";
+import { GameCard } from "@/v2/components/Gallery/GameCard";
 
 defineOptions({ inheritAttrs: false });
 
@@ -49,7 +50,7 @@ const gridStyle = computed(() => ({
       </div>
     </template>
     <template v-else>
-      <RGameCard
+      <GameCard
         v-for="rom in roms"
         :key="rom.id"
         :rom="rom"

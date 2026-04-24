@@ -50,5 +50,5 @@ export * from "./RTable";
 // Overlays
 export * from "./RDialog";
 
-// Domain-specific primitive
-export * from "./RGameCard";
+// (GameCard lives under components/Gallery/GameCard/ — it's a feature
+// composite that depends on stores + useGameActions, not a lib primitive.)

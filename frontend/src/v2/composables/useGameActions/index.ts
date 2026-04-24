@@ -1,7 +1,7 @@
 // useGameActions — shared action handlers for a ROM. One place for
 // play / download / favorite / share / match / refresh / edit / delete /
 // add-to-collection. Consumed by every surface that shows per-ROM actions
-// (MoreMenu on RGameCard, MoreMenu in GameDetails header, etc.) so the
+// (MoreMenu on GameCard, MoreMenu in GameDetails header, etc.) so the
 // action list stays in sync.
 //
 // Usage:

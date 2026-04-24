@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import type { SimpleRom } from "@/stores/roms";
-import RGameCard from "./RGameCard.vue";
+import GameCard from "./GameCard.vue";
 
 const sampleRom = {
   id: 1,
@@ -16,9 +16,9 @@ const sampleRom = {
   languages: ["en"],
 } as unknown as SimpleRom;
 
-const meta: Meta<typeof RGameCard> = {
-  title: "Media/RGameCard",
-  component: RGameCard,
+const meta: Meta<typeof GameCard> = {
+  title: "Gallery/GameCard",
+  component: GameCard,
   argTypes: {
     hero: { control: "boolean" },
     focused: { control: "boolean" },
@@ -28,13 +28,13 @@ const meta: Meta<typeof RGameCard> = {
 
 export default meta;
 
-type Story = StoryObj<typeof RGameCard>;
+type Story = StoryObj<typeof GameCard>;
 
 export const Default: Story = {
   render: (args) => ({
-    components: { RGameCard },
+    components: { GameCard },
     setup: () => ({ args, rom: sampleRom }),
-    template: `<div style="width:180px"><RGameCard :rom="rom" v-bind="args" /></div>`,
+    template: `<div style="width:180px"><GameCard :rom="rom" v-bind="args" /></div>`,
   }),
 };
 
@@ -50,7 +50,7 @@ export const Hero: Story = {
 
 export const Grid: Story = {
   render: () => ({
-    components: { RGameCard },
+    components: { GameCard },
     setup: () => {
       const roms: SimpleRom[] = [
         { ...sampleRom, id: 1, name: "Super Mario World" } as SimpleRom,
@@ -68,7 +68,7 @@ export const Grid: Story = {
     },
     template: `
       <div style="display:grid;grid-template-columns:repeat(3,180px);gap:1.5rem">
-        <RGameCard v-for="rom in roms" :key="rom.id" :rom="rom" />
+        <GameCard v-for="rom in roms" :key="rom.id" :rom="rom" />
       </div>
     `,
   }),

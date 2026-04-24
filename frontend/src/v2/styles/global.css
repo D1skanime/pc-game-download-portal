@@ -29,7 +29,7 @@
    Those elements style themselves through Vuetify + the theme tokens.
    The generic rules are wrapped in `:where()` so they evaluate at the
    lowest specificity — any component that paints its own focus state
-   (RGameCard, PlatformTile, CollectionTile, …) can override with a
+   (GameCard, PlatformTile, CollectionTile, …) can override with a
    plain class selector and its rule will win. */
 html[data-input="mouse"] :where(.r-v2 *:focus-visible),
 html[data-input="touch"] :where(.r-v2 *:focus-visible) {

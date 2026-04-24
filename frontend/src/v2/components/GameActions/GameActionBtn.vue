@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // GameActionBtn — single icon button for the per-ROM action set
-// shared between the RGameCard hover overlay and the GameDetails
+// shared between the GameCard hover overlay and the GameDetails
 // header. One component, three sizes, auto-wires to `useGameActions`
 // so both surfaces stay in sync.
 //
@@ -12,7 +12,7 @@
 //   more        → open MoreMenu (GameActionsList dropdown)
 //
 // Sizes (controls diameter + icon size + padding):
-//   sm  → 28px — RGameCard hover overlay
+//   sm  → 28px — GameCard hover overlay
 //   md  → 40px — default, GameDetails header
 //   lg  → 44px — larger emphasis
 //
@@ -183,9 +183,14 @@ function onClick(e: MouseEvent) {
 <style scoped>
 .r-v2-game-btn {
   appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
+  /* Dark glass so the button still reads when sitting on top of a bright
+     or busy cover image in the GameCard overlay. In GameDetails the
+     backdrop is already a dark blurred cover so this tone lands neutral
+     there too. Light translucent glass (5–10% white) was invisible on
+     any cover with white or pale art. */
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.95);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -195,13 +200,18 @@ function onClick(e: MouseEvent) {
   padding: 0;
   font-family: inherit;
   font-weight: var(--r-font-weight-semibold);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out),
-    transform var(--r-motion-fast) var(--r-motion-ease-out);
+    transform var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-game-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.72);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
 }
 .r-v2-game-btn:active {
   transform: scale(0.94);

@@ -1,5 +1,12 @@
 <script setup lang="ts">
-// RGameCard — portrait game cover with hover overlay.
+// GameCard — portrait game cover with hover overlay.
+//
+// Feature composite (not a lib primitive): depends on SimpleRom,
+// useGameActions (via GameActionBtn), useBackgroundArt, and the store
+// layer. Lives under `src/v2/components/Gallery/` instead of `lib/` for
+// that reason — the library is reserved for truly generic primitives
+// that a Storybook reader can drop into a page without wiring stores or
+// a router.
 //
 // Shape adapted from the artist mockup:
 //   * 158×213 card art, 8px radius

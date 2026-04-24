@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // GameActions — the action row in the game-details header.
-// Composes GameActionBtn atoms that are shared with the RGameCard hover
+// Composes GameActionBtn atoms that are shared with the GameCard hover
 // overlay so both surfaces stay visually and behaviourally in sync.
 // The Play button uses the emphasized + withLabel variant to match the
 // original white pill CTA; every other button is a circular glass icon
