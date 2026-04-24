@@ -1,235 +1,297 @@
 <script setup lang="ts">
-// AddRomsToCollectionDialog — emits `showAddToCollectionDialog` with a
-// batch of ROMs; user picks a collection from their owned list and
-// commits. Reuses the v1 `RAvatar` collection avatar primitive for cover
-// rendering (virtual/smart/favorite branches + procedural fallbacks).
-import { RBtn, RDialog, RIcon } from "@v2/lib";
+// AddRomsToCollectionDialog — collection picker that matches the mockup's
+// menu-panel shape. Driven by the `showAddToCollectionDialog` emitter.
+//
+// Uses the v2 RDialog primitive — RDialog was updated to share the
+// RMenuPanel visual language (14px radius, deep glass, menu-style shadow)
+// so this picker reads as a sibling of the user menu / ROM context menu.
+// No direct VDialog here; every v2 dialog flows through the primitive.
+//
+// Shape (top → bottom):
+//   * Bold "Add to Collection" title + muted game subtitle in the
+//     header slot (single `div` inside #header; close X is provided by
+//     RDialog).
+//   * "New Collection" CTA row. Collapsed: brand-tinted + tile +
+//     "New Collection" label. Click expands to an inline Create /
+//     Cancel input.
+//   * Divider.
+//   * List of owned collections — avatar, name, count, brand-primary
+//     circular tick when on. Clicking toggles INSTANTLY (optimistic
+//     update + API call; reverts on failure).
+//   * Empty state if no collections exist.
+import { RDialog, RMenuDivider } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
-import type { CollectionSchema } from "@/__generated__";
-import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import collectionApi from "@/services/api/collection";
-import storeCollections from "@/stores/collections";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeCollections, {
+  type Collection,
+  type CollectionType,
+} from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
+import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow.vue";
+import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
-const saving = ref(false);
-const romsStore = storeRoms();
 const collectionsStore = storeCollections();
-const selectedCollection = ref<CollectionSchema | undefined>(undefined);
-const roms = ref<SimpleRom[]>([]);
+const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
+
+const supportsWebp = computed<boolean>(() =>
+  Boolean(
+    (
+      heartbeatStore.value as unknown as {
+        FRONTEND?: { IMAGES_WEBP?: boolean };
+      }
+    )?.FRONTEND?.IMAGES_WEBP,
+  ),
+);
+
+// Mirrors CollectionsIndex.coversFor — prefers the multi-cover array,
+// falls back to the single cover when that's all we have so a regular
+// collection's one custom cover still renders. Webp-swapped when the
+// backend supports it.
+function coversFor(collection: CollectionType): string[] {
+  const multi =
+    (collection as { path_covers_small?: string[] }).path_covers_small ?? [];
+  const single = collection.path_cover_small ?? null;
+  const list = multi.length ? multi.slice(0, 4) : single ? [single] : [];
+  return list.map((p) =>
+    supportsWebp.value ? p.replace(/\.(png|jpg|jpeg)$/i, ".webp") : p,
+  );
+}
+
+const roms = ref<SimpleRom[]>([]);
+
+const pendingCollections = ref(new Set<number>());
+const optimistic = ref(new Map<number, boolean>());
+
+const creating = ref(false);
+const createExpanded = ref(false);
+const newName = ref("");
 
 const openHandler = (romsToAdd: SimpleRom[]) => {
   roms.value = romsToAdd;
+  optimistic.value = new Map();
+  pendingCollections.value = new Set();
+  newName.value = "";
+  createExpanded.value = false;
   show.value = true;
 };
 emitter?.on("showAddToCollectionDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showAddToCollectionDialog", openHandler));
 
-function coverFor(rom: SimpleRom): string | null {
-  return rom.path_cover_small ?? rom.url_cover ?? null;
+function allIn(collection: Collection): boolean {
+  const ids = collection.rom_ids ?? [];
+  return roms.value.length > 0 && roms.value.every((r) => ids.includes(r.id));
 }
 
-async function addRomsToCollection() {
-  if (!selectedCollection.value || saving.value) return;
-  saving.value = true;
+function isChecked(collection: Collection): boolean {
+  const override = optimistic.value.get(collection.id);
+  if (override !== undefined) return override;
+  return allIn(collection);
+}
+
+async function toggle(collection: Collection) {
+  if (pendingCollections.value.has(collection.id)) return;
+  const wasChecked = isChecked(collection);
+  const nextChecked = !wasChecked;
+
+  optimistic.value.set(collection.id, nextChecked);
+  pendingCollections.value.add(collection.id);
+
   const romIds = roms.value.map((r) => r.id);
   try {
-    const { data } = await collectionApi.addRomsToCollection(
-      selectedCollection.value.id,
-      romIds,
-    );
-    emitter?.emit("snackbarShow", {
-      msg: `Roms added to ${selectedCollection.value.name} successfully!`,
-      icon: "mdi-check-bold",
-      color: "green",
-      timeout: 2000,
-    });
-    emitter?.emit("refreshDrawer", null);
+    const { data } = nextChecked
+      ? await collectionApi.addRomsToCollection(collection.id, romIds)
+      : await collectionApi.removeRomsFromCollection(collection.id, romIds);
     collectionsStore.updateCollection(data);
+    optimistic.value.delete(collection.id);
   } catch (error: unknown) {
-    console.error(error);
+    optimistic.value.set(collection.id, wasChecked);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     emitter?.emit("snackbarShow", {
-      msg: axiosErr.response?.data?.detail ?? "Failed to add to collection",
+      msg:
+        axiosErr.response?.data?.detail ??
+        (nextChecked
+          ? t("rom.collection-add-failed", "Couldn't add to collection")
+          : t(
+              "rom.collection-remove-failed",
+              "Couldn't remove from collection",
+            )),
       icon: "mdi-close-circle",
       color: "red",
     });
   } finally {
-    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-    romsStore.resetSelection();
-    saving.value = false;
-    closeDialog();
+    pendingCollections.value.delete(collection.id);
   }
 }
 
+async function createNewCollection() {
+  const name = newName.value.trim();
+  if (!name || creating.value) return;
+  if (collectionsStore.ownedCollections.some((c) => c.name === name)) {
+    emitter?.emit("snackbarShow", {
+      msg: t(
+        "collection.name-exists",
+        `A collection called "${name}" already exists.`,
+      ),
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+    return;
+  }
+  creating.value = true;
+  try {
+    const created = await collectionApi.createCollection({
+      collection: { name },
+    });
+    collectionsStore.addCollection(created);
+    void toggle(created);
+    newName.value = "";
+    createExpanded.value = false;
+  } catch (error: unknown) {
+    const axiosErr = error as { response?: { data?: { detail?: string } } };
+    emitter?.emit("snackbarShow", {
+      msg: axiosErr.response?.data?.detail ?? "Failed to create collection",
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  } finally {
+    creating.value = false;
+  }
+}
+
+function cancelCreate() {
+  newName.value = "";
+  createExpanded.value = false;
+}
+
+const subtitle = computed(() => {
+  if (roms.value.length === 1) {
+    return roms.value[0].name ?? roms.value[0].fs_name ?? "";
+  }
+  if (roms.value.length > 1) {
+    return t("rom.selection-count", `${roms.value.length} games`);
+  }
+  return "";
+});
+
+const ownedCollections = computed(() => collectionsStore.ownedCollections);
+
 function closeDialog() {
   roms.value = [];
+  optimistic.value = new Map();
+  pendingCollections.value = new Set();
+  newName.value = "";
+  createExpanded.value = false;
   show.value = false;
-  selectedCollection.value = undefined;
 }
 </script>
 
 <template>
-  <RDialog
-    v-model="show"
-    icon="mdi-bookmark-plus-outline"
-    scroll-content
-    :width="mdAndUp ? 520 : '95vw'"
-    @close="closeDialog"
-  >
+  <RDialog v-model="show" :width="mdAndUp ? 440 : '95vw'" @close="closeDialog">
+    <!-- Two-line title block replaces the single-line default so the
+         bold "Add to Collection" + muted game subtitle stack. Close X
+         is provided by RDialog in its own header chrome. -->
     <template #header>
-      <span>{{ t("rom.adding-to-collection", roms.length) }}</span>
-    </template>
-    <template #prepend>
-      <div class="r-v2-add-coll__picker">
-        <v-autocomplete
-          v-model="selectedCollection"
-          density="comfortable"
-          variant="outlined"
-          :label="t('common.collection')"
-          item-title="name"
-          :items="collectionsStore.ownedCollections"
-          hide-details
-          return-object
-          clearable
-        >
-          <template #item="{ props: itemProps, item }">
-            <v-list-item v-bind="itemProps" :title="item.raw.name">
-              <template #prepend>
-                <RAvatarCollection :collection="item.raw" :size="28" />
-              </template>
-            </v-list-item>
-          </template>
-          <template #chip="{ item }">
-            <v-chip>
-              <RAvatarCollection
-                :collection="item.raw"
-                :size="22"
-                class="mr-2"
-              />
-              {{ item.raw.name }}
-            </v-chip>
-          </template>
-        </v-autocomplete>
+      <div class="r-v2-pick-coll__head">
+        <span class="r-v2-pick-coll__head-title">
+          {{ t("rom.add-to-collection", "Add to Collection") }}
+        </span>
+        <span v-if="subtitle" class="r-v2-pick-coll__head-subtitle">
+          {{ subtitle }}
+        </span>
       </div>
     </template>
+
     <template #content>
-      <ul class="r-v2-add-coll__list">
-        <li v-for="rom in roms" :key="rom.id" class="r-v2-add-coll__row">
-          <div class="r-v2-add-coll__cover">
-            <img
-              v-if="coverFor(rom)"
-              :src="coverFor(rom)!"
-              :alt="rom.name ?? ''"
-            />
-            <div v-else class="r-v2-add-coll__cover-placeholder">
-              <RIcon icon="mdi-disc" size="18" />
-            </div>
-          </div>
-          <div class="r-v2-add-coll__meta">
-            <p class="r-v2-add-coll__name" :title="rom.name ?? undefined">
-              {{ rom.name || rom.fs_name }}
-            </p>
-            <p class="r-v2-add-coll__file" :title="rom.fs_name">
-              {{ rom.fs_name }}
-            </p>
-          </div>
+      <NewCollectionRow
+        v-model:expanded="createExpanded"
+        v-model:name="newName"
+        :creating="creating"
+        @create="createNewCollection"
+        @cancel="cancelCreate"
+      />
+
+      <RMenuDivider v-if="ownedCollections.length > 0" />
+
+      <!-- Existing collection rows — instant toggle, no commit step. -->
+      <ul v-if="ownedCollections.length" class="r-v2-pick-coll__list">
+        <li v-for="collection in ownedCollections" :key="collection.id">
+          <CollectionPickerRow
+            :name="collection.name"
+            :count="collection.rom_count"
+            :covers="coversFor(collection)"
+            :checked="isChecked(collection)"
+            :busy="pendingCollections.has(collection.id)"
+            @toggle="toggle(collection)"
+          />
         </li>
       </ul>
-    </template>
-    <template #footer>
-      <RBtn variant="text" :disabled="saving" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <div style="flex: 1" />
-      <RBtn
-        variant="tonal"
-        color="primary"
-        prepend-icon="mdi-bookmark-plus"
-        :disabled="!selectedCollection || saving"
-        :loading="saving"
-        @click="addRomsToCollection"
-      >
-        {{ t("common.confirm") }}
-      </RBtn>
+
+      <div v-else class="r-v2-pick-coll__empty">
+        {{
+          t(
+            "collection.no-collections-yet",
+            "No collections yet. Create one above.",
+          )
+        }}
+      </div>
     </template>
   </RDialog>
 </template>
 
 <style scoped>
-.r-v2-add-coll__picker {
-  padding: 14px 14px 0;
-}
-
-.r-v2-add-coll__list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+/* Header typography — stacked title (14px bold) + subtitle (11.5px
+   muted) inside RDialog's single header slot. */
+.r-v2-pick-coll__head {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 300px;
+  gap: 3px;
+  min-width: 0;
+}
+.r-v2-pick-coll__head-title {
+  font-size: 14px;
+  font-weight: var(--r-font-weight-bold);
+  color: #fff;
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+}
+.r-v2-pick-coll__head-subtitle {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: var(--r-font-weight-regular);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 360px;
+}
+
+/* Row list — edge-to-edge against RDialog's body padding so each row
+   reads like a menu item rather than a padded card. */
+.r-v2-pick-coll__list {
+  list-style: none;
+  margin: 0 -18px;
+  padding: 2px 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 360px;
   overflow-y: auto;
 }
 
-.r-v2-add-coll__row {
-  display: grid;
-  grid-template-columns: 32px 1fr;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--r-radius-md);
-}
-
-.r-v2-add-coll__cover {
-  width: 32px;
-  aspect-ratio: 3 / 4;
-  border-radius: var(--r-radius-sm);
-  overflow: hidden;
-  background: #1a1a2e;
-  display: grid;
-  place-items: center;
-}
-.r-v2-add-coll__cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.r-v2-add-coll__cover-placeholder {
-  color: rgba(255, 255, 255, 0.3);
-}
-
-.r-v2-add-coll__meta {
-  min-width: 0;
-}
-.r-v2-add-coll__name {
-  margin: 0;
-  font-size: 12.5px;
-  font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.9);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-v2-add-coll__file {
-  margin: 1px 0 0;
-  font-size: 10.5px;
-  font-family: var(--r-font-family-mono, monospace);
-  color: rgba(255, 255, 255, 0.45);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.r-v2-pick-coll__empty {
+  padding: 24px 16px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  text-align: center;
 }
 </style>

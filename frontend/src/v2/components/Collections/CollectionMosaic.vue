@@ -3,8 +3,12 @@
 // component used by CollectionTile and the collection info panel.
 // Behaviour:
 //   * 0 covers → empty state with a bookmark glyph
-//   * 1 cover  → fills the whole square
-//   * 2-4 covers → 2x2 grid; missing slots fill with an empty-tile bg
+//   * 1 cover  → fills the whole tile
+//   * 2-3 covers → 2x2 grid, covers cycle to fill the 4 slots so the
+//     mosaic never shows an empty square
+//   * 4+ covers → 2x2 grid using the first 4
+// Default aspect is portrait (140/188, same ratio game covers use) so
+// collection artwork reads as cover-art, not a square thumbnail.
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
 
@@ -18,11 +22,22 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   covers: () => [],
-  aspectRatio: "1 / 1",
+  aspectRatio: "140 / 188",
   radius: "var(--r-radius-lg)",
 });
 
-const displayCovers = computed(() => (props.covers ?? []).filter(Boolean));
+const displayCovers = computed(() =>
+  (props.covers ?? []).filter((c): c is string => Boolean(c)),
+);
+
+// Mosaic slots — if we have 2 or 3 covers, cycle through them so every
+// slot is filled. Deterministic (index % len) instead of random so the
+// mosaic doesn't shuffle between re-renders.
+const mosaicSlots = computed(() => {
+  const src = displayCovers.value;
+  if (src.length === 0) return [];
+  return Array.from({ length: 4 }, (_, i) => src[i % src.length]);
+});
 </script>
 
 <template>
@@ -40,14 +55,12 @@ const displayCovers = computed(() => (props.covers ?? []).filter(Boolean));
       <img :src="displayCovers[0] ?? undefined" alt="" />
     </template>
     <template v-else>
-      <template v-for="i in 4" :key="`m-${i}`">
-        <img
-          v-if="displayCovers[i - 1]"
-          :src="displayCovers[i - 1] ?? undefined"
-          alt=""
-        />
-        <div v-else class="coll-mosaic__empty-cell" />
-      </template>
+      <img
+        v-for="(cover, i) in mosaicSlots"
+        :key="`m-${i}`"
+        :src="cover"
+        alt=""
+      />
     </template>
   </div>
 </template>
@@ -82,12 +95,7 @@ const displayCovers = computed(() => (props.covers ?? []).filter(Boolean));
   color: rgba(255, 255, 255, 0.15);
 }
 
-.coll-mosaic__empty-cell {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-:global(.r-v2.r-v2-light) .coll-mosaic,
-:global(.r-v2.r-v2-light) .coll-mosaic__empty-cell {
+:global(.r-v2.r-v2-light) .coll-mosaic {
   background: rgba(17, 17, 23, 0.05);
 }
 :global(.r-v2.r-v2-light) .coll-mosaic__empty {

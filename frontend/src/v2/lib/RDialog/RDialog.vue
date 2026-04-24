@@ -161,19 +161,26 @@ void props;
    content. Vuetify teleports v-dialog to <body>, but the root class we
    style here is emitted on the content, so scoped styles still reach it
    via the usual data-v attribute pipeline. The outer `.r-dialog`
-   override (padding/bg) lives in global.css because it lands on a root
-   element outside this component's scope. */
+   override — needed to strip Vuetify's default .v-overlay__content
+   background/radius/max-height so our 14px rounded corners show — lives
+   in global.css because it lands on a root element outside this
+   component's scope.
+
+   Visual language is aligned with RMenuPanel (the v2 menu surface):
+   14px radius, deeper glass background, heavier drop shadow. Every
+   dialog on v2 now reads as a sibling of the context menus, which is
+   the mockup's unified panel look. */
 .r-dialog__panel {
   display: flex;
   flex-direction: column;
-  background: rgba(13, 17, 23, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--r-radius-lg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(16, 12, 28, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   box-shadow:
-    0 20px 48px rgba(0, 0, 0, 0.55),
-    0 4px 12px rgba(0, 0, 0, 0.35);
+    0 20px 60px rgba(0, 0, 0, 0.7),
+    0 4px 20px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   color: var(--r-color-fg);
 }
@@ -182,9 +189,10 @@ void props;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 10px 12px 18px;
+  padding: 12px 10px 12px 16px;
+  /* Softer divider than before — matches the RMenuDivider rhythm so
+     headers read as a section boundary instead of a form chrome bar. */
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .r-dialog__lead-icon {
@@ -269,7 +277,6 @@ void props;
 
 .r-dialog__footer {
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.03);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
@@ -278,10 +285,27 @@ void props;
 
 /* Light theme — dialog root carries .r-v2-light only when the app shell
    does (teleported content inherits the body data-theme, not our wrapper).
-   We still shift surfaces via Vuetify's theme tokens so the panel reads
-   correctly against a light scrim. */
-:global(.r-v2.r-v2-light) .r-dialog__panel,
-:global(.v-overlay__content.r-dialog .r-dialog__panel) {
-  /* kept dark-on-dark by default; Vuetify themes kick in via CSS vars */
+   Matches RMenuPanel's light variant so the two surfaces read as one
+   family across the app. */
+:global(.r-v2.r-v2-light) .r-dialog__panel {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(17, 17, 23, 0.1);
+  color: var(--r-color-fg);
+}
+</style>
+
+<style>
+/* VDialog teleports .v-overlay__content to <body>, outside this
+   component's scoped style tree. Vuetify's default overlay content
+   wrapper ships with its own surface background, border-radius, and
+   max-height that would paint around our rounded panel and clip the
+   corners. Strip those defaults so RDialog's own radius + shadow land
+   exactly as intended. One rule here serves every RDialog in the app. */
+.v-overlay__content.r-dialog {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 14px;
+  overflow: visible;
+  max-height: calc(100vh - 32px);
 }
 </style>

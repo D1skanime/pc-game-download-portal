@@ -1,0 +1,190 @@
+<script setup lang="ts">
+// NewCollectionRow — the "create collection" CTA row inside the
+// AddRomsToCollectionDialog. Collapsed: purple-tinted plus-tile + label.
+// Expanded: inline name input with Create / Cancel actions.
+//
+// Stateless — the parent owns `expanded`, `name`, and `creating`. The
+// `+` tile and row frame are shared between the two states so the
+// expand animation reads as the same surface swapping its contents.
+import { RBtn, RIcon } from "@v2/lib";
+import { nextTick, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+
+defineOptions({ inheritAttrs: false });
+
+interface Props {
+  expanded: boolean;
+  name: string;
+  creating: boolean;
+}
+
+const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  (e: "update:expanded", value: boolean): void;
+  (e: "update:name", value: string): void;
+  (e: "create"): void;
+  (e: "cancel"): void;
+}>();
+
+const { t } = useI18n();
+
+const input = ref<HTMLInputElement | null>(null);
+
+watch(
+  () => props.expanded,
+  (expanded) => {
+    if (expanded) nextTick(() => input.value?.focus());
+  },
+);
+
+function onExpand() {
+  emit("update:expanded", true);
+}
+function onCancel() {
+  emit("cancel");
+}
+function onSubmit() {
+  emit("create");
+}
+function onInput(e: Event) {
+  emit("update:name", (e.target as HTMLInputElement).value);
+}
+</script>
+
+<template>
+  <button v-if="!expanded" type="button" class="new-row" @click="onExpand">
+    <span class="new-row__tile">
+      <RIcon icon="mdi-plus" size="22" />
+    </span>
+    <span class="new-row__label">
+      {{ t("collection.new-collection", "New Collection") }}
+    </span>
+  </button>
+  <form v-else class="new-row new-row--editing" @submit.prevent="onSubmit">
+    <span class="new-row__tile new-row__tile--active">
+      <RIcon icon="mdi-plus" size="22" />
+    </span>
+    <input
+      ref="input"
+      :value="name"
+      type="text"
+      class="new-row__input"
+      :placeholder="
+        t('collection.collection-name-placeholder', 'Collection name')
+      "
+      :disabled="creating"
+      :aria-label="t('collection.new-collection', 'New Collection')"
+      @input="onInput"
+      @keydown.esc.prevent="onCancel"
+    />
+    <div class="new-row__actions">
+      <RBtn
+        variant="text"
+        size="x-small"
+        :disabled="creating"
+        @click.prevent="onCancel"
+      >
+        {{ t("common.cancel") }}
+      </RBtn>
+      <RBtn
+        variant="tonal"
+        color="primary"
+        size="x-small"
+        type="submit"
+        :disabled="!name.trim() || creating"
+        :loading="creating"
+      >
+        {{ t("common.create", "Create") }}
+      </RBtn>
+    </div>
+  </form>
+</template>
+
+<style scoped>
+/* Negative horizontal margin compensates for the RDialog body padding
+   so the CTA stretches edge-to-edge, matching the picker rows below. */
+.new-row {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  width: calc(100% + 36px);
+  margin: -18px -18px 0;
+  padding: 10px 18px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.new-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.new-row--editing {
+  cursor: default;
+  background: rgba(139, 116, 232, 0.05);
+}
+
+/* Portrait plus-tile — matches the CollectionMosaic footprint of the
+   picker rows so the first column aligns whether you're looking at the
+   CTA or an existing collection thumb. */
+.new-row__tile {
+  width: 36px;
+  aspect-ratio: 140 / 188;
+  border-radius: 6px;
+  background: rgba(139, 116, 232, 0.16);
+  color: var(--r-color-brand-primary);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition:
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.new-row:hover .new-row__tile,
+.new-row__tile--active {
+  background: rgba(139, 116, 232, 0.28);
+  color: #fff;
+}
+
+.new-row__label {
+  font-size: 14px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-brand-primary);
+}
+
+.new-row__input {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--r-color-fg);
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: var(--r-font-weight-medium);
+  padding: 8px 0;
+  outline: none;
+  min-width: 0;
+}
+.new-row__input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: var(--r-font-weight-regular);
+}
+
+.new-row__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+:global(.r-v2.r-v2-light) .new-row:hover {
+  background: rgba(17, 17, 23, 0.05);
+}
+:global(.r-v2.r-v2-light) .new-row__input::placeholder {
+  color: rgba(17, 17, 23, 0.35);
+}
+</style>
