@@ -4,6 +4,7 @@
 // Click toggles; parent owns the pending/checked state and handles the
 // API round-trip.
 import { RIcon } from "@v2/lib";
+import { computed } from "vue";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -14,15 +15,24 @@ interface Props {
   covers: string[];
   checked: boolean;
   busy?: boolean;
+  // Thumb diameter in px. Drives both the grid first-column width and
+  // the CollectionMosaic width so the label column always lines up with
+  // the right edge of the thumb.
+  tileSize?: number;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   busy: false,
+  tileSize: 36,
 });
 
 defineEmits<{
   (e: "toggle"): void;
 }>();
+
+const rowStyle = computed(() => ({
+  "--tile-w": `${props.tileSize}px`,
+}));
 </script>
 
 <template>
@@ -33,6 +43,7 @@ defineEmits<{
       'pick-row--checked': checked,
       'pick-row--busy': busy,
     }"
+    :style="rowStyle"
     :aria-pressed="checked"
     :disabled="busy"
     @click="$emit('toggle')"
@@ -41,7 +52,7 @@ defineEmits<{
     <span class="pick-row__name">{{ name }}</span>
     <span class="pick-row__count">{{ count }}</span>
     <span class="pick-row__tick" aria-hidden="true">
-      <RIcon v-if="checked" icon="mdi-check" size="14" color="primary" />
+      <RIcon v-if="checked" icon="mdi-check" size="14" />
     </span>
   </button>
 </template>
@@ -53,7 +64,7 @@ defineEmits<{
   background: transparent;
   border: 0;
   display: grid;
-  grid-template-columns: 36px 1fr auto 26px;
+  grid-template-columns: var(--tile-w, 36px) 1fr auto 26px;
   align-items: center;
   gap: 14px;
   padding: 8px 30px;
@@ -79,10 +90,10 @@ defineEmits<{
   cursor: progress;
 }
 
-/* Portrait thumb — width from the first grid column, height from the
-   CollectionMosaic aspectRatio. */
+/* Portrait thumb — width tracks the configurable tile size; height is
+   computed by CollectionMosaic from its 140/188 aspectRatio. */
 .pick-row__thumb {
-  width: 36px;
+  width: var(--tile-w, 36px);
 }
 
 .pick-row__name {

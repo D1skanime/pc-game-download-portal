@@ -7,7 +7,7 @@
 // `+` tile and row frame are shared between the two states so the
 // expand animation reads as the same surface swapping its contents.
 import { RBtn, RIcon } from "@v2/lib";
-import { nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
@@ -16,9 +16,19 @@ interface Props {
   expanded: boolean;
   name: string;
   creating: boolean;
+  // Tile diameter in px. Drives both the grid first-column width and the
+  // plus-tile width so the prepended slot stays flush with the label
+  // column regardless of size. Match the row's CollectionMosaic thumb.
+  tileSize?: number;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  tileSize: 36,
+});
+
+const rowStyle = computed(() => ({
+  "--tile-w": `${props.tileSize}px`,
+}));
 
 const emit = defineEmits<{
   (e: "update:expanded", value: boolean): void;
@@ -53,7 +63,13 @@ function onInput(e: Event) {
 </script>
 
 <template>
-  <button v-if="!expanded" type="button" class="new-row" @click="onExpand">
+  <button
+    v-if="!expanded"
+    type="button"
+    class="new-row"
+    :style="rowStyle"
+    @click="onExpand"
+  >
     <span class="new-row__tile">
       <RIcon icon="mdi-plus" size="22" />
     </span>
@@ -61,7 +77,12 @@ function onInput(e: Event) {
       {{ t("collection.new-collection", "New Collection") }}
     </span>
   </button>
-  <form v-else class="new-row new-row--editing" @submit.prevent="onSubmit">
+  <form
+    v-else
+    class="new-row new-row--editing"
+    :style="rowStyle"
+    @submit.prevent="onSubmit"
+  >
     <span class="new-row__tile new-row__tile--active">
       <RIcon icon="mdi-plus" size="22" />
     </span>
@@ -81,7 +102,7 @@ function onInput(e: Event) {
     <div class="new-row__actions">
       <RBtn
         variant="text"
-        size="x-small"
+        size="small"
         :disabled="creating"
         @click.prevent="onCancel"
       >
@@ -90,7 +111,7 @@ function onInput(e: Event) {
       <RBtn
         variant="tonal"
         color="primary"
-        size="x-small"
+        size="small"
         type="submit"
         :disabled="!name.trim() || creating"
         :loading="creating"
@@ -107,7 +128,9 @@ function onInput(e: Event) {
 .new-row {
   appearance: none;
   display: grid;
-  grid-template-columns: 36px 1fr auto;
+  /* First column tracks the configurable tile width so the label always
+     starts past the tile, even when the consumer makes the tile bigger. */
+  grid-template-columns: var(--tile-w, 36px) 1fr auto;
   align-items: center;
   gap: 14px;
   width: calc(100% + 36px);
@@ -133,9 +156,10 @@ function onInput(e: Event) {
    picker rows so the first column aligns whether you're looking at the
    CTA or an existing collection thumb. */
 .new-row__tile {
-  width: 36px;
+  width: var(--tile-w, 36px);
   aspect-ratio: 140 / 188;
   border-radius: 6px;
+  border: 1px solid var(--r-color-brand-primary);
   background: rgba(139, 116, 232, 0.16);
   color: var(--r-color-brand-primary);
   display: grid;

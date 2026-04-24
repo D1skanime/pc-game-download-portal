@@ -80,6 +80,23 @@ watch(
 );
 
 const isV2 = computed(() => uiVersion.value === "v2");
+
+// Apply the v2 token scope to <html> when v2 is active. Vuetify teleports
+// overlays (VDialog, VMenu) into `<body> > .v-overlay-container` — which
+// sits OUTSIDE both the AppLayout `.r-v2` wrapper AND <v-app>. Putting the
+// classes on <html> means the entire document inherits the v2 CSS custom
+// properties so `var(--r-color-...)` resolves inside any teleported
+// dialog/menu. v1 mode strips the classes, keeping v1 CSS unaffected.
+watch(
+  [isV2, activeThemeName],
+  ([v2, themeName]) => {
+    const root = document.documentElement;
+    root.classList.toggle("r-v2", v2);
+    root.classList.toggle("r-v2-dark", v2 && themeName === V2_THEME_DARK);
+    root.classList.toggle("r-v2-light", v2 && themeName === V2_THEME_LIGHT);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>

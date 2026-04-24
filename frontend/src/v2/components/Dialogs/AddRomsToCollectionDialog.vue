@@ -217,6 +217,7 @@ function closeDialog() {
         v-model:expanded="createExpanded"
         v-model:name="newName"
         :creating="creating"
+        :tile-size="46"
         @create="createNewCollection"
         @cancel="cancelCreate"
       />
@@ -232,6 +233,7 @@ function closeDialog() {
             :covers="coversFor(collection)"
             :checked="isChecked(collection)"
             :busy="pendingCollections.has(collection.id)"
+            :tile-size="46"
             @toggle="toggle(collection)"
           />
         </li>
