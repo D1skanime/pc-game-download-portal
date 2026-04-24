@@ -41,7 +41,7 @@ defineEmits<{
     <span class="pick-row__name">{{ name }}</span>
     <span class="pick-row__count">{{ count }}</span>
     <span class="pick-row__tick" aria-hidden="true">
-      <RIcon v-if="checked" icon="mdi-check" size="14" />
+      <RIcon v-if="checked" icon="mdi-check" size="14" color="primary" />
     </span>
   </button>
 </template>
@@ -56,7 +56,7 @@ defineEmits<{
   grid-template-columns: 36px 1fr auto 26px;
   align-items: center;
   gap: 14px;
-  padding: 8px 18px;
+  padding: 8px 30px;
   cursor: pointer;
   text-align: left;
   color: inherit;

@@ -48,7 +48,7 @@ const mosaicSlots = computed(() => {
   >
     <template v-if="!displayCovers.length">
       <div class="coll-mosaic__empty">
-        <RIcon icon="mdi-bookmark-outline" size="40" />
+        <RIcon icon="mdi-bookmark-outline" size="20" />
       </div>
     </template>
     <template v-else-if="displayCovers.length === 1">

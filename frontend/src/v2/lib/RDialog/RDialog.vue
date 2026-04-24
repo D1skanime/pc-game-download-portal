@@ -243,7 +243,7 @@ void props;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 18px;
+  padding: 18px 0px 0px;
 }
 
 .r-dialog__body--scroll {

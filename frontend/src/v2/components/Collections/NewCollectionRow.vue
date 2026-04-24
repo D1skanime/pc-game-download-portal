@@ -112,7 +112,7 @@ function onInput(e: Event) {
   gap: 14px;
   width: calc(100% + 36px);
   margin: -18px -18px 0;
-  padding: 10px 18px;
+  padding: 10px 30px;
   background: transparent;
   border: 0;
   cursor: pointer;

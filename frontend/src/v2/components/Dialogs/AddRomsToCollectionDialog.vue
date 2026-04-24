@@ -280,7 +280,7 @@ function closeDialog() {
 .r-v2-pick-coll__list {
   list-style: none;
   margin: 0 -18px;
-  padding: 2px 0 6px;
+  padding: 0px;
   display: flex;
   flex-direction: column;
   gap: 0;

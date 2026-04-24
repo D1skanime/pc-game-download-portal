@@ -11,7 +11,7 @@ defineOptions({ inheritAttrs: false });
 .r-menu-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.07);
-  margin: 4px 2px;
+  margin: 0px 2px;
 }
 
 .r-v2.r-v2-light .r-menu-divider {
