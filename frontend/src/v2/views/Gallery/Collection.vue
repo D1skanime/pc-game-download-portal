@@ -149,20 +149,19 @@ async function loadForRoute(kind: CollectionKind, id: string) {
   notFound.value = false;
   currentCollection.value = collection;
 
-  romsStore.resetPagination();
-  romsStore._allRoms = [];
+  // Full reset() — drops every `current*` field (so a prior Platform
+  // doesn't leak a platform_ids filter into this collection request),
+  // clears _allRoms + pagination, and resets `fetchingRoms` so the
+  // fetchRoms re-entrancy guard doesn't silently drop this call while
+  // a previous view's fetch is still in flight. Matches v1's
+  // resetGallery() pattern.
+  romsStore.reset();
 
   if (kind === "regular") {
     romsStore.setCurrentCollection(collection as Collection);
-    romsStore.setCurrentVirtualCollection(null);
-    romsStore.setCurrentSmartCollection(null);
   } else if (kind === "virtual") {
-    romsStore.setCurrentCollection(null);
     romsStore.setCurrentVirtualCollection(collection as VirtualCollection);
-    romsStore.setCurrentSmartCollection(null);
   } else {
-    romsStore.setCurrentCollection(null);
-    romsStore.setCurrentVirtualCollection(null);
     romsStore.setCurrentSmartCollection(collection as SmartCollection);
   }
 

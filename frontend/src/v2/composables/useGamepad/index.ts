@@ -1,32 +1,38 @@
 // useGamepad
 //
-// Universal gamepad support. Translates D-pad / left-stick / face-button
-// presses into synthetic KeyboardEvents so the normal DOM focus model and
-// Vue click handlers work out of the box on a controller — no bespoke
-// spatial-nav engine required.
+// Universal gamepad support. Translates D-pad / left-stick presses into
+// synthetic KeyboardEvents so the normal DOM focus model and Vue click
+// handlers work out of the box on a controller — no bespoke spatial-nav
+// engine required. Face buttons run direct actions (click the focused
+// element, open a menu, nav sections) because synthetic keyboard events
+// have `isTrusted=false` and don't trigger the default activation
+// behaviour on <a href> / <button type="submit"> — a direct .click() is
+// the only reliable path there.
 //
 // Mapping (Standard Gamepad):
 //   D-pad up / down / left / right → Arrow{Up,Down,Left,Right}
 //   Left stick (above threshold)   → Arrow* (with initial delay + repeat)
-//   A button (0)                   → Enter
+//   A button (0)                   → activate focused element (click)
 //   B button (1)                   → Escape
-//   Start (9)                      → "/" (focus search, per convention)
 //   Back / Select (8)              → Escape
+//   Start (9)                      → open user menu
+//   LB (4) / RB (5)                → AppNav section prev / next (cyclic)
 //
-// Repeat cadence matches the v1 console input: 350ms initial delay, then
-// 120ms per repeat. That's slow enough for deliberate navigation, fast
-// enough to scrub through long lists.
-//
-// Dispatch target: `document.activeElement || document.body`. For arrow
-// keys we additionally push Tab/Shift-Tab equivalents so native focus
-// movement works on sites that don't implement arrow navigation — we
-// prioritise arrows because most RomM lists / grids handle them via
-// browser-default behaviour (e.g. focused <button>s) or via custom Vue
-// handlers. When a view wants true grid spatial nav it adds its own
-// keydown handler; this composable just gives a gamepad the same reach
-// as a keyboard.
+// Action buttons (A/B/Back/Start/LB/RB) fire once per press — no repeat —
+// so a held face button doesn't shotgun actions. Synthetic-key buttons
+// (arrows) use the v1 console input cadence: 350ms initial delay, 120ms
+// repeat.
 import { onBeforeUnmount } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useInputModality } from "@/v2/composables/useInputModality";
+
+// AppNav tab order — must match the `tabs` list in
+// `src/v2/components/AppShell/AppNav.vue`. LB/RB cycle through these.
+const NAV_SECTIONS = ["/", "/platforms", "/collections", "/search"] as const;
+
+// Routes where LB/RB should NOT trigger section navigation, so the
+// corresponding buttons remain inspectable/usable in-place.
+const SECTION_NAV_DISABLED_PATHS = new Set<string>(["/controller-debug"]);
 
 const INITIAL_DELAY_MS = 350;
 const REPEAT_MS = 120;
@@ -34,12 +40,11 @@ const AXIS_THRESHOLD = 0.5;
 
 type Binding = { key: string; code?: string };
 
-// Standard gamepad button index → synthetic keyboard event.
+// Standard gamepad button index → synthetic keyboard event. Only the
+// navigational keys live here (arrows); face buttons and bumpers get
+// handled by BUTTON_ACTIONS below where a .click() / router.push() can
+// actually do the thing.
 const BUTTON_MAP: Record<number, Binding | undefined> = {
-  0: { key: "Enter", code: "Enter" }, // A / Cross
-  1: { key: "Escape", code: "Escape" }, // B / Circle
-  8: { key: "Escape", code: "Escape" }, // Back / Share
-  9: { key: "/", code: "Slash" }, // Start / Options — focus search
   12: { key: "ArrowUp", code: "ArrowUp" },
   13: { key: "ArrowDown", code: "ArrowDown" },
   14: { key: "ArrowLeft", code: "ArrowLeft" },
@@ -68,6 +73,89 @@ type PadState = {
 let installed = false;
 
 export function useGamepad() {
+  // Resolved here (setup context) so install() can reach them from inside
+  // the RAF loop without needing the component instance.
+  const router = useRouter();
+  const route = useRoute();
+
+  function cycleSection(step: -1 | 1) {
+    const currentPath = route.path;
+    if (SECTION_NAV_DISABLED_PATHS.has(currentPath)) return;
+
+    // Match current section by path prefix so /platform/:id still registers
+    // as "/platforms" when LB/RB is pressed from a gallery sub-route.
+    const matchIndex = NAV_SECTIONS.findIndex((section) =>
+      section === "/" ? currentPath === "/" : currentPath.startsWith(section),
+    );
+    // Not on a section at all (e.g. on /rom/:id). Jumping straight to
+    // Home is more predictable than silently treating the current page
+    // as Home and stepping once — that used to take the user to
+    // Platforms when pressing RB from a ROM detail view.
+    if (matchIndex < 0) {
+      if (currentPath !== "/") router.push("/");
+      return;
+    }
+    const nextIndex =
+      (matchIndex + step + NAV_SECTIONS.length) % NAV_SECTIONS.length;
+    const target = NAV_SECTIONS[nextIndex];
+    if (target !== currentPath) router.push(target);
+  }
+
+  // Activates the currently focused element. Router-links, submit
+  // buttons, custom [role=button] divs all navigate/trigger via .click()
+  // regardless of whether the event was trusted — that's the escape
+  // hatch synthetic KeyboardEvents don't give us.
+  function activateFocused() {
+    const active = document.activeElement as HTMLElement | null;
+    if (!active) return;
+    // Skip text inputs etc. — pressing A inside a text field shouldn't
+    // re-submit the form on every press.
+    const tag = active.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    active.click();
+  }
+
+  // Opens the app-wide user menu. UserMenu.vue marks its activator with
+  // `data-user-menu-trigger` so we can find it regardless of which view
+  // is mounted — the nav is always in the DOM.
+  function openUserMenu() {
+    const trigger = document.querySelector<HTMLElement>(
+      "[data-user-menu-trigger]",
+    );
+    trigger?.click();
+  }
+
+  // Navigate backwards. If a Vuetify overlay (dialog, menu, picker) is
+  // active right now we defer to Escape so it closes first — one B press
+  // shouldn't both dismiss the dialog AND pop a history entry. No active
+  // overlay = plain router.back().
+  //
+  // Important: we key off `.v-overlay--active` rather than
+  // `.v-overlay__content`. Vuetify's lazy-render keeps the content
+  // element in the DOM after first activation (tooltip hovered once,
+  // menu opened once, …) so `.v-overlay__content` can linger long after
+  // the overlay is closed; `--active` is only present while the overlay
+  // is actually visible.
+  function goBack() {
+    const hasOpenOverlay = !!document.querySelector(".v-overlay--active");
+    if (hasOpenOverlay) {
+      dispatchKey({ key: "Escape", code: "Escape" });
+      return;
+    }
+    router.back();
+  }
+
+  // Button-index → zero-argument action. Unlike BUTTON_MAP these don't
+  // fire a repeat while held; one press = one action.
+  const BUTTON_ACTIONS: Record<number, () => void> = {
+    0: activateFocused, //          A / Cross — activate (navigate/click)
+    1: goBack, //                   B / Circle — history back (or close modal)
+    4: () => cycleSection(-1), //   LB / L1 — previous AppNav section
+    5: () => cycleSection(1), //    RB / R1 — next AppNav section
+    8: goBack, //                   Back / Share — same as B
+    9: openUserMenu, //             Start / Options — open user menu
+  };
+
   function install() {
     if (installed) return;
     if (typeof navigator === "undefined" || !navigator.getGamepads) return;
@@ -76,14 +164,36 @@ export function useGamepad() {
     const states: Record<string, PadState> = {};
     const { setModality } = useInputModality();
     let rafId = 0;
+    let everSawPad = false;
 
     const onAnyInput = () => setModality("pad");
     const onConnect = () => setModality("pad");
     window.addEventListener("gamepadconnected", onConnect);
 
+    // Initial poll — if the browser already exposes a pad at install time
+    // (Firefox, or Chrome on a reload where a pad was previously used),
+    // flip modality immediately so the grid-nav autofocus can land without
+    // waiting for a first press. Chrome hides pads until first interaction
+    // for privacy; in that case this no-ops and the gamepadconnected event
+    // or first button press takes over.
+    function detectPadPresence() {
+      const list = navigator.getGamepads?.() ?? [];
+      const hasPad = Array.from(list).some((p) => p !== null);
+      if (hasPad && !everSawPad) {
+        everSawPad = true;
+        setModality("pad");
+      }
+    }
+    detectPadPresence();
+
     const loop = () => {
       const pads = navigator.getGamepads?.() ?? [];
       const t = performance.now();
+
+      // Keep checking while no pad has been seen yet — covers the case
+      // where a pad appears partway through the session (plugged in
+      // mid-browse, or Chrome exposes it once the user moves a stick).
+      if (!everSawPad) detectPadPresence();
 
       for (const pad of pads) {
         if (!pad) continue;
@@ -111,19 +221,26 @@ export function useGamepad() {
           ),
         );
 
-        // Buttons.
+        // Buttons. Two tracks:
+        //   * BUTTON_MAP → synthetic keyboard event, with repeat cadence.
+        //   * BUTTON_ACTIONS → one-shot callback, fires on press edge only.
+        // A button listed in both would prefer the synthetic key path; in
+        // practice they're disjoint.
         for (let i = 0; i < pad.buttons.length; i++) {
           const button = pad.buttons[i];
           const binding = BUTTON_MAP[i];
-          if (!binding) continue;
+          const action = BUTTON_ACTIONS[i];
+          if (!binding && !action) continue;
           const prev = (st.buttons[i] ||= { pressed: false, nextRepeatAt: 0 });
           if (button.pressed) {
             if (!prev.pressed) {
-              dispatchKey(binding);
+              if (binding) dispatchKey(binding);
+              else action?.();
               onAnyInput();
               prev.pressed = true;
               prev.nextRepeatAt = t + INITIAL_DELAY_MS;
-            } else if (t >= prev.nextRepeatAt) {
+            } else if (binding && t >= prev.nextRepeatAt) {
+              // Only synthetic-key bindings repeat while held.
               dispatchKey(binding);
               prev.nextRepeatAt = t + REPEAT_MS;
             }

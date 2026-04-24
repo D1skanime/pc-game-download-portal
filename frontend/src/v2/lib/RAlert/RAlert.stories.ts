@@ -13,6 +13,11 @@ const meta: Meta<typeof RAlert> = {
       control: "select",
       options: ["flat", "elevated", "tonal", "outlined", "text"],
     },
+    density: {
+      control: "select",
+      options: ["default", "comfortable", "compact"],
+    },
+    rounded: { control: "text" },
     closable: { control: "boolean" },
     title: { control: "text" },
     text: { control: "text" },

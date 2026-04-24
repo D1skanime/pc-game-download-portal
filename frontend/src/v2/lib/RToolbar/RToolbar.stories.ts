@@ -6,6 +6,17 @@ import RToolbar from "./RToolbar.vue";
 const meta: Meta<typeof RToolbar> = {
   title: "Structural/RToolbar",
   component: RToolbar,
+  argTypes: {
+    title: { control: "text" },
+    color: { control: "text" },
+    density: {
+      control: "select",
+      options: ["default", "comfortable", "compact"],
+    },
+    flat: { control: "boolean" },
+    height: { control: "text" },
+    rounded: { control: "text" },
+  },
 };
 
 export default meta;
@@ -13,11 +24,13 @@ export default meta;
 type Story = StoryObj<typeof RToolbar>;
 
 export const WithTitleAndActions: Story = {
-  render: () => ({
+  args: { title: "Platforms" },
+  render: (args) => ({
     components: { RToolbar, RBtn, RIcon },
+    setup: () => ({ args }),
     template: `
       <div style="width: 720px">
-        <RToolbar title="Platforms">
+        <RToolbar v-bind="args">
           <template #append>
             <RBtn variant="text" prepend-icon="mdi-filter">Filters</RBtn>
             <RBtn variant="text" prepend-icon="mdi-sort">Sort</RBtn>

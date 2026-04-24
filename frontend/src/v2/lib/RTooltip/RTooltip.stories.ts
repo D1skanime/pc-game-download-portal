@@ -5,6 +5,26 @@ import RTooltip from "./RTooltip.vue";
 const meta: Meta<typeof RTooltip> = {
   title: "Structural/RTooltip",
   component: RTooltip,
+  argTypes: {
+    text: { control: "text" },
+    location: {
+      control: "select",
+      options: [
+        "top",
+        "bottom",
+        "start",
+        "end",
+        "top start",
+        "top end",
+        "bottom start",
+        "bottom end",
+      ],
+    },
+    openDelay: { control: "number" },
+    closeDelay: { control: "number" },
+    offset: { control: "number" },
+    contentClass: { control: "text" },
+  },
 };
 
 export default meta;
@@ -12,11 +32,13 @@ export default meta;
 type Story = StoryObj<typeof RTooltip>;
 
 export const OnButton: Story = {
-  render: () => ({
+  args: { text: "Save your progress", location: "top" },
+  render: (args) => ({
     components: { RTooltip, RBtn },
+    setup: () => ({ args }),
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f;">
-        <RTooltip text="Save your progress" location="top">
+        <RTooltip v-bind="args">
           <template #activator="{ props }">
             <RBtn v-bind="props" prepend-icon="mdi-content-save">Save</RBtn>
           </template>
@@ -70,14 +92,16 @@ export const ParentAttach: Story = {
 };
 
 export const LongText: Story = {
-  render: () => ({
+  args: {
+    text: "Scans the selected library path, matches any new ROMs against the configured metadata providers, and refreshes artwork for existing entries.",
+    location: "top",
+  },
+  render: (args) => ({
     components: { RTooltip, RBtn },
+    setup: () => ({ args }),
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 80px; background: #07070f;">
-        <RTooltip
-          text="Scans the selected library path, matches any new ROMs against the configured metadata providers, and refreshes artwork for existing entries."
-          location="top"
-        >
+        <RTooltip v-bind="args">
           <template #activator="{ props }">
             <RBtn v-bind="props" prepend-icon="mdi-refresh">Full scan</RBtn>
           </template>

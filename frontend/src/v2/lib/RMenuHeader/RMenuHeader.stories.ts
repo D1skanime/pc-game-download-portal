@@ -7,6 +7,11 @@ import RMenuHeader from "./RMenuHeader.vue";
 const meta: Meta<typeof RMenuHeader> = {
   title: "Menus/RMenuHeader",
   component: RMenuHeader,
+  argTypes: {
+    title: { control: "text" },
+    subtitle: { control: "text" },
+    compact: { control: "boolean" },
+  },
 };
 
 export default meta;
@@ -14,12 +19,14 @@ export default meta;
 type Story = StoryObj<typeof RMenuHeader>;
 
 export const GameContext: Story = {
-  render: () => ({
+  args: { title: "Super Mario World", subtitle: "Super Nintendo" },
+  render: (args) => ({
     components: { RMenuPanel, RMenuHeader, RMenuItem, RMenuDivider },
+    setup: () => ({ args }),
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 40px; background: #07070f;">
         <RMenuPanel width="260px">
-          <RMenuHeader title="Super Mario World" subtitle="Super Nintendo">
+          <RMenuHeader v-bind="args">
             <template #art>
               <div style="width:38px;height:51px;border-radius:5px;background:linear-gradient(135deg,#3f2a7c,#1a1a2e);" />
             </template>
@@ -34,12 +41,14 @@ export const GameContext: Story = {
 };
 
 export const UserMenuCompact: Story = {
-  render: () => ({
+  args: { title: "zurdi", subtitle: "Admin", compact: true },
+  render: (args) => ({
     components: { RMenuPanel, RMenuHeader, RMenuItem, RMenuDivider },
+    setup: () => ({ args }),
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 40px; background: #07070f;">
         <RMenuPanel width="240px">
-          <RMenuHeader compact title="zurdi" subtitle="Admin">
+          <RMenuHeader v-bind="args">
             <template #art>
               <span style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#a18fff,#6043c8);display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;">ZU</span>
             </template>

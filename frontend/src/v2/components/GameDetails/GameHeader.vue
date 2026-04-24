@@ -29,7 +29,6 @@ defineProps<{
   regions: string[];
   languages: string[];
   canPlay: boolean;
-  downloadHref?: string;
 }>();
 </script>
 
@@ -96,7 +95,7 @@ defineProps<{
       </span>
     </div>
 
-    <GameActions :rom="rom" :can-play="canPlay" :download-href="downloadHref" />
+    <GameActions :rom="rom" :can-play="canPlay" />
   </div>
 </template>
 

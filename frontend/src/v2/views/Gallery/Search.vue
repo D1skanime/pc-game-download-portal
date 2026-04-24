@@ -108,14 +108,15 @@ function onListSort(options: { sortBy: SortEntry[] }) {
 watch(allRoms, () => onGridScroll(), { deep: false });
 
 onMounted(async () => {
-  // Global search — drop any platform/collection scoping from previous views.
-  romsStore.setCurrentPlatform(null);
-  romsStore.setCurrentCollection(null);
-  // Land on the first paginated batch (matches v1).
-  if (allRoms.value.length === 0) {
-    romsStore.resetPagination();
-    await romsStore.fetchRoms();
-  }
+  // Global search — drop ALL gallery scoping from previous views
+  // (platform + any collection kind) AND the fetching/pagination state
+  // via reset(). The old two-line `setCurrentPlatform(null)` +
+  // `setCurrentCollection(null)` clear missed the virtual/smart
+  // collection fields and left the re-entrancy guard untouched, so
+  // arriving on /search from a virtual/smart collection either sent a
+  // stale id or got its fetchRoms silently dropped.
+  romsStore.reset();
+  await romsStore.fetchRoms();
   romsStore.initialSearch = true;
   await nextTick();
   onGridScroll();

@@ -22,9 +22,11 @@ const meta: Meta<typeof RSelect> = {
       control: "select",
       options: ["default", "comfortable", "compact"],
     },
+    label: { control: "text" },
     multiple: { control: "boolean" },
     clearable: { control: "boolean" },
     disabled: { control: "boolean" },
+    readonly: { control: "boolean" },
   },
   render: (args) => ({
     components: { RSelect },

@@ -9,6 +9,10 @@ const meta: Meta<typeof RRating> = {
     length: { control: "number" },
     size: { control: "text" },
     color: { control: "text" },
+    density: {
+      control: "select",
+      options: ["default", "comfortable", "compact"],
+    },
     readonly: { control: "boolean" },
     halfIncrements: { control: "boolean" },
     hover: { control: "boolean" },

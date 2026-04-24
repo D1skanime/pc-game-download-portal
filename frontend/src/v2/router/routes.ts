@@ -52,6 +52,8 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   // V2-only index pages (no v1 equivalent — the v1 UI uses its drawer)
   "platforms-index": () => import("@/v2/views/PlatformsIndex.vue"),
   "collections-index": () => import("@/v2/views/CollectionsIndex.vue"),
+  // V2-only dev tool — live gamepad input inspector.
+  "controller-debug": () => import("@/v2/views/ControllerDebug.vue"),
   // Setup wizard deferred — remains v1-only for now
   // Wave 7 onwards adds the remaining routes.
 };

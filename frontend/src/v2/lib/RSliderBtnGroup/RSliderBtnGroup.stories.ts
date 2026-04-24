@@ -10,6 +10,14 @@ const meta: Meta = {
   // Storybook's ConcreteComponent constraint.
   component: RSliderBtnGroup as unknown as Meta["component"],
   tags: ["autodocs"],
+  argTypes: {
+    variant: {
+      control: "select",
+      options: ["segmented", "tab"],
+    },
+    disabled: { control: "boolean" },
+    ariaLabel: { control: "text" },
+  },
   parameters: {
     docs: {
       description: {
@@ -24,20 +32,21 @@ export default meta;
 type Story = StoryObj;
 
 export const Segmented: Story = {
-  render: () => ({
+  args: { variant: "segmented" },
+  render: (args) => ({
     components: { RSliderBtnGroup },
     setup() {
       const layout = ref<"grid" | "list">("grid");
-      return { layout };
+      return { args, layout };
     },
     template: `
       <RSliderBtnGroup
+        v-bind="args"
         :model-value="layout"
         :items="[
           { id: 'grid', icon: 'mdi-view-grid-outline', ariaLabel: 'Grid', title: 'Grid' },
           { id: 'list', icon: 'mdi-view-list', ariaLabel: 'List', title: 'List' },
         ]"
-        variant="segmented"
         @update:model-value="(v) => (layout = v)"
       />
     `,
@@ -45,21 +54,22 @@ export const Segmented: Story = {
 };
 
 export const Tab: Story = {
-  render: () => ({
+  args: { variant: "tab" },
+  render: (args) => ({
     components: { RSliderBtnGroup },
     setup() {
       const active = ref<"home" | "favorites" | "platforms">("home");
-      return { active };
+      return { args, active };
     },
     template: `
       <RSliderBtnGroup
+        v-bind="args"
         :model-value="active"
         :items="[
           { id: 'home', label: 'Home' },
           { id: 'favorites', label: 'Favorites' },
           { id: 'platforms', label: 'Platforms' },
         ]"
-        variant="tab"
         @update:model-value="(v) => (active = v)"
       />
     `,
@@ -67,20 +77,21 @@ export const Tab: Story = {
 };
 
 export const Disabled: Story = {
-  render: () => ({
+  args: { variant: "segmented" },
+  render: (args) => ({
     components: { RSliderBtnGroup },
     setup() {
       const group = ref<"none" | "letter">("none");
-      return { group };
+      return { args, group };
     },
     template: `
       <RSliderBtnGroup
+        v-bind="args"
         :model-value="group"
         :items="[
           { id: 'none', icon: 'mdi-view-agenda-outline', ariaLabel: 'Flat' },
           { id: 'letter', icon: 'mdi-alphabetical-variant', ariaLabel: 'By letter', disabled: true },
         ]"
-        variant="segmented"
         @update:model-value="(v) => (group = v)"
       />
     `,

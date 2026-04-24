@@ -9,6 +9,7 @@ const meta: Meta<typeof RCard> = {
       control: "select",
       options: ["flat", "elevated", "tonal", "outlined", "text", "plain"],
     },
+    rounded: { control: "text" },
     title: { control: "text" },
     subtitle: { control: "text" },
     loading: { control: "boolean" },

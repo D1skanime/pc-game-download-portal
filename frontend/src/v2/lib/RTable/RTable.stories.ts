@@ -4,6 +4,17 @@ import RTable from "./RTable.vue";
 const meta: Meta<typeof RTable> = {
   title: "Data/RTable",
   component: RTable,
+  argTypes: {
+    variant: {
+      control: "select",
+      options: ["server", "virtual", "client"],
+    },
+    density: {
+      control: "select",
+      options: ["default", "comfortable", "compact"],
+    },
+    rounded: { control: "boolean" },
+  },
 };
 
 export default meta;
@@ -56,13 +67,14 @@ const ITEMS = [
 ];
 
 export const ClientSide: Story = {
-  render: () => ({
+  args: { variant: "client", density: "compact", rounded: true },
+  render: (args) => ({
     components: { RTable },
-    setup: () => ({ HEADERS, ITEMS }),
+    setup: () => ({ args, HEADERS, ITEMS }),
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
         <RTable
-          variant="client"
+          v-bind="args"
           :headers="HEADERS"
           :items="ITEMS"
           item-value="id"
@@ -75,13 +87,14 @@ export const ClientSide: Story = {
 };
 
 export const WithSelection: Story = {
-  render: () => ({
+  args: { variant: "client", density: "compact", rounded: true },
+  render: (args) => ({
     components: { RTable },
-    setup: () => ({ HEADERS, ITEMS }),
+    setup: () => ({ args, HEADERS, ITEMS }),
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
         <RTable
-          variant="client"
+          v-bind="args"
           :headers="HEADERS"
           :items="ITEMS"
           item-value="id"

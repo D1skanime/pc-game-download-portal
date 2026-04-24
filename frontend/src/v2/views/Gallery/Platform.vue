@@ -125,9 +125,15 @@ async function loadForId(platformId: number) {
     return;
   }
   notFound.value = false;
+  // Mirror v1's Platform.vue: a full reset() before switching context
+  // clears every `current*` field (so a prior Collection's id doesn't
+  // bleed into the next platform request), wipes _allRoms, resets
+  // pagination, AND drops the `fetchingRoms` flag — otherwise the
+  // re-entrancy guard in fetchRoms silently swallows the new call when
+  // the user navigates between galleries mid-fetch and the new gallery
+  // renders empty.
   if (currentPlatform.value?.id !== platform.id) {
-    romsStore.resetPagination();
-    romsStore._allRoms = [];
+    romsStore.reset();
     romsStore.setCurrentPlatform(platform);
   }
   document.title = platform.display_name;
@@ -172,6 +178,8 @@ function setSearch(value: string) {
     searchTerm.value = normalized || null;
     romsStore.resetPagination();
     romsStore._allRoms = [];
+    // fetchRoms() supersedes any in-flight request via seq; no need to
+    // wait for it to finish first.
     romsStore.fetchRoms();
   }, 300);
 }

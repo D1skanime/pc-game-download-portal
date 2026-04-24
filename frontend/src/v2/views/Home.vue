@@ -1,6 +1,12 @@
 <script setup lang="ts">
 // Home dashboard — composed of primitives + feature components. Each
 // section is a CardRow with its own tile type in the default slot.
+//
+// Gamepad / keyboard arrow navigation: the root is registered with
+// `useGridNav`, which treats each CardRow track as a row and its children
+// as cells. When the input modality flips to `"pad"` (gamepad detected
+// or pressed) we autofocus the first cell so the synthetic keys
+// dispatched by `useGamepad` have somewhere to go.
 import { RGameCard, RIcon, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
@@ -11,6 +17,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
 import CardRow from "@/v2/components/Home/CardRow.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
+import { useGridNav } from "@/v2/composables/useGridNav";
 
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
@@ -34,6 +41,9 @@ const supportsWebp = computed<boolean>(() =>
 
 const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
+
+const gridRoot = ref<HTMLElement | null>(null);
+useGridNav(gridRoot);
 
 onMounted(() => {
   if (platformsStore.allPlatforms.length === 0) {
@@ -81,7 +91,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
 </script>
 
 <template>
-  <div class="r-v2-home">
+  <div ref="gridRoot" class="r-v2-home">
     <!-- Continue playing -->
     <CardRow
       v-if="continuePlayingRoms.length || fetchingContinue"

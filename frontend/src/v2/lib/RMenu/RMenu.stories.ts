@@ -7,6 +7,26 @@ import RMenu from "./RMenu.vue";
 const meta: Meta<typeof RMenu> = {
   title: "Structural/RMenu",
   component: RMenu,
+  argTypes: {
+    location: {
+      control: "select",
+      options: [
+        "top",
+        "bottom",
+        "start",
+        "end",
+        "top start",
+        "top end",
+        "bottom start",
+        "bottom end",
+      ],
+    },
+    offset: { control: "text" },
+    closeOnContentClick: { control: "boolean" },
+    openOnHover: { control: "boolean" },
+    openOnClick: { control: "boolean" },
+    transition: { control: "text" },
+  },
 };
 
 export default meta;
@@ -14,11 +34,12 @@ export default meta;
 type Story = StoryObj<typeof RMenu>;
 
 export const UserMenu: Story = {
-  render: () => ({
+  render: (args) => ({
     components: { RMenu, RBtn, RList, RListItem },
+    setup: () => ({ args }),
     template: `
       <div style="padding: 2rem">
-        <RMenu>
+        <RMenu v-bind="args">
           <template #activator="{ props }">
             <RBtn v-bind="props" variant="outlined" prepend-icon="mdi-account">
               Account

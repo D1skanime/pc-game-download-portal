@@ -77,9 +77,25 @@ const kindLabel = computed(() =>
     box-shadow var(--r-motion-fast);
 }
 
-.coll-tile:hover .coll-tile__cover {
+.coll-tile:hover .coll-tile__cover,
+.coll-tile:focus-visible .coll-tile__cover {
   transform: translateY(-2px);
   box-shadow: var(--r-elev-2);
+}
+
+/* Keyboard / gamepad focus — ring + brand glow on the cover, brighten
+   the name. Matches the v1 console card visual language. */
+.coll-tile:focus-visible {
+  outline: none;
+}
+.coll-tile:focus-visible .coll-tile__cover {
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.4),
+    0 0 0 2px var(--r-color-brand-primary),
+    0 0 18px rgba(139, 116, 232, 0.55);
+}
+.coll-tile:focus-visible .coll-tile__name {
+  color: #fff;
 }
 
 .coll-tile__kind {

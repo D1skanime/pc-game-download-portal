@@ -3,9 +3,11 @@ import RMenuItem from "../RMenuItem/RMenuItem.vue";
 import RMenuPanel from "../RMenuPanel/RMenuPanel.vue";
 import RMenuDivider from "./RMenuDivider.vue";
 
+// RMenuDivider exposes no props — it's a 1px hairline between menu groups.
 const meta: Meta<typeof RMenuDivider> = {
   title: "Menus/RMenuDivider",
   component: RMenuDivider,
+  argTypes: {},
 };
 
 export default meta;

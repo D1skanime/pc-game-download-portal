@@ -11,7 +11,7 @@ import { useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame, RomUserStatus } from "@/__generated__";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
-import { formatBytes, getDownloadPath, romStatusMap } from "@/utils";
+import { formatBytes, romStatusMap } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
 import DetailsTabs from "@/v2/components/GameDetails/DetailsTabs.vue";
@@ -128,10 +128,6 @@ watch(
   { immediate: true },
 );
 
-const downloadHref = computed(() =>
-  currentRom.value ? getDownloadPath({ rom: currentRom.value }) : undefined,
-);
-
 const canPlayEJS = computed(() => {
   const emu = heartbeatStore.value?.EMULATION;
   return Boolean(emu && !emu.DISABLE_EMULATOR_JS);
@@ -216,19 +212,10 @@ const tabs = computed(() => [
   { id: "related", label: "Related", show: hasRelated.value },
   { id: "files", label: "Files", show: true },
 ]);
-
-function back() {
-  if (window.history.length > 1) router.back();
-  else router.push(`/platform/${currentRom.value?.platform_id ?? ""}`);
-}
 </script>
 
 <template>
   <section v-if="currentRom" class="r-v2-det">
-    <header class="r-v2-det__topbar">
-      <BackBtn label="Back" @click="back" />
-    </header>
-
     <div class="r-v2-det__body">
       <CoverColumn :src="resolvedCover" :alt="title" />
 
@@ -246,7 +233,6 @@ function back() {
           :regions="regions"
           :languages="languages"
           :can-play="canPlayEJS"
-          :download-href="downloadHref"
         />
 
         <DetailsTabs v-model="tab" :tabs="tabs" />
@@ -297,6 +283,7 @@ function back() {
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  padding-top: 100px;
 }
 
 .r-v2-det__topbar {

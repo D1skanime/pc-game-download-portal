@@ -5,15 +5,14 @@
 //   * 158×213 card art, 8px radius
 //   * Platform badge bottom-left, rating badge top-right (both appear on hover)
 //   * Hover overlay: info (TL) · play (center) · action row (BL: download,
-//     bookmark, favorite, more)
+//     collection, favorite, more) — action buttons are the shared
+//     GameActionBtn atom so the card and the GameDetails header stay
+//     visually + behaviourally in sync.
 //   * Label below the card, 11.5px, truncated
 //   * Optional `hero` variant: 300×169 (16:9) + larger multi-line label
-//
-// All state is owned by the parent — this component is presentational.
-// Emits actions so Home/Gallery can wire favourite/download/bookmark.
 import { computed, ref } from "vue";
 import type { SimpleRom } from "@/stores/roms";
-import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
+import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import RIcon from "@/v2/lib/RIcon/RIcon.vue";
 
@@ -24,8 +23,6 @@ interface Props {
   to?: string;
   hero?: boolean;
   focused?: boolean;
-  isFavorite?: boolean;
-  isBookmarked?: boolean;
   webp?: boolean;
   showPlatformBadge?: boolean;
 }
@@ -35,10 +32,10 @@ const props = withDefaults(defineProps<Props>(), {
   showPlatformBadge: true,
 });
 
-type CardAction = "play" | "download" | "bookmark" | "favorite" | "info";
-
+// Card still emits `info` for the top-left button — consumers that want
+// to override the default navigate-to-details behaviour can listen.
 const emit = defineEmits<{
-  (e: CardAction, rom: SimpleRom): void;
+  (e: "info", rom: SimpleRom): void;
 }>();
 
 const EXTENSION_REGEX = /\.(png|jpg|jpeg)$/i;
@@ -63,15 +60,18 @@ const platformShort = computed(
 const href = computed(() => props.to ?? `/rom/${props.rom.id}`);
 
 const setBgArt = useBackgroundArt();
-function onMouseEnter() {
+// Same handler fires on hover AND focus so keyboard/gamepad users get
+// the background cross-fade to the focused cover — mirrors what mouse
+// users see when they rest a pointer on the card.
+function onHighlight() {
   if (coverUrl.value) setBgArt(coverUrl.value);
   else if (fallbackUrl.value) setBgArt(fallbackUrl.value);
 }
 
-function handle(eventName: CardAction, e: MouseEvent) {
+function onInfo(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
-  emit(eventName, props.rom);
+  emit("info", props.rom);
 }
 
 const ratingLabel = computed(() => {
@@ -87,7 +87,8 @@ const ratingLabel = computed(() => {
     :class="{ 'r-gc--hero': hero, 'r-gc--focused': focused }"
     :aria-label="title"
     :data-rom-id="rom.id"
-    @mouseenter="onMouseEnter"
+    @mouseenter="onHighlight"
+    @focus="onHighlight"
   >
     <div class="r-gc__art" :class="{ 'r-v2-shimmer': !imgLoaded && !imgError }">
       <img
@@ -110,76 +111,33 @@ const ratingLabel = computed(() => {
 
       <div v-if="ratingLabel" class="r-gc__rating">★ {{ ratingLabel }}</div>
 
-      <!-- Hover overlay -->
+      <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
       <div class="r-gc__overlay">
         <div class="r-gc__overlay-top">
           <button
             type="button"
             class="r-gc__info-btn"
             aria-label="More info"
-            @click="(e) => handle('info', e)"
+            @click="onInfo"
           >
             <RIcon icon="mdi-information-outline" size="18" />
           </button>
         </div>
 
         <div class="r-gc__overlay-center">
-          <button
-            type="button"
-            class="r-gc__play-btn"
-            aria-label="Play"
-            @click="(e) => handle('play', e)"
-          >
-            <RIcon icon="mdi-play" size="24" />
-          </button>
+          <GameActionBtn
+            :rom="rom"
+            action="play"
+            size="md"
+            variant="emphasized"
+          />
         </div>
 
         <div class="r-gc__overlay-bottom">
-          <button
-            type="button"
-            class="r-gc__action-btn"
-            aria-label="Download"
-            @click="(e) => handle('download', e)"
-          >
-            <RIcon icon="mdi-download-outline" size="18" />
-          </button>
-          <button
-            type="button"
-            class="r-gc__action-btn"
-            :class="{ 'r-gc__action-btn--on-accent': isBookmarked }"
-            aria-label="Add to collection"
-            @click="(e) => handle('bookmark', e)"
-          >
-            <RIcon
-              :icon="isBookmarked ? 'mdi-bookmark' : 'mdi-bookmark-outline'"
-              size="18"
-            />
-          </button>
-          <button
-            type="button"
-            class="r-gc__action-btn"
-            :class="{ 'r-gc__action-btn--on-fav': isFavorite }"
-            aria-label="Favorite"
-            @click="(e) => handle('favorite', e)"
-          >
-            <RIcon
-              :icon="isFavorite ? 'mdi-heart' : 'mdi-heart-outline'"
-              size="18"
-            />
-          </button>
-          <MoreMenu :rom="rom">
-            <template #activator="{ props: activatorProps }">
-              <button
-                v-bind="activatorProps"
-                type="button"
-                class="r-gc__action-btn"
-                aria-label="More actions"
-                @click.prevent.stop
-              >
-                <RIcon icon="mdi-dots-horizontal" size="18" />
-              </button>
-            </template>
-          </MoreMenu>
+          <GameActionBtn :rom="rom" action="download" size="sm" />
+          <GameActionBtn :rom="rom" action="collection" size="sm" />
+          <GameActionBtn :rom="rom" action="favorite" size="sm" />
+          <GameActionBtn :rom="rom" action="more" size="sm" />
         </div>
       </div>
     </div>
@@ -270,54 +228,6 @@ const ratingLabel = computed(() => {
   align-items: center;
 }
 
-.r-gc__play-btn {
-  appearance: none;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22);
-  border: 2px solid rgba(255, 255, 255, 0.65);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  color: #fff;
-  transition:
-    background 0.15s,
-    transform 0.15s;
-}
-.r-gc__play-btn :deep(.mdi) {
-  margin-left: 3px;
-}
-.r-gc__play-btn:hover {
-  background: rgba(255, 255, 255, 0.38);
-  transform: scale(1.1);
-}
-
-.r-gc__action-btn {
-  appearance: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-.r-gc__action-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
-}
-.r-gc__action-btn--on-fav {
-  color: var(--r-color-fav);
-}
-.r-gc__action-btn--on-accent {
-  color: var(--r-color-brand-accent);
-}
-
 .r-gc__info-btn {
   appearance: none;
   width: 28px;
@@ -368,19 +278,37 @@ const ratingLabel = computed(() => {
 }
 
 .r-gc:hover .r-gc__art,
+.r-gc:focus-visible .r-gc__art,
 .r-gc--focused .r-gc__art {
   transform: scale(1.05);
   box-shadow: var(--r-elev-3);
 }
 .r-gc:hover .r-gc__overlay,
+.r-gc:focus-visible .r-gc__overlay,
 .r-gc--focused .r-gc__overlay {
   opacity: 1;
 }
 .r-gc:hover .r-gc__badge,
+.r-gc:focus-visible .r-gc__badge,
 .r-gc--focused .r-gc__badge,
 .r-gc:hover .r-gc__rating,
+.r-gc:focus-visible .r-gc__rating,
 .r-gc--focused .r-gc__rating {
   opacity: 1;
+}
+
+/* Keyboard / gamepad focus — paint the outline in the brand colour and
+   stack a drop-shadow + outer bloom on top so the focused card reads
+   distinctly from hover. Mirrors the v1 console GameCard pattern. */
+.r-gc:focus-visible {
+  outline: none;
+}
+.r-gc:focus-visible .r-gc__art {
+  outline-color: var(--r-color-brand-primary);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.4),
+    0 0 0 2px var(--r-color-brand-primary),
+    0 0 18px rgba(139, 116, 232, 0.6);
 }
 
 .r-gc__label {
@@ -395,6 +323,7 @@ const ratingLabel = computed(() => {
   text-align: center;
 }
 .r-gc:hover .r-gc__label,
+.r-gc:focus-visible .r-gc__label,
 .r-gc--focused .r-gc__label {
   color: rgba(255, 255, 255, 0.9);
 }

@@ -46,6 +46,7 @@ export const ROUTES = {
   // V2-only routes (no v1 equivalent — v1 uses its drawer for these).
   PLATFORMS_INDEX: "platforms-index",
   COLLECTIONS_INDEX: "collections-index",
+  CONTROLLER_DEBUG: "controller-debug",
   NOT_FOUND: "404",
   CONSOLE_HOME: "console-home",
   CONSOLE_PLATFORM: "console-platform",
@@ -369,6 +370,16 @@ const routes = [
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.PLATFORMS_INDEX),
+        },
+      },
+      {
+        path: "controller-debug",
+        name: ROUTES.CONTROLLER_DEBUG,
+        meta: { title: "Controller debug" },
+        components: {
+          // v1 has no equivalent; redirect to home if a v1 user somehow lands here.
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.CONTROLLER_DEBUG),
         },
       },
       {

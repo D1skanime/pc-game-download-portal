@@ -6,6 +6,20 @@ import RDialog from "./RDialog.vue";
 const meta: Meta<typeof RDialog> = {
   title: "Overlays/RDialog",
   component: RDialog,
+  argTypes: {
+    icon: { control: "text" },
+    width: { control: "text" },
+    height: { control: "text" },
+    loadingCondition: { control: "boolean" },
+    emptyStateCondition: { control: "boolean" },
+    emptyStateType: {
+      control: "select",
+      options: [null, "game", "platform", "firmware"],
+    },
+    expandContentOnEmptyState: { control: "boolean" },
+    scrollContent: { control: "boolean" },
+    showRommIcon: { control: "boolean" },
+  },
 };
 
 export default meta;
@@ -13,16 +27,17 @@ export default meta;
 type Story = StoryObj<typeof RDialog>;
 
 export const Basic: Story = {
-  render: () => ({
+  args: { width: "420", icon: "mdi-information" },
+  render: (args) => ({
     components: { RDialog, RBtn },
     setup() {
       const open = ref(false);
-      return { open };
+      return { args, open };
     },
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
         <RBtn @click="open = true">Open dialog</RBtn>
-        <RDialog v-model="open" width="420" icon="mdi-information">
+        <RDialog v-bind="args" v-model="open">
           <template #header>
             <span>Dialog title</span>
           </template>
@@ -41,22 +56,22 @@ export const Basic: Story = {
 };
 
 export const Loading: Story = {
-  render: () => ({
+  args: {
+    width: "420",
+    height: "240",
+    icon: "mdi-loading",
+    loadingCondition: true,
+  },
+  render: (args) => ({
     components: { RDialog, RBtn },
     setup() {
       const open = ref(false);
-      return { open };
+      return { args, open };
     },
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
         <RBtn @click="open = true">Open loading dialog</RBtn>
-        <RDialog
-          v-model="open"
-          width="420"
-          height="240"
-          icon="mdi-loading"
-          :loading-condition="true"
-        >
+        <RDialog v-bind="args" v-model="open">
           <template #header>
             <span>Fetching…</span>
           </template>
@@ -67,16 +82,17 @@ export const Loading: Story = {
 };
 
 export const WithToolbarAndFooter: Story = {
-  render: () => ({
+  args: { width: "520", icon: "mdi-pencil" },
+  render: (args) => ({
     components: { RDialog, RBtn },
     setup() {
       const open = ref(false);
-      return { open };
+      return { args, open };
     },
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
         <RBtn @click="open = true">Open full dialog</RBtn>
-        <RDialog v-model="open" width="520" icon="mdi-pencil">
+        <RDialog v-bind="args" v-model="open">
           <template #header><span>Edit ROM</span></template>
           <template #toolbar>
             <small style="color: rgba(255,255,255,0.55)">Super Mario World · Super Nintendo</small>

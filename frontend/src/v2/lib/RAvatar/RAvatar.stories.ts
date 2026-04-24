@@ -10,6 +10,10 @@ const meta: Meta<typeof RAvatar> = {
     image: { control: "text" },
     icon: { control: "text" },
     rounded: { control: "text" },
+    variant: {
+      control: "select",
+      options: ["flat", "elevated", "tonal", "outlined", "text", "plain"],
+    },
   },
 };
 

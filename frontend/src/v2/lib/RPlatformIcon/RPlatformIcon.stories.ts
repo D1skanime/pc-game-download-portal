@@ -8,6 +8,7 @@ const meta: Meta<typeof RPlatformIcon> = {
     name: { control: "text" },
     src: { control: "text" },
     size: { control: "number" },
+    title: { control: "text" },
   },
 };
 

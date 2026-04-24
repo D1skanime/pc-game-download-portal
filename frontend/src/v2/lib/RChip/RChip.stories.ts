@@ -14,8 +14,10 @@ const meta: Meta<typeof RChip> = {
       control: "select",
       options: ["x-small", "small", "default", "large", "x-large"],
     },
+    rounded: { control: "text" },
     label: { control: "boolean" },
     closable: { control: "boolean" },
+    disabled: { control: "boolean" },
     prependIcon: { control: "text" },
   },
   render: (args) => ({

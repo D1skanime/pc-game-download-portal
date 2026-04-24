@@ -22,8 +22,6 @@ const meta: Meta<typeof RGameCard> = {
   argTypes: {
     hero: { control: "boolean" },
     focused: { control: "boolean" },
-    isFavorite: { control: "boolean" },
-    isBookmarked: { control: "boolean" },
     showPlatformBadge: { control: "boolean" },
   },
 };
@@ -43,11 +41,6 @@ export const Default: Story = {
 export const Focused: Story = {
   ...Default,
   args: { focused: true },
-};
-
-export const Favorited: Story = {
-  ...Default,
-  args: { isFavorite: true },
 };
 
 export const Hero: Story = {

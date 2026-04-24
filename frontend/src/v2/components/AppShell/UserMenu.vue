@@ -85,6 +85,7 @@ async function onLogout() {
         v-bind="menuProps"
         type="button"
         class="r-v2-user"
+        data-user-menu-trigger
         :aria-label="`Account menu for ${user?.username ?? 'Guest'}`"
       >
         <span class="r-v2-user__avatar">{{ userInitials }}</span>
@@ -161,6 +162,15 @@ async function onLogout() {
         icon="mdi-help-circle-outline"
         label="About"
         @click="showAbout"
+      />
+
+      <RMenuDivider />
+
+      <RMenuItem
+        to="/controller-debug"
+        icon="mdi-controller"
+        label="Controller debug"
+        @click="open = false"
       />
 
       <RMenuDivider />

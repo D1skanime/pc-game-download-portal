@@ -18,7 +18,7 @@ withDefaults(defineProps<Props>(), {
   location: "bottom",
   offset: 8,
   closeOnContentClick: true,
-  transition: "slide-y-transition",
+  transition: "scale-transition",
   openOnClick: true,
 });
 

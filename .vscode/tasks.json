@@ -37,6 +37,13 @@
       "dependsOn": ["Launch frontend", "Launch backend"],
       "problemMatcher": [],
       "dependsOrder": "parallel"
+    },
+    {
+      "label": "Launch Storybook",
+      "type": "npm",
+      "path": "frontend",
+      "script": "storybook",
+      "problemMatcher": []
     }
   ]
 }
