@@ -249,7 +249,6 @@ void props;
 .r-dialog__body--scroll {
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
 .r-dialog__state {

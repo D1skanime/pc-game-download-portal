@@ -281,7 +281,7 @@ function closeDialog() {
    reads like a menu item rather than a padded card. */
 .r-v2-pick-coll__list {
   list-style: none;
-  margin: 0 -18px;
+  margin: 0 0 0 -18px;
   padding: 0px;
   display: flex;
   flex-direction: column;
