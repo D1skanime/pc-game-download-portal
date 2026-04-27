@@ -61,7 +61,7 @@ COPY --from=uv-stage /usr/local/bin/uv /usr/local/bin/uvx /bin/
 WORKDIR /src
 
 COPY ./pyproject.toml ./uv.lock /src/
-RUN uv sync --locked --no-cache
+RUN uv sync --frozen --no-cache
 
 FROM backend-build AS backend-dev-build
 
@@ -69,7 +69,7 @@ FROM backend-build AS backend-dev-build
 RUN apk add --no-cache \
     linux-headers
 
-RUN uv sync --locked --no-cache --all-extras
+RUN uv sync --frozen --no-cache --all-extras
 
 
 # CUSTOM RAHASHER FOR RETROACHIEVEMENTS
