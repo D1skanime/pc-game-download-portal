@@ -13,7 +13,7 @@ import FolderMappings from "@/components/Settings/LibraryManagement/Config/Folde
 import MissingGames from "@/components/Settings/LibraryManagement/Config/MissingGames.vue";
 import storeConfig from "@/stores/config";
 import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
-import type { SliderBtnGroupItem } from "@/v2/lib/RSliderBtnGroup/types";
+import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 
 const { t } = useI18n();
 const route = useRoute();

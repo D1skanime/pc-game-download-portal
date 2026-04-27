@@ -11,9 +11,9 @@
 // as <RBtn> and emit update:modelValue on click. Active id is always driven
 // externally — the consumer decides it from route, prop, or store.
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import RBtn from "../RBtn/RBtn.vue";
 import RIcon from "../RIcon/RIcon.vue";
-import RTooltip from "../RTooltip/RTooltip.vue";
 import type { SliderBtnGroupItem } from "./types";
 
 defineOptions({ inheritAttrs: false });

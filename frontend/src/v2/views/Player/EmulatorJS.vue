@@ -41,7 +41,7 @@ import type { Events } from "@/types/emitter";
 import { formatBytes, formatRelativeDate, getSupportedEJSCores } from "@/utils";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
-import type { SliderBtnGroupItem } from "@/v2/lib/RSliderBtnGroup/types";
+import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.

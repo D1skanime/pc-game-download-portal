@@ -23,7 +23,7 @@ import EmptyFirmware from "@/components/common/EmptyStates/EmptyFirmware.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
 import RIsotipo from "@/components/common/RIsotipo.vue";
-import RIcon from "@/v2/lib/RIcon/RIcon.vue";
+import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import RBtn from "../RBtn/RBtn.vue";
-import RIcon from "../RIcon/RIcon.vue";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RToolbar from "./RToolbar.vue";
 
 const meta: Meta<typeof RToolbar> = {

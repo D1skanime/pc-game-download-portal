@@ -6,49 +6,52 @@
 //
 // Rule: every export below must be general enough that two or more
 // features depend on it, and must ship a Storybook story.
+//
+// Folders mirror Storybook categories (primitives, forms, structural,
+// menus, overlays, data, media).
 
-// Form + text primitives
-export * from "./RCheckbox";
-export * from "./RSelect";
-export * from "./RTextField";
+// Primitives
+export * from "./primitives/RAlert";
+export * from "./primitives/RAvatar";
+export * from "./primitives/RBadge";
+export * from "./primitives/RBtn";
+export * from "./primitives/RCard";
+export * from "./primitives/RChip";
+export * from "./primitives/RDivider";
+export * from "./primitives/RIcon";
+export * from "./primitives/RImg";
+export * from "./primitives/RProgressCircular";
+export * from "./primitives/RSkeletonBlock";
+export * from "./primitives/RSliderBtnGroup";
+export * from "./primitives/RSpinner";
 
-// Layout + surface primitives
-export * from "./RAlert";
-export * from "./RCard";
-export * from "./RDivider";
-export * from "./RList";
-export * from "./RListItem";
-export * from "./RToolbar";
+// Forms
+export * from "./forms/RCheckbox";
+export * from "./forms/RRating";
+export * from "./forms/RSelect";
+export * from "./forms/RTextField";
 
-// Buttons + interactive primitives
-export * from "./RBtn";
-export * from "./RRating";
-export * from "./RSliderBtnGroup";
-export * from "./RTooltip";
+// Structural
+export * from "./structural/RList";
+export * from "./structural/RListItem";
+export * from "./structural/RToolbar";
+export * from "./structural/RTooltip";
 
 // Menus
-export * from "./RMenu";
-export * from "./RMenuDivider";
-export * from "./RMenuHeader";
-export * from "./RMenuItem";
-export * from "./RMenuPanel";
-
-// Display atoms
-export * from "./RAvatar";
-export * from "./RBadge";
-export * from "./RChip";
-export * from "./RIcon";
-export * from "./RImg";
-export * from "./RPlatformIcon";
-export * from "./RProgressCircular";
-export * from "./RSkeletonBlock";
-export * from "./RSpinner";
-
-// Data
-export * from "./RTable";
+export * from "./menus/RMenu";
+export * from "./menus/RMenuPanel";
+export * from "./menus/RMenuDivider";
+export * from "./menus/RMenuHeader";
+export * from "./menus/RMenuItem";
 
 // Overlays
-export * from "./RDialog";
+export * from "./overlays/RDialog";
+
+// Data
+export * from "./data/RTable";
+
+// Media
+export * from "./media/RPlatformIcon";
 
 // (GameCard lives under components/Gallery/GameCard/ — it's a feature
 // composite that depends on stores + useGameActions, not a lib primitive.)

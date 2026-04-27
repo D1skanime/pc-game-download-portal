@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import RBtn from "../RBtn/RBtn.vue";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RTooltip from "./RTooltip.vue";
 
 const meta: Meta<typeof RTooltip> = {

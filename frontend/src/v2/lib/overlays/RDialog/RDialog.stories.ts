@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
-import RBtn from "../RBtn/RBtn.vue";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RDialog from "./RDialog.vue";
 
 const meta: Meta<typeof RDialog> = {

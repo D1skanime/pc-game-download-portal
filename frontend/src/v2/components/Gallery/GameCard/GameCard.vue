@@ -21,7 +21,7 @@ import { computed, ref } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
-import RIcon from "@/v2/lib/RIcon/RIcon.vue";
+import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 

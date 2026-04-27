@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import RBtn from "../RBtn/RBtn.vue";
-import RList from "../RList/RList.vue";
-import RListItem from "../RListItem/RListItem.vue";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import RList from "@/v2/lib/structural/RList/RList.vue";
+import RListItem from "@/v2/lib/structural/RListItem/RListItem.vue";
 import RMenu from "./RMenu.vue";
 
 const meta: Meta<typeof RMenu> = {
-  title: "Structural/RMenu",
+  title: "Menus/RMenu",
   component: RMenu,
   argTypes: {
     location: {

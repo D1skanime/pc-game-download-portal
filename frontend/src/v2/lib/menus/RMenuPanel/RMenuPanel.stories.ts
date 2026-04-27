@@ -5,7 +5,7 @@ import RMenuItem from "../RMenuItem/RMenuItem.vue";
 import RMenuPanel from "./RMenuPanel.vue";
 
 const meta: Meta<typeof RMenuPanel> = {
-  title: "Structural/RMenuPanel",
+  title: "Menus/RMenuPanel",
   component: RMenuPanel,
   argTypes: {
     width: { control: "text" },

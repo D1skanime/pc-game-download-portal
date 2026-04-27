@@ -5,7 +5,7 @@ import RSliderBtnGroup from "./RSliderBtnGroup.vue";
 // Storybook's Meta<typeof Component> struggles with <script setup generic>,
 // so we widen the component type here — runtime behaviour is unaffected.
 const meta: Meta = {
-  title: "Library/RSliderBtnGroup",
+  title: "Primitives/RSliderBtnGroup",
   // Cast needed: <script setup generic> types aren't compatible with
   // Storybook's ConcreteComponent constraint.
   component: RSliderBtnGroup as unknown as Meta["component"],

@@ -2,7 +2,7 @@
 // RSpinner — small indeterminate progress indicator. Thin convenience wrapper
 // over RProgressCircular with compact defaults suitable for inline loading
 // states (buttons, list items, toolbars).
-import RProgressCircular from "@/v2/lib/RProgressCircular/RProgressCircular.vue";
+import RProgressCircular from "@/v2/lib/primitives/RProgressCircular/RProgressCircular.vue";
 
 defineOptions({ inheritAttrs: false });
 
