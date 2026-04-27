@@ -95,6 +95,7 @@ const backing = computed(() => {
 .r-table :deep(tbody td) {
   border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
   color: rgba(255, 255, 255, 0.85);
+  height: 55px !important;
 }
 
 .r-table :deep(tbody tr:hover td) {
