@@ -217,7 +217,7 @@ const tabs = computed(() => [
 <template>
   <section v-if="currentRom" class="r-v2-det">
     <div class="r-v2-det__body">
-      <CoverColumn :src="resolvedCover" :alt="title" />
+      <CoverColumn :src="resolvedCover" :alt="title" :rom-id="currentRom.id" />
 
       <div class="r-v2-det__info">
         <GameHeader

@@ -18,9 +18,11 @@
 //   * Label below the card, 11.5px, truncated
 //   * Optional `hero` variant: 300×169 (16:9) + larger multi-line label
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useViewTransition } from "@/v2/composables/useViewTransition";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -85,6 +87,28 @@ const ratingLabel = computed(() => {
   const r = props.rom.rom_user?.rating;
   return r && r > 0 ? r.toString() : null;
 });
+
+// Shared-element morph: when the user clicks through to GameDetails, tag
+// the card art so the browser pairs it with the destination cover and
+// animates between them. Modifier keys / middle-click fall through to
+// the regular router-link behaviour so opening in a new tab still works.
+const router = useRouter();
+const artEl = ref<HTMLElement | null>(null);
+const { morphTransition } = useViewTransition();
+
+function onCardClick(e: MouseEvent) {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+    return;
+  }
+  if (!artEl.value) return;
+  e.preventDefault();
+  morphTransition(
+    { el: artEl.value, name: `rom-cover-${props.rom.id}` },
+    async () => {
+      await router.push(href.value);
+    },
+  );
+}
 </script>
 
 <template>
@@ -94,10 +118,15 @@ const ratingLabel = computed(() => {
     :class="{ 'r-gc--hero': hero, 'r-gc--focused': focused }"
     :aria-label="title"
     :data-rom-id="rom.id"
+    @click="onCardClick"
     @mouseenter="onHighlight"
     @focus="onHighlight"
   >
-    <div class="r-gc__art" :class="{ 'r-v2-shimmer': !imgLoaded && !imgError }">
+    <div
+      ref="artEl"
+      class="r-gc__art"
+      :class="{ 'r-v2-shimmer': !imgLoaded && !imgError }"
+    >
       <img
         v-if="(coverUrl || fallbackUrl) && !(imgError && !fallbackUrl)"
         :src="

@@ -2,19 +2,31 @@
 // CoverColumn — fixed-width left column with the ROM cover (or a placeholder
 // if none resolves). Sized via --r-cover-w and top-aligned so tall right-
 // column content doesn't stretch the image.
+//
+// `romId` opts the cover into the shared-element morph from GameCard via
+// `view-transition-name: rom-cover-{id}`. Source side (GameCard) tags the
+// matching element imperatively at click time — see useViewTransition.
+import { computed } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
-defineProps<{
+const props = defineProps<{
   src: string | null | undefined;
   alt: string;
+  romId?: number | string;
 }>();
+
+const morphStyle = computed(() =>
+  props.romId != null
+    ? { viewTransitionName: `rom-cover-${props.romId}` }
+    : undefined,
+);
 </script>
 
 <template>
   <div class="r-v2-det-cover">
-    <img v-if="src" :src="src" :alt="alt" />
-    <div v-else class="r-v2-det-cover__placeholder">
+    <img v-if="src" :src="src" :alt="alt" :style="morphStyle" />
+    <div v-else class="r-v2-det-cover__placeholder" :style="morphStyle">
       {{ alt }}
     </div>
   </div>
