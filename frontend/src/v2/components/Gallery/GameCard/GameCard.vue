@@ -20,6 +20,7 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
+import StatusBadge from "@/v2/components/Gallery/GameCard/StatusBadge.vue";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import {
@@ -161,6 +162,8 @@ const morphStyle = computed(() => {
       </div>
 
       <div v-if="ratingLabel" class="r-gc__rating">★ {{ ratingLabel }}</div>
+
+      <StatusBadge :rom="rom" />
 
       <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
       <div class="r-gc__overlay">
@@ -345,6 +348,11 @@ const morphStyle = computed(() => {
 .r-gc:hover .r-gc__rating,
 .r-gc:focus-visible .r-gc__rating,
 .r-gc--focused .r-gc__rating {
+  opacity: 1;
+}
+.r-gc:hover :deep(.r-gc-status),
+.r-gc:focus-visible :deep(.r-gc-status),
+.r-gc--focused :deep(.r-gc-status) {
   opacity: 1;
 }
 

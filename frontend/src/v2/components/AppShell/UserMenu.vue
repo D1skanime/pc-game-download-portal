@@ -115,7 +115,7 @@ async function onLogout() {
         </template>
       </RMenuHeader>
 
-      <RMenuDivider class="my-2" />
+      <RMenuDivider />
 
       <!-- Profile — gated by me.write scope (matches v1). -->
       <RMenuItem
@@ -152,7 +152,7 @@ async function onLogout() {
         @click="open = false"
       />
 
-      <RMenuDivider class="my-2" />
+      <RMenuDivider />
 
       <RMenuItem
         v-if="scopes.includes('users.write')"
@@ -169,7 +169,7 @@ async function onLogout() {
         @click="open = false"
       />
 
-      <RMenuDivider class="my-2" />
+      <RMenuDivider />
 
       <!-- Scope gates mirror v1 (SettingsDrawer + route guards in
            plugins/router.ts): Scan needs platforms.write, Upload needs
@@ -198,7 +198,7 @@ async function onLogout() {
         @click="open = false"
       />
 
-      <RMenuDivider class="my-2" />
+      <RMenuDivider />
 
       <!-- About is admin-only in v1's SettingsDrawer; keep that gate. -->
       <RMenuItem
@@ -216,7 +216,7 @@ async function onLogout() {
         @click="open = false"
       />
 
-      <RMenuDivider class="my-2" />
+      <RMenuDivider />
 
       <RMenuItem
         to="/controller-debug"
@@ -225,7 +225,7 @@ async function onLogout() {
         @click="open = false"
       />
 
-      <RMenuDivider class="my-2" />
+      <RMenuDivider />
 
       <RMenuItem
         icon="mdi-logout"

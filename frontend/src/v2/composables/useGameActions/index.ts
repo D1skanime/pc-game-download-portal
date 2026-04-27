@@ -12,22 +12,80 @@
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
 import { useRouter } from "vue-router";
+import type { RomUserData } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
+import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
+import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import type { PlayingStatus } from "@/utils";
 import { getDownloadPath } from "@/utils";
 
 export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   const router = useRouter();
   const emitter = inject<Emitter<Events>>("emitter");
   const collectionsStore = storeCollections();
+  const romsStore = storeRoms();
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
 
   const isFavorited = computed(() => {
     const rom = getRom();
     return rom ? Boolean(isFavorite(rom)) : false;
   });
+
+  // Mirrors the priority used in GameDetails.vue's statusDisplay so the
+  // GameCard badge and the detail header always agree on which slot is
+  // "current".
+  const currentStatusKey = computed<PlayingStatus | null>(() => {
+    const ru = getRom()?.rom_user;
+    if (!ru) return null;
+    if (ru.now_playing) return "now_playing";
+    if (ru.backlogged) return "backlogged";
+    if (ru.hidden) return "hidden";
+    return ru.status ?? null;
+  });
+
+  // Toggle semantics match v1's Personal tab: booleans flip independently,
+  // the enum status flips/clears on re-pick. `null` clears everything.
+  async function setStatus(next: PlayingStatus | null) {
+    const rom = getRom();
+    if (!rom?.rom_user) return;
+
+    let data: Partial<RomUserData>;
+    if (next === null) {
+      data = {
+        now_playing: false,
+        backlogged: false,
+        hidden: false,
+        status: null,
+      };
+    } else if (
+      next === "now_playing" ||
+      next === "backlogged" ||
+      next === "hidden"
+    ) {
+      data = { [next]: !rom.rom_user[next] };
+    } else {
+      data = { status: rom.rom_user.status === next ? null : next };
+    }
+
+    const before = { ...rom.rom_user };
+    Object.assign(rom.rom_user, data);
+    romsStore.update(rom);
+
+    try {
+      await romApi.updateUserRomProps({ romId: rom.id, data });
+    } catch {
+      Object.assign(rom.rom_user, before);
+      romsStore.update(rom);
+      emitter?.emit("snackbarShow", {
+        msg: "Failed to update status",
+        icon: "mdi-alert-circle-outline",
+        color: "red",
+      });
+    }
+  }
 
   const canAddToCollection = computed(
     () =>
@@ -123,6 +181,8 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   return {
     isFavorited,
     canAddToCollection,
+    currentStatusKey,
+    setStatus,
     play,
     download,
     favorite,

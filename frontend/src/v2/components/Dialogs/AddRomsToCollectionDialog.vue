@@ -222,7 +222,7 @@ function closeDialog() {
         @cancel="cancelCreate"
       />
 
-      <RMenuDivider v-if="ownedCollections.length > 0" />
+      <RMenuDivider v-if="ownedCollections.length > 0" no-gutters />
 
       <!-- Existing collection rows — instant toggle, no commit step. -->
       <ul v-if="ownedCollections.length" class="r-v2-pick-coll__list">
