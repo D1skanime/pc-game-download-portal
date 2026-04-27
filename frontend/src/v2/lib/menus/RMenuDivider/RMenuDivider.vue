@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // RMenuDivider — the 1px hairline used between menu groups.
-defineOptions({ inheritAttrs: false });
+defineOptions({ inheritAttrs: true });
 </script>
 
 <template>

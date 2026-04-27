@@ -93,7 +93,6 @@ withDefaults(defineProps<Props>(), {
 .r-menu-header--compact .r-menu-header__subtitle {
   font-size: 10.5px;
   font-weight: var(--r-font-weight-semibold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: capitalize;
 }
 </style>

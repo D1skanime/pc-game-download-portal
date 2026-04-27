@@ -6,6 +6,7 @@
 // same scope/role checks so unauthorised users don't see options they
 // can't use.
 import {
+  RBtn,
   RIcon,
   RMenu,
   RMenuDivider,
@@ -42,6 +43,13 @@ const isAdmin = computed(() => user.value?.role === "admin");
 function showAbout() {
   open.value = false;
   emitter?.emit("showAboutDialog", null);
+}
+
+function showUpload() {
+  open.value = false;
+  // The v2 UploadRomDialog isn't built yet; this event is the same one v1
+  // listens to, so the wiring is correct for when the v2 dialog lands.
+  emitter?.emit("showUploadRomDialog", null);
 }
 
 async function onLogout() {
@@ -81,9 +89,9 @@ async function onLogout() {
 <template>
   <RMenu v-model="open" location="bottom end" :offset="[8, 0]">
     <template #activator="{ props: menuProps }">
-      <button
+      <RBtn
         v-bind="menuProps"
-        type="button"
+        variant="text"
         class="r-v2-user"
         data-user-menu-trigger
         :aria-label="`Account menu for ${user?.username ?? 'Guest'}`"
@@ -93,7 +101,7 @@ async function onLogout() {
           {{ user?.username ?? "Guest" }}
         </span>
         <RIcon icon="mdi-chevron-down" size="16" class="r-v2-user__chevron" />
-      </button>
+      </RBtn>
     </template>
 
     <RMenuPanel width="260px">
@@ -107,7 +115,7 @@ async function onLogout() {
         </template>
       </RMenuHeader>
 
-      <RMenuDivider />
+      <RMenuDivider class="my-2" />
 
       <!-- Profile — gated by me.write scope (matches v1). -->
       <RMenuItem
@@ -143,6 +151,9 @@ async function onLogout() {
         label="Client API tokens"
         @click="open = false"
       />
+
+      <RMenuDivider class="my-2" />
+
       <RMenuItem
         v-if="scopes.includes('users.write')"
         to="/administration"
@@ -157,14 +168,55 @@ async function onLogout() {
         label="Server stats"
         @click="open = false"
       />
+
+      <RMenuDivider class="my-2" />
+
+      <!-- Scope gates mirror v1 (SettingsDrawer + route guards in
+           plugins/router.ts): Scan needs platforms.write, Upload needs
+           roms.write, Patcher is open to anyone (v1's PatcherBtn has no
+           gate either). -->
+      <RMenuItem
+        v-if="scopes.includes('platforms.write')"
+        to="/scan"
+        icon="mdi-magnify-scan"
+        label="Scan"
+        @click="open = false"
+      />
+      <!-- FIXME: v2 UploadRomDialog isn't built yet — clicking emits the
+           same event v1 listens for, so this lights up automatically once
+           the dialog ships. -->
+      <RMenuItem
+        v-if="scopes.includes('roms.write')"
+        icon="mdi-cloud-upload-outline"
+        label="Upload"
+        @click="showUpload"
+      />
+      <RMenuItem
+        to="/patcher"
+        icon="mdi-file-cog"
+        label="Patcher"
+        @click="open = false"
+      />
+
+      <RMenuDivider class="my-2" />
+
+      <!-- About is admin-only in v1's SettingsDrawer; keep that gate. -->
       <RMenuItem
         v-if="isAdmin"
         icon="mdi-help-circle-outline"
         label="About"
         @click="showAbout"
       />
+      <!-- FIXME: no Changelog dialog/view exists in v1 or v2 yet — the
+           item is kept visible because it was part of the menu design;
+           wire it the moment the dialog ships. -->
+      <RMenuItem
+        icon="mdi-clock-outline"
+        label="Changelog"
+        @click="open = false"
+      />
 
-      <RMenuDivider />
+      <RMenuDivider class="my-2" />
 
       <RMenuItem
         to="/controller-debug"
@@ -173,7 +225,7 @@ async function onLogout() {
         @click="open = false"
       />
 
-      <RMenuDivider />
+      <RMenuDivider class="my-2" />
 
       <RMenuItem
         icon="mdi-logout"
@@ -187,23 +239,25 @@ async function onLogout() {
 
 <style scoped>
 .r-v2-user {
-  appearance: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: var(--r-radius-pill);
-  padding: 3px 12px 3px 3px;
-  color: var(--r-color-fg);
-  text-decoration: none;
-  font-family: inherit;
-  cursor: pointer;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.11) !important;
+  border-radius: var(--r-radius-pill) !important;
+  padding: 3px 12px 3px 3px !important;
+  color: var(--r-color-fg) !important;
+  height: auto !important;
+  min-width: 0 !important;
+  opacity: 1;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
 .r-v2-user:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.r-v2-user :deep(.v-btn__content) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .r-v2-user__chevron {

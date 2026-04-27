@@ -67,5 +67,6 @@ withDefaults(defineProps<Props>(), {
 .r-btn {
   font-weight: var(--r-font-weight-medium);
   letter-spacing: 0;
+  text-transform: none;
 }
 </style>
