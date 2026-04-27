@@ -3,7 +3,12 @@
 // 150px fixed) and the /platforms grid (variant="grid"). Feature composite
 // around RPlatformIcon; not a design-system primitive.
 import { RPlatformIcon } from "@v2/lib";
-import { computed } from "vue";
+import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
+import {
+  pendingMorphName,
+  useViewTransition,
+} from "@/v2/composables/useViewTransition";
 
 defineOptions({ inheritAttrs: false });
 
@@ -31,6 +36,35 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const href = computed(() => props.to ?? `/platform/${props.id ?? ""}`);
+
+// Shared-element morph between the platform tile icon and the
+// RPlatformIcon shown in the Platform view's InfoPanel cover slot.
+const router = useRouter();
+const iconEl = ref<HTMLElement | null>(null);
+const { morphTransition } = useViewTransition();
+
+const morphName = computed(() =>
+  props.id != null ? `platform-icon-${props.id}` : null,
+);
+
+function onTileClick(e: MouseEvent) {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+    return;
+  }
+  if (!iconEl.value || !morphName.value) return;
+  const target = href.value;
+  if (typeof target !== "string") return;
+  e.preventDefault();
+  morphTransition({ el: iconEl.value, name: morphName.value }, async () => {
+    await router.push(target);
+  });
+}
+
+const morphStyle = computed(() =>
+  morphName.value && pendingMorphName.value === morphName.value
+    ? { viewTransitionName: morphName.value }
+    : undefined,
+);
 </script>
 
 <template>
@@ -39,8 +73,9 @@ const href = computed(() => props.to ?? `/platform/${props.id ?? ""}`);
     v-bind="$attrs"
     class="plat-tile"
     :class="[`plat-tile--${variant}`]"
+    @click="onTileClick"
   >
-    <div class="plat-tile__icon">
+    <div ref="iconEl" class="plat-tile__icon" :style="morphStyle">
       <RPlatformIcon
         :slug="slug"
         :fs-slug="fsSlug"

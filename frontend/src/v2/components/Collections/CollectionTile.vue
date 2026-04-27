@@ -3,8 +3,13 @@
 // composite that wraps CollectionMosaic + name + count. `kind` overlays
 // "Smart" or "Virtual" badge. `variant` controls sizing ("row" = 150px
 // fixed, "grid" = fills cell).
-import { computed } from "vue";
+import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
+import {
+  pendingMorphName,
+  useViewTransition,
+} from "@/v2/composables/useViewTransition";
 
 defineOptions({ inheritAttrs: false });
 
@@ -18,6 +23,10 @@ interface Props {
   to: string | object;
   variant?: Variant;
   kind?: Kind;
+  /** Stable id used to derive the shared-element morph tag. Optional —
+   *  if absent the tile still navigates but won't participate in the
+   *  morph (some callers pass a virtual/smart wrapper object). */
+  id?: number | string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -25,10 +34,42 @@ const props = withDefaults(defineProps<Props>(), {
   covers: () => [],
   variant: "row",
   kind: "regular",
+  id: undefined,
 });
 
 const kindLabel = computed(() =>
   props.kind === "smart" ? "Smart" : props.kind === "virtual" ? "Virtual" : "",
+);
+
+// Shared-element morph between the tile's CollectionMosaic and the
+// CollectionMosaic shown in the Collection view's InfoPanel cover slot.
+// The tag includes the kind so regular/virtual/smart with overlapping
+// numeric ids can never collide.
+const router = useRouter();
+const coverEl = ref<HTMLElement | null>(null);
+const { morphTransition } = useViewTransition();
+
+const morphName = computed(() =>
+  props.id != null ? `coll-cover-${props.kind}-${props.id}` : null,
+);
+
+function onTileClick(e: MouseEvent) {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+    return;
+  }
+  if (!coverEl.value || !morphName.value) return;
+  if (typeof props.to !== "string") return;
+  e.preventDefault();
+  const target = props.to;
+  morphTransition({ el: coverEl.value, name: morphName.value }, async () => {
+    await router.push(target);
+  });
+}
+
+const morphStyle = computed(() =>
+  morphName.value && pendingMorphName.value === morphName.value
+    ? { viewTransitionName: morphName.value }
+    : undefined,
 );
 </script>
 
@@ -38,8 +79,9 @@ const kindLabel = computed(() =>
     v-bind="$attrs"
     class="coll-tile"
     :class="[`coll-tile--${variant}`]"
+    @click="onTileClick"
   >
-    <div class="coll-tile__cover">
+    <div ref="coverEl" class="coll-tile__cover" :style="morphStyle">
       <CollectionMosaic :covers="covers" />
       <span v-if="kindLabel" class="coll-tile__kind">{{ kindLabel }}</span>
     </div>

@@ -9,7 +9,8 @@
 // Per-ROM action menus are not app-wide: each GameCard owns its own
 // `MoreMenu` dropdown on the three-dots button. Right-click is left to
 // the browser so "Open in new tab" etc. keep working.
-import { onMounted, provide, ref } from "vue";
+import { onBeforeUnmount, onMounted, provide, ref } from "vue";
+import { useRouter } from "vue-router";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import GlobalDialogs from "@/v2/components/AppShell/GlobalDialogs.vue";
@@ -18,6 +19,7 @@ import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useThemeClass } from "@/v2/composables/useThemeClass";
+import { installBackMorph } from "@/v2/composables/useViewTransition";
 
 const themeClass = useThemeClass();
 
@@ -42,10 +44,22 @@ provide(BACKGROUND_ART_KEY, setBackgroundArt);
 const { install: installInputModality } = useInputModality();
 const { install: installGamepad } = useGamepad();
 const { install: installGlobalHotkeys } = useGlobalHotkeys();
+const router = useRouter();
+
+let removeBackMorph: (() => void) | null = null;
+
 onMounted(() => {
   installInputModality();
   installGamepad();
   installGlobalHotkeys();
+  // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
+  // Forward direction is handled at the source side in GameCard.
+  removeBackMorph = installBackMorph(router);
+});
+
+onBeforeUnmount(() => {
+  removeBackMorph?.();
+  removeBackMorph = null;
 });
 </script>
 

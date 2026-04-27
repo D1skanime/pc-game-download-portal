@@ -239,7 +239,12 @@ function onListSort(options: { sortBy: SortEntry[] }) {
     >
       <InfoPanel v-if="currentCollection" :title="currentCollection.name">
         <template #cover>
-          <div class="r-v2-coll__panel-cover">
+          <div
+            class="r-v2-coll__panel-cover"
+            :style="{
+              viewTransitionName: `coll-cover-${currentKind}-${currentCollection.id}`,
+            }"
+          >
             <CollectionMosaic :covers="mosaicCovers" aspect-ratio="140 / 188" />
           </div>
         </template>

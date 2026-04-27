@@ -11,6 +11,10 @@ import type { SimpleRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
+import {
+  pendingMorphName,
+  useViewTransition,
+} from "@/v2/composables/useViewTransition";
 
 defineOptions({ inheritAttrs: false });
 
@@ -35,6 +39,7 @@ type SortEntry = { key: keyof SimpleRom; order: "asc" | "desc" };
 
 const router = useRouter();
 const romsStore = storeRoms();
+const { morphTransition } = useViewTransition();
 
 const headers = [
   { title: "Title", key: "name", align: "start", sortable: true },
@@ -62,9 +67,36 @@ function coverUrl(rom: SimpleRom): string | null {
   return props.webp ? path.replace(/\.(png|jpg|jpeg)$/i, ".webp") : path;
 }
 
-function rowClick(_: Event, row: { item: SimpleRom }) {
-  router.push(`/rom/${row.item.id}`);
-  romsStore.resetSelection?.();
+function rowClick(e: Event, row: { item: SimpleRom }) {
+  const navigate = async () => {
+    await router.push(`/rom/${row.item.id}`);
+    romsStore.resetSelection?.();
+  };
+  // Find the row's thumb so the browser can pair it with the GameDetails
+  // cover for the morph. Modifier keys / non-primary buttons fall through
+  // to a plain navigation so "open in new tab" still works.
+  const me = e as MouseEvent;
+  if (me.metaKey || me.ctrlKey || me.shiftKey || me.altKey || me.button !== 0) {
+    void navigate();
+    return;
+  }
+  const tr = (e.target as HTMLElement | null)?.closest("tr");
+  const thumb = tr?.querySelector<HTMLElement>(".game-list__thumb");
+  if (!thumb) {
+    void navigate();
+    return;
+  }
+  morphTransition({ el: thumb, name: `rom-cover-${row.item.id}` }, navigate);
+}
+
+// Reverse-morph tag: when GameDetails is leaving back into a list, paint
+// the matching view-transition-name on the thumb of the row whose name
+// matches `pendingMorphName` so the browser can pair the snapshots.
+function morphStyleFor(item: SimpleRom) {
+  const name = `rom-cover-${item.id}`;
+  return pendingMorphName.value === name
+    ? { viewTransitionName: name }
+    : undefined;
 }
 
 function onUpdateOptions(options: { sortBy: SortEntry[] }) {
@@ -119,7 +151,7 @@ function ratingValue(rom: SimpleRom): string {
     <!-- Title column — cover thumb + name + filename -->
     <template #item.name="{ item }">
       <div class="game-list__title">
-        <div class="game-list__thumb">
+        <div class="game-list__thumb" :style="morphStyleFor(item)">
           <img
             v-if="coverUrl(item)"
             :src="coverUrl(item) ?? undefined"

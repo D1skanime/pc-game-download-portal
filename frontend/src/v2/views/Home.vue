@@ -205,6 +205,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
       </template>
       <CollectionTile
         v-for="c in allCollections"
+        :id="c.id"
         :key="`coll-${c.id}`"
         :to="`/collection/${c.id}`"
         :name="c.name"

@@ -126,6 +126,7 @@ const count = computed(() => tiles.value.length);
     <div v-else class="r-v2-cidx__grid">
       <CollectionTile
         v-for="c in tiles"
+        :id="c.id"
         :key="`${c.kind}-${c.id}`"
         :to="c.link"
         :name="c.name"

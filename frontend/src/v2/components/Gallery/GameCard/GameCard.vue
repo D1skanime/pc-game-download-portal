@@ -22,7 +22,10 @@ import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
-import { useViewTransition } from "@/v2/composables/useViewTransition";
+import {
+  pendingMorphName,
+  useViewTransition,
+} from "@/v2/composables/useViewTransition";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -109,6 +112,17 @@ function onCardClick(e: MouseEvent) {
     },
   );
 }
+
+// Reverse-morph tag: when GameDetails is leaving (BackBtn / navbar /
+// browser back), `pendingMorphName` is set and we paint the matching
+// view-transition-name on the destination card so the browser can pair
+// it with the GameDetails cover.
+const morphStyle = computed(() => {
+  const name = `rom-cover-${props.rom.id}`;
+  return pendingMorphName.value === name
+    ? { viewTransitionName: name }
+    : undefined;
+});
 </script>
 
 <template>
@@ -126,6 +140,7 @@ function onCardClick(e: MouseEvent) {
       ref="artEl"
       class="r-gc__art"
       :class="{ 'r-v2-shimmer': !imgLoaded && !imgError }"
+      :style="morphStyle"
     >
       <img
         v-if="(coverUrl || fallbackUrl) && !(imgError && !fallbackUrl)"

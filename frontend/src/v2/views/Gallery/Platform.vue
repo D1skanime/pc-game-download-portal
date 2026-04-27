@@ -212,7 +212,12 @@ function onListSort(options: { sortBy: SortEntry[] }) {
     >
       <InfoPanel v-if="currentPlatform" :title="currentPlatform.display_name">
         <template #cover>
-          <div class="r-v2-plat__panel-icon">
+          <div
+            class="r-v2-plat__panel-icon"
+            :style="{
+              viewTransitionName: `platform-icon-${currentPlatform.id}`,
+            }"
+          >
             <RPlatformIcon
               :slug="currentPlatform.slug"
               :fs-slug="currentPlatform.fs_slug"
