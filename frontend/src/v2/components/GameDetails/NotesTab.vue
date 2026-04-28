@@ -229,10 +229,16 @@ async function remove(note: UserNoteSchema) {
         v-model="formContent"
         class="r-v2-det-notes__input r-v2-det-notes__textarea"
         placeholder="Write your note…"
+        aria-label="Note content"
         :disabled="saving"
       />
-      <label class="r-v2-det-notes__public">
-        <input v-model="formPublic" type="checkbox" :disabled="saving" />
+      <label class="r-v2-det-notes__public" for="note-public-toggle">
+        <input
+          id="note-public-toggle"
+          v-model="formPublic"
+          type="checkbox"
+          :disabled="saving"
+        />
         Make public
       </label>
       <div class="r-v2-det-notes__form-actions">

@@ -24,7 +24,6 @@ import NotesTab from "@/v2/components/GameDetails/NotesTab.vue";
 import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PersonalTab from "@/v2/components/GameDetails/PersonalTab.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
-import BackBtn from "@/v2/components/shared/BackBtn.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 
 const route = useRoute();

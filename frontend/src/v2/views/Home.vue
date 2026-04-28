@@ -66,6 +66,7 @@ onMounted(() => {
 });
 
 // Favorite ROMs — derived from the Favorites collection's rom_ids.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- false positive: used in <template>; @typescript-eslint+projectService doesn't see Vue templates
 const favoriteRoms = computed<SimpleRom[]>(() => {
   const favIds = favoriteCollection.value?.rom_ids ?? [];
   if (!favIds.length) return [];
