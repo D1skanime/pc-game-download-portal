@@ -53,6 +53,14 @@ export default tseslint.config(
       ],
       "vue/prop-name-casing": ["error", "camelCase"],
       "vue/attribute-hyphenation": ["error", "always"],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
     },
   },
 );
