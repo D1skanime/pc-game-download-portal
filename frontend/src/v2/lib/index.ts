@@ -36,6 +36,7 @@ export * from "./structural/RList";
 export * from "./structural/RListItem";
 export * from "./structural/RToolbar";
 export * from "./structural/RTooltip";
+export * from "./structural/RVirtualScroller";
 
 // Menus
 export * from "./menus/RMenu";
