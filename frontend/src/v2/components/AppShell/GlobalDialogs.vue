@@ -16,6 +16,7 @@ import UploadProgressToast from "@/v2/components/Notifications/UploadProgressToa
 import EmulatorJSCacheDialog from "@/v2/components/Player/EmulatorJSCacheDialog.vue";
 import SelectSaveDialog from "@/v2/components/Player/SelectSaveDialog.vue";
 import SelectStateDialog from "@/v2/components/Player/SelectStateDialog.vue";
+import ConfirmDialog from "@/v2/components/shared/ConfirmDialog.vue";
 
 defineOptions({ inheritAttrs: false });
 </script>
@@ -23,6 +24,7 @@ defineOptions({ inheritAttrs: false });
 <template>
   <NotificationHost />
   <UploadProgressToast />
+  <ConfirmDialog />
   <ManualUploadTargetDialog />
   <DeleteManualDialog />
   <EditRomDialog />

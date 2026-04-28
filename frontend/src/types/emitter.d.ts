@@ -90,4 +90,17 @@ export type Events = {
     files: File[];
   };
   playGame: number;
+  // v2 only — generic confirmation dialog. Consumers go through
+  // `useConfirm()`; the payload carries an id used to route the result
+  // back via the matching `confirmResolved` event.
+  showConfirm: {
+    id: number;
+    title: string;
+    body?: string;
+    confirmText?: string;
+    cancelText?: string;
+    tone?: "warning" | "danger";
+    requireTyped?: string;
+  };
+  confirmResolved: { id: number; confirmed: boolean };
 };
