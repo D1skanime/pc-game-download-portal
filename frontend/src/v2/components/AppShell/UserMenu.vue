@@ -240,8 +240,8 @@ async function onLogout() {
 
 <style scoped>
 .r-v2-user {
-  background: rgba(255, 255, 255, 0.07) !important;
-  border: 1px solid rgba(255, 255, 255, 0.11) !important;
+  background: var(--r-color-surface) !important;
+  border: 1px solid var(--r-color-border-strong) !important;
   border-radius: var(--r-radius-pill) !important;
   padding: 3px 12px 3px 3px !important;
   color: var(--r-color-fg) !important;
@@ -252,7 +252,7 @@ async function onLogout() {
 }
 
 .r-v2-user:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
+  background: var(--r-color-surface-hover) !important;
 }
 
 .r-v2-user :deep(.v-btn__content) {
@@ -262,7 +262,7 @@ async function onLogout() {
 }
 
 .r-v2-user__chevron {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-user__avatar {

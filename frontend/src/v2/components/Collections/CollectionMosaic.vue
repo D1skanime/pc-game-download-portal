@@ -71,7 +71,7 @@ const mosaicSlots = computed(() => {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--r-color-bg-elevated);
   width: 100%;
 }
 
@@ -92,13 +92,6 @@ const mosaicSlots = computed(() => {
   grid-row: 1 / -1;
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.15);
-}
-
-:global(.r-v2.r-v2-light) .coll-mosaic {
-  background: rgba(17, 17, 23, 0.05);
-}
-:global(.r-v2.r-v2-light) .coll-mosaic__empty {
-  color: rgba(17, 17, 23, 0.2);
+  color: var(--r-color-fg-faint);
 }
 </style>

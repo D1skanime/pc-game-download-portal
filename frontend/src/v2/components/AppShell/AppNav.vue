@@ -141,14 +141,14 @@ const activeTab = computed<TabId | null>(() => {
 /* Ghost-pill styling for the "classic UI" button (matches the old RIconBtn
    ghost variant — translucent glass, subtle border). */
 .r-v2-nav__classic {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  color: rgba(255, 255, 255, 0.8) !important;
+  background: var(--r-color-surface) !important;
+  border: 1px solid var(--r-color-border-strong) !important;
+  color: var(--r-color-fg-secondary) !important;
   opacity: 1;
 }
 .r-v2-nav__classic:hover {
-  background: rgba(255, 255, 255, 0.16) !important;
-  color: #fff !important;
+  background: var(--r-color-surface-hover) !important;
+  color: var(--r-color-fg) !important;
 }
 
 @media (max-width: 768px) {

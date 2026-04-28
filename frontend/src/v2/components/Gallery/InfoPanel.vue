@@ -50,12 +50,8 @@ withDefaults(defineProps<Props>(), {
   align-items: center;
   gap: 40px;
   padding: 28px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid var(--r-color-border);
   margin-bottom: 12px;
-}
-
-:global(.r-v2.r-v2-light) .info-panel {
-  border-bottom-color: rgba(17, 17, 23, 0.08);
 }
 
 .info-panel--no-border {
@@ -82,13 +78,9 @@ withDefaults(defineProps<Props>(), {
   font-size: var(--r-font-size-3xl);
   font-weight: var(--r-font-weight-extrabold);
   letter-spacing: -0.025em;
-  color: #fff;
+  color: var(--r-color-fg);
   line-height: 1.1;
   margin: 0 0 10px 0;
-}
-
-:global(.r-v2.r-v2-light) .info-panel__title {
-  color: var(--r-color-fg);
 }
 
 .info-panel__tags {

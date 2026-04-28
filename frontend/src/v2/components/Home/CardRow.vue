@@ -153,10 +153,7 @@ onMounted(() => {
   /* gap is driven inline via the --card-row icon gap prop. */
   padding: 0 var(--r-row-pad);
   margin-bottom: 12px;
-  color: rgba(255, 255, 255, 0.88);
-}
-:global(.r-v2.r-v2-light) .card-row__head {
-  color: rgba(17, 17, 23, 0.88);
+  color: var(--r-color-fg-secondary);
 }
 
 /* Icon slot — sizes to its content so the caller's RIcon `size` drives
@@ -182,7 +179,7 @@ onMounted(() => {
 .card-row__count {
   font-size: 12px;
   font-weight: var(--r-font-weight-regular);
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   margin-left: 4px;
 }
 
@@ -210,7 +207,7 @@ onMounted(() => {
   display: grid;
   place-items: center;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg-secondary);
   transition:
     color 0.2s,
     opacity 0.2s;
@@ -218,12 +215,12 @@ onMounted(() => {
 
 .card-row__arrow--left {
   left: 0;
-  background: linear-gradient(to right, rgba(7, 7, 15, 0.9), transparent);
+  background: linear-gradient(to right, var(--r-color-bg), transparent);
   border-radius: 0 6px 6px 0;
 }
 .card-row__arrow--right {
   right: 0;
-  background: linear-gradient(to left, rgba(7, 7, 15, 0.9), transparent);
+  background: linear-gradient(to left, var(--r-color-bg), transparent);
   border-radius: 6px 0 0 6px;
 }
 
@@ -232,7 +229,7 @@ onMounted(() => {
 }
 
 .card-row__arrow:hover {
-  color: #fff;
+  color: var(--r-color-fg);
 }
 
 @media (max-width: 768px) {

@@ -105,7 +105,7 @@ setBgArt(null);
 
 .r-v2-settings__subtitle {
   margin: 2px 0 0;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-sm);
   max-width: 560px;
 }
@@ -116,8 +116,8 @@ setBgArt(null);
 }
 
 .r-v2-settings__panel {
-  background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);

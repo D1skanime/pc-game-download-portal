@@ -141,8 +141,8 @@ const uiVersionCards = computed(() => [
 
 <style scoped>
 .r-v2-ui__section {
-  background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -156,7 +156,7 @@ const uiVersionCards = computed(() => [
   display: flex;
   align-items: center;
   gap: 8px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--r-color-fg-secondary);
 }
 .r-v2-ui__section-head h2 {
   margin: 0;
@@ -164,12 +164,12 @@ const uiVersionCards = computed(() => [
   font-weight: var(--r-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg);
 }
 
 .r-v2-ui__desc {
   margin: 0;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   font-size: 13px;
   line-height: 1.5;
   max-width: 640px;
@@ -190,10 +190,10 @@ const uiVersionCards = computed(() => [
   justify-content: center;
   gap: 6px;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--r-color-fg-secondary);
   cursor: pointer;
   text-align: left;
   transition:
@@ -203,15 +203,15 @@ const uiVersionCards = computed(() => [
 }
 .r-v2-ui__version-card:hover,
 .r-v2-ui__theme-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--r-color-surface);
+  border-color: var(--r-color-border-strong);
   transform: translateY(-1px);
 }
 .r-v2-ui__version-card--active,
 .r-v2-ui__theme-card--active {
   background: rgba(139, 116, 232, 0.14);
   border-color: rgba(139, 116, 232, 0.45);
-  color: #fff;
+  color: var(--r-color-fg);
 }
 
 .r-v2-ui__version-title {
@@ -220,7 +220,7 @@ const uiVersionCards = computed(() => [
 }
 .r-v2-ui__version-blurb {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-ui__version-dot {

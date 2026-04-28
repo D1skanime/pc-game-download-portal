@@ -91,7 +91,7 @@ function isActive(letter: string): boolean {
   font-family: inherit;
   font-size: 10px;
   font-weight: var(--r-font-weight-bold);
-  color: rgba(255, 255, 255, 0.14);
+  color: var(--r-color-fg-faint);
   cursor: default;
   line-height: 1;
   padding: 2.5px 0;
@@ -104,12 +104,12 @@ function isActive(letter: string): boolean {
 }
 
 .alpha-strip__btn--has {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
   cursor: pointer;
 }
 .alpha-strip__btn--has:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
+  color: var(--r-color-fg);
+  background: var(--r-color-surface);
 }
 
 /* Scroll-spied letter — primary brand colour to stand out against the
@@ -117,7 +117,7 @@ function isActive(letter: string): boolean {
 .alpha-strip__btn--current,
 .alpha-strip__btn--has.alpha-strip__btn--current {
   color: var(--r-color-brand-primary) !important;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--r-color-surface-hover);
 }
 .alpha-strip__btn--has.alpha-strip__btn--current:hover {
   color: var(--r-color-brand-primary-hover) !important;

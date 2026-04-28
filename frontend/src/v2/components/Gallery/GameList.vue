@@ -263,7 +263,7 @@ function ratingValue(rom: SimpleRom): string {
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--r-color-surface);
   display: grid;
   place-items: center;
 }
@@ -278,7 +278,7 @@ function ratingValue(rom: SimpleRom): string {
 .game-list__thumb-fallback {
   font-size: 10px;
   font-weight: var(--r-font-weight-bold);
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
 }
 
 .game-list__meta {
@@ -291,7 +291,7 @@ function ratingValue(rom: SimpleRom): string {
 .game-list__name {
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -300,7 +300,7 @@ function ratingValue(rom: SimpleRom): string {
 
 .game-list__filename {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

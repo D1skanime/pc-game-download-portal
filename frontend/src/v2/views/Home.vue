@@ -227,7 +227,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
 }
 
 .r-v2-home__empty {
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--r-color-fg-faint);
   font-size: 13px;
   padding: 24px var(--r-row-pad);
 }

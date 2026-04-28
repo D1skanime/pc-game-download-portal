@@ -230,8 +230,8 @@ onMounted(() => {
   flex-direction: column;
   gap: 12px;
   padding: 14px;
-  background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -257,8 +257,8 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border-radius: var(--r-radius-sm);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   display: grid;
   place-items: center;
   padding: 4px;
@@ -278,12 +278,12 @@ onMounted(() => {
   margin: 0;
   font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
 }
 .r-v2-meta__status {
   margin: 2px 0 0;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
 }
 
 .r-v2-meta__indicators {
@@ -300,9 +300,9 @@ onMounted(() => {
   border-radius: var(--r-radius-pill);
   font-size: 11px;
   font-weight: var(--r-font-weight-medium);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  color: var(--r-color-fg-secondary);
+  border: 1px solid var(--r-color-border);
 }
 .r-v2-meta__indicator--on {
   background: rgba(34, 197, 94, 0.12);
@@ -320,7 +320,7 @@ onMounted(() => {
   color: #facc15;
 }
 .r-v2-meta__indicator--muted {
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.35);
+  background: var(--r-color-bg-elevated);
+  color: var(--r-color-fg-muted);
 }
 </style>

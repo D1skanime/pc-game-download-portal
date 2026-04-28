@@ -90,7 +90,7 @@ defineEmits<{ (e: "load-more"): void }>();
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.22);
+  color: var(--r-color-fg-faint);
   margin-bottom: 12px;
 }
 
@@ -104,9 +104,9 @@ defineEmits<{ (e: "load-more"): void }>();
   margin: 24px auto 0;
   display: flex;
   appearance: none;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.85);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
+  color: var(--r-color-fg-secondary);
   border-radius: var(--r-radius-pill);
   padding: 8px 22px;
   font-size: 13px;
@@ -115,7 +115,7 @@ defineEmits<{ (e: "load-more"): void }>();
   font-family: inherit;
 }
 .r-v2-lgg__more:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--r-color-surface-hover);
 }
 .r-v2-lgg__more:disabled {
   opacity: 0.5;
@@ -124,7 +124,7 @@ defineEmits<{ (e: "load-more"): void }>();
 
 .r-v2-lgg__empty {
   padding: 80px 0;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--r-color-fg-faint);
   font-size: 13.5px;
   text-align: center;
 }

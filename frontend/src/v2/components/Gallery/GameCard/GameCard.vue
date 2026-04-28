@@ -373,7 +373,7 @@ const morphStyle = computed(() => {
 .r-gc__label {
   margin-top: 7px;
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -384,7 +384,7 @@ const morphStyle = computed(() => {
 .r-gc:hover .r-gc__label,
 .r-gc:focus-visible .r-gc__label,
 .r-gc--focused .r-gc__label {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
 }
 
 /* ── Hero (16:9) variant ──────────────────────────────────── */

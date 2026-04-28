@@ -94,8 +94,8 @@ const entries = computed<Entry[]>(() => [
   flex-wrap: wrap;
   gap: 6px;
   padding: 6px;
-  background: rgba(13, 17, 23, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -108,7 +108,7 @@ const entries = computed<Entry[]>(() => [
   padding: 8px 14px;
   border-radius: var(--r-radius-pill);
   text-decoration: none;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--r-color-fg-secondary);
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
   transition:
@@ -117,8 +117,8 @@ const entries = computed<Entry[]>(() => [
   white-space: nowrap;
 }
 .r-v2-settings-nav__link:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.9);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
 }
 .r-v2-settings-nav__link--active {
   background: rgba(139, 116, 232, 0.18);

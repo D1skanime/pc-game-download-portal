@@ -137,7 +137,7 @@ const morphStyle = computed(() =>
     0 0 18px rgba(139, 116, 232, 0.55);
 }
 .coll-tile:focus-visible .coll-tile__name {
-  color: #fff;
+  color: var(--r-color-fg);
 }
 
 .coll-tile__kind {
@@ -157,25 +157,17 @@ const morphStyle = computed(() =>
 .coll-tile__name {
   font-size: 12.5px;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg-secondary);
   padding: 0 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-:global(.r-v2.r-v2-light) .coll-tile__name {
-  color: rgba(17, 17, 23, 0.85);
-}
-
 .coll-tile__count {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
   padding: 0 2px;
-}
-
-:global(.r-v2.r-v2-light) .coll-tile__count {
-  color: rgba(17, 17, 23, 0.45);
 }
 
 @media (max-width: 768px) {

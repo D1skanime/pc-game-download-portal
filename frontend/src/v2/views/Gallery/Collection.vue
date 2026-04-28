@@ -358,7 +358,7 @@ function onListSort(options: { sortBy: SortEntry[] }) {
 
 .r-v2-coll__empty {
   padding: 80px 0;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--r-color-fg-faint);
   font-size: 13.5px;
   text-align: center;
 }

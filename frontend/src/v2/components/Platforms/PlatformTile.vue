@@ -99,10 +99,10 @@ const morphStyle = computed(() =>
   align-items: center;
   gap: 12px;
   padding: 24px 16px 18px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-card);
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--r-color-fg-secondary);
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -111,23 +111,11 @@ const morphStyle = computed(() =>
     transform var(--r-motion-fast);
 }
 
-:global(.r-v2.r-v2-light) .plat-tile {
-  background: rgba(17, 17, 23, 0.035);
-  border-color: rgba(17, 17, 23, 0.07);
-  color: rgba(17, 17, 23, 0.75);
-}
-
 .plat-tile:hover,
 .plat-tile:focus-visible {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--r-color-surface);
+  border-color: var(--r-color-border-strong);
   transform: translateY(-2px);
-}
-
-:global(.r-v2.r-v2-light) .plat-tile:hover,
-:global(.r-v2.r-v2-light) .plat-tile:focus-visible {
-  background: rgba(17, 17, 23, 0.07);
-  border-color: rgba(17, 17, 23, 0.15);
 }
 
 /* Keyboard / gamepad focus — stronger border + stacked brand glow so
@@ -171,11 +159,7 @@ const morphStyle = computed(() =>
 
 .plat-tile__count {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
-}
-
-:global(.r-v2.r-v2-light) .plat-tile__count {
-  color: rgba(17, 17, 23, 0.45);
+  color: var(--r-color-fg-muted);
 }
 
 @media (max-width: 768px) {

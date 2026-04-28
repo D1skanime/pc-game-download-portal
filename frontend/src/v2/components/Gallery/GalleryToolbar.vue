@@ -216,8 +216,8 @@ function setSearch(value: string) {
   right: 14px;
   z-index: 5;
   padding: 4px;
-  background: rgba(7, 7, 15, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -263,10 +263,10 @@ function setSearch(value: string) {
   width: 32px !important;
   height: 32px !important;
   padding: 0 !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid var(--r-color-border) !important;
+  background: var(--r-color-bg-elevated) !important;
   border-radius: 50% !important;
-  color: rgba(255, 255, 255, 0.7) !important;
+  color: var(--r-color-fg-secondary) !important;
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
@@ -276,16 +276,7 @@ function setSearch(value: string) {
   min-width: 0;
 }
 .gallery-toolbar__kebab:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
-  color: #fff !important;
-}
-:global(.r-v2.r-v2-light) .gallery-toolbar__kebab {
-  border-color: rgba(17, 17, 23, 0.08) !important;
-  background: rgba(17, 17, 23, 0.05) !important;
-  color: rgba(17, 17, 23, 0.7) !important;
-}
-:global(.r-v2.r-v2-light) .gallery-toolbar__kebab:hover {
-  background: rgba(17, 17, 23, 0.12) !important;
+  background: var(--r-color-surface-hover) !important;
   color: var(--r-color-fg) !important;
 }
 </style>
