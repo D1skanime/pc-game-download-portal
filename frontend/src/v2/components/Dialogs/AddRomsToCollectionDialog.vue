@@ -34,6 +34,7 @@ import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow.vue";
 import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -43,6 +44,7 @@ const show = ref(false);
 const collectionsStore = storeCollections();
 const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 
 const supportsWebp = computed<boolean>(() =>
   Boolean(
@@ -117,18 +119,16 @@ async function toggle(collection: Collection) {
   } catch (error: unknown) {
     optimistic.value.set(collection.id, wasChecked);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    emitter?.emit("snackbarShow", {
-      msg:
-        axiosErr.response?.data?.detail ??
+    snackbar.error(
+      axiosErr.response?.data?.detail ??
         (nextChecked
           ? t("rom.collection-add-failed", "Couldn't add to collection")
           : t(
               "rom.collection-remove-failed",
               "Couldn't remove from collection",
             )),
-      icon: "mdi-close-circle",
-      color: "red",
-    });
+      { icon: "mdi-close-circle" },
+    );
   } finally {
     pendingCollections.value.delete(collection.id);
   }
@@ -138,14 +138,13 @@ async function createNewCollection() {
   const name = newName.value.trim();
   if (!name || creating.value) return;
   if (collectionsStore.ownedCollections.some((c) => c.name === name)) {
-    emitter?.emit("snackbarShow", {
-      msg: t(
+    snackbar.error(
+      t(
         "collection.name-exists",
         `A collection called "${name}" already exists.`,
       ),
-      icon: "mdi-close-circle",
-      color: "red",
-    });
+      { icon: "mdi-close-circle" },
+    );
     return;
   }
   creating.value = true;
@@ -159,11 +158,10 @@ async function createNewCollection() {
     createExpanded.value = false;
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    emitter?.emit("snackbarShow", {
-      msg: axiosErr.response?.data?.detail ?? "Failed to create collection",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
+    snackbar.error(
+      axiosErr.response?.data?.detail ?? "Failed to create collection",
+      { icon: "mdi-close-circle" },
+    );
   } finally {
     creating.value = false;
   }

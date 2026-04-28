@@ -14,6 +14,7 @@ import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -23,6 +24,7 @@ const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const heartbeat = storeHeartbeat();
@@ -117,11 +119,10 @@ function onScan() {
   scanningStore.setScanning(true);
   storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
-  emitter?.emit("snackbarShow", {
-    msg: `Refreshing ${rom.value.name ?? rom.value.fs_name} metadata...`,
-    icon: "mdi-loading mdi-spin",
-    color: "primary",
-  });
+  snackbar.info(
+    `Refreshing ${rom.value.name ?? rom.value.fs_name} metadata...`,
+    { icon: "mdi-loading mdi-spin" },
+  );
 
   if (!socket.connected) socket.connect();
   socket.emit("scan", {

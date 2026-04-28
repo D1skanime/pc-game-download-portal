@@ -12,11 +12,13 @@ import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const romsStore = storeRoms();
 const uploadStore = storeUpload();
 
@@ -59,18 +61,14 @@ async function handleUploadResult(
   if (failed === 0) uploadStore.reset();
 
   if (successful > 0) {
-    emitter?.emit("snackbarShow", {
-      msg: t(successKey, { count: successful, failed }),
+    snackbar.success(t(successKey, { count: successful, failed }), {
       icon: "mdi-check-bold",
-      color: "green",
       timeout: 3000,
     });
     await refreshRom();
   } else {
-    emitter?.emit("snackbarShow", {
-      msg: t(skippedKey),
+    snackbar.warning(t(skippedKey), {
       icon: "mdi-close-circle",
-      color: "orange",
       timeout: 5000,
     });
   }

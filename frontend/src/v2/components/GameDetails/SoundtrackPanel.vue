@@ -11,12 +11,10 @@
 // in the now-playing header, not just in the header.
 import { RBtn, RChip, RIcon, RSpinner } from "@v2/lib";
 import axios, { type AxiosRequestConfig } from "axios";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import {
   computed,
   defineAsyncComponent,
-  inject,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -31,8 +29,8 @@ import useSoundtrackPlayer, {
   type PlayerMeta,
   type PlayerTrack,
 } from "@/stores/soundtrackPlayer";
-import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH, formatBytes } from "@/utils";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 // The volume/mute control widget is v1 code; it writes straight to the
 // shared store so it Just Works inside our panel too. Lazy-load it so the
@@ -47,7 +45,7 @@ const emit = defineEmits<{
   (e: "delete-track", fileId: number): void;
 }>();
 
-const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 
 const player = useSoundtrackPlayer();
 const {
@@ -157,10 +155,8 @@ async function loadAllMetadata() {
   } catch (err: unknown) {
     const maybeCfg = err as { config?: AxiosRequestConfig };
     if (axios.isCancel(err) || maybeCfg.config?.signal?.aborted) return;
-    emitter?.emit("snackbarShow", {
-      msg: "Couldn't load soundtrack metadata.",
+    snackbar.error("Couldn't load soundtrack metadata.", {
       icon: "mdi-alert",
-      color: "red",
       timeout: 3000,
     });
   } finally {

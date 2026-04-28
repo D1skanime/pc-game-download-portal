@@ -4,21 +4,20 @@
 // only offered for the logged-in user's own notes; other users' notes
 // render read-only.
 import { RIcon } from "@v2/lib";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, ref } from "vue";
+import { computed, ref } from "vue";
 import type { UserNoteSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
-import type { Events } from "@/types/emitter";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ rom: DetailedRom }>();
 
-const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const authStore = storeAuth();
 const romsStore = storeRoms();
 const { user } = storeToRefs(authStore);
@@ -115,11 +114,7 @@ async function save() {
     cancelForm();
   } catch (err) {
     console.error("Note save failed:", err);
-    emitter?.emit("snackbarShow", {
-      msg: "Could not save note",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
+    snackbar.error("Could not save note", { icon: "mdi-close-circle" });
   } finally {
     saving.value = false;
   }
@@ -133,11 +128,7 @@ async function remove(note: UserNoteSchema) {
     await refreshRom();
   } catch (err) {
     console.error("Note delete failed:", err);
-    emitter?.emit("snackbarShow", {
-      msg: "Could not delete note",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
+    snackbar.error("Could not delete note", { icon: "mdi-close-circle" });
   }
 }
 </script>

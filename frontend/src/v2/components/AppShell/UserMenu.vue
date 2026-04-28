@@ -24,12 +24,14 @@ import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import { useCan } from "@/v2/composables/useCan";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
 const router = useRouter();
 const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const { user, scopes } = storeToRefs(authStore);
 
 const open = ref(false);
@@ -64,11 +66,7 @@ async function onLogout() {
       return;
     }
     await refetchCSRFToken();
-    emitter?.emit("snackbarShow", {
-      msg: "Logged out",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
+    snackbar.success("Logged out", { icon: "mdi-check-bold" });
     await router.push({ name: ROUTES.LOGIN });
     const pinia = getActivePinia() as
       | { _s?: Map<string, { reset?: () => void } & StateTree> }
@@ -77,10 +75,8 @@ async function onLogout() {
       store.reset?.();
     });
   } catch (error) {
-    emitter?.emit("snackbarShow", {
-      msg: "Could not log out. Please try again.",
+    snackbar.error("Could not log out. Please try again.", {
       icon: "mdi-close-circle",
-      color: "red",
     });
     console.error("Logout error:", error);
   }

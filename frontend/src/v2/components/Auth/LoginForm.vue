@@ -2,15 +2,14 @@
 // LoginForm — username + password form. Emits `submit` on valid submission;
 // the parent owns the API call + snackbars so this stays purely presentational.
 import { RBtn, RTextField } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
-import type { Events } from "@/types/emitter";
 import PasswordField from "@/v2/components/shared/PasswordField.vue";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -23,7 +22,7 @@ const emit = defineEmits<{ (e: "forgot"): void }>();
 const { t } = useI18n();
 const router = useRouter();
 const authStore = storeAuth();
-const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 
 const username = ref("");
 const password = ref("");
@@ -56,10 +55,8 @@ async function submit() {
       message ||
       response?.statusText ||
       "Login failed";
-    emitter?.emit("snackbarShow", {
-      msg: `Unable to login: ${errorMessage}`,
+    snackbar.error(`Unable to login: ${errorMessage}`, {
       icon: "mdi-close-circle",
-      color: "red",
     });
     console.error(
       `[${response?.status} ${response?.statusText}] ${errorMessage}`,

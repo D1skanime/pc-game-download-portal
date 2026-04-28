@@ -21,6 +21,7 @@ import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const PdfViewer = defineAsyncComponent(
   () => import("@/components/Details/PDFViewer.vue"),
@@ -43,6 +44,7 @@ function errorMessage(err: unknown): string {
 
 const props = defineProps<{ rom: DetailedRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const romsStore = storeRoms();
 const uploadStore = storeUpload();
 
@@ -210,18 +212,14 @@ async function onSoundtrackUpload(event: Event) {
   if (failed === 0) uploadStore.reset();
 
   if (successful > 0) {
-    emitter?.emit("snackbarShow", {
-      msg: `Uploaded ${successful} track${successful === 1 ? "" : "s"}${failed ? `, ${failed} failed` : ""}.`,
-      icon: "mdi-check-bold",
-      color: "green",
-      timeout: 3000,
-    });
+    snackbar.success(
+      `Uploaded ${successful} track${successful === 1 ? "" : "s"}${failed ? `, ${failed} failed` : ""}.`,
+      { icon: "mdi-check-bold", timeout: 3000 },
+    );
     await refreshRom();
   } else {
-    emitter?.emit("snackbarShow", {
-      msg: "No tracks were uploaded.",
+    snackbar.warning("No tracks were uploaded.", {
       icon: "mdi-close-circle",
-      color: "orange",
       timeout: 5000,
     });
   }
@@ -233,16 +231,10 @@ async function redownloadManual() {
   try {
     await romApi.redownloadManual({ romId: props.rom.id });
     await refreshRom();
-    emitter?.emit("snackbarShow", {
-      msg: "Manual re-downloaded.",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
+    snackbar.success("Manual re-downloaded.", { icon: "mdi-check-bold" });
   } catch (error: unknown) {
-    emitter?.emit("snackbarShow", {
-      msg: `Manual re-download failed: ${errorMessage(error)}`,
+    snackbar.error(`Manual re-download failed: ${errorMessage(error)}`, {
       icon: "mdi-close-circle",
-      color: "red",
     });
   } finally {
     redownloadingManual.value = false;
@@ -265,16 +257,10 @@ async function deleteSoundtrack(fileId: number) {
   try {
     await romApi.removeSoundtrack({ romId: props.rom.id, fileId });
     await refreshRom();
-    emitter?.emit("snackbarShow", {
-      msg: "Track removed.",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
+    snackbar.success("Track removed.", { icon: "mdi-check-bold" });
   } catch (error: unknown) {
-    emitter?.emit("snackbarShow", {
-      msg: `Couldn't remove track: ${errorMessage(error)}`,
+    snackbar.error(`Couldn't remove track: ${errorMessage(error)}`, {
       icon: "mdi-close-circle",
-      color: "red",
     });
   }
 }

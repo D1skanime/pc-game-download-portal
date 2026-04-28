@@ -10,11 +10,13 @@ import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const romsStore = storeRoms();
 
 const show = ref(false);
@@ -64,21 +66,19 @@ async function deleteManual() {
       await romApi.deleteManualFile({ romId, fileId: fileId.value });
     }
     await refreshRom();
-    emitter?.emit("snackbarShow", {
-      msg: t(primary ? "rom.manual-removed" : "rom.manual-file-removed"),
-      icon: "mdi-check-bold",
-      color: "green",
-    });
+    snackbar.success(
+      t(primary ? "rom.manual-removed" : "rom.manual-file-removed"),
+      { icon: "mdi-check-bold" },
+    );
     closeDialog();
   } catch (error: unknown) {
-    emitter?.emit("snackbarShow", {
-      msg: t(
+    snackbar.error(
+      t(
         primary ? "rom.manual-remove-failed" : "rom.manual-file-remove-failed",
         { error: errorMessage(error) },
       ),
-      icon: "mdi-close-circle",
-      color: "red",
-    });
+      { icon: "mdi-close-circle" },
+    );
   } finally {
     deleting.value = false;
   }

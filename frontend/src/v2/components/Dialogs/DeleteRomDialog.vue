@@ -13,6 +13,7 @@ import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -27,6 +28,7 @@ const excludeOnDelete = ref(false);
 const platformId = ref<number>(0);
 const deleting = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const configStore = storeConfig();
 
 const openHandler = (romsToDelete: SimpleRom[]) => {
@@ -74,18 +76,16 @@ async function deleteRoms() {
       roms: roms.value,
       deleteFromFs: romsToDeleteFromFs.value,
     });
-    emitter?.emit("snackbarShow", {
-      msg:
-        fsCount.value > 0
-          ? t("rom.deleted-from-filesystem", {
-              count: response.data.successful_items,
-            })
-          : t("rom.deleted-from-database", {
-              count: response.data.successful_items,
-            }),
-      icon: "mdi-check-bold",
-      color: "green",
-    });
+    snackbar.success(
+      fsCount.value > 0
+        ? t("rom.deleted-from-filesystem", {
+            count: response.data.successful_items,
+          })
+        : t("rom.deleted-from-database", {
+            count: response.data.successful_items,
+          }),
+      { icon: "mdi-check-bold" },
+    );
     if (excludeOnDelete.value) {
       for (const rom of roms.value) {
         const type = rom.has_simple_single_file
@@ -121,10 +121,8 @@ async function deleteRoms() {
   } catch (error: unknown) {
     console.error(error);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    emitter?.emit("snackbarShow", {
-      msg: axiosErr.response?.data?.detail ?? "Failed to delete ROMs",
+    snackbar.error(axiosErr.response?.data?.detail ?? "Failed to delete ROMs", {
       icon: "mdi-close-circle",
-      color: "red",
     });
   } finally {
     deleting.value = false;

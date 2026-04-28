@@ -23,6 +23,7 @@ import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import { getMissingCoverImage } from "@/utils/covers";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -46,6 +47,7 @@ const coverFileInput = ref<HTMLInputElement | null>(null);
 const manualFileInput = ref<HTMLInputElement | null>(null);
 const soundtrackFileInput = ref<HTMLInputElement | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 
 const soundtrackTracks = computed(
   () =>
@@ -119,20 +121,14 @@ async function handleRomUpdate(
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
   try {
     const { data } = await romApi.updateRom(options);
-    emitter?.emit("snackbarShow", {
-      msg: successMessage,
-      icon: "mdi-check-bold",
-      color: "green",
-    });
+    snackbar.success(successMessage, { icon: "mdi-check-bold" });
     romsStore.update(data as SimpleRom);
     if (route.name === "rom") romsStore.currentRom = data;
   } catch (error: unknown) {
     console.error(error);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    emitter?.emit("snackbarShow", {
-      msg: axiosErr.response?.data?.detail ?? "Update failed",
+    snackbar.error(axiosErr.response?.data?.detail ?? "Update failed", {
       icon: "mdi-close-circle",
-      color: "red",
     });
   } finally {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
@@ -171,22 +167,18 @@ async function uploadSoundtracks() {
     if (failed.length === 0) uploadStore.reset();
 
     if (successful.length === 0) {
-      emitter?.emit("snackbarShow", {
-        msg: t("rom.soundtracks-upload-skipped"),
+      snackbar.warning(t("rom.soundtracks-upload-skipped"), {
         icon: "mdi-close-circle",
-        color: "orange",
         timeout: 5000,
       });
     } else {
-      emitter?.emit("snackbarShow", {
-        msg: t("rom.soundtracks-upload-success", {
+      snackbar.success(
+        t("rom.soundtracks-upload-success", {
           count: successful.length,
           failed: failed.length,
         }),
-        icon: "mdi-check-bold",
-        color: "green",
-        timeout: 3000,
-      });
+        { icon: "mdi-check-bold", timeout: 3000 },
+      );
       await refreshRomState();
     }
   } catch (error: unknown) {
@@ -194,17 +186,15 @@ async function uploadSoundtracks() {
       response?: { data?: { detail?: string }; statusText?: string };
       message?: string;
     };
-    emitter?.emit("snackbarShow", {
-      msg: t("rom.soundtracks-upload-failed", {
+    snackbar.error(
+      t("rom.soundtracks-upload-failed", {
         error:
           axiosErr.response?.data?.detail ??
           axiosErr.response?.statusText ??
           axiosErr.message,
       }),
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
+      { icon: "mdi-close-circle", timeout: 4000 },
+    );
   }
   soundtrackFiles.value = [];
 }
@@ -214,23 +204,18 @@ async function removeSoundtrack(fileId: number) {
   try {
     await romApi.removeSoundtrack({ romId: rom.value.id, fileId });
     await refreshRomState();
-    emitter?.emit("snackbarShow", {
-      msg: t("rom.soundtrack-removed"),
-      icon: "mdi-check-bold",
-      color: "green",
-    });
+    snackbar.success(t("rom.soundtrack-removed"), { icon: "mdi-check-bold" });
   } catch (error: unknown) {
     const axiosErr = error as {
       response?: { data?: { detail?: string } };
       message?: string;
     };
-    emitter?.emit("snackbarShow", {
-      msg: t("rom.soundtrack-remove-failed", {
+    snackbar.error(
+      t("rom.soundtrack-remove-failed", {
         error: axiosErr.response?.data?.detail ?? axiosErr.message,
       }),
-      icon: "mdi-close-circle",
-      color: "red",
-    });
+      { icon: "mdi-close-circle" },
+    );
   }
 }
 
@@ -252,11 +237,7 @@ async function unmatchRom() {
 
 async function updateRom() {
   if (!rom.value?.fs_name) {
-    emitter?.emit("snackbarShow", {
-      msg: t("rom.filename-required"),
-      icon: "mdi-close-circle",
-      color: "red",
-    });
+    snackbar.error(t("rom.filename-required"), { icon: "mdi-close-circle" });
     return;
   }
   await handleRomUpdate(

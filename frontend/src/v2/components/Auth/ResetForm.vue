@@ -2,11 +2,10 @@
 // ResetForm — username-only form that triggers a password-reset email.
 // Emits `done` on success and `cancel` when the user backs out.
 import { RBtn, RTextField } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import identityApi from "@/services/api/identity";
-import type { Events } from "@/types/emitter";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -16,7 +15,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 
 const forgotUser = ref("");
 const sending = ref(false);
@@ -26,20 +25,12 @@ async function submit() {
   sending.value = true;
   try {
     await identityApi.requestPasswordReset(forgotUser.value);
-    emitter?.emit("snackbarShow", {
-      msg: t("login.reset-sent"),
-      icon: "mdi-check-circle",
-      color: "green",
-    });
+    snackbar.success(t("login.reset-sent"), { icon: "mdi-check-circle" });
     forgotUser.value = "";
     emit("done");
   } catch (error) {
     console.error("Error sending reset link: ", error);
-    emitter?.emit("snackbarShow", {
-      msg: "Could not send reset link",
-      icon: "mdi-alert-circle",
-      color: "red",
-    });
+    snackbar.error("Could not send reset link", { icon: "mdi-alert-circle" });
   } finally {
     sending.value = false;
   }

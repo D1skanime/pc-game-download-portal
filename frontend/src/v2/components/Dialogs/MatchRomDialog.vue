@@ -17,6 +17,7 @@ import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -55,6 +56,7 @@ const searchBy = ref<"Name" | "ID">("Name");
 const searched = ref(false);
 const matchedRoms = ref<SearchRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const showSelectSource = ref(false);
 const renameFromSource = ref(false);
 const selectedMatchRom = ref<SearchRom | undefined>(undefined);
@@ -170,10 +172,8 @@ async function searchRom() {
     matchedRoms.value = response.data;
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    emitter?.emit("snackbarShow", {
-      msg: axiosErr.response?.data?.detail ?? "Search failed",
+    snackbar.error(axiosErr.response?.data?.detail ?? "Search failed", {
       icon: "mdi-close-circle",
-      color: "red",
     });
   } finally {
     searching.value = false;
@@ -275,19 +275,13 @@ async function updateRom(selectedRom: SearchRom, urlCover: string | undefined) {
 
   try {
     const { data } = await romApi.updateRom({ rom: rom.value });
-    emitter?.emit("snackbarShow", {
-      msg: "Rom updated successfully!",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
+    snackbar.success("Rom updated successfully!", { icon: "mdi-check-bold" });
     romsStore.update(data as SimpleRom);
     if (route.name === "rom") romsStore.currentRom = data;
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    emitter?.emit("snackbarShow", {
-      msg: axiosErr.response?.data?.detail ?? "Update failed",
+    snackbar.error(axiosErr.response?.data?.detail ?? "Update failed", {
       icon: "mdi-close-circle",
-      color: "red",
     });
   } finally {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });

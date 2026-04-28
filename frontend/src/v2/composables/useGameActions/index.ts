@@ -21,10 +21,12 @@ import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import { getDownloadPath } from "@/utils";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   const router = useRouter();
   const emitter = inject<Emitter<Events>>("emitter");
+  const snackbar = useSnackbar();
   const collectionsStore = storeCollections();
   const romsStore = storeRoms();
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
@@ -79,10 +81,8 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     } catch {
       Object.assign(rom.rom_user, before);
       romsStore.update(rom);
-      emitter?.emit("snackbarShow", {
-        msg: "Failed to update status",
+      snackbar.error("Failed to update status", {
         icon: "mdi-alert-circle-outline",
-        color: "red",
       });
     }
   }
@@ -132,10 +132,8 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
         return;
       }
       await navigator.clipboard.writeText(url);
-      emitter?.emit("snackbarShow", {
-        msg: "Link copied to clipboard",
+      snackbar.success("Link copied to clipboard", {
         icon: "mdi-link-variant",
-        color: "green",
       });
     } catch {
       // user cancelled or clipboard denied — nothing to do

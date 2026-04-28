@@ -13,9 +13,8 @@ import {
   RTextField,
 } from "@v2/lib";
 import { useDropZone } from "@vueuse/core";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
@@ -24,10 +23,10 @@ import { type Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
-import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -65,7 +64,7 @@ const saveIntoRomM = ref(true);
 const selectedPlatform = ref<Platform | null>(null);
 const customFileName = ref("");
 const filenamePlaceholder = ref("");
-const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
 const scanningStore = storeScanning();
 const uploadStore = storeUpload();
@@ -306,14 +305,12 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
 
       if (failedUploads.length === 0) uploadStore.reset();
 
-      emitter?.emit("snackbarShow", {
-        msg: t("patcher.upload-success", {
+      snackbar.success(
+        t("patcher.upload-success", {
           errors: failedUploads.length > 0 ? t("patcher.upload-errors") : "",
         }),
-        icon: "mdi-check-bold",
-        color: "green",
-        timeout: 3000,
-      });
+        { icon: "mdi-check-bold", timeout: 3000 },
+      );
 
       romFile.value = null;
       patchFile.value = null;

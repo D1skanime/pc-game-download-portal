@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { RBtn, RTextField } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { inject, onBeforeMount, ref } from "vue";
+import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
-import type { Events } from "@/types/emitter";
 import AuthBackLink from "@/v2/components/shared/AuthBackLink.vue";
 import AuthCard from "@/v2/components/shared/AuthCard.vue";
 import PasswordField from "@/v2/components/shared/PasswordField.vue";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const route = useRoute();
 const router = useRouter();
 const usersStore = storeUsers();
@@ -33,10 +32,8 @@ async function register() {
       password.value,
       token,
     );
-    emitter?.emit("snackbarShow", {
-      msg: "User registered successfully",
+    snackbar.success("User registered successfully", {
       icon: "mdi-check-circle",
-      color: "green",
       timeout: 5000,
     });
     router.push("/login");
@@ -45,12 +42,10 @@ async function register() {
       response?: { data?: { detail?: string } };
       message?: string;
     };
-    emitter?.emit("snackbarShow", {
-      msg: `Unable to register user: ${response?.data?.detail || message}`,
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 5000,
-    });
+    snackbar.error(
+      `Unable to register user: ${response?.data?.detail || message}`,
+      { icon: "mdi-close-circle", timeout: 5000 },
+    );
   } finally {
     submitting.value = false;
   }

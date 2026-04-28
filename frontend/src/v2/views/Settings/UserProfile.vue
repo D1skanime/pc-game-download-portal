@@ -15,6 +15,7 @@ import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t } = useI18n();
 const auth = storeAuth();
@@ -23,6 +24,7 @@ const userToEdit = ref<UserItem | null>(null);
 const usersStore = storeUsers();
 const imagePreviewUrl = ref<string | undefined>("");
 const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 const roleItems = computed(() =>
@@ -64,10 +66,8 @@ function editUser() {
   userApi
     .updateUser(userToEdit.value)
     .then(({ data }) => {
-      emitter?.emit("snackbarShow", {
-        msg: `User ${data.username} updated successfully`,
+      snackbar.success(`User ${data.username} updated successfully`, {
         icon: "mdi-check-bold",
-        color: "green",
         timeout: 5000,
       });
       usersStore.update(data);
@@ -76,14 +76,12 @@ function editUser() {
       }
     })
     .catch(({ response, message }) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to edit user: ${
+      snackbar.error(
+        `Unable to edit user: ${
           response?.data?.detail || response?.statusText || message
         }`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 5000,
-      });
+        { icon: "mdi-close-circle", timeout: 5000 },
+      );
     });
 
   emitter?.emit("refreshDrawer", null);
