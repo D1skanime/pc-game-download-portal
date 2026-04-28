@@ -18,10 +18,7 @@ import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
-import { useThemeClass } from "@/v2/composables/useThemeClass";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
-
-const themeClass = useThemeClass();
 
 // Shared reactive background art — views paint covers via the injected setter.
 const layerA = ref<string | null>(null);
@@ -64,7 +61,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="r-v2 r-v2-shell" :class="themeClass">
+  <div class="r-v2-shell">
     <a href="#r-v2-main" class="r-v2-skip-link">Skip to main content</a>
 
     <BackgroundArt

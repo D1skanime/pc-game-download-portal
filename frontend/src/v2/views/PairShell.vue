@@ -4,14 +4,11 @@
 // nested <router-view>; the shell inlines Pair.vue instead.
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
 import VersionTag from "@/v2/components/shared/VersionTag.vue";
-import { useThemeClass } from "@/v2/composables/useThemeClass";
 import Pair from "@/v2/views/Pair.vue";
-
-const themeClass = useThemeClass();
 </script>
 
 <template>
-  <div class="r-v2 r-v2-pair-shell" :class="themeClass">
+  <div class="r-v2-pair-shell">
     <div class="r-v2-pair-shell__bg" />
     <main class="r-v2-pair-shell__stage">
       <Pair />

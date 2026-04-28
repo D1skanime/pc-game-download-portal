@@ -3,11 +3,11 @@
  *
  * The TypeScript module is the single source of truth. This script declares
  * the JS-path → CSS-variable mapping and writes the CSS file. Run it via
- * `npm run tokens` (also wired into predev / prebuild).
+ * `npm run build:tokens` (also wired into predev / prebuild).
  *
  * Adding a new token: add it to src/v2/tokens/index.ts, then add a mapping
  * entry below if the default convention does not produce the desired CSS
- * variable name. Re-run `npm run tokens`.
+ * variable name. Re-run `npm run build:tokens`.
  */
 import { writeFile, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -27,7 +27,7 @@ import {
   motion,
   radius,
   space,
-} from "../src/v2/tokens/index.ts";
+} from "../src/v2/tokens/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUTPUT = resolve(__dirname, "../src/v2/styles/tokens.css");
@@ -37,16 +37,6 @@ function camelToKebab(s: string): string {
 }
 
 type Entry = [cssName: string, value: string];
-
-function map<T extends Record<string, string>>(
-  obj: T,
-  toName: (key: keyof T & string) => string,
-): Entry[] {
-  return Object.entries(obj).map(([k, v]) => [
-    toName(k as keyof T & string),
-    v,
-  ]);
-}
 
 const NAME_OVERRIDES = {
   space: { rowPad: "--r-row-pad" },
@@ -133,7 +123,7 @@ const HEADER = `/*
  * RomM v2 Design Tokens — CSS Custom Properties
  *
  * GENERATED FILE — do not hand-edit. Source: src/v2/tokens/index.ts
- * Regenerate with: npm run tokens
+ * Regenerate with: npm run build:tokens
  *
  * Scoped under .r-v2 so v1 styling is unaffected. Theme palettes live under
  * .r-v2.r-v2-dark and .r-v2.r-v2-light. The classes are toggled on <html>
@@ -165,10 +155,17 @@ const css = [
   ),
 ].join("\n");
 
-const existing = await readFile(OUTPUT, "utf-8").catch(() => "");
-if (existing === css) {
-  process.stdout.write("tokens.css up-to-date\n");
-} else {
+async function main() {
+  const existing = await readFile(OUTPUT, "utf-8").catch(() => "");
+  if (existing === css) {
+    process.stdout.write("tokens.css up-to-date\n");
+    return;
+  }
   await writeFile(OUTPUT, css, "utf-8");
   process.stdout.write(`tokens.css regenerated (${css.length} bytes)\n`);
 }
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

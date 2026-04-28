@@ -4,13 +4,10 @@
 // corners hold the LanguageSelector (left) and VersionTag (right).
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
 import VersionTag from "@/v2/components/shared/VersionTag.vue";
-import { useThemeClass } from "@/v2/composables/useThemeClass";
-
-const themeClass = useThemeClass();
 </script>
 
 <template>
-  <div class="r-v2 r-v2-auth" :class="themeClass">
+  <div class="r-v2-auth">
     <div class="r-v2-auth__bg" />
     <main class="r-v2-auth__stage">
       <router-view name="v2" />
