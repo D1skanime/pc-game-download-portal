@@ -10,11 +10,13 @@
 //
 // Shape adapted from the artist mockup:
 //   * 158×213 card art, 8px radius
-//   * Platform badge bottom-left, rating badge top-right (both appear on hover)
-//   * Hover overlay: info (TL) · play (center) · action row (BL: download,
-//     collection, favorite, more) — action buttons are the shared
-//     GameActionBtn atom so the card and the GameDetails header stay
-//     visually + behaviourally in sync.
+//   * Rating badge top-right (appear on hover)
+//   * Platform icon (TR, always visible): semi-transparent circle with the
+//     platform's icon — toggle via `showPlatformIcon`.
+//   * Hover overlay: play (center) · action row (BL: download, collection,
+//     favorite, more) — action buttons are the shared GameActionBtn atom
+//     so the card and the GameDetails header stay visually + behaviourally
+//     in sync.
 //   * Label below the card, 11.5px, truncated
 //   * Optional `hero` variant: 300×169 (16:9) + larger multi-line label
 import { computed, ref } from "vue";
@@ -27,7 +29,8 @@ import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
-import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
+import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -37,19 +40,13 @@ interface Props {
   hero?: boolean;
   focused?: boolean;
   webp?: boolean;
-  showPlatformBadge?: boolean;
+  showPlatformIcon?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   to: undefined,
-  showPlatformBadge: true,
+  showPlatformIcon: true,
 });
-
-// Card still emits `info` for the top-left button — consumers that want
-// to override the default navigate-to-details behaviour can listen.
-const emit = defineEmits<{
-  (e: "info", rom: SimpleRom): void;
-}>();
 
 const EXTENSION_REGEX = /\.(png|jpg|jpeg)$/i;
 
@@ -81,12 +78,6 @@ function onHighlight() {
   else if (fallbackUrl.value) setBgArt(fallbackUrl.value);
 }
 
-function onInfo(e: MouseEvent) {
-  e.preventDefault();
-  e.stopPropagation();
-  emit("info", props.rom);
-}
-
 const ratingLabel = computed(() => {
   const r = props.rom.rom_user?.rating;
   return r && r > 0 ? r.toString() : null;
@@ -99,6 +90,14 @@ const ratingLabel = computed(() => {
 const router = useRouter();
 const artEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
+
+// Stop propagation so the card's morph + router push doesn't fire when
+// the user actually wanted to jump to the platform gallery.
+function onPlatformClick(e: MouseEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  router.push(`/platform/${props.rom.platform_id}`);
+}
 
 function onCardClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
@@ -157,27 +156,31 @@ const morphStyle = computed(() => {
         {{ title }}
       </div>
 
-      <div v-if="showPlatformBadge" class="r-gc__badge">
-        {{ platformShort }}
-      </div>
-
       <div v-if="ratingLabel" class="r-gc__rating">★ {{ ratingLabel }}</div>
+
+      <RTooltip v-if="showPlatformIcon" :text="platformShort" location="bottom">
+        <template #activator="{ props: tooltipProps }">
+          <button
+            v-bind="tooltipProps"
+            type="button"
+            class="r-gc__platform-icon"
+            :aria-label="`Browse ${platformShort}`"
+            @click="onPlatformClick"
+          >
+            <RPlatformIcon
+              :slug="rom.platform_slug"
+              :fs-slug="rom.platform_fs_slug"
+              :alt="platformShort"
+              :size="18"
+            />
+          </button>
+        </template>
+      </RTooltip>
 
       <StatusBadge :rom="rom" />
 
       <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
       <div class="r-gc__overlay">
-        <div class="r-gc__overlay-top">
-          <button
-            type="button"
-            class="r-gc__info-btn"
-            aria-label="More info"
-            @click="onInfo"
-          >
-            <RIcon icon="mdi-information-outline" size="18" />
-          </button>
-        </div>
-
         <div class="r-gc__overlay-center">
           <GameActionBtn
             :rom="rom"
@@ -262,16 +265,12 @@ const morphStyle = computed(() => {
   transition: opacity 0.12s ease;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   padding: 8px;
   border-radius: var(--r-radius-art);
 }
 
-.r-gc__overlay-top {
-  display: flex;
-  justify-content: flex-end;
-}
 .r-gc__overlay-center {
+  flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -282,17 +281,38 @@ const morphStyle = computed(() => {
   align-items: center;
 }
 
-.r-gc__info-btn {
+/* Top-right always-visible platform icon. Sits on the cover (outside the
+   hover overlay) so it stays readable at rest. Click navigates to the
+   platform gallery; tooltip shows the full platform name. */
+.r-gc__platform-icon {
   appearance: none;
+  position: absolute;
+  top: 7px;
+  right: 7px;
   width: 28px;
   height: 28px;
+  padding: 0;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   display: grid;
   place-items: center;
   cursor: pointer;
+  color: inherit;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    transform 0.12s ease;
+}
+.r-gc__platform-icon:hover,
+.r-gc__platform-icon:focus-visible {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: scale(1.08);
+}
+.r-gc__platform-icon:focus-visible {
+  outline: 2px solid var(--r-color-brand-primary);
+  outline-offset: 2px;
 }
 
 /* Platform badge */
@@ -318,10 +338,11 @@ const morphStyle = computed(() => {
 
 .r-gc__rating {
   position: absolute;
-  top: 7px;
-  right: 7px;
+  top: 11px;
+  left: 50%;
+  transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--r-color-romm-gold);
   border-radius: var(--r-radius-sm);
   padding: 2px 6px;
   font-size: 9.5px;

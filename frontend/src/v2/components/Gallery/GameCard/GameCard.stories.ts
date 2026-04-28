@@ -22,7 +22,7 @@ const meta: Meta<typeof GameCard> = {
   argTypes: {
     hero: { control: "boolean" },
     focused: { control: "boolean" },
-    showPlatformBadge: { control: "boolean" },
+    showPlatformIcon: { control: "boolean" },
   },
 };
 
