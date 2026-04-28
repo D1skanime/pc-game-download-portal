@@ -23,6 +23,7 @@ import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
+import { useCan } from "@/v2/composables/useCan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -38,7 +39,7 @@ const userInitials = computed(() => {
   return name.slice(0, 2).toUpperCase();
 });
 
-const isAdmin = computed(() => user.value?.role === "admin");
+const isAdmin = useCan("app.admin");
 
 function showAbout() {
   open.value = false;

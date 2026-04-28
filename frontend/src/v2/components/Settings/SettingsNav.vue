@@ -10,12 +10,14 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
+import { useCan } from "@/v2/composables/useCan";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
+const canSeeServerStats = useCan("app.admin");
 
 type Entry = {
   icon: string;
@@ -65,7 +67,7 @@ const entries = computed<Entry[]>(() => [
     icon: "mdi-chart-bar",
     label: t("common.server-stats"),
     to: { name: ROUTES.SERVER_STATS },
-    visible: user.value?.role === "admin",
+    visible: canSeeServerStats.value,
   },
 ]);
 </script>

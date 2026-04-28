@@ -15,10 +15,13 @@ import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import GlobalDialogs from "@/v2/components/AppShell/GlobalDialogs.vue";
 import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
+import { installPermissionsHydration } from "@/v2/composables/useCan";
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
+
+installPermissionsHydration();
 
 // Shared reactive background art — views paint covers via the injected setter.
 const layerA = ref<string | null>(null);
