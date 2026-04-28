@@ -27,6 +27,7 @@ export * from "./primitives/RSpinner";
 
 // Forms
 export * from "./forms/RCheckbox";
+export * from "./forms/RForm";
 export * from "./forms/RRating";
 export * from "./forms/RSelect";
 export * from "./forms/RTextField";
