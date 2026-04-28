@@ -153,7 +153,7 @@ async function onLogout() {
         @click="open = false"
       />
 
-      <RMenuDivider />
+      <RMenuDivider v-if="scopes.includes('users.write') && isAdmin" />
 
       <RMenuItem
         v-if="scopes.includes('users.write')"
