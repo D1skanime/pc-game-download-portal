@@ -5,6 +5,7 @@ import { createPinia } from "pinia";
 import { createVuetify } from "vuetify";
 import "vuetify/styles";
 import i18n from "../src/locales";
+import storePermissions from "../src/stores/permissions";
 import "../src/styles/common.css";
 import "../src/styles/fonts.css";
 import { dark, light } from "../src/styles/themes";
@@ -15,6 +16,11 @@ import { v2Dark, v2Light } from "../src/v2/theme/vuetify";
 // The theme switcher toolbar (below) drives Vuetify's theme name, and the
 // `.r-v2-dark` / `.r-v2-light` class on <body> drives the CSS custom
 // properties used by v2 R-components.
+//
+// permissionsStore is hydrated with admin grants so any primitive that
+// consumes `useCan(...)` renders its enabled state. Stories that need to
+// exercise role-based hiding can override per-story by calling
+// `storePermissions().hydrateFromRole("viewer" | "editor" | null)`.
 setup((app) => {
   app.use(createPinia());
   app.use(i18n);
@@ -31,6 +37,8 @@ setup((app) => {
       },
     }),
   );
+
+  storePermissions().hydrateFromRole("admin");
 });
 
 const preview: Preview = {
