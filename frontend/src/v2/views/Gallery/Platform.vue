@@ -19,7 +19,6 @@ import {
 } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { formatBytes } from "@/utils";
@@ -33,13 +32,14 @@ import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useLetterGroups } from "@/v2/composables/useLetterGroups";
+import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 const route = useRoute();
 const platformsStore = storePlatforms();
 const romsStore = storeRoms();
-const heartbeatStore = storeHeartbeat();
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
+const { supportsWebp } = useWebpSupport();
 
 const {
   _allRoms: allRoms,
@@ -52,16 +52,6 @@ const {
 
 const notFound = ref(false);
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
-
-const supportsWebp = computed<boolean>(() =>
-  Boolean(
-    (
-      heartbeatStore.value as unknown as {
-        FRONTEND?: { IMAGES_WEBP?: boolean };
-      }
-    )?.FRONTEND?.IMAGES_WEBP,
-  ),
-);
 
 const tags = computed<string[]>(() => {
   const p = currentPlatform.value as

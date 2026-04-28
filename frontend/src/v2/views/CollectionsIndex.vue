@@ -10,10 +10,10 @@ import storeCollections, {
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
-import storeHeartbeat from "@/stores/heartbeat";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
+import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type Kind = "regular" | "virtual" | "smart";
@@ -27,7 +27,7 @@ type CollectionTileEntry = {
 };
 
 const collectionsStore = storeCollections();
-const heartbeatStore = storeHeartbeat();
+const { toWebp } = useWebpSupport();
 const {
   allCollections,
   virtualCollections,
@@ -47,23 +47,9 @@ onMounted(() => {
   }
 });
 
-const supportsWebp = computed<boolean>(() =>
-  Boolean(
-    (
-      heartbeatStore.value as unknown as {
-        FRONTEND?: { IMAGES_WEBP?: boolean };
-      }
-    )?.FRONTEND?.IMAGES_WEBP,
-  ),
-);
-
 function coversFor(c: AnyCollection): string[] {
   const paths = (c as { path_covers_small?: string[] }).path_covers_small ?? [];
-  return paths
-    .slice(0, 4)
-    .map((p) =>
-      supportsWebp.value ? p.replace(/\.(png|jpg|jpeg)$/i, ".webp") : p,
-    );
+  return paths.slice(0, 4).map(toWebp);
 }
 
 const tiles = computed<CollectionTileEntry[]>(() => {

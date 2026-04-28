@@ -29,12 +29,12 @@ import storeCollections, {
   type Collection,
   type CollectionType,
 } from "@/stores/collections";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow.vue";
 import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 defineOptions({ inheritAttrs: false });
 
@@ -42,19 +42,9 @@ const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const collectionsStore = storeCollections();
-const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-
-const supportsWebp = computed<boolean>(() =>
-  Boolean(
-    (
-      heartbeatStore.value as unknown as {
-        FRONTEND?: { IMAGES_WEBP?: boolean };
-      }
-    )?.FRONTEND?.IMAGES_WEBP,
-  ),
-);
+const { toWebp } = useWebpSupport();
 
 // Mirrors CollectionsIndex.coversFor — prefers the multi-cover array,
 // falls back to the single cover when that's all we have so a regular
@@ -65,9 +55,7 @@ function coversFor(collection: CollectionType): string[] {
     (collection as { path_covers_small?: string[] }).path_covers_small ?? [];
   const single = collection.path_cover_small ?? null;
   const list = multi.length ? multi.slice(0, 4) : single ? [single] : [];
-  return list.map((p) =>
-    supportsWebp.value ? p.replace(/\.(png|jpg|jpeg)$/i, ".webp") : p,
-  );
+  return list.map(toWebp);
 }
 
 const roms = ref<SimpleRom[]>([]);

@@ -25,12 +25,14 @@ import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PersonalTab from "@/v2/components/GameDetails/PersonalTab.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
 const heartbeatStore = storeHeartbeat();
 const { currentRom } = storeToRefs(romsStore);
+const { toWebp } = useWebpSupport();
 
 const setBgArt = useBackgroundArt();
 
@@ -50,16 +52,6 @@ watch(
       tab.value = value;
     }
   },
-);
-
-const supportsWebp = computed<boolean>(() =>
-  Boolean(
-    (
-      heartbeatStore.value as unknown as {
-        FRONTEND?: { IMAGES_WEBP?: boolean };
-      }
-    )?.FRONTEND?.IMAGES_WEBP,
-  ),
 );
 
 const title = computed(() => {
@@ -110,10 +102,7 @@ const coverPath = computed(() => {
   const r = currentRom.value;
   if (!r) return null;
   const path = r.path_cover_large ?? r.path_cover_small ?? null;
-  if (!path) return null;
-  return supportsWebp.value
-    ? path.replace(/\.(png|jpg|jpeg)$/i, ".webp")
-    : path;
+  return path ? toWebp(path) : null;
 });
 
 const coverFallback = computed(() => currentRom.value?.url_cover ?? null);

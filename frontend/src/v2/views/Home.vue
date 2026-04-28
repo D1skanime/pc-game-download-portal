@@ -11,7 +11,6 @@ import { RIcon, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import storeCollections from "@/stores/collections";
-import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
@@ -19,26 +18,17 @@ import { GameCard } from "@/v2/components/Gallery/GameCard";
 import CardRow from "@/v2/components/Home/CardRow.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
-const heartbeatStore = storeHeartbeat();
+const { supportsWebp, toWebp } = useWebpSupport();
 
 const { recentRoms, continuePlayingRoms } = storeToRefs(romsStore);
 const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 const { allCollections, favoriteCollection, fetchingCollections } =
   storeToRefs(collectionsStore);
-
-const supportsWebp = computed<boolean>(() =>
-  Boolean(
-    (
-      heartbeatStore.value as unknown as {
-        FRONTEND?: { IMAGES_WEBP?: boolean };
-      }
-    )?.FRONTEND?.IMAGES_WEBP,
-  ),
-);
 
 const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
@@ -83,12 +73,7 @@ const favoriteRoms = computed<SimpleRom[]>(() => {
 
 // Pick a small set of cover URLs to seed the collection tile mosaic.
 function collectionCovers(pathCovers: string[] | undefined): string[] {
-  const paths = pathCovers ?? [];
-  return paths
-    .slice(0, 4)
-    .map((p) =>
-      supportsWebp.value ? p.replace(/\.(png|jpg|jpeg)$/i, ".webp") : p,
-    );
+  return (pathCovers ?? []).slice(0, 4).map(toWebp);
 }
 </script>
 

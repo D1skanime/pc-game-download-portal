@@ -14,7 +14,6 @@ import {
   watch,
 } from "vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
@@ -26,10 +25,11 @@ import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useLetterGroups } from "@/v2/composables/useLetterGroups";
+import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 const romsStore = storeRoms();
 const galleryFilterStore = storeGalleryFilter();
-const heartbeatStore = storeHeartbeat();
+const { supportsWebp } = useWebpSupport();
 
 const {
   _allRoms: allRoms,
@@ -46,16 +46,6 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 // only updates on pause.
 const searchInput = ref(searchTerm.value ?? "");
 let searchDebounce: ReturnType<typeof setTimeout> | null = null;
-
-const supportsWebp = computed<boolean>(() =>
-  Boolean(
-    (
-      heartbeatStore.value as unknown as {
-        FRONTEND?: { IMAGES_WEBP?: boolean };
-      }
-    )?.FRONTEND?.IMAGES_WEBP,
-  ),
-);
 
 const remaining = computed(() =>
   Math.max(0, fetchTotalRoms.value - allRoms.value.length),

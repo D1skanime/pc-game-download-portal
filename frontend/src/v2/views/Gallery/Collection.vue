@@ -19,7 +19,6 @@ import storeCollections, {
   type VirtualCollection,
 } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
@@ -32,6 +31,7 @@ import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useLetterGroups } from "@/v2/composables/useLetterGroups";
+import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type CollectionKind = "regular" | "virtual" | "smart";
@@ -39,9 +39,9 @@ type CollectionKind = "regular" | "virtual" | "smart";
 const route = useRoute();
 const collectionsStore = storeCollections();
 const romsStore = storeRoms();
-const heartbeatStore = storeHeartbeat();
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
+const { supportsWebp, toWebp } = useWebpSupport();
 
 const {
   _allRoms: allRoms,
@@ -56,25 +56,11 @@ const currentKind = ref<CollectionKind>("regular");
 const currentCollection = ref<AnyCollection | null>(null);
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
-const supportsWebp = computed<boolean>(() =>
-  Boolean(
-    (
-      heartbeatStore.value as unknown as {
-        FRONTEND?: { IMAGES_WEBP?: boolean };
-      }
-    )?.FRONTEND?.IMAGES_WEBP,
-  ),
-);
-
 const mosaicCovers = computed<string[]>(() => {
   const paths =
     (currentCollection.value as { path_covers_small?: string[] } | null)
       ?.path_covers_small ?? [];
-  return paths
-    .slice(0, 4)
-    .map((p) =>
-      supportsWebp.value ? p.replace(/\.(png|jpg|jpeg)$/i, ".webp") : p,
-    );
+  return paths.slice(0, 4).map(toWebp);
 });
 
 const description = computed(
