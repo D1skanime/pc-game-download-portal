@@ -425,25 +425,22 @@ The constitution is fully described above. The following implementation tasks re
 2. **`useGalleryFilterUrl`** — sync galleryFilter store fields (search, multi-select selections, logic operators) to URL query params so links are bookmarkable. Decide which subset is bookmarkable; the v1 store stays as it is and the v2 composable mirrors it. Mark v1 store usage as `@deprecated`.
 3. **Vue Router scroll restoration** — galleries scroll on custom containers (`.r-v2-plat__scroll`), not window. Add a Pinia map of `routeFullPath → offsetTop` plus per-view onMounted/onBeforeUnmount hooks to restore scroll on back navigation. Bundle with the virtualisation migration.
 4. **`useSocketEvent` composable** — typed subscriptions with mount/unmount cleanup. Today consumers wire `socket.on/off` manually.
-5. **Migrate the 17 existing `emitter.emit("snackbarShow", ...)` call sites to `useSnackbar()`** — they keep working; this is hygiene.
-6. **Migrate the 16 inline `as unknown as { FRONTEND?: ... }` cover-URL casts to `useWebpSupport()`** — same hygiene.
-7. **`.storybook/preview.ts`** wires Pinia + i18n + Vuetify per story; `permissionsStore` may need explicit hydration in stories that exercise `useCan`.
-8. **Dual-theme audit (premise #5).** Started at 429 hardcoded `rgba(255, 255, 255, ...)` sites; the first pass migrated the user-visible surfaces (AppNav, UserMenu, Home, galleries, tiles, Settings). ~360 sites remain across less-visible views (`ControllerDebug`, `Patcher`, `Player/EmulatorJS`, `Scan`, dialogs like `MatchRomDialog`/`DeleteRomDialog`/`EditRomDialog`/`NotesTab`/`AchievementsTab`, `RDialog`/`RTable` primitives, `UploadProgressToast`, `AboutDialog`, `Auth` views, etc.) plus the dialogs that overlay them. Pattern: replace `rgba(255, 255, 255, X)` with the closest matching token (`--r-color-fg` / `--r-color-fg-secondary` / `--r-color-fg-muted` / `--r-color-fg-faint` for text; `--r-color-surface` / `--r-color-bg-elevated` / `--r-color-surface-hover` for backgrounds; `--r-color-border` / `--r-color-border-strong` for borders). When two `.foo { color: rgba(255, ...) }` + `:global(.r-v2.r-v2-light) .foo { color: rgba(17, ...) }` blocks exist for the same property, the token already flips between the two values — collapse into a single-rule.
+5. **Dual-theme audit (premise #5).** Started at 429 hardcoded `rgba(255, 255, 255, ...)` sites; the first pass migrated the user-visible surfaces (AppNav, UserMenu, Home, galleries, tiles, Settings). ~360 sites remain across less-visible views (`ControllerDebug`, `Patcher`, `Player/EmulatorJS`, `Scan`, dialogs like `MatchRomDialog`/`DeleteRomDialog`/`EditRomDialog`/`NotesTab`/`AchievementsTab`, `RDialog`/`RTable` primitives, `UploadProgressToast`, `AboutDialog`, `Auth` views, etc.) plus the dialogs that overlay them. Pattern: replace `rgba(255, 255, 255, X)` with the closest matching token (`--r-color-fg` / `--r-color-fg-secondary` / `--r-color-fg-muted` / `--r-color-fg-faint` for text; `--r-color-surface` / `--r-color-bg-elevated` / `--r-color-surface-hover` for backgrounds; `--r-color-border` / `--r-color-border-strong` for borders). When two `.foo { color: rgba(255, ...) }` + `:global(.r-v2.r-v2-light) .foo { color: rgba(17, ...) }` blocks exist for the same property, the token already flips between the two values — collapse into a single-rule.
 
 ### Backend debt (frontend can't fix)
 
-8. **`ActionKey` enum in OpenAPI** — eliminates the manual `actions.ts` + `role-map.ts` pair; the frontend regenerates and gets compile-time alignment.
-9. **`/permissions/me` endpoint** returning normalised grants. Replaces `hydrateFromRole`; drops the role-map.
-10. **`permissions:changed` socket event** for live grant updates.
-11. **`FrontendDict.IMAGES_WEBP`** in OpenAPI — drops the cast inside `useWebpSupport`.
-12. **Form error format** standardised as `{ field: msg }` so `RTextField :error-messages` integration is consistent.
-13. **Typed socket event map** from the backend so the eventual `useSocketEvent` composable is fully typed.
+6. **`ActionKey` enum in OpenAPI** — eliminates the manual `actions.ts` + `role-map.ts` pair; the frontend regenerates and gets compile-time alignment.
+7. **`/permissions/me` endpoint** returning normalised grants. Replaces `hydrateFromRole`; drops the role-map.
+8. **`permissions:changed` socket event** for live grant updates.
+9. **`FrontendDict.IMAGES_WEBP`** in OpenAPI — drops the cast inside `useWebpSupport`.
+10. **Form error format** standardised as `{ field: msg }` so `RTextField :error-messages` integration is consistent.
+11. **Typed socket event map** from the backend so the eventual `useSocketEvent` composable is fully typed.
 
 ### When v1 is deleted
 
-14. Move `uiVersion` from `useUiVersion` into `UI_SETTINGS_KEYS`.
-15. Drop `.r-v2-...` scope classes; tokens move to `:root`.
-16. Simplify `useUISettings` sync (remove `isSyncing` + `setTimeout(50)` flag-flip).
-17. Delete `useGameAnimation` (replaced by view transitions, premise 8 era).
-18. Drop the color-string-to-tone collapser in `NotificationHost`; `snackbarShow` payload becomes `{ msg, tone, ... }`.
-19. Remove the Vuetify rule arrays in `stores/users.ts` once v1 doesn't consume them; v2 already composes from `src/v2/utils/validation.ts`.
+12. Move `uiVersion` from `useUiVersion` into `UI_SETTINGS_KEYS`.
+13. Drop `.r-v2-...` scope classes; tokens move to `:root`.
+14. Simplify `useUISettings` sync (remove `isSyncing` + `setTimeout(50)` flag-flip).
+15. Delete `useGameAnimation` (replaced by view transitions, premise 8 era).
+16. Drop the color-string-to-tone collapser in `NotificationHost`; `snackbarShow` payload becomes `{ msg, tone, ... }`.
+17. Remove the Vuetify rule arrays in `stores/users.ts` once v1 doesn't consume them; v2 already composes from `src/v2/utils/validation.ts`.
