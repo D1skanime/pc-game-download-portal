@@ -20,6 +20,9 @@ export const colorBrand = {
   // Accent is v1's salmon/peach — used sparingly for emphasis.
   accent: "#E1A38D",
   accentHover: "#F0C8B8",
+  // Favorite state — distinct from primary so a "selected" item and a
+  // "favourite" item read differently.
+  fav: "#FF4F6B",
   // User-avatar gradient picks up the primary palette so everything stays
   // in-family. (The mockup's red-to-magenta gradient is dropped here to
   // align with v1.)
@@ -51,7 +54,8 @@ export const colorDark = {
   fgFaint: "rgba(255, 255, 255, 0.25)",
   border: "rgba(255, 255, 255, 0.07)",
   borderStrong: "rgba(255, 255, 255, 0.15)",
-  focus: "#ffffff",
+  // Used by global.css to draw the focus ring; translucent over dark surfaces.
+  focus: "rgba(255, 255, 255, 0.45)",
 } as const;
 
 export const colorLight = {
@@ -65,7 +69,7 @@ export const colorLight = {
   fgFaint: "rgba(17, 17, 23, 0.25)",
   border: "rgba(0, 0, 0, 0.07)",
   borderStrong: "rgba(0, 0, 0, 0.15)",
-  focus: "#111117",
+  focus: "rgba(0, 0, 0, 0.45)",
 } as const;
 
 export const fontFamily = {

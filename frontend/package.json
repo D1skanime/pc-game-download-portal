@@ -20,6 +20,9 @@
   ],
   "type": "module",
   "scripts": {
+    "build:tokens": "tsx scripts/build-tokens.ts",
+    "predev": "npm run build:tokens",
+    "prebuild": "npm run build:tokens",
     "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
@@ -81,6 +84,7 @@
     "happy-dom": "^20.9.0",
     "openapi-typescript-codegen": "^0.29.0",
     "storybook": "^10.2.19",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^6.4.2",

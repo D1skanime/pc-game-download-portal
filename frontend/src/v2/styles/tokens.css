@@ -1,12 +1,16 @@
 /*
  * RomM v2 Design Tokens — CSS Custom Properties
  *
- * Mirrors src/v2/tokens/index.ts (artist mockup palette). Scoped under
- * `.r-v2` so v1 CSS is unaffected.
+ * GENERATED FILE — do not hand-edit. Source: src/v2/tokens/index.ts
+ * Regenerate with: npm run tokens
+ *
+ * Scoped under .r-v2 so v1 styling is unaffected. Theme palettes live under
+ * .r-v2.r-v2-dark and .r-v2.r-v2-light. The classes are toggled on <html>
+ * by RomM.vue so teleported overlays (VDialog, VMenu, VTooltip) — which
+ * land in <body> outside <v-app> — still resolve var(--r-color-*).
  */
 
 .r-v2 {
-  /* Brand — aligned with v1's purple palette. */
   --r-color-brand-primary: #8b74e8;
   --r-color-brand-primary-hover: #a18fff;
   --r-color-brand-primary-pressed: #6043c8;
@@ -15,27 +19,24 @@
   --r-color-brand-secondary-pressed: #7a6bb4;
   --r-color-brand-accent: #e1a38d;
   --r-color-brand-accent-hover: #f0c8b8;
+  --r-color-fav: #ff4f6b;
   --r-color-avatar-gradient: linear-gradient(135deg, #a18fff, #6043c8);
   --r-color-romm-red: #da3633;
   --r-color-romm-green: #3fb950;
   --r-color-romm-blue: #0070f3;
   --r-color-romm-gold: #ffd700;
-  --r-color-fav: #ff4f6b;
-
-  /* Status */
   --r-color-success: #4ade80;
   --r-color-warning: #fbbf24;
   --r-color-danger: #ff5050;
   --r-color-info: #93c5fd;
-
-  /* Typography */
   --r-font-family-sans:
     "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
     sans-serif;
-  --r-font-family-display: var(--r-font-family-sans);
+  --r-font-family-display:
+    "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
+    sans-serif;
   --r-font-family-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-
   --r-font-size-xs: 10.5px;
   --r-font-size-sm: 11.5px;
   --r-font-size-md: 13px;
@@ -44,18 +45,14 @@
   --r-font-size-2xl: 22px;
   --r-font-size-3xl: 32px;
   --r-font-size-4xl: 38px;
-
   --r-line-height-tight: 1.1;
   --r-line-height-normal: 1.4;
   --r-line-height-relaxed: 1.7;
-
   --r-font-weight-regular: 400;
   --r-font-weight-medium: 500;
   --r-font-weight-semibold: 600;
   --r-font-weight-bold: 700;
   --r-font-weight-extrabold: 800;
-
-  /* Spacing (4px base) */
   --r-space-0: 0;
   --r-space-1: 4px;
   --r-space-2: 8px;
@@ -69,8 +66,6 @@
   --r-space-12: 48px;
   --r-space-14: 56px;
   --r-row-pad: 36px;
-
-  /* Radii */
   --r-radius-none: 0;
   --r-radius-xs: 3px;
   --r-radius-sm: 4px;
@@ -82,8 +77,6 @@
   --r-radius-xl: 20px;
   --r-radius-pill: 100px;
   --r-radius-full: 9999px;
-
-  /* Elevation */
   --r-elev-0: none;
   --r-elev-1: 0 2px 8px rgba(0, 0, 0, 0.2);
   --r-elev-2: 0 8px 24px rgba(0, 0, 0, 0.45);
@@ -91,20 +84,13 @@
   --r-elev-4: 0 20px 60px rgba(0, 0, 0, 0.7);
   --r-elev-5: 0 32px 96px rgba(0, 0, 0, 0.7);
   --r-elev-cover: 0 24px 48px rgba(0, 0, 0, 0.8);
-
-  /* Motion */
   --r-motion-fast: 150ms;
   --r-motion-med: 220ms;
   --r-motion-slow: 360ms;
   --r-motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --r-motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-
-  /* Focus */
   --r-focus-ring-width: 2px;
-  --r-focus-ring-color: rgba(255, 255, 255, 0.45);
   --r-focus-ring-offset: 3px;
-
-  /* Layout constants lifted from the mockup. */
   --r-nav-h: 58px;
   --r-card-art-w: 158px;
   --r-card-art-h: 213px;
@@ -120,8 +106,7 @@ html[data-input="pad"] .r-v2 {
   --r-focus-ring-width: 3.5px;
 }
 
-/* Dark (default) surface palette — rgba over the near-black base gives the
-   "glass over artwork" feel of the mockup. */
+/* Dark surface palette — translucent white over the near-black base. */
 .r-v2.r-v2-dark {
   --r-color-bg: #07070f;
   --r-color-bg-elevated: rgba(255, 255, 255, 0.045);
@@ -136,7 +121,7 @@ html[data-input="pad"] .r-v2 {
   --r-color-focus: rgba(255, 255, 255, 0.45);
 }
 
-/* Light-mode variant — keeps the translucent language but flips the alpha. */
+/* Light surface palette — translucent black over the off-white base. */
 .r-v2.r-v2-light {
   --r-color-bg: #f5f5fa;
   --r-color-bg-elevated: rgba(0, 0, 0, 0.045);

@@ -322,7 +322,7 @@ async function remove(note: UserNoteSchema) {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--r-radius-lg);
   background: rgba(255, 255, 255, 0.07);
   color: rgba(255, 255, 255, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.08);

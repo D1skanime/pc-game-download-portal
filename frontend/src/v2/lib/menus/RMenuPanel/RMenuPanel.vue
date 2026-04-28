@@ -35,7 +35,7 @@ const resolvedWidth =
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  border-radius: var(--r-radius-card);
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.7),
     0 4px 20px rgba(0, 0, 0, 0.4);

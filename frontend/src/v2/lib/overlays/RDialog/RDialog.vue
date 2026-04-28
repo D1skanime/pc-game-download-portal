@@ -175,7 +175,7 @@ void props;
   flex-direction: column;
   background: rgba(16, 12, 28, 0.97);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  border-radius: var(--r-radius-card);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   box-shadow:
@@ -303,7 +303,7 @@ void props;
 .v-overlay__content.r-dialog {
   background: transparent;
   box-shadow: none;
-  border-radius: 14px;
+  border-radius: var(--r-radius-card);
   overflow: visible;
   max-height: calc(100vh - 32px);
 }
