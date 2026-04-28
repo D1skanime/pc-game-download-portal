@@ -56,7 +56,7 @@ const backing = computed(() => {
 
 <style scoped>
 .r-table {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--r-color-bg-elevated);
   color: var(--r-color-fg);
   font-size: 13px;
 }
@@ -80,26 +80,26 @@ const backing = computed(() => {
   font-weight: var(--r-font-weight-bold) !important;
   letter-spacing: 0.07em !important;
   text-transform: uppercase !important;
-  color: rgba(255, 255, 255, 0.55) !important;
-  background: rgba(255, 255, 255, 0.02) !important;
+  color: var(--r-color-fg-secondary) !important;
+  background: var(--r-color-bg-elevated) !important;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-bottom: 1px solid var(--r-color-border) !important;
 }
 
 .r-table :deep(thead th .v-data-table-header__sort-icon) {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
 }
 
 /* Body rows — thin separators, hover tint, cursor pointer (rows are clickable). */
 .r-table :deep(tbody td) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
-  color: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid var(--r-color-border) !important;
+  color: var(--r-color-fg-secondary);
   height: 55px !important;
 }
 
 .r-table :deep(tbody tr:hover td) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: var(--r-color-bg-elevated) !important;
 }
 
 .r-table :deep(tbody tr.v-data-table__tr--selected td),
@@ -110,29 +110,12 @@ const backing = computed(() => {
 
 /* Footer */
 .r-table :deep(.v-data-table-footer) {
-  background: rgba(255, 255, 255, 0.03);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--r-color-bg-elevated);
+  border-top: 1px solid var(--r-color-border);
 }
 
 /* Loader sits across the top */
 .r-table :deep(.v-data-table__progress) {
   background: transparent;
-}
-
-/* Light theme */
-:global(.r-v2.r-v2-light) .r-table {
-  background: rgba(17, 17, 23, 0.03);
-}
-:global(.r-v2.r-v2-light) .r-table :deep(thead th) {
-  color: rgba(17, 17, 23, 0.55) !important;
-  background: rgba(17, 17, 23, 0.02) !important;
-  border-bottom-color: rgba(17, 17, 23, 0.08) !important;
-}
-:global(.r-v2.r-v2-light) .r-table :deep(tbody td) {
-  color: rgba(17, 17, 23, 0.85);
-  border-bottom-color: rgba(17, 17, 23, 0.06) !important;
-}
-:global(.r-v2.r-v2-light) .r-table :deep(tbody tr:hover td) {
-  background: rgba(17, 17, 23, 0.05) !important;
 }
 </style>

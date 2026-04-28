@@ -185,7 +185,7 @@ function toggleStatus(target: StatusFilter) {
 
 .r-v2-det-ach__empty {
   padding: 30px 0;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   font-size: 13px;
   font-style: italic;
   text-align: center;
@@ -195,8 +195,8 @@ function toggleStatus(target: StatusFilter) {
 .r-v2-det-ach__summary {
   display: flex;
   gap: 0;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   padding: 14px 0;
 }
@@ -206,7 +206,7 @@ function toggleStatus(target: StatusFilter) {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid var(--r-color-border);
   padding: 0 12px;
 }
 .r-v2-det-ach__stat:last-child {
@@ -215,18 +215,18 @@ function toggleStatus(target: StatusFilter) {
 .r-v2-det-ach__stat-val {
   font-size: 20px;
   font-weight: var(--r-font-weight-bold);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
   font-variant-numeric: tabular-nums;
 }
 .r-v2-det-ach__stat-val--missable {
-  color: #fbbf24;
+  color: var(--r-color-warning);
 }
 .r-v2-det-ach__stat-lbl {
   font-size: 10px;
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
 }
 
 /* ── Filters ─────────────────────────────────────────── */
@@ -238,10 +238,10 @@ function toggleStatus(target: StatusFilter) {
 }
 .r-v2-det-ach__filter {
   appearance: none;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   padding: 5px 13px;
   font-size: 11.5px;
   font-weight: var(--r-font-weight-medium);
@@ -254,28 +254,28 @@ function toggleStatus(target: StatusFilter) {
     border-color var(--r-motion-fast);
 }
 .r-v2-det-ach__filter:hover {
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--r-color-fg);
+  background: var(--r-color-surface-hover);
 }
 .r-v2-det-ach__filter--active {
-  color: #111;
-  background: #fff;
-  border-color: #fff;
+  color: var(--r-color-bg);
+  background: var(--r-color-fg);
+  border-color: var(--r-color-fg);
 }
 .r-v2-det-ach__filter--earned.r-v2-det-ach__filter--active {
-  color: #fff;
+  color: var(--r-color-fg);
   background: rgba(34, 197, 94, 0.3);
   border-color: rgba(34, 197, 94, 0.5);
 }
 .r-v2-det-ach__filter--locked.r-v2-det-ach__filter--active {
-  color: #fff;
+  color: var(--r-color-fg);
   background: rgba(239, 68, 68, 0.24);
   border-color: rgba(239, 68, 68, 0.45);
 }
 .r-v2-det-ach__filter-sep {
   width: 1px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--r-color-surface-hover);
   margin: 0 4px;
 }
 
@@ -292,8 +292,8 @@ function toggleStatus(target: StatusFilter) {
   gap: 14px;
   align-items: center;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
 }
 .r-v2-det-ach__row--locked {
@@ -305,7 +305,7 @@ function toggleStatus(target: StatusFilter) {
   height: 52px;
   border-radius: 8px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--r-color-bg-elevated);
   flex-shrink: 0;
 }
 .r-v2-det-ach__badge img {
@@ -318,11 +318,11 @@ function toggleStatus(target: StatusFilter) {
 .r-v2-det-ach__title {
   font-size: 13px;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
 }
 .r-v2-det-ach__desc {
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
   margin-top: 2px;
   line-height: 1.4;
 }
@@ -337,7 +337,7 @@ function toggleStatus(target: StatusFilter) {
 .r-v2-det-ach__points {
   font-size: 12px;
   font-weight: var(--r-font-weight-bold);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--r-color-fg-secondary);
   font-variant-numeric: tabular-nums;
 }
 .r-v2-det-ach__type {
@@ -347,8 +347,8 @@ function toggleStatus(target: StatusFilter) {
   text-transform: uppercase;
   padding: 2px 7px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.55);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg-secondary);
 }
 .r-v2-det-ach__type--progression {
   background: rgba(99, 102, 241, 0.18);

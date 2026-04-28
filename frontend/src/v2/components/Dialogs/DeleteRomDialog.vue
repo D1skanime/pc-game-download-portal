@@ -259,7 +259,7 @@ function closeDialog() {
   gap: 10px;
   width: 100%;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-del-rom__hint {
   flex: 1;
@@ -267,9 +267,9 @@ function closeDialog() {
 
 .r-v2-del-rom__toggle-all {
   appearance: none;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
+  color: var(--r-color-fg-secondary);
   padding: 4px 10px;
   border-radius: var(--r-radius-pill);
   font-size: 11px;
@@ -281,7 +281,7 @@ function closeDialog() {
   font-family: inherit;
 }
 .r-v2-del-rom__toggle-all:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--r-color-surface);
 }
 
 .r-v2-del-rom__list {
@@ -301,8 +301,8 @@ function closeDialog() {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
@@ -327,7 +327,7 @@ function closeDialog() {
   display: block;
 }
 .r-v2-del-rom__cover-placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
 }
 
 .r-v2-del-rom__meta {
@@ -337,7 +337,7 @@ function closeDialog() {
   margin: 0;
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -346,7 +346,7 @@ function closeDialog() {
   margin: 2px 0 0;
   font-size: 11px;
   font-family: var(--r-font-family-mono, monospace);
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -358,11 +358,11 @@ function closeDialog() {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--r-color-fg-secondary);
   font-weight: var(--r-font-weight-medium);
   font-family: inherit;
   cursor: pointer;
@@ -372,8 +372,8 @@ function closeDialog() {
     border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-del-rom__fs-toggle:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.85);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
 }
 .r-v2-del-rom__fs-toggle--on,
 .r-v2-del-rom__fs-toggle--on:hover {
@@ -397,7 +397,7 @@ function closeDialog() {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: var(--r-radius-md);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg);
   font-size: 12px;
   line-height: 1.4;
 }

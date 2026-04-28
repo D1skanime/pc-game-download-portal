@@ -161,7 +161,7 @@ function clearFinished() {
   z-index: 8900;
   width: min(360px, calc(100vw - 32px));
   background: rgba(13, 17, 23, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -176,7 +176,7 @@ function clearFinished() {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--r-color-border);
 }
 
 .r-v2-upload__summary {
@@ -185,7 +185,7 @@ function clearFinished() {
   gap: 8px;
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
   flex: 1;
   min-width: 0;
 }
@@ -194,7 +194,7 @@ function clearFinished() {
   appearance: none;
   background: transparent;
   border: 0;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   width: 26px;
   height: 26px;
   border-radius: 6px;
@@ -204,8 +204,8 @@ function clearFinished() {
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-upload__toggle:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
 }
 
 .r-v2-upload__list {
@@ -222,7 +222,7 @@ function clearFinished() {
 .r-v2-upload__item {
   padding: 8px 10px;
   border-radius: var(--r-radius-sm);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--r-color-bg-elevated);
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-upload__item--done {
@@ -241,7 +241,7 @@ function clearFinished() {
 
 .r-v2-upload__filename {
   font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -249,7 +249,7 @@ function clearFinished() {
 }
 
 .r-v2-upload__item-status {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
 }
 .r-v2-upload__item--done .r-v2-upload__item-status {
   color: #4ade80;
@@ -270,7 +270,7 @@ function clearFinished() {
 .r-v2-upload__bar {
   height: 3px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--r-color-surface);
   border-radius: var(--r-radius-pill);
   margin-top: 6px;
   overflow: hidden;
@@ -287,7 +287,7 @@ function clearFinished() {
   gap: 8px;
   margin-top: 4px;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -302,7 +302,7 @@ function clearFinished() {
   padding: 4px 8px 8px;
   display: flex;
   justify-content: flex-end;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--r-color-border);
 }
 
 /* Slide + fade in/out from the bottom-right. */

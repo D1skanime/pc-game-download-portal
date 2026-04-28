@@ -92,7 +92,7 @@ const tag = computed(() => {
   cursor: pointer;
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--r-color-fg-secondary);
   font-family: inherit;
   text-align: left;
   text-decoration: none;
@@ -103,17 +103,8 @@ const tag = computed(() => {
   user-select: none;
 }
 
-.r-v2.r-v2-light .r-menu-item {
-  color: rgba(17, 17, 23, 0.85);
-}
-
 .r-menu-item:hover:not(.r-menu-item--disabled) {
-  background: rgba(255, 255, 255, 0.09);
-  color: #fff;
-}
-
-.r-v2.r-v2-light .r-menu-item:hover:not(.r-menu-item--disabled) {
-  background: rgba(17, 17, 23, 0.07);
+  background: var(--r-color-surface);
   color: var(--r-color-fg);
 }
 
@@ -170,11 +161,13 @@ const tag = computed(() => {
 
 /* Danger: destructive actions */
 .r-menu-item--danger {
-  color: rgba(255, 90, 90, 0.85);
+  color: var(--r-color-danger);
+  opacity: 0.85;
 }
 .r-menu-item--danger:hover:not(.r-menu-item--disabled) {
   background: rgba(255, 80, 80, 0.12);
-  color: #ff5050;
+  color: var(--r-color-danger);
+  opacity: 1;
 }
 
 /* Disabled */

@@ -113,8 +113,8 @@ void t;
   gap: 12px;
   padding: 12px 14px;
   border-radius: var(--r-radius-md);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   text-decoration: none;
   color: inherit;
   transition:
@@ -123,8 +123,8 @@ void t;
     transform var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-about__tile:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--r-color-surface);
+  border-color: var(--r-color-border-strong);
   transform: translateY(-1px);
 }
 
@@ -134,8 +134,8 @@ void t;
   border-radius: 8px;
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.85);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
   flex-shrink: 0;
 }
 
@@ -150,7 +150,7 @@ void t;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-about__value {
@@ -163,10 +163,10 @@ void t;
 }
 
 .r-v2-about__chev {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-about__tile:hover .r-v2-about__chev {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--r-color-fg);
 }
 
 @media (max-width: 520px) {

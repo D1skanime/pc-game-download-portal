@@ -192,12 +192,12 @@ void props;
   padding: 12px 10px 12px 16px;
   /* Softer divider than before — matches the RMenuDivider rhythm so
      headers read as a section boundary instead of a form chrome bar. */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--r-color-border);
 }
 
 .r-dialog__lead-icon {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--r-color-fg-secondary);
 }
 
 .r-dialog__header-slot {
@@ -205,7 +205,7 @@ void props;
   min-width: 0;
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
 }
 
 .r-dialog__close {
@@ -217,21 +217,21 @@ void props;
   display: grid;
   place-items: center;
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   cursor: pointer;
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-dialog__close:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
 }
 
 .r-dialog__toolbar {
   padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.02);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--r-color-bg-elevated);
+  border-bottom: 1px solid var(--r-color-border);
 }
 
 .r-dialog__prepend,
@@ -263,7 +263,7 @@ void props;
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.12);
+  border: 2px solid var(--r-color-surface-hover);
   border-top-color: var(--r-color-brand-primary);
   animation: r-dialog-spin 0.8s linear infinite;
 }
@@ -276,7 +276,7 @@ void props;
 
 .r-dialog__footer {
   padding: 10px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--r-color-border);
   display: flex;
   align-items: center;
   gap: 8px;

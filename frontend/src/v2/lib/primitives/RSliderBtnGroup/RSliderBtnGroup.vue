@@ -192,16 +192,16 @@ onBeforeUnmount(() => {
 .r-slider-btn-group--segmented {
   padding: 2px;
   gap: 2px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
 }
 
 /* Tab — text-padded cluster (top-nav style). */
 .r-slider-btn-group--tab {
   padding: 4px;
   gap: 2px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
@@ -209,7 +209,7 @@ onBeforeUnmount(() => {
 .r-slider-btn-group__indicator {
   position: absolute;
   left: 0;
-  background: #fff;
+  background: var(--r-color-fg);
   border-radius: var(--r-radius-pill);
   pointer-events: none;
   will-change: transform, width;
@@ -270,7 +270,7 @@ onBeforeUnmount(() => {
   height: 28px !important;
   padding: 0 !important;
   background: transparent !important;
-  color: rgba(255, 255, 255, 0.55) !important;
+  color: var(--r-color-fg-secondary) !important;
   display: inline-grid;
   place-items: center;
 }
@@ -279,13 +279,13 @@ onBeforeUnmount(() => {
 }
 .r-slider-btn-group--segmented
   .r-slider-btn-group__btn:hover:not(.r-slider-btn-group__btn--active) {
-  color: rgba(255, 255, 255, 0.9) !important;
-  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--r-color-fg) !important;
+  background: var(--r-color-surface) !important;
   transform: scale(1.08);
 }
 .r-slider-btn-group--segmented .r-slider-btn-group__btn--active,
 .r-slider-btn-group--segmented .r-slider-btn-group__btn--active:hover {
-  color: #111 !important;
+  color: var(--r-color-bg) !important;
 }
 
 /* Tab sizing + colors. */
@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
   padding: 7px 22px;
   font-size: 13.5px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.62) !important;
+  color: var(--r-color-fg-secondary) !important;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -301,61 +301,12 @@ onBeforeUnmount(() => {
 .r-slider-btn-group--tab
   .r-slider-btn-group__btn:hover:not(.r-slider-btn-group__btn--active) {
   color: var(--r-color-fg) !important;
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--r-color-surface-hover);
 }
 .r-slider-btn-group--tab .r-slider-btn-group__btn--active,
 .r-slider-btn-group--tab .r-slider-btn-group__btn--active:hover {
-  color: #111 !important;
+  color: var(--r-color-bg) !important;
   background: transparent !important;
   font-weight: var(--r-font-weight-semibold);
-}
-
-/* Light theme. */
-:global(.r-v2.r-v2-light) .r-slider-btn-group--segmented {
-  background: rgba(17, 17, 23, 0.05);
-  border-color: rgba(17, 17, 23, 0.08);
-}
-:global(.r-v2.r-v2-light) .r-slider-btn-group--tab {
-  background: rgba(17, 17, 23, 0.06);
-  border-color: rgba(17, 17, 23, 0.1);
-}
-:global(.r-v2.r-v2-light) .r-slider-btn-group__indicator {
-  background: #111;
-}
-:global(.r-v2.r-v2-light)
-  .r-slider-btn-group--segmented
-  .r-slider-btn-group__btn {
-  color: rgba(17, 17, 23, 0.55) !important;
-}
-:global(.r-v2.r-v2-light)
-  .r-slider-btn-group--segmented
-  .r-slider-btn-group__btn:hover:not(.r-slider-btn-group__btn--active) {
-  color: rgba(17, 17, 23, 0.9) !important;
-  background: rgba(17, 17, 23, 0.06) !important;
-}
-:global(.r-v2.r-v2-light)
-  .r-slider-btn-group--segmented
-  .r-slider-btn-group__btn--active,
-:global(.r-v2.r-v2-light)
-  .r-slider-btn-group--segmented
-  .r-slider-btn-group__btn--active:hover {
-  color: #fff !important;
-}
-:global(.r-v2.r-v2-light) .r-slider-btn-group--tab .r-slider-btn-group__btn {
-  color: rgba(17, 17, 23, 0.62) !important;
-}
-:global(.r-v2.r-v2-light)
-  .r-slider-btn-group--tab
-  .r-slider-btn-group__btn:hover:not(.r-slider-btn-group__btn--active) {
-  background: rgba(17, 17, 23, 0.09);
-}
-:global(.r-v2.r-v2-light)
-  .r-slider-btn-group--tab
-  .r-slider-btn-group__btn--active,
-:global(.r-v2.r-v2-light)
-  .r-slider-btn-group--tab
-  .r-slider-btn-group__btn--active:hover {
-  color: #fff !important;
-  background: transparent !important;
 }
 </style>

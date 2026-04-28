@@ -30,6 +30,7 @@ import {
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
 import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -160,9 +161,12 @@ const morphStyle = computed(() => {
 
       <RTooltip v-if="showPlatformIcon" :text="platformShort" location="bottom">
         <template #activator="{ props: tooltipProps }">
-          <button
+          <RBtn
             v-bind="tooltipProps"
-            type="button"
+            icon
+            size="x-small"
+            variant="text"
+            :ripple="false"
             class="r-gc__platform-icon"
             :aria-label="`Browse ${platformShort}`"
             @click="onPlatformClick"
@@ -173,7 +177,7 @@ const morphStyle = computed(() => {
               :alt="platformShort"
               :size="18"
             />
-          </button>
+          </RBtn>
         </template>
       </RTooltip>
 
@@ -283,36 +287,31 @@ const morphStyle = computed(() => {
 
 /* Top-right always-visible platform icon. Sits on the cover (outside the
    hover overlay) so it stays readable at rest. Click navigates to the
-   platform gallery; tooltip shows the full platform name. */
+   platform gallery; tooltip shows the full platform name.
+   `z-index` keeps the button above `.r-gc__overlay`, which would
+   otherwise eat clicks because it covers the full art via `inset: 0`. */
 .r-gc__platform-icon {
-  appearance: none;
-  position: absolute;
+  position: absolute !important;
   top: 7px;
   right: 7px;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  color: inherit;
+  z-index: 2;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(0, 0, 0, 0.78) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
   transition:
     background 0.12s ease,
     border-color 0.12s ease,
     transform 0.12s ease;
 }
-.r-gc__platform-icon:hover,
-.r-gc__platform-icon:focus-visible {
-  background: rgba(0, 0, 0, 0.9);
-  border-color: rgba(255, 255, 255, 0.25);
+.r-gc__platform-icon:hover {
+  background: rgba(0, 0, 0, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
   transform: scale(1.08);
-}
-.r-gc__platform-icon:focus-visible {
-  outline: 2px solid var(--r-color-brand-primary);
-  outline-offset: 2px;
 }
 
 /* Platform badge */

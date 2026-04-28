@@ -545,9 +545,9 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 
 .r-v2-edit__icon-btn {
   appearance: none;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.75);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
+  color: var(--r-color-fg-secondary);
   width: 32px;
   height: 32px;
   border-radius: var(--r-radius-sm);
@@ -559,8 +559,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-edit__icon-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--r-color-surface-hover);
+  color: var(--r-color-fg);
 }
 .r-v2-edit__icon-btn:disabled {
   opacity: 0.4;
@@ -596,7 +596,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   gap: 6px;
   margin: -4px 0 0;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
   font-family: var(--r-font-family-mono, monospace);
   word-break: break-all;
 }
@@ -633,7 +633,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 
 .r-v2-edit__hint {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-edit__tracks {
@@ -651,13 +651,13 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   gap: 8px;
   align-items: center;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-sm);
   font-size: 12px;
 }
 .r-v2-edit__track-name {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -665,7 +665,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 }
 .r-v2-edit__track-size {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
   font-variant-numeric: tabular-nums;
 }
 

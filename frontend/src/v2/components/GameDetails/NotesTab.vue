@@ -264,14 +264,14 @@ async function remove(note: UserNoteSchema) {
 
 .r-v2-det-notes__empty {
   padding: 24px 0;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   font-size: 13px;
   font-style: italic;
 }
 
 .r-v2-det-notes__card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   overflow: hidden;
 }
@@ -287,17 +287,17 @@ async function remove(note: UserNoteSchema) {
   transition: background var(--r-motion-fast);
 }
 .r-v2-det-notes__head:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--r-color-bg-elevated);
 }
 
 .r-v2-det-notes__title {
   font-size: 13.5px;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
 }
 .r-v2-det-notes__meta {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
   margin-top: 2px;
 }
 
@@ -314,9 +314,9 @@ async function remove(note: UserNoteSchema) {
   text-transform: uppercase;
   padding: 2px 8px;
   border-radius: var(--r-radius-lg);
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg-muted);
+  border: 1px solid var(--r-color-border);
 }
 .r-v2-det-notes__badge--public {
   background: rgba(34, 197, 94, 0.14);
@@ -325,7 +325,7 @@ async function remove(note: UserNoteSchema) {
 }
 
 .r-v2-det-notes__chevron {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
   transition: transform var(--r-motion-fast);
 }
 .r-v2-det-notes__chevron--open {
@@ -334,8 +334,8 @@ async function remove(note: UserNoteSchema) {
 
 .r-v2-det-notes__body {
   padding: 0 16px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
+  border-top: 1px solid var(--r-color-border);
+  color: var(--r-color-fg-secondary);
   font-size: 13px;
   line-height: 1.55;
 }
@@ -352,10 +352,10 @@ async function remove(note: UserNoteSchema) {
 
 .r-v2-det-notes__btn {
   appearance: none;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-pill);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg-secondary);
   padding: 6px 14px;
   font-size: 12px;
   font-weight: var(--r-font-weight-medium);
@@ -366,34 +366,34 @@ async function remove(note: UserNoteSchema) {
     border-color var(--r-motion-fast);
 }
 .r-v2-det-notes__btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--r-color-surface-hover);
 }
 .r-v2-det-notes__btn:disabled {
   opacity: 0.5;
   cursor: default;
 }
 .r-v2-det-notes__btn--danger {
-  color: #fca5a5;
+  color: var(--r-color-danger);
   border-color: rgba(239, 68, 68, 0.3);
 }
 .r-v2-det-notes__btn--danger:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.12);
 }
 .r-v2-det-notes__btn--save {
-  background: #fff;
-  color: #111;
-  border-color: #fff;
+  background: var(--r-color-fg);
+  color: var(--r-color-bg);
+  border-color: var(--r-color-fg);
 }
 .r-v2-det-notes__btn--save:hover:not(:disabled) {
-  background: #e0e0e0;
+  opacity: 0.85;
 }
 
 .r-v2-det-notes__add {
   appearance: none;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px dashed rgba(255, 255, 255, 0.15);
+  background: var(--r-color-bg-elevated);
+  border: 1px dashed var(--r-color-border-strong);
   border-radius: var(--r-radius-lg);
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   padding: 12px 16px;
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
@@ -402,8 +402,8 @@ async function remove(note: UserNoteSchema) {
   text-align: center;
 }
 .r-v2-det-notes__add:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.75);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
 }
 
 .r-v2-det-notes__form {
@@ -415,17 +415,17 @@ async function remove(note: UserNoteSchema) {
 
 .r-v2-det-notes__input {
   appearance: none;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: 8px;
-  color: #fff;
+  color: var(--r-color-fg);
   padding: 8px 12px;
   font-size: 13px;
   font-family: inherit;
 }
 .r-v2-det-notes__input:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--r-color-fg-faint);
 }
 .r-v2-det-notes__textarea {
   min-height: 120px;
@@ -438,7 +438,7 @@ async function remove(note: UserNoteSchema) {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--r-color-fg-secondary);
   cursor: pointer;
 }
 
