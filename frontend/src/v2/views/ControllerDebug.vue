@@ -382,13 +382,13 @@ function magnitude(x: number, y: number) {
 
 .r-v2-ctrl__subtitle {
   margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-sm);
   max-width: 550px;
 }
 .r-v2-ctrl__subtitle code {
   padding: 1px 6px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--r-color-surface);
   border-radius: var(--r-radius-sm);
   font-family: var(--r-font-family-mono, monospace);
   font-size: 11px;
@@ -405,7 +405,7 @@ function magnitude(x: number, y: number) {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__modality-pill {
   display: inline-flex;
@@ -429,7 +429,7 @@ function magnitude(x: number, y: number) {
 
 .r-v2-ctrl__panel {
   background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -443,11 +443,11 @@ function magnitude(x: number, y: number) {
   justify-content: center;
   gap: 10px;
   padding: 48px 16px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-muted);
   text-align: center;
 }
 .r-v2-ctrl__empty :deep(.r-icon) {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
 }
 .r-v2-ctrl__empty p {
   margin: 0;
@@ -455,12 +455,12 @@ function magnitude(x: number, y: number) {
 }
 .r-v2-ctrl__hint {
   max-width: 420px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
   font-size: 12px;
 }
 .r-v2-ctrl__hint code {
   padding: 1px 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--r-color-surface);
   border-radius: 3px;
   font-family: var(--r-font-family-mono, monospace);
   font-size: 11px;
@@ -468,7 +468,7 @@ function magnitude(x: number, y: number) {
 
 .r-v2-ctrl__pad-head {
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid None;
   margin-bottom: 14px;
 }
 .r-v2-ctrl__pad-id {
@@ -478,7 +478,7 @@ function magnitude(x: number, y: number) {
   margin: 0;
   font-size: 13px;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -487,15 +487,15 @@ function magnitude(x: number, y: number) {
 .r-v2-ctrl__pad-meta {
   margin: 4px 0 0;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__tag {
   padding: 1px 6px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--r-color-surface);
   border-radius: var(--r-radius-sm);
   font-family: var(--r-font-family-mono, monospace);
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--r-color-fg-secondary);
 }
 .r-v2-ctrl__ok {
   color: #4ade80;
@@ -528,14 +528,14 @@ function magnitude(x: number, y: number) {
   width: 96px;
   height: 96px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
 }
 .r-v2-ctrl__stick-deadzone {
   position: absolute;
   inset: 35%;
   border-radius: 50%;
-  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border: 1px dashed var(--r-color-border-strong);
 }
 .r-v2-ctrl__stick-dot {
   position: absolute;
@@ -551,13 +551,13 @@ function magnitude(x: number, y: number) {
   margin: 6px 0 0;
   font-size: 11px;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--r-color-fg-secondary);
 }
 .r-v2-ctrl__stick-values {
   margin: 0;
   font-size: 10px;
   font-family: var(--r-font-family-mono, monospace);
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-ctrl__buttons {
@@ -573,8 +573,8 @@ function magnitude(x: number, y: number) {
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-sm);
   font-size: 11px;
   overflow: hidden;
@@ -604,11 +604,11 @@ function magnitude(x: number, y: number) {
 }
 .r-v2-ctrl__btn-idx {
   font-family: var(--r-font-family-mono, monospace);
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-faint);
   font-size: 10px;
 }
 .r-v2-ctrl__btn-label {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg);
   font-weight: var(--r-font-weight-medium);
   white-space: nowrap;
   overflow: hidden;
@@ -617,21 +617,21 @@ function magnitude(x: number, y: number) {
 .r-v2-ctrl__btn-value {
   font-family: var(--r-font-family-mono, monospace);
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-ctrl__axes {
   grid-column: 1 / -1;
   padding-top: 12px;
   margin-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid None;
 }
 .r-v2-ctrl__axes-title {
   margin: 0 0 8px;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__axis {
   display: grid;
@@ -642,12 +642,12 @@ function magnitude(x: number, y: number) {
   font-size: 11px;
 }
 .r-v2-ctrl__axis-idx {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__axis-track {
   position: relative;
   height: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--r-color-surface);
   border-radius: 2px;
 }
 .r-v2-ctrl__axis-track::after {
@@ -657,7 +657,7 @@ function magnitude(x: number, y: number) {
   top: -2px;
   bottom: -2px;
   width: 1px;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--r-color-surface-hover);
 }
 .r-v2-ctrl__axis-fill {
   position: absolute;
@@ -668,7 +668,7 @@ function magnitude(x: number, y: number) {
 }
 .r-v2-ctrl__axis-value {
   font-family: var(--r-font-family-mono, monospace);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--r-color-fg-secondary);
   text-align: right;
 }
 
@@ -676,7 +676,7 @@ function magnitude(x: number, y: number) {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg);
   margin-bottom: 12px;
 }
 .r-v2-ctrl__section-head h2 {
@@ -699,12 +699,12 @@ function magnitude(x: number, y: number) {
   gap: 8px;
   align-items: center;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--r-color-bg-elevated);
   border-radius: var(--r-radius-sm);
   font-size: 12px;
 }
 .r-v2-ctrl__legend-row span {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg);
 }
 .r-v2-ctrl__legend-row code {
   font-family: var(--r-font-family-mono, monospace);
@@ -713,20 +713,20 @@ function magnitude(x: number, y: number) {
   text-align: right;
 }
 .r-v2-ctrl__legend-row :deep(.r-icon) {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-ctrl__log-hint {
   margin: 0 0 10px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__log-hint code {
   padding: 1px 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--r-color-surface);
   border-radius: 3px;
   font-family: var(--r-font-family-mono, monospace);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--r-color-fg-secondary);
 }
 .r-v2-ctrl__log-list {
   list-style: none;
@@ -744,7 +744,7 @@ function magnitude(x: number, y: number) {
   gap: 10px;
   align-items: center;
   padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--r-color-bg-elevated);
   border-radius: var(--r-radius-sm);
   font-size: 11px;
 }
@@ -753,26 +753,26 @@ function magnitude(x: number, y: number) {
 }
 .r-v2-ctrl__log-time {
   font-family: var(--r-font-family-mono, monospace);
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__log-tag {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__log-row--synthetic .r-v2-ctrl__log-tag {
   color: var(--r-color-brand-primary);
 }
 .r-v2-ctrl__log-key {
   font-family: var(--r-font-family-mono, monospace);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
 }
 .r-v2-ctrl__log-empty {
   padding: 24px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
   font-size: 12px;
 }
 
