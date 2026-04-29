@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// Collection gallery — same single-virtualiser architecture as Platform /
-// Search, hero is a CollectionMosaic-fronted InfoPanel.
-import { RChip, RSkeletonBlock, RVirtualScroller } from "@v2/lib";
+// Collection gallery — same single-virtualiser, sparse-loading
+// architecture as Platform / Search; hero is a CollectionMosaic-fronted
+// InfoPanel.
+import { RChip, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -18,39 +19,35 @@ import storeCollections, {
   type VirtualCollection,
 } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeRoms from "@/stores/roms";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
-import { GameCard } from "@/v2/components/Gallery/GameCard";
+import { GameCard, GameCardSkeleton } from "@/v2/components/Gallery/GameCard";
 import GameList from "@/v2/components/Gallery/GameList.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
-import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import {
   useGalleryVirtualItems,
   type GalleryItem,
+  type GallerySlot,
 } from "@/v2/composables/useGalleryVirtualItems";
-import { useLetterGroups } from "@/v2/composables/useLetterGroups";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type CollectionKind = "regular" | "virtual" | "smart";
 
 const route = useRoute();
 const collectionsStore = storeCollections();
-const romsStore = storeRoms();
+const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const { supportsWebp, toWebp } = useWebpSupport();
 
-const {
-  _allRoms: allRoms,
-  fetchingRoms,
-  fetchTotalRoms,
-} = storeToRefs(romsStore);
+const { total, charIndex, byPosition, initialFetching } =
+  storeToRefs(galleryRoms);
 
 const notFound = ref(false);
 const currentKind = ref<CollectionKind>("regular");
@@ -76,8 +73,6 @@ const kindLabel = computed(() => {
   return "Collection";
 });
 
-const { letterGroups } = useLetterGroups(allRoms);
-
 const sectionEl = ref<HTMLElement | null>(null);
 const { columns } = useResponsiveColumns(sectionEl, {
   cardWidth: 158,
@@ -85,13 +80,8 @@ const { columns } = useResponsiveColumns(sectionEl, {
   inset: 108,
 });
 
-const hasMore = computed(() => allRoms.value.length < fetchTotalRoms.value);
-const remaining = computed(() => fetchTotalRoms.value - allRoms.value.length);
-const fetchingMore = computed(
-  () => fetchingRoms.value && allRoms.value.length > 0,
-);
 const loadingInitial = computed(
-  () => fetchingRoms.value && allRoms.value.length === 0,
+  () => initialFetching.value && total.value === 0,
 );
 
 const { virtualItems, letterToIndex, availableLetters } =
@@ -100,13 +90,12 @@ const { virtualItems, letterToIndex, availableLetters } =
     toolbarInline: computed(() => toolbarPosition.value === "header"),
     layout,
     groupBy,
-    roms: allRoms,
-    letterGroups,
+    total,
+    charIndex,
+    getRomAt: (p) => galleryRoms.getRomAt(p),
+    loadedTick: byPosition,
     columns,
     loadingInitial,
-    hasMore,
-    remaining,
-    fetchingMore,
     emptyMessage: ref("This collection is empty."),
     notFound,
     notFoundMessage: ref("Collection not found."),
@@ -138,6 +127,18 @@ function recomputeVisible(root: HTMLElement) {
   currentLetter.value = visibles[0]?.letters[0] ?? currentLetter.value;
 }
 
+function prefetchVisibleSkeletonRows(root: HTMLElement) {
+  root
+    .querySelectorAll<HTMLElement>(
+      "[data-spy-active='1'][data-prefetch-position]",
+    )
+    .forEach((target) => {
+      const pos = Number(target.dataset.prefetchPosition);
+      if (!Number.isFinite(pos)) return;
+      void galleryRoms.fetchWindowAt(pos);
+    });
+}
+
 function setupSpy() {
   const root = scrollerRef.value?.containerEl;
   if (!root) return;
@@ -151,6 +152,7 @@ function setupSpy() {
           : "0";
       }
       recomputeVisible(root);
+      prefetchVisibleSkeletonRows(root);
     },
     { root, threshold: 0 },
   );
@@ -180,6 +182,13 @@ function scrollToLetter(letter: string) {
   if (idx == null) return;
   scrollerRef.value?.scrollToIndex(idx, { smooth: true });
   currentLetter.value = letter;
+  const item = virtualItems.value[idx];
+  if (item?.kind === "row") void galleryRoms.fetchWindowAt(item.startPosition);
+  else if (item?.kind === "letter-header") {
+    const next = virtualItems.value[idx + 1];
+    if (next?.kind === "row")
+      void galleryRoms.fetchWindowAt(next.startPosition);
+  }
 }
 
 function kindFromRoute(
@@ -231,24 +240,19 @@ async function loadForRoute(kind: CollectionKind, id: string) {
   notFound.value = false;
   currentCollection.value = collection;
 
-  // Full reset() — drops every `current*` field (so a prior Platform
-  // doesn't leak a platform_ids filter into this collection request),
-  // clears _allRoms + pagination, and resets `fetchingRoms` so the
-  // fetchRoms re-entrancy guard doesn't silently drop this call while
-  // a previous view's fetch is still in flight. Matches v1's
-  // resetGallery() pattern.
-  romsStore.reset();
+  // Switching collection — full reset of the gallery store.
+  galleryRoms.resetGallery();
 
   if (kind === "regular") {
-    romsStore.setCurrentCollection(collection as Collection);
+    galleryRoms.setCurrentCollection(collection as Collection);
   } else if (kind === "virtual") {
-    romsStore.setCurrentVirtualCollection(collection as VirtualCollection);
+    galleryRoms.setCurrentVirtualCollection(collection as VirtualCollection);
   } else {
-    romsStore.setCurrentSmartCollection(collection as SmartCollection);
+    galleryRoms.setCurrentSmartCollection(collection as SmartCollection);
   }
 
   document.title = collection.name;
-  await romsStore.fetchRoms();
+  await galleryRoms.fetchWindowAt(0);
   await nextTick();
   setupSpy();
 }
@@ -277,11 +281,6 @@ onBeforeUnmount(() => {
   teardownSpy();
 });
 
-function loadMore() {
-  if (fetchingRoms.value || !hasMore.value) return;
-  romsStore.fetchRoms();
-}
-
 // ── Search filter (debounced) ───────────────────────────────────────
 const searchInput = ref(searchTerm.value ?? "");
 let searchDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -292,9 +291,8 @@ function setSearch(value: string) {
     const normalized = value.trim();
     if (normalized === (searchTerm.value ?? "")) return;
     searchTerm.value = normalized || null;
-    romsStore.resetPagination();
-    romsStore._allRoms = [];
-    romsStore.fetchRoms();
+    galleryRoms.invalidateWindows();
+    void galleryRoms.fetchWindowAt(0);
   }, 300);
 }
 
@@ -302,14 +300,24 @@ type SortEntry = {
   key: keyof import("@/stores/roms").SimpleRom;
   order: "asc" | "desc";
 };
-function onListSort(options: { sortBy: SortEntry[] }) {
-  const first = options.sortBy[0];
-  if (!first) return;
-  romsStore.resetPagination();
-  romsStore.setOrderBy(first.key);
-  romsStore.setOrderDir(first.order);
-  romsStore.fetchRoms();
+function onListOptions(options: { sortBy: SortEntry[]; page?: number }) {
+  const first = options.sortBy?.[0];
+  if (first) {
+    galleryRoms.setOrderBy(first.key);
+    galleryRoms.setOrderDir(first.order);
+    galleryRoms.invalidateWindows();
+    void galleryRoms.fetchWindowAt(0);
+    return;
+  }
+  if (options.page !== undefined) {
+    void galleryRoms.fetchWindowAt((options.page - 1) * 72);
+  }
 }
+
+const loadedRoms = computed(() => {
+  const entries = [...byPosition.value.entries()].sort((a, b) => a[0] - b[0]);
+  return entries.map(([, rom]) => rom);
+});
 
 function spyLetters(item: GalleryItem): string | undefined {
   if (item.kind === "letter-header") return item.letter;
@@ -317,18 +325,22 @@ function spyLetters(item: GalleryItem): string | undefined {
   return undefined;
 }
 
-// Narrowing helpers — see Platform.vue for the rationale.
+function prefetchPosition(item: GalleryItem): number | undefined {
+  if (item.kind !== "row" || !item.hasMissing) return undefined;
+  const skel = item.slots.find((s) => s.kind === "skeleton") as
+    | Extract<GallerySlot, { kind: "skeleton" }>
+    | undefined;
+  return skel?.position;
+}
+
 type RowItem = Extract<GalleryItem, { kind: "row" }>;
 type LetterHeaderItem = Extract<GalleryItem, { kind: "letter-header" }>;
-type LoadMoreItem = Extract<GalleryItem, { kind: "load-more" }>;
 type EmptyItem = Extract<GalleryItem, { kind: "empty" }>;
 const asRow = (i: GalleryItem) => i as RowItem;
 const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
-const asLoadMore = (i: GalleryItem) => i as LoadMoreItem;
 const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
-// See Platform.vue — `1fr` tracks make gaps grow with window width.
 const rowGridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
 }));
@@ -345,6 +357,7 @@ const rowGridStyle = computed(() => ({
         <div
           class="r-v2-coll__item"
           :data-spy-letters="spyLetters(item as GalleryItem)"
+          :data-prefetch-position="prefetchPosition(item as GalleryItem)"
         >
           <template v-if="itemKind(item as GalleryItem) === 'hero'">
             <InfoPanel v-if="currentCollection" :title="currentCollection.name">
@@ -400,28 +413,28 @@ const rowGridStyle = computed(() => ({
             class="r-v2-coll__row"
             :style="rowGridStyle"
           >
-            <GameCard
-              v-for="rom in asRow(item as GalleryItem).roms"
-              :key="rom.id"
-              :rom="rom"
-              :webp="supportsWebp"
-            />
+            <template
+              v-for="(slot, slotIdx) in asRow(item as GalleryItem).slots"
+              :key="slot.position"
+            >
+              <GameCard
+                v-if="slot.kind === 'rom'"
+                class="r-v2-coll__card-fade"
+                :style="{ '--card-fade-i': slotIdx }"
+                :rom="slot.rom"
+                :webp="supportsWebp"
+              />
+              <GameCardSkeleton v-else />
+            </template>
           </div>
 
           <GameList
             v-else-if="itemKind(item as GalleryItem) === 'list-table'"
-            :roms="allRoms"
-            :total-roms="fetchTotalRoms"
-            :loading="fetchingRoms"
+            :roms="loadedRoms"
+            :total-roms="total"
+            :loading="loadingInitial"
             :webp="supportsWebp"
-            @update:options="onListSort"
-          />
-
-          <LoadMore
-            v-else-if="itemKind(item as GalleryItem) === 'load-more'"
-            :loading="asLoadMore(item as GalleryItem).loading"
-            :remaining="asLoadMore(item as GalleryItem).remaining"
-            @load="loadMore"
+            @update:options="onListOptions"
           />
 
           <div
@@ -436,12 +449,9 @@ const rowGridStyle = computed(() => ({
             class="r-v2-coll__row"
             :style="rowGridStyle"
           >
-            <RSkeletonBlock
+            <GameCardSkeleton
               v-for="n in Math.max(1, columns)"
               :key="`sk-${n}`"
-              width="var(--r-card-art-w)"
-              height="var(--r-card-art-h)"
-              rounded="md"
             />
           </div>
         </div>
@@ -507,6 +517,21 @@ const rowGridStyle = computed(() => ({
   display: grid;
   gap: 18px 12px;
   padding-bottom: 18px;
+}
+
+.r-v2-coll__card-fade {
+  animation: r-v2-coll-card-fade 280ms ease-out both;
+  animation-delay: calc(var(--card-fade-i, 0) * 30ms);
+}
+@keyframes r-v2-coll-card-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .r-v2-coll__empty {

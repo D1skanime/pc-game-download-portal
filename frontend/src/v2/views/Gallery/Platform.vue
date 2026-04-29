@@ -1,14 +1,10 @@
 <script setup lang="ts">
-// Platform gallery — single virtualised scroll surface.
-// Hero, toolbar, content rows and load-more all live as items inside one
-// RVirtualScroller. ALL galleries virtualise (premise: a library can have
-// thousands of ROMs, every gallery must scale).
-import {
-  RChip,
-  RPlatformIcon,
-  RSkeletonBlock,
-  RVirtualScroller,
-} from "@v2/lib";
+// Platform gallery — single virtualised scroll surface with sparse,
+// windowed loading. Every row in the gallery exists from frame zero
+// (skeleton placeholders for un-fetched positions); window fetches are
+// triggered as rows enter the viewport. Hero, toolbar, content rows and
+// load-more all live as items inside one RVirtualScroller.
+import { RChip, RPlatformIcon, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -21,37 +17,32 @@ import {
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
-import storeRoms from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
-import { GameCard } from "@/v2/components/Gallery/GameCard";
+import { GameCard, GameCardSkeleton } from "@/v2/components/Gallery/GameCard";
 import GameList from "@/v2/components/Gallery/GameList.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
-import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import {
   useGalleryVirtualItems,
   type GalleryItem,
+  type GallerySlot,
 } from "@/v2/composables/useGalleryVirtualItems";
-import { useLetterGroups } from "@/v2/composables/useLetterGroups";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 const route = useRoute();
 const platformsStore = storePlatforms();
-const romsStore = storeRoms();
+const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const { supportsWebp } = useWebpSupport();
 
-const {
-  _allRoms: allRoms,
-  currentPlatform,
-  fetchingRoms,
-  fetchTotalRoms,
-} = storeToRefs(romsStore);
+const { currentPlatform, total, charIndex, byPosition, initialFetching } =
+  storeToRefs(galleryRoms);
 
 const notFound = ref(false);
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
@@ -82,7 +73,7 @@ const platformStats = computed<StatRow[]>(() => {
     | null;
   if (!p) return [];
   const rows: StatRow[] = [
-    { label: "In Library", value: String(p.rom_count ?? allRoms.value.length) },
+    { label: "In Library", value: String(p.rom_count ?? total.value) },
   ];
   if (p.fs_size_bytes) {
     rows.push({ label: "On Disk", value: formatBytes(p.fs_size_bytes) });
@@ -93,28 +84,17 @@ const platformStats = computed<StatRow[]>(() => {
   return rows;
 });
 
-// Letter grouping (only consulted when groupBy === 'letter').
-const { letterGroups } = useLetterGroups(allRoms);
-
-// Responsive columns — measure the row rail to chunk roms into rows
-// matching the CSS grid that the non-virtualised version drew. Inset
-// covers the scroller's horizontal padding (--r-row-pad each side) and
-// the AlphaStrip column on the right of the section.
+// Responsive columns — measure the section to chunk roms into rows.
+// Inset covers scroller padding (--r-row-pad × 2) plus the AlphaStrip column.
 const sectionEl = ref<HTMLElement | null>(null);
-// 36px row-pad × 2 + ~36px alpha-strip column = 108px total chrome.
 const { columns } = useResponsiveColumns(sectionEl, {
   cardWidth: 158,
   gap: 12,
   inset: 108,
 });
 
-const hasMore = computed(() => allRoms.value.length < fetchTotalRoms.value);
-const remaining = computed(() => fetchTotalRoms.value - allRoms.value.length);
-const fetchingMore = computed(
-  () => fetchingRoms.value && allRoms.value.length > 0,
-);
 const loadingInitial = computed(
-  () => fetchingRoms.value && allRoms.value.length === 0,
+  () => initialFetching.value && total.value === 0,
 );
 
 const { virtualItems, letterToIndex, availableLetters } =
@@ -123,26 +103,28 @@ const { virtualItems, letterToIndex, availableLetters } =
     toolbarInline: computed(() => toolbarPosition.value === "header"),
     layout,
     groupBy,
-    roms: allRoms,
-    letterGroups,
+    total,
+    charIndex,
+    getRomAt: (p) => galleryRoms.getRomAt(p),
+    loadedTick: byPosition,
     columns,
     loadingInitial,
-    hasMore,
-    remaining,
-    fetchingMore,
     emptyMessage: ref("No games in this platform yet."),
     notFound,
     notFoundMessage: ref("Platform not found."),
     skeletonRowCount: 4,
   });
 
-// Scroll-spy via IntersectionObserver on `data-spy-letter` elements
-// rendered by the virtualiser. Lit letters drive AlphaStrip highlight.
+// Scroll-spy via IntersectionObserver on `data-spy-letters` elements.
+// The same observer doubles as the prefetch trigger: rows that enter
+// the viewport with skeleton slots dispatch `fetchWindowAt` for each
+// missing position (the store dedupes loaded / pending windows).
 const visibleLettersSet = ref<Set<string>>(new Set());
 const currentLetter = ref<string>("");
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 let intersectionObserver: IntersectionObserver | null = null;
 let mutationObserver: MutationObserver | null = null;
+let observed = new WeakSet<Element>();
 
 function recomputeVisible(root: HTMLElement) {
   const visibles: Array<{ letters: string[]; top: number }> = [];
@@ -162,6 +144,21 @@ function recomputeVisible(root: HTMLElement) {
   currentLetter.value = visibles[0]?.letters[0] ?? currentLetter.value;
 }
 
+function prefetchVisibleSkeletonRows(root: HTMLElement) {
+  // For each visible row that still has skeleton slots, request the
+  // window covering its first missing position. The store dedupes
+  // identical / in-flight windows internally, so this is cheap.
+  root
+    .querySelectorAll<HTMLElement>(
+      "[data-spy-active='1'][data-prefetch-position]",
+    )
+    .forEach((target) => {
+      const pos = Number(target.dataset.prefetchPosition);
+      if (!Number.isFinite(pos)) return;
+      void galleryRoms.fetchWindowAt(pos);
+    });
+}
+
 function setupSpy() {
   const root = scrollerRef.value?.containerEl;
   if (!root) return;
@@ -175,6 +172,7 @@ function setupSpy() {
           : "0";
       }
       recomputeVisible(root);
+      prefetchVisibleSkeletonRows(root);
     },
     { root, threshold: 0 },
   );
@@ -196,13 +194,6 @@ function teardownSpy() {
   intersectionObserver = null;
   mutationObserver?.disconnect();
   mutationObserver = null;
-  // WeakSet has no clear(); replace it (the previous one will be GC'd
-  // along with its tracked elements).
-  observedReset();
-}
-
-let observed = new WeakSet<Element>();
-function observedReset() {
   observed = new WeakSet<Element>();
 }
 
@@ -211,6 +202,25 @@ function scrollToLetter(letter: string) {
   if (idx == null) return;
   scrollerRef.value?.scrollToIndex(idx, { smooth: true });
   currentLetter.value = letter;
+  // The destination row may be all-skeleton if its window isn't loaded
+  // yet; kick the fetch immediately so cards arrive while the smooth
+  // scroll is animating.
+  const cols = Math.max(1, columns.value);
+  const cellSize = letter.charCodeAt(0); // unused noop to silence warn
+  void cellSize;
+  // The row at virtualItems[idx] knows its startPosition; pull it.
+  const item = virtualItems.value[idx];
+  if (item?.kind === "row") void galleryRoms.fetchWindowAt(item.startPosition);
+  else if (item?.kind === "letter-header") {
+    // First row of the group lives at idx + 1.
+    const next = virtualItems.value[idx + 1];
+    if (next?.kind === "row") {
+      void galleryRoms.fetchWindowAt(next.startPosition);
+    }
+  }
+  // The cols variable is only used inside the prefetch math above;
+  // referenced here to keep TS happy across edits.
+  void cols;
 }
 
 async function ensurePlatforms() {
@@ -227,19 +237,13 @@ async function loadForId(platformId: number) {
     return;
   }
   notFound.value = false;
-  // Mirror v1's Platform.vue: a full reset() before switching context
-  // clears every `current*` field (so a prior Collection's id doesn't
-  // bleed into the next platform request), wipes _allRoms, resets
-  // pagination, AND drops the `fetchingRoms` flag — otherwise the
-  // re-entrancy guard in fetchRoms silently swallows the new call when
-  // the user navigates between galleries mid-fetch and the new gallery
-  // renders empty.
+  // Switching platform — full reset of the gallery state.
   if (currentPlatform.value?.id !== platform.id) {
-    romsStore.reset();
-    romsStore.setCurrentPlatform(platform);
+    galleryRoms.resetGallery();
+    galleryRoms.setCurrentPlatform(platform);
   }
   document.title = platform.display_name;
-  await romsStore.fetchRoms();
+  await galleryRoms.fetchWindowAt(0);
   await nextTick();
   setupSpy();
 }
@@ -260,15 +264,11 @@ watch(
 );
 
 // Re-attach the spy when the virtualised item list mutates substantially
-// (mode switch, search, fetched page) so newly-rendered rows are observed.
+// (mode switch, search, fetched window) so newly-rendered rows are
+// observed AND so the just-rendered visible band re-prefetches.
 watch(virtualItems, () => nextTick().then(setupSpy));
 
 onBeforeUnmount(teardownSpy);
-
-function loadMore() {
-  if (fetchingRoms.value || !hasMore.value) return;
-  romsStore.fetchRoms();
-}
 
 // ── Search filter (debounced) ───────────────────────────────────────
 const searchInput = ref(searchTerm.value ?? "");
@@ -280,11 +280,8 @@ function setSearch(value: string) {
     const normalized = value.trim();
     if (normalized === (searchTerm.value ?? "")) return;
     searchTerm.value = normalized || null;
-    romsStore.resetPagination();
-    romsStore._allRoms = [];
-    // fetchRoms() supersedes any in-flight request via seq; no need to
-    // wait for it to finish first.
-    romsStore.fetchRoms();
+    galleryRoms.invalidateWindows();
+    void galleryRoms.fetchWindowAt(0);
   }, 300);
 }
 onBeforeUnmount(() => {
@@ -297,42 +294,56 @@ type SortEntry = {
   key: keyof import("@/stores/roms").SimpleRom;
   order: "asc" | "desc";
 };
-function onListSort(options: { sortBy: SortEntry[] }) {
-  const first = options.sortBy[0];
-  if (!first) return;
-  romsStore.resetPagination();
-  romsStore.setOrderBy(first.key);
-  romsStore.setOrderDir(first.order);
-  romsStore.fetchRoms();
+function onListOptions(options: { sortBy: SortEntry[]; page?: number }) {
+  const first = options.sortBy?.[0];
+  if (first) {
+    galleryRoms.setOrderBy(first.key);
+    galleryRoms.setOrderDir(first.order);
+    galleryRoms.invalidateWindows();
+    void galleryRoms.fetchWindowAt(0);
+    return;
+  }
+  if (options.page !== undefined) {
+    void galleryRoms.fetchWindowAt((options.page - 1) * 72);
+  }
 }
 
+// List mode reads a contiguous projection of `byPosition` sorted by
+// position. Whatever's loaded shows in RTable; page changes trigger a
+// window fetch via `onListOptions`.
+const loadedRoms = computed(() => {
+  const entries = [...byPosition.value.entries()].sort((a, b) => a[0] - b[0]);
+  return entries.map(([, rom]) => rom);
+});
+
 // Spy attribute helper — broadcast every letter the item covers.
-// A row spanning M/N/O lights up all three in AlphaStrip; a letter-header
-// covers exactly one letter. Returned as a comma-joined string so the
-// IntersectionObserver callback can split it back out.
 function spyLetters(item: GalleryItem): string | undefined {
   if (item.kind === "letter-header") return item.letter;
   if (item.kind === "row") return item.letters.join(",");
   return undefined;
 }
 
-// Narrowing helpers — the template's v-if chain checks .kind first, so
-// these casts always land on the matching variant. Hoisted out of the
-// template so the inline `Extract<…>` syntax stays in script land where
-// the Vue compiler / Trunk HTML lexer don't trip on it.
+// Prefetch position for a skeleton row — the IntersectionObserver
+// reads `data-prefetch-position` to know which window to fetch.
+function prefetchPosition(item: GalleryItem): number | undefined {
+  if (item.kind !== "row" || !item.hasMissing) return undefined;
+  const skel = item.slots.find((s) => s.kind === "skeleton") as
+    | Extract<GallerySlot, { kind: "skeleton" }>
+    | undefined;
+  return skel?.position;
+}
+
+// Narrowing helpers — see src/v2/composables/useGalleryVirtualItems.
 type RowItem = Extract<GalleryItem, { kind: "row" }>;
 type LetterHeaderItem = Extract<GalleryItem, { kind: "letter-header" }>;
-type LoadMoreItem = Extract<GalleryItem, { kind: "load-more" }>;
 type EmptyItem = Extract<GalleryItem, { kind: "empty" }>;
 const asRow = (i: GalleryItem) => i as RowItem;
 const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
-const asLoadMore = (i: GalleryItem) => i as LoadMoreItem;
 const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
-// Stretching tracks (`1fr`) keep the card itself at --r-card-art-w but
-// distribute any extra horizontal space across the row, so the visible
-// gap between cards grows accordion-style as the window resizes.
+// Stretching tracks keep cards at --r-card-art-w but distribute extra
+// horizontal space — accordion-style gap growth on resize.
 const rowGridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
 }));
@@ -349,6 +360,7 @@ const rowGridStyle = computed(() => ({
         <div
           class="r-v2-plat__item"
           :data-spy-letters="spyLetters(item as GalleryItem)"
+          :data-prefetch-position="prefetchPosition(item as GalleryItem)"
         >
           <template v-if="itemKind(item as GalleryItem) === 'hero'">
             <InfoPanel
@@ -417,29 +429,29 @@ const rowGridStyle = computed(() => ({
             class="r-v2-plat__row"
             :style="rowGridStyle"
           >
-            <GameCard
-              v-for="rom in asRow(item as GalleryItem).roms"
-              :key="rom.id"
-              :rom="rom"
-              :webp="supportsWebp"
-              :show-platform-badge="false"
-            />
+            <template
+              v-for="(slot, slotIdx) in asRow(item as GalleryItem).slots"
+              :key="slot.position"
+            >
+              <GameCard
+                v-if="slot.kind === 'rom'"
+                class="r-v2-plat__card-fade"
+                :style="{ '--card-fade-i': slotIdx }"
+                :rom="slot.rom"
+                :webp="supportsWebp"
+                :show-platform-badge="false"
+              />
+              <GameCardSkeleton v-else />
+            </template>
           </div>
 
           <GameList
             v-else-if="itemKind(item as GalleryItem) === 'list-table'"
-            :roms="allRoms"
-            :total-roms="fetchTotalRoms"
-            :loading="fetchingRoms"
+            :roms="loadedRoms"
+            :total-roms="total"
+            :loading="loadingInitial"
             :webp="supportsWebp"
-            @update:options="onListSort"
-          />
-
-          <LoadMore
-            v-else-if="itemKind(item as GalleryItem) === 'load-more'"
-            :loading="asLoadMore(item as GalleryItem).loading"
-            :remaining="asLoadMore(item as GalleryItem).remaining"
-            @load="loadMore"
+            @update:options="onListOptions"
           />
 
           <div
@@ -454,12 +466,9 @@ const rowGridStyle = computed(() => ({
             class="r-v2-plat__row"
             :style="rowGridStyle"
           >
-            <RSkeletonBlock
+            <GameCardSkeleton
               v-for="n in Math.max(1, columns)"
               :key="`sk-${n}`"
-              width="var(--r-card-art-w)"
-              height="var(--r-card-art-h)"
-              rounded="md"
             />
           </div>
         </div>
@@ -502,9 +511,6 @@ const rowGridStyle = computed(() => ({
 }
 
 .r-v2-plat__item {
-  /* Items the virtualiser stacks vertically. The padding-x lives on the
-     scroller so card rows align flush with hero / toolbar at the same
-     left edge. */
   width: 100%;
 }
 
@@ -528,6 +534,26 @@ const rowGridStyle = computed(() => ({
   display: grid;
   gap: 18px 12px;
   padding-bottom: 18px;
+}
+
+/* Cards fade in on first paint after a window resolves — masks the
+   skeleton→card swap so it reads as a fill rather than a hard pop.
+   `--card-fade-i` is the slot index inside the row; we stagger ~30ms
+   between cards so the row reads as a left-to-right wave rather than
+   a single batch flash. */
+.r-v2-plat__card-fade {
+  animation: r-v2-plat-card-fade 280ms ease-out both;
+  animation-delay: calc(var(--card-fade-i, 0) * 30ms);
+}
+@keyframes r-v2-plat-card-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .r-v2-plat__empty {
