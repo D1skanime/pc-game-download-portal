@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -16,6 +17,10 @@ defineOptions({ inheritAttrs: false });
 // /assets/platforms catalogue are .svg — the older `.ico`-only fallback
 // was why only the handful of platforms that ship .ico (amiga, wii, …)
 // were rendering.
+//
+// Hover tooltip uses RTooltip (v2 glass skin) instead of the native
+// browser `title=` so the bubble matches the rest of the UI. Disable
+// with `:show-tooltip="false"` if a parent surface already supplies one.
 
 interface Props {
   /** Primary slug (platform.name in the stores). */
@@ -28,7 +33,10 @@ interface Props {
   src?: string;
   size?: number | string;
   alt?: string;
+  /** Tooltip text override. Falls back to `alt` then resolved slug. */
   title?: string;
+  /** Show RTooltip on hover (default `true`). */
+  showTooltip?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -39,6 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
   size: 28,
   alt: "",
   title: undefined,
+  showTooltip: true,
 });
 
 const resolvedSlug = computed(
@@ -79,13 +88,16 @@ function onError() {
 const resolvedSize = computed(() =>
   typeof props.size === "number" ? `${props.size}px` : props.size,
 );
+
+const tooltipText = computed(
+  () => props.title ?? props.alt ?? resolvedSlug.value ?? "",
+);
 </script>
 
 <template>
   <span
     class="r-platform-icon"
     :style="{ width: resolvedSize, height: resolvedSize }"
-    :title="title ?? alt ?? resolvedSlug"
   >
     <img
       v-if="currentSrc"
@@ -94,6 +106,12 @@ const resolvedSize = computed(() =>
       :alt="alt ?? resolvedSlug ?? ''"
       class="r-platform-icon__img"
       @error="onError"
+    />
+    <RTooltip
+      v-if="showTooltip && tooltipText"
+      :text="tooltipText"
+      activator="parent"
+      location="bottom"
     />
   </span>
 </template>

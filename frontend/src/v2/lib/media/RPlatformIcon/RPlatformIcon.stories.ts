@@ -9,6 +9,7 @@ const meta: Meta<typeof RPlatformIcon> = {
     src: { control: "text" },
     size: { control: "number" },
     title: { control: "text" },
+    showTooltip: { control: "boolean" },
   },
 };
 

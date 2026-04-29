@@ -31,7 +31,6 @@ import {
 } from "@/v2/composables/useViewTransition";
 import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
-import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -159,27 +158,23 @@ const morphStyle = computed(() => {
 
       <div v-if="ratingLabel" class="r-gc__rating">★ {{ ratingLabel }}</div>
 
-      <RTooltip v-if="showPlatformIcon" :text="platformShort" location="bottom">
-        <template #activator="{ props: tooltipProps }">
-          <RBtn
-            v-bind="tooltipProps"
-            icon
-            size="x-small"
-            variant="text"
-            :ripple="false"
-            class="r-gc__platform-icon"
-            :aria-label="`Browse ${platformShort}`"
-            @click="onPlatformClick"
-          >
-            <RPlatformIcon
-              :slug="rom.platform_slug"
-              :fs-slug="rom.platform_fs_slug"
-              :alt="platformShort"
-              :size="18"
-            />
-          </RBtn>
-        </template>
-      </RTooltip>
+      <RBtn
+        v-if="showPlatformIcon"
+        icon
+        size="x-small"
+        variant="text"
+        :ripple="false"
+        class="r-gc__platform-icon"
+        :aria-label="`Browse ${platformShort}`"
+        @click="onPlatformClick"
+      >
+        <RPlatformIcon
+          :slug="rom.platform_slug"
+          :fs-slug="rom.platform_fs_slug"
+          :alt="platformShort"
+          :size="18"
+        />
+      </RBtn>
 
       <StatusBadge :rom="rom" />
 
