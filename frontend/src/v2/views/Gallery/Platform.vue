@@ -274,7 +274,7 @@ function onListSort(options: { sortBy: SortEntry[] }) {
           :roms="allRoms"
           :loading="fetchingRoms"
           :webp="supportsWebp"
-          :show-platform="false"
+          :show-platform-icon="false"
         />
         <LoadMore
           v-if="hasMore"

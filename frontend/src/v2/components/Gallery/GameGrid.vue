@@ -15,7 +15,7 @@ interface Props {
   skeletonCount?: number;
   minCardWidth?: string;
   webp?: boolean;
-  showPlatform?: boolean;
+  showPlatformIcon?: boolean;
   showTitle?: boolean;
   selectedIds?: Set<number>;
 }
@@ -25,7 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
   skeletonCount: 12,
   minCardWidth: "160px",
   webp: false,
-  showPlatform: true,
+  showPlatformIcon: true,
   showTitle: true,
   selectedIds: () => new Set<number>(),
 });
@@ -55,7 +55,7 @@ const gridStyle = computed(() => ({
         :key="rom.id"
         :rom="rom"
         :webp="webp"
-        :show-platform="showPlatform"
+        :show-platform-icon="showPlatformIcon"
         :show-title="showTitle"
         :selected="selectedIds.has(rom.id)"
       />
