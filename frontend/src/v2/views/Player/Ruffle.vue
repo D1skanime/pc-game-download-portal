@@ -295,7 +295,7 @@ onMounted(async () => {
   display: grid;
   place-items: center;
   padding: 16px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   font-size: 13px;
   text-align: center;
 }
@@ -310,12 +310,12 @@ onMounted(async () => {
 .r-v2-ruffle__subtitle {
   margin: 0;
   font-size: var(--r-font-size-sm);
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-ruffle__panel {
-  background: rgba(13, 17, 23, 0.7) !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  background: var(--r-color-bg-elevated) !important;
+  border: 1px solid var(--r-color-border) !important;
   border-radius: var(--r-radius-lg) !important;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -338,7 +338,7 @@ onMounted(async () => {
   font-size: var(--r-font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--r-color-fg-secondary);
 }
 
 .r-v2-ruffle__color-row {
@@ -349,7 +349,7 @@ onMounted(async () => {
 .r-v2-ruffle__color-input {
   appearance: none;
   -webkit-appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-sm);
   width: 48px;
   height: 32px;
@@ -367,7 +367,7 @@ onMounted(async () => {
 .r-v2-ruffle__color-code {
   font-family: var(--r-font-family-mono, monospace);
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--r-color-fg-secondary);
   letter-spacing: 0.04em;
 }
 
@@ -383,7 +383,7 @@ onMounted(async () => {
   gap: 8px;
   margin-top: 12px;
   font-size: var(--r-font-size-xs);
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   font-style: italic;
 }
 .r-v2-ruffle__brand img {
@@ -418,7 +418,7 @@ onMounted(async () => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.12);
+  border: 2px solid var(--r-color-surface-hover);
   border-top-color: var(--r-color-brand-primary);
   animation: r-v2-ruffle-spin 0.8s linear infinite;
 }

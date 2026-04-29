@@ -684,7 +684,7 @@ void useLocalStorage;
   border-radius: var(--r-radius-lg);
   box-shadow:
     0 18px 36px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.06);
+    0 0 0 1px var(--r-color-border);
   display: block;
 }
 
@@ -696,7 +696,7 @@ void useLocalStorage;
   display: grid;
   place-items: center;
   padding: 16px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   font-size: 13px;
   text-align: center;
 }
@@ -731,7 +731,7 @@ void useLocalStorage;
 .r-v2-ejs__subtitle {
   margin: 0;
   font-size: var(--r-font-size-sm);
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-ejs__play {
@@ -750,8 +750,8 @@ void useLocalStorage;
 
 /* Glass panels — share language with info-panel + dialog. */
 .r-v2-ejs__panel {
-  background: rgba(13, 17, 23, 0.7) !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  background: var(--r-color-bg-elevated) !important;
+  border: 1px solid var(--r-color-border) !important;
   border-radius: var(--r-radius-lg) !important;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -773,7 +773,7 @@ void useLocalStorage;
   letter-spacing: 0.06em;
   font-size: 11px;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--r-color-fg-secondary);
 }
 
 .r-v2-ejs__tab-body {
@@ -792,8 +792,8 @@ void useLocalStorage;
   gap: 12px;
   align-items: center;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
 }
 
@@ -808,7 +808,7 @@ void useLocalStorage;
 .r-v2-ejs__asset-thumb--placeholder {
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-ejs__asset-meta {
@@ -822,7 +822,7 @@ void useLocalStorage;
   margin: 0;
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -839,18 +839,18 @@ void useLocalStorage;
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--r-color-fg-secondary);
 }
 
 .r-v2-ejs__asset-clear {
   appearance: none;
   border: 0;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.55);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg-secondary);
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -874,9 +874,9 @@ void useLocalStorage;
   justify-content: center;
   gap: 10px;
   padding: 28px 0;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
   text-align: center;
-  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border: 1px dashed var(--r-color-border);
   border-radius: var(--r-radius-md);
 }
 .r-v2-ejs__empty p {
@@ -894,7 +894,7 @@ void useLocalStorage;
 
 .r-v2-ejs__panel-foot {
   padding: 6px 10px 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--r-color-border);
   display: flex;
   justify-content: flex-start;
 }
@@ -907,7 +907,7 @@ void useLocalStorage;
   gap: 8px;
   margin-top: 12px;
   font-size: var(--r-font-size-xs);
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   font-style: italic;
 }
 .r-v2-ejs__brand img {
@@ -933,7 +933,7 @@ void useLocalStorage;
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.12);
+  border: 2px solid var(--r-color-surface-hover);
   border-top-color: var(--r-color-brand-primary);
   animation: r-ejs-spin 0.8s linear infinite;
 }
