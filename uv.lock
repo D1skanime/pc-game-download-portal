@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-15T23:26:03.241937662Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -2238,7 +2238,7 @@ requires-dist = [
     { name = "python-socketio", specifier = "~=5.11" },
     { name = "pyyaml", specifier = "~=6.0" },
     { name = "redis", specifier = "~=6.2" },
-    { name = "rq", specifier = "~=2.1" },
+    { name = "rq", specifier = ">=2.1" },
     { name = "rq-scheduler", git = "https://github.com/adamantike/rq-scheduler.git?rev=feat%2Fscript-options-username-ssl" },
     { name = "sentry-sdk", specifier = "~=2.32" },
     { name = "sqlalchemy", extras = ["mariadb-connector", "mysql-connector", "postgresql-psycopg"], specifier = "~=2.0" },
