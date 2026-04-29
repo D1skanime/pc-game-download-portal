@@ -40,7 +40,9 @@ class CleanupUploadTmpTask(PeriodicTask):
                 pass
 
         if removed:
-            log.info(f"Cleaned up {removed} orphaned upload tmp director{'y' if removed == 1 else 'ies'}")
+            log.info(
+                f"Cleaned up {removed} orphaned upload tmp director{'y' if removed == 1 else 'ies'}"
+            )
 
 
 cleanup_upload_tmp_task = CleanupUploadTmpTask()
