@@ -425,22 +425,31 @@ The constitution is fully described above. The following implementation tasks re
 2. **`useGalleryFilterUrl`** — sync galleryFilter store fields (search, multi-select selections, logic operators) to URL query params so links are bookmarkable. Decide which subset is bookmarkable; the v1 store stays as it is and the v2 composable mirrors it. Mark v1 store usage as `@deprecated`.
 3. **Vue Router scroll restoration** — galleries scroll on custom containers (`.r-v2-plat__scroll`), not window. Add a Pinia map of `routeFullPath → offsetTop` plus per-view onMounted/onBeforeUnmount hooks to restore scroll on back navigation. Bundle with the virtualisation migration.
 4. **`useSocketEvent` composable** — typed subscriptions with mount/unmount cleanup. Today consumers wire `socket.on/off` manually.
-5. **Dual-theme audit (premise #5).** Started at 429 hardcoded `rgba(255, 255, 255, ...)` sites; the first pass migrated the user-visible surfaces (AppNav, UserMenu, Home, galleries, tiles, Settings). ~360 sites remain across less-visible views (`ControllerDebug`, `Patcher`, `Player/EmulatorJS`, `Scan`, dialogs like `MatchRomDialog`/`DeleteRomDialog`/`EditRomDialog`/`NotesTab`/`AchievementsTab`, `RDialog`/`RTable` primitives, `UploadProgressToast`, `AboutDialog`, `Auth` views, etc.) plus the dialogs that overlay them. Pattern: replace `rgba(255, 255, 255, X)` with the closest matching token (`--r-color-fg` / `--r-color-fg-secondary` / `--r-color-fg-muted` / `--r-color-fg-faint` for text; `--r-color-surface` / `--r-color-bg-elevated` / `--r-color-surface-hover` for backgrounds; `--r-color-border` / `--r-color-border-strong` for borders). When two `.foo { color: rgba(255, ...) }` + `:global(.r-v2.r-v2-light) .foo { color: rgba(17, ...) }` blocks exist for the same property, the token already flips between the two values — collapse into a single-rule.
 
 ### Backend debt (frontend can't fix)
 
-6. **`ActionKey` enum in OpenAPI** — eliminates the manual `actions.ts` + `role-map.ts` pair; the frontend regenerates and gets compile-time alignment.
-7. **`/permissions/me` endpoint** returning normalised grants. Replaces `hydrateFromRole`; drops the role-map.
-8. **`permissions:changed` socket event** for live grant updates.
-9. **`FrontendDict.IMAGES_WEBP`** in OpenAPI — drops the cast inside `useWebpSupport`.
-10. **Form error format** standardised as `{ field: msg }` so `RTextField :error-messages` integration is consistent.
-11. **Typed socket event map** from the backend so the eventual `useSocketEvent` composable is fully typed.
+5. **`ActionKey` enum in OpenAPI** — eliminates the manual `actions.ts` + `role-map.ts` pair; the frontend regenerates and gets compile-time alignment.
+6. **`/permissions/me` endpoint** returning normalised grants. Replaces `hydrateFromRole`; drops the role-map.
+7. **`permissions:changed` socket event** for live grant updates.
+8. **`FrontendDict.IMAGES_WEBP`** in OpenAPI — drops the cast inside `useWebpSupport`.
+9. **Form error format** standardised as `{ field: msg }` so `RTextField :error-messages` integration is consistent.
+10. **Typed socket event map** from the backend so the eventual `useSocketEvent` composable is fully typed.
 
 ### When v1 is deleted
 
-12. Move `uiVersion` from `useUiVersion` into `UI_SETTINGS_KEYS`.
-13. Drop `.r-v2-...` scope classes; tokens move to `:root`.
-14. Simplify `useUISettings` sync (remove `isSyncing` + `setTimeout(50)` flag-flip).
-15. Delete `useGameAnimation` (replaced by view transitions, premise 8 era).
-16. Drop the color-string-to-tone collapser in `NotificationHost`; `snackbarShow` payload becomes `{ msg, tone, ... }`.
-17. Remove the Vuetify rule arrays in `stores/users.ts` once v1 doesn't consume them; v2 already composes from `src/v2/utils/validation.ts`.
+11. Move `uiVersion` from `useUiVersion` into `UI_SETTINGS_KEYS`.
+12. Drop `.r-v2-...` scope classes; tokens move to `:root`.
+13. Simplify `useUISettings` sync (remove `isSyncing` + `setTimeout(50)` flag-flip).
+14. Delete `useGameAnimation` (replaced by view transitions, premise 8 era).
+15. Drop the color-string-to-tone collapser in `NotificationHost`; `snackbarShow` payload becomes `{ msg, tone, ... }`.
+16. Remove the Vuetify rule arrays in `stores/users.ts` once v1 doesn't consume them; v2 already composes from `src/v2/utils/validation.ts`.
+
+### Intentional hardcoded rgba(255, ...) (do not migrate)
+
+A handful of `rgba(255, 255, 255, X)` and `rgba(0, 0, 0, X)` literals stay hardcoded — they are deliberate and **not** debt:
+
+- **Cover-overlay surfaces** (`StatusBadge`, `GameCard` platform-icon / badge / rating, `GameActionBtn`) — dark glass that must read on top of any cover artwork, regardless of theme. Inverting them in light mode would lose contrast against bright covers.
+- **Panel background pairs** that already ship a paired light variant (`RDialog.__panel`, `RMenuPanel`) — distinctive deep-purple-tinted glass on dark, near-white glass on light. A future `--r-color-panel` token could fold them in, but the explicit pair is intentional today.
+- **Backdrop scrims** in `global.css` (background-art overlay), the cross-fade gradients, and the shimmer keyframe in `RSkeletonBlock` — animation/scrim values that don't map to surface tokens.
+- **Destructive accents** (`RMenuItem` danger hover) — colour comes from `--r-color-danger`; the rgba red wash is the alpha on top of it.
+- **`tokens.css` itself** — those rgbas _are_ the source values that the surface tokens resolve to.
