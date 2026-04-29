@@ -111,7 +111,7 @@ function closeDialog() {
 
 .r-v2-clear-cache__desc {
   margin: 0;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--r-color-fg-secondary);
   font-size: 13px;
   line-height: 1.5;
   max-width: 360px;

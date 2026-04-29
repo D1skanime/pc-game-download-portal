@@ -153,7 +153,7 @@ function closeDialog() {
 
 .r-v2-del-manual__body {
   margin: 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--r-color-fg-secondary);
   font-size: 13px;
   line-height: 1.5;
   max-width: 340px;

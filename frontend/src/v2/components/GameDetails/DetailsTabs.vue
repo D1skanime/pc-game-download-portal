@@ -46,7 +46,7 @@ defineEmits<{
 .r-v2-det-tabs {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--r-color-border-strong);
   margin: 14px 0 16px;
   overflow-x: auto;
   scrollbar-width: none;
@@ -64,7 +64,7 @@ defineEmits<{
   padding: 8px 18px;
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -73,11 +73,11 @@ defineEmits<{
   font-family: inherit;
 }
 .r-v2-det-tabs__btn:hover {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--r-color-fg-secondary);
 }
 .r-v2-det-tabs__btn--active {
-  color: #fff;
-  border-bottom-color: #fff;
+  color: var(--r-color-fg);
+  border-bottom-color: var(--r-color-fg);
 }
 
 @media (max-width: 768px) {

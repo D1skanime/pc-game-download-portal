@@ -304,14 +304,14 @@ const tabs = computed(() => [
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  scrollbar-color: var(--r-color-border-strong) transparent;
   padding-right: 6px;
 }
 .r-v2-det__panel::-webkit-scrollbar {
   width: 4px;
 }
 .r-v2-det__panel::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--r-color-border-strong);
   border-radius: 2px;
 }
 
@@ -319,7 +319,7 @@ const tabs = computed(() => [
   flex: 1;
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
   font-size: 13px;
 }
 

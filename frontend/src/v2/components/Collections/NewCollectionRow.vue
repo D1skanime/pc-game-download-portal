@@ -145,7 +145,7 @@ function onInput(e: Event) {
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .new-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--r-color-bg-elevated);
 }
 .new-row--editing {
   cursor: default;
@@ -194,7 +194,7 @@ function onInput(e: Event) {
   min-width: 0;
 }
 .new-row__input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   font-weight: var(--r-font-weight-regular);
 }
 

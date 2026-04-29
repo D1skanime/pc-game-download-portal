@@ -129,7 +129,7 @@ async function copyCode() {
 <style scoped>
 .r-v2-pair {
   background: rgba(13, 17, 23, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
@@ -163,7 +163,7 @@ async function copyCode() {
 
 .r-v2-pair__body {
   margin: 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg);
   font-size: var(--r-font-size-md);
   max-width: 320px;
 }
@@ -173,9 +173,9 @@ async function copyCode() {
   font-size: 40px;
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.14em;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--r-color-fg);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-md);
   padding: 18px 28px;
   margin: 4px 0;
@@ -184,7 +184,7 @@ async function copyCode() {
 
 .r-v2-pair__hint {
   margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-sm);
   max-width: 360px;
 }
@@ -193,7 +193,7 @@ async function copyCode() {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.12);
+  border: 3px solid var(--r-color-surface-hover);
   border-top-color: var(--r-color-brand-primary);
   animation: r-v2-pair-spin 0.8s linear infinite;
 }

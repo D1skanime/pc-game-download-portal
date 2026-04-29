@@ -87,7 +87,7 @@ function closeDialog() {
   margin: 0;
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
   max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;

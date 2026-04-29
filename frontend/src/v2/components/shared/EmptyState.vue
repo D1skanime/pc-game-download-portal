@@ -43,7 +43,7 @@ withDefaults(
 /* Plain — just dim centered text, for index views. */
 .empty-state--plain {
   padding: 80px 16px;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--r-color-fg-faint);
   font-size: 13.5px;
 }
 .empty-state--plain .empty-state__icon {

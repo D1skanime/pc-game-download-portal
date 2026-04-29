@@ -59,6 +59,6 @@ withDefaults(
 
 .page-header__count {
   font-size: var(--r-font-size-md);
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
 }
 </style>

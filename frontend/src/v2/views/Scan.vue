@@ -548,8 +548,8 @@ function stopScan() {
   flex-direction: column;
   gap: 12px;
   padding: 18px;
-  background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -586,7 +586,7 @@ function stopScan() {
   gap: 8px;
 }
 .r-v2-scan__lb-inactive {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
 }
 
 /* Scan log. Pins the chrome above and the stats bar below, with a
@@ -596,8 +596,8 @@ function stopScan() {
   min-height: 240px;
   overflow-y: auto;
   scroll-behavior: smooth;
-  background: rgba(13, 17, 23, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -611,7 +611,7 @@ function stopScan() {
   justify-content: center;
   gap: 12px;
   padding: 48px 16px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
   text-align: center;
 }
 .r-v2-scan__empty p {
@@ -634,13 +634,13 @@ function stopScan() {
   gap: 8px;
   padding: 8px 12px;
   background: rgba(13, 17, 23, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-pill);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--r-color-fg);
 }
 
 .r-v2-scan__stat {

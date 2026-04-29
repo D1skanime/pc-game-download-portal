@@ -255,7 +255,7 @@ function closeDialog() {
 }
 .r-v2-pick-coll__head-subtitle {
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--r-color-fg-muted);
   font-weight: var(--r-font-weight-regular);
   white-space: nowrap;
   overflow: hidden;
@@ -278,7 +278,7 @@ function closeDialog() {
 
 .r-v2-pick-coll__empty {
   padding: 24px 16px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
   font-size: 13px;
   text-align: center;
 }

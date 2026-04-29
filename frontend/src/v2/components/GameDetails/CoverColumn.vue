@@ -56,7 +56,7 @@ const morphStyle = computed(() =>
   place-items: center;
   text-align: center;
   padding: 24px;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--r-color-fg-faint);
   font-size: 13px;
 }
 

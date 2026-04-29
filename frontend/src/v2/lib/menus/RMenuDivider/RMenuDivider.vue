@@ -15,11 +15,7 @@ withDefaults(defineProps<{ noGutters?: boolean }>(), { noGutters: false });
 <style scoped>
 .r-menu-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--r-color-border);
   margin: 0px 2px;
-}
-
-.r-v2.r-v2-light .r-menu-divider {
-  background: rgba(17, 17, 23, 0.09);
 }
 </style>

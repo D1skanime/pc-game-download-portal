@@ -276,6 +276,6 @@ function closeDialog() {
   gap: 6px;
 }
 .r-v2-refresh__lb-dim {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
 }
 </style>

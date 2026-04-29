@@ -713,7 +713,7 @@ onMounted(async () => {
 
 .r-v2-patch__subtitle {
   margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-sm);
   max-width: 560px;
 }
@@ -727,7 +727,7 @@ onMounted(async () => {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.18);
+  border: 2px solid var(--r-color-surface-hover);
   border-top-color: var(--r-color-brand-primary);
   animation: r-v2-patch-spin 0.8s linear infinite;
 }
@@ -744,8 +744,8 @@ onMounted(async () => {
 }
 
 .r-v2-patch__panel {
-  background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -760,7 +760,7 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
 }
 
 .r-v2-patch__dropzone {
@@ -780,7 +780,7 @@ onMounted(async () => {
 }
 .r-v2-patch__dropzone--filled {
   border-style: solid;
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--r-color-border-strong);
   cursor: default;
 }
 
@@ -791,7 +791,7 @@ onMounted(async () => {
   justify-content: center;
   gap: 8px;
   padding: 24px 16px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   text-align: center;
 }
 .r-v2-patch__drop-empty :deep(.r-icon) {
@@ -801,12 +801,12 @@ onMounted(async () => {
   margin: 6px 0 0;
   font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg);
 }
 .r-v2-patch__drop-hint {
   margin: 0 0 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-patch__pulse {
@@ -836,7 +836,7 @@ onMounted(async () => {
   margin: 0;
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--r-color-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -850,8 +850,8 @@ onMounted(async () => {
 .r-v2-patch__drop-clear {
   appearance: none;
   border: 0;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.55);
+  background: var(--r-color-surface);
+  color: var(--r-color-fg-secondary);
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -870,11 +870,11 @@ onMounted(async () => {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-pill);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--r-color-fg-secondary);
 }
 
 .r-v2-patch__formats {
@@ -886,7 +886,7 @@ onMounted(async () => {
 }
 .r-v2-patch__formats-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   width: 100%;
@@ -894,11 +894,11 @@ onMounted(async () => {
 }
 .r-v2-patch__format-chip {
   padding: 1px 7px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-sm);
   font-size: 10.5px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--r-color-fg-secondary);
   font-family: var(--r-font-family-mono, monospace);
 }
 
@@ -915,8 +915,8 @@ onMounted(async () => {
   flex-direction: column;
   gap: 12px;
   padding: 18px;
-  background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -941,7 +941,7 @@ onMounted(async () => {
   gap: 8px;
   margin-top: 4px;
   font-size: var(--r-font-size-xs);
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   font-style: italic;
 }
 .r-v2-patch__brand img {

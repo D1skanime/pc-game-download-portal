@@ -16,7 +16,7 @@ defineProps<{
 function coverStyle(cover: string | null | undefined) {
   return cover
     ? { backgroundImage: `url('${cover}')` }
-    : { backgroundColor: "rgba(255, 255, 255, 0.04)" };
+    : { backgroundColor: "var(--r-color-bg-elevated)" };
 }
 </script>
 
@@ -47,7 +47,7 @@ function coverStyle(cover: string | null | undefined) {
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--r-color-fg-faint);
 }
 
 .r-v2-related__grid {
@@ -72,7 +72,7 @@ function coverStyle(cover: string | null | undefined) {
 
 .r-v2-related__name {
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--r-color-fg-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;

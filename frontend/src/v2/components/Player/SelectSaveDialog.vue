@@ -98,7 +98,7 @@ function closeDialog() {
   justify-content: center;
   gap: 12px;
   padding: 48px 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-save-picker__empty p {
   margin: 0;

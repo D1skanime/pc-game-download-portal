@@ -37,13 +37,9 @@ withDefaults(defineProps<Props>(), {
 .stat__value {
   font-size: var(--r-font-size-2xl);
   font-weight: var(--r-font-weight-bold);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
   line-height: 1;
   font-variant-numeric: tabular-nums;
-}
-
-:global(.r-v2.r-v2-light) .stat__value {
-  color: var(--r-color-fg);
 }
 
 .stat__label {
@@ -51,10 +47,6 @@ withDefaults(defineProps<Props>(), {
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.25);
-}
-
-:global(.r-v2.r-v2-light) .stat__label {
   color: var(--r-color-fg-muted);
 }
 </style>
