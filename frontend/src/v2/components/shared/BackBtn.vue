@@ -44,14 +44,14 @@ const tag = computed(() => (props.to ? "router-link" : "button"));
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-pill);
   padding: 5px 14px 5px 10px;
   cursor: pointer;
   font-size: 12px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--r-color-fg-secondary);
   text-decoration: none;
   font-family: inherit;
   transition:
@@ -60,7 +60,7 @@ const tag = computed(() => (props.to ? "router-link" : "button"));
 }
 
 .back-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: var(--r-color-surface-hover);
+  color: var(--r-color-fg);
 }
 </style>

@@ -41,29 +41,21 @@ withDefaults(defineProps<Props>(), {
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.28);
-}
-
-:global(.r-v2.r-v2-light) .file-row__label {
-  color: var(--r-color-fg-muted);
+  color: var(--r-color-fg-faint);
 }
 
 .file-row__value {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--r-color-fg-secondary);
   word-break: break-all;
-}
-
-:global(.r-v2.r-v2-light) .file-row__value {
-  color: var(--r-color-fg);
 }
 
 .file-row__value--mono {
   font-family: var(--r-font-family-mono);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--r-color-fg-secondary);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-chip);
   padding: 4px 10px;
   align-self: flex-start;

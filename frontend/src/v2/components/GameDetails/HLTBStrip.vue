@@ -54,8 +54,8 @@ const entries = computed<Entry[]>(() => {
 .r-v2-det-hltb {
   display: flex;
   align-items: stretch;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   padding: 14px 0;
   margin: 14px 0 6px;
@@ -69,7 +69,7 @@ const entries = computed<Entry[]>(() => {
   align-items: center;
   gap: 4px;
   padding: 0 12px;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid var(--r-color-border);
 }
 .r-v2-det-hltb__item:last-child {
   border-right: none;
@@ -80,16 +80,16 @@ const entries = computed<Entry[]>(() => {
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   text-align: center;
 }
 .r-v2-det-hltb__value {
   font-size: 20px;
   font-weight: var(--r-font-weight-bold);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
 }
 .r-v2-det-hltb__sub {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--r-color-fg-faint);
 }
 </style>

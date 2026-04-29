@@ -82,11 +82,11 @@ defineProps<{
   font-weight: var(--r-font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--r-color-fg-faint);
 }
 
 .r-v2-det-personal__muted {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   font-style: italic;
 }
 
@@ -96,9 +96,9 @@ defineProps<{
   gap: 6px;
   padding: 6px 14px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: #fff;
+  background: var(--r-color-surface-hover);
+  border: 1px solid var(--r-color-border-strong);
+  color: var(--r-color-fg);
   font-size: 12.5px;
   font-weight: var(--r-font-weight-semibold);
 }
@@ -113,12 +113,12 @@ defineProps<{
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--r-color-surface-hover);
   overflow: hidden;
 }
 .r-v2-det-personal__progress-fill {
   height: 100%;
-  background: #fff;
+  background: var(--r-color-fg);
   border-radius: 3px;
 }
 </style>

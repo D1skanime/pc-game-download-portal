@@ -133,21 +133,21 @@ const linked = computed<Linked[]>(() =>
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-chip);
   padding: 3px 9px 3px 6px;
   font-size: 11px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--r-color-fg-secondary);
   text-decoration: none;
   transition:
     background var(--r-motion-fast),
     border-color var(--r-motion-fast);
 }
 .r-v2-det-providers__chip:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--r-color-surface-hover);
+  border-color: var(--r-color-border-strong);
 }
 
 .r-v2-det-providers__dot {

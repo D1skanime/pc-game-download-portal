@@ -53,7 +53,7 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--r-color-fg-faint);
   margin-bottom: 6px;
 }
 
@@ -64,12 +64,12 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
 }
 
 .r-v2-det-infogrid__chip {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-chip);
   padding: 3px 9px;
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--r-color-fg-secondary);
 }
 
 @media (max-width: 768px) {

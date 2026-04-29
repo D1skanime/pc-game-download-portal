@@ -77,7 +77,7 @@ const rowStyle = computed(() => ({
     opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .pick-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--r-color-bg-elevated);
 }
 .pick-row--checked {
   background: rgba(139, 116, 232, 0.08);
@@ -99,7 +99,7 @@ const rowStyle = computed(() => ({
 .pick-row__name {
   min-width: 0;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
   font-weight: var(--r-font-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
@@ -109,7 +109,7 @@ const rowStyle = computed(() => ({
 .pick-row__count {
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--r-color-fg-muted);
   font-weight: var(--r-font-weight-medium);
 }
 
@@ -119,7 +119,7 @@ const rowStyle = computed(() => ({
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--r-color-surface-hover);
   color: transparent;
   background: transparent;
   transition:

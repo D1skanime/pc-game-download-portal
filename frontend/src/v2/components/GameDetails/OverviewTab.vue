@@ -50,12 +50,12 @@ defineProps<{
 .r-v2-det-overview__summary {
   font-size: 13.5px;
   line-height: 1.7;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--r-color-fg-secondary);
   margin: 0;
 }
 .r-v2-det-overview__summary--muted {
   font-style: italic;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-det-overview__status {
@@ -64,9 +64,9 @@ defineProps<{
   gap: 6px;
   padding: 6px 14px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: #fff;
+  background: var(--r-color-surface-hover);
+  border: 1px solid var(--r-color-border-strong);
+  color: var(--r-color-fg);
   font-size: 12.5px;
   font-weight: var(--r-font-weight-semibold);
   align-self: flex-start;

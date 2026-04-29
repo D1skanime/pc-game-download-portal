@@ -68,15 +68,15 @@ function select(lang: { value: string; name: string }) {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-pill);
   padding: 5px 10px 5px 12px;
   cursor: pointer;
   font-family: inherit;
   font-size: 12px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg-secondary);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   transition:
@@ -85,18 +85,7 @@ function select(lang: { value: string; name: string }) {
 }
 
 .lang-pill:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
-}
-
-:global(.r-v2.r-v2-light) .lang-pill {
-  background: rgba(17, 17, 23, 0.06);
-  border-color: rgba(17, 17, 23, 0.12);
-  color: rgba(17, 17, 23, 0.85);
-}
-:global(.r-v2.r-v2-light) .lang-pill:hover {
-  background: rgba(17, 17, 23, 0.1);
+  background: var(--r-color-surface-hover);
   color: var(--r-color-fg);
 }
 

@@ -220,8 +220,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 20px;
   padding: 18px;
-  background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -287,13 +287,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--r-color-fg-secondary);
   text-transform: capitalize;
 }
 
 .r-v2-profile__section {
-  background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -307,7 +307,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-fg);
 }
 .r-v2-profile__section-head h2 {
   margin: 0;

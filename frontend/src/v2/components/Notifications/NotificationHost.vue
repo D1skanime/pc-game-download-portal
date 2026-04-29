@@ -135,14 +135,14 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 10px 12px;
   background: rgba(13, 17, 23, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-md);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   box-shadow:
     0 10px 28px rgba(0, 0, 0, 0.45),
     0 2px 6px rgba(0, 0, 0, 0.3);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
   appearance: none;
   background: transparent;
   border: 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--r-color-fg-muted);
   width: 24px;
   height: 24px;
   display: grid;
@@ -188,8 +188,8 @@ onBeforeUnmount(() => {
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-toast__close:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
 }
 
 /* Stack animations — incoming slides in from the right, outgoing fades

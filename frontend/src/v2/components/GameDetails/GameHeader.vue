@@ -122,7 +122,7 @@ defineProps<{
   flex-wrap: wrap;
   gap: 10px;
   font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--r-color-fg-secondary);
 }
 .r-v2-det-header__sep {
   opacity: 0.3;
@@ -142,13 +142,13 @@ defineProps<{
   gap: 6px;
 }
 .r-v2-det-header__tag {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-chip);
   padding: 2px 9px;
   font-size: 11.5px;
   font-weight: var(--r-font-weight-medium);
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--r-color-fg-secondary);
 }
 .r-v2-det-header__tag--region {
   border-color: rgba(96, 165, 250, 0.4);

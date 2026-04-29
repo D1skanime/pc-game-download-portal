@@ -196,8 +196,8 @@ function closeDialog() {
 
 .r-v2-upload-target__option {
   appearance: none;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   padding: 14px 16px;
   display: grid;
@@ -214,7 +214,7 @@ function closeDialog() {
     transform var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-upload-target__option:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--r-color-surface);
   border-color: rgba(139, 116, 232, 0.4);
   transform: translateY(-1px);
 }
@@ -240,17 +240,17 @@ function closeDialog() {
   margin: 0;
   font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--r-color-fg);
 }
 .r-v2-upload-target__desc {
   margin: 4px 0 0;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--r-color-fg-secondary);
   line-height: 1.4;
 }
 
 .r-v2-upload-target__chev {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--r-color-fg-muted);
 }
 .r-v2-upload-target__option:hover:not(:disabled) .r-v2-upload-target__chev {
   color: var(--r-color-brand-primary);
