@@ -7,7 +7,7 @@
 // `background` / `surface` / `toplayer` solid here and let the mockup's
 // translucent glass surfaces come from CSS variables on R-components.
 import type { ThemeDefinition } from "vuetify";
-import { colorBrand, colorStatus } from "@/v2/tokens";
+import { colorBrand, colorDark, colorLight, colorStatus } from "@/v2/tokens";
 
 const commonColors = {
   "romm-red": colorBrand.rommRed,
@@ -22,11 +22,11 @@ export const v2Dark: ThemeDefinition = {
     primary: colorBrand.primary,
     secondary: colorBrand.secondary,
     accent: colorBrand.accent,
-    background: "#07070f",
-    surface: "#15151f",
-    toplayer: "#1f1f2b",
-    "on-surface": "#ffffff",
-    "on-background": "#ffffff",
+    background: colorDark.bg,
+    surface: colorDark.vuetifySurface,
+    toplayer: colorDark.vuetifyToplayer,
+    "on-surface": colorDark.fg,
+    "on-background": colorDark.fg,
     "primary-lighten": colorBrand.primaryHover,
     "primary-darken": colorBrand.primaryPressed,
     "secondary-lighten": colorBrand.secondaryHover,
@@ -42,19 +42,20 @@ export const v2Dark: ThemeDefinition = {
 export const v2Light: ThemeDefinition = {
   dark: false,
   colors: {
-    // v1's light-mode primary was a deeper purple for contrast; keep that.
-    primary: "#371f69",
-    secondary: "#553e98",
+    // v1's light-mode primary is a deeper purple for contrast against the
+    // off-white page; the brand-light tokens carry the pair.
+    primary: colorBrand.primaryLight,
+    secondary: colorBrand.secondaryLight,
     accent: colorBrand.accent,
-    background: "#f5f5fa",
-    surface: "#ffffff",
-    toplayer: "#ebebf2",
-    "on-surface": "#111117",
-    "on-background": "#111117",
-    "primary-lighten": "#7850e6",
-    "primary-darken": "#452788",
-    "secondary-lighten": "#f0ebfa",
-    "secondary-darken": "#9b8bd0",
+    background: colorLight.bg,
+    surface: colorLight.vuetifySurface,
+    toplayer: colorLight.vuetifyToplayer,
+    "on-surface": colorLight.fg,
+    "on-background": colorLight.fg,
+    "primary-lighten": colorBrand.primaryLightHover,
+    "primary-darken": colorBrand.primaryLightPressed,
+    "secondary-lighten": colorBrand.secondaryLightHover,
+    "secondary-darken": colorBrand.secondaryLightPressed,
     success: colorStatus.success,
     warning: colorStatus.warning,
     error: colorStatus.danger,

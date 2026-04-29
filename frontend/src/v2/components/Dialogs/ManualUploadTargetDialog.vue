@@ -215,7 +215,11 @@ function closeDialog() {
 }
 .r-v2-upload-target__option:hover:not(:disabled) {
   background: var(--r-color-surface);
-  border-color: rgba(139, 116, 232, 0.4);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 40%,
+    transparent
+  );
   transform: translateY(-1px);
 }
 .r-v2-upload-target__option:disabled {
@@ -227,7 +231,7 @@ function closeDialog() {
   width: 42px;
   height: 42px;
   border-radius: var(--r-radius-md);
-  background: rgba(139, 116, 232, 0.14);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
   color: var(--r-color-brand-primary);
   display: grid;
   place-items: center;

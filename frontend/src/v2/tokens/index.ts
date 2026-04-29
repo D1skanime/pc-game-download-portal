@@ -32,13 +32,57 @@ export const colorBrand = {
   rommGreen: "#3FB950",
   rommBlue: "#0070F3",
   rommGold: "#FFD700",
+  // Light-theme brand variants (deeper for contrast on a light page).
+  // Vuetify's light theme reads these directly via the v2Light theme.
+  primaryLight: "#371F69",
+  secondaryLight: "#553E98",
+  primaryLightHover: "#7850E6",
+  primaryLightPressed: "#452788",
+  secondaryLightHover: "#F0EBFA",
+  secondaryLightPressed: "#9B8BD0",
 } as const;
 
 export const colorStatus = {
+  // Canonical status colours — used for solid surfaces (dialog buttons,
+  // form errors, badges with solid background).
   success: "#4ADE80",
   warning: "#FBBF24",
   danger: "#FF5050",
   info: "#93C5FD",
+  // Slightly-lighter foreground variants for text/icon when a status sits
+  // on top of a tinted bg (e.g., success badge with green text on a 12%
+  // green wash). For success and info the canonical colour already reads
+  // well on the wash; warning and danger want a paler tone.
+  warningFg: "#FACC15",
+  dangerFg: "#F87171",
+} as const;
+
+// Solid hues used as the BASE for status-tinted backgrounds (the 12-30%
+// wash behind success/warning/danger/info badges). Use via color-mix:
+//   background: color-mix(in srgb, var(--r-color-status-success-base) 12%, transparent);
+// These differ slightly from `colorStatus` on purpose — they're closer to
+// tailwind's 500-tier so the resulting tint has the right saturation.
+export const colorStatusBase = {
+  success: "#22C55E",
+  warning: "#EAB308",
+  danger: "#EF4444",
+  info: "#3B82F6",
+} as const;
+
+// External metadata-provider brand colours. Each provider (IGDB,
+// MobyGames, ScreenScraper…) has its own brand identity; we replicate
+// it on the corresponding chip / link so users recognise the source at
+// a glance. Not theme-flippable: the provider's colour is what it is.
+export const colorProvider = {
+  igdb: "#6366F1",
+  moby: "#F59E0B",
+  screenscraper: "#3B82F6",
+  retroachievements: "#EF4444",
+  steamgriddb: "#0EA5E9",
+  launchbox: "#8B5CF6",
+  hasheous: "#6B7280",
+  flashpoint: "#F97316",
+  hltb: "#22C55E",
 } as const;
 
 // Dark (default) palette — the mockup is dark-only, so light uses an
@@ -64,6 +108,20 @@ export const colorDark = {
   tooltipBorder: "rgba(255, 255, 255, 0.09)",
   // Skeleton shimmer sweep — the translucent band that animates across .r-skeleton.
   shimmerSweep: "rgba(255, 255, 255, 0.08)",
+  // Cover/media placeholder — dark glass behind missing artwork. Stays dark
+  // in both themes because covers are media surfaces, not page surfaces.
+  coverPlaceholder: "#1a1a2e",
+  // Lighter shimmer-cycle tone for the placeholder loading animation.
+  coverPlaceholderBright: "#252540",
+  // Auth-card glass tone — fixed deep-blue glass that reads on the
+  // background art regardless of theme.
+  authGlass: "rgba(13, 17, 23, 0.65)",
+  // Toast/notification background — opaque deep card.
+  toastBg: "rgba(13, 17, 23, 0.92)",
+  // Vuetify needs solid surface tones; the translucent --r-color-surface
+  // can't be passed to the Vuetify theme as a hex.
+  vuetifySurface: "#15151f",
+  vuetifyToplayer: "#1f1f2b",
 } as const;
 
 export const colorLight = {
@@ -83,6 +141,15 @@ export const colorLight = {
   tooltipBg: "rgba(245, 245, 250, 0.96)",
   tooltipBorder: "rgba(17, 17, 23, 0.08)",
   shimmerSweep: "rgba(0, 0, 0, 0.06)",
+  // Cover/media placeholder — same dark as colorDark.coverPlaceholder.
+  // Cover artwork space stays dark in light mode too — bright covers need
+  // dark backing.
+  coverPlaceholder: "#1a1a2e",
+  coverPlaceholderBright: "#252540",
+  authGlass: "rgba(245, 245, 250, 0.85)",
+  toastBg: "rgba(245, 245, 250, 0.95)",
+  vuetifySurface: "#ffffff",
+  vuetifyToplayer: "#ebebf2",
 } as const;
 
 // Cover-overlay surfaces — fixed dark glass values that never theme-flip.
@@ -98,6 +165,18 @@ export const colorOverlay = {
   borderStrong: "rgba(255, 255, 255, 0.25)",
   scrimSoft: "rgba(0, 0, 0, 0.55)",
   scrimStrong: "rgba(0, 0, 0, 0.78)",
+  // Emphasis pill — fixed white-on-dark CTA (Play). Always solid white
+  // regardless of page theme so it pops against any cover artwork.
+  emphasisBg: "#ffffff",
+  emphasisBgHover: "#e6e6e6",
+  emphasisFg: "#111117",
+} as const;
+
+// Player canvas — full-black background for emulator/player surfaces.
+// Independent of page theme; players draw over a true-black canvas.
+export const colorCanvas = {
+  bg: "#000000",
+  bgDeep: "#0d1117",
 } as const;
 
 export const fontFamily = {
@@ -207,9 +286,12 @@ export const layout = {
 export const tokens = {
   colorBrand,
   colorStatus,
+  colorStatusBase,
+  colorProvider,
   colorDark,
   colorLight,
   colorOverlay,
+  colorCanvas,
   fontFamily,
   fontSize,
   lineHeight,

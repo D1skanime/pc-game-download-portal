@@ -259,12 +259,12 @@ function onClick(e: MouseEvent) {
 
 /* Emphasized — the primary-action look (white on dark). Used by Play. */
 .r-v2-game-btn--emphasized {
-  background: #fff !important;
-  border-color: #fff !important;
-  color: #111 !important;
+  background: var(--r-color-overlay-emphasis-bg) !important;
+  border-color: var(--r-color-overlay-emphasis-bg) !important;
+  color: var(--r-color-overlay-emphasis-fg) !important;
 }
 .r-v2-game-btn--emphasized:hover {
-  background: #e6e6e6 !important;
+  background: var(--r-color-overlay-emphasis-bg-hover) !important;
   transform: translateY(-1px);
 }
 .r-v2-game-btn--emphasized:active {

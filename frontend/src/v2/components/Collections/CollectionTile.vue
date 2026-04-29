@@ -132,9 +132,9 @@ const morphStyle = computed(() =>
 }
 .coll-tile:focus-visible .coll-tile__cover {
   box-shadow:
-    0 8px 28px rgba(0, 0, 0, 0.4),
+    0 8px 28px color-mix(in srgb, black 40%, transparent),
     0 0 0 2px var(--r-color-brand-primary),
-    0 0 18px rgba(139, 116, 232, 0.55);
+    0 0 18px color-mix(in srgb, var(--r-color-brand-primary) 55%, transparent);
 }
 .coll-tile:focus-visible .coll-tile__name {
   color: var(--r-color-fg);
@@ -150,8 +150,12 @@ const morphStyle = computed(() =>
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: rgba(167, 139, 250, 0.85);
-  color: #fff;
+  background: color-mix(
+    in srgb,
+    var(--r-color-brand-primary-hover) 85%,
+    transparent
+  );
+  color: var(--r-color-overlay-fg);
 }
 
 .coll-tile__name {

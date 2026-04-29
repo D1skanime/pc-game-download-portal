@@ -104,7 +104,11 @@ const backing = computed(() => {
 
 .r-table :deep(tbody tr.v-data-table__tr--selected td),
 .r-table :deep(tbody tr[aria-selected="true"] td) {
-  background: rgba(139, 116, 232, 0.12) !important;
+  background: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 12%,
+    transparent
+  ) !important;
   border-left: 2px solid var(--r-color-brand-primary) !important;
 }
 

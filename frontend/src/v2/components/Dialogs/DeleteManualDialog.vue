@@ -145,8 +145,12 @@ function closeDialog() {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: rgba(239, 68, 68, 0.14);
-  color: #f87171;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 14%,
+    transparent
+  );
+  color: var(--r-color-danger-fg);
   display: grid;
   place-items: center;
 }

@@ -113,7 +113,7 @@ defineProps<{
   line-height: 1.1;
   letter-spacing: -0.02em;
   margin: 0 0 2px 0;
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 2px 20px color-mix(in srgb, black 50%, transparent);
 }
 
 .r-v2-det-header__meta {
@@ -151,12 +151,20 @@ defineProps<{
   color: var(--r-color-fg-secondary);
 }
 .r-v2-det-header__tag--region {
-  border-color: rgba(96, 165, 250, 0.4);
-  color: rgba(147, 197, 253, 0.9);
+  border-color: color-mix(in srgb, var(--r-color-info) 40%, transparent);
+  color: color-mix(in srgb, var(--r-color-info) 90%, transparent);
 }
 .r-v2-det-header__tag--lang {
-  border-color: rgba(167, 139, 250, 0.4);
-  color: rgba(196, 181, 253, 0.9);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary-hover) 40%,
+    transparent
+  );
+  color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary-hover) 90%,
+    transparent
+  );
 }
 
 @media (max-width: 768px) {

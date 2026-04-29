@@ -209,8 +209,12 @@ const uiVersionCards = computed(() => [
 }
 .r-v2-ui__version-card--active,
 .r-v2-ui__theme-card--active {
-  background: rgba(139, 116, 232, 0.14);
-  border-color: rgba(139, 116, 232, 0.45);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 45%,
+    transparent
+  );
   color: var(--r-color-fg);
 }
 
@@ -231,7 +235,7 @@ const uiVersionCards = computed(() => [
   height: 22px;
   border-radius: 50%;
   background: var(--r-color-brand-primary);
-  color: #0d1117;
+  color: var(--r-color-overlay-emphasis-fg);
   display: grid;
   place-items: center;
   font-weight: var(--r-font-weight-bold);

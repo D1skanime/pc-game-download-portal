@@ -251,8 +251,8 @@ onUnmounted(() => {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
+  background: color-mix(in srgb, black 50%, transparent);
+  color: var(--r-color-overlay-fg);
   opacity: 0;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }

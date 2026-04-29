@@ -121,7 +121,7 @@ function isActive(letter: string): boolean {
 }
 .alpha-strip__btn--has.alpha-strip__btn--current:hover {
   color: var(--r-color-brand-primary-hover) !important;
-  background: rgba(139, 116, 232, 0.12);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 
 @media (max-width: 768px) {

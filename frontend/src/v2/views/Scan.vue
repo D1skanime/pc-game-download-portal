@@ -633,12 +633,16 @@ function stopScan() {
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 12px;
-  background: rgba(13, 17, 23, 0.85);
+  background: color-mix(
+    in srgb,
+    var(--r-color-canvas-bg-deep) 85%,
+    transparent
+  );
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-pill);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 28px color-mix(in srgb, black 45%, transparent);
   font-size: 12px;
   color: var(--r-color-fg);
 }
@@ -648,13 +652,17 @@ function stopScan() {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: rgba(139, 116, 232, 0.18);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
   border-radius: var(--r-radius-pill);
   color: var(--r-color-brand-primary);
 }
 .r-v2-scan__stat--alt {
-  background: rgba(34, 197, 94, 0.18);
-  color: #4ade80;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 18%,
+    transparent
+  );
+  color: var(--r-color-success);
 }
 
 @media (max-width: 960px) {

@@ -14,9 +14,10 @@ import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import { colorCanvas } from "@/v2/tokens";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
-const DEFAULT_BACKGROUND_COLOR = "#0D1117";
+const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
 
 const { t } = useI18n();
 const route = useRoute();
@@ -25,7 +26,7 @@ const { fullscreenOnPlay } = useFullscreenPref();
 
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
-const backgroundColor = ref(DEFAULT_BACKGROUND_COLOR);
+const backgroundColor = ref<string>(DEFAULT_BACKGROUND_COLOR);
 
 declare global {
   interface Window {
@@ -283,7 +284,7 @@ onMounted(async () => {
 .r-v2-ruffle__cover-img {
   width: 100%;
   border-radius: var(--r-radius-lg);
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 18px 36px color-mix(in srgb, black 55%, transparent);
   display: block;
 }
 
@@ -291,7 +292,7 @@ onMounted(async () => {
   width: 100%;
   aspect-ratio: 3 / 4;
   border-radius: var(--r-radius-lg);
-  background: #1a1a2e;
+  background: var(--r-color-cover-placeholder);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -394,7 +395,7 @@ onMounted(async () => {
 .r-v2-ruffle__stage-wrap {
   position: fixed;
   inset: var(--r-nav-h) 0 0 0;
-  background: #000;
+  background: var(--r-color-canvas-bg);
   z-index: 1;
 }
 .r-v2-ruffle__stage {

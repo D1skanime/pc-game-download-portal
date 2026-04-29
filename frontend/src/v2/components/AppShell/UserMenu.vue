@@ -270,7 +270,7 @@ async function onLogout() {
   place-items: center;
   font-size: 11px;
   font-weight: var(--r-font-weight-bold);
-  color: #fff;
+  color: var(--r-color-overlay-fg);
   flex-shrink: 0;
 }
 

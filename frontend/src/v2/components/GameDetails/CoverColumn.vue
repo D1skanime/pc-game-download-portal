@@ -38,7 +38,7 @@ const morphStyle = computed(() =>
   align-self: flex-start;
   margin-top: 24px;
   width: var(--r-cover-w);
-  filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.8));
+  filter: drop-shadow(0 24px 48px color-mix(in srgb, black 80%, transparent));
 }
 
 .r-v2-det-cover img {
@@ -51,7 +51,7 @@ const morphStyle = computed(() =>
   width: var(--r-cover-w);
   height: 320px;
   border-radius: var(--r-radius-lg);
-  background: #1a1a2e;
+  background: var(--r-color-cover-placeholder);
   display: grid;
   place-items: center;
   text-align: center;

@@ -671,7 +671,7 @@ void useLocalStorage;
   inset: 12px;
   background: radial-gradient(
     120% 120% at 50% 60%,
-    rgba(139, 116, 232, 0.35),
+    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent),
     transparent 70%
   );
   filter: blur(30px);
@@ -683,7 +683,7 @@ void useLocalStorage;
   width: 100%;
   border-radius: var(--r-radius-lg);
   box-shadow:
-    0 18px 36px rgba(0, 0, 0, 0.55),
+    0 18px 36px color-mix(in srgb, black 55%, transparent),
     0 0 0 1px var(--r-color-border);
   display: block;
 }
@@ -692,7 +692,7 @@ void useLocalStorage;
   width: 100%;
   aspect-ratio: 3 / 4;
   border-radius: var(--r-radius-lg);
-  background: #1a1a2e;
+  background: var(--r-color-cover-placeholder);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -738,7 +738,8 @@ void useLocalStorage;
   margin-top: 8px;
   font-weight: var(--r-font-weight-semibold) !important;
   letter-spacing: 0.02em;
-  box-shadow: 0 10px 24px rgba(139, 116, 232, 0.35);
+  box-shadow: 0 10px 24px
+    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
 }
 
 .r-v2-ejs__hero-links {
@@ -803,7 +804,7 @@ void useLocalStorage;
   border-radius: var(--r-radius-sm);
   background-size: cover;
   background-position: center;
-  background-color: #1a1a2e;
+  background-color: var(--r-color-cover-placeholder);
 }
 .r-v2-ejs__asset-thumb--placeholder {
   display: grid;
@@ -862,8 +863,12 @@ void useLocalStorage;
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-ejs__asset-clear:hover {
-  background: rgba(239, 68, 68, 0.18);
-  color: #f87171;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 18%,
+    transparent
+  );
+  color: var(--r-color-danger-fg);
 }
 
 .r-v2-ejs__empty {
@@ -919,7 +924,7 @@ void useLocalStorage;
 .r-v2-ejs__stage {
   position: fixed;
   inset: var(--r-nav-h) 0 0 0;
-  background: #000;
+  background: var(--r-color-canvas-bg);
   z-index: 1;
 }
 

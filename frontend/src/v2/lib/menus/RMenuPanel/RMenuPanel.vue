@@ -37,8 +37,8 @@ const resolvedWidth =
   border: 1px solid var(--r-color-panel-border);
   border-radius: var(--r-radius-card);
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.7),
-    0 4px 20px rgba(0, 0, 0, 0.4);
+    0 20px 60px color-mix(in srgb, black 70%, transparent),
+    0 4px 20px color-mix(in srgb, black 40%, transparent);
   color: var(--r-color-fg);
   font-family: var(--r-font-family-sans);
   display: flex;

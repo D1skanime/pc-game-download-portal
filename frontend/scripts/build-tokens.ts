@@ -14,10 +14,13 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   colorBrand,
+  colorCanvas,
   colorDark,
   colorLight,
   colorOverlay,
+  colorProvider,
   colorStatus,
+  colorStatusBase,
   elevation,
   focus,
   fontFamily,
@@ -103,7 +106,10 @@ function block(selector: string, lines: Entry[], comment?: string): string {
 const SHARED: Entry[] = [
   ...entriesFor(colorBrand, "colorBrand", "--r-color-brand"),
   ...entriesFor(colorStatus, "colorStatus", "--r-color"),
+  ...entriesFor(colorStatusBase, "colorStatusBase", "--r-color-status-base"),
+  ...entriesFor(colorProvider, "colorProvider", "--r-color-provider"),
   ...entriesFor(colorOverlay, "colorOverlay", "--r-color-overlay"),
+  ...entriesFor(colorCanvas, "colorCanvas", "--r-color-canvas"),
   ...entriesFor(fontFamily, "fontFamily", "--r-font-family"),
   ...entriesFor(fontSize, "fontSize", "--r-font-size"),
   ...entriesFor(lineHeight, "lineHeight", "--r-line-height"),

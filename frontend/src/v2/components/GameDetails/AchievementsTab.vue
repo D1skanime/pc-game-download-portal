@@ -264,13 +264,29 @@ function toggleStatus(target: StatusFilter) {
 }
 .r-v2-det-ach__filter--earned.r-v2-det-ach__filter--active {
   color: var(--r-color-fg);
-  background: rgba(34, 197, 94, 0.3);
-  border-color: rgba(34, 197, 94, 0.5);
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 30%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 50%,
+    transparent
+  );
 }
 .r-v2-det-ach__filter--locked.r-v2-det-ach__filter--active {
   color: var(--r-color-fg);
-  background: rgba(239, 68, 68, 0.24);
-  border-color: rgba(239, 68, 68, 0.45);
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 24%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 45%,
+    transparent
+  );
 }
 .r-v2-det-ach__filter-sep {
   width: 1px;
@@ -351,15 +367,19 @@ function toggleStatus(target: StatusFilter) {
   color: var(--r-color-fg-secondary);
 }
 .r-v2-det-ach__type--progression {
-  background: rgba(99, 102, 241, 0.18);
-  color: rgba(165, 180, 252, 0.95);
+  background: color-mix(in srgb, var(--r-color-provider-igdb) 18%, transparent);
+  color: color-mix(in srgb, var(--r-color-provider-igdb) 95%, transparent);
 }
 .r-v2-det-ach__type--missable {
-  background: rgba(251, 191, 36, 0.18);
-  color: rgba(253, 224, 71, 0.95);
+  background: color-mix(in srgb, var(--r-color-warning) 18%, transparent);
+  color: color-mix(in srgb, var(--r-color-warning-fg) 95%, transparent);
 }
 .r-v2-det-ach__type--win_condition {
-  background: rgba(34, 197, 94, 0.18);
-  color: rgba(134, 239, 172, 0.95);
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 18%,
+    transparent
+  );
+  color: color-mix(in srgb, var(--r-color-success) 95%, transparent);
 }
 </style>

@@ -225,7 +225,7 @@ onMounted(() => {
 }
 
 .card-row__arrow :deep(.mdi) {
-  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 1px 4px color-mix(in srgb, black 60%, transparent));
 }
 
 .card-row__arrow:hover {

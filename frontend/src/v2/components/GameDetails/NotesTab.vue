@@ -319,9 +319,17 @@ async function remove(note: UserNoteSchema) {
   border: 1px solid var(--r-color-border);
 }
 .r-v2-det-notes__badge--public {
-  background: rgba(34, 197, 94, 0.14);
-  color: rgba(134, 239, 172, 0.9);
-  border-color: rgba(34, 197, 94, 0.3);
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 14%,
+    transparent
+  );
+  color: color-mix(in srgb, var(--r-color-success) 90%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 30%,
+    transparent
+  );
 }
 
 .r-v2-det-notes__chevron {
@@ -374,10 +382,18 @@ async function remove(note: UserNoteSchema) {
 }
 .r-v2-det-notes__btn--danger {
   color: var(--r-color-danger);
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 30%,
+    transparent
+  );
 }
 .r-v2-det-notes__btn--danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.12);
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 12%,
+    transparent
+  );
 }
 .r-v2-det-notes__btn--save {
   background: var(--r-color-fg);

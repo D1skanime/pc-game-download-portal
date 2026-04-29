@@ -134,14 +134,18 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: rgba(13, 17, 23, 0.92);
+  background: color-mix(
+    in srgb,
+    var(--r-color-canvas-bg-deep) 92%,
+    transparent
+  );
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-md);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.45),
-    0 2px 6px rgba(0, 0, 0, 0.3);
+    0 10px 28px color-mix(in srgb, black 45%, transparent),
+    0 2px 6px color-mix(in srgb, black 30%, transparent);
   color: var(--r-color-fg);
   font-size: 13px;
   line-height: 1.45;
@@ -149,19 +153,19 @@ onBeforeUnmount(() => {
 
 /* Tone accents — a tinted icon + a coloured left edge. Keeps the glass
    panel neutral so text stays highly legible. */
-/* .r-v2-toast--success { border-left: 3px solid #4ade80; }
-.r-v2-toast--error { border-left: 3px solid #f87171; }
-.r-v2-toast--warning { border-left: 3px solid #facc15; }
+/* .r-v2-toast--success { border-left: 3px solid var(--r-color-success); }
+.r-v2-toast--error { border-left: 3px solid var(--r-color-danger-fg); }
+.r-v2-toast--warning { border-left: 3px solid var(--r-color-warning-fg); }
 .r-v2-toast--info { border-left: 3px solid var(--r-color-brand-primary); } */
 
 .r-v2-toast--success .r-v2-toast__icon {
-  color: #4ade80;
+  color: var(--r-color-success);
 }
 .r-v2-toast--error .r-v2-toast__icon {
-  color: #f87171;
+  color: var(--r-color-danger-fg);
 }
 .r-v2-toast--warning .r-v2-toast__icon {
-  color: #facc15;
+  color: var(--r-color-warning-fg);
 }
 .r-v2-toast--info .r-v2-toast__icon {
   color: var(--r-color-brand-primary);

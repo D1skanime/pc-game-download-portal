@@ -417,18 +417,31 @@ function magnitude(x: number, y: number) {
   font-weight: var(--r-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: rgba(139, 116, 232, 0.14);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
   color: var(--r-color-brand-primary);
-  border: 1px solid rgba(139, 116, 232, 0.3);
+  border: 1px solid
+    color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent);
 }
 .r-v2-ctrl__modality-pill--pad {
-  background: rgba(34, 197, 94, 0.14);
-  color: #4ade80;
-  border-color: rgba(34, 197, 94, 0.3);
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 14%,
+    transparent
+  );
+  color: var(--r-color-success);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 30%,
+    transparent
+  );
 }
 
 .r-v2-ctrl__panel {
-  background: rgba(13, 17, 23, 0.7);
+  background: color-mix(
+    in srgb,
+    var(--r-color-canvas-bg-deep) 70%,
+    transparent
+  );
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
@@ -498,10 +511,10 @@ function magnitude(x: number, y: number) {
   color: var(--r-color-fg-secondary);
 }
 .r-v2-ctrl__ok {
-  color: #4ade80;
+  color: var(--r-color-success);
 }
 .r-v2-ctrl__bad {
-  color: #f87171;
+  color: var(--r-color-danger-fg);
 }
 
 .r-v2-ctrl__pad-body {
@@ -543,7 +556,8 @@ function magnitude(x: number, y: number) {
   height: 14px;
   border-radius: 50%;
   background: var(--r-color-brand-primary);
-  box-shadow: 0 0 12px rgba(139, 116, 232, 0.6);
+  box-shadow: 0 0 12px
+    color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent);
   transform: translate(-50%, -50%);
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
@@ -583,13 +597,17 @@ function magnitude(x: number, y: number) {
     border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-ctrl__btn--pressed {
-  background: rgba(139, 116, 232, 0.16);
-  border-color: rgba(139, 116, 232, 0.5);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 16%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 50%,
+    transparent
+  );
 }
 .r-v2-ctrl__btn-fill {
   position: absolute;
   inset: 0;
-  background: rgba(139, 116, 232, 0.12);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
   transform-origin: left center;
   transform: scaleX(0);
   transition: transform 40ms linear;
@@ -749,7 +767,7 @@ function magnitude(x: number, y: number) {
   font-size: 11px;
 }
 .r-v2-ctrl__log-row--synthetic {
-  background: rgba(139, 116, 232, 0.1);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
 }
 .r-v2-ctrl__log-time {
   font-family: var(--r-font-family-mono, monospace);

@@ -567,8 +567,12 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   cursor: not-allowed;
 }
 .r-v2-edit__icon-btn--danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.18);
-  color: #f87171;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 18%,
+    transparent
+  );
+  color: var(--r-color-danger-fg);
 }
 .r-v2-edit__icon-btn--xs {
   width: 24px;
@@ -619,16 +623,29 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   gap: 6px;
   padding: 4px 10px;
   border-radius: var(--r-radius-pill);
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #f87171;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 12%,
+    transparent
+  );
+  border: 1px solid
+    color-mix(in srgb, var(--r-color-status-base-danger) 25%, transparent);
+  color: var(--r-color-danger-fg);
   font-size: 12px;
   font-weight: var(--r-font-weight-medium);
 }
 .r-v2-edit__badge--ok {
-  background: rgba(34, 197, 94, 0.14);
-  border-color: rgba(34, 197, 94, 0.3);
-  color: #4ade80;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 14%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 30%,
+    transparent
+  );
+  color: var(--r-color-success);
 }
 
 .r-v2-edit__hint {

@@ -31,9 +31,10 @@ withDefaults(
   align-items: center;
   justify-content: center;
   padding: 3px 7px;
-  background: rgba(250, 204, 21, 0.14);
-  border: 1px solid rgba(250, 204, 21, 0.3);
-  color: #facc15;
+  background: color-mix(in srgb, var(--r-color-warning-fg) 14%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--r-color-warning-fg) 30%, transparent);
+  color: var(--r-color-warning-fg);
   border-radius: var(--r-radius-pill);
   line-height: 1;
 }

@@ -249,7 +249,7 @@ function closeDialog() {
 .r-v2-pick-coll__head-title {
   font-size: 14px;
   font-weight: var(--r-font-weight-bold);
-  color: #fff;
+  color: var(--r-color-overlay-fg);
   letter-spacing: -0.005em;
   line-height: 1.25;
 }

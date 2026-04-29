@@ -444,12 +444,19 @@ The constitution is fully described above. The following implementation tasks re
 15. Drop the color-string-to-tone collapser in `NotificationHost`; `snackbarShow` payload becomes `{ msg, tone, ... }`.
 16. Remove the Vuetify rule arrays in `stores/users.ts` once v1 doesn't consume them; v2 already composes from `src/v2/utils/validation.ts`.
 
-### Intentional hardcoded rgba(255, ...) (do not migrate)
+### Color-literal policy: zero exceptions
 
-A handful of `rgba(255, 255, 255, X)` and `rgba(0, 0, 0, X)` literals stay hardcoded — they are deliberate and **not** debt:
+Outside `src/v2/tokens/index.ts` (the source-of-truth TS module) and the generated `src/v2/styles/tokens.css`, **no hex or `rgba()` literals exist anywhere in v2**. Premise 4 is enforced; the previous "intentional exceptions" list has been collapsed into tokens:
 
-- **Cover-overlay surfaces** (`StatusBadge`, `GameCard` platform-icon / badge / rating, `GameActionBtn`) — dark glass that must read on top of any cover artwork, regardless of theme. Inverting them in light mode would lose contrast against bright covers.
-- **Panel background pairs** that already ship a paired light variant (`RDialog.__panel`, `RMenuPanel`) — distinctive deep-purple-tinted glass on dark, near-white glass on light. A future `--r-color-panel` token could fold them in, but the explicit pair is intentional today.
-- **Backdrop scrims** in `global.css` (background-art overlay), the cross-fade gradients, and the shimmer keyframe in `RSkeletonBlock` — animation/scrim values that don't map to surface tokens.
-- **Destructive accents** (`RMenuItem` danger hover) — colour comes from `--r-color-danger`; the rgba red wash is the alpha on top of it.
-- **`tokens.css` itself** — those rgbas _are_ the source values that the surface tokens resolve to.
+- Cover-overlay glass → `--r-color-overlay-*` (fixed dark glass; never theme-flips).
+- Cover artwork placeholder & shimmer → `--r-color-cover-placeholder`, `--r-color-cover-placeholder-bright`.
+- Panel / tooltip / shimmer-sweep → `--r-color-panel`, `--r-color-panel-border`, `--r-color-tooltip-bg`, `--r-color-shimmer-sweep` (paired dark/light values).
+- Backdrop scrims in `global.css` → `color-mix(in srgb, var(--r-color-bg) X%, transparent)` (inherits the theme's base bg).
+- Status tints (success/warning/danger/info backgrounds, borders) → `color-mix(in srgb, var(--r-color-status-base-{success,warning,danger,info}) X%, transparent)`.
+- Brand-tinted backgrounds (selected rows, focus rings) → `color-mix(in srgb, var(--r-color-brand-primary) X%, transparent)`.
+- Black/white shadows → `color-mix(in srgb, black X%, transparent)` (CSS named colour, not a hex literal).
+- Metadata-provider chips → `--r-color-provider-*`.
+- Player canvas → `--r-color-canvas-bg`, `--r-color-canvas-bg-deep`.
+- Emphasis pill (always-white-on-dark "Play" CTA over cover art) → `--r-color-overlay-emphasis-bg/-fg/-bg-hover`.
+
+If a literal would otherwise be needed, the answer is: **add a token**. Update `src/v2/tokens/index.ts`, run `npm run build:tokens`, then consume via `var(--r-color-...)` (CSS) or by importing the named export (TS/JS — e.g., `colorCanvas`, `colorOverlay`).

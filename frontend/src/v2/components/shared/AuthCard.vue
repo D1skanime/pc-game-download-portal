@@ -30,8 +30,8 @@ defineOptions({ inheritAttrs: false });
   box-shadow: var(--r-elev-4) !important;
   background: linear-gradient(
     180deg,
-    rgba(13, 17, 23, 0.65) 0%,
-    rgba(13, 17, 23, 0.65) 100%
+    color-mix(in srgb, var(--r-color-canvas-bg-deep) 65%, transparent) 0%,
+    color-mix(in srgb, var(--r-color-canvas-bg-deep) 65%, transparent) 100%
   );
 }
 
@@ -44,6 +44,8 @@ defineOptions({ inheritAttrs: false });
 
 .auth-card__logo {
   margin: 0 auto var(--r-space-2);
-  filter: drop-shadow(0 0 16px rgba(139, 116, 232, 0.3));
+  filter: drop-shadow(
+    0 0 16px color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent)
+  );
 }
 </style>

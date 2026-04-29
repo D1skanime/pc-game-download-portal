@@ -499,7 +499,7 @@ async function deleteSoundtrack(fileId: number) {
 
 .r-v2-media__subtab--active {
   background: var(--r-color-brand-primary);
-  color: #fff;
+  color: var(--r-color-overlay-fg);
 }
 
 /* Panels */

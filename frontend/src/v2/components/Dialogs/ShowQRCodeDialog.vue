@@ -10,6 +10,7 @@ import { useDisplay } from "vuetify";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getNintendoDSFiles, getDownloadLink, isNintendoDSFile } from "@/utils";
+import { colorCanvas, colorOverlay } from "@/v2/tokens";
 
 defineOptions({ inheritAttrs: false });
 
@@ -38,8 +39,8 @@ const openHandler = async (romToView: SimpleRom) => {
       margin: 1,
       width: lgAndUp.value ? 300 : 220,
       color: {
-        dark: "#0d1117",
-        light: "#ffffff",
+        dark: colorCanvas.bgDeep,
+        light: colorOverlay.emphasisBg,
       },
     });
   }
@@ -110,9 +111,9 @@ function closeDialog() {
 .r-v2-qr__canvas-wrap {
   margin: 14px 0 6px;
   padding: 12px;
-  background: #fff;
+  background: var(--r-color-overlay-emphasis-bg);
   border-radius: var(--r-radius-md);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 20px color-mix(in srgb, black 35%, transparent);
   display: grid;
   place-items: center;
 }

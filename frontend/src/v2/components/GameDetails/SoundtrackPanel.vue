@@ -569,8 +569,8 @@ function seekValueText(v: number): string {
   display: grid;
   place-items: center;
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.35),
-    0 0 0 4px rgba(0, 0, 0, 0.2);
+    0 8px 24px color-mix(in srgb, black 35%, transparent),
+    0 0 0 4px color-mix(in srgb, black 20%, transparent);
 }
 
 .r-v2-stp__cover-img {
@@ -596,7 +596,7 @@ function seekValueText(v: number): string {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 2;
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, black 50%, transparent);
 }
 
 .r-v2-stp__buffering {
@@ -604,7 +604,7 @@ function seekValueText(v: number): string {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.45);
+  background: color-mix(in srgb, black 45%, transparent);
 }
 
 @keyframes r-v2-stp-spin {
@@ -724,7 +724,7 @@ function seekValueText(v: number): string {
   border-color: var(--r-color-brand-primary);
   background: linear-gradient(
     135deg,
-    rgba(139, 116, 232, 0.08),
+    color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent),
     var(--r-color-surface)
   );
 }
@@ -771,7 +771,7 @@ function seekValueText(v: number): string {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: color-mix(in srgb, black 50%, transparent);
 }
 
 .r-v2-stp__row-meta {

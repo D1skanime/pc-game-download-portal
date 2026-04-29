@@ -149,7 +149,7 @@ function onInput(e: Event) {
 }
 .new-row--editing {
   cursor: default;
-  background: rgba(139, 116, 232, 0.05);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 5%, transparent);
 }
 
 /* Portrait plus-tile — matches the CollectionMosaic footprint of the
@@ -160,7 +160,7 @@ function onInput(e: Event) {
   aspect-ratio: 140 / 188;
   border-radius: 6px;
   border: 1px solid var(--r-color-brand-primary);
-  background: rgba(139, 116, 232, 0.16);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 16%, transparent);
   color: var(--r-color-brand-primary);
   display: grid;
   place-items: center;
@@ -171,8 +171,8 @@ function onInput(e: Event) {
 }
 .new-row:hover .new-row__tile,
 .new-row__tile--active {
-  background: rgba(139, 116, 232, 0.28);
-  color: #fff;
+  background: color-mix(in srgb, var(--r-color-brand-primary) 28%, transparent);
+  color: var(--r-color-overlay-fg);
 }
 
 .new-row__label {
@@ -206,9 +206,9 @@ function onInput(e: Event) {
 }
 
 :global(.r-v2.r-v2-light) .new-row:hover {
-  background: rgba(17, 17, 23, 0.05);
+  background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 :global(.r-v2.r-v2-light) .new-row__input::placeholder {
-  color: rgba(17, 17, 23, 0.35);
+  color: color-mix(in srgb, var(--r-color-fg) 35%, transparent);
 }
 </style>

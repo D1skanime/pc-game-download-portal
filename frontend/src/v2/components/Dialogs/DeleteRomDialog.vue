@@ -307,8 +307,16 @@ function closeDialog() {
   transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-del-rom__row--fs {
-  border-color: rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.06);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 35%,
+    transparent
+  );
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 6%,
+    transparent
+  );
 }
 
 .r-v2-del-rom__cover {
@@ -316,7 +324,7 @@ function closeDialog() {
   aspect-ratio: 3 / 4;
   border-radius: var(--r-radius-sm);
   overflow: hidden;
-  background: #1a1a2e;
+  background: var(--r-color-cover-placeholder);
   display: grid;
   place-items: center;
 }
@@ -377,9 +385,17 @@ function closeDialog() {
 }
 .r-v2-del-rom__fs-toggle--on,
 .r-v2-del-rom__fs-toggle--on:hover {
-  background: rgba(239, 68, 68, 0.18);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #f87171;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 18%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 40%,
+    transparent
+  );
+  color: var(--r-color-danger-fg);
 }
 
 .r-v2-del-rom__append {
@@ -394,8 +410,13 @@ function closeDialog() {
   gap: 8px;
   padding: 8px 10px;
   margin: 0;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 10%,
+    transparent
+  );
+  border: 1px solid
+    color-mix(in srgb, var(--r-color-status-base-danger) 25%, transparent);
   border-radius: var(--r-radius-md);
   color: var(--r-color-fg);
   font-size: 12px;
@@ -403,6 +424,6 @@ function closeDialog() {
 }
 .r-v2-del-rom__warn :deep(.r-icon),
 .r-v2-del-rom__warn strong {
-  color: #f87171;
+  color: var(--r-color-danger-fg);
 }
 </style>

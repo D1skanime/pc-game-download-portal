@@ -80,10 +80,10 @@ const rowStyle = computed(() => ({
   background: var(--r-color-bg-elevated);
 }
 .pick-row--checked {
-  background: rgba(139, 116, 232, 0.08);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
 }
 .pick-row--checked:hover {
-  background: rgba(139, 116, 232, 0.14);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
 }
 .pick-row--busy {
   opacity: 0.6;
@@ -130,19 +130,19 @@ const rowStyle = computed(() => ({
 .pick-row--checked .pick-row__tick {
   background: var(--r-color-brand-primary);
   border-color: var(--r-color-brand-primary);
-  color: #fff;
+  color: var(--r-color-overlay-fg);
 }
 
 :global(.r-v2.r-v2-light) .pick-row__name {
-  color: rgba(17, 17, 23, 0.92);
+  color: color-mix(in srgb, var(--r-color-fg) 92%, transparent);
 }
 :global(.r-v2.r-v2-light) .pick-row__count {
-  color: rgba(17, 17, 23, 0.5);
+  color: color-mix(in srgb, var(--r-color-fg) 50%, transparent);
 }
 :global(.r-v2.r-v2-light) .pick-row:hover {
-  background: rgba(17, 17, 23, 0.05);
+  background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 :global(.r-v2.r-v2-light) .pick-row__tick {
-  border-color: rgba(17, 17, 23, 0.15);
+  border-color: color-mix(in srgb, var(--r-color-fg) 15%, transparent);
 }
 </style>

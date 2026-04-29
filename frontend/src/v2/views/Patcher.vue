@@ -766,17 +766,22 @@ onMounted(async () => {
 .r-v2-patch__dropzone {
   position: relative;
   cursor: pointer;
-  border: 2px dashed rgba(139, 116, 232, 0.25);
+  border: 2px dashed
+    color-mix(in srgb, var(--r-color-brand-primary) 25%, transparent);
   transition:
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
     background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-patch__dropzone:hover {
-  border-color: rgba(139, 116, 232, 0.45);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 45%,
+    transparent
+  );
 }
 .r-v2-patch__dropzone--active {
   border-color: var(--r-color-brand-primary);
-  background: rgba(139, 116, 232, 0.08);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
 }
 .r-v2-patch__dropzone--filled {
   border-style: solid;
@@ -815,7 +820,9 @@ onMounted(async () => {
 @keyframes r-v2-patch-pulse {
   50% {
     transform: scale(1.12);
-    filter: drop-shadow(0 0 12px rgba(139, 116, 232, 0.6));
+    filter: drop-shadow(
+      0 0 12px color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent)
+    );
   }
 }
 
@@ -861,8 +868,12 @@ onMounted(async () => {
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-patch__drop-clear:hover {
-  background: rgba(239, 68, 68, 0.18);
-  color: #f87171;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 18%,
+    transparent
+  );
+  color: var(--r-color-danger-fg);
 }
 
 .r-v2-patch__chip {

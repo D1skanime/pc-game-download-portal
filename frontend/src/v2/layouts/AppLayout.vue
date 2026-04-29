@@ -117,7 +117,7 @@ onBeforeUnmount(() => {
   padding: 8px 14px;
   border-radius: var(--r-radius-pill);
   background: var(--r-color-brand-primary);
-  color: #fff;
+  color: var(--r-color-overlay-fg);
   font-size: 13px;
   font-weight: var(--r-font-weight-semibold);
   text-decoration: none;
@@ -126,7 +126,7 @@ onBeforeUnmount(() => {
 .r-v2-skip-link:focus,
 .r-v2-skip-link:focus-visible {
   left: 12px;
-  outline: 2px solid #fff;
+  outline: 2px solid var(--r-color-overlay-fg);
   outline-offset: 2px;
 }
 </style>

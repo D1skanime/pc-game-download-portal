@@ -121,7 +121,7 @@ const entries = computed<Entry[]>(() => [
   color: var(--r-color-fg);
 }
 .r-v2-settings-nav__link--active {
-  background: rgba(139, 116, 232, 0.18);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
   color: var(--r-color-brand-primary);
 }
 </style>

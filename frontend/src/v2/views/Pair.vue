@@ -128,15 +128,19 @@ async function copyCode() {
 
 <style scoped>
 .r-v2-pair {
-  background: rgba(13, 17, 23, 0.72);
+  background: color-mix(
+    in srgb,
+    var(--r-color-canvas-bg-deep) 72%,
+    transparent
+  );
   border: 1px solid var(--r-color-border-strong);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
   padding: 40px 32px;
   box-shadow:
-    0 22px 60px rgba(0, 0, 0, 0.55),
-    0 2px 6px rgba(0, 0, 0, 0.3);
+    0 22px 60px color-mix(in srgb, black 55%, transparent),
+    0 2px 6px color-mix(in srgb, black 30%, transparent);
 }
 
 .r-v2-pair__state {
@@ -153,12 +157,16 @@ async function copyCode() {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: rgba(139, 116, 232, 0.15);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 15%, transparent);
   color: var(--r-color-brand-primary);
 }
 .r-v2-pair__icon-wrap--danger {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 15%,
+    transparent
+  );
+  color: var(--r-color-danger-fg);
 }
 
 .r-v2-pair__body {

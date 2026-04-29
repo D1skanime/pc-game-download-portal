@@ -585,7 +585,7 @@ function closeDialog() {
 }
 .r-v2-match__results-count {
   padding: 2px 8px;
-  background: rgba(139, 116, 232, 0.2);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 20%, transparent);
   color: var(--r-color-brand-primary);
   border-radius: var(--r-radius-pill);
   font-weight: var(--r-font-weight-semibold);
@@ -676,7 +676,11 @@ function closeDialog() {
 .r-v2-match__source-logo {
   width: 28px;
   height: 28px;
-  background: rgba(13, 17, 23, 0.85);
+  background: color-mix(
+    in srgb,
+    var(--r-color-canvas-bg-deep) 85%,
+    transparent
+  );
   border-radius: var(--r-radius-sm);
   padding: 3px;
   display: grid;

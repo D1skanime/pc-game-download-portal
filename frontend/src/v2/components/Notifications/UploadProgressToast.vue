@@ -160,14 +160,18 @@ function clearFinished() {
   bottom: 16px;
   z-index: 8900;
   width: min(360px, calc(100vw - 32px));
-  background: rgba(13, 17, 23, 0.92);
+  background: color-mix(
+    in srgb,
+    var(--r-color-canvas-bg-deep) 92%,
+    transparent
+  );
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   box-shadow:
-    0 18px 36px rgba(0, 0, 0, 0.5),
-    0 4px 10px rgba(0, 0, 0, 0.3);
+    0 18px 36px color-mix(in srgb, black 50%, transparent),
+    0 4px 10px color-mix(in srgb, black 30%, transparent);
   overflow: hidden;
 }
 
@@ -226,10 +230,18 @@ function clearFinished() {
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-upload__item--done {
-  background: rgba(34, 197, 94, 0.06);
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 6%,
+    transparent
+  );
 }
 .r-v2-upload__item--failed {
-  background: rgba(239, 68, 68, 0.08);
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 8%,
+    transparent
+  );
 }
 
 .r-v2-upload__item-head {
@@ -252,10 +264,10 @@ function clearFinished() {
   color: var(--r-color-fg-secondary);
 }
 .r-v2-upload__item--done .r-v2-upload__item-status {
-  color: #4ade80;
+  color: var(--r-color-success);
 }
 .r-v2-upload__item--failed .r-v2-upload__item-status {
-  color: #f87171;
+  color: var(--r-color-danger-fg);
 }
 .r-v2-upload__item-status--spin {
   color: var(--r-color-brand-primary);
@@ -294,7 +306,7 @@ function clearFinished() {
 .r-v2-upload__error {
   margin: 4px 0 0;
   font-size: 11px;
-  color: #f87171;
+  color: var(--r-color-danger-fg);
   line-height: 1.35;
 }
 

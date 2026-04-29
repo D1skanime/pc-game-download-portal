@@ -48,13 +48,9 @@ withDefaults(
   font-size: var(--r-font-size-3xl);
   font-weight: var(--r-font-weight-extrabold);
   letter-spacing: -0.025em;
-  color: #fff;
+  color: var(--r-color-fg);
   margin: 0;
   line-height: var(--r-line-height-tight);
-}
-
-:global(.r-v2.r-v2-light) .page-header__title {
-  color: var(--r-color-fg);
 }
 
 .page-header__count {

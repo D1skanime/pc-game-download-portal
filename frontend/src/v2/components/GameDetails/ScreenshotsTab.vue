@@ -34,7 +34,7 @@ defineProps<{ urls: string[] }>();
   aspect-ratio: 16 / 9;
   border-radius: 6px;
   overflow: hidden;
-  background: #1a1a2e;
+  background: var(--r-color-cover-placeholder);
   transition: transform 0.2s;
 }
 .r-v2-det-shots__item:hover {

@@ -107,7 +107,9 @@ const activeTab = computed<TabId | null>(() => {
 }
 .r-v2-nav__logo:hover,
 .r-v2-nav__logo:focus-visible {
-  filter: drop-shadow(0 0 6px rgba(139, 116, 232, 0.55));
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--r-color-brand-primary) 55%, transparent)
+  );
 }
 .r-v2-nav__logo:focus-visible {
   outline: none;

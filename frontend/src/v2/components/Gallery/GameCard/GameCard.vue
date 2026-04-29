@@ -220,7 +220,7 @@ const morphStyle = computed(() => {
   border-radius: var(--r-radius-art);
   overflow: hidden;
   position: relative;
-  background: #1a1a2e;
+  background: var(--r-color-cover-placeholder);
   outline: 2.5px solid transparent;
   outline-offset: 3px;
   transition:
@@ -255,10 +255,10 @@ const morphStyle = computed(() => {
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(0, 0, 0, 0.45) 0%,
-    rgba(0, 0, 0, 0.1) 35%,
-    rgba(0, 0, 0, 0.1) 55%,
-    rgba(0, 0, 0, 0.6) 100%
+    color-mix(in srgb, black 45%, transparent) 0%,
+    color-mix(in srgb, black 10%, transparent) 35%,
+    color-mix(in srgb, black 10%, transparent) 55%,
+    color-mix(in srgb, black 60%, transparent) 100%
   );
   opacity: 0;
   transition: opacity 0.12s ease;
@@ -304,7 +304,7 @@ const morphStyle = computed(() => {
     transform 0.12s ease;
 }
 .r-gc__platform-icon:hover {
-  background: rgba(0, 0, 0, 0.9) !important;
+  background: color-mix(in srgb, black 90%, transparent) !important;
   border-color: var(--r-color-overlay-border-strong) !important;
   transform: scale(1.08);
 }
@@ -335,7 +335,7 @@ const morphStyle = computed(() => {
   top: 11px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.78);
+  background: color-mix(in srgb, black 78%, transparent);
   border: 1px solid var(--r-color-romm-gold);
   border-radius: var(--r-radius-sm);
   padding: 2px 6px;
@@ -380,9 +380,9 @@ const morphStyle = computed(() => {
 .r-gc:focus-visible .r-gc__art {
   outline-color: var(--r-color-brand-primary);
   box-shadow:
-    0 8px 28px rgba(0, 0, 0, 0.4),
+    0 8px 28px color-mix(in srgb, black 40%, transparent),
     0 0 0 2px var(--r-color-brand-primary),
-    0 0 18px rgba(139, 116, 232, 0.6);
+    0 0 18px color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent);
 }
 
 .r-gc__label {

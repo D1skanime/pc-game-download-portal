@@ -179,8 +179,8 @@ void props;
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.7),
-    0 4px 20px rgba(0, 0, 0, 0.4);
+    0 20px 60px color-mix(in srgb, black 70%, transparent),
+    0 4px 20px color-mix(in srgb, black 40%, transparent);
   overflow: hidden;
   color: var(--r-color-fg);
 }
