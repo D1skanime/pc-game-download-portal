@@ -1,8 +1,7 @@
 <script setup lang="ts">
-// Collection gallery — mirror of Platform.vue with a CollectionMosaic in
-// the info panel. Shares the same useGalleryMode-driven grid/list/grouped
-// orchestration.
-import { RChip } from "@v2/lib";
+// Collection gallery — same single-virtualiser architecture as Platform /
+// Search, hero is a CollectionMosaic-fronted InfoPanel.
+import { RChip, RSkeletonBlock, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -23,14 +22,18 @@ import storeRoms from "@/stores/roms";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
-import GameGrid from "@/v2/components/Gallery/GameGrid.vue";
+import { GameCard } from "@/v2/components/Gallery/GameCard";
 import GameList from "@/v2/components/Gallery/GameList.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
-import LetterGroupedGrid from "@/v2/components/Gallery/LetterGroupedGrid.vue";
 import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
+import {
+  useGalleryVirtualItems,
+  type GalleryItem,
+} from "@/v2/composables/useGalleryVirtualItems";
 import { useLetterGroups } from "@/v2/composables/useLetterGroups";
+import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
@@ -47,8 +50,6 @@ const {
   _allRoms: allRoms,
   fetchingRoms,
   fetchTotalRoms,
-  characterIndex,
-  romIdIndex,
 } = storeToRefs(romsStore);
 
 const notFound = ref(false);
@@ -75,16 +76,111 @@ const kindLabel = computed(() => {
   return "Collection";
 });
 
-const {
-  scrollEl,
-  letterGroups,
-  availableLetters,
-  currentLetter,
-  visibleLetters,
-  setLetterRef,
-  scrollToLetter,
-  onGridScroll,
-} = useLetterGroups(allRoms, { characterIndex, romIdIndex });
+const { letterGroups } = useLetterGroups(allRoms);
+
+const sectionEl = ref<HTMLElement | null>(null);
+const { columns } = useResponsiveColumns(sectionEl, {
+  cardWidth: 158,
+  gap: 12,
+  inset: 108,
+});
+
+const hasMore = computed(() => allRoms.value.length < fetchTotalRoms.value);
+const remaining = computed(() => fetchTotalRoms.value - allRoms.value.length);
+const fetchingMore = computed(
+  () => fetchingRoms.value && allRoms.value.length > 0,
+);
+const loadingInitial = computed(
+  () => fetchingRoms.value && allRoms.value.length === 0,
+);
+
+const { virtualItems, letterToIndex, availableLetters } =
+  useGalleryVirtualItems({
+    hasHero: computed(() => !!currentCollection.value),
+    toolbarInline: computed(() => toolbarPosition.value === "header"),
+    layout,
+    groupBy,
+    roms: allRoms,
+    letterGroups,
+    columns,
+    loadingInitial,
+    hasMore,
+    remaining,
+    fetchingMore,
+    emptyMessage: ref("This collection is empty."),
+    notFound,
+    notFoundMessage: ref("Collection not found."),
+    skeletonRowCount: 4,
+  });
+
+const visibleLettersSet = ref<Set<string>>(new Set());
+const currentLetter = ref<string>("");
+const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
+let intersectionObserver: IntersectionObserver | null = null;
+let mutationObserver: MutationObserver | null = null;
+let observed = new WeakSet<Element>();
+
+function recomputeVisible(root: HTMLElement) {
+  const visibles: Array<{ letters: string[]; top: number }> = [];
+  root
+    .querySelectorAll<HTMLElement>("[data-spy-letters][data-spy-active='1']")
+    .forEach((target) => {
+      const raw = target.dataset.spyLetters;
+      if (!raw) return;
+      const letters = raw.split(",").filter(Boolean);
+      if (!letters.length) return;
+      visibles.push({ letters, top: target.getBoundingClientRect().top });
+    });
+  visibles.sort((a, b) => a.top - b.top);
+  const set = new Set<string>();
+  for (const v of visibles) for (const l of v.letters) set.add(l);
+  visibleLettersSet.value = set;
+  currentLetter.value = visibles[0]?.letters[0] ?? currentLetter.value;
+}
+
+function setupSpy() {
+  const root = scrollerRef.value?.containerEl;
+  if (!root) return;
+  teardownSpy();
+
+  intersectionObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        (entry.target as HTMLElement).dataset.spyActive = entry.isIntersecting
+          ? "1"
+          : "0";
+      }
+      recomputeVisible(root);
+    },
+    { root, threshold: 0 },
+  );
+
+  const observeAll = () => {
+    root.querySelectorAll<HTMLElement>("[data-spy-letters]").forEach((el) => {
+      if (observed.has(el)) return;
+      observed.add(el);
+      intersectionObserver?.observe(el);
+    });
+  };
+  observeAll();
+  mutationObserver = new MutationObserver(observeAll);
+  mutationObserver.observe(root, { childList: true, subtree: true });
+}
+
+function teardownSpy() {
+  intersectionObserver?.disconnect();
+  intersectionObserver = null;
+  mutationObserver?.disconnect();
+  mutationObserver = null;
+  observed = new WeakSet<Element>();
+}
+
+function scrollToLetter(letter: string) {
+  const idx = letterToIndex.value.get(letter);
+  if (idx == null) return;
+  scrollerRef.value?.scrollToIndex(idx, { smooth: true });
+  currentLetter.value = letter;
+}
 
 function kindFromRoute(
   name: string | symbol | null | undefined,
@@ -154,7 +250,7 @@ async function loadForRoute(kind: CollectionKind, id: string) {
   document.title = collection.name;
   await romsStore.fetchRoms();
   await nextTick();
-  onGridScroll();
+  setupSpy();
 }
 
 onMounted(() => {
@@ -173,10 +269,14 @@ watch(
   },
 );
 
-watch(allRoms, () => onGridScroll(), { deep: false });
+watch(virtualItems, () => nextTick().then(setupSpy));
 
-const hasMore = computed(() => allRoms.value.length < fetchTotalRoms.value);
-const remaining = computed(() => fetchTotalRoms.value - allRoms.value.length);
+onBeforeUnmount(() => {
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchTerm.value = null;
+  teardownSpy();
+});
+
 function loadMore() {
   if (fetchingRoms.value || !hasMore.value) return;
   romsStore.fetchRoms();
@@ -197,10 +297,6 @@ function setSearch(value: string) {
     romsStore.fetchRoms();
   }, 300);
 }
-onBeforeUnmount(() => {
-  if (searchDebounce) clearTimeout(searchDebounce);
-  searchTerm.value = null;
-});
 
 type SortEntry = {
   key: keyof import("@/stores/roms").SimpleRom;
@@ -214,96 +310,149 @@ function onListSort(options: { sortBy: SortEntry[] }) {
   romsStore.setOrderDir(first.order);
   romsStore.fetchRoms();
 }
+
+function spyLetters(item: GalleryItem): string | undefined {
+  if (item.kind === "letter-header") return item.letter;
+  if (item.kind === "row") return item.letters.join(",");
+  return undefined;
+}
+
+// Narrowing helpers — see Platform.vue for the rationale.
+type RowItem = Extract<GalleryItem, { kind: "row" }>;
+type LetterHeaderItem = Extract<GalleryItem, { kind: "letter-header" }>;
+type LoadMoreItem = Extract<GalleryItem, { kind: "load-more" }>;
+type EmptyItem = Extract<GalleryItem, { kind: "empty" }>;
+const asRow = (i: GalleryItem) => i as RowItem;
+const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
+const asLoadMore = (i: GalleryItem) => i as LoadMoreItem;
+const asEmpty = (i: GalleryItem) => i as EmptyItem;
+const itemKind = (i: GalleryItem) => i.kind;
+
+// See Platform.vue — `1fr` tracks make gaps grow with window width.
+const rowGridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
+}));
 </script>
 
 <template>
-  <section class="r-v2-coll">
-    <div
-      :ref="(el) => (scrollEl = el as HTMLElement | null)"
-      class="r-v2-coll__scroll r-v2-scroll-hidden"
-      @scroll="onGridScroll"
+  <section ref="sectionEl" class="r-v2-coll">
+    <RVirtualScroller
+      ref="scrollerRef"
+      :items="virtualItems"
+      class="r-v2-coll__scroller r-v2-scroll-hidden"
     >
-      <InfoPanel v-if="currentCollection" :title="currentCollection.name">
-        <template #cover>
+      <template #default="{ item }">
+        <div
+          class="r-v2-coll__item"
+          :data-spy-letters="spyLetters(item as GalleryItem)"
+        >
+          <template v-if="itemKind(item as GalleryItem) === 'hero'">
+            <InfoPanel v-if="currentCollection" :title="currentCollection.name">
+              <template #cover>
+                <div
+                  class="r-v2-coll__panel-cover"
+                  :style="{
+                    viewTransitionName: `coll-cover-${currentKind}-${currentCollection.id}`,
+                  }"
+                >
+                  <CollectionMosaic
+                    :covers="mosaicCovers"
+                    aspect-ratio="140 / 188"
+                  />
+                </div>
+              </template>
+              <template #eyebrow>
+                <span class="r-eyebrow">{{ kindLabel }}</span>
+              </template>
+              <template v-if="description" #tags>
+                <RChip size="small" variant="tonal" :rounded="20">
+                  {{ description }}
+                </RChip>
+              </template>
+              <template #stats>
+                <Stat :value="currentCollection.rom_count" label="Games" />
+              </template>
+            </InfoPanel>
+          </template>
+
+          <GalleryToolbar
+            v-else-if="itemKind(item as GalleryItem) === 'toolbar'"
+            :group-by="groupBy"
+            :layout="layout"
+            :position="toolbarPosition"
+            show-search
+            :search="searchInput"
+            search-placeholder="Filter this collection…"
+            @update:group-by="groupBy = $event"
+            @update:layout="layout = $event"
+            @update:search="setSearch"
+          />
+
           <div
-            class="r-v2-coll__panel-cover"
-            :style="{
-              viewTransitionName: `coll-cover-${currentKind}-${currentCollection.id}`,
-            }"
+            v-else-if="itemKind(item as GalleryItem) === 'letter-header'"
+            class="r-v2-coll__letter-heading"
           >
-            <CollectionMosaic :covers="mosaicCovers" aspect-ratio="140 / 188" />
+            {{ asLetterHeader(item as GalleryItem).letter }}
           </div>
-        </template>
-        <template #eyebrow>
-          <span class="r-eyebrow">{{ kindLabel }}</span>
-        </template>
-        <template v-if="description" #tags>
-          <RChip size="small" variant="tonal" :rounded="20">
-            {{ description }}
-          </RChip>
-        </template>
-        <template #stats>
-          <Stat :value="currentCollection.rom_count" label="Games" />
-        </template>
-      </InfoPanel>
 
-      <GalleryToolbar
-        v-if="toolbarPosition === 'header'"
-        :group-by="groupBy"
-        :layout="layout"
-        :position="toolbarPosition"
-        show-search
-        :search="searchInput"
-        search-placeholder="Filter this collection…"
-        @update:group-by="groupBy = $event"
-        @update:layout="layout = $event"
-        @update:search="setSearch"
-      />
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'row'"
+            class="r-v2-coll__row"
+            :style="rowGridStyle"
+          >
+            <GameCard
+              v-for="rom in asRow(item as GalleryItem).roms"
+              :key="rom.id"
+              :rom="rom"
+              :webp="supportsWebp"
+            />
+          </div>
 
-      <div v-if="notFound" class="r-v2-coll__empty">Collection not found.</div>
+          <GameList
+            v-else-if="itemKind(item as GalleryItem) === 'list-table'"
+            :roms="allRoms"
+            :total-roms="fetchTotalRoms"
+            :loading="fetchingRoms"
+            :webp="supportsWebp"
+            @update:options="onListSort"
+          />
 
-      <LetterGroupedGrid
-        v-else-if="layout === 'grid' && groupBy === 'letter'"
-        :groups="letterGroups"
-        :fetching="fetchingRoms"
-        :has-more="hasMore"
-        :remaining="remaining"
-        :webp="supportsWebp"
-        empty-label="This collection is empty."
-        :skeleton-count="12"
-        :set-letter-ref="setLetterRef"
-        @load-more="loadMore"
-      />
+          <LoadMore
+            v-else-if="itemKind(item as GalleryItem) === 'load-more'"
+            :loading="asLoadMore(item as GalleryItem).loading"
+            :remaining="asLoadMore(item as GalleryItem).remaining"
+            @load="loadMore"
+          />
 
-      <template v-else-if="layout === 'grid'">
-        <GameGrid
-          :roms="allRoms"
-          :loading="fetchingRoms"
-          :webp="supportsWebp"
-        />
-        <LoadMore
-          v-if="hasMore"
-          :loading="fetchingRoms"
-          :remaining="remaining"
-          @load="loadMore"
-        />
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'empty'"
+            class="r-v2-coll__empty"
+          >
+            {{ asEmpty(item as GalleryItem).message }}
+          </div>
+
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'skeleton-row'"
+            class="r-v2-coll__row"
+            :style="rowGridStyle"
+          >
+            <RSkeletonBlock
+              v-for="n in Math.max(1, columns)"
+              :key="`sk-${n}`"
+              width="var(--r-card-art-w)"
+              height="var(--r-card-art-h)"
+              rounded="md"
+            />
+          </div>
+        </div>
       </template>
-
-      <GameList
-        v-else
-        :roms="allRoms"
-        :total-roms="fetchTotalRoms"
-        :loading="fetchingRoms"
-        :webp="supportsWebp"
-        @update:options="onListSort"
-      />
-    </div>
+    </RVirtualScroller>
 
     <AlphaStrip
-      v-if="letterGroups.length > 0"
+      v-if="availableLetters.size > 0"
       :available="availableLetters"
       :current="currentLetter"
-      :visible="visibleLetters"
+      :visible="visibleLettersSet"
       @pick="scrollToLetter"
     />
 
@@ -327,11 +476,14 @@ function onListSort(options: { sortBy: SortEntry[] }) {
   position: relative;
 }
 
-.r-v2-coll__scroll {
+.r-v2-coll__scroller {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  height: 100%;
   padding: 32px var(--r-row-pad) 60px;
+}
+
+.r-v2-coll__item {
+  width: 100%;
 }
 
 .r-v2-coll__panel-cover {
@@ -342,6 +494,21 @@ function onListSort(options: { sortBy: SortEntry[] }) {
   box-shadow: var(--r-elev-2);
 }
 
+.r-v2-coll__letter-heading {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-faint);
+  padding: 20px 0 12px;
+}
+
+.r-v2-coll__row {
+  display: grid;
+  gap: 18px 12px;
+  padding-bottom: 18px;
+}
+
 .r-v2-coll__empty {
   padding: 80px 0;
   color: var(--r-color-fg-faint);
@@ -350,12 +517,15 @@ function onListSort(options: { sortBy: SortEntry[] }) {
 }
 
 @media (max-width: 768px) {
-  .r-v2-coll__scroll {
+  .r-v2-coll__scroller {
     padding: 16px 14px 80px;
   }
   .r-v2-coll__panel-cover {
     width: 100px;
     height: 134px;
+  }
+  .r-v2-coll__row {
+    gap: 12px 10px;
   }
 }
 </style>

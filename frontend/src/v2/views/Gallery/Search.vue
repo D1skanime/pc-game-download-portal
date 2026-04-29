@@ -1,9 +1,8 @@
 <script setup lang="ts">
-// Search — same gallery controls as Platform/Collection, but the search
-// field here filters the whole library (no platform/collection scope).
-// Fetches the first paginated batch on mount (matches v1) so users land
-// on results immediately.
-import { RChip } from "@v2/lib";
+// Search — global ROM search with the same single-virtualiser architecture
+// as Platform / Collection. Hero (PageHeader), toolbar, content rows and
+// load-more all flow through one RVirtualScroller.
+import { RChip, RSkeletonBlock, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -17,14 +16,18 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
-import GameGrid from "@/v2/components/Gallery/GameGrid.vue";
+import { GameCard } from "@/v2/components/Gallery/GameCard";
 import GameList from "@/v2/components/Gallery/GameList.vue";
-import LetterGroupedGrid from "@/v2/components/Gallery/LetterGroupedGrid.vue";
 import LoadMore from "@/v2/components/Gallery/LoadMore.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
+import {
+  useGalleryVirtualItems,
+  type GalleryItem,
+} from "@/v2/composables/useGalleryVirtualItems";
 import { useLetterGroups } from "@/v2/composables/useLetterGroups";
+import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 const romsStore = storeRoms();
@@ -36,14 +39,10 @@ const {
   fetchingRoms,
   fetchTotalRoms,
   initialSearch,
-  characterIndex,
-  romIdIndex,
 } = storeToRefs(romsStore);
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
-// Local mirror of the debounced input so typing stays fluid while the store
-// only updates on pause.
 const searchInput = ref(searchTerm.value ?? "");
 let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
@@ -51,17 +50,112 @@ const remaining = computed(() =>
   Math.max(0, fetchTotalRoms.value - allRoms.value.length),
 );
 const hasMore = computed(() => remaining.value > 0);
+const fetchingMore = computed(
+  () => fetchingRoms.value && allRoms.value.length > 0,
+);
+const loadingInitial = computed(
+  () => fetchingRoms.value && allRoms.value.length === 0,
+);
 
-const {
-  scrollEl,
-  letterGroups,
-  availableLetters,
-  currentLetter,
-  visibleLetters,
-  setLetterRef,
-  scrollToLetter,
-  onGridScroll,
-} = useLetterGroups(allRoms, { characterIndex, romIdIndex });
+const { letterGroups } = useLetterGroups(allRoms);
+
+const sectionEl = ref<HTMLElement | null>(null);
+const { columns } = useResponsiveColumns(sectionEl, {
+  cardWidth: 158,
+  gap: 12,
+  inset: 108,
+});
+
+const { virtualItems, letterToIndex, availableLetters } =
+  useGalleryVirtualItems({
+    hasHero: ref(true),
+    toolbarInline: computed(() => toolbarPosition.value === "header"),
+    layout,
+    groupBy,
+    roms: allRoms,
+    letterGroups,
+    columns,
+    loadingInitial,
+    hasMore,
+    remaining,
+    fetchingMore,
+    emptyMessage: computed(() =>
+      searchTerm.value
+        ? `No games match "${searchTerm.value}".`
+        : "No games match your search.",
+    ),
+    skeletonRowCount: 4,
+  });
+
+// Scroll-spy via IntersectionObserver on `data-spy-letter` elements.
+const visibleLettersSet = ref<Set<string>>(new Set());
+const currentLetter = ref<string>("");
+const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
+let intersectionObserver: IntersectionObserver | null = null;
+let mutationObserver: MutationObserver | null = null;
+let observed = new WeakSet<Element>();
+
+function recomputeVisible(root: HTMLElement) {
+  const visibles: Array<{ letters: string[]; top: number }> = [];
+  root
+    .querySelectorAll<HTMLElement>("[data-spy-letters][data-spy-active='1']")
+    .forEach((target) => {
+      const raw = target.dataset.spyLetters;
+      if (!raw) return;
+      const letters = raw.split(",").filter(Boolean);
+      if (!letters.length) return;
+      visibles.push({ letters, top: target.getBoundingClientRect().top });
+    });
+  visibles.sort((a, b) => a.top - b.top);
+  const set = new Set<string>();
+  for (const v of visibles) for (const l of v.letters) set.add(l);
+  visibleLettersSet.value = set;
+  currentLetter.value = visibles[0]?.letters[0] ?? currentLetter.value;
+}
+
+function setupSpy() {
+  const root = scrollerRef.value?.containerEl;
+  if (!root) return;
+  teardownSpy();
+
+  intersectionObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        (entry.target as HTMLElement).dataset.spyActive = entry.isIntersecting
+          ? "1"
+          : "0";
+      }
+      recomputeVisible(root);
+    },
+    { root, threshold: 0 },
+  );
+
+  const observeAll = () => {
+    root.querySelectorAll<HTMLElement>("[data-spy-letters]").forEach((el) => {
+      if (observed.has(el)) return;
+      observed.add(el);
+      intersectionObserver?.observe(el);
+    });
+  };
+  observeAll();
+  mutationObserver = new MutationObserver(observeAll);
+  mutationObserver.observe(root, { childList: true, subtree: true });
+}
+
+function teardownSpy() {
+  intersectionObserver?.disconnect();
+  intersectionObserver = null;
+  mutationObserver?.disconnect();
+  mutationObserver = null;
+  observed = new WeakSet<Element>();
+}
+
+function scrollToLetter(letter: string) {
+  const idx = letterToIndex.value.get(letter);
+  if (idx == null) return;
+  scrollerRef.value?.scrollToIndex(idx, { smooth: true });
+  currentLetter.value = letter;
+}
 
 function setSearch(value: string) {
   searchInput.value = value;
@@ -95,7 +189,7 @@ function onListSort(options: { sortBy: SortEntry[] }) {
   romsStore.fetchRoms();
 }
 
-watch(allRoms, () => onGridScroll(), { deep: false });
+watch(virtualItems, () => nextTick().then(setupSpy));
 
 onMounted(async () => {
   // Global search — drop ALL gallery scoping from previous views
@@ -109,100 +203,151 @@ onMounted(async () => {
   await romsStore.fetchRoms();
   romsStore.initialSearch = true;
   await nextTick();
-  onGridScroll();
+  setupSpy();
 });
 
 onBeforeUnmount(() => {
   if (searchDebounce) clearTimeout(searchDebounce);
+  teardownSpy();
 });
+
+function spyLetters(item: GalleryItem): string | undefined {
+  if (item.kind === "letter-header") return item.letter;
+  if (item.kind === "row") return item.letters.join(",");
+  return undefined;
+}
+
+// Narrowing helpers — see Platform.vue for the rationale.
+type RowItem = Extract<GalleryItem, { kind: "row" }>;
+type LetterHeaderItem = Extract<GalleryItem, { kind: "letter-header" }>;
+type LoadMoreItem = Extract<GalleryItem, { kind: "load-more" }>;
+type EmptyItem = Extract<GalleryItem, { kind: "empty" }>;
+const asRow = (i: GalleryItem) => i as RowItem;
+const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
+const asLoadMore = (i: GalleryItem) => i as LoadMoreItem;
+const asEmpty = (i: GalleryItem) => i as EmptyItem;
+const itemKind = (i: GalleryItem) => i.kind;
+
+// See Platform.vue — `1fr` tracks make gaps grow with window width.
+const rowGridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
+}));
+
+const showStandaloneEmpty = computed(
+  () => !fetchingRoms.value && allRoms.value.length === 0 && !!searchTerm.value,
+);
 </script>
 
 <template>
-  <section class="r-v2-search">
-    <div
-      :ref="(el) => (scrollEl = el as HTMLElement | null)"
-      class="r-v2-search__scroll r-v2-scroll-hidden"
-      @scroll="onGridScroll"
+  <section ref="sectionEl" class="r-v2-search">
+    <RVirtualScroller
+      ref="scrollerRef"
+      :items="virtualItems"
+      class="r-v2-search__scroller r-v2-scroll-hidden"
     >
-      <PageHeader title="Search">
-        <template #count>
-          <RChip
-            v-if="initialSearch && !fetchingRoms"
-            size="small"
-            variant="tonal"
+      <template #default="{ item }">
+        <div
+          class="r-v2-search__item"
+          :data-spy-letters="spyLetters(item as GalleryItem)"
+        >
+          <template v-if="itemKind(item as GalleryItem) === 'hero'">
+            <PageHeader title="Search">
+              <template #count>
+                <RChip
+                  v-if="initialSearch && !fetchingRoms"
+                  size="small"
+                  variant="tonal"
+                >
+                  {{ fetchTotalRoms }} results
+                </RChip>
+              </template>
+            </PageHeader>
+          </template>
+
+          <GalleryToolbar
+            v-else-if="itemKind(item as GalleryItem) === 'toolbar'"
+            :group-by="groupBy"
+            :layout="layout"
+            :position="toolbarPosition"
+            show-search
+            :search="searchInput"
+            search-placeholder="Search by name, filename, hash…"
+            @update:group-by="groupBy = $event"
+            @update:layout="layout = $event"
+            @update:search="setSearch"
+          />
+
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'letter-header'"
+            class="r-v2-search__letter-heading"
           >
-            {{ fetchTotalRoms }} results
-          </RChip>
-        </template>
-      </PageHeader>
+            {{ asLetterHeader(item as GalleryItem).letter }}
+          </div>
 
-      <GalleryToolbar
-        v-if="toolbarPosition === 'header'"
-        :group-by="groupBy"
-        :layout="layout"
-        :position="toolbarPosition"
-        show-search
-        :search="searchInput"
-        search-placeholder="Search by name, filename, hash…"
-        @update:group-by="groupBy = $event"
-        @update:layout="layout = $event"
-        @update:search="setSearch"
-      />
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'row'"
+            class="r-v2-search__row"
+            :style="rowGridStyle"
+          >
+            <GameCard
+              v-for="rom in asRow(item as GalleryItem).roms"
+              :key="rom.id"
+              :rom="rom"
+              :webp="supportsWebp"
+            />
+          </div>
 
-      <!-- Grid + grouped by letter -->
-      <LetterGroupedGrid
-        v-if="layout === 'grid' && groupBy === 'letter'"
-        :groups="letterGroups"
-        :fetching="fetchingRoms"
-        :has-more="hasMore"
-        :remaining="remaining"
-        :webp="supportsWebp"
-        empty-label="No games match your search."
-        :skeleton-count="18"
-        :set-letter-ref="setLetterRef"
-        @load-more="loadMore"
-      />
+          <GameList
+            v-else-if="itemKind(item as GalleryItem) === 'list-table'"
+            :roms="allRoms"
+            :total-roms="fetchTotalRoms"
+            :loading="fetchingRoms"
+            :webp="supportsWebp"
+            @update:options="onListSort"
+          />
 
-      <!-- Grid + flat -->
-      <template v-else-if="layout === 'grid'">
-        <GameGrid
-          :roms="allRoms"
-          :loading="fetchingRoms"
-          :webp="supportsWebp"
-          :show-platform="true"
-        />
-        <LoadMore
-          v-if="hasMore"
-          :loading="fetchingRoms"
-          :remaining="remaining"
-          @load="loadMore"
-        />
+          <LoadMore
+            v-else-if="itemKind(item as GalleryItem) === 'load-more'"
+            :loading="asLoadMore(item as GalleryItem).loading"
+            :remaining="asLoadMore(item as GalleryItem).remaining"
+            @load="loadMore"
+          />
+
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'empty'"
+            class="r-v2-search__empty-row"
+          >
+            <EmptyState
+              v-if="showStandaloneEmpty"
+              variant="boxed"
+              icon="mdi-emoticon-confused-outline"
+              :message="asEmpty(item as GalleryItem).message"
+            />
+            <span v-else>{{ asEmpty(item as GalleryItem).message }}</span>
+          </div>
+
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'skeleton-row'"
+            class="r-v2-search__row"
+            :style="rowGridStyle"
+          >
+            <RSkeletonBlock
+              v-for="n in Math.max(1, columns)"
+              :key="`sk-${n}`"
+              width="var(--r-card-art-w)"
+              height="var(--r-card-art-h)"
+              rounded="md"
+            />
+          </div>
+        </div>
       </template>
-
-      <!-- List -->
-      <GameList
-        v-else
-        :roms="allRoms"
-        :total-roms="fetchTotalRoms"
-        :loading="fetchingRoms"
-        :webp="supportsWebp"
-        @update:options="onListSort"
-      />
-
-      <!-- Empty state (after results resolve) -->
-      <EmptyState
-        v-if="!fetchingRoms && allRoms.length === 0 && searchTerm"
-        variant="boxed"
-        icon="mdi-emoticon-confused-outline"
-        :message="`No games match &quot;${searchTerm}&quot;.`"
-      />
-    </div>
+    </RVirtualScroller>
 
     <AlphaStrip
-      v-if="letterGroups.length > 0"
+      v-if="availableLetters.size > 0"
       :available="availableLetters"
       :current="currentLetter"
-      :visible="visibleLetters"
+      :visible="visibleLettersSet"
       @pick="scrollToLetter"
     />
 
@@ -226,16 +371,44 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.r-v2-search__scroll {
+.r-v2-search__scroller {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  height: 100%;
   padding: 32px var(--r-row-pad) 60px;
 }
 
+.r-v2-search__item {
+  width: 100%;
+}
+
+.r-v2-search__letter-heading {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-faint);
+  padding: 20px 0 12px;
+}
+
+.r-v2-search__row {
+  display: grid;
+  gap: 18px 12px;
+  padding-bottom: 18px;
+}
+
+.r-v2-search__empty-row {
+  padding: 40px 0;
+  color: var(--r-color-fg-faint);
+  font-size: 13.5px;
+  text-align: center;
+}
+
 @media (max-width: 768px) {
-  .r-v2-search__scroll {
+  .r-v2-search__scroller {
     padding: 16px 14px 80px;
+  }
+  .r-v2-search__row {
+    gap: 12px 10px;
   }
 }
 </style>
