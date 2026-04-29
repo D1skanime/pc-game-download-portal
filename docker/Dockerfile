@@ -200,7 +200,8 @@ RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
     mkdir /romm /redis-data && \
     chown romm:romm /romm /redis-data && \
     chmod 755 /romm /redis-data && \
-    chmod -R a+w /etc/nginx/conf.d
+    chmod -R a+w /etc/nginx/conf.d && \
+    chmod -R a+w /etc/gunicorn
 
 
 # SLIM IMAGE
