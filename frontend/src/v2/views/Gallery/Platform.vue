@@ -14,7 +14,7 @@ import {
   ref,
   watch,
 } from "vue";
-import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { formatBytes } from "@/utils";
@@ -33,11 +33,13 @@ import {
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeScrollRestoration from "@/v2/stores/scrollRestoration";
 
 const route = useRoute();
 const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
+const scrollRestoration = storeScrollRestoration();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const { supportsWebp } = useWebpSupport();
 
@@ -246,14 +248,38 @@ async function loadForId(platformId: number) {
   await galleryRoms.fetchWindowAt(0);
   await nextTick();
   setupSpy();
+  applyRestoredScroll();
+}
+
+// Restore the previously-saved scrollTop (if any) for this route. Called
+// after the first window has loaded — by then virtualItems is built and
+// the scroller has a real scrollable height. The IntersectionObserver
+// already attached by `setupSpy` will fire for rows that the new
+// scroll position reveals, kicking off prefetches for those windows.
+async function applyRestoredScroll() {
+  const saved = scrollRestoration.restore(route.fullPath);
+  if (saved == null) return;
+  const root = scrollerRef.value?.containerEl;
+  if (!root) return;
+  await nextTick();
+  root.scrollTop = saved;
 }
 
 onMounted(() => {
   loadForId(Number(route.params.platform));
 });
 
-onBeforeRouteUpdate((to) => {
+onBeforeRouteUpdate((to, from) => {
+  // Save the current scroll position before the route swap so navigating
+  // platform A → B → A lands back at A's last position.
+  const root = scrollerRef.value?.containerEl;
+  if (root) scrollRestoration.save(from.fullPath, root.scrollTop);
   if (to.name === "platform") loadForId(Number(to.params.platform));
+});
+
+onBeforeRouteLeave((_to, from) => {
+  const root = scrollerRef.value?.containerEl;
+  if (root) scrollRestoration.save(from.fullPath, root.scrollTop);
 });
 
 watch(

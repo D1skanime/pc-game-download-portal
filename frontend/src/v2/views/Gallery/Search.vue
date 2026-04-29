@@ -11,6 +11,7 @@ import {
   ref,
   watch,
 } from "vue";
+import { onBeforeRouteLeave, useRoute } from "vue-router";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
@@ -27,9 +28,12 @@ import {
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeScrollRestoration from "@/v2/stores/scrollRestoration";
 
+const route = useRoute();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
+const scrollRestoration = storeScrollRestoration();
 const { supportsWebp } = useWebpSupport();
 
 const { total, charIndex, byPosition, initialFetching } =
@@ -200,6 +204,15 @@ const loadedRoms = computed(() => {
 
 watch(virtualItems, () => nextTick().then(setupSpy));
 
+async function applyRestoredScroll() {
+  const saved = scrollRestoration.restore(route.fullPath);
+  if (saved == null) return;
+  const root = scrollerRef.value?.containerEl;
+  if (!root) return;
+  await nextTick();
+  root.scrollTop = saved;
+}
+
 onMounted(async () => {
   // Global search — drop ALL gallery scoping from previous views.
   galleryRoms.resetGallery();
@@ -207,6 +220,12 @@ onMounted(async () => {
   initialSearch.value = true;
   await nextTick();
   setupSpy();
+  applyRestoredScroll();
+});
+
+onBeforeRouteLeave((_to, from) => {
+  const root = scrollerRef.value?.containerEl;
+  if (root) scrollRestoration.save(from.fullPath, root.scrollTop);
 });
 
 onBeforeUnmount(() => {

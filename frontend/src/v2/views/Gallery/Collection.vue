@@ -12,7 +12,7 @@ import {
   ref,
   watch,
 } from "vue";
-import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeCollections, {
   type Collection,
   type SmartCollection,
@@ -35,6 +35,7 @@ import {
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeScrollRestoration from "@/v2/stores/scrollRestoration";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type CollectionKind = "regular" | "virtual" | "smart";
@@ -43,6 +44,7 @@ const route = useRoute();
 const collectionsStore = storeCollections();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
+const scrollRestoration = storeScrollRestoration();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const { supportsWebp, toWebp } = useWebpSupport();
 
@@ -255,14 +257,31 @@ async function loadForRoute(kind: CollectionKind, id: string) {
   await galleryRoms.fetchWindowAt(0);
   await nextTick();
   setupSpy();
+  applyRestoredScroll();
+}
+
+async function applyRestoredScroll() {
+  const saved = scrollRestoration.restore(route.fullPath);
+  if (saved == null) return;
+  const root = scrollerRef.value?.containerEl;
+  if (!root) return;
+  await nextTick();
+  root.scrollTop = saved;
 }
 
 onMounted(() => {
   loadForRoute(kindFromRoute(route.name), String(route.params.collection));
 });
 
-onBeforeRouteUpdate((to) => {
+onBeforeRouteUpdate((to, from) => {
+  const root = scrollerRef.value?.containerEl;
+  if (root) scrollRestoration.save(from.fullPath, root.scrollTop);
   loadForRoute(kindFromRoute(to.name), String(to.params.collection));
+});
+
+onBeforeRouteLeave((_to, from) => {
+  const root = scrollerRef.value?.containerEl;
+  if (root) scrollRestoration.save(from.fullPath, root.scrollTop);
 });
 
 watch(
