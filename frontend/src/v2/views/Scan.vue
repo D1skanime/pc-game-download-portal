@@ -9,14 +9,7 @@
 import { RAlert, RBtn, RIcon, RPlatformIcon, RSelect } from "@v2/lib";
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  ref,
-  useTemplateRef,
-  watch,
-} from "vue";
+import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import ScanPlatform from "@/components/Scan/ScanPlatform.vue";
@@ -29,6 +22,7 @@ import storeScanning from "@/stores/scanning";
 import { platformCategoryToIcon } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
@@ -186,12 +180,8 @@ function scan() {
 }
 
 type ScanStatsPayload = typeof scanStats.value;
-function onScanDone(stats: ScanStatsPayload) {
+useSocketEvent<ScanStatsPayload>("scan:done", (stats) => {
   scanStats.value = stats;
-}
-socket.on("scan:done", onScanDone);
-onBeforeUnmount(() => {
-  socket.off("scan:done", onScanDone);
 });
 
 function stopScan() {
