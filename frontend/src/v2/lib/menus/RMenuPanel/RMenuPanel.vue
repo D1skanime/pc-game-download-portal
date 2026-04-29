@@ -31,24 +31,17 @@ const resolvedWidth =
 
 <style scoped>
 .r-menu-panel {
-  background: rgba(16, 12, 28, 0.97);
+  background: var(--r-color-panel);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--r-color-panel-border);
   border-radius: var(--r-radius-card);
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.7),
     0 4px 20px rgba(0, 0, 0, 0.4);
-  color: #fff;
+  color: var(--r-color-fg);
   font-family: var(--r-font-family-sans);
   display: flex;
   flex-direction: column;
-}
-
-/* Light-mode variant uses an off-white glass surface. */
-.r-v2.r-v2-light .r-menu-panel {
-  background: rgba(255, 255, 255, 0.97);
-  border-color: rgba(17, 17, 23, 0.1);
-  color: var(--r-color-fg);
 }
 </style>

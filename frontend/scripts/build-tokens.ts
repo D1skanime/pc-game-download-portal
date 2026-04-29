@@ -16,6 +16,7 @@ import {
   colorBrand,
   colorDark,
   colorLight,
+  colorOverlay,
   colorStatus,
   elevation,
   focus,
@@ -102,6 +103,7 @@ function block(selector: string, lines: Entry[], comment?: string): string {
 const SHARED: Entry[] = [
   ...entriesFor(colorBrand, "colorBrand", "--r-color-brand"),
   ...entriesFor(colorStatus, "colorStatus", "--r-color"),
+  ...entriesFor(colorOverlay, "colorOverlay", "--r-color-overlay"),
   ...entriesFor(fontFamily, "fontFamily", "--r-font-family"),
   ...entriesFor(fontSize, "fontSize", "--r-font-size"),
   ...entriesFor(lineHeight, "lineHeight", "--r-line-height"),

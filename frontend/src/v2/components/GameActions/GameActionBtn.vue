@@ -186,11 +186,11 @@ function onClick(e: MouseEvent) {
   /* Dark glass so the button still reads when sitting on top of a bright
      or busy cover image in the GameCard overlay. In GameDetails the
      backdrop is already a dark blurred cover so this tone lands neutral
-     there too. Light translucent glass (5–10% white) was invisible on
-     any cover with white or pale art. */
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(0, 0, 0, 0.55);
-  color: rgba(255, 255, 255, 0.95);
+     there too. Overlay tokens never theme-flip — they stay dark over
+     any cover artwork. */
+  border: 1px solid var(--r-color-overlay-border);
+  background: var(--r-color-overlay-scrim-soft);
+  color: var(--r-color-overlay-fg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -209,9 +209,9 @@ function onClick(e: MouseEvent) {
     border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-game-btn:hover {
-  background: rgba(0, 0, 0, 0.72);
-  border-color: rgba(255, 255, 255, 0.28);
-  color: #fff;
+  background: var(--r-color-overlay-scrim-strong);
+  border-color: var(--r-color-overlay-border-strong);
+  color: var(--r-color-overlay-fg);
 }
 .r-v2-game-btn:active {
   transform: scale(0.94);

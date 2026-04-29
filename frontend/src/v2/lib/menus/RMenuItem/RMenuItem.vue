@@ -6,7 +6,7 @@
 // cases: 15px leading-icon slot (left), label, 9px rounded hover bg.
 //
 // Variants:
-//   * default — white-ish text, hover background rgba(255,255,255,0.09)
+//   * default — fg-secondary text, hover background var(--r-color-surface)
 //   * active  — filled accent (favourited style, brand "--r-color-fav")
 //   * danger  — red text, red-tinted hover (destructive actions)
 import { computed } from "vue";
@@ -165,7 +165,7 @@ const tag = computed(() => {
   opacity: 0.85;
 }
 .r-menu-item--danger:hover:not(.r-menu-item--disabled) {
-  background: rgba(255, 80, 80, 0.12);
+  background: color-mix(in srgb, var(--r-color-danger) 12%, transparent);
   color: var(--r-color-danger);
   opacity: 1;
 }

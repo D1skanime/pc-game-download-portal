@@ -171,9 +171,9 @@ function onActivatorClick(e: MouseEvent) {
   cursor: pointer;
   padding: 0;
   font-family: inherit;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px dashed rgba(255, 255, 255, 0.45);
-  color: rgba(255, 255, 255, 0.85);
+  background: var(--r-color-overlay-scrim-soft);
+  border: 1px dashed var(--r-color-overlay-fg-muted);
+  color: var(--r-color-overlay-fg-secondary);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   opacity: 0;
@@ -189,9 +189,9 @@ function onActivatorClick(e: MouseEvent) {
 .r-gc-status:hover,
 .r-gc-status--open {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.75);
-  border-color: rgba(255, 255, 255, 0.85);
-  color: #fff;
+  background: var(--r-color-overlay-scrim-strong);
+  border-color: var(--r-color-overlay-fg-secondary);
+  color: var(--r-color-overlay-fg);
   transform: scale(1.05);
 }
 
@@ -200,8 +200,8 @@ function onActivatorClick(e: MouseEvent) {
    badge / rating pattern. */
 .r-gc-status--set {
   border-style: solid;
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.78);
+  border-color: var(--r-color-overlay-border-strong);
+  background: var(--r-color-overlay-scrim-strong);
   opacity: 1;
 }
 

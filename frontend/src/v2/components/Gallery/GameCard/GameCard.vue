@@ -295,9 +295,9 @@ const morphStyle = computed(() => {
   min-width: 28px !important;
   min-height: 28px !important;
   border-radius: 50% !important;
-  background: rgba(0, 0, 0, 0.78) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  color: #fff !important;
+  background: var(--r-color-overlay-scrim-strong) !important;
+  border: 1px solid var(--r-color-overlay-border) !important;
+  color: var(--r-color-overlay-fg) !important;
   transition:
     background 0.12s ease,
     border-color 0.12s ease,
@@ -305,7 +305,7 @@ const morphStyle = computed(() => {
 }
 .r-gc__platform-icon:hover {
   background: rgba(0, 0, 0, 0.9) !important;
-  border-color: rgba(255, 255, 255, 0.25) !important;
+  border-color: var(--r-color-overlay-border-strong) !important;
   transform: scale(1.08);
 }
 
@@ -314,14 +314,14 @@ const morphStyle = computed(() => {
   position: absolute;
   bottom: 7px;
   left: 7px;
-  background: rgba(0, 0, 0, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--r-color-overlay-scrim-strong);
+  border: 1px solid var(--r-color-overlay-border);
   border-radius: var(--r-radius-sm);
   padding: 2px 6px;
   font-size: 9.5px;
   font-weight: var(--r-font-weight-semibold);
   letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--r-color-overlay-fg-secondary);
   opacity: 0;
   transition: opacity 0.12s ease;
   max-width: calc(100% - 14px);

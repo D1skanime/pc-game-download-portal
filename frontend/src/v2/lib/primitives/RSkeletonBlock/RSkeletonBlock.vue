@@ -47,19 +47,10 @@ const style = {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.08),
+    var(--r-color-shimmer-sweep),
     transparent
   );
   animation: r-skeleton-shimmer 1.4s infinite;
-}
-
-.r-v2-light .r-skeleton::after {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(0, 0, 0, 0.06),
-    transparent
-  );
 }
 
 @keyframes r-skeleton-shimmer {

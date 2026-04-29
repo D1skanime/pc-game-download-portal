@@ -56,6 +56,14 @@ export const colorDark = {
   borderStrong: "rgba(255, 255, 255, 0.15)",
   // Used by global.css to draw the focus ring; translucent over dark surfaces.
   focus: "rgba(255, 255, 255, 0.45)",
+  // Distinctive deep glass for menu/dialog panels — paired with --r-color-panel-border.
+  panel: "rgba(16, 12, 28, 0.97)",
+  panelBorder: "rgba(255, 255, 255, 0.1)",
+  // Tooltip surface — slightly more opaque than panel so floating chips read clearly.
+  tooltipBg: "rgba(7, 7, 15, 0.94)",
+  tooltipBorder: "rgba(255, 255, 255, 0.09)",
+  // Skeleton shimmer sweep — the translucent band that animates across .r-skeleton.
+  shimmerSweep: "rgba(255, 255, 255, 0.08)",
 } as const;
 
 export const colorLight = {
@@ -70,6 +78,26 @@ export const colorLight = {
   border: "rgba(0, 0, 0, 0.07)",
   borderStrong: "rgba(0, 0, 0, 0.15)",
   focus: "rgba(0, 0, 0, 0.45)",
+  panel: "rgba(255, 255, 255, 0.97)",
+  panelBorder: "rgba(17, 17, 23, 0.1)",
+  tooltipBg: "rgba(245, 245, 250, 0.96)",
+  tooltipBorder: "rgba(17, 17, 23, 0.08)",
+  shimmerSweep: "rgba(0, 0, 0, 0.06)",
+} as const;
+
+// Cover-overlay surfaces — fixed dark glass values that never theme-flip.
+// These are used by surfaces sitting on top of cover artwork (StatusBadge,
+// GameCard chrome, GameActionBtn) where contrast against cover art matters
+// more than page theme. Inverting them in light mode would lose contrast
+// against bright covers.
+export const colorOverlay = {
+  fg: "rgba(255, 255, 255, 0.95)",
+  fgSecondary: "rgba(255, 255, 255, 0.85)",
+  fgMuted: "rgba(255, 255, 255, 0.45)",
+  border: "rgba(255, 255, 255, 0.12)",
+  borderStrong: "rgba(255, 255, 255, 0.25)",
+  scrimSoft: "rgba(0, 0, 0, 0.55)",
+  scrimStrong: "rgba(0, 0, 0, 0.78)",
 } as const;
 
 export const fontFamily = {
@@ -181,6 +209,7 @@ export const tokens = {
   colorStatus,
   colorDark,
   colorLight,
+  colorOverlay,
   fontFamily,
   fontSize,
   lineHeight,

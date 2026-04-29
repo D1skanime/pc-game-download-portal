@@ -173,8 +173,8 @@ void props;
 .r-dialog__panel {
   display: flex;
   flex-direction: column;
-  background: rgba(16, 12, 28, 0.97);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--r-color-panel);
+  border: 1px solid var(--r-color-panel-border);
   border-radius: var(--r-radius-card);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
@@ -282,15 +282,9 @@ void props;
   gap: 8px;
 }
 
-/* Light theme — dialog root carries .r-v2-light only when the app shell
-   does (teleported content inherits the body data-theme, not our wrapper).
-   Matches RMenuPanel's light variant so the two surfaces read as one
-   family across the app. */
-:global(.r-v2.r-v2-light) .r-dialog__panel {
-  background: rgba(255, 255, 255, 0.97);
-  border-color: rgba(17, 17, 23, 0.1);
-  color: var(--r-color-fg);
-}
+/* The --r-color-panel pair flips automatically with the theme; the only
+   light-mode-specific tweak left is the foreground colour, which the
+   panel surface inherits from var(--r-color-fg) — also already paired. */
 </style>
 
 <style>
