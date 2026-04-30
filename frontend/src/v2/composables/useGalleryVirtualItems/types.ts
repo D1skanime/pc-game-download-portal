@@ -2,18 +2,14 @@
 // virtualised gallery scroller. The view turns this list into a single
 // RVirtualScroller and renders per kind via a template switch.
 //
-// Heights are approximate — Vuetify's v-virtual-scroll uses them as the
-// initial estimate before measuring rendered nodes. Off-by-tens is fine.
-//
-// Rows are built for the FULL gallery (positions 0..total-1), not just
-// the loaded subset. Each row's slots either point to a real `SimpleRom`
-// or carry a skeleton placeholder; the view triggers a window fetch on
-// the store when a row carrying skeletons becomes visible.
-import type { SimpleRom } from "@/stores/roms";
-
-export type GallerySlot =
-  | { kind: "rom"; position: number; rom: SimpleRom }
-  | { kind: "skeleton"; position: number };
+// IMPORTANT — performance contract: row items are STRUCTURAL only. They
+// know which positions they cover but they do NOT carry the actual ROM /
+// skeleton data. The view template iterates positions inline and calls
+// `store.getRomAt(p)` per slot. That keeps Vue's per-key reactivity
+// granular: when a window resolves and a single position transitions
+// from skeleton to ROM, only the affected row component re-renders —
+// not the entire `virtualItems` array (which would be O(total/cols)
+// rebuild and was the source of the scroll-freeze in earlier passes).
 
 export type GalleryItem =
   | { kind: "hero"; key: string }
@@ -25,14 +21,10 @@ export type GalleryItem =
       rowIndex: number;
       startPosition: number;
       endPosition: number; // exclusive
-      slots: GallerySlot[];
       /** Letters covered by this row's position range (from server's
        * charIndex). Drives AlphaStrip spy highlight even when the row's
        * cards aren't loaded yet. */
       letters: readonly string[];
-      /** True when at least one slot is a skeleton — view uses this to
-       * decide whether to trigger a window prefetch. */
-      hasMissing: boolean;
     }
   | { kind: "list-table"; key: string }
   | { kind: "load-more"; key: string; remaining: number; loading: boolean }

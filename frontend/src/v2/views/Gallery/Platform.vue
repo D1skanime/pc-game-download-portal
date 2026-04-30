@@ -1,9 +1,21 @@
 <script setup lang="ts">
 // Platform gallery — single virtualised scroll surface with sparse,
-// windowed loading. Every row in the gallery exists from frame zero
-// (skeleton placeholders for un-fetched positions); window fetches are
-// triggered as rows enter the viewport. Hero, toolbar, content rows and
-// load-more all live as items inside one RVirtualScroller.
+// windowed loading. Architecture:
+//
+//   * `RVirtualScroller` (custom virtualizer) owns scroll position with
+//     exact per-item offsets — `scrollToIndex` lands precisely on target
+//     rows, no estimation drift.
+//   * `useGalleryVirtualItems` builds the structural item list (every
+//     row from position 0..total-1 exists from frame zero). Item heights
+//     come from `galleryItemHeight()` per kind.
+//   * `viewportRange` from the virtualizer drives BOTH AlphaStrip's lit
+//     letters (computed from items intersecting the actual pixel
+//     viewport — not the rendered overscan) AND a 2-second dwell-debounce
+//     for cover prefetch (only rows the user actually pauses on trigger
+//     a window fetch).
+//   * Per-slot `getRomAt(p)` reads from the store's reactive Map at
+//     render time, so a window resolution only re-renders the affected
+//     row component rather than rebuilding the whole virtual list.
 import { RChip, RPlatformIcon, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
@@ -27,9 +39,9 @@ import Stat from "@/v2/components/shared/Stat.vue";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import {
+  galleryItemHeight,
   useGalleryVirtualItems,
   type GalleryItem,
-  type GallerySlot,
 } from "@/v2/composables/useGalleryVirtualItems";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -109,8 +121,6 @@ const { virtualItems, letterToIndex, availableLetters } =
     groupBy,
     total,
     charIndex,
-    getRomAt: (p) => galleryRoms.getRomAt(p),
-    loadedTick: byPosition,
     columns,
     loadingInitial,
     emptyMessage: ref("No games in this platform yet."),
@@ -119,112 +129,133 @@ const { virtualItems, letterToIndex, availableLetters } =
     skeletonRowCount: 4,
   });
 
-// Scroll-spy via IntersectionObserver on `data-spy-letters` elements.
-// The same observer doubles as the prefetch trigger: rows that enter
-// the viewport with skeleton slots dispatch `fetchWindowAt` for each
-// missing position (the store dedupes loaded / pending windows).
-const visibleLettersSet = ref<Set<string>>(new Set());
-const currentLetter = ref<string>("");
+// Viewport range — items whose pixel rect intersects the actual visible
+// viewport (NOT the rendered overscan). Drives AlphaStrip and the
+// per-row dwell prefetch.
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
-let intersectionObserver: IntersectionObserver | null = null;
-let mutationObserver: MutationObserver | null = null;
-let observed = new WeakSet<Element>();
+const viewportRange = ref<{ first: number; last: number }>({
+  first: 0,
+  last: -1,
+});
+function onViewportRangeChange(range: { first: number; last: number }) {
+  viewportRange.value = range;
+  syncRowDwell(range);
+}
 
-function recomputeVisible(root: HTMLElement) {
-  const visibles: Array<{ letters: string[]; top: number }> = [];
-  root
-    .querySelectorAll<HTMLElement>("[data-spy-letters][data-spy-active='1']")
-    .forEach((target) => {
-      const raw = target.dataset.spyLetters;
-      if (!raw) return;
-      const letters = raw.split(",").filter(Boolean);
-      if (!letters.length) return;
-      visibles.push({ letters, top: target.getBoundingClientRect().top });
-    });
-  visibles.sort((a, b) => a.top - b.top);
+// AlphaStrip lit letters — set of letters covered by items currently
+// inside the viewport. Recomputes whenever viewportRange or virtualItems
+// change.
+const visibleLettersSet = computed<Set<string>>(() => {
   const set = new Set<string>();
-  for (const v of visibles) for (const l of v.letters) set.add(l);
-  visibleLettersSet.value = set;
-  currentLetter.value = visibles[0]?.letters[0] ?? currentLetter.value;
+  const r = viewportRange.value;
+  if (r.last < r.first) return set;
+  const items = virtualItems.value;
+  for (let i = r.first; i <= r.last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "letter-header") set.add(it.letter);
+    else if (it.kind === "row") for (const l of it.letters) set.add(l);
+  }
+  return set;
+});
+
+// Topmost-letter highlight — first letter encountered scanning the
+// viewport range top-to-bottom.
+const currentLetter = computed<string>(() => {
+  const r = viewportRange.value;
+  if (r.last < r.first) return "";
+  const items = virtualItems.value;
+  for (let i = r.first; i <= r.last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "letter-header") return it.letter;
+    if (it.kind === "row" && it.letters.length > 0) return it.letters[0];
+  }
+  return "";
+});
+
+// Per-row dwell prefetch. Each row item that enters the viewport starts
+// its own DWELL_MS timer; if the row stays in view that long, its
+// missing positions are fetched as a ranged request (one per row,
+// parallelisable). Rows that leave before the timer fires are
+// cancelled — fast-scrolling / AlphaStrip fly-by triggers zero fetches.
+//
+// Per-row (not per-viewport-batch) means a slowly-scrolling reader gets
+// rows that have been on screen ≥2s loading even while they keep
+// scrolling — the timer lives with the row, not the viewport.
+const DWELL_MS = 2000;
+const rowDwellTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
+function clearAllRowDwell() {
+  for (const t of rowDwellTimers.values()) clearTimeout(t);
+  rowDwellTimers.clear();
 }
 
-function prefetchVisibleSkeletonRows(root: HTMLElement) {
-  // For each visible row that still has skeleton slots, request the
-  // window covering its first missing position. The store dedupes
-  // identical / in-flight windows internally, so this is cheap.
-  root
-    .querySelectorAll<HTMLElement>(
-      "[data-spy-active='1'][data-prefetch-position]",
-    )
-    .forEach((target) => {
-      const pos = Number(target.dataset.prefetchPosition);
-      if (!Number.isFinite(pos)) return;
-      void galleryRoms.fetchWindowAt(pos);
-    });
-}
-
-function setupSpy() {
-  const root = scrollerRef.value?.containerEl;
-  if (!root) return;
-  teardownSpy();
-
-  intersectionObserver = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        (entry.target as HTMLElement).dataset.spyActive = entry.isIntersecting
-          ? "1"
-          : "0";
+function syncRowDwell(range: { first: number; last: number }) {
+  // Cancel timers for rows that left the viewport.
+  for (const idx of [...rowDwellTimers.keys()]) {
+    if (idx < range.first || idx > range.last) {
+      clearTimeout(rowDwellTimers.get(idx)!);
+      rowDwellTimers.delete(idx);
+    }
+  }
+  if (range.last < range.first) return;
+  const items = virtualItems.value;
+  for (let i = range.first; i <= range.last; i++) {
+    if (rowDwellTimers.has(i)) continue;
+    const item = items[i];
+    if (!item || item.kind !== "row") continue;
+    // Skip if every slot in the row is already loaded — nothing to do.
+    let missing = false;
+    for (let p = item.startPosition; p < item.endPosition; p++) {
+      if (!galleryRoms.byPosition.has(p)) {
+        missing = true;
+        break;
       }
-      recomputeVisible(root);
-      prefetchVisibleSkeletonRows(root);
-    },
-    { root, threshold: 0 },
-  );
-
-  const observeAll = () => {
-    root.querySelectorAll<HTMLElement>("[data-spy-letters]").forEach((el) => {
-      if (observed.has(el)) return;
-      observed.add(el);
-      intersectionObserver?.observe(el);
-    });
-  };
-  observeAll();
-  mutationObserver = new MutationObserver(observeAll);
-  mutationObserver.observe(root, { childList: true, subtree: true });
+    }
+    if (!missing) continue;
+    const start = item.startPosition;
+    const len = item.endPosition - start;
+    rowDwellTimers.set(
+      i,
+      setTimeout(() => {
+        rowDwellTimers.delete(i);
+        // Paranoid re-check: row must still be in viewport at fire time.
+        const r = viewportRange.value;
+        if (i < r.first || i > r.last) return;
+        void galleryRoms.fetchRange(start, len);
+      }, DWELL_MS),
+    );
+  }
 }
 
-function teardownSpy() {
-  intersectionObserver?.disconnect();
-  intersectionObserver = null;
-  mutationObserver?.disconnect();
-  mutationObserver = null;
-  observed = new WeakSet<Element>();
-}
+// Structural changes to virtualItems (mode swap / search / new platform)
+// invalidate row indices — drop all timers and re-arm against the new
+// items.
+watch(virtualItems, () => {
+  clearAllRowDwell();
+  syncRowDwell(viewportRange.value);
+});
 
 function scrollToLetter(letter: string) {
   const idx = letterToIndex.value.get(letter);
   if (idx == null) return;
   scrollerRef.value?.scrollToIndex(idx, { smooth: true });
-  currentLetter.value = letter;
-  // The destination row may be all-skeleton if its window isn't loaded
-  // yet; kick the fetch immediately so cards arrive while the smooth
-  // scroll is animating.
-  const cols = Math.max(1, columns.value);
-  const cellSize = letter.charCodeAt(0); // unused noop to silence warn
-  void cellSize;
-  // The row at virtualItems[idx] knows its startPosition; pull it.
-  const item = virtualItems.value[idx];
-  if (item?.kind === "row") void galleryRoms.fetchWindowAt(item.startPosition);
-  else if (item?.kind === "letter-header") {
-    // First row of the group lives at idx + 1.
-    const next = virtualItems.value[idx + 1];
-    if (next?.kind === "row") {
-      void galleryRoms.fetchWindowAt(next.startPosition);
-    }
+  // Express user intent: prefetch the destination row NOW (don't wait
+  // the 2s dwell — they explicitly asked to go there).
+  const items = virtualItems.value;
+  const target =
+    items[idx]?.kind === "row"
+      ? items[idx]
+      : items[idx]?.kind === "letter-header"
+        ? items[idx + 1]
+        : null;
+  if (target?.kind === "row") {
+    void galleryRoms.fetchRange(
+      target.startPosition,
+      target.endPosition - target.startPosition,
+    );
   }
-  // The cols variable is only used inside the prefetch math above;
-  // referenced here to keep TS happy across edits.
-  void cols;
 }
 
 async function ensurePlatforms() {
@@ -249,15 +280,15 @@ async function loadForId(platformId: number) {
   document.title = platform.display_name;
   await galleryRoms.fetchWindowAt(0);
   await nextTick();
-  setupSpy();
   applyRestoredScroll();
 }
 
 // Restore the previously-saved scrollTop (if any) for this route. Called
-// after the first window has loaded — by then virtualItems is built and
-// the scroller has a real scrollable height. The IntersectionObserver
-// already attached by `setupSpy` will fire for rows that the new
-// scroll position reveals, kicking off prefetches for those windows.
+// after the first window has loaded — by then virtualItems has
+// `total`-many rows and the virtualizer's offset table covers the full
+// scrollable height. The viewport-range watcher catches the rows
+// revealed at the restored position; dwell debounce prefetches their
+// windows after 2s.
 async function applyRestoredScroll() {
   const saved = scrollRestoration.restore(route.fullPath);
   if (saved == null) return;
@@ -291,12 +322,7 @@ watch(
   },
 );
 
-// Re-attach the spy when the virtualised item list mutates substantially
-// (mode switch, search, fetched window) so newly-rendered rows are
-// observed AND so the just-rendered visible band re-prefetches.
-watch(virtualItems, () => nextTick().then(setupSpy));
-
-onBeforeUnmount(teardownSpy);
+onBeforeUnmount(clearAllRowDwell);
 
 // ── Search filter (debounced) ───────────────────────────────────────
 const searchInput = ref(searchTerm.value ?? "");
@@ -345,21 +371,23 @@ const loadedRoms = computed(() => {
   return entries.map(([, rom]) => rom);
 });
 
-// Spy attribute helper — broadcast every letter the item covers.
-function spyLetters(item: GalleryItem): string | undefined {
-  if (item.kind === "letter-header") return item.letter;
-  if (item.kind === "row") return item.letters.join(",");
-  return undefined;
+// Inline ROM lookup — read `byPosition` per slot inside the row template
+// rather than building `slots` upfront. Vue tracks the specific Map key
+// each call reads, so when a window resolves only the rows whose
+// positions just appeared re-render.
+function getRomAt(p: number) {
+  return galleryRoms.getRomAt(p);
 }
 
-// Prefetch position for a skeleton row — the IntersectionObserver
-// reads `data-prefetch-position` to know which window to fetch.
-function prefetchPosition(item: GalleryItem): number | undefined {
-  if (item.kind !== "row" || !item.hasMissing) return undefined;
-  const skel = item.slots.find((s) => s.kind === "skeleton") as
-    | Extract<GallerySlot, { kind: "skeleton" }>
-    | undefined;
-  return skel?.position;
+// Position list for a row — the template iterates this and asks
+// `getRomAt(p)` per slot.
+function rowPositions(row: {
+  startPosition: number;
+  endPosition: number;
+}): number[] {
+  const out: number[] = [];
+  for (let p = row.startPosition; p < row.endPosition; p++) out.push(p);
+  return out;
 }
 
 // Narrowing helpers — see src/v2/composables/useGalleryVirtualItems.
@@ -376,6 +404,18 @@ const itemKind = (i: GalleryItem) => i.kind;
 const rowGridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
 }));
+
+// Sticky toolbar — when the user scrolls past the hero, the inline
+// GalleryToolbar (rendered as a virtual item) leaves the viewport. We
+// surface a fixed copy of it just below the AppNav so search and the
+// view controls stay reachable. Activates only in the "header" dock —
+// "floating" already places the toolbar permanently top-right.
+const STICKY_TRIGGER_PX = 240;
+const stickyToolbarActive = computed(() => {
+  if (toolbarPosition.value !== "header") return false;
+  const top = scrollerRef.value?.scrollTop ?? 0;
+  return top > STICKY_TRIGGER_PX;
+});
 </script>
 
 <template>
@@ -383,14 +423,13 @@ const rowGridStyle = computed(() => ({
     <RVirtualScroller
       ref="scrollerRef"
       :items="virtualItems"
+      :get-item-height="galleryItemHeight"
+      :overscan="25"
       class="r-v2-plat__scroller r-v2-scroll-hidden"
+      @update:viewport-range="onViewportRangeChange"
     >
       <template #default="{ item }">
-        <div
-          class="r-v2-plat__item"
-          :data-spy-letters="spyLetters(item as GalleryItem)"
-          :data-prefetch-position="prefetchPosition(item as GalleryItem)"
-        >
+        <div class="r-v2-plat__item">
           <template v-if="itemKind(item as GalleryItem) === 'hero'">
             <InfoPanel
               v-if="currentPlatform"
@@ -459,14 +498,14 @@ const rowGridStyle = computed(() => ({
             :style="rowGridStyle"
           >
             <template
-              v-for="(slot, slotIdx) in asRow(item as GalleryItem).slots"
-              :key="slot.position"
+              v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
+              :key="p"
             >
               <GameCard
-                v-if="slot.kind === 'rom'"
+                v-if="getRomAt(p)"
                 class="r-v2-plat__card-fade"
                 :style="{ '--card-fade-i': slotIdx }"
-                :rom="slot.rom"
+                :rom="getRomAt(p)!"
                 :webp="supportsWebp"
                 :show-platform-badge="false"
               />
@@ -511,6 +550,30 @@ const rowGridStyle = computed(() => ({
       :visible="visibleLettersSet"
       @pick="scrollToLetter"
     />
+
+    <!-- Sticky header-dock toolbar — slides in from above once the
+         inline copy has scrolled away. Same handlers as the inline so
+         search / group / layout stay in sync. -->
+    <div
+      v-if="toolbarPosition === 'header'"
+      class="r-v2-plat__sticky-toolbar"
+      :class="{
+        'r-v2-plat__sticky-toolbar--has-strip': availableLetters.size > 0,
+        'r-v2-plat__sticky-toolbar--visible': stickyToolbarActive,
+      }"
+    >
+      <GalleryToolbar
+        :group-by="groupBy"
+        :layout="layout"
+        :position="toolbarPosition"
+        show-search
+        :search="searchInput"
+        search-placeholder="Filter this platform…"
+        @update:group-by="groupBy = $event"
+        @update:layout="layout = $event"
+        @update:search="setSearch"
+      />
+    </div>
 
     <!-- Floating toolbar — positioned outside the scroller so it stays put. -->
     <GalleryToolbar
@@ -590,6 +653,37 @@ const rowGridStyle = computed(() => ({
   color: var(--r-color-fg-faint);
   font-size: 13.5px;
   text-align: center;
+}
+
+/* Sticky toolbar — sits absolute over the top of the section, slides
+   down from above when the inline copy scrolls out of view. Glass tone
+   so the rows underneath read as scrolling beneath it. */
+.r-v2-plat__sticky-toolbar {
+  position: absolute;
+  top: 0;
+  left: var(--r-row-pad);
+  right: var(--r-row-pad);
+  z-index: 5;
+  padding: 12px 0;
+  background: color-mix(in srgb, var(--r-color-bg) 88%, transparent);
+  border-bottom: 1px solid var(--r-color-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transform: translateY(-110%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 240ms var(--r-motion-ease-out),
+    opacity 200ms var(--r-motion-ease-out);
+}
+.r-v2-plat__sticky-toolbar--has-strip {
+  /* Don't cover the AlphaStrip on the right (24px column + 12px margin). */
+  right: calc(var(--r-row-pad) + 36px);
+}
+.r-v2-plat__sticky-toolbar--visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 @media (max-width: 768px) {

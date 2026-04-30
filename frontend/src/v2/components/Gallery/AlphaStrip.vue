@@ -15,7 +15,7 @@ import { computed } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#".split("");
+const ALPHABET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 interface Props {
   available?: Set<string> | string[];

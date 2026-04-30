@@ -55,6 +55,10 @@ interface State {
   loadedWindows: Set<number>;
   pendingWindows: Set<number>;
   failedWindows: Set<number>;
+  /** In-flight ranged fetches keyed as `${offset}:${limit}` — separate
+   * from window-aligned fetches so the per-row dwell prefetch doesn't
+   * collide with the initial window load. */
+  pendingRanges: Set<string>;
   // True until the very first fetchWindow(0) resolves — view shows a
   // skeleton hero/skeleton rows during this phase.
   initialFetching: boolean;
@@ -76,6 +80,7 @@ const defaults = (): State => ({
   loadedWindows: new Set(),
   pendingWindows: new Set(),
   failedWindows: new Set(),
+  pendingRanges: new Set(),
   initialFetching: false,
   orderBy: "name",
   orderDir: "asc",
@@ -143,6 +148,7 @@ export default defineStore("v2GalleryRoms", {
       this.loadedWindows = new Set();
       this.pendingWindows = new Set();
       this.failedWindows = new Set();
+      this.pendingRanges = new Set();
       this.initialFetching = false;
     },
 
@@ -157,6 +163,7 @@ export default defineStore("v2GalleryRoms", {
       this.loadedWindows = new Set();
       this.pendingWindows = new Set();
       this.failedWindows = new Set();
+      this.pendingRanges = new Set();
       this.initialFetching = false;
     },
 
@@ -249,12 +256,18 @@ export default defineStore("v2GalleryRoms", {
         if (data.rom_id_index) this.romIdIndex = data.rom_id_index;
 
         // Place items at their absolute positions (offset .. offset + N).
+        // We rely on Vue 3's reactive Map: `set(k, v)` triggers per-key
+        // dependents. Earlier passes reassigned `this.byPosition` to a
+        // new Map after each window which DEFEATED that — every
+        // `getRomAt(p)` reader was invalidated, and the gallery
+        // virtualItems computed (which iterates positions) had to
+        // rebuild end-to-end on every window response. That blocked the
+        // event loop hard enough to freeze the scroller. Mutating in
+        // place keeps the dependents narrow: only positions that just
+        // resolved trigger a re-render.
         data.items.forEach((rom, idx) => {
           this.byPosition.set(offset + idx, rom);
         });
-        // Trigger reactivity for consumers using `byPosition` as a Map.
-        // Pinia's reactivity tracks Map.set so this should propagate.
-        this.byPosition = new Map(this.byPosition);
 
         this.loadedWindows.add(offset);
 
@@ -288,18 +301,65 @@ export default defineStore("v2GalleryRoms", {
       }
     },
 
-    /** Apply (in place) an updated ROM to whatever position currently
-     * holds it — used by edit / favourite / status flows. */
-    update(rom: SimpleRom) {
-      let changed = false;
-      for (const [pos, existing] of this.byPosition) {
-        if (existing.id === rom.id) {
-          this.byPosition.set(pos, rom);
-          changed = true;
+    /** Fetch an arbitrary `[offset, offset + limit)` range. Used by the
+     * per-row dwell prefetch in the gallery views — instead of always
+     * pulling the full 72-item window, a row asks for exactly its 8
+     * positions, so visible rows can resolve in parallel and the user
+     * sees covers stream in row-by-row.
+     *
+     * Skips the request when every position in the range is already
+     * loaded; dedupes concurrent identical requests by (offset, limit)
+     * key. The initial window — total / charIndex bootstrapping — still
+     * goes through `fetchWindowAt(0)`. */
+    async fetchRange(offset: number, limit: number): Promise<void> {
+      if (offset < 0 || limit <= 0) return;
+      const end =
+        this.total > 0 ? Math.min(offset + limit, this.total) : offset + limit;
+      const realLimit = end - offset;
+      if (realLimit <= 0) return;
+
+      // Skip if every position in the range is already known.
+      let allLoaded = true;
+      for (let p = offset; p < end; p++) {
+        if (!this.byPosition.has(p)) {
+          allLoaded = false;
           break;
         }
       }
-      if (changed) this.byPosition = new Map(this.byPosition);
+      if (allLoaded) return;
+
+      const key = `${offset}:${realLimit}`;
+      if (this.pendingRanges.has(key)) return;
+      this.pendingRanges.add(key);
+
+      const galleryFilter = storeGalleryFilter();
+      const params = this._buildRequestParams(galleryFilter, offset);
+      params.limit = realLimit;
+
+      try {
+        const response = await romApi.getRoms(params);
+        if (!this.pendingRanges.has(key)) return;
+        response.data.items.forEach((rom, idx) => {
+          this.byPosition.set(offset + idx, rom);
+        });
+      } catch (err) {
+        console.error("[v2GalleryRoms] range fetch failed", offset, limit, err);
+      } finally {
+        this.pendingRanges.delete(key);
+      }
+    },
+
+    /** Apply (in place) an updated ROM to whatever position currently
+     * holds it — used by edit / favourite / status flows. Mutating
+     * via `set(pos, rom)` on the reactive Map triggers only the
+     * dependents reading that specific position. */
+    update(rom: SimpleRom) {
+      for (const [pos, existing] of this.byPosition) {
+        if (existing.id === rom.id) {
+          this.byPosition.set(pos, rom);
+          return;
+        }
+      }
     },
 
     /** Drop ROMs by id (delete flow). Positions become "holes" — kept
@@ -307,14 +367,9 @@ export default defineStore("v2GalleryRoms", {
      * gaps. */
     remove(roms: SimpleRom[]) {
       const ids = new Set(roms.map((r) => r.id));
-      let changed = false;
       for (const [pos, existing] of this.byPosition) {
-        if (ids.has(existing.id)) {
-          this.byPosition.delete(pos);
-          changed = true;
-        }
+        if (ids.has(existing.id)) this.byPosition.delete(pos);
       }
-      if (changed) this.byPosition = new Map(this.byPosition);
     },
   },
 });

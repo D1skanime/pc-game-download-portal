@@ -1,34 +1,60 @@
-// useGalleryVirtualItems — turns the live gallery state (mode, total
-// count, char_index, loaded windows, columns) into a flat list of
-// `GalleryItem`s that an RVirtualScroller can render with one slot per
-// kind.
+// useGalleryVirtualItems — turns the gallery's structural state (mode,
+// total, charIndex, columns) into a flat list of `GalleryItem`s that an
+// RVirtualScroller can render with one slot per kind.
 //
-// Why a single list:
-//   * One scroll surface (no nested scrollbars) — hero, toolbar, content,
-//     load-more all flow together.
-//   * Virtualisation extends to libraries with thousands of ROMs without
-//     view-specific tuning.
+// Performance contract: this composable is STRUCTURAL — it only depends
+// on layout / groupBy / total / charIndex / columns / loadingInitial.
+// It does NOT read the loaded ROMs (`byPosition`). Per-row slot data is
+// resolved by the view at render time via `store.getRomAt(position)`,
+// which scopes Vue's reactivity to the specific row that holds the
+// resolved position. A window fetch that lands 72 ROMs only re-renders
+// up to ⌈72/cols⌉ rows, not the entire virtualItems array.
 //
-// Sparse rendering:
-//   Rows are built for every position 0..total-1, not only the loaded
-//   ROMs. Each row's slots either resolve to a real `SimpleRom` (via
-//   `getRomAt`) or fall back to a skeleton placeholder. The view drives
-//   window prefetches when a row carrying skeletons becomes visible —
-//   that's how scrolling fast or jumping via AlphaStrip stays smooth: the
-//   user sees a layout-stable skeleton grid, then cards stream in.
-//
-// AlphaStrip integration is index-based:
-//   `letterToIndex` maps each available letter to the index of its first
-//   item in `virtualItems`, fed straight into
-//   `RVirtualScroller.scrollToIndex(idx)`. `availableLetters` derives
-//   from the server's `charIndex` so every letter that exists in the
-//   gallery is clickable, even if its window hasn't been fetched yet.
+// AlphaStrip integration is index-based: `letterToIndex` maps each
+// available letter to the index of its first item in `virtualItems`,
+// fed straight into `RVirtualScroller.scrollToIndex(idx)`.
+// `availableLetters` derives from the server's `charIndex` so every
+// letter that exists in the gallery is clickable, even if its window
+// hasn't been fetched yet.
 import { computed, type ComputedRef, type Ref } from "vue";
-import type { SimpleRom } from "@/stores/roms";
 import type { GroupByMode, LayoutMode } from "../useGalleryMode";
-import type { GalleryItem, GallerySlot } from "./types";
+import type { GalleryItem } from "./types";
 
-export type { GalleryItem, GalleryItemKind, GallerySlot } from "./types";
+export type { GalleryItem, GalleryItemKind } from "./types";
+
+// Height table per item kind. Drives the virtualiser's exact-offset
+// math, so AlphaStrip jumps land precisely on target rows. Values match
+// the rendered geometry in the gallery views' CSS:
+//   * row / skeleton-row: 213px cover + 7px gap + 16px label + 18px
+//     bottom-padding = 254.
+//   * letter-header: 20px top + 16px text + 12px bottom = 48 (rounded
+//     up to 56 for breathing room).
+//   * hero: InfoPanel ≈ 200px content + 28px top + 28px bottom + 12px
+//     bottom margin = 268 (rounded to 280).
+//   * toolbar: 56px control row + 8px breathing.
+//   * load-more / empty: matches the rendered button / centered text.
+//   * list-table: deliberately oversized — it's the only natural-flow
+//     item, sits at the bottom of the list, and the inner RTable owns
+//     its own paging height. We just need a value > the page's content
+//     so subsequent items (none in list mode) don't overlap.
+const HEIGHT_BY_KIND: Record<GalleryItem["kind"], number> = {
+  hero: 280,
+  toolbar: 64,
+  "letter-header": 56,
+  row: 254,
+  "skeleton-row": 254,
+  "list-table": 1200,
+  "load-more": 80,
+  empty: 240,
+};
+
+// Signature matches RVirtualScroller's `getItemHeight` prop (which uses
+// `unknown` for items because the primitive is generic). Internally
+// narrows back to GalleryItem — the caller is always passing items
+// produced by `useGalleryVirtualItems`, so the cast is safe.
+export function galleryItemHeight(item: unknown): number {
+  return HEIGHT_BY_KIND[(item as GalleryItem).kind];
+}
 
 interface Options {
   /** Render hero (InfoPanel / PageHeader) as the first item. */
@@ -43,13 +69,6 @@ interface Options {
    * lowercase / digits — `availableLetters` and the row letter sets
    * normalise to AlphaStrip's bucket shape. */
   charIndex: Ref<Record<string, number>> | ComputedRef<Record<string, number>>;
-  /** Lookup function — returns null when the position's window hasn't
-   * been fetched. */
-  getRomAt: (position: number) => SimpleRom | null;
-  /** Tracking ref so this composable re-runs when loaded windows change.
-   * Pass any reactive value the consumer mutates per fetch (e.g.
-   * `store.byPosition` or `store.loadedWindows.size`). */
-  loadedTick: Ref<unknown> | ComputedRef<unknown>;
   /** Current column count for grid modes (responsive). */
   columns: Ref<number> | ComputedRef<number>;
   /** True while the very first window is in flight (no `total` yet). */
@@ -113,25 +132,6 @@ function lettersInRange(
   return out;
 }
 
-function buildSlots(
-  startPos: number,
-  endPos: number,
-  getRomAt: (p: number) => SimpleRom | null,
-): { slots: GallerySlot[]; hasMissing: boolean } {
-  const slots: GallerySlot[] = [];
-  let hasMissing = false;
-  for (let p = startPos; p < endPos; p++) {
-    const rom = getRomAt(p);
-    if (rom) {
-      slots.push({ kind: "rom", position: p, rom });
-    } else {
-      slots.push({ kind: "skeleton", position: p });
-      hasMissing = true;
-    }
-  }
-  return { slots, hasMissing };
-}
-
 export function useGalleryVirtualItems(opts: Options) {
   const skeletonRows = opts.skeletonRowCount ?? 4;
 
@@ -140,9 +140,6 @@ export function useGalleryVirtualItems(opts: Options) {
   );
 
   const virtualItems = computed<GalleryItem[]>(() => {
-    // Reading `loadedTick` forces re-evaluation when windows load.
-    void opts.loadedTick.value;
-
     const items: GalleryItem[] = [];
 
     if (opts.hasHero.value) items.push({ kind: "hero", key: "hero" });
@@ -201,20 +198,13 @@ export function useGalleryVirtualItems(opts: Options) {
         for (let r = 0; r < rowsInGroup; r++) {
           const rowStart = range.start + r * cols;
           const rowEnd = Math.min(rowStart + cols, range.end);
-          const { slots, hasMissing } = buildSlots(
-            rowStart,
-            rowEnd,
-            opts.getRomAt,
-          );
           items.push({
             kind: "row",
             key: `row-${range.letter}-${r}`,
             rowIndex: r,
             startPosition: rowStart,
             endPosition: rowEnd,
-            slots,
             letters: [range.letter],
-            hasMissing,
           });
         }
       }
@@ -224,20 +214,13 @@ export function useGalleryVirtualItems(opts: Options) {
       for (let r = 0; r < totalRows; r++) {
         const rowStart = r * cols;
         const rowEnd = Math.min(rowStart + cols, total);
-        const { slots, hasMissing } = buildSlots(
-          rowStart,
-          rowEnd,
-          opts.getRomAt,
-        );
         items.push({
           kind: "row",
           key: `row-flat-${r}`,
           rowIndex: r,
           startPosition: rowStart,
           endPosition: rowEnd,
-          slots,
           letters: lettersInRange(ranges, rowStart, rowEnd),
-          hasMissing,
         });
       }
     }
