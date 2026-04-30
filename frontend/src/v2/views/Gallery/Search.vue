@@ -43,12 +43,13 @@ onMounted(async () => {
   <GalleryShell
     ref="shellRef"
     :has-hero="true"
+    :hero-height="86"
     search-placeholder="Search by name, filename, hash…"
     :empty-message="emptyMessage"
     :skeleton-row-count="4"
   >
     <template #hero>
-      <PageHeader title="Search">
+      <PageHeader title="Search" bottom-border>
         <template #count>
           <RChip
             v-if="initialSearch && !initialFetching"

@@ -11,13 +11,20 @@ withDefaults(
   defineProps<{
     title: string;
     count?: number | string | null;
+    /** Render a hairline below the header. Off by default; gallery
+     * heroes opt in to match `InfoPanel`'s divider styling. */
+    bottomBorder?: boolean;
   }>(),
-  { count: null },
+  { count: null, bottomBorder: false },
 );
 </script>
 
 <template>
-  <header v-bind="$attrs" class="page-header">
+  <header
+    v-bind="$attrs"
+    class="page-header"
+    :class="{ 'page-header--with-border': bottomBorder }"
+  >
     <div class="page-header__title-wrap">
       <h1 class="page-header__title">
         {{ title }}
@@ -36,6 +43,15 @@ withDefaults(
   align-items: baseline;
   gap: var(--r-space-3);
   margin-bottom: 24px;
+}
+
+/* Mirrors `InfoPanel`'s divider treatment: hairline + a smaller margin
+   below it so successive content (e.g., a gallery toolbar) reads as
+   anchored to the header. */
+.page-header--with-border {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--r-color-border);
+  margin-bottom: 12px;
 }
 
 .page-header__title-wrap {

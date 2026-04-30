@@ -57,6 +57,12 @@ interface Props {
   showPlatformBadge?: boolean;
   /** Skeleton row count painted while the very first window is loading. */
   skeletonRowCount?: number;
+  /** Hero item's height in pixels. Drives the virtualizer's offset
+   * table — too small and the toolbar starts before the hero ends; too
+   * large and there's a gap. Defaults to 280 (matches `InfoPanel` with
+   * a 148px platform/collection cover). Search uses a smaller value
+   * (just the title row + divider). */
+  heroHeight?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -64,6 +70,7 @@ const props = withDefaults(defineProps<Props>(), {
   notFoundMessage: undefined,
   showPlatformBadge: true,
   skeletonRowCount: 4,
+  heroHeight: 280,
 });
 
 defineSlots<{
@@ -290,13 +297,24 @@ const loadedRoms = computed(() => {
 // virtualizer's scrollTop until the toolbar's natural offset crosses
 // y=0, then pins. While pinned, the virtualizer is clipped at the
 // toolbar's height so card rows never paint behind it.
+// Wrap `galleryItemHeight` so the hero kind picks up the per-view
+// `heroHeight` prop. Used both by the virtualizer (via `getItemHeight`)
+// and by the toolbar offset math below — they MUST agree, otherwise
+// the toolbar pin threshold drifts away from where the hero actually
+// ends.
+const itemHeightOf = (item: unknown): number => {
+  const it = item as GalleryItem;
+  if (it.kind === "hero") return props.heroHeight;
+  return galleryItemHeight(it);
+};
+
 const toolbarHeightPx = galleryItemHeight({ kind: "toolbar", key: "" });
 const toolbarOffsetPx = computed(() => {
   const items = virtualItems.value;
   let sum = 0;
   for (let i = 0; i < items.length; i++) {
     if (items[i].kind === "toolbar") return sum;
-    sum += galleryItemHeight(items[i]);
+    sum += itemHeightOf(items[i]);
   }
   return -1;
 });
@@ -385,7 +403,7 @@ defineExpose({
     <RVirtualScroller
       ref="scrollerRef"
       :items="virtualItems"
-      :get-item-height="galleryItemHeight"
+      :get-item-height="itemHeightOf"
       :overscan="25"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       :class="{ 'r-v2-shell__scroller--toolbar-stuck': toolbarStuck }"
@@ -400,11 +418,11 @@ defineExpose({
 
           <!-- Toolbar slot — empty placeholder. Actual GalleryToolbar
                lives outside the virtualizer (see overlay below). -->
-          <div
+          <!-- <div
             v-else-if="itemKind(item as GalleryItem) === 'toolbar'"
             class="r-v2-shell__toolbar-spacer"
             aria-hidden="true"
-          />
+          /> -->
 
           <div
             v-else-if="itemKind(item as GalleryItem) === 'letter-header'"
@@ -575,11 +593,6 @@ defineExpose({
 }
 .r-v2-shell__toolbar--has-strip {
   right: calc(var(--r-row-pad) + 36px);
-}
-.r-v2-shell__toolbar--stuck {
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-bottom: 1px solid var(--r-color-border);
 }
 
 .r-v2-shell__scroller--toolbar-stuck {

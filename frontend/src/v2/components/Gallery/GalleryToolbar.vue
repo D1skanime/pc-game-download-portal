@@ -1,8 +1,6 @@
 <script setup lang="ts">
 // GalleryToolbar — the "how should I see these games?" control strip for
-// Platform / Collection / Search views. Optional search field on the left
-// and two RSliderBtnGroup clusters (GroupBy + Layout) + kebab mirror on the
-// right.
+// Platform / Collection / Search views.
 //
 // Controlled externally via `useGalleryMode()`; the parent passes the refs
 // in so this stays presentational.
