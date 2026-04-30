@@ -19,6 +19,7 @@ import { GameCard, GameCardSkeleton } from "@/v2/components/Gallery/GameCard";
 import GameList from "@/v2/components/Gallery/GameList.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
+import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import {
   useGalleryVirtualItems,
@@ -34,6 +35,7 @@ const route = useRoute();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
 const scrollRestoration = storeScrollRestoration();
+useGalleryFilterUrl();
 const { supportsWebp } = useWebpSupport();
 
 const { total, charIndex, byPosition, initialFetching } =

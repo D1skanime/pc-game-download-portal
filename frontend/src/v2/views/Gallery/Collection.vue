@@ -26,6 +26,7 @@ import { GameCard, GameCardSkeleton } from "@/v2/components/Gallery/GameCard";
 import GameList from "@/v2/components/Gallery/GameList.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
+import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import {
   useGalleryVirtualItems,
@@ -45,6 +46,7 @@ const collectionsStore = storeCollections();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
 const scrollRestoration = storeScrollRestoration();
+useGalleryFilterUrl();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const { supportsWebp, toWebp } = useWebpSupport();
 
@@ -296,7 +298,8 @@ watch(virtualItems, () => nextTick().then(setupSpy));
 
 onBeforeUnmount(() => {
   if (searchDebounce) clearTimeout(searchDebounce);
-  searchTerm.value = null;
+  // `searchTerm` is owned by `useGalleryFilterUrl` — do not clear it
+  // here; the next gallery view's mount re-applies its own URL.
   teardownSpy();
 });
 
