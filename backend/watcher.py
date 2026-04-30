@@ -1,5 +1,6 @@
 import enum
 import fnmatch
+import glob
 import json
 import os
 from collections.abc import Sequence
@@ -49,7 +50,8 @@ sentry_sdk.init(
 )
 tracer = trace.get_tracer(__name__)
 
-structure_level = 2 if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH) else 1
+_cfg = cm.get_config()
+structure_level = 1 if glob.glob(_cfg.STRUCTURE_PATH_B) else 2
 
 
 @enum.unique

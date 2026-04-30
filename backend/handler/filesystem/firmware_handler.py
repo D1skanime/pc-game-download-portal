@@ -1,4 +1,5 @@
 import binascii
+import glob
 import hashlib
 import os
 
@@ -17,9 +18,9 @@ class FSFirmwareHandler(FSHandler):
     def get_firmware_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
         return (
-            f"{cnfg.FIRMWARE_FOLDER_NAME}/{fs_slug}"
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else f"{fs_slug}/{cnfg.FIRMWARE_FOLDER_NAME}"
+            f"{fs_slug}/{cnfg.FIRMWARE_FOLDER_NAME}"
+            if glob.glob(cnfg.STRUCTURE_PATH_B)
+            else f"{cnfg.FIRMWARE_FOLDER_NAME}/{fs_slug}"
         )
 
     async def get_firmware(self, platform_fs_slug: str):

@@ -114,7 +114,8 @@ class Config:
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
     SKIP_HASH_CALCULATION: bool
-    HIGH_PRIO_STRUCTURE_PATH: str
+    STRUCTURE_PATH_A: str
+    STRUCTURE_PATH_B: str
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
@@ -133,7 +134,8 @@ class Config:
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
-        self.HIGH_PRIO_STRUCTURE_PATH = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}"
+        self.STRUCTURE_PATH_A = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}/*"
+        self.STRUCTURE_PATH_B = f"{LIBRARY_BASE_PATH}/*/{self.ROMS_FOLDER_NAME}"
 
 
 class ConfigManager:
