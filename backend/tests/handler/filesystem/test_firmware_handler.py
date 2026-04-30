@@ -143,33 +143,26 @@ class TestFSFirmwareHandler:
     ):
         """Test that firmware paths are constructed correctly for Structure A"""
         platform_fs_slug = "n64"
+        config.has_structure_b = False
 
         with patch(
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config
         ):
-            with patch(
-                "handler.filesystem.firmware_handler.glob.glob", return_value=[]
-            ):
-                path = handler.get_firmware_fs_structure(platform_fs_slug)
-                assert path == f"{config.FIRMWARE_FOLDER_NAME}/{platform_fs_slug}"
+            path = handler.get_firmware_fs_structure(platform_fs_slug)
+            assert path == f"{config.FIRMWARE_FOLDER_NAME}/{platform_fs_slug}"
 
     def test_firmware_path_construction_structure_b(
         self, handler: FSFirmwareHandler, config
     ):
         """Test that firmware paths are constructed correctly for Structure B"""
         platform_fs_slug = "n64"
+        config.has_structure_b = True
 
         with patch(
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config
         ):
-            with patch(
-                "handler.filesystem.firmware_handler.glob.glob",
-                return_value=[
-                    f"{LIBRARY_BASE_PATH}/{platform_fs_slug}/{config.ROMS_FOLDER_NAME}"
-                ],
-            ):
-                path = handler.get_firmware_fs_structure(platform_fs_slug)
-                assert path == f"{platform_fs_slug}/{config.FIRMWARE_FOLDER_NAME}"
+            path = handler.get_firmware_fs_structure(platform_fs_slug)
+            assert path == f"{platform_fs_slug}/{config.FIRMWARE_FOLDER_NAME}"
 
     async def test_multiple_platform_handling(self, handler: FSFirmwareHandler, config):
         """Test handling of different platform slugs"""

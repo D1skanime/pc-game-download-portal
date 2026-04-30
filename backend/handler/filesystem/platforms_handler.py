@@ -1,4 +1,3 @@
-import glob
 import os
 
 from anyio import Path as AnyioPath
@@ -63,7 +62,7 @@ class FSPlatformsHandler(FSHandler):
         cnfg = cm.get_config()
 
         # Fallback to config hint when detection is inconclusive
-        return "" if glob.glob(cnfg.STRUCTURE_PATH_B) else cnfg.ROMS_FOLDER_NAME
+        return "" if cnfg.has_structure_b else cnfg.ROMS_FOLDER_NAME
 
     def get_platform_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
@@ -71,7 +70,7 @@ class FSPlatformsHandler(FSHandler):
         # Fallback to config hint when detection is inconclusive
         return (
             f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
-            if glob.glob(cnfg.STRUCTURE_PATH_B)
+            if cnfg.has_structure_b
             else f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
         )
 

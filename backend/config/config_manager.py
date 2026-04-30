@@ -1,4 +1,6 @@
 import enum
+import functools
+import glob
 import json
 import os
 import sys
@@ -136,6 +138,14 @@ class Config:
         self.__dict__.update(entries)
         self.STRUCTURE_PATH_A = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}/*"
         self.STRUCTURE_PATH_B = f"{LIBRARY_BASE_PATH}/*/{self.ROMS_FOLDER_NAME}"
+
+    @functools.cached_property
+    def has_structure_b(self) -> bool:
+        """True when any `<library>/<platform>/<roms>/` directory exists."""
+        for match in glob.iglob(self.STRUCTURE_PATH_B):
+            if os.path.isdir(match):
+                return True
+        return False
 
 
 class ConfigManager:

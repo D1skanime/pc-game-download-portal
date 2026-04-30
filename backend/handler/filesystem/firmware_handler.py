@@ -1,5 +1,4 @@
 import binascii
-import glob
 import hashlib
 import os
 
@@ -19,7 +18,7 @@ class FSFirmwareHandler(FSHandler):
         cnfg = cm.get_config()
         return (
             f"{fs_slug}/{cnfg.FIRMWARE_FOLDER_NAME}"
-            if glob.glob(cnfg.STRUCTURE_PATH_B)
+            if cnfg.has_structure_b
             else f"{cnfg.FIRMWARE_FOLDER_NAME}/{fs_slug}"
         )
 

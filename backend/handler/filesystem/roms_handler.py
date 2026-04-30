@@ -1,7 +1,6 @@
 import binascii
 import bz2
 import fnmatch
-import glob
 import hashlib
 import os
 import re
@@ -315,7 +314,7 @@ class FSRomsHandler(FSHandler):
         cnfg = cm.get_config()
         return (
             f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
-            if glob.glob(cnfg.STRUCTURE_PATH_B)
+            if cnfg.has_structure_b
             else f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
         )
 
