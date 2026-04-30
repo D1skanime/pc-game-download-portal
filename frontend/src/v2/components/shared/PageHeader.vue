@@ -4,6 +4,11 @@
 // Settings — future). Pass `count` for the plain "24" dim-grey span;
 // use the `#count` slot when you want a chip or richer content instead.
 // Default slot sits at the end of the header (filters, actions, etc.).
+//
+// No divider here — when used as a gallery hero (Search), the gallery
+// shell paints the divider between hero and toolbar so the three
+// gallery views (Platform / Collection / Search) share one separator
+// regardless of which header sits above it.
 
 defineOptions({ inheritAttrs: false });
 
@@ -11,20 +16,13 @@ withDefaults(
   defineProps<{
     title: string;
     count?: number | string | null;
-    /** Render a hairline below the header. Off by default; gallery
-     * heroes opt in to match `InfoPanel`'s divider styling. */
-    bottomBorder?: boolean;
   }>(),
-  { count: null, bottomBorder: false },
+  { count: null },
 );
 </script>
 
 <template>
-  <header
-    v-bind="$attrs"
-    class="page-header"
-    :class="{ 'page-header--with-border': bottomBorder }"
-  >
+  <header v-bind="$attrs" class="page-header">
     <div class="page-header__title-wrap">
       <h1 class="page-header__title">
         {{ title }}
@@ -42,16 +40,12 @@ withDefaults(
   display: flex;
   align-items: baseline;
   gap: var(--r-space-3);
-  margin-bottom: 24px;
-}
-
-/* Mirrors `InfoPanel`'s divider treatment: hairline + a smaller margin
-   below it so successive content (e.g., a gallery toolbar) reads as
-   anchored to the header. */
-.page-header--with-border {
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--r-color-border);
-  margin-bottom: 12px;
+  /* Breathing below the title is `padding-bottom` (not margin) so it
+     counts in `getBoundingClientRect().height` — the gallery shell
+     auto-measures the hero slot to position the toolbar's divider, and
+     a margin-bottom would collapse out of that measurement. Visually
+     identical for non-gallery consumers (PlatformsIndex etc). */
+  padding-bottom: 24px;
 }
 
 .page-header__title-wrap {

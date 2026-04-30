@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Search — global ROM search. Thin orchestrator: clears any prior
-// gallery scope, kicks the initial fetch, and provides a PageHeader
-// hero. Everything else lives in `GalleryShell`.
+// gallery scope, kicks the initial fetch, and fills the shell's
+// `#header` slot with a PageHeader. Everything else lives in
+// `GalleryShell`.
 import { RChip } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref } from "vue";
@@ -42,14 +43,15 @@ onMounted(async () => {
 <template>
   <GalleryShell
     ref="shellRef"
-    :has-hero="true"
-    :hero-height="86"
+    :has-header="true"
     search-placeholder="Search by name, filename, hash…"
     :empty-message="emptyMessage"
     :skeleton-row-count="4"
   >
-    <template #hero>
-      <PageHeader title="Search" bottom-border>
+    <!-- HEADER (Section 1) — title + result-count chip. The shell
+         auto-measures this slot; no need to declare a height. -->
+    <template #header>
+      <PageHeader title="Search">
         <template #count>
           <RChip
             v-if="initialSearch && !initialFetching"
@@ -62,9 +64,9 @@ onMounted(async () => {
       </PageHeader>
     </template>
 
-    <!-- Boxed empty state shown when a search resolves with no hits.
-         Falls back to the shell's plain text message when there's no
-         active query (e.g., before the user types anything). -->
+    <!-- EMPTY STATE — boxed illustration when a search resolves with
+         no hits. Falls back to the shell's plain text otherwise (e.g.
+         before the user types). -->
     <template #empty="{ message }">
       <EmptyState
         v-if="showStandaloneEmpty"

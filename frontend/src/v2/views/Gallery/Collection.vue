@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Collection gallery — thin orchestrator around `GalleryShell`. Owns
-// the regular/virtual/smart collection load flow and provides the
-// CollectionMosaic-fronted InfoPanel hero.
+// the regular/virtual/smart collection load flow and fills the shell's
+// `#header` slot with a CollectionMosaic-fronted InfoPanel.
 import { RChip } from "@v2/lib";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
@@ -135,14 +135,19 @@ watch(
 <template>
   <GalleryShell
     ref="shellRef"
-    :has-hero="!!currentCollection"
+    :has-header="!!currentCollection"
     search-placeholder="Filter this collection…"
     empty-message="This collection is empty."
     :not-found="notFound"
     not-found-message="Collection not found."
     :skeleton-row-count="4"
   >
-    <template #hero>
+    <!-- HEADER (Section 1) — collection InfoPanel: 4-cover mosaic +
+         eyebrow ("Collection" / "Virtual collection" / "Smart
+         collection") + name + optional description chip + ROM count.
+         Shell auto-measures the slot's height, so the toolbar's natural
+         offset matches the InfoPanel's rendered bottom edge. -->
+    <template #header>
       <InfoPanel v-if="currentCollection" :title="currentCollection.name">
         <template #cover>
           <div

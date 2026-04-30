@@ -1,10 +1,10 @@
 <script setup lang="ts">
 // Platform gallery — thin orchestrator around `GalleryShell`. Owns the
 // platform-specific load flow (route param → ensure platforms loaded →
-// setCurrentPlatform → fetchWindowAt(0)) and provides the InfoPanel
-// hero. Everything else (virtualizer, toolbar, AlphaStrip, dwell,
-// scroll restoration, list mode) lives in the shell so any cross-view
-// fix lands once for all three views.
+// setCurrentPlatform → fetchWindowAt(0)) and fills the shell's
+// `#header` slot with an InfoPanel. Everything else (virtualizer,
+// toolbar, AlphaStrip, dwell, scroll restoration, list mode) lives in
+// the shell so any cross-view fix lands once for all three views.
 import { RChip, RPlatformIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
@@ -107,7 +107,7 @@ watch(
 <template>
   <GalleryShell
     ref="shellRef"
-    :has-hero="!!currentPlatform"
+    :has-header="!!currentPlatform"
     :search-placeholder="'Filter this platform…'"
     empty-message="No games in this platform yet."
     :not-found="notFound"
@@ -115,7 +115,12 @@ watch(
     :show-platform-badge="false"
     :skeleton-row-count="4"
   >
-    <template #hero>
+    <!-- HEADER (Section 1) — platform InfoPanel: icon + name + stats
+         (rom count, on-disk size, firmware count) + category / family /
+         generation chips. The shell measures this slot's height
+         automatically so the toolbar's natural offset always matches
+         the InfoPanel's actual rendered bottom edge. -->
+    <template #header>
       <InfoPanel v-if="currentPlatform" :title="currentPlatform.display_name">
         <template #cover>
           <div

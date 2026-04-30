@@ -1,26 +1,31 @@
 <script setup lang="ts">
-// InfoPanel — hero strip at the top of Platform / Collection gallery pages
-// (matches the artist mockup's `.plat-info-panel`). Feature composite
-// around Stat, chips, and callsite-provided cover art.
+// InfoPanel — hero strip at the top of Platform / Collection gallery
+// pages (matches the artist mockup's `.plat-info-panel`). Feature
+// composite around Stat, chips, and callsite-provided cover art.
 //
 // Slots: cover, eyebrow, title (defaults to `title` prop), tags, stats,
-// actions. `bottom-border` toggles the divider below.
+// actions.
+//
+// IMPORTANT — no divider here. The gallery shell owns the divider
+// between the hero (header) and the toolbar so all three views
+// (Platform / Collection / Search) get the same separator regardless
+// of which header they render. The InfoPanel just provides the inner
+// content and its own padding for breathing.
 
 defineOptions({ inheritAttrs: false });
 
-interface Props {
-  title?: string;
-  bottomBorder?: boolean;
-}
-
-withDefaults(defineProps<Props>(), {
-  title: undefined,
-  bottomBorder: true,
-});
+withDefaults(
+  defineProps<{
+    title?: string;
+  }>(),
+  {
+    title: undefined,
+  },
+);
 </script>
 
 <template>
-  <div class="info-panel" :class="{ 'info-panel--no-border': !bottomBorder }">
+  <div class="info-panel">
     <div class="info-panel__cover">
       <slot name="cover" />
     </div>
@@ -50,12 +55,6 @@ withDefaults(defineProps<Props>(), {
   align-items: center;
   gap: 40px;
   padding: 28px 0;
-  border-bottom: 1px solid var(--r-color-border);
-  margin-bottom: 12px;
-}
-
-.info-panel--no-border {
-  border-bottom: 0;
 }
 
 .info-panel__cover {

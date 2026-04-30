@@ -39,7 +39,12 @@ export type { GalleryItem, GalleryItemKind } from "./types";
 //     so subsequent items (none in list mode) don't overlap.
 const HEIGHT_BY_KIND: Record<GalleryItem["kind"], number> = {
   hero: 280,
-  toolbar: 64,
+  // Toolbar's reserved offset includes ~32px of breathing space below
+  // the rendered toolbar so the grid doesn't sit flush against it.
+  // The clip-path while stuck uses this same value so content is
+  // hidden from y=0 down to here, keeping the gap consistent in both
+  // states.
+  toolbar: 88,
   "letter-header": 56,
   row: 254,
   "skeleton-row": 254,
