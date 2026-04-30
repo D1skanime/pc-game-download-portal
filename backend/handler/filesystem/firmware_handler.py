@@ -1,6 +1,5 @@
 import binascii
 import hashlib
-import os
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
