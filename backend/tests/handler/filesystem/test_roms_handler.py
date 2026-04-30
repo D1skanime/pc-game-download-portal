@@ -105,7 +105,7 @@ class TestFSRomsHandler:
     def test_get_roms_fs_structure_structure_b(self, handler: FSRomsHandler):
         """Test get_roms_fs_structure with Structure B ({platform}/roms)"""
         fs_slug = "n64"
-        cfg = Config(
+        cnfg = Config(
             EXCLUDED_PLATFORMS=[],
             EXCLUDED_SINGLE_EXT=[],
             EXCLUDED_SINGLE_FILES=[],
@@ -117,10 +117,10 @@ class TestFSRomsHandler:
             ROMS_FOLDER_NAME="roms",
             FIRMWARE_FOLDER_NAME="bios",
         )
-        cfg.has_structure_path_b = True
+        cnfg.has_structure_path_b = True
 
         with pytest.MonkeyPatch.context() as m:
-            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cfg)
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
 
             result = handler.get_roms_fs_structure(fs_slug)
             assert result == f"{fs_slug}/roms"
@@ -128,7 +128,7 @@ class TestFSRomsHandler:
     def test_get_roms_fs_structure_structure_a(self, handler: FSRomsHandler):
         """Test get_roms_fs_structure with Structure A (roms/{platform})"""
         fs_slug = "n64"
-        cfg = Config(
+        cnfg = Config(
             EXCLUDED_PLATFORMS=[],
             EXCLUDED_SINGLE_EXT=[],
             EXCLUDED_SINGLE_FILES=[],
@@ -140,10 +140,10 @@ class TestFSRomsHandler:
             ROMS_FOLDER_NAME="roms",
             FIRMWARE_FOLDER_NAME="bios",
         )
-        cfg.has_structure_path_b = False
+        cnfg.has_structure_path_b = False
 
         with pytest.MonkeyPatch.context() as m:
-            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cfg)
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
 
             result = handler.get_roms_fs_structure(fs_slug)
             assert result == f"roms/{fs_slug}"

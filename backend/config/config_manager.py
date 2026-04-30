@@ -137,8 +137,8 @@ class Config:
 
     @functools.cached_property
     def has_structure_path_b(self) -> bool:
-        """True when any `<library>/<platform>/<roms>/` directory exists."""
         try:
+            # Check for structure path B
             for match in glob.iglob(f"{LIBRARY_BASE_PATH}/*/{self.ROMS_FOLDER_NAME}"):
                 if os.path.isdir(match):
                     return True
