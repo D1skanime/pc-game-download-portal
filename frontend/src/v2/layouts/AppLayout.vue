@@ -28,16 +28,32 @@ const layerA = ref<string | null>(null);
 const layerB = ref<string | null>(null);
 const activeLayer = ref<"a" | "b">("a");
 
+// Dwell before applying a backdrop swap. Without it, dragging the cursor
+// across the gallery would trigger one cross-fade per card and the
+// 700ms fades collide as flashes; the latest call wins after the dwell.
+const BG_HOVER_DWELL_MS = 80;
+let bgTimer: ReturnType<typeof setTimeout> | null = null;
+
 function setBackgroundArt(url: string | null) {
-  if (activeLayer.value === "a") {
-    if (layerA.value === url) return;
-    layerB.value = url;
-    activeLayer.value = "b";
-  } else {
-    if (layerB.value === url) return;
-    layerA.value = url;
-    activeLayer.value = "a";
+  const current = activeLayer.value === "a" ? layerA.value : layerB.value;
+  if (current === url) {
+    if (bgTimer !== null) {
+      clearTimeout(bgTimer);
+      bgTimer = null;
+    }
+    return;
   }
+  if (bgTimer !== null) clearTimeout(bgTimer);
+  bgTimer = setTimeout(() => {
+    bgTimer = null;
+    if (activeLayer.value === "a") {
+      layerB.value = url;
+      activeLayer.value = "b";
+    } else {
+      layerA.value = url;
+      activeLayer.value = "a";
+    }
+  }, BG_HOVER_DWELL_MS);
 }
 provide(BACKGROUND_ART_KEY, setBackgroundArt);
 
@@ -60,13 +76,15 @@ onMounted(() => {
 onBeforeUnmount(() => {
   removeBackMorph?.();
   removeBackMorph = null;
+  if (bgTimer !== null) {
+    clearTimeout(bgTimer);
+    bgTimer = null;
+  }
 });
 </script>
 
 <template>
   <div class="r-v2-shell">
-    <a href="#r-v2-main" class="r-v2-skip-link">Skip to main content</a>
-
     <BackgroundArt
       :layer-a="layerA"
       :layer-b="layerB"
@@ -105,28 +123,5 @@ onBeforeUnmount(() => {
   position: relative;
   overflow-x: hidden;
   outline: none;
-}
-
-/* Skip link — stays off-screen until focused via keyboard, then lands in
-   the top-left as an always-on-top focusable anchor. */
-.r-v2-skip-link {
-  position: absolute;
-  top: 6px;
-  left: -200px;
-  z-index: 9999;
-  padding: 8px 14px;
-  border-radius: var(--r-radius-pill);
-  background: var(--r-color-brand-primary);
-  color: var(--r-color-overlay-fg);
-  font-size: 13px;
-  font-weight: var(--r-font-weight-semibold);
-  text-decoration: none;
-  transition: left var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-skip-link:focus,
-.r-v2-skip-link:focus-visible {
-  left: 12px;
-  outline: 2px solid var(--r-color-overlay-fg);
-  outline-offset: 2px;
 }
 </style>
