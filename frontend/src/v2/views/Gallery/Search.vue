@@ -276,13 +276,27 @@ const showStandaloneEmpty = computed(
   () => !initialFetching.value && total.value === 0 && !!searchTerm.value,
 );
 
-// Sticky toolbar — see Platform.vue. Threshold roughly clears the
-// PageHeader.
-const STICKY_TRIGGER_PX = 140;
-const stickyToolbarActive = computed(() => {
-  if (toolbarPosition.value !== "header") return false;
+// Toolbar overlay — see Platform.vue for the architecture.
+const toolbarHeightPx = galleryItemHeight({ kind: "toolbar", key: "" });
+const toolbarOffsetPx = computed(() => {
+  const items = virtualItems.value;
+  let sum = 0;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].kind === "toolbar") return sum;
+    sum += galleryItemHeight(items[i]);
+  }
+  return -1;
+});
+const toolbarTopPx = computed(() => {
+  const offset = toolbarOffsetPx.value;
+  if (offset < 0) return 0;
   const top = scrollerRef.value?.scrollTop ?? 0;
-  return top > STICKY_TRIGGER_PX;
+  return Math.max(0, offset - top);
+});
+const toolbarStuck = computed(() => {
+  const offset = toolbarOffsetPx.value;
+  if (offset < 0) return false;
+  return (scrollerRef.value?.scrollTop ?? 0) >= offset;
 });
 </script>
 
@@ -294,6 +308,8 @@ const stickyToolbarActive = computed(() => {
       :get-item-height="galleryItemHeight"
       :overscan="25"
       class="r-v2-search__scroller r-v2-scroll-hidden"
+      :class="{ 'r-v2-search__scroller--toolbar-stuck': toolbarStuck }"
+      :style="{ '--r-v2-search-toolbar-h': `${toolbarHeightPx}px` }"
       @update:viewport-range="onViewportRangeChange"
     >
       <template #default="{ item }">
@@ -312,17 +328,10 @@ const stickyToolbarActive = computed(() => {
             </PageHeader>
           </template>
 
-          <GalleryToolbar
+          <div
             v-else-if="itemKind(item as GalleryItem) === 'toolbar'"
-            :group-by="groupBy"
-            :layout="layout"
-            :position="toolbarPosition"
-            show-search
-            :search="searchInput"
-            search-placeholder="Search by name, filename, hash…"
-            @update:group-by="groupBy = $event"
-            @update:layout="layout = $event"
-            @update:search="setSearch"
+            class="r-v2-search__toolbar-spacer"
+            aria-hidden="true"
           />
 
           <div
@@ -388,21 +397,14 @@ const stickyToolbarActive = computed(() => {
       </template>
     </RVirtualScroller>
 
-    <AlphaStrip
-      v-if="availableLetters.size > 0"
-      :available="availableLetters"
-      :current="currentLetter"
-      :visible="visibleLettersSet"
-      @pick="scrollToLetter"
-    />
-
     <div
       v-if="toolbarPosition === 'header'"
-      class="r-v2-search__sticky-toolbar"
+      class="r-v2-search__toolbar"
       :class="{
-        'r-v2-search__sticky-toolbar--has-strip': availableLetters.size > 0,
-        'r-v2-search__sticky-toolbar--visible': stickyToolbarActive,
+        'r-v2-search__toolbar--has-strip': availableLetters.size > 0,
+        'r-v2-search__toolbar--stuck': toolbarStuck,
       }"
+      :style="{ top: toolbarTopPx + 'px' }"
     >
       <GalleryToolbar
         :group-by="groupBy"
@@ -416,6 +418,14 @@ const stickyToolbarActive = computed(() => {
         @update:search="setSearch"
       />
     </div>
+
+    <AlphaStrip
+      v-if="availableLetters.size > 0"
+      :available="availableLetters"
+      :current="currentLetter"
+      :visible="visibleLettersSet"
+      @pick="scrollToLetter"
+    />
 
     <GalleryToolbar
       v-if="toolbarPosition === 'floating'"
@@ -484,31 +494,28 @@ const stickyToolbarActive = computed(() => {
   text-align: center;
 }
 
-.r-v2-search__sticky-toolbar {
+.r-v2-search__toolbar {
   position: absolute;
-  top: 0;
   left: var(--r-row-pad);
   right: var(--r-row-pad);
   z-index: 5;
-  padding: 12px 0;
-  background: color-mix(in srgb, var(--r-color-bg) 88%, transparent);
-  border-bottom: 1px solid var(--r-color-border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transform: translateY(-110%);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    transform 240ms var(--r-motion-ease-out),
-    opacity 200ms var(--r-motion-ease-out);
 }
-.r-v2-search__sticky-toolbar--has-strip {
+.r-v2-search__toolbar--has-strip {
   right: calc(var(--r-row-pad) + 36px);
 }
-.r-v2-search__sticky-toolbar--visible {
-  transform: translateY(0);
-  opacity: 1;
-  pointer-events: auto;
+.r-v2-search__toolbar--stuck {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--r-color-border);
+}
+
+.r-v2-search__scroller--toolbar-stuck {
+  clip-path: inset(var(--r-v2-search-toolbar-h, 64px) 0 0 0);
+}
+
+.r-v2-search__toolbar-spacer {
+  width: 100%;
+  height: 100%;
 }
 
 @media (max-width: 768px) {

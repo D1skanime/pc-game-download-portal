@@ -405,16 +405,42 @@ const rowGridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
 }));
 
-// Sticky toolbar — when the user scrolls past the hero, the inline
-// GalleryToolbar (rendered as a virtual item) leaves the viewport. We
-// surface a fixed copy of it just below the AppNav so search and the
-// view controls stay reachable. Activates only in the "header" dock —
-// "floating" already places the toolbar permanently top-right.
-const STICKY_TRIGGER_PX = 240;
-const stickyToolbarActive = computed(() => {
-  if (toolbarPosition.value !== "header") return false;
+// Single-toolbar sticky behaviour. The toolbar is ALWAYS rendered as an
+// overlay-sibling of the virtualizer (not as a duplicate of the inline
+// virtual item). Inside the virtualizer the toolbar slot renders an
+// empty placeholder so its 64px of vertical space is reserved in the
+// scroll content; the actual GalleryToolbar element sits absolute on
+// top of the section and tracks the scroll until it reaches the top:
+//
+//   * scrollTop < toolbarOffset → toolbar.top = toolbarOffset - scrollTop
+//                                  (scrolls naturally with the hero).
+//   * scrollTop ≥ toolbarOffset → toolbar.top = 0 (pinned).
+//
+// While pinned, the virtualizer is clipped (`clip-path: inset(64px ...)`)
+// so card rows don't render behind the toolbar — matches AppNav, where
+// the scroll simply doesn't reach the bar's area. The toolbar's
+// backdrop-filter then only sees the BackgroundArt (no card content
+// bleeding through), exactly like AppNav.
+const toolbarHeightPx = galleryItemHeight({ kind: "toolbar", key: "" });
+const toolbarOffsetPx = computed(() => {
+  const items = virtualItems.value;
+  let sum = 0;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].kind === "toolbar") return sum;
+    sum += galleryItemHeight(items[i]);
+  }
+  return -1;
+});
+const toolbarTopPx = computed(() => {
+  const offset = toolbarOffsetPx.value;
+  if (offset < 0) return 0;
   const top = scrollerRef.value?.scrollTop ?? 0;
-  return top > STICKY_TRIGGER_PX;
+  return Math.max(0, offset - top);
+});
+const toolbarStuck = computed(() => {
+  const offset = toolbarOffsetPx.value;
+  if (offset < 0) return false;
+  return (scrollerRef.value?.scrollTop ?? 0) >= offset;
 });
 </script>
 
@@ -426,6 +452,8 @@ const stickyToolbarActive = computed(() => {
       :get-item-height="galleryItemHeight"
       :overscan="25"
       class="r-v2-plat__scroller r-v2-scroll-hidden"
+      :class="{ 'r-v2-plat__scroller--toolbar-stuck': toolbarStuck }"
+      :style="{ '--r-v2-plat-toolbar-h': `${toolbarHeightPx}px` }"
       @update:viewport-range="onViewportRangeChange"
     >
       <template #default="{ item }">
@@ -472,17 +500,15 @@ const stickyToolbarActive = computed(() => {
             </InfoPanel>
           </template>
 
-          <GalleryToolbar
+          <!-- Toolbar slot — empty placeholder. The actual GalleryToolbar
+               lives outside the virtualizer (see overlay below) so it
+               can transition cleanly between in-flow and pinned without
+               rendering twice. The placeholder reserves the toolbar's
+               height in the virtualiser's offset table. -->
+          <div
             v-else-if="itemKind(item as GalleryItem) === 'toolbar'"
-            :group-by="groupBy"
-            :layout="layout"
-            :position="toolbarPosition"
-            show-search
-            :search="searchInput"
-            search-placeholder="Filter this platform…"
-            @update:group-by="groupBy = $event"
-            @update:layout="layout = $event"
-            @update:search="setSearch"
+            class="r-v2-plat__toolbar-spacer"
+            aria-hidden="true"
           />
 
           <div
@@ -543,24 +569,20 @@ const stickyToolbarActive = computed(() => {
       </template>
     </RVirtualScroller>
 
-    <AlphaStrip
-      v-if="availableLetters.size > 0"
-      :available="availableLetters"
-      :current="currentLetter"
-      :visible="visibleLettersSet"
-      @pick="scrollToLetter"
-    />
-
-    <!-- Sticky header-dock toolbar — slides in from above once the
-         inline copy has scrolled away. Same handlers as the inline so
-         search / group / layout stay in sync. -->
+    <!-- Header-dock toolbar overlay — always rendered, position tracks
+         the natural offset until it reaches y=0 then sticks. From the
+         user's POV it's a single toolbar that scrolls with the hero
+         and stops at the top. While stuck, the virtualizer is clipped
+         so card rows don't render behind it (see CSS) — matches AppNav,
+         where scrolled content never reaches the bar's area. -->
     <div
       v-if="toolbarPosition === 'header'"
-      class="r-v2-plat__sticky-toolbar"
+      class="r-v2-plat__toolbar"
       :class="{
-        'r-v2-plat__sticky-toolbar--has-strip': availableLetters.size > 0,
-        'r-v2-plat__sticky-toolbar--visible': stickyToolbarActive,
+        'r-v2-plat__toolbar--has-strip': availableLetters.size > 0,
+        'r-v2-plat__toolbar--stuck': toolbarStuck,
       }"
+      :style="{ top: toolbarTopPx + 'px' }"
     >
       <GalleryToolbar
         :group-by="groupBy"
@@ -574,6 +596,14 @@ const stickyToolbarActive = computed(() => {
         @update:search="setSearch"
       />
     </div>
+
+    <AlphaStrip
+      v-if="availableLetters.size > 0"
+      :available="availableLetters"
+      :current="currentLetter"
+      :visible="visibleLettersSet"
+      @pick="scrollToLetter"
+    />
 
     <!-- Floating toolbar — positioned outside the scroller so it stays put. -->
     <GalleryToolbar
@@ -655,35 +685,41 @@ const stickyToolbarActive = computed(() => {
   text-align: center;
 }
 
-/* Sticky toolbar — sits absolute over the top of the section, slides
-   down from above when the inline copy scrolls out of view. Glass tone
-   so the rows underneath read as scrolling beneath it. */
-.r-v2-plat__sticky-toolbar {
+/* Toolbar overlay — single element that tracks scroll until pinned.
+   Same visual language as AppNav: transparent, blurred backdrop. While
+   stuck, the virtualizer is clipped at the toolbar's height (see
+   below) so card rows never render in the toolbar's area; the
+   backdrop-filter then only sees the page's BackgroundArt, exactly
+   like AppNav. */
+.r-v2-plat__toolbar {
   position: absolute;
-  top: 0;
   left: var(--r-row-pad);
   right: var(--r-row-pad);
   z-index: 5;
-  padding: 12px 0;
-  background: color-mix(in srgb, var(--r-color-bg) 88%, transparent);
-  border-bottom: 1px solid var(--r-color-border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transform: translateY(-110%);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    transform 240ms var(--r-motion-ease-out),
-    opacity 200ms var(--r-motion-ease-out);
 }
-.r-v2-plat__sticky-toolbar--has-strip {
+.r-v2-plat__toolbar--has-strip {
   /* Don't cover the AlphaStrip on the right (24px column + 12px margin). */
   right: calc(var(--r-row-pad) + 36px);
 }
-.r-v2-plat__sticky-toolbar--visible {
-  transform: translateY(0);
-  opacity: 1;
-  pointer-events: auto;
+.r-v2-plat__toolbar--stuck {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--r-color-border);
+}
+
+/* Clip the virtualizer's painted output at the toolbar's height while
+   stuck. Cards still scroll naturally inside the virtualizer; clip-path
+   just hides anything painted in the top `--r-v2-plat-toolbar-h` band
+   so the toolbar sits over a clean BackgroundArt — matches AppNav. */
+.r-v2-plat__scroller--toolbar-stuck {
+  clip-path: inset(var(--r-v2-plat-toolbar-h, 64px) 0 0 0);
+}
+
+/* Toolbar's height-reserving placeholder inside the virtualizer. The
+   actual visuals are rendered by the overlay above. */
+.r-v2-plat__toolbar-spacer {
+  width: 100%;
+  height: 100%;
 }
 
 @media (max-width: 768px) {
