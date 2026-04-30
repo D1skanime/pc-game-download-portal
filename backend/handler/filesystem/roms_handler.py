@@ -314,7 +314,7 @@ class FSRomsHandler(FSHandler):
         cnfg = cm.get_config()
         return (
             f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
-            if cnfg.has_structure_b
+            if cnfg.has_structure_path_b
             else f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
         )
 

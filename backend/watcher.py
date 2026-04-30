@@ -50,7 +50,7 @@ sentry_sdk.init(
 tracer = trace.get_tracer(__name__)
 
 cfg = cm.get_config()
-structure_level = 1 if cfg.has_structure_b else 2
+structure_level = 1 if cfg.has_structure_path_b else 2
 
 
 @enum.unique

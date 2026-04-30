@@ -143,7 +143,7 @@ class TestFSFirmwareHandler:
     ):
         """Test that firmware paths are constructed correctly for Structure A"""
         platform_fs_slug = "n64"
-        config.has_structure_b = False
+        config.has_structure_path_b = False
 
         with patch(
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config
@@ -156,7 +156,7 @@ class TestFSFirmwareHandler:
     ):
         """Test that firmware paths are constructed correctly for Structure B"""
         platform_fs_slug = "n64"
-        config.has_structure_b = True
+        config.has_structure_path_b = True
 
         with patch(
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config

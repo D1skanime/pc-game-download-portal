@@ -117,7 +117,7 @@ class TestFSRomsHandler:
             ROMS_FOLDER_NAME="roms",
             FIRMWARE_FOLDER_NAME="bios",
         )
-        cfg.has_structure_b = True
+        cfg.has_structure_path_b = True
 
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cfg)
@@ -140,7 +140,7 @@ class TestFSRomsHandler:
             ROMS_FOLDER_NAME="roms",
             FIRMWARE_FOLDER_NAME="bios",
         )
-        cfg.has_structure_b = False
+        cfg.has_structure_path_b = False
 
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cfg)
@@ -513,7 +513,7 @@ class TestFSRomsHandler:
         non_hashable_platform.fs_slug = "n64"
         non_hashable_platform.slug = "nintendo-64"
 
-        config.has_structure_b = True
+        config.has_structure_path_b = True
 
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
@@ -551,12 +551,12 @@ class TestFSRomsHandler:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
 
             # Test with Structure B
-            config.has_structure_b = True
+            config.has_structure_path_b = True
             structure = handler.get_roms_fs_structure(fs_slug)
             assert structure == f"{fs_slug}/roms"
 
             # Test with Structure A
-            config.has_structure_b = False
+            config.has_structure_path_b = False
             structure = handler.get_roms_fs_structure(fs_slug)
             assert structure == f"roms/{fs_slug}"
 

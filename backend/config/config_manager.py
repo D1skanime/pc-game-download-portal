@@ -116,8 +116,6 @@ class Config:
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
     SKIP_HASH_CALCULATION: bool
-    STRUCTURE_PATH_A: str
-    STRUCTURE_PATH_B: str
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
@@ -136,15 +134,16 @@ class Config:
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
-        self.STRUCTURE_PATH_A = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}/*"
-        self.STRUCTURE_PATH_B = f"{LIBRARY_BASE_PATH}/*/{self.ROMS_FOLDER_NAME}"
 
     @functools.cached_property
-    def has_structure_b(self) -> bool:
+    def has_structure_path_b(self) -> bool:
         """True when any `<library>/<platform>/<roms>/` directory exists."""
-        for match in glob.iglob(self.STRUCTURE_PATH_B):
-            if os.path.isdir(match):
-                return True
+        try:
+            for match in glob.iglob(f"{LIBRARY_BASE_PATH}/*/{self.ROMS_FOLDER_NAME}"):
+                if os.path.isdir(match):
+                    return True
+        except OSError:
+            pass
         return False
 
 
