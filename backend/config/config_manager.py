@@ -1,5 +1,4 @@
 import enum
-import functools
 import glob
 import json
 import os
@@ -135,15 +134,13 @@ class Config:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
-    @functools.cached_property
     def has_structure_path_b(self) -> bool:
-        try:
-            # Check for structure path B
-            for match in glob.iglob(f"{LIBRARY_BASE_PATH}/*/{self.ROMS_FOLDER_NAME}"):
-                if os.path.isdir(match):
-                    return True
-        except OSError:
-            pass
+        pattern = os.path.join(
+            LIBRARY_BASE_PATH, "*", glob.escape(self.ROMS_FOLDER_NAME)
+        )
+        for match in glob.iglob(pattern):
+            if os.path.isdir(match):
+                return True
         return False
 
 
