@@ -1,4 +1,5 @@
 import enum
+import functools
 import glob
 import json
 import os
@@ -134,6 +135,7 @@ class Config:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
+    @functools.cached_property
     def has_structure_path_b(self) -> bool:
         pattern = os.path.join(
             LIBRARY_BASE_PATH, "*", glob.escape(self.ROMS_FOLDER_NAME)
