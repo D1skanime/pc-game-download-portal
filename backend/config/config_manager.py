@@ -1,4 +1,6 @@
 import enum
+import functools
+import glob
 import json
 import os
 import sys
@@ -114,7 +116,6 @@ class Config:
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
     SKIP_HASH_CALCULATION: bool
-    HIGH_PRIO_STRUCTURE_PATH: str
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
@@ -133,7 +134,16 @@ class Config:
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
-        self.HIGH_PRIO_STRUCTURE_PATH = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}"
+
+    @functools.cached_property
+    def has_structure_path_b(self) -> bool:
+        pattern = os.path.join(
+            LIBRARY_BASE_PATH, "*", glob.escape(self.ROMS_FOLDER_NAME)
+        )
+        for match in glob.iglob(pattern):
+            if os.path.isdir(match):
+                return True
+        return False
 
 
 class ConfigManager:

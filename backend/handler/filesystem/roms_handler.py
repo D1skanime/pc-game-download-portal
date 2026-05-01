@@ -313,9 +313,9 @@ class FSRomsHandler(FSHandler):
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
         return (
-            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+            f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+            if cnfg.has_structure_path_b
+            else f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
         )
 
     def parse_tags(self, fs_name: str) -> ParsedTags:
