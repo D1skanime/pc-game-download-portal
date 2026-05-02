@@ -455,9 +455,14 @@ class FSRomsHandler(FSHandler):
             for f_path, file_name in iter_files(
                 f"{abs_fs_path}/{rom.fs_name}", recursive=True
             ):
-                # Check if file is excluded
+                # Check if file is excluded by extension.
+                # Also check the last single extension for multi-dot filenames
+                # (e.g. "game.nds.hash.txt" should be excluded when "txt" is excluded).
                 ext = self.parse_file_extension(file_name)
-                if ext in excluded_file_exts:
+                suffix = Path(file_name).suffix.lstrip(".")
+                if (ext and ext.lower() in excluded_file_exts) or (
+                    suffix and suffix.lower() in excluded_file_exts
+                ):
                     continue
 
                 if any(

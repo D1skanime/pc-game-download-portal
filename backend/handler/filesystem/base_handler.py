@@ -215,14 +215,20 @@ class FSHandler:
         excluded_files: list[str] = []
 
         for file_name in files:
-            # Split the file name to get the extension.
+            # Get the compound extension (e.g. "nds.hash.txt" for "game.nds.hash.txt")
+            # and the last single extension (e.g. "txt") for multi-dot filenames.
             ext = self.parse_file_extension(file_name)
+            suffix = Path(file_name).suffix.lstrip(".")
 
-            # Exclude the file if it has no extension or the extension is in the excluded list.
-            if ext and ext.lower() in excluded_extensions:
+            # Exclude the file if the compound extension or the last single extension
+            # is in the excluded list. Checking both handles files with multiple dots
+            # (e.g. "game.nds.hash.txt" should be excluded when "txt" is excluded).
+            if (ext and ext.lower() in excluded_extensions) or (
+                suffix and suffix.lower() in excluded_extensions
+            ):
                 excluded_files.append(file_name)
 
-            # Additionally, check if the file name mathes a pattern in the excluded list.
+            # Additionally, check if the file name matches a pattern in the excluded list.
             for name in excluded_names:
                 if file_name == name or fnmatch.fnmatch(file_name, name):
                     excluded_files.append(file_name)
