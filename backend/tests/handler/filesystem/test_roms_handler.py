@@ -384,8 +384,7 @@ class TestFSRomsHandler:
     ):
         """Multi-dot filenames in a multi-part dir are excluded by simple or compound ext rules."""
         multi_dot_file = (
-            handler.base_path
-            / "n64/roms/Super Mario 64 (J) (Rev A)/game.n64.hash.txt"
+            handler.base_path / "n64/roms/Super Mario 64 (J) (Rev A)/game.n64.hash.txt"
         )
         multi_dot_file.write_text("hash data")
 

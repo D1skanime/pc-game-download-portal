@@ -210,26 +210,20 @@ class FSHandler:
         return match.group(0) if match else ""
 
     def exclude_single_files(self, files: list[str]) -> list[str]:
-        config = cm.get_config()
-        # Config already stores extensions lowercased; use a set for O(1) lookups.
-        excluded_extensions = set(config.EXCLUDED_SINGLE_EXT)
-        excluded_names = config.EXCLUDED_SINGLE_FILES
+        cnfg = cm.get_config()
+        excluded_extensions = cnfg.EXCLUDED_SINGLE_EXT
+        excluded_names = cnfg.EXCLUDED_SINGLE_FILES
         excluded_files: list[str] = []
 
         for file_name in files:
             file_name_lower = file_name.lower()
 
             # Check whether the filename ends with any excluded extension entry.
-            # Using ends-with handles both simple rules ("txt") and compound rules
-            # ("hash.txt") against multi-dot filenames like "game.nds.enc.hash.txt".
-            if any(
-                file_name_lower.endswith("." + ext) for ext in excluded_extensions
-            ):
+            if any(file_name_lower.endswith("." + ext) for ext in excluded_extensions):
                 excluded_files.append(file_name)
                 continue
 
             # Check if the file name matches a pattern in the excluded list.
-            # Check exact match first (O(1) via set), then fall back to glob patterns.
             if file_name in excluded_names or any(
                 fnmatch.fnmatch(file_name, name) for name in excluded_names
             ):
