@@ -205,6 +205,19 @@ class FSHandler:
         match = EXTENSION_REGEX.search(file_name)
         return match.group(1) if match else ""
 
+    def iter_file_extensions(self, file_name: str) -> list[str]:
+        """Return all right-anchored sub-extensions for a filename.
+
+        For "game.nds.enc.hash.txt" this yields:
+            ["nds.enc.hash.txt", "enc.hash.txt", "hash.txt", "txt"]
+        This allows exclusion rules like "hash.txt" to match multi-dot filenames.
+        """
+        ext = self.parse_file_extension(file_name)
+        if not ext:
+            return []
+        parts = ext.split(".")
+        return [".".join(parts[i:]) for i in range(len(parts))]
+
     def extract_uuid_v4_from_filename(self, file_name: str) -> str:
         match = UUID_V4_REGEX.search(file_name)
         return match.group(0) if match else ""
@@ -215,16 +228,11 @@ class FSHandler:
         excluded_files: list[str] = []
 
         for file_name in files:
-            # Get the compound extension (e.g. "nds.hash.txt" for "game.nds.hash.txt")
-            # and the last single extension (e.g. "txt") for multi-dot filenames.
-            ext = self.parse_file_extension(file_name)
-            suffix = Path(file_name).suffix.lstrip(".")
-
-            # Exclude the file if the compound extension or the last single extension
-            # is in the excluded list. Checking both handles files with multiple dots
-            # (e.g. "game.nds.hash.txt" should be excluded when "txt" is excluded).
-            if (ext and ext.lower() in excluded_extensions) or (
-                suffix and suffix.lower() in excluded_extensions
+            # Check all right-anchored sub-extensions so that rules like "hash.txt"
+            # match multi-dot filenames such as "game.nds.enc.hash.txt".
+            if any(
+                e.lower() in excluded_extensions
+                for e in self.iter_file_extensions(file_name)
             ):
                 excluded_files.append(file_name)
 

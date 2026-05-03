@@ -145,6 +145,22 @@ class TestFSHandler:
         assert handler.parse_file_extension("no_extension") == ""
         assert handler.parse_file_extension("file.with.dots.txt") == "with.dots.txt"
 
+    def test_iter_file_extensions(self, handler: FSHandler):
+        """Test that all right-anchored sub-extensions are returned"""
+        assert handler.iter_file_extensions("game.nds") == ["nds"]
+        assert handler.iter_file_extensions("game.nds.hash.txt") == [
+            "nds.hash.txt",
+            "hash.txt",
+            "txt",
+        ]
+        assert handler.iter_file_extensions("game.nds.enc.hash.txt") == [
+            "nds.enc.hash.txt",
+            "enc.hash.txt",
+            "hash.txt",
+            "txt",
+        ]
+        assert handler.iter_file_extensions("no_extension") == []
+
     def test_exclude_single_files(self, handler: FSHandler):
         """Test file exclusion functionality"""
         files = ["test.txt", "game.rom", "excluded.tmp", "data.json"]
@@ -162,7 +178,7 @@ class TestFSHandler:
             assert "data.json" in result
 
     def test_exclude_single_files_multi_dot(self, handler: FSHandler):
-        """Test that files with multiple dots are excluded based on their last extension"""
+        """Test that files with multiple dots are excluded by last or compound extension"""
         files = [
             "game.nds",
             "game.nds.hash.txt",
@@ -172,17 +188,29 @@ class TestFSHandler:
         ]
 
         with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            # Exclude by last single extension
             mock_config.return_value.EXCLUDED_SINGLE_EXT = ["txt"]
             mock_config.return_value.EXCLUDED_SINGLE_FILES = []
 
             result = handler.exclude_single_files(files)
 
-            # Files with .txt as the last extension should be excluded regardless of
-            # how many dots are in the filename
             assert "game.nds.hash.txt" not in result
             assert "game.nds.enc.hash.txt" not in result
             assert "readme.txt" not in result
-            # Non-txt files should not be excluded
+            assert "game.nds" in result
+            assert "game.rom" in result
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            # Exclude by compound sub-extension "hash.txt"
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = ["hash.txt"]
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = []
+
+            result = handler.exclude_single_files(files)
+
+            assert "game.nds.hash.txt" not in result
+            assert "game.nds.enc.hash.txt" not in result
+            # "readme.txt" does NOT end in "hash.txt" — should remain
+            assert "readme.txt" in result
             assert "game.nds" in result
             assert "game.rom" in result
 
