@@ -229,9 +229,9 @@ class FSHandler:
                 continue
 
             # Check if the file name matches a pattern in the excluded list.
-            if any(
-                file_name == name or fnmatch.fnmatch(file_name, name)
-                for name in excluded_names
+            # Check exact match first (O(1) via set), then fall back to glob patterns.
+            if file_name in excluded_names or any(
+                fnmatch.fnmatch(file_name, name) for name in excluded_names
             ):
                 excluded_files.append(file_name)
 

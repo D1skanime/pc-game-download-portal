@@ -385,7 +385,7 @@ class TestFSRomsHandler:
         """Multi-dot filenames in a multi-part dir are excluded by simple or compound ext rules."""
         multi_dot_file = (
             handler.base_path
-            / "n64/roms/Super Mario 64 (J) (Rev A)/game.nds.hash.txt"
+            / "n64/roms/Super Mario 64 (J) (Rev A)/game.n64.hash.txt"
         )
         multi_dot_file.write_text("hash data")
 
@@ -409,7 +409,7 @@ class TestFSRomsHandler:
                 )
                 parsed = await handler.get_rom_files(rom_multi)
                 file_names = [rf.file_name for rf in parsed.rom_files]
-                assert "game.nds.hash.txt" not in file_names
+                assert "game.n64.hash.txt" not in file_names
                 assert "Super Mario 64 (J) (Rev A) [Part 1].z64" in file_names
 
             # Exclude by the compound extension "hash.txt"
@@ -432,7 +432,7 @@ class TestFSRomsHandler:
                 )
                 parsed = await handler.get_rom_files(rom_multi)
                 file_names = [rf.file_name for rf in parsed.rom_files]
-                assert "game.nds.hash.txt" not in file_names
+                assert "game.n64.hash.txt" not in file_names
                 assert "Super Mario 64 (J) (Rev A) [Part 1].z64" in file_names
         finally:
             multi_dot_file.unlink(missing_ok=True)
