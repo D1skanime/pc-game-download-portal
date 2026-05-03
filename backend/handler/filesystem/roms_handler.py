@@ -456,11 +456,11 @@ class FSRomsHandler(FSHandler):
                 f"{abs_fs_path}/{rom.fs_name}", recursive=True
             ):
                 # Check if file is excluded by extension.
-                # Check all right-anchored sub-extensions so that rules like "hash.txt"
-                # match multi-dot filenames such as "game.nds.enc.hash.txt".
+                # Using ends-with handles both simple rules ("txt") and compound
+                # rules ("hash.txt") for multi-dot filenames like "game.nds.enc.hash.txt".
                 if any(
-                    e.lower() in excluded_file_exts
-                    for e in self.iter_file_extensions(file_name)
+                    file_name.lower().endswith("." + ext.lower())
+                    for ext in excluded_file_exts
                 ):
                     continue
 

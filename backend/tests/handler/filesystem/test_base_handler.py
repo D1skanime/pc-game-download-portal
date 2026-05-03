@@ -145,22 +145,6 @@ class TestFSHandler:
         assert handler.parse_file_extension("no_extension") == ""
         assert handler.parse_file_extension("file.with.dots.txt") == "with.dots.txt"
 
-    def test_iter_file_extensions(self, handler: FSHandler):
-        """Test that all right-anchored sub-extensions are returned"""
-        assert handler.iter_file_extensions("game.nds") == ["nds"]
-        assert handler.iter_file_extensions("game.nds.hash.txt") == [
-            "nds.hash.txt",
-            "hash.txt",
-            "txt",
-        ]
-        assert handler.iter_file_extensions("game.nds.enc.hash.txt") == [
-            "nds.enc.hash.txt",
-            "enc.hash.txt",
-            "hash.txt",
-            "txt",
-        ]
-        assert handler.iter_file_extensions("no_extension") == []
-
     def test_exclude_single_files(self, handler: FSHandler):
         """Test file exclusion functionality"""
         files = ["test.txt", "game.rom", "excluded.tmp", "data.json"]
