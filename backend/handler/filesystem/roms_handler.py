@@ -434,7 +434,8 @@ class FSRomsHandler(FSHandler):
         )
 
         excluded_file_names = cm.get_config().EXCLUDED_MULTI_PARTS_FILES
-        excluded_file_exts = cm.get_config().EXCLUDED_MULTI_PARTS_EXT
+        # Config already stores extensions lowercased; use a set for O(1) lookups.
+        excluded_file_exts = set(cm.get_config().EXCLUDED_MULTI_PARTS_EXT)
 
         rom_crc_c = 0
         rom_md5_h = hashlib.md5(usedforsecurity=False) if calculate_hashes else None
@@ -458,8 +459,9 @@ class FSRomsHandler(FSHandler):
                 # Check if file is excluded by extension.
                 # Using ends-with handles both simple rules ("txt") and compound
                 # rules ("hash.txt") for multi-dot filenames like "game.nds.enc.hash.txt".
+                file_name_lower = file_name.lower()
                 if any(
-                    file_name.lower().endswith("." + ext.lower())
+                    file_name_lower.endswith("." + ext)
                     for ext in excluded_file_exts
                 ):
                     continue

@@ -210,24 +210,30 @@ class FSHandler:
         return match.group(0) if match else ""
 
     def exclude_single_files(self, files: list[str]) -> list[str]:
-        excluded_extensions = cm.get_config().EXCLUDED_SINGLE_EXT
-        excluded_names = cm.get_config().EXCLUDED_SINGLE_FILES
+        config = cm.get_config()
+        # Config already stores extensions lowercased; use a set for O(1) lookups.
+        excluded_extensions = set(config.EXCLUDED_SINGLE_EXT)
+        excluded_names = config.EXCLUDED_SINGLE_FILES
         excluded_files: list[str] = []
 
         for file_name in files:
+            file_name_lower = file_name.lower()
+
             # Check whether the filename ends with any excluded extension entry.
             # Using ends-with handles both simple rules ("txt") and compound rules
             # ("hash.txt") against multi-dot filenames like "game.nds.enc.hash.txt".
             if any(
-                file_name.lower().endswith("." + ext.lower())
-                for ext in excluded_extensions
+                file_name_lower.endswith("." + ext) for ext in excluded_extensions
             ):
                 excluded_files.append(file_name)
+                continue
 
-            # Additionally, check if the file name matches a pattern in the excluded list.
-            for name in excluded_names:
-                if file_name == name or fnmatch.fnmatch(file_name, name):
-                    excluded_files.append(file_name)
+            # Check if the file name matches a pattern in the excluded list.
+            if any(
+                file_name == name or fnmatch.fnmatch(file_name, name)
+                for name in excluded_names
+            ):
+                excluded_files.append(file_name)
 
         # Return files that are not in the filtered list.
         return [f for f in files if f not in excluded_files]
