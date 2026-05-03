@@ -437,7 +437,7 @@ class TestFSRomsHandler:
         finally:
             multi_dot_file.unlink(missing_ok=True)
 
-
+    async def test_rename_fs_rom_same_name(self, handler: FSRomsHandler):
         """Test rename_fs_rom when old and new names are the same"""
         old_name = "test_rom.n64"
         new_name = "test_rom.n64"
