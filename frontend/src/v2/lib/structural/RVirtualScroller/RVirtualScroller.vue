@@ -325,6 +325,20 @@ const innerStyle = computed(() => ({
   background-color: transparent;
 }
 
+.r-virtual-scroller__prepend {
+  /* `display: contents` makes the wrapper invisible to layout so its
+     children become layout-children of the scroller. That matters for
+     `position: sticky` consumers inside `#prepend` — sticky pins
+     relative to the closest scroll-context ANCESTOR (the scroller),
+     but its containing block is its parent in the box tree. With a
+     normal `<div>` wrapper here, sticky would un-pin once the wrapper
+     scrolls past (its containing block leaves the viewport). With
+     `display: contents`, the scroller itself becomes the containing
+     block and sticky stays pinned for as long as the scroller has
+     scroll travel. */
+  display: contents;
+}
+
 .r-virtual-scroller__sticky {
   /* Native sticky — pinned by the compositor as the user scrolls past
      the prepend band. Zero JS lag. Consumers should give the slot's

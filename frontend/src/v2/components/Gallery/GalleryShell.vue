@@ -688,10 +688,23 @@ defineExpose({
   padding-bottom: 16px;
 }
 
+/* Inflow layer — `position: sticky; top: 0` so the compositor pins
+   it smoothly as the user scrolls past the header. This makes the
+   inflow's pinned position match the overlay's `top: 0` exactly,
+   eliminating the sub-pixel jump that an in-flow → snap-to-zero
+   swap would otherwise produce. The clip-path on the scroller hides
+   the inflow once `--stuck` is true, leaving only the overlay
+   visible (transparent — BackgroundArt shows through, no cards). */
+.r-v2-shell__toolbar--inflow {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
 /* Overlay layer — absolute against the section, mirrors the
    scroller's column (narrowed when AlphaStrip is present). z-index
-   above the scroller so the toolbar's controls remain interactive
-   while the band beneath is clipped. */
+   above the inflow so when both paint at y=0 (transition frame), the
+   overlay stacks cleanly on top. */
 .r-v2-shell__toolbar--overlay {
   position: absolute;
   top: 0;
