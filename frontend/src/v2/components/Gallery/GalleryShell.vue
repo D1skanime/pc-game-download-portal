@@ -4,33 +4,36 @@
 // Three structural sections, top to bottom, all sharing one scrollbar:
 //   1. HEADER  — view-supplied via `#header` slot. Whatever the view
 //                wants there: an InfoPanel with platform / collection
-//                metadata, a plain PageHeader for Search, etc. There's
-//                no notion of "header vs. info panel" — they're all
-//                just headers.
-//   2. TOOLBAR — search input + group/layout/dock controls. Pinned to
-//                the top of the scroller via native `position: sticky`
-//                once the user scrolls past the header.
+//                metadata, a plain PageHeader for Search, etc.
+//   2. TOOLBAR — search input + group/layout/dock controls. Two-layer:
+//                * `--inflow` lives in the scroller's `#prepend` slot
+//                  (after the header). Visible at scrollTop=0; scrolls
+//                  away with the header.
+//                * `--overlay` is absolutely positioned at the top of
+//                  the section, OUTSIDE the scroller. Transparent.
+//                  Toggled on once the inflow toolbar has scrolled past
+//                  the top — combined with `clip-path: inset(...)` on
+//                  the scroller, cards are physically clipped from
+//                  appearing in the toolbar's pixel band, so the
+//                  overlay reveals only what's behind the section
+//                  (BackgroundArt blur), never the cards.
 //   3. GRID / TABLE — the row-virtualised content (cards in grid mode,
 //                RTable in list mode).
 //
-// Between HEADER and TOOLBAR sits a single `RDivider`, owned by the
-// shell and rendered in flow at the bottom of the prepend band so it
-// scrolls away with the header. While the toolbar is pinned, the
-// header and divider are off-screen above; cards scroll up behind the
-// toolbar's opaque background.
-//
-// Why native sticky: the previous design absolute-positioned the
-// toolbar outside the scroller and tracked `scrollTop` from JS. That
-// path is fundamentally lagged — the browser scrolls on the
-// compositor, but JS only catches up on the next event/frame, so the
-// toolbar visibly bounced behind the scroll. CSS `position: sticky`
-// pins on the compositor, in lockstep with the scroll.
+// Why two-layer: the user wants the toolbar to be transparent (so the
+// blurred BackgroundArt shows through) AND wants cards to disappear
+// when they pass behind the toolbar. With native `position: sticky`
+// inside the scroller, cards passing behind a transparent element
+// remain visible. Lifting the visible toolbar OUT of the scroll
+// container and clipping the scroller's top band gives both: a
+// see-through toolbar AND no cards leaking behind it. The inflow
+// twin keeps the natural three-section flow at scrollTop=0.
 //
 // Cross-view behaviour owned by the shell: the virtualizer, sticky
-// toolbar, AlphaStrip, per-row dwell-debounced prefetch, scroll
-// restoration, list-mode RTable wiring, search-input debounce, URL
-// filter sync. Each view supplies its header and its own resource-load
-// flow.
+// toolbar (two-layer), AlphaStrip, per-row dwell-debounced prefetch,
+// scroll restoration, list-mode RTable wiring, search-input debounce,
+// URL filter sync. Each view supplies its header and its own
+// resource-load flow.
 import { RDivider, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
@@ -144,34 +147,66 @@ const { virtualItems, letterToIndex, availableLetters } =
     skeletonRowCount: props.skeletonRowCount,
   });
 
-// Toolbar height for `scrollToIndex` — the AlphaStrip lands rows just
-// below the pinned toolbar instead of behind it. Measured live (the
-// toolbar's rendered height varies with breakpoint / search-input
-// state) so jumps stay accurate without a hard-coded value drifting
-// from CSS.
-const toolbarEl = ref<HTMLElement | null>(null);
-const toolbarHeight = ref(0);
-let toolbarObserver: ResizeObserver | null = null;
+const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 
-function bindToolbarEl(el: HTMLElement | null) {
-  toolbarObserver?.disconnect();
-  toolbarObserver = null;
-  toolbarEl.value = el;
+// ── Toolbar two-layer state ─────────────────────────────────────────
+// `inflowToolbarEl` is the toolbar inside the scroller's prepend.
+// `inflowToolbarTop` is its `offsetTop` within the scroller — the
+// scroll threshold at which the overlay takes over. `toolbarHeight`
+// drives both `scrollToIndex({ stickyOffset })` (so AlphaStrip lands
+// rows below the pinned toolbar) and the scroller's clip-path inset
+// (so the band the overlay covers is empty of cards).
+const inflowToolbarEl = ref<HTMLElement | null>(null);
+const inflowToolbarTop = ref(0);
+const toolbarHeight = ref(0);
+let inflowResizeObserver: ResizeObserver | null = null;
+
+function bindInflowToolbarEl(el: HTMLElement | null) {
+  inflowResizeObserver?.disconnect();
+  inflowResizeObserver = null;
+  inflowToolbarEl.value = el;
   if (!el) {
+    inflowToolbarTop.value = 0;
     toolbarHeight.value = 0;
     return;
   }
-  toolbarHeight.value = el.getBoundingClientRect().height;
-  toolbarObserver = new ResizeObserver(() => {
+  const measure = () => {
+    inflowToolbarTop.value = el.offsetTop;
     toolbarHeight.value = el.getBoundingClientRect().height;
-  });
-  toolbarObserver.observe(el);
+  };
+  measure();
+  // Observe the toolbar itself (height changes) and its prior siblings
+  // inside the prepend (header / divider — their height shifts the
+  // toolbar's `offsetTop`).
+  inflowResizeObserver = new ResizeObserver(measure);
+  inflowResizeObserver.observe(el);
+  let prev = el.previousElementSibling;
+  while (prev) {
+    inflowResizeObserver.observe(prev);
+    prev = prev.previousElementSibling;
+  }
 }
 
-// Viewport range — items whose pixel rect intersects the actual
-// visible viewport (NOT the rendered overscan). Drives AlphaStrip and
-// the per-row dwell prefetch.
-const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
+// `isStuck` flips to true the moment the inflow toolbar's top edge
+// reaches the scroller's visible top. At that moment the overlay
+// becomes visible and the scroller's top band is clipped, so cards
+// scrolling up never reach the overlay's pixel area. Both layers
+// render the toolbar UI at the same viewport y, so the swap is
+// visually seamless.
+const isStuck = computed(() => {
+  if (toolbarPosition.value !== "header") return false;
+  const scrollTop = scrollerRef.value?.scrollTop ?? 0;
+  const threshold = inflowToolbarTop.value;
+  if (threshold <= 0) return scrollTop > 0;
+  return scrollTop >= threshold;
+});
+
+// Width / horizontal alignment of the absolute overlay needs to track
+// the scroller column (which is narrowed by the AlphaStrip when it's
+// rendered).
+const hasAlphaStrip = computed(() => availableLetters.value.size > 0);
+
+// ── Viewport range / AlphaStrip / dwell prefetch ────────────────────
 const viewportRange = ref<{ first: number; last: number }>({
   first: 0,
   last: -1,
@@ -181,7 +216,6 @@ function onViewportRangeChange(range: { first: number; last: number }) {
   syncRowDwell(range);
 }
 
-// AlphaStrip lit letters — items currently inside the actual viewport.
 const visibleLettersSet = computed<Set<string>>(() => {
   const set = new Set<string>();
   const r = viewportRange.value;
@@ -342,9 +376,6 @@ function saveCurrentScroll(routeFullPath: string) {
   if (root) scrollRestoration.save(routeFullPath, root.scrollTop);
 }
 
-// Save scroll on every route change — universal across views. The view
-// owns the corresponding load-on-update flow (it knows which resource
-// to fetch); we just persist the scroll position before it runs.
 onBeforeRouteUpdate((_to, from) => {
   saveCurrentScroll(from.fullPath);
 });
@@ -359,8 +390,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (searchDebounce) clearTimeout(searchDebounce);
   clearAllRowDwell();
-  toolbarObserver?.disconnect();
-  toolbarObserver = null;
+  inflowResizeObserver?.disconnect();
+  inflowResizeObserver = null;
 });
 
 // ── Slot helpers ────────────────────────────────────────────────────
@@ -402,7 +433,15 @@ defineExpose({
 </script>
 
 <template>
-  <section ref="sectionEl" class="r-v2-shell">
+  <section
+    ref="sectionEl"
+    class="r-v2-shell"
+    :class="{
+      'r-v2-shell--stuck': isStuck,
+      'r-v2-shell--has-strip': hasAlphaStrip,
+    }"
+    :style="{ '--r-v2-shell-toolbar-h': `${toolbarHeight}px` }"
+  >
     <RVirtualScroller
       ref="scrollerRef"
       :items="virtualItems"
@@ -411,27 +450,25 @@ defineExpose({
       class="r-v2-shell__scroller r-v2-scroll-hidden"
       @update:viewport-range="onViewportRangeChange"
     >
-      <!-- HEADER (Section 1) — view-supplied. Lives in the scroller's
-           flow above the inner virtualised list, so it scrolls
-           naturally with the rest of the content. The divider sits at
-           the bottom of this band so it scrolls away with the header
-           — the toolbar's stuck state has no separator above it. -->
-      <template v-if="hasHeader" #prepend>
-        <div class="r-v2-shell__header">
-          <slot name="header" />
-        </div>
-        <RDivider class="r-v2-shell__header-divider" />
-      </template>
+      <!-- HEADER (Section 1) + INFLOW TOOLBAR (Section 2 — first
+           layer). Both live in the scroller's flow. The header
+           scrolls away naturally; the inflow toolbar is what the user
+           sees at scrollTop=0 and during the early scroll until its
+           top edge reaches y=0. After that, the OVERLAY twin (below)
+           takes over visually and this inflow toolbar is hidden by
+           the scroller's clip-path. -->
+      <template #prepend>
+        <template v-if="hasHeader">
+          <div class="r-v2-shell__header">
+            <slot name="header" />
+          </div>
+          <RDivider class="r-v2-shell__header-divider" />
+        </template>
 
-      <!-- TOOLBAR (Section 2) — `position: sticky; top: 0` (handled by
-           `RVirtualScroller`'s `__sticky` styling). Pins on the
-           compositor as the user scrolls past the header. The toolbar
-           paints its own opaque background so cards scrolling
-           underneath stay visually hidden. -->
-      <template v-if="toolbarPosition === 'header'" #sticky>
         <div
-          :ref="(el) => bindToolbarEl(el as HTMLElement | null)"
-          class="r-v2-shell__toolbar"
+          v-if="toolbarPosition === 'header'"
+          :ref="(el) => bindInflowToolbarEl(el as HTMLElement | null)"
+          class="r-v2-shell__toolbar r-v2-shell__toolbar--inflow"
         >
           <GalleryToolbar
             :group-by="groupBy"
@@ -514,9 +551,37 @@ defineExpose({
       </template>
     </RVirtualScroller>
 
+    <!-- TOOLBAR OVERLAY (Section 2 — second layer). Absolute against
+         the section, OUTSIDE the scroller. Transparent — through it,
+         the BackgroundArt blur shows. Cards never appear here because
+         the scroller's clip strips its top `--r-v2-shell-toolbar-h`
+         band when `--stuck`.
+         Mounted alongside the rest of the shell (`v-if` gates only on
+         dock position) and toggled visible via `v-show` so the
+         GalleryToolbar's children — RSliderBtnGroup, RTextField — run
+         their initialisation animation ONCE on first render, not on
+         every stuck transition. -->
+    <div
+      v-if="toolbarPosition === 'header'"
+      v-show="isStuck"
+      class="r-v2-shell__toolbar r-v2-shell__toolbar--overlay"
+    >
+      <GalleryToolbar
+        :group-by="groupBy"
+        :layout="layout"
+        :position="toolbarPosition"
+        show-search
+        :search="searchInput"
+        :search-placeholder="searchPlaceholder"
+        @update:group-by="groupBy = $event"
+        @update:layout="layout = $event"
+        @update:search="setSearch"
+      />
+    </div>
+
     <!-- ALPHASTRIP — A-Z jump column on the right edge of the section. -->
     <AlphaStrip
-      v-if="availableLetters.size > 0"
+      v-if="hasAlphaStrip"
       :available="availableLetters"
       :current="currentLetter"
       :visible="visibleLettersSet"
@@ -525,7 +590,7 @@ defineExpose({
 
     <!-- FLOATING-DOCK TOOLBAR — the alternative dock; sits permanently
          in the top-right and never scrolls. Mutually exclusive with
-         the sticky in-scroller toolbar above. -->
+         the in-scroller header dock above. -->
     <GalleryToolbar
       v-if="toolbarPosition === 'floating'"
       :group-by="groupBy"
@@ -542,14 +607,19 @@ defineExpose({
   flex: 1;
   display: flex;
   overflow: hidden;
-  height: calc(100vh - var(--r-nav-h));
+  height: 100%;
   position: relative;
 }
 
+/* Scroller: padding-top moved into the prepend's first child via
+   `padding-top` on the header so the inflow toolbar's `offsetTop`
+   measurement isn't perturbed by the scroller's own padding. The
+   horizontal pads stay here so all in-flow content (header,
+   toolbar, rows) shares one column. */
 .r-v2-shell__scroller {
   flex: 1;
   height: 100%;
-  padding: 32px var(--r-row-pad) 60px;
+  padding: 0 var(--r-row-pad) 60px;
 }
 
 .r-v2-shell__item {
@@ -558,9 +628,12 @@ defineExpose({
 
 /* Header band — `display: flow-root` establishes a new
    block-formatting context so child margins don't collapse out
-   visually. Header components own their own padding. */
+   visually. The 32px `padding-top` provides the breathing space at
+   the very top of the gallery (replacing what used to live on the
+   scroller). */
 .r-v2-shell__header {
   display: flow-root;
+  padding-top: 32px;
 }
 
 /* Divider between header and toolbar. Lives at the bottom of the
@@ -607,20 +680,45 @@ defineExpose({
   text-align: center;
 }
 
-/* Sticky toolbar — opaque background so virtualised rows scrolling
-   underneath stay visually hidden once it pins. The padding-bottom
-   reserves breathing space between the toolbar and the first card
-   row so the grid doesn't sit flush against it. The AlphaStrip is a
-   flex sibling of the scroller, so the scroller (and this toolbar
-   inside it) is already bounded inside the column it occupies — no
-   manual right-padding needed. */
+/* Toolbar — both layers share the same internal styling. Transparent
+   by default; the BackgroundArt behind the section shows through.
+   `padding-bottom` reserves breathing space between the toolbar UI
+   and the first card row in flow. */
 .r-v2-shell__toolbar {
   padding-bottom: 16px;
 }
 
+/* Overlay layer — absolute against the section, mirrors the
+   scroller's column (narrowed when AlphaStrip is present). z-index
+   above the scroller so the toolbar's controls remain interactive
+   while the band beneath is clipped. */
+.r-v2-shell__toolbar--overlay {
+  position: absolute;
+  top: 0;
+  left: var(--r-row-pad);
+  right: var(--r-row-pad);
+  z-index: 5;
+}
+.r-v2-shell--has-strip .r-v2-shell__toolbar--overlay {
+  /* AlphaStrip is a flex sibling of the scroller; the overlay must
+     stop short of it so it doesn't paint over the strip. */
+  right: calc(var(--r-row-pad) + 36px);
+}
+
+/* While stuck, clip the scroller's top toolbar-band so cards
+   scrolling underneath the overlay are physically removed from
+   that pixel area. The transparent overlay then reveals only the
+   section's background (BackgroundArt blur) — never the cards. */
+.r-v2-shell--stuck .r-v2-shell__scroller {
+  clip-path: inset(var(--r-v2-shell-toolbar-h, 64px) 0 0 0);
+}
+
 @media (max-width: 768px) {
   .r-v2-shell__scroller {
-    padding: 16px 14px 80px;
+    padding: 0 14px 80px;
+  }
+  .r-v2-shell__header {
+    padding-top: 16px;
   }
   .r-v2-shell__row {
     gap: 12px 10px;

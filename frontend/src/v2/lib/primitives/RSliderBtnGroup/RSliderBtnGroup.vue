@@ -92,17 +92,48 @@ watch(
   { deep: true },
 );
 
+// `ResizeObserver` covers two cases the old `window.resize` listener
+// missed: (a) the group's size changing because of layout shifts that
+// don't involve the window (siblings appearing, container resizing);
+// and (b) — the actual reason this exists — going from `display: none`
+// (bbox = 0×0) to visible. When a parent toggles `v-show`, mounted
+// children's `getBoundingClientRect()` returned zero on first
+// measure, so the indicator stayed pinned at 0px / width:0. The
+// observer re-measures the moment the group gets a real box; on the
+// 0→nonzero transition we snap the indicator without animation so it
+// doesn't visibly slide in from the left.
+let resizeObserver: ResizeObserver | null = null;
+let lastGroupWidth = 0;
+
 onMounted(async () => {
   await nextTick();
   update();
   requestAnimationFrame(() => {
     animate.value = true;
   });
-  window.addEventListener("resize", update);
+  const g = groupEl.value;
+  if (g) {
+    lastGroupWidth = g.getBoundingClientRect().width;
+    resizeObserver = new ResizeObserver(() => {
+      const w = g.getBoundingClientRect().width;
+      if (lastGroupWidth === 0 && w > 0) {
+        animate.value = false;
+        update();
+        requestAnimationFrame(() => {
+          animate.value = true;
+        });
+      } else {
+        update();
+      }
+      lastGroupWidth = w;
+    });
+    resizeObserver.observe(g);
+  }
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("resize", update);
+  resizeObserver?.disconnect();
+  resizeObserver = null;
 });
 </script>
 

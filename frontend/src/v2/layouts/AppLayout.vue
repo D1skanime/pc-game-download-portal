@@ -103,8 +103,12 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* Lock the v2 shell to the viewport — the gallery owns its own
+   internal scroll, and the document itself must never scroll
+   (otherwise the navbar disappears as the page slides up). */
 .r-v2-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   color: var(--r-color-fg);
   position: relative;
 }
@@ -112,7 +116,7 @@ onBeforeUnmount(() => {
 .r-v2-shell__app {
   position: relative;
   z-index: 2;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -121,7 +125,7 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
   outline: none;
 }
 </style>
