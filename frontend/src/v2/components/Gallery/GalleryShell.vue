@@ -607,7 +607,15 @@ defineExpose({
   flex: 1;
   display: flex;
   overflow: hidden;
-  height: 100%;
+  /* Explicit viewport-relative height instead of `height: 100%`.
+     The parent `<main>` is a flex item, and percentage heights on
+     descendants of flex-computed boxes don't always resolve in every
+     browser / stacking context — when they fail to resolve the
+     section becomes content-sized, the scroller inside ends up with
+     `height: auto`, and overflow-y stops doing anything because
+     there's nothing to overflow. Subtracting the navbar from 100vh
+     bypasses that fragility entirely. */
+  height: calc(100vh - var(--r-nav-h));
   position: relative;
 }
 

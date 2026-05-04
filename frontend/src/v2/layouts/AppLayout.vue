@@ -125,7 +125,16 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   position: relative;
-  overflow: hidden;
+  /* Vertical overflow scrolls INSIDE main, not at the document level
+     (the outer `.r-v2-shell` is locked with `overflow: hidden`). This
+     way views without an internal scroller (Home, Settings, etc.)
+     scroll within main while the navbar stays put. Views that own
+     their own scroll (Gallery — `<section>` is exactly main's height
+     with `overflow: hidden` and an internal `RVirtualScroller`)
+     simply don't generate any overflow at this level, so there's
+     never a competing scrollbar. */
+  overflow-y: auto;
+  overflow-x: hidden;
   outline: none;
 }
 </style>
