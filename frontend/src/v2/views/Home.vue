@@ -14,7 +14,7 @@ import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
-import { GameCard } from "@/v2/components/Gallery/GameCard";
+import { GameCard } from "@/v2/components/GameCard";
 import CardRow from "@/v2/components/Home/CardRow.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";

@@ -361,7 +361,7 @@ import romApi from "@/services/api/rom";
 // 5. Canonical shared resources
 import storeAuth from "@/stores/auth";
 // 4. v2 feature siblings
-import GameCard from "@/v2/components/Gallery/GameCard.vue";
+import GameCard from "@/v2/components/GameCard.vue";
 import ConfirmDialog from "@/v2/components/shared/ConfirmDialog.vue";
 // 3. v2 composables / shared
 import { useCan } from "@/v2/composables/useCan";

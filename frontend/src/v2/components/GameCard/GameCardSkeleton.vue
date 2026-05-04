@@ -36,7 +36,7 @@ import { RSkeletonBlock } from "@v2/lib";
      line-height ~16px → reserve ~16px so total card+label height lines
      up to the same number of pixels regardless of which slot kind
      renders. */
-  margin-top: 20px;
+  margin-top: 7px !important;
   height: 16px;
 }
 

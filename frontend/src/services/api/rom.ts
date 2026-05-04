@@ -156,6 +156,10 @@ export interface GetRomsParams {
   languagesLogic?: string | null;
   statusesLogic?: string | null;
   playerCountsLogic?: string | null;
+  // Cancellation: pass an AbortSignal to let the caller abort an
+  // in-flight request (e.g. search-typing → previous query aborted,
+  // gallery-context switch → previous platform's windows aborted).
+  signal?: AbortSignal;
 }
 
 async function getRoms({
@@ -195,6 +199,7 @@ async function getRoms({
   languagesLogic = null,
   statusesLogic = null,
   playerCountsLogic = null,
+  signal = undefined,
 }: GetRomsParams) {
   const params = {
     platform_ids:
@@ -290,6 +295,7 @@ async function getRoms({
 
   return api.get<GetRomsResponse>(`/roms`, {
     params,
+    signal,
   });
 }
 
@@ -321,8 +327,28 @@ async function getRecentPlayedRoms() {
   });
 }
 
-async function getRom({ romId }: { romId: number }) {
-  return api.get<DetailedRom>(`/roms/${romId}`);
+async function getRom({
+  romId,
+  signal,
+}: {
+  romId: number;
+  signal?: AbortSignal;
+}) {
+  return api.get<DetailedRom>(`/roms/${romId}`, { signal });
+}
+
+async function getRomSimple({
+  romId,
+  signal,
+}: {
+  romId: number;
+  signal?: AbortSignal;
+}) {
+  // `/roms/{id}/simple` — returns `SimpleRomSchema` with no eager-loaded
+  // notes / saves / states / screenshots / collections arrays. Designed
+  // for the v2 gallery card's per-card fetch path. Detail-level data is
+  // pulled on demand (game details page, quick-note dialog open).
+  return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
 }
 
 async function getRomByMetadataProvider({
@@ -780,6 +806,7 @@ export default {
   getRecentRoms,
   getRecentPlayedRoms,
   getRom,
+  getRomSimple,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,

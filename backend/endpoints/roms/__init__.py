@@ -808,6 +808,32 @@ async def get_rom_filters(request: Request) -> RomFiltersDict:
 
 @protected_route(
     router.get,
+    "/{id}/simple",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def get_rom_simple(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> SimpleRomSchema:
+    """Retrieve a rom by ID with the lightweight schema — no eager-loaded
+    `user_saves` / `user_states` / `user_screenshots` / `user_collections` /
+    `all_user_notes` arrays. Designed for the v2 gallery card which only
+    needs the indicator flags (`has_notes`, `ra_id`, status, etc.) already
+    present on `SimpleRomSchema`. The full `DetailedRomSchema` is only
+    fetched on user-driven detail interactions (game details page, quick-
+    note dialog open, achievements panel)."""
+
+    rom = db_rom_handler.get_rom(id)
+
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    return SimpleRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(
+    router.get,
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},

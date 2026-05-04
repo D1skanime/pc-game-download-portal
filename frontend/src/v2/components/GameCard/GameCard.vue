@@ -3,7 +3,7 @@
 //
 // Feature composite (not a lib primitive): depends on SimpleRom,
 // useGameActions (via GameActionBtn), useBackgroundArt, and the store
-// layer. Lives under `src/v2/components/Gallery/` instead of `lib/` for
+// layer. Lives under `components/` instead of `lib/` for
 // that reason — the library is reserved for truly generic primitives
 // that a Storybook reader can drop into a page without wiring stores or
 // a router.
@@ -22,8 +22,8 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
-import StatusBadge from "@/v2/components/Gallery/GameCard/StatusBadge.vue";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
+import StatusBadge from "@/v2/components/GameCard/StatusBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import {
   pendingMorphName,
@@ -136,12 +136,7 @@ const morphStyle = computed(() => {
     @mouseenter="onHighlight"
     @focus="onHighlight"
   >
-    <div
-      ref="artEl"
-      class="r-gc__art"
-      :class="{ 'r-v2-shimmer': !imgLoaded && !imgError }"
-      :style="morphStyle"
-    >
+    <div ref="artEl" class="r-gc__art" :style="morphStyle">
       <img
         v-if="(coverUrl || fallbackUrl) && !(imgError && !fallbackUrl)"
         :src="
@@ -149,6 +144,7 @@ const morphStyle = computed(() => {
         "
         :alt="title"
         loading="lazy"
+        decoding="async"
         @load="imgLoaded = true"
         @error="imgError = true"
       />

@@ -48,8 +48,8 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
-import { GameCard, GameCardSkeleton } from "@/v2/components/Gallery/GameCard";
 import GameList from "@/v2/components/Gallery/GameList.vue";
+import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import {
@@ -213,7 +213,7 @@ const viewportRange = ref<{ first: number; last: number }>({
 });
 function onViewportRangeChange(range: { first: number; last: number }) {
   viewportRange.value = range;
-  syncRowDwell(range);
+  scheduleFetchSync(range);
 }
 
 const visibleLettersSet = computed<Set<string>>(() => {
@@ -243,57 +243,94 @@ const currentLetter = computed<string>(() => {
   return "";
 });
 
-// Per-row dwell prefetch. Each row that enters the viewport arms its
-// own DWELL_MS timer; if the row stays in view that long, its missing
-// positions fetch as a ranged request (one per row, parallelisable).
-// Rows that leave before the timer fires are cancelled — fast-scrolling
-// / AlphaStrip fly-by triggers zero fetches.
-const DWELL_MS = 2000;
-const rowDwellTimers = new Map<number, ReturnType<typeof setTimeout>>();
+// Per-card viewport-driven fetch. The shell tracks which positions
+// are currently visible (from the rows in `viewportRange`) and keeps
+// `byPosition` in sync via per-card `getRom(id)` calls — pure by-id
+// DB lookups on the backend, much faster than the paginated
+// `getRoms(limit/offset)` pipeline. Each fetch is independent, so
+// covers stream in as their individual responses land.
+//
+// No idle-time prefetch: when the user stops scrolling, no new
+// requests are fired. Cards already in the viewport that are still
+// missing keep loading; everything off-screen waits until the user
+// scrolls there.
+//
+// Cancellation: positions that leave the viewport while their fetch
+// is in flight are aborted via `cancelFetchAt`. A small debounce on
+// viewport changes prevents fire-and-cancel storms during smooth
+// scrolling — only when the viewport settles for `FETCH_DEBOUNCE_MS`
+// do we sync.
+const FETCH_DEBOUNCE_MS = 80;
+const visiblePositions = new Set<number>();
+let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingRange: { first: number; last: number } | null = null;
 
-function clearAllRowDwell() {
-  for (const t of rowDwellTimers.values()) clearTimeout(t);
-  rowDwellTimers.clear();
-}
-
-function syncRowDwell(range: { first: number; last: number }) {
-  for (const idx of [...rowDwellTimers.keys()]) {
-    if (idx < range.first || idx > range.last) {
-      clearTimeout(rowDwellTimers.get(idx)!);
-      rowDwellTimers.delete(idx);
-    }
-  }
-  if (range.last < range.first) return;
+function collectVisiblePositions(range: {
+  first: number;
+  last: number;
+}): Set<number> {
+  const out = new Set<number>();
+  if (range.last < range.first) return out;
   const items = virtualItems.value;
   for (let i = range.first; i <= range.last; i++) {
-    if (rowDwellTimers.has(i)) continue;
-    const item = items[i];
-    if (!item || item.kind !== "row") continue;
-    let missing = false;
-    for (let p = item.startPosition; p < item.endPosition; p++) {
-      if (!galleryRoms.byPosition.has(p)) {
-        missing = true;
-        break;
-      }
-    }
-    if (!missing) continue;
-    const start = item.startPosition;
-    const len = item.endPosition - start;
-    rowDwellTimers.set(
-      i,
-      setTimeout(() => {
-        rowDwellTimers.delete(i);
-        const r = viewportRange.value;
-        if (i < r.first || i > r.last) return;
-        void galleryRoms.fetchRange(start, len);
-      }, DWELL_MS),
-    );
+    const it = items[i];
+    if (!it || it.kind !== "row") continue;
+    for (let p = it.startPosition; p < it.endPosition; p++) out.add(p);
   }
+  return out;
 }
 
+function syncFetches(range: { first: number; last: number }) {
+  const next = collectVisiblePositions(range);
+
+  // Cancel positions that left the viewport before their fetch
+  // resolved. The store's per-position controller handles the network
+  // abort; idempotent if nothing was in flight.
+  for (const p of visiblePositions) {
+    if (!next.has(p) && !galleryRoms.byPosition.has(p)) {
+      galleryRoms.cancelFetchAt(p);
+    }
+  }
+
+  // Fire per-card fetches for positions that just entered. The store
+  // dedupes against in-flight + already-loaded internally.
+  for (const p of next) {
+    if (!galleryRoms.byPosition.has(p)) {
+      void galleryRoms.fetchRomAt(p);
+    }
+  }
+
+  visiblePositions.clear();
+  for (const p of next) visiblePositions.add(p);
+}
+
+function scheduleFetchSync(range: { first: number; last: number }) {
+  pendingRange = range;
+  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+  fetchDebounceTimer = setTimeout(() => {
+    fetchDebounceTimer = null;
+    if (pendingRange) {
+      syncFetches(pendingRange);
+      pendingRange = null;
+    }
+  }, FETCH_DEBOUNCE_MS);
+}
+
+// When the virtualItems list itself changes (gallery context switch,
+// search invalidate), drop the visible-position bookkeeping. The
+// store's `invalidateWindows` / `resetGallery` already aborts every
+// in-flight request, so we just clear local state.
 watch(virtualItems, () => {
-  clearAllRowDwell();
-  syncRowDwell(viewportRange.value);
+  visiblePositions.clear();
+  if (fetchDebounceTimer) {
+    clearTimeout(fetchDebounceTimer);
+    fetchDebounceTimer = null;
+  }
+  pendingRange = null;
+  // Re-sync against the current viewport so visible rows in the new
+  // context start fetching immediately (no debounce — items just
+  // changed, the user is staring at skeletons).
+  syncFetches(viewportRange.value);
 });
 
 function scrollToLetter(letter: string) {
@@ -303,21 +340,10 @@ function scrollToLetter(letter: string) {
     smooth: true,
     stickyOffset: toolbarHeight.value,
   });
-  // Express user intent: prefetch the destination row NOW (don't wait
-  // the 2s dwell — they explicitly asked to go there).
-  const items = virtualItems.value;
-  const target =
-    items[idx]?.kind === "row"
-      ? items[idx]
-      : items[idx]?.kind === "letter-header"
-        ? items[idx + 1]
-        : null;
-  if (target?.kind === "row") {
-    void galleryRoms.fetchRange(
-      target.startPosition,
-      target.endPosition - target.startPosition,
-    );
-  }
+  // The viewport-driven fetch sync handles the destination — once the
+  // smooth scroll settles, `update:viewportRange` fires and the cards
+  // at the landing zone start loading via `syncFetches`. No manual
+  // prefetch needed.
 }
 
 // ── Search filter (debounced) ───────────────────────────────────────
@@ -389,7 +415,14 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (searchDebounce) clearTimeout(searchDebounce);
-  clearAllRowDwell();
+  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+  // Cancel any per-position fetches still in flight for our last
+  // visible set — `invalidateWindows` / `resetGallery` already aborts
+  // window-level fetches; this covers per-card cleanup on unmount.
+  for (const p of visiblePositions) {
+    if (!galleryRoms.byPosition.has(p)) galleryRoms.cancelFetchAt(p);
+  }
+  visiblePositions.clear();
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
 });
