@@ -1,18 +1,23 @@
 // useGalleryVirtualItems — turns the gallery's structural state (mode,
-// total, charIndex, columns) into a flat list of `GalleryItem`s that an
-// RVirtualScroller can render with one slot per kind.
+// total, charIndex, columns) into a flat list of body `GalleryItem`s
+// that an RVirtualScroller can render with one slot per kind.
 //
-// Performance contract: this composable is STRUCTURAL — it only depends
-// on layout / groupBy / total / charIndex / columns / loadingInitial.
-// It does NOT read the loaded ROMs (`byPosition`). Per-row slot data is
-// resolved by the view at render time via `store.getRomAt(position)`,
-// which scopes Vue's reactivity to the specific row that holds the
-// resolved position. A window fetch that lands 72 ROMs only re-renders
-// up to ⌈72/cols⌉ rows, not the entire virtualItems array.
+// Header and toolbar are NOT in this list — they live in the
+// scroller's `#prepend` and `#sticky` slots so `position: sticky`
+// handles pinning natively (no JS scroll tracking, no jitter).
+//
+// Performance contract: this composable is STRUCTURAL — it only
+// depends on layout / groupBy / total / charIndex / columns /
+// loadingInitial. It does NOT read the loaded ROMs (`byPosition`).
+// Per-row slot data is resolved by the view at render time via
+// `store.getRomAt(position)`, which scopes Vue's reactivity to the
+// specific row that holds the resolved position. A window fetch that
+// lands 72 ROMs only re-renders up to ⌈72/cols⌉ rows, not the entire
+// virtualItems array.
 //
 // AlphaStrip integration is index-based: `letterToIndex` maps each
 // available letter to the index of its first item in `virtualItems`,
-// fed straight into `RVirtualScroller.scrollToIndex(idx)`.
+// fed straight into `RVirtualScroller.scrollToIndex(idx, { stickyOffset })`.
 // `availableLetters` derives from the server's `charIndex` so every
 // letter that exists in the gallery is clickable, even if its window
 // hasn't been fetched yet.
@@ -29,22 +34,12 @@ export type { GalleryItem, GalleryItemKind } from "./types";
 //     bottom-padding = 254.
 //   * letter-header: 20px top + 16px text + 12px bottom = 48 (rounded
 //     up to 56 for breathing room).
-//   * hero: InfoPanel ≈ 200px content + 28px top + 28px bottom + 12px
-//     bottom margin = 268 (rounded to 280).
-//   * toolbar: 56px control row + 8px breathing.
 //   * load-more / empty: matches the rendered button / centered text.
 //   * list-table: deliberately oversized — it's the only natural-flow
 //     item, sits at the bottom of the list, and the inner RTable owns
 //     its own paging height. We just need a value > the page's content
 //     so subsequent items (none in list mode) don't overlap.
 const HEIGHT_BY_KIND: Record<GalleryItem["kind"], number> = {
-  hero: 280,
-  // Toolbar's reserved offset includes ~32px of breathing space below
-  // the rendered toolbar so the grid doesn't sit flush against it.
-  // The clip-path while stuck uses this same value so content is
-  // hidden from y=0 down to here, keeping the gap consistent in both
-  // states.
-  toolbar: 88,
   "letter-header": 56,
   row: 254,
   "skeleton-row": 254,
@@ -62,10 +57,6 @@ export function galleryItemHeight(item: unknown): number {
 }
 
 interface Options {
-  /** Render hero (InfoPanel / PageHeader) as the first item. */
-  hasHero: Ref<boolean> | ComputedRef<boolean>;
-  /** Render the toolbar inline (header dock). */
-  toolbarInline: Ref<boolean> | ComputedRef<boolean>;
   layout: Ref<LayoutMode> | ComputedRef<LayoutMode>;
   groupBy: Ref<GroupByMode> | ComputedRef<GroupByMode>;
   /** Total count of ROMs in the active gallery (server-provided). */
@@ -146,10 +137,6 @@ export function useGalleryVirtualItems(opts: Options) {
 
   const virtualItems = computed<GalleryItem[]>(() => {
     const items: GalleryItem[] = [];
-
-    if (opts.hasHero.value) items.push({ kind: "hero", key: "hero" });
-    if (opts.toolbarInline.value)
-      items.push({ kind: "toolbar", key: "toolbar" });
 
     if (opts.notFound?.value) {
       items.push({

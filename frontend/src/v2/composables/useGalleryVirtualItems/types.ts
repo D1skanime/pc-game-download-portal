@@ -11,9 +11,13 @@
 // not the entire `virtualItems` array (which would be O(total/cols)
 // rebuild and was the source of the scroll-freeze in earlier passes).
 
+// `hero` (header) and `toolbar` are NOT virtual items — they live in
+// `RVirtualScroller`'s `#prepend` and `#sticky` slots respectively, so
+// the browser's compositor handles their layout (header scrolls with
+// content, toolbar pins via native `position: sticky`). Keeping them
+// out of the virtualised list avoids JS-driven scroll tracking and the
+// jitter that came with it.
 export type GalleryItem =
-  | { kind: "hero"; key: string }
-  | { kind: "toolbar"; key: string }
   | { kind: "letter-header"; key: string; letter: string }
   | {
       kind: "row";

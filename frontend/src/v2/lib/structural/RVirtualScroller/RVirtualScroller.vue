@@ -4,8 +4,8 @@
 // Replaces the previous Vuetify v-virtual-scroll wrapper. We own the
 // math: heights are reported by the consumer per item (via
 // `getItemHeight`), the prefix-sum offset table is built once per items
-// change, and `scrollToIndex` is `containerEl.scrollTop = offsets[index]`
-// — no estimation, no drift, lands exactly on target items.
+// change, and `scrollToIndex` is `containerEl.scrollTop = ...` — no
+// estimation, no drift, lands exactly on target items.
 //
 // Two ranges are exposed:
 //   * `renderedRange` = items in the DOM = viewport ± overscan. Drives
@@ -14,6 +14,24 @@
 //     visible viewport. Drives consumers that care about "what the user
 //     is looking at right now" — AlphaStrip highlight, dwell-debounced
 //     prefetch, etc.
+//
+// Two extension slots sit alongside the virtualised list inside the
+// scrolling container so they share its scrollbar:
+//
+//   * `#prepend` — flow content rendered ABOVE the virtualised inner.
+//                  Use this for headers / hero panels that should
+//                  scroll naturally with the rest of the content.
+//   * `#sticky`  — flow content rendered BETWEEN `#prepend` and the
+//                  virtualised inner, with `position: sticky; top: 0`.
+//                  Use this for a toolbar that should pin once the
+//                  user scrolls past the prepend block. Native sticky
+//                  runs on the compositor — zero JS scroll lag, no
+//                  per-frame transform tracking needed.
+//
+// `scrollToIndex(idx, { stickyOffset })` accounts for the prepend and
+// sticky bands automatically (the inner's `offsetTop` is in the math).
+// Pass the sticky band's height as `stickyOffset` so the target item
+// lands just below the pinned sticky element instead of behind it.
 //
 // Performance contract:
 //   * Rendered items are absolutely positioned via `transform: translateY`.
@@ -56,9 +74,14 @@ const emit = defineEmits<{
 
 defineSlots<{
   default(props: { item: unknown; index: number }): unknown;
+  /** Flow content above the virtualised inner — scrolls with the list. */
+  prepend(): unknown;
+  /** Flow content between `#prepend` and the inner, position: sticky. */
+  sticky(): unknown;
 }>();
 
 const containerEl = ref<HTMLElement | null>(null);
+const innerEl = ref<HTMLElement | null>(null);
 const scrollTop = ref(0);
 const containerHeight = ref(0);
 
@@ -80,9 +103,14 @@ const totalHeight = computed(() => {
   return offs[offs.length - 1] ?? 0;
 });
 
-// Smallest i in [0, N) where offsets[i+1] > top — first item whose
-// bottom edge is past the top of the viewport (so it's at least
-// partially visible).
+// `innerOffsetTop` — distance from the scroller's content top to the
+// virtualised inner's top edge. Captures any space taken by the
+// `#prepend` and `#sticky` slots above the inner. Tracked via a
+// ResizeObserver and a one-shot read on each scroll so AlphaStrip /
+// `scrollToIndex` math stays correct as the prepend's height changes
+// (e.g. the platform InfoPanel reflowing on viewport resize).
+const innerOffsetTop = ref(0);
+
 function findFirstVisible(offs: number[], top: number): number {
   let lo = 0;
   let hi = offs.length - 2;
@@ -95,8 +123,6 @@ function findFirstVisible(offs: number[], top: number): number {
   return lo;
 }
 
-// Largest i in [0, N) where offsets[i] < bottom — last item whose top
-// edge is before the bottom of the viewport.
 function findLastVisible(offs: number[], bottom: number): number {
   let lo = 0;
   let hi = offs.length - 2;
@@ -114,7 +140,9 @@ const viewportRange = computed<{ first: number; last: number }>(() => {
   if (len === 0 || containerHeight.value === 0) {
     return { first: 0, last: -1 };
   }
-  const top = scrollTop.value;
+  // The viewport, in inner-relative coordinates: subtract whatever
+  // space the prepend / sticky bands take above the inner.
+  const top = Math.max(0, scrollTop.value - innerOffsetTop.value);
   const bottom = top + containerHeight.value;
   const first = findFirstVisible(offsets.value, top);
   const last = findLastVisible(offsets.value, bottom);
@@ -157,24 +185,49 @@ function onScroll(e: Event) {
   scrollTop.value = (e.target as HTMLElement).scrollTop;
 }
 
-// Container size tracking (ResizeObserver — fires on initial mount and
-// every layout change).
-let resizeObserver: ResizeObserver | null = null;
+// Container size + inner offset tracking.
+let containerObserver: ResizeObserver | null = null;
+let innerObserver: ResizeObserver | null = null;
+
+function syncInnerOffset() {
+  const inner = innerEl.value;
+  if (!inner) return;
+  innerOffsetTop.value = inner.offsetTop;
+}
 
 onMounted(() => {
-  const el = containerEl.value;
-  if (!el) return;
-  containerHeight.value = el.clientHeight;
-  scrollTop.value = el.scrollTop;
-  resizeObserver = new ResizeObserver(() => {
-    containerHeight.value = el.clientHeight;
+  const container = containerEl.value;
+  if (!container) return;
+  containerHeight.value = container.clientHeight;
+  scrollTop.value = container.scrollTop;
+  syncInnerOffset();
+
+  containerObserver = new ResizeObserver(() => {
+    containerHeight.value = container.clientHeight;
+    syncInnerOffset();
   });
-  resizeObserver.observe(el);
+  containerObserver.observe(container);
+
+  // Watch the prepend / sticky bands so their height changes (e.g.
+  // header reflow on resize) propagate into `innerOffsetTop`. We
+  // observe the container itself; any layout shift in its descendants
+  // bubbles up via the container's own size or the inner's offsetTop.
+  if (innerEl.value) {
+    innerObserver = new ResizeObserver(syncInnerOffset);
+    // Observe siblings above the inner — that's what shifts `innerOffsetTop`.
+    let prev = innerEl.value.previousElementSibling;
+    while (prev) {
+      innerObserver.observe(prev);
+      prev = prev.previousElementSibling;
+    }
+  }
 });
 
 onUnmounted(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
+  containerObserver?.disconnect();
+  containerObserver = null;
+  innerObserver?.disconnect();
+  innerObserver = null;
 });
 
 // Re-emit viewportRange whenever it changes. Computed memoises on
@@ -197,6 +250,10 @@ watch(
 
 interface ScrollToIndexOptions {
   smooth?: boolean;
+  /** Pixels of viewport to leave above the target item — typically the
+   * height of the `#sticky` band, so the row lands just below the
+   * pinned toolbar instead of behind it. Default 0. */
+  stickyOffset?: number;
 }
 
 function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
@@ -204,8 +261,12 @@ function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
   if (!root) return;
   const offs = offsets.value;
   if (index < 0 || index >= offs.length - 1) return;
-  const target = offs[index];
-  if (!Number.isFinite(target)) return;
+  const itemTop = offs[index];
+  if (!Number.isFinite(itemTop)) return;
+  const stickyOffset = options.stickyOffset ?? 0;
+  // The item's flow top in the scroller is `innerOffsetTop + itemTop`.
+  // Subtract the sticky band so the row lands below it.
+  const target = Math.max(0, innerOffsetTop.value + itemTop - stickyOffset);
   if (options.smooth) {
     root.scrollTo({ top: target, behavior: "smooth" });
   } else {
@@ -237,7 +298,13 @@ const innerStyle = computed(() => ({
     :style="wrapperStyle"
     @scroll.passive="onScroll"
   >
-    <div class="r-virtual-scroller__inner" :style="innerStyle">
+    <div v-if="$slots.prepend" class="r-virtual-scroller__prepend">
+      <slot name="prepend" />
+    </div>
+    <div v-if="$slots.sticky" class="r-virtual-scroller__sticky">
+      <slot name="sticky" />
+    </div>
+    <div ref="innerEl" class="r-virtual-scroller__inner" :style="innerStyle">
       <div
         v-for="entry in renderedItems"
         :key="entry.index"
@@ -256,6 +323,16 @@ const innerStyle = computed(() => ({
   overflow-x: hidden;
   position: relative;
   background-color: transparent;
+}
+
+.r-virtual-scroller__sticky {
+  /* Native sticky — pinned by the compositor as the user scrolls past
+     the prepend band. Zero JS lag. Consumers should give the slot's
+     content an opaque background so virtualised rows scrolling under
+     it stay visually hidden. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .r-virtual-scroller__item {

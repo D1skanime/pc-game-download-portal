@@ -1,39 +1,36 @@
 <script setup lang="ts">
 // GalleryShell — shared layout for Platform / Search / Collection.
 //
-// Three structural sections, top to bottom:
-//   1. HEADER  — the view's header. Whatever the view wants in there:
-//                an InfoPanel with platform / collection metadata, a
-//                plain PageHeader for Search, etc. Provided via the
-//                `#header` slot. There's no notion of "header vs. info
-//                panel" — they're all just headers.
-//   2. TOOLBAR — search input + group/layout/dock controls. Lives once
-//                as an absolute overlay; tracks scroll naturally with
-//                the header until it reaches the top, then pins.
+// Three structural sections, top to bottom, all sharing one scrollbar:
+//   1. HEADER  — view-supplied via `#header` slot. Whatever the view
+//                wants there: an InfoPanel with platform / collection
+//                metadata, a plain PageHeader for Search, etc. There's
+//                no notion of "header vs. info panel" — they're all
+//                just headers.
+//   2. TOOLBAR — search input + group/layout/dock controls. Pinned to
+//                the top of the scroller via native `position: sticky`
+//                once the user scrolls past the header.
 //   3. GRID / TABLE — the row-virtualised content (cards in grid mode,
 //                RTable in list mode).
 //
 // Between HEADER and TOOLBAR sits a single `RDivider`, owned by the
-// shell. Header components must NOT paint a divider of their own — the
-// shell renders it exactly once. While the toolbar is pinned, the
-// header is off-screen so the divider hides with it.
+// shell and rendered in flow at the bottom of the prepend band so it
+// scrolls away with the header. While the toolbar is pinned, the
+// header and divider are off-screen above; cards scroll up behind the
+// toolbar's opaque background.
+//
+// Why native sticky: the previous design absolute-positioned the
+// toolbar outside the scroller and tracked `scrollTop` from JS. That
+// path is fundamentally lagged — the browser scrolls on the
+// compositor, but JS only catches up on the next event/frame, so the
+// toolbar visibly bounced behind the scroll. CSS `position: sticky`
+// pins on the compositor, in lockstep with the scroll.
 //
 // Cross-view behaviour owned by the shell: the virtualizer, sticky
 // toolbar, AlphaStrip, per-row dwell-debounced prefetch, scroll
 // restoration, list-mode RTable wiring, search-input debounce, URL
-// filter sync. Each view supplies its header and its own
-// resource-load flow.
-//
-// Layout invariants:
-//   * Section is `display: flex` row → [scroller (flex:1)] [AlphaStrip].
-//   * Toolbar is rendered OUTSIDE the virtualizer; its `top` tracks
-//     `scrollTop` until pinned. While pinned, the virtualizer is
-//     `clip-path`-clipped so card rows don't appear behind it (matches
-//     AppNav: scrolled content never reaches the bar's area).
-//   * The header's height is auto-measured via ResizeObserver — the
-//     toolbar's natural offset always matches the header's actual
-//     rendered bottom, so the divider lands exactly between them
-//     regardless of which header.
+// filter sync. Each view supplies its header and its own resource-load
+// flow.
 import { RDivider, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
@@ -63,8 +60,8 @@ import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
 
 interface Props {
-  /** Whether the header slot has content to render (drives the structural
-   * `header` virtual item). False suppresses the header entirely. */
+  /** Whether the header slot has content to render. False suppresses
+   * the header (the prepend band collapses; toolbar pins immediately). */
   hasHeader: boolean;
   /** Toolbar's search-input placeholder. */
   searchPlaceholder: string;
@@ -89,11 +86,10 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 defineSlots<{
-  /** View-specific header (InfoPanel / PageHeader / etc). The shell
-   * wraps it in the virtualizer's `kind: 'hero'` item slot so it scrolls
-   * with the rest of the content. Header components must NOT carry a
-   * divider of their own — the shell paints the single divider above
-   * the toolbar (where it belongs) so all three views look identical. */
+  /** View-specific header (InfoPanel / PageHeader / etc). Rendered in
+   * the scroller's `#prepend` slot — scrolls naturally with the rest
+   * of the content. Must NOT carry a divider of its own; the shell
+   * paints the single divider at the bottom of the prepend band. */
   header(): unknown;
   /** Override the empty-state body. Receives `{ message }` (the
    * resolved empty / not-found message) so the override can decide
@@ -128,19 +124,14 @@ const loadingInitial = computed(
   () => initialFetching.value && total.value === 0,
 );
 
-// notFound and emptyMessage need to be reactive refs for the composable.
 const notFoundRef = computed(() => props.notFound);
 const emptyMessageRef = computed(() => props.emptyMessage);
 const notFoundMessageRef = computed(
   () => props.notFoundMessage ?? props.emptyMessage,
 );
-const hasHeaderRef = computed(() => props.hasHeader);
-const toolbarInlineRef = computed(() => toolbarPosition.value === "header");
 
 const { virtualItems, letterToIndex, availableLetters } =
   useGalleryVirtualItems({
-    hasHero: hasHeaderRef,
-    toolbarInline: toolbarInlineRef,
     layout,
     groupBy,
     total,
@@ -153,56 +144,33 @@ const { virtualItems, letterToIndex, availableLetters } =
     skeletonRowCount: props.skeletonRowCount,
   });
 
-// ── Header auto-measurement ────────────────────────────────────────
-// The header's natural rendered height varies (InfoPanel ≈ 270, search
-// PageHeader ≈ 80, future headers whatever). Rather than ask each view
-// to hand-tune a `headerHeight` prop — which they kept getting wrong —
-// we observe the slot wrapper. As long as the result feeds back into
-// `itemHeightOf` (used by both the virtualizer's offset table and the
-// toolbar offset math), the toolbar always sits exactly at the
-// header's rendered bottom edge.
-//
-// Initial fallback is the value baked into `galleryItemHeight()` (280)
-// so the first frame's offsets are roughly correct for a typical
-// InfoPanel; ResizeObserver refines once mounted.
-const measuredHeaderHeight = ref(galleryItemHeight({ kind: "hero", key: "" }));
-let headerResizeObserver: ResizeObserver | null = null;
+// Toolbar height for `scrollToIndex` — the AlphaStrip lands rows just
+// below the pinned toolbar instead of behind it. Measured live (the
+// toolbar's rendered height varies with breakpoint / search-input
+// state) so jumps stay accurate without a hard-coded value drifting
+// from CSS.
+const toolbarEl = ref<HTMLElement | null>(null);
+const toolbarHeight = ref(0);
+let toolbarObserver: ResizeObserver | null = null;
 
-function bindHeaderEl(el: Element | null) {
-  if (headerResizeObserver) {
-    headerResizeObserver.disconnect();
-    headerResizeObserver = null;
+function bindToolbarEl(el: HTMLElement | null) {
+  toolbarObserver?.disconnect();
+  toolbarObserver = null;
+  toolbarEl.value = el;
+  if (!el) {
+    toolbarHeight.value = 0;
+    return;
   }
-  if (!el) return;
-  const html = el as HTMLElement;
-  const measure = () => {
-    const h = html.getBoundingClientRect().height;
-    if (h > 0 && h !== measuredHeaderHeight.value)
-      measuredHeaderHeight.value = h;
-  };
-  measure();
-  headerResizeObserver = new ResizeObserver(measure);
-  headerResizeObserver.observe(html);
+  toolbarHeight.value = el.getBoundingClientRect().height;
+  toolbarObserver = new ResizeObserver(() => {
+    toolbarHeight.value = el.getBoundingClientRect().height;
+  });
+  toolbarObserver.observe(el);
 }
 
-onBeforeUnmount(() => {
-  headerResizeObserver?.disconnect();
-  headerResizeObserver = null;
-});
-
-// Wrap `galleryItemHeight` so the header kind reports its measured
-// size. Used both by the virtualizer (via `getItemHeight`) and by the
-// toolbar offset math below — they MUST agree, otherwise the toolbar
-// pin threshold drifts away from where the header actually ends.
-const itemHeightOf = (item: unknown): number => {
-  const it = item as GalleryItem;
-  if (it.kind === "hero") return measuredHeaderHeight.value;
-  return galleryItemHeight(it);
-};
-
-// Viewport range — items whose pixel rect intersects the actual visible
-// viewport (NOT the rendered overscan). Drives AlphaStrip and the
-// per-row dwell prefetch.
+// Viewport range — items whose pixel rect intersects the actual
+// visible viewport (NOT the rendered overscan). Drives AlphaStrip and
+// the per-row dwell prefetch.
 const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 const viewportRange = ref<{ first: number; last: number }>({
   first: 0,
@@ -297,7 +265,10 @@ watch(virtualItems, () => {
 function scrollToLetter(letter: string) {
   const idx = letterToIndex.value.get(letter);
   if (idx == null) return;
-  scrollerRef.value?.scrollToIndex(idx, { smooth: true });
+  scrollerRef.value?.scrollToIndex(idx, {
+    smooth: true,
+    stickyOffset: toolbarHeight.value,
+  });
   // Express user intent: prefetch the destination row NOW (don't wait
   // the 2s dwell — they explicitly asked to go there).
   const items = virtualItems.value;
@@ -356,43 +327,6 @@ const loadedRoms = computed(() => {
   return entries.map(([, rom]) => rom);
 });
 
-// ── Toolbar overlay positioning ─────────────────────────────────────
-// Single toolbar element rendered outside the virtualizer; tracks the
-// virtualizer's scrollTop until the toolbar's natural offset crosses
-// the section's top, then pins. While pinned, the virtualizer is
-// clipped at the toolbar's height so card rows never paint behind it.
-//
-// The scroller has `padding-top: 32px` (= --r-row-pad-top), which
-// pushes the inline content down by that amount on screen. The overlay
-// is `position: absolute` against the section, NOT the scroller's
-// content area, so we add the padding to its top math — otherwise the
-// overlay sits 32px ABOVE where the inline header actually renders and
-// ends up clipping the title.
-const SCROLLER_PADDING_TOP_PX = 32;
-const toolbarHeightPx = galleryItemHeight({ kind: "toolbar", key: "" });
-const toolbarOffsetPx = computed(() => {
-  const items = virtualItems.value;
-  let sum = 0;
-  for (let i = 0; i < items.length; i++) {
-    if (items[i].kind === "toolbar") return sum;
-    sum += itemHeightOf(items[i]);
-  }
-  return -1;
-});
-const toolbarTopPx = computed(() => {
-  const offset = toolbarOffsetPx.value;
-  if (offset < 0) return 0;
-  const top = scrollerRef.value?.scrollTop ?? 0;
-  return Math.max(0, SCROLLER_PADDING_TOP_PX + offset - top);
-});
-const toolbarStuck = computed(() => {
-  const offset = toolbarOffsetPx.value;
-  if (offset < 0) return false;
-  return (
-    (scrollerRef.value?.scrollTop ?? 0) >= SCROLLER_PADDING_TOP_PX + offset
-  );
-});
-
 // ── Scroll restoration ─────────────────────────────────────────────
 async function applyRestoredScroll() {
   const saved = scrollRestoration.restore(route.fullPath);
@@ -425,6 +359,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (searchDebounce) clearTimeout(searchDebounce);
   clearAllRowDwell();
+  toolbarObserver?.disconnect();
+  toolbarObserver = null;
 });
 
 // ── Slot helpers ────────────────────────────────────────────────────
@@ -467,52 +403,59 @@ defineExpose({
 
 <template>
   <section ref="sectionEl" class="r-v2-shell">
-    <!-- VIRTUALISED CONTENT — header + toolbar spacer + rows / list /
-         empty. The toolbar and AlphaStrip live OUTSIDE the virtualizer
-         (below) so their positioning isn't tied to scroll-driven
-         offsets. -->
     <RVirtualScroller
       ref="scrollerRef"
       :items="virtualItems"
-      :get-item-height="itemHeightOf"
+      :get-item-height="galleryItemHeight"
       :overscan="25"
       class="r-v2-shell__scroller r-v2-scroll-hidden"
-      :class="{ 'r-v2-shell__scroller--toolbar-stuck': toolbarStuck }"
-      :style="{ '--r-v2-shell-toolbar-h': `${toolbarHeightPx}px` }"
       @update:viewport-range="onViewportRangeChange"
     >
+      <!-- HEADER (Section 1) — view-supplied. Lives in the scroller's
+           flow above the inner virtualised list, so it scrolls
+           naturally with the rest of the content. The divider sits at
+           the bottom of this band so it scrolls away with the header
+           — the toolbar's stuck state has no separator above it. -->
+      <template v-if="hasHeader" #prepend>
+        <div class="r-v2-shell__header">
+          <slot name="header" />
+        </div>
+        <RDivider class="r-v2-shell__header-divider" />
+      </template>
+
+      <!-- TOOLBAR (Section 2) — `position: sticky; top: 0` (handled by
+           `RVirtualScroller`'s `__sticky` styling). Pins on the
+           compositor as the user scrolls past the header. The toolbar
+           paints its own opaque background so cards scrolling
+           underneath stay visually hidden. -->
+      <template v-if="toolbarPosition === 'header'" #sticky>
+        <div
+          :ref="(el) => bindToolbarEl(el as HTMLElement | null)"
+          class="r-v2-shell__toolbar"
+        >
+          <GalleryToolbar
+            :group-by="groupBy"
+            :layout="layout"
+            :position="toolbarPosition"
+            show-search
+            :search="searchInput"
+            :search-placeholder="searchPlaceholder"
+            @update:group-by="groupBy = $event"
+            @update:layout="layout = $event"
+            @update:search="setSearch"
+          />
+        </div>
+      </template>
+
+      <!-- GRID / TABLE (Section 3) — letter-headers + rows of cards in
+           grid/grouped mode, or a single RTable in list mode. Skeleton
+           rows render while the first window is in flight. The empty
+           / not-found state replaces everything below the toolbar
+           with a single message. -->
       <template #default="{ item }">
         <div class="r-v2-shell__item">
-          <!-- ┌─ HEADER (Section 1) ─ view-supplied via `#header` slot;
-                 the wrapper is what we measure for
-                 `measuredHeaderHeight` so the toolbar overlay below
-                 sits exactly at the header's rendered bottom edge. -->
           <div
-            v-if="itemKind(item as GalleryItem) === 'hero'"
-            :ref="(el) => bindHeaderEl(el as Element | null)"
-            class="r-v2-shell__header"
-          >
-            <slot name="header" />
-          </div>
-
-          <!-- TOOLBAR (Section 2) reserves its layout band here as an
-               empty placeholder (matches `HEIGHT_BY_KIND.toolbar` —
-               divider + toolbar + breathing). The visible toolbar is
-               rendered as an absolute overlay below the virtualizer so
-               it can smoothly transition from in-flow to pinned-at-top. -->
-          <div
-            v-else-if="itemKind(item as GalleryItem) === 'toolbar'"
-            class="r-v2-shell__toolbar-spacer"
-            aria-hidden="true"
-          />
-
-          <!-- GRID / TABLE (Section 3) ─ letter-headers + rows of
-               cards in grid/grouped mode, or a single RTable in list
-               mode. Skeleton rows render here while the first window
-               is in flight. The empty / not-found state replaces
-               everything below the toolbar with a single message. -->
-          <div
-            v-else-if="itemKind(item as GalleryItem) === 'letter-header'"
+            v-if="itemKind(item as GalleryItem) === 'letter-header'"
             class="r-v2-shell__letter-heading"
           >
             {{ asLetterHeader(item as GalleryItem).letter }}
@@ -571,36 +514,6 @@ defineExpose({
       </template>
     </RVirtualScroller>
 
-    <!-- TOOLBAR OVERLAY — single element. `top` tracks scroll until it
-         hits 0, then pins. The `<RDivider />` above the toolbar is the
-         single source of truth for the boundary between header and
-         toolbar; it scrolls with the overlay until pinned and is hidden
-         once stuck (the header is gone with it). When pinned, a
-         `border-bottom` on the toolbar separates it from the cards
-         scrolling underneath (clipped) for the AppNav-like chrome. -->
-    <div
-      v-if="toolbarPosition === 'header'"
-      class="r-v2-shell__toolbar"
-      :class="{
-        'r-v2-shell__toolbar--has-strip': availableLetters.size > 0,
-        'r-v2-shell__toolbar--stuck': toolbarStuck,
-      }"
-      :style="{ top: toolbarTopPx + 'px' }"
-    >
-      <RDivider v-if="!toolbarStuck" class="r-v2-shell__toolbar-divider" />
-      <GalleryToolbar
-        :group-by="groupBy"
-        :layout="layout"
-        :position="toolbarPosition"
-        show-search
-        :search="searchInput"
-        :search-placeholder="searchPlaceholder"
-        @update:group-by="groupBy = $event"
-        @update:layout="layout = $event"
-        @update:search="setSearch"
-      />
-    </div>
-
     <!-- ALPHASTRIP — A-Z jump column on the right edge of the section. -->
     <AlphaStrip
       v-if="availableLetters.size > 0"
@@ -611,8 +524,8 @@ defineExpose({
     />
 
     <!-- FLOATING-DOCK TOOLBAR — the alternative dock; sits permanently
-         in the top-right and never scrolls. Mutually exclusive with the
-         header-dock overlay above. -->
+         in the top-right and never scrolls. Mutually exclusive with
+         the sticky in-scroller toolbar above. -->
     <GalleryToolbar
       v-if="toolbarPosition === 'floating'"
       :group-by="groupBy"
@@ -643,19 +556,18 @@ defineExpose({
   width: 100%;
 }
 
-/* The header wrapper has no chrome of its own — header components own
-   their padding. `display: flow-root` establishes a new block-formatting
-   context so child margins DON'T collapse out of the wrapper's
-   `getBoundingClientRect().height`; without it, a margin-bottom on the
-   header (e.g., older PageHeader styling) would silently disappear from
-   the measurement and the toolbar's divider would land too high. */
+/* Header band — `display: flow-root` establishes a new
+   block-formatting context so child margins don't collapse out
+   visually. Header components own their own padding. */
 .r-v2-shell__header {
   display: flow-root;
 }
 
-.r-v2-shell__toolbar-spacer {
-  width: 100%;
-  height: 100%;
+/* Divider between header and toolbar. Lives at the bottom of the
+   prepend band so it scrolls away with the header — the toolbar's
+   stuck state shows no separator above it. */
+.r-v2-shell__header-divider {
+  margin-bottom: 16px;
 }
 
 .r-v2-shell__letter-heading {
@@ -695,31 +607,15 @@ defineExpose({
   text-align: center;
 }
 
-/* Toolbar overlay — the `<RDivider />` rendered inline above the
-   `<GalleryToolbar />` is the single source of truth for the boundary
-   between header and toolbar. While stuck, the divider is removed
-   (the header is gone) and a `border-bottom` paints the chrome
-   separator over the clipped content area. */
+/* Sticky toolbar — opaque background so virtualised rows scrolling
+   underneath stay visually hidden once it pins. The padding-bottom
+   reserves breathing space between the toolbar and the first card
+   row so the grid doesn't sit flush against it. The AlphaStrip is a
+   flex sibling of the scroller, so the scroller (and this toolbar
+   inside it) is already bounded inside the column it occupies — no
+   manual right-padding needed. */
 .r-v2-shell__toolbar {
-  position: absolute;
-  left: var(--r-row-pad);
-  right: var(--r-row-pad);
-  z-index: 5;
-  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-shell__toolbar--has-strip {
-  /* Don't cover the AlphaStrip column on the right. */
-  right: calc(var(--r-row-pad) + 36px);
-}
-.r-v2-shell__toolbar-divider {
-  margin-bottom: 16px;
-}
-
-.r-v2-shell__scroller--toolbar-stuck {
-  /* Hide whatever the virtualizer paints in the toolbar's pixel band so
-     card rows never bleed behind the pinned toolbar — same effect as
-     AppNav (scrolled content never reaches the bar's area). */
-  clip-path: inset(var(--r-v2-shell-toolbar-h, 64px) 0 0 0);
+  padding-bottom: 16px;
 }
 
 @media (max-width: 768px) {
