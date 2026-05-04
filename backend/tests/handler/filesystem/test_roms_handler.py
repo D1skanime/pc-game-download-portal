@@ -378,6 +378,64 @@ class TestFSRomsHandler:
                 assert rom_file.file_size_bytes > 0
                 assert rom_file.last_modified is not None
 
+    @pytest.mark.asyncio
+    async def test_get_rom_files_multi_rom_multi_dot_exclusion(
+        self, handler: FSRomsHandler, rom_multi
+    ):
+        """Multi-dot filenames in a multi-part dir are excluded by simple or compound ext rules."""
+        multi_dot_file = (
+            handler.base_path / "n64/roms/Super Mario 64 (J) (Rev A)/game.n64.hash.txt"
+        )
+        multi_dot_file.write_text("hash data")
+
+        try:
+            # Exclude by the last single extension "txt"
+            config_txt = Config(
+                EXCLUDED_PLATFORMS=[],
+                EXCLUDED_SINGLE_EXT=[],
+                EXCLUDED_SINGLE_FILES=[],
+                EXCLUDED_MULTI_FILES=[],
+                EXCLUDED_MULTI_PARTS_EXT=["txt"],
+                EXCLUDED_MULTI_PARTS_FILES=[],
+                PLATFORMS_BINDING={},
+                PLATFORMS_VERSIONS={},
+                ROMS_FOLDER_NAME="roms",
+                FIRMWARE_FOLDER_NAME="bios",
+            )
+            with pytest.MonkeyPatch.context() as m:
+                m.setattr(
+                    "handler.filesystem.roms_handler.cm.get_config", lambda: config_txt
+                )
+                parsed = await handler.get_rom_files(rom_multi)
+                file_names = [rf.file_name for rf in parsed.rom_files]
+                assert "game.n64.hash.txt" not in file_names
+                assert "Super Mario 64 (J) (Rev A) [Part 1].z64" in file_names
+
+            # Exclude by the compound extension "hash.txt"
+            config_compound = Config(
+                EXCLUDED_PLATFORMS=[],
+                EXCLUDED_SINGLE_EXT=[],
+                EXCLUDED_SINGLE_FILES=[],
+                EXCLUDED_MULTI_FILES=[],
+                EXCLUDED_MULTI_PARTS_EXT=["hash.txt"],
+                EXCLUDED_MULTI_PARTS_FILES=[],
+                PLATFORMS_BINDING={},
+                PLATFORMS_VERSIONS={},
+                ROMS_FOLDER_NAME="roms",
+                FIRMWARE_FOLDER_NAME="bios",
+            )
+            with pytest.MonkeyPatch.context() as m:
+                m.setattr(
+                    "handler.filesystem.roms_handler.cm.get_config",
+                    lambda: config_compound,
+                )
+                parsed = await handler.get_rom_files(rom_multi)
+                file_names = [rf.file_name for rf in parsed.rom_files]
+                assert "game.n64.hash.txt" not in file_names
+                assert "Super Mario 64 (J) (Rev A) [Part 1].z64" in file_names
+        finally:
+            multi_dot_file.unlink(missing_ok=True)
+
     async def test_rename_fs_rom_same_name(self, handler: FSRomsHandler):
         """Test rename_fs_rom when old and new names are the same"""
         old_name = "test_rom.n64"
