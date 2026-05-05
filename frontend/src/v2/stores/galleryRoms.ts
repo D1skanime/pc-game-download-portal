@@ -38,6 +38,21 @@ import type { ExtractPiniaStoreType } from "@/types";
 
 export type SimpleRom = SimpleRomSchema;
 
+/** Sort keys the backend accepts for `/roms` ordering. The handler
+ * resolves the column against `Rom`, then `RomMetadata`, then
+ * `RomUser`, so this includes fields that aren't direct properties of
+ * `SimpleRomSchema` (e.g. `first_release_date` lives on RomMetadata).
+ * Keep this in sync with the columns the gallery surface exposes. */
+export type GalleryOrderKey =
+  | "name"
+  | "fs_name"
+  | "fs_size_bytes"
+  | "created_at"
+  | "updated_at"
+  | "first_release_date"
+  | "average_rating"
+  | "last_played";
+
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 // Default window size — the backend's pagination limit. Smaller windows
@@ -124,7 +139,7 @@ interface State {
   metadataLoaded: boolean;
   // Order params — gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value).
-  orderBy: keyof SimpleRom;
+  orderBy: GalleryOrderKey;
   orderDir: "asc" | "desc";
 }
 
@@ -179,7 +194,7 @@ export default defineStore("v2GalleryRoms", {
       this.currentSmartCollection = collection;
     },
 
-    setOrderBy(key: keyof SimpleRom) {
+    setOrderBy(key: GalleryOrderKey) {
       this.orderBy = key;
     },
     setOrderDir(dir: "asc" | "desc") {

@@ -6,10 +6,13 @@
 // stays aligned with every row underneath. The fr units in the title
 // column let the row stretch to fill remaining width while the metric
 // columns hold fixed pixel widths so numbers align cleanly.
-import type { SimpleRom } from "@/stores/roms";
+import type { GalleryOrderKey } from "@/v2/stores/galleryRoms";
 
+/** Subset of `GalleryOrderKey` exposed as clickable column headers in
+ * list mode. Other gallery surfaces (toolbar dropdown, future smart
+ * collections) may use additional keys from `GalleryOrderKey`. */
 export type ListSortKey = Extract<
-  keyof SimpleRom,
+  GalleryOrderKey,
   | "name"
   | "fs_size_bytes"
   | "created_at"

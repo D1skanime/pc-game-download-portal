@@ -89,26 +89,32 @@ function morphStyleFor(item: SimpleRom) {
     : undefined;
 }
 
-function onRowClick(e: MouseEvent) {
-  const item = rom.value;
-  if (!item) return;
+function navigateTo(item: SimpleRom, currentTarget: HTMLElement | null) {
   const navigate = async () => {
     await router.push(`/rom/${item.id}`);
   };
-  // Modifier keys / non-primary buttons fall through to a plain
-  // navigation so "open in new tab" still works.
-  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
-    void navigate();
-    return;
-  }
-  const thumb = (
-    e.currentTarget as HTMLElement | null
-  )?.querySelector<HTMLElement>(".game-list-row__thumb");
+  const thumb =
+    currentTarget?.querySelector<HTMLElement>(".game-list-row__thumb") ?? null;
   if (!thumb) {
     void navigate();
     return;
   }
   morphTransition({ el: thumb, name: `rom-cover-${item.id}` }, navigate);
+}
+
+function onRowClick(e: MouseEvent) {
+  const item = rom.value;
+  if (!item) return;
+  // Modifier keys / non-primary buttons fall through to native anchor
+  // navigation so "open in new tab" still works (the `href` is wired
+  // up; we just don't preventDefault here).
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+    return;
+  }
+  // Default click — prevent the anchor's native navigation, run the
+  // morph, then push the route.
+  e.preventDefault();
+  navigateTo(item, e.currentTarget as HTMLElement | null);
 }
 
 onMounted(() => {
@@ -128,11 +134,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
+  <a
     class="game-list-row"
     :class="{ 'game-list-row--clickable': !!rom }"
     :style="gridStyle"
-    role="row"
+    :href="rom ? `/rom/${rom.id}` : undefined"
+    :aria-label="rom ? `Open ${rom.name ?? rom.fs_name_no_ext}` : undefined"
     :data-rom-position="position"
     :data-rom-id="rom?.id"
     @click="onRowClick"
@@ -233,7 +240,7 @@ onBeforeUnmount(() => {
         </template>
       </MoreMenu>
     </div>
-  </div>
+  </a>
 </template>
 
 <style scoped>
