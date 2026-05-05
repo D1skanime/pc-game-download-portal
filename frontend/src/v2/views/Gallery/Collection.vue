@@ -14,6 +14,7 @@ import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
+import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -24,6 +25,7 @@ const route = useRoute();
 const collectionsStore = storeCollections();
 const galleryRoms = storeGalleryRoms();
 const { toWebp } = useWebpSupport();
+const { layout } = useGalleryMode();
 
 const notFound = ref(false);
 const currentKind = ref<CollectionKind>("regular");
@@ -108,7 +110,14 @@ async function loadForRoute(kind: CollectionKind, id: string) {
   }
 
   document.title = collection.name;
-  await galleryRoms.fetchWindowAt(0);
+  // Grid mode: bootstrap metadata only; rows hydrate per-card via the
+  // viewport sync. List mode: load the first window because the table
+  // reads `byPosition` directly. See galleryRoms.fetchInitialMetadata.
+  if (layout.value === "list") {
+    await galleryRoms.fetchWindowAt(0);
+  } else {
+    await galleryRoms.fetchInitialMetadata();
+  }
   await nextTick();
   shellRef.value?.applyRestoredScroll();
 }

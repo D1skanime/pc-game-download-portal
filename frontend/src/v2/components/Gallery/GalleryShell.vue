@@ -204,7 +204,17 @@ const isStuck = computed(() => {
 // Width / horizontal alignment of the absolute overlay needs to track
 // the scroller column (which is narrowed by the AlphaStrip when it's
 // rendered).
-const hasAlphaStrip = computed(() => availableLetters.value.size > 0);
+//
+// The strip stays mounted in grid mode regardless of how many letters
+// the backend has reported — letters that aren't in `availableLetters`
+// render as disabled buttons, so the layout column stays reserved
+// from the very first paint (skeleton phase included). Without this,
+// the scroller would shift sideways the instant the bootstrap response
+// resolves and the first letter showed up.
+//
+// List mode hides it: the table is one big virtual item, there are
+// no letter-headers / rows to jump to, and `letterToIndex` is empty.
+const hasAlphaStrip = computed(() => layout.value === "grid");
 
 // ── Viewport range / AlphaStrip / dwell prefetch ────────────────────
 const viewportRange = ref<{ first: number; last: number }>({
@@ -346,6 +356,21 @@ function scrollToLetter(letter: string) {
   // prefetch needed.
 }
 
+// Layout-toggle hydration: views mount with `fetchInitialMetadata()`
+// in grid mode (no items in `byPosition` yet — cards stream in
+// per-row). If the user toggles to list mid-session before any window
+// has loaded, the table would be empty; pull window 0 on demand to
+// give it rows. The store dedupes against already-loaded windows.
+watch(layout, (next) => {
+  if (
+    next === "list" &&
+    galleryRoms.metadataLoaded &&
+    !galleryRoms.loadedWindows.has(0)
+  ) {
+    void galleryRoms.fetchWindowAt(0);
+  }
+});
+
 // ── Search filter (debounced) ───────────────────────────────────────
 const searchInput = ref(searchTerm.value ?? "");
 let searchDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -357,7 +382,14 @@ function setSearch(value: string) {
     if (normalized === (searchTerm.value ?? "")) return;
     searchTerm.value = normalized || null;
     galleryRoms.invalidateWindows();
-    void galleryRoms.fetchWindowAt(0);
+    // Grid mode: bootstrap metadata only; cards repopulate per-row via
+    // the viewport sync (same staggered fade-in as scrolling). List
+    // mode: load the first window — the table reads `byPosition`.
+    if (layout.value === "list") {
+      void galleryRoms.fetchWindowAt(0);
+    } else {
+      void galleryRoms.fetchInitialMetadata();
+    }
   }, 300);
 }
 

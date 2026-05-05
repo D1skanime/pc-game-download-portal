@@ -25,6 +25,7 @@
 import axios from "axios";
 import { defineStore } from "pinia";
 import type { SimpleRomSchema } from "@/__generated__/";
+import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import romApi from "@/services/api/rom";
 import {
   type Collection,
@@ -111,9 +112,16 @@ interface State {
   loadedWindows: Set<number>;
   pendingWindows: Set<number>;
   failedWindows: Set<number>;
-  // True until the very first fetchWindow(0) resolves — view shows a
-  // skeleton hero/skeleton rows during this phase.
+  // True until the very first metadata bootstrap (or fetchWindow(0))
+  // resolves — view shows a skeleton hero/skeleton rows during this
+  // phase.
   initialFetching: boolean;
+  // True once total / charIndex / romIdIndex / filter_values have been
+  // populated — either by the lightweight `fetchInitialMetadata()`
+  // bootstrap or by `fetchWindowAt(0)`. Used to gate the initial fetch
+  // dedup independently of `loadedWindows` (metadata bootstrap doesn't
+  // load any window).
+  metadataLoaded: boolean;
   // Order params — gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value).
   orderBy: keyof SimpleRom;
@@ -133,6 +141,7 @@ const defaults = (): State => ({
   pendingWindows: new Set(),
   failedWindows: new Set(),
   initialFetching: false,
+  metadataLoaded: false,
   orderBy: "name",
   orderDir: "asc",
 });
@@ -201,6 +210,7 @@ export default defineStore("v2GalleryRoms", {
       this.pendingWindows = new Set();
       this.failedWindows = new Set();
       this.initialFetching = false;
+      this.metadataLoaded = false;
     },
 
     /** Drop the loaded windows but keep the gallery context — used when
@@ -216,6 +226,7 @@ export default defineStore("v2GalleryRoms", {
       this.pendingWindows = new Set();
       this.failedWindows = new Set();
       this.initialFetching = false;
+      this.metadataLoaded = false;
     },
 
     _shouldGroupRoms(): boolean {
@@ -273,6 +284,87 @@ export default defineStore("v2GalleryRoms", {
       };
     },
 
+    /** Apply the metadata side effects from a `getRoms` response —
+     * total, char_index, rom_id_index, plus filter side panels (only on
+     * first fetch). Shared by `fetchWindowAt(0)` and the lightweight
+     * `fetchInitialMetadata()` bootstrap. */
+    _applyMetadata(
+      data: GetRomsResponse,
+      galleryFilter: GalleryFilterStore,
+      platformsStore: ReturnType<typeof storePlatforms>,
+    ) {
+      if (data.total !== null && data.total !== undefined) {
+        this.total = data.total;
+      }
+      if (data.char_index) this.charIndex = data.char_index;
+      if (data.rom_id_index) this.romIdIndex = data.rom_id_index;
+      if (data.filter_values) {
+        if (galleryFilter.filterPlatforms.length === 0) {
+          galleryFilter.setFilterPlatforms(
+            platformsStore.allPlatforms.filter((p) =>
+              data.filter_values.platforms.includes(p.id),
+            ),
+          );
+        }
+        galleryFilter.setFilterCollections(data.filter_values.collections);
+        galleryFilter.setFilterGenres(data.filter_values.genres);
+        galleryFilter.setFilterFranchises(data.filter_values.franchises);
+        galleryFilter.setFilterCompanies(data.filter_values.companies);
+        galleryFilter.setFilterAgeRatings(data.filter_values.age_ratings);
+        galleryFilter.setFilterRegions(data.filter_values.regions);
+        galleryFilter.setFilterLanguages(data.filter_values.languages);
+        galleryFilter.setFilterPlayerCounts(data.filter_values.player_counts);
+      }
+      this.metadataLoaded = true;
+    },
+
+    /** Lightweight bootstrap: fetch only the gallery's metadata (total,
+     * char_index, rom_id_index, filter_values) without loading any
+     * items. Use this when items will be hydrated lazily through the
+     * per-card `fetchRomAt(p)` viewport sync — e.g. grid-mode galleries.
+     *
+     * The backend's `limit` minimum is 1, so we still pay for one
+     * `SimpleRomSchema` build server-side, but we discard the item
+     * client-side: every position (including 0) loads through the
+     * unified per-card path so the staggered fade-in applies to the
+     * first rows the same as the rest. List mode still wants
+     * `fetchWindowAt(0)` because the table reads `byPosition` directly. */
+    async fetchInitialMetadata(): Promise<void> {
+      if (this.metadataLoaded) return;
+      if (this.initialFetching) return;
+
+      this.initialFetching = true;
+
+      const galleryFilter = storeGalleryFilter();
+      const platformsStore = storePlatforms();
+      const params = this._buildRequestParams(galleryFilter, 0);
+      const ctrlKey = "bootstrap";
+      const controller = new AbortController();
+      inFlightControllers.set(ctrlKey, controller);
+
+      try {
+        const response = await romApi.getRoms({
+          ...params,
+          limit: 1,
+          signal: controller.signal,
+        });
+        // Re-check that this bootstrap is still the relevant one —
+        // invalidateWindows / resetGallery may have aborted us and a
+        // newer bootstrap may have replaced our entry under the same key.
+        // Identity comparison avoids applying stale metadata in that race.
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
+        this._applyMetadata(response.data, galleryFilter, platformsStore);
+      } catch (err) {
+        if (axios.isCancel(err)) return;
+        console.error("[v2GalleryRoms] bootstrap fetch failed", err);
+      } finally {
+        if (inFlightControllers.get(ctrlKey) === controller) {
+          inFlightControllers.delete(ctrlKey);
+          this.initialFetching = false;
+        }
+      }
+    },
+
     /** Fetch the window that contains `position` (rounding down to the
      * window grid). Dedupes against pending / loaded windows. The very
      * first window also seeds `total` and `charIndex`. */
@@ -287,7 +379,7 @@ export default defineStore("v2GalleryRoms", {
 
       this.pendingWindows.add(offset);
       this.failedWindows.delete(offset);
-      if (offset === 0 && !this.hasInitial) this.initialFetching = true;
+      if (offset === 0 && !this.metadataLoaded) this.initialFetching = true;
 
       const galleryFilter = storeGalleryFilter();
       const platformsStore = storePlatforms();
@@ -306,11 +398,11 @@ export default defineStore("v2GalleryRoms", {
         if (!this.pendingWindows.has(offset)) return;
 
         const data = response.data;
-        if (data.total !== null && data.total !== undefined) {
+        if (offset === 0) {
+          this._applyMetadata(data, galleryFilter, platformsStore);
+        } else if (data.total !== null && data.total !== undefined) {
           this.total = data.total;
         }
-        if (data.char_index) this.charIndex = data.char_index;
-        if (data.rom_id_index) this.romIdIndex = data.rom_id_index;
 
         // Place items at their absolute positions (offset .. offset + N).
         // We rely on Vue 3's reactive Map: `set(k, v)` triggers per-key
@@ -332,26 +424,6 @@ export default defineStore("v2GalleryRoms", {
         );
 
         this.loadedWindows.add(offset);
-
-        // Fan out gallery-filter side effects exactly once on the first
-        // window (matches v1 behaviour for the filter side panels).
-        if (offset === 0 && data.filter_values) {
-          if (galleryFilter.filterPlatforms.length === 0) {
-            galleryFilter.setFilterPlatforms(
-              platformsStore.allPlatforms.filter((p) =>
-                data.filter_values.platforms.includes(p.id),
-              ),
-            );
-          }
-          galleryFilter.setFilterCollections(data.filter_values.collections);
-          galleryFilter.setFilterGenres(data.filter_values.genres);
-          galleryFilter.setFilterFranchises(data.filter_values.franchises);
-          galleryFilter.setFilterCompanies(data.filter_values.companies);
-          galleryFilter.setFilterAgeRatings(data.filter_values.age_ratings);
-          galleryFilter.setFilterRegions(data.filter_values.regions);
-          galleryFilter.setFilterLanguages(data.filter_values.languages);
-          galleryFilter.setFilterPlayerCounts(data.filter_values.player_counts);
-        }
       } catch (err) {
         // An explicit abort isn't a failure — keep `failedWindows`
         // clean so the window is eligible to refetch under the new

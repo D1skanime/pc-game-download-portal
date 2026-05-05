@@ -1,18 +1,16 @@
 <script setup lang="ts">
 // GameHeader — right-column header for the details view.
-// Five rows, top to bottom:
+// Four rows, top to bottom:
 //   1. Title
-//   2. Meta (year · platform · players · age-rating · verified)
-//   3. Metadata provider chips
-//   4. Tag chips (tags + regions + languages)
-//   5. GameActions (Play · Download · Favorite · Share · More)
+//   2. Meta (year · platform-icon + platform · verified RTag)
+//   3. Tags (regions + languages + custom tags) — RTag primitive
+//   4. GameActions (Play · Download · Favorite · Share · More)
 //
-// Pure presentation — the action row owns its own state/handlers via the
-// GameActions component (which uses the shared useGameActions composable).
-import { RIcon } from "@v2/lib";
+// Metadata-provider links live in the Metadata tab, not the header.
+// Genre/franchise belong in the Overview tab info grid.
+import { RPlatformIcon, RTag } from "@v2/lib";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
-import MetadataProviderChips from "@/v2/components/GameDetails/MetadataProviderChips.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -20,14 +18,11 @@ defineProps<{
   rom: DetailedRom;
   title: string;
   platformLabel: string;
-  releaseYear: number | null;
-  playerCount: string | null;
-  ageRatings: string[];
+  releaseDate: string | null;
   verified: boolean;
-  genres: string[];
-  franchises: string[];
   regions: string[];
   languages: string[];
+  tags: string[];
   canPlay: boolean;
 }>();
 </script>
@@ -39,60 +34,52 @@ defineProps<{
     </h1>
 
     <div class="r-v2-det-header__meta">
-      <span v-if="releaseYear">{{ releaseYear }}</span>
-      <span v-if="releaseYear && platformLabel" class="r-v2-det-header__sep">
+      <span v-if="releaseDate">{{ releaseDate }}</span>
+      <span v-if="releaseDate && platformLabel" class="r-v2-det-header__sep">
         ·
       </span>
-      <span>{{ platformLabel }}</span>
-      <template v-if="playerCount">
-        <span class="r-v2-det-header__sep">·</span>
-        <span>{{ playerCount }}</span>
-      </template>
-      <template v-if="ageRatings.length">
-        <span class="r-v2-det-header__sep">·</span>
-        <span>{{ ageRatings.join(", ") }}</span>
-      </template>
-      <template v-if="verified">
-        <span class="r-v2-det-header__sep">·</span>
-        <span class="r-v2-det-header__verified">
-          <RIcon icon="mdi-check-decagram" size="14" />
-          Verified
-        </span>
-      </template>
+      <span class="r-v2-det-header__platform">
+        <RPlatformIcon
+          :slug="rom.platform_slug"
+          :fs-slug="rom.platform_fs_slug"
+          :alt="platformLabel"
+          :size="16"
+        />
+        {{ platformLabel }}
+      </span>
+      <span
+        v-if="(releaseDate || platformLabel) && verified"
+        class="r-v2-det-header__sep"
+      >
+        ·
+      </span>
+      <RTag
+        :icon="verified ? 'mdi-check-decagram' : 'mdi-shield-alert-outline'"
+        :text="verified ? 'Verified' : 'Unverified'"
+        :tone="verified ? 'success' : 'neutral'"
+        size="sm"
+      />
     </div>
 
-    <MetadataProviderChips :rom="rom" />
-
     <div
-      v-if="
-        genres.length || franchises.length || regions.length || languages.length
-      "
+      v-if="regions.length || languages.length || tags.length"
       class="r-v2-det-header__tags"
     >
-      <span v-for="g in genres" :key="`g-${g}`" class="r-v2-det-header__tag">
-        {{ g }}
-      </span>
-      <span
-        v-for="f in franchises"
-        :key="`f-${f}`"
-        class="r-v2-det-header__tag"
-      >
-        {{ f }}
-      </span>
-      <span
+      <RTag
         v-for="r in regions"
         :key="`r-${r}`"
-        class="r-v2-det-header__tag r-v2-det-header__tag--region"
-      >
-        {{ r }}
-      </span>
-      <span
+        :text="r"
+        tone="info"
+        size="sm"
+      />
+      <RTag
         v-for="l in languages"
         :key="`l-${l}`"
-        class="r-v2-det-header__tag r-v2-det-header__tag--lang"
-      >
-        {{ l }}
-      </span>
+        :text="l"
+        tone="brand"
+        size="sm"
+      />
+      <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="sm" />
     </div>
 
     <GameActions :rom="rom" :can-play="canPlay" />
@@ -127,44 +114,16 @@ defineProps<{
 .r-v2-det-header__sep {
   opacity: 0.3;
 }
-.r-v2-det-header__verified {
+.r-v2-det-header__platform {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--r-color-success);
-  font-weight: var(--r-font-weight-semibold);
-  font-size: 12.5px;
+  gap: 6px;
 }
 
 .r-v2-det-header__tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-.r-v2-det-header__tag {
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border-strong);
-  border-radius: var(--r-radius-chip);
-  padding: 2px 9px;
-  font-size: 11.5px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
-}
-.r-v2-det-header__tag--region {
-  border-color: color-mix(in srgb, var(--r-color-info) 40%, transparent);
-  color: color-mix(in srgb, var(--r-color-info) 90%, transparent);
-}
-.r-v2-det-header__tag--lang {
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary-hover) 40%,
-    transparent
-  );
-  color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary-hover) 90%,
-    transparent
-  );
 }
 
 @media (max-width: 768px) {

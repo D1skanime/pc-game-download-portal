@@ -10,12 +10,14 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
+import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const { total, initialFetching } = storeToRefs(galleryRoms);
+const { layout } = useGalleryMode();
 
 const initialSearch = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
@@ -33,7 +35,18 @@ const emptyMessage = computed(() =>
 onMounted(async () => {
   // Global search — drop ALL gallery scoping from previous views.
   galleryRoms.resetGallery();
-  await galleryRoms.fetchWindowAt(0);
+  // Grid mode: bootstrap metadata only — total / char_index /
+  // rom_id_index / filter_values. The first rows then load through the
+  // unified per-card `fetchRomAt(p)` viewport sync, so the staggered
+  // fade-in applies to them the same as any other row that scrolls
+  // into view (no big initial batch all at once).
+  // List mode: still uses the windowed fetch — the table reads
+  // `byPosition` directly, so we need real items in there.
+  if (layout.value === "list") {
+    await galleryRoms.fetchWindowAt(0);
+  } else {
+    await galleryRoms.fetchInitialMetadata();
+  }
   initialSearch.value = true;
   await nextTick();
   shellRef.value?.applyRestoredScroll();

@@ -12,7 +12,7 @@
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
 import { useRouter } from "vue-router";
-import type { RomUserData } from "@/__generated__";
+import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
@@ -48,6 +48,28 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     return ru.status ?? null;
   });
 
+  // Writes only the enum `status` field (incomplete | finished | …).
+  // Distinct from setStatus(null) which v1 used to nuke every status
+  // signal at once — Overview's enum dropdown wants to clear only its
+  // own field without touching the boolean flags.
+  async function setStatusEnum(value: RomUserStatus | null) {
+    const rom = getRom();
+    if (!rom?.rom_user) return;
+    const data: Partial<RomUserData> = { status: value };
+    const before = { ...rom.rom_user };
+    rom.rom_user.status = value;
+    romsStore.update(rom);
+    try {
+      await romApi.updateUserRomProps({ romId: rom.id, data });
+    } catch {
+      Object.assign(rom.rom_user, before);
+      romsStore.update(rom);
+      snackbar.error("Failed to update status", {
+        icon: "mdi-alert-circle-outline",
+      });
+    }
+  }
+
   // Toggle semantics match v1's Personal tab: booleans flip independently,
   // the enum status flips/clears on re-pick. `null` clears everything.
   async function setStatus(next: PlayingStatus | null) {
@@ -82,6 +104,34 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
       Object.assign(rom.rom_user, before);
       romsStore.update(rom);
       snackbar.error("Failed to update status", {
+        icon: "mdi-alert-circle-outline",
+      });
+    }
+  }
+
+  // Optimistic write of a numeric per-user field (rating | difficulty
+  // | completion). Mirrors setStatus' revert-on-error pattern. v1 stores
+  // 0 to mean "no value" — we accept null at the call site and coerce
+  // to 0 so the backend keeps a uniform shape.
+  async function setScore(
+    field: "rating" | "difficulty" | "completion",
+    value: number | null,
+  ) {
+    const rom = getRom();
+    if (!rom?.rom_user) return;
+
+    const next = value ?? 0;
+    const data: Partial<RomUserData> = { [field]: next };
+    const before = { ...rom.rom_user };
+    rom.rom_user[field] = next;
+    romsStore.update(rom);
+
+    try {
+      await romApi.updateUserRomProps({ romId: rom.id, data });
+    } catch {
+      Object.assign(rom.rom_user, before);
+      romsStore.update(rom);
+      snackbar.error(`Failed to update ${field}`, {
         icon: "mdi-alert-circle-outline",
       });
     }
@@ -181,6 +231,8 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     canAddToCollection,
     currentStatusKey,
     setStatus,
+    setStatusEnum,
+    setScore,
     play,
     download,
     favorite,

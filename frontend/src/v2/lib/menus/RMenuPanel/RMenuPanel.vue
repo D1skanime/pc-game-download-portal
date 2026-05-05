@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// RMenuPanel — the shared glass "menu body" from the mockup.
+// RMenuPanel — content container inside RMenu's slot.
 //
-// Use inside any menu surface (RMenu's default slot, a custom popover,
-// settings drawers) to get the consistent visual
-// language: 14px rounded, 28px backdrop blur, double-layer drop shadow,
-// subtle white border. The caller composes its own content (RMenuHeader,
-// RMenuItem, RMenuDivider) inside.
+// The v2 glass paint (background, blur, border, radius, shadow) lives
+// on the parent overlay (`.r-menu` in RMenu) so RMenu and RSelect's
+// dropdown share the exact same single rendering layer. RMenuPanel is
+// the inner layout container: width + padding + flex column for
+// header / items / dividers. Painting it again here would compound
+// the backdrop-filter blur and shift the perceived colour vs. RSelect.
 
 defineOptions({ inheritAttrs: false });
 
@@ -31,16 +32,6 @@ const resolvedWidth =
 
 <style scoped>
 .r-menu-panel {
-  background: var(--r-color-panel);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border: 1px solid var(--r-color-panel-border);
-  border-radius: var(--r-radius-card);
-  box-shadow:
-    0 20px 60px color-mix(in srgb, black 70%, transparent),
-    0 4px 20px color-mix(in srgb, black 40%, transparent);
-  color: var(--r-color-fg);
-  font-family: var(--r-font-family-sans);
   display: flex;
   flex-direction: column;
 }

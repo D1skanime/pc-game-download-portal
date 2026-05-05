@@ -9,7 +9,7 @@ import type { IGDBRelatedGame } from "@/__generated__";
 defineOptions({ inheritAttrs: false });
 
 defineProps<{
-  title: string;
+  title?: string;
   items: IGDBRelatedGame[];
 }>();
 
@@ -22,7 +22,7 @@ function coverStyle(cover: string | null | undefined) {
 
 <template>
   <section v-if="items.length" class="r-v2-related">
-    <h3 class="r-v2-related__title">
+    <h3 v-if="title" class="r-v2-related__title">
       {{ title }}
     </h3>
     <div class="r-v2-related__grid">

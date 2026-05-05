@@ -1,18 +1,24 @@
 <script setup lang="ts">
 // AchievementsTab — RetroAchievements summary + filter row + per-achievement
-// list. The backend currently surfaces per-game achievement metadata
-// (merged_ra_metadata.achievements) but not the per-user "earned" state —
-// so every row renders as "locked" until that data is added. The visual
-// language is already there for when it is.
+// list. The "earned" set comes from the parent (computed off
+// auth.user.ra_progression so it stays reactive); rows look up by
+// `badge_id` against the set in O(1).
 import { computed, ref } from "vue";
 import type { RAGameRomAchievement, RomRAMetadata } from "@/__generated__";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{
-  metadata: RomRAMetadata | null | undefined;
-  apiBase?: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    metadata: RomRAMetadata | null | undefined;
+    apiBase?: string;
+    earnedAchievementIds?: ReadonlySet<string>;
+  }>(),
+  {
+    apiBase: undefined,
+    earnedAchievementIds: () => new Set<string>(),
+  },
+);
 
 type TypeFilter = "all" | "progression" | "missable" | "win_condition";
 type StatusFilter = "all" | "earned" | "locked";
@@ -34,9 +40,8 @@ const missableCount = computed(
   () => achievements.value.filter((a) => a.type === "missable").length,
 );
 
-// Until per-user earned state ships, all achievements render as locked.
-function isEarned(_a: RAGameRomAchievement) {
-  return false;
+function isEarned(a: RAGameRomAchievement) {
+  return Boolean(a.badge_id && props.earnedAchievementIds.has(a.badge_id));
 }
 const earnedCount = computed(() => achievements.value.filter(isEarned).length);
 

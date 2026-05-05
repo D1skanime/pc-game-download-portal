@@ -5,25 +5,25 @@
 // tabs, tab panel) stacked in a flex-1 column on the right. Thin
 // orchestrator — data + tab state live here, every visual piece is a
 // sub-component under components/GameDetails/.
+import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type { IGDBRelatedGame, RomUserStatus } from "@/__generated__";
+import type { IGDBRelatedGame } from "@/__generated__";
+import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
-import { formatBytes, romStatusMap } from "@/utils";
+import { toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
-import DetailsTabs from "@/v2/components/GameDetails/DetailsTabs.vue";
-import type { FileRowEntry } from "@/v2/components/GameDetails/FilesTab.vue";
-import FilesTab from "@/v2/components/GameDetails/FilesTab.vue";
 import GameHeader from "@/v2/components/GameDetails/GameHeader.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
 import MediaTab from "@/v2/components/GameDetails/MediaTab.vue";
+import MetadataTab from "@/v2/components/GameDetails/MetadataTab.vue";
 import NotesTab from "@/v2/components/GameDetails/NotesTab.vue";
 import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
-import PersonalTab from "@/v2/components/GameDetails/PersonalTab.vue";
-import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
+import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
@@ -31,11 +31,14 @@ const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
 const heartbeatStore = storeHeartbeat();
+const authStore = storeAuth();
 const { currentRom } = storeToRefs(romsStore);
 const { toWebp } = useWebpSupport();
+const { locale } = useI18n();
 
 const setBgArt = useBackgroundArt();
 
+// Active tab — URL-persistent via `?tab=`.
 const tab = ref<string>((route.query.tab as string) || "overview");
 watch(tab, (value) => {
   if (route.query.tab !== value) {
@@ -66,24 +69,19 @@ const platformLabel = computed(() => {
   return r.platform_custom_name || r.platform_display_name;
 });
 
-const releaseYear = computed(() => {
+const releaseDate = computed(() => {
   const ts = currentRom.value?.metadatum?.first_release_date;
   if (!ts) return null;
-  return new Date(ts * 1000).getFullYear();
+  return new Date(Number(ts)).toLocaleDateString(
+    toBrowserLocale(locale.value),
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    },
+  );
 });
 
-const fileSize = computed(() => {
-  const bytes = currentRom.value?.fs_size_bytes;
-  return bytes != null ? formatBytes(bytes) : null;
-});
-
-const playerCount = computed(
-  () => currentRom.value?.metadatum?.player_count ?? null,
-);
-
-const ageRatings = computed(
-  () => currentRom.value?.metadatum?.age_ratings ?? [],
-);
 const genres = computed(() => currentRom.value?.metadatum?.genres ?? []);
 const franchises = computed(
   () => currentRom.value?.metadatum?.franchises ?? [],
@@ -95,6 +93,7 @@ const collections = computed(
 
 const regions = computed(() => currentRom.value?.regions ?? []);
 const languages = computed(() => currentRom.value?.languages ?? []);
+const tags = computed(() => currentRom.value?.tags ?? []);
 
 const verified = computed(() => Boolean(currentRom.value?.crc_hash));
 
@@ -121,23 +120,8 @@ const canPlayEJS = computed(() => {
   return Boolean(emu && !emu.DISABLE_EMULATOR_JS);
 });
 
-const romUser = computed(() => currentRom.value?.rom_user ?? null);
-
-type StatusKey = RomUserStatus | "now_playing" | "backlogged";
-const statusKey = computed<StatusKey | null>(() => {
-  const ru = romUser.value;
-  if (!ru) return null;
-  if (ru.now_playing) return "now_playing";
-  if (ru.backlogged) return "backlogged";
-  return ru.status ?? null;
-});
-const statusDisplay = computed(() => {
-  const k = statusKey.value;
-  if (!k) return null;
-  return romStatusMap[k as keyof typeof romStatusMap] ?? null;
-});
 const lastPlayed = computed(() => {
-  const ts = romUser.value?.last_played;
+  const ts = currentRom.value?.rom_user?.last_played;
   if (!ts) return null;
   return new Date(ts).toLocaleString();
 });
@@ -150,9 +134,23 @@ const overviewSections = computed<InfoGridSection[]>(() => [
 ]);
 
 const raMetadata = computed(() => currentRom.value?.merged_ra_metadata ?? null);
-const hasAchievements = computed(
-  () => (raMetadata.value?.achievements?.length ?? 0) > 0,
+const achievementsTotal = computed(
+  () => raMetadata.value?.achievements?.length ?? 0,
 );
+
+// User's earned-achievements for this ROM. Same shape as v1: locate the
+// matching `RAUserGameProgression` in the auth user's bundle by
+// `rom_ra_id`, then index its `earned_achievements` by `id`
+// (== achievement.badge_id) so the tab can do O(1) per-row lookups.
+const earnedAchievementIds = computed<ReadonlySet<string>>(() => {
+  const romRaId = currentRom.value?.ra_id;
+  if (!romRaId) return new Set<string>();
+  const progression = authStore.user?.ra_progression?.results?.find(
+    (r) => r.rom_ra_id === romRaId,
+  );
+  return new Set((progression?.earned_achievements ?? []).map((e) => e.id));
+});
+const achievementsEarned = computed(() => earnedAchievementIds.value.size);
 
 const igdb = computed(() => currentRom.value?.igdb_metadata ?? null);
 const similarGames = computed<IGDBRelatedGame[]>(
@@ -166,39 +164,26 @@ const expansions = computed<IGDBRelatedGame[]>(
   () => igdb.value?.expansions ?? [],
 );
 const dlcs = computed<IGDBRelatedGame[]>(() => igdb.value?.dlcs ?? []);
-const hasAdditional = computed(
-  () => expansions.value.length + dlcs.value.length > 0,
-);
-const hasRelated = computed(
-  () =>
-    similarGames.value.length + remakes.value.length + remasters.value.length >
-    0,
-);
 
-const detailsRows = computed<FileRowEntry[]>(() => {
-  const r = currentRom.value;
-  if (!r) return [];
-  return [
-    { label: "File name", value: r.fs_name },
-    { label: "Extension", value: r.fs_extension || "—" },
-    { label: "Size", value: fileSize.value ?? "—" },
-    { label: "Path", value: r.fs_path, mono: true },
-    { label: "Revision", value: r.revision ?? "—" },
-    { label: "CRC", value: r.crc_hash ?? "—", mono: true },
-    { label: "MD5", value: r.md5_hash ?? "—", mono: true },
-    { label: "SHA1", value: r.sha1_hash ?? "—", mono: true },
-  ];
-});
+const savesCount = computed(() => currentRom.value?.user_saves?.length ?? 0);
+const statesCount = computed(() => currentRom.value?.user_states?.length ?? 0);
+const saveDataCount = computed(() => savesCount.value + statesCount.value);
 
-const tabs = computed(() => [
-  { id: "overview", label: "Overview", show: true },
-  { id: "personal", label: "Personal", show: true },
-  { id: "notes", label: "Notes", show: true },
-  { id: "achievements", label: "Achievements", show: hasAchievements.value },
-  { id: "media", label: "Media", show: true },
-  { id: "additional", label: "Additional", show: hasAdditional.value },
-  { id: "related", label: "Related", show: hasRelated.value },
-  { id: "files", label: "Files", show: true },
+const tabs = computed<RTabNavItem[]>(() => [
+  { id: "overview", label: "Overview" },
+  { id: "media", label: "Media" },
+  { id: "notes", label: "Notes" },
+  {
+    id: "achievements",
+    label: "Achievements",
+    badge: `${achievementsEarned.value}/${achievementsTotal.value}`,
+  },
+  {
+    id: "save-data",
+    label: "Save data",
+    badge: saveDataCount.value,
+  },
+  { id: "metadata", label: "Metadata" },
 ]);
 </script>
 
@@ -212,49 +197,39 @@ const tabs = computed(() => [
           :rom="currentRom"
           :title="title"
           :platform-label="platformLabel"
-          :release-year="releaseYear"
-          :player-count="playerCount"
-          :age-ratings="ageRatings"
+          :release-date="releaseDate"
           :verified="verified"
-          :genres="genres"
-          :franchises="franchises"
           :regions="regions"
           :languages="languages"
+          :tags="tags"
           :can-play="canPlayEJS"
         />
 
-        <DetailsTabs v-model="tab" :tabs="tabs" />
+        <RTabNav v-model="tab" :items="tabs" class="r-v2-det__tabs" />
 
         <div class="r-v2-det__panel">
           <OverviewTab
             v-if="tab === 'overview'"
+            :rom="currentRom"
             :summary="currentRom.summary ?? null"
-            :status-display="statusDisplay"
             :sections="overviewSections"
             :hltb="currentRom.hltb_metadata"
-          />
-          <PersonalTab
-            v-if="tab === 'personal'"
-            :rom-user="romUser"
-            :status-display="statusDisplay"
             :last-played="lastPlayed"
+            :expansions="expansions"
+            :dlcs="dlcs"
+            :remakes="remakes"
+            :remasters="remasters"
+            :similar-games="similarGames"
           />
+          <MediaTab v-if="tab === 'media'" :rom="currentRom" />
           <NotesTab v-if="tab === 'notes'" :rom="currentRom" />
           <AchievementsTab
             v-if="tab === 'achievements'"
             :metadata="raMetadata"
+            :earned-achievement-ids="earnedAchievementIds"
           />
-          <MediaTab v-if="tab === 'media'" :rom="currentRom" />
-          <section v-if="tab === 'additional'">
-            <RelatedGamesGrid title="Expansions" :items="expansions" />
-            <RelatedGamesGrid title="DLC" :items="dlcs" />
-          </section>
-          <section v-if="tab === 'related'">
-            <RelatedGamesGrid title="Remakes" :items="remakes" />
-            <RelatedGamesGrid title="Remasters" :items="remasters" />
-            <RelatedGamesGrid title="Similar games" :items="similarGames" />
-          </section>
-          <FilesTab v-if="tab === 'files'" :rows="detailsRows" />
+          <SaveDataTab v-if="tab === 'save-data'" :rom="currentRom" />
+          <MetadataTab v-if="tab === 'metadata'" :rom="currentRom" />
         </div>
       </div>
     </div>
@@ -299,12 +274,17 @@ const tabs = computed(() => [
   padding-bottom: 32px;
 }
 
+.r-v2-det__tabs {
+  margin: 14px 0 16px;
+}
+
 .r-v2-det__panel {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--r-color-border-strong) transparent;
+  margin-top: 10px;
   padding-right: 6px;
 }
 .r-v2-det__panel::-webkit-scrollbar {

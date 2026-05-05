@@ -41,7 +41,15 @@ interface Props {
   rom: SimpleRom;
   action: GameAction;
   size?: "sm" | "md" | "lg";
-  variant?: "glass" | "emphasized";
+  /**
+   * `glass` — dark scrim, designed to read on top of cover art
+   *           (GameCard hover overlay).
+   * `surface` — translucent grey surface, matches RTag tokens
+   *             (GameDetails header where the buttons sit on the
+   *             page background, not over a cover).
+   * `emphasized` — primary white-on-dark CTA (Play).
+   */
+  variant?: "glass" | "surface" | "emphasized";
   withLabel?: boolean;
 }
 
@@ -255,6 +263,22 @@ function onClick(e: MouseEvent) {
 }
 .r-v2-game-btn--labelled.r-v2-game-btn--lg {
   padding: 0 24px;
+}
+
+/* Surface — RTag-style translucent grey. Used in the GameDetails
+   header where buttons sit on the page background (not over cover
+   art) — matches the visual vocabulary of RTag and RSelect there. */
+.r-v2-game-btn--surface {
+  background: var(--r-color-surface);
+  border-color: var(--r-color-border-strong);
+  color: var(--r-color-fg-secondary);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.r-v2-game-btn--surface:hover {
+  background: var(--r-color-surface-hover);
+  border-color: var(--r-color-border-strong);
+  color: var(--r-color-fg);
 }
 
 /* Emphasized — the primary-action look (white on dark). Used by Play. */

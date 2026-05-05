@@ -1,12 +1,11 @@
 <script setup lang="ts">
-// LanguageSelector — glass-pill activator that opens an RMenu with the
-// language list. Uses lib menu primitives end-to-end so the dropdown
-// matches the look of the user menu and right-click context menu.
-//
-// Sets the vue-i18n locale and persists the choice via useUISettings.
-import { RIcon, RMenu, RMenuItem, RMenuPanel } from "@v2/lib";
+// LanguageSelector — wraps the language store in an RSelect so it
+// shares aesthetics with every other v2 select (status picker on the
+// Overview tab, etc). Persists the choice via useUISettings + sets the
+// vue-i18n locale.
+import { RSelect } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
 import storeLanguage from "@/stores/language";
@@ -18,93 +17,38 @@ const languageStore = storeLanguage();
 const { languages, selectedLanguage } = storeToRefs(languageStore);
 const { locale: localeStorage } = useUISettings();
 
-const open = ref(false);
+const items = computed(() =>
+  languages.value.map((l) => ({ value: l.value, title: l.name })),
+);
 
-const currentValue = computed(() => selectedLanguage.value.value);
-
-function select(lang: { value: string; name: string }) {
-  selectedLanguage.value = lang;
-  locale.value = lang.value;
-  localeStorage.value = lang.value;
-  open.value = false;
-}
+const currentValue = computed({
+  get: () => selectedLanguage.value.value,
+  set: (next: string) => {
+    const lang = languages.value.find((l) => l.value === next);
+    if (!lang) return;
+    selectedLanguage.value = lang;
+    locale.value = lang.value;
+    localeStorage.value = lang.value;
+  },
+});
 </script>
 
 <template>
-  <RMenu v-model="open" location="top start" :offset="[8, 0]">
-    <template #activator="{ props: activatorProps }">
-      <button
-        v-bind="activatorProps"
-        type="button"
-        class="lang-pill"
-        :aria-label="`Language: ${selectedLanguage.name}`"
-      >
-        <RIcon icon="mdi-translate" size="14" class="lang-pill__leading" />
-        <span class="lang-pill__name">{{ selectedLanguage.name }}</span>
-        <RIcon
-          icon="mdi-chevron-up"
-          size="14"
-          class="lang-pill__chevron"
-          :class="{ 'lang-pill__chevron--open': open }"
-        />
-      </button>
-    </template>
-
-    <RMenuPanel width="220px">
-      <RMenuItem
-        v-for="lang in languages"
-        :key="lang.value"
-        :label="lang.name"
-        :variant="lang.value === currentValue ? 'active' : 'default'"
-        @click="select(lang)"
-      />
-    </RMenuPanel>
-  </RMenu>
+  <RSelect
+    v-model="currentValue"
+    :items="items"
+    density="compact"
+    variant="outlined"
+    hide-details
+    prepend-inner-icon="mdi-translate"
+    class="language-selector"
+    :menu-props="{ location: 'top start' }"
+  />
 </template>
 
 <style scoped>
-.lang-pill {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border-strong);
-  border-radius: var(--r-radius-pill);
-  padding: 5px 10px 5px 12px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-.lang-pill:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-
-.lang-pill__leading {
-  opacity: 0.7;
-}
-
-.lang-pill__name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
-}
-
-.lang-pill__chevron {
-  opacity: 0.55;
-  transition: transform var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.lang-pill__chevron--open {
-  transform: rotate(180deg);
+.language-selector {
+  min-width: 200px;
+  max-width: 240px;
 }
 </style>

@@ -1,17 +1,15 @@
 <script setup lang="ts">
-// Combined Manual + Soundtrack tab for GameDetails.
+// Combined Manual + Soundtrack + Screenshots tab for GameDetails.
 //
-// Behaviour mirrors the v1 MediaTab:
-//   * Both subtabs always visible; empty states drive the upload CTAs
-//   * Hidden file inputs handle upload — manual upload routes through the
-//     `showManualUploadTargetDialog` emitter (dialog mounted in AppLayout)
-//   * Soundtrack upload goes straight through `romApi.uploadSoundtracks`
+// Behaviour:
+//   * Subtabs always rendered; empty states drive the upload CTAs
+//   * Hidden file inputs handle upload — manual upload routes through
+//     `showManualUploadTargetDialog` (dialog mounted in AppLayout);
+//     soundtrack upload goes straight through `romApi.uploadSoundtracks`
 //   * Re-download primary manual + delete manual both handled here
 //
-// The actual PDF viewer and soundtrack player are reused from v1 for now
-// (visual polish after all waves will replace them with v2-branded
-// equivalents).
-import { RBtn, RIcon, RSelect } from "@v2/lib";
+// The PDF viewer + soundtrack player are reused from v1 for now.
+import { RBtn, REmptyState, RSelect, RTabNav, type RTabNavItem } from "@v2/lib";
 import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
@@ -164,6 +162,25 @@ const manualItems = computed(() =>
 // one. Mirror the v1 gate.
 const soundtrackSupported = computed(() => !props.rom.has_simple_single_file);
 
+// ---------- Subtab nav ----------
+const subtabItems = computed<RTabNavItem[]>(() => [
+  {
+    id: "manual",
+    label: "Manual",
+    icon: "mdi-book-open-page-variant-outline",
+  },
+  {
+    id: "soundtrack",
+    label: "Soundtrack",
+    icon: "mdi-music-note-outline",
+  },
+  {
+    id: "screenshots",
+    label: "Screenshots",
+    icon: "mdi-image-multiple-outline",
+  },
+]);
+
 // ---------- Upload / refresh plumbing ----------
 const manualUploadInput = ref<HTMLInputElement | null>(null);
 const soundtrackUploadInput = ref<HTMLInputElement | null>(null);
@@ -288,51 +305,24 @@ async function deleteSoundtrack(fileId: number) {
   />
 
   <div class="r-v2-media">
-    <!-- Subtabs -->
-    <nav class="r-v2-media__subtabs" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        class="r-v2-media__subtab"
-        :class="{ 'r-v2-media__subtab--active': subTab === 'manual' }"
-        :aria-selected="subTab === 'manual'"
-        @click="subTab = 'manual'"
-      >
-        <RIcon icon="mdi-book-open-page-variant-outline" />
-        Manual
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="r-v2-media__subtab"
-        :class="{ 'r-v2-media__subtab--active': subTab === 'soundtrack' }"
-        :aria-selected="subTab === 'soundtrack'"
-        @click="subTab = 'soundtrack'"
-      >
-        <RIcon icon="mdi-music" />
-        Soundtrack
-      </button>
-      <button
-        v-if="(rom.merged_screenshots?.length ?? 0) > 0"
-        type="button"
-        role="tab"
-        class="r-v2-media__subtab"
-        :class="{ 'r-v2-media__subtab--active': subTab === 'screenshots' }"
-        :aria-selected="subTab === 'screenshots'"
-        @click="subTab = 'screenshots'"
-      >
-        <RIcon icon="mdi-image-multiple-outline" />
-        Screenshots
-      </button>
-    </nav>
+    <RTabNav
+      v-model="subTab"
+      :items="subtabItems"
+      variant="pill"
+      orientation="vertical"
+      size="sm"
+      class="r-v2-media__nav"
+    />
 
-    <!-- Manual subtab -->
-    <section v-if="subTab === 'manual'" class="r-v2-media__panel">
-      <template v-if="manualEntries.length === 0">
-        <div class="r-v2-media__empty">
-          <RIcon icon="mdi-book-open-page-variant-outline" size="48" />
-          <div class="r-v2-media__empty-title">No manual yet</div>
-          <div class="r-v2-media__empty-actions">
+    <div class="r-v2-media__content">
+      <!-- Manual subtab -->
+      <section v-if="subTab === 'manual'" class="r-v2-media__panel">
+        <REmptyState
+          v-if="manualEntries.length === 0"
+          icon="mdi-book-open-page-variant-outline"
+          title="No manual yet"
+        >
+          <template #actions>
             <RBtn
               prepend-icon="mdi-cloud-upload-outline"
               @click="triggerManualUpload"
@@ -349,157 +339,129 @@ async function deleteSoundtrack(fileId: number) {
             >
               Re-download
             </RBtn>
+          </template>
+        </REmptyState>
+
+        <template v-else>
+          <div class="r-v2-media__manual-toolbar">
+            <RSelect
+              v-if="manualEntries.length > 1"
+              v-model="selectedManualId"
+              :items="manualItems"
+              density="compact"
+              variant="outlined"
+              hide-details
+              class="r-v2-media__manual-select"
+            />
+            <div v-else class="r-v2-media__manual-spacer" />
+
+            <RBtn
+              size="small"
+              variant="outlined"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="triggerManualUpload"
+            >
+              Upload
+            </RBtn>
+            <RBtn
+              v-if="rom.url_manual"
+              size="small"
+              variant="outlined"
+              prepend-icon="mdi-cloud-download-outline"
+              :loading="redownloadingManual"
+              :disabled="redownloadingManual"
+              @click="redownloadManual"
+            >
+              Re-download
+            </RBtn>
+            <RBtn
+              v-if="selectedManual"
+              size="small"
+              variant="outlined"
+              color="romm-red"
+              prepend-icon="mdi-delete"
+              @click="requestDeleteManual"
+            >
+              Delete
+            </RBtn>
           </div>
-        </div>
-      </template>
 
-      <template v-else>
-        <div class="r-v2-media__manual-toolbar">
-          <RSelect
-            v-if="manualEntries.length > 1"
-            v-model="selectedManualId"
-            :items="manualItems"
-            density="compact"
-            variant="outlined"
-            hide-details
-            class="r-v2-media__manual-select"
-          />
-          <div v-else class="r-v2-media__manual-spacer" />
-
-          <RBtn
-            size="small"
-            variant="outlined"
-            prepend-icon="mdi-cloud-upload-outline"
-            @click="triggerManualUpload"
-          >
-            Upload
-          </RBtn>
-          <RBtn
-            v-if="rom.url_manual"
-            size="small"
-            variant="outlined"
-            prepend-icon="mdi-cloud-download-outline"
-            :loading="redownloadingManual"
-            :disabled="redownloadingManual"
-            @click="redownloadManual"
-          >
-            Re-download
-          </RBtn>
-          <RBtn
-            v-if="selectedManual"
-            size="small"
-            variant="outlined"
-            color="romm-red"
-            prepend-icon="mdi-delete"
-            @click="requestDeleteManual"
-          >
-            Delete
-          </RBtn>
-        </div>
-
-        <div class="r-v2-media__viewer">
-          <PdfViewer
-            v-if="selectedManual"
-            :key="`${selectedManual.id}-${rom.updated_at}`"
-            :pdf-url="selectedManual.url"
-          />
-        </div>
-      </template>
-    </section>
-
-    <!-- Soundtrack subtab -->
-    <section v-else class="r-v2-media__panel">
-      <template v-if="!soundtrackSupported">
-        <div class="r-v2-media__empty">
-          <RIcon icon="mdi-music-off-outline" size="48" />
-          <div class="r-v2-media__empty-title">
-            Soundtrack needs a folder-based ROM
+          <div class="r-v2-media__viewer">
+            <PdfViewer
+              v-if="selectedManual"
+              :key="`${selectedManual.id}-${rom.updated_at}`"
+              :pdf-url="selectedManual.url"
+            />
           </div>
-          <div class="r-v2-media__empty-hint">
-            Single-file ROMs can't have accompanying tracks. Re-organise this
-            ROM as a folder and the upload option will appear here.
-          </div>
-        </div>
-      </template>
+        </template>
+      </section>
 
-      <template v-else-if="!rom.has_soundtrack">
-        <div class="r-v2-media__empty">
-          <RIcon icon="mdi-music-note-outline" size="48" />
-          <div class="r-v2-media__empty-title">No soundtrack yet</div>
-          <div class="r-v2-media__empty-actions">
+      <!-- Soundtrack subtab -->
+      <section v-else-if="subTab === 'soundtrack'" class="r-v2-media__panel">
+        <REmptyState
+          v-if="!soundtrackSupported"
+          icon="mdi-music-off-outline"
+          title="Soundtrack needs a folder-based ROM"
+          hint="Single-file ROMs can't have accompanying tracks. Re-organise this ROM as a folder and the upload option will appear here."
+        />
+
+        <REmptyState
+          v-else-if="!rom.has_soundtrack"
+          icon="mdi-music-note-outline"
+          title="No soundtrack yet"
+        >
+          <template #actions>
             <RBtn
               prepend-icon="mdi-cloud-upload-outline"
               @click="triggerSoundtrackUpload"
             >
               Upload soundtrack
             </RBtn>
-          </div>
-        </div>
-      </template>
+          </template>
+        </REmptyState>
 
-      <SoundtrackPanel
-        v-else
-        :rom="rom"
-        class="r-v2-media__soundtrack"
-        @upload-tracks="triggerSoundtrackUpload"
-        @delete-track="deleteSoundtrack"
-      />
-    </section>
+        <SoundtrackPanel
+          v-else
+          :rom="rom"
+          class="r-v2-media__soundtrack"
+          @upload-tracks="triggerSoundtrackUpload"
+          @delete-track="deleteSoundtrack"
+        />
+      </section>
 
-    <!-- Screenshots subtab -->
-    <section v-if="subTab === 'screenshots'" class="r-v2-media__panel">
-      <ScreenshotsTab :urls="rom.merged_screenshots ?? []" />
-    </section>
+      <!-- Screenshots subtab -->
+      <section v-else-if="subTab === 'screenshots'" class="r-v2-media__panel">
+        <REmptyState
+          v-if="(rom.merged_screenshots?.length ?? 0) === 0"
+          icon="mdi-image-multiple-outline"
+          title="No screenshots yet"
+          hint="Screenshots scraped from the metadata source will appear here."
+        />
+        <ScreenshotsTab v-else :urls="rom.merged_screenshots ?? []" />
+      </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .r-v2-media {
   display: flex;
-  flex-direction: column;
-  gap: var(--r-space-4);
+  align-items: stretch;
+  gap: 24px;
+}
+
+.r-v2-media__nav {
+  width: 180px;
+  flex-shrink: 0;
+}
+
+.r-v2-media__content {
+  flex: 1;
+  min-width: 0;
 }
 
 .r-v2-media__file-input {
   display: none;
-}
-
-/* Sub-tabs */
-.r-v2-media__subtabs {
-  display: inline-flex;
-  gap: var(--r-space-1);
-  padding: 4px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-full);
-  align-self: flex-start;
-}
-
-.r-v2-media__subtab {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--r-color-fg-muted);
-  padding: var(--r-space-2) var(--r-space-4);
-  border-radius: var(--r-radius-full);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--r-space-2);
-  font-size: var(--r-font-size-sm);
-  font-weight: var(--r-font-weight-medium);
-  cursor: pointer;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-.r-v2-media__subtab:hover {
-  color: var(--r-color-fg);
-}
-
-.r-v2-media__subtab--active {
-  background: var(--r-color-brand-primary);
-  color: var(--r-color-overlay-fg);
 }
 
 /* Panels */
@@ -508,6 +470,16 @@ async function deleteSoundtrack(fileId: number) {
   flex-direction: column;
   gap: var(--r-space-3);
   min-height: 320px;
+}
+
+@media (max-width: 768px) {
+  .r-v2-media {
+    flex-direction: column;
+    gap: 14px;
+  }
+  .r-v2-media__nav {
+    width: auto;
+  }
 }
 
 /* Manual */
@@ -541,39 +513,5 @@ async function deleteSoundtrack(fileId: number) {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   background: var(--r-color-bg-elevated);
-}
-
-/* Empty state */
-.r-v2-media__empty {
-  padding: var(--r-space-10) var(--r-space-6);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--r-space-3);
-  background: var(--r-color-bg-elevated);
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  text-align: center;
-  color: var(--r-color-fg-muted);
-}
-
-.r-v2-media__empty-title {
-  color: var(--r-color-fg);
-  font-size: var(--r-font-size-lg);
-  font-weight: var(--r-font-weight-semibold);
-}
-
-.r-v2-media__empty-hint {
-  max-width: 440px;
-  font-size: var(--r-font-size-sm);
-  line-height: var(--r-line-height-relaxed);
-}
-
-.r-v2-media__empty-actions {
-  display: flex;
-  gap: var(--r-space-2);
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-top: var(--r-space-2);
 }
 </style>

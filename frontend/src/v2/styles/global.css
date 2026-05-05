@@ -178,6 +178,30 @@ html:not([data-input])
   color: var(--r-color-fg-muted);
 }
 
+/* ── Shared overlay panel ──────────────────────────────────────
+   Every v2 floating menu / dropdown surface composites to the SAME
+   single layer (background + blur + border + radius + shadow).
+   Targeting both classes from one rule guarantees identical visuals —
+   duplicating per component allowed each one to drift. RMenu adds
+   `r-menu` to its overlay content; RSelect adds `r-select__menu`.
+   Their consumers (ScoreMenuBtn rating/difficulty popup, MoreMenu,
+   UserMenu, status pickers, language picker, etc.) pick up the look
+   for free. */
+.v-overlay__content.r-menu,
+.v-overlay__content.r-select__menu {
+  background: var(--r-color-panel) !important;
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid var(--r-color-panel-border) !important;
+  border-radius: var(--r-radius-card) !important;
+  box-shadow:
+    0 20px 60px color-mix(in srgb, black 70%, transparent),
+    0 4px 20px color-mix(in srgb, black 40%, transparent) !important;
+  color: var(--r-color-fg) !important;
+  font-family: var(--r-font-family-sans);
+  overflow: hidden;
+}
+
 /* ── RTooltip skin ─────────────────────────────────────────────
    Vuetify teleports v-tooltip content to <body>, so scoped styles
    can't reach it. RTooltip passes `content-class="r-tooltip"` and

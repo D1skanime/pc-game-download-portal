@@ -18,21 +18,26 @@ export * from "./primitives/RBtn";
 export * from "./primitives/RCard";
 export * from "./primitives/RChip";
 export * from "./primitives/RDivider";
+export * from "./primitives/REmptyState";
 export * from "./primitives/RIcon";
 export * from "./primitives/RImg";
 export * from "./primitives/RProgressCircular";
 export * from "./primitives/RSkeletonBlock";
 export * from "./primitives/RSliderBtnGroup";
 export * from "./primitives/RSpinner";
+export * from "./primitives/RTabNav";
+export * from "./primitives/RTag";
 
 // Forms
 export * from "./forms/RCheckbox";
 export * from "./forms/RForm";
 export * from "./forms/RRating";
 export * from "./forms/RSelect";
+export * from "./forms/RSlider";
 export * from "./forms/RTextField";
 
 // Structural
+export * from "./structural/RExpansionPanel";
 export * from "./structural/RList";
 export * from "./structural/RListItem";
 export * from "./structural/RToolbar";
