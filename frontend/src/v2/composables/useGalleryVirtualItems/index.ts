@@ -35,15 +35,15 @@ export type { GalleryItem, GalleryItemKind } from "./types";
 //   * letter-header: 20px top + 16px text + 12px bottom = 48 (rounded
 //     up to 56 for breathing room).
 //   * load-more / empty: matches the rendered button / centered text.
-//   * list-table: deliberately oversized — it's the only natural-flow
-//     item, sits at the bottom of the list, and the inner RTable owns
-//     its own paging height. We just need a value > the page's content
-//     so subsequent items (none in list mode) don't overlap.
+//   * list-row: 56px (44px content + 12px row gap baked in) — matches
+//     `.r-v2-shell__list-row` CSS. Same skeleton vs ROM height so
+//     the row swap doesn't reflow the scroller.
 const HEIGHT_BY_KIND: Record<GalleryItem["kind"], number> = {
   "letter-header": 56,
   row: 254,
   "skeleton-row": 254,
-  "list-table": 1200,
+  "list-row": 56,
+  "skeleton-list-row": 56,
   "load-more": 80,
   empty: 240,
 };
@@ -147,10 +147,55 @@ export function useGalleryVirtualItems(opts: Options) {
       return items;
     }
 
-    // List layout — the entire RTable lives in a single virtual item.
-    // RTable handles its own paging internally, so no skeleton rows.
+    // List layout — one virtual item per ROM position. The view template
+    // resolves each row via `getRomAt(position)` and renders skeleton vs
+    // real inside the same kind. Group-by-letter in list mode is
+    // deferred (see CLAUDE.md §X — list-mode MVP first).
     if (opts.layout.value === "list") {
-      items.push({ kind: "list-table", key: "list-table" });
+      if (opts.loadingInitial.value && opts.total.value === 0) {
+        // Bootstrap phase — paint placeholder rows so the scroller has a
+        // shape while metadata is in flight. Reasonable count to fill a
+        // typical viewport without committing to a fixed number.
+        const skeletonListRows = Math.max(skeletonRows * 4, 12);
+        for (let i = 0; i < skeletonListRows; i++) {
+          items.push({
+            kind: "skeleton-list-row",
+            key: `sk-list-${i}`,
+            index: i,
+          });
+        }
+        return items;
+      }
+      if (opts.total.value === 0) {
+        items.push({
+          kind: "empty",
+          key: "empty",
+          message: opts.emptyMessage.value,
+        });
+        return items;
+      }
+      const ranges = letterRanges.value;
+      const total = opts.total.value;
+      // Pre-compute a position → letter lookup so each list-row knows
+      // which letter it belongs to (drives AlphaStrip's scroll-spy).
+      // Walking `ranges` once (sorted by start) is O(total) — acceptable
+      // because virtualItems already iterates `total`.
+      let rangeIdx = 0;
+      for (let p = 0; p < total; p++) {
+        while (
+          rangeIdx + 1 < ranges.length &&
+          p >= ranges[rangeIdx + 1].start
+        ) {
+          rangeIdx++;
+        }
+        const letter = ranges[rangeIdx]?.letter ?? "#";
+        items.push({
+          kind: "list-row",
+          key: `lr-${p}`,
+          position: p,
+          letter,
+        });
+      }
       return items;
     }
 
@@ -232,6 +277,20 @@ export function useGalleryVirtualItems(opts: Options) {
   const letterToIndex = computed<Map<string, number>>(() => {
     const map = new Map<string, number>();
     const items = virtualItems.value;
+
+    // List layout — one virtual item per position. Walk once and pin
+    // each letter to its first list-row index. Bootstrap phase paints
+    // skeleton-list-rows that aren't tied to a letter, so the map is
+    // empty until `total` resolves — same pattern as grid.
+    if (opts.layout.value === "list") {
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it.kind === "list-row" && !map.has(it.letter)) {
+          map.set(it.letter, i);
+        }
+      }
+      return map;
+    }
 
     // Pass 1 — grouped mode: letter-header anchors are exact.
     for (let i = 0; i < items.length; i++) {

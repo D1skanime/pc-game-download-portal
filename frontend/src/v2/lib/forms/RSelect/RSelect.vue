@@ -151,6 +151,17 @@ const mergedMenuProps = computed(() => {
      pixel-for-pixel. Here we only style the inner list + rows so they
      mirror RMenuItem. -->
 <style>
+/* VSelect wraps its menu content in `.v-select__content > .v-sheet`,
+   and `.v-sheet` paints `rgb(var(--v-theme-surface))` (= the v1 grey).
+   Without nullifying it, our panel paint on `.v-overlay__content` is
+   covered by the sheet and the dropdown reads as Vuetify-grey instead
+   of the v2 panel. */
+.r-select__menu .v-select__content,
+.r-select__menu .v-sheet {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 .r-select__menu .v-list {
   background: transparent !important;
   padding: 6px !important;
@@ -168,7 +179,10 @@ const mergedMenuProps = computed(() => {
 
 /* Items — RMenuItem visual: 9px radius, 9px 12px padding, gap 11px,
    13px medium text, surface hover. !important needed because Vuetify
-   ships these via theme-scoped rules with higher specificity. */
+   ships `.v-list-item--variant-elevated/flat` with an opaque
+   `rgba(var(--v-theme-surface))` background + a default elevation —
+   without nullifying both, every row paints a grey card on top of our
+   glass panel and bleeds the v1 look back in. */
 .r-select__menu .v-list-item {
   display: flex !important;
   align-items: center;
@@ -180,6 +194,8 @@ const mergedMenuProps = computed(() => {
   font-size: 13px !important;
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-secondary);
+  background: transparent !important;
+  box-shadow: none !important;
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);

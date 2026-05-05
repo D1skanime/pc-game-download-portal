@@ -18,7 +18,9 @@
 //                  overlay reveals only what's behind the section
 //                  (BackgroundArt blur), never the cards.
 //   3. GRID / TABLE — the row-virtualised content (cards in grid mode,
-//                RTable in list mode).
+//                div-based rows in list mode — same shell scroller, same
+//                AlphaStrip wiring; the list column header lives in the
+//                prepend, sticky below the toolbar).
 //
 // Why two-layer: the user wants the toolbar to be transparent (so the
 // blurred BackgroundArt shows through) AND wants cards to disappear
@@ -30,11 +32,12 @@
 // twin keeps the natural three-section flow at scrollTop=0.
 //
 // Cross-view behaviour owned by the shell: the virtualizer, sticky
-// toolbar (two-layer), AlphaStrip, per-row dwell-debounced prefetch,
-// scroll restoration, list-mode RTable wiring, search-input debounce,
-// URL filter sync. Each view supplies its header and its own
-// resource-load flow.
-import { RDivider, RVirtualScroller } from "@v2/lib";
+// toolbar (two-layer) + sticky list column header, AlphaStrip,
+// grid per-row dwell-debounced prefetch, scroll restoration,
+// search-input debounce, URL filter sync. Each view supplies its
+// header and its own resource-load flow. List rows own their per-row
+// fetch lifecycle internally (mount = entered overscan window).
+import { RDivider, RSkeletonBlock, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -48,7 +51,12 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
-import GameList from "@/v2/components/Gallery/GameList.vue";
+import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
+import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
+import {
+  LIST_GRID_TEMPLATE,
+  type ListSortKey,
+} from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
@@ -61,6 +69,14 @@ import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
+
+const LIST_SORT_KEYS = new Set<string>([
+  "name",
+  "fs_size_bytes",
+  "created_at",
+  "first_release_date",
+  "average_rating",
+]);
 
 interface Props {
   /** Whether the header slot has content to render. False suppresses
@@ -109,7 +125,7 @@ const scrollRestoration = storeScrollRestoration();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const { supportsWebp } = useWebpSupport();
 
-const { total, charIndex, byPosition, initialFetching } =
+const { total, charIndex, initialFetching, orderBy, orderDir } =
   storeToRefs(galleryRoms);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
@@ -205,16 +221,15 @@ const isStuck = computed(() => {
 // the scroller column (which is narrowed by the AlphaStrip when it's
 // rendered).
 //
-// The strip stays mounted in grid mode regardless of how many letters
-// the backend has reported — letters that aren't in `availableLetters`
-// render as disabled buttons, so the layout column stays reserved
-// from the very first paint (skeleton phase included). Without this,
-// the scroller would shift sideways the instant the bootstrap response
-// resolves and the first letter showed up.
-//
-// List mode hides it: the table is one big virtual item, there are
-// no letter-headers / rows to jump to, and `letterToIndex` is empty.
-const hasAlphaStrip = computed(() => layout.value === "grid");
+// The strip stays mounted in both grid and list mode regardless of how
+// many letters the backend has reported — letters that aren't in
+// `availableLetters` render as disabled buttons, so the layout column
+// stays reserved from the very first paint (skeleton phase included).
+// Without this, the scroller would shift sideways the instant the
+// bootstrap response resolves and the first letter showed up.
+const hasAlphaStrip = computed(
+  () => layout.value === "grid" || layout.value === "list",
+);
 
 // ── Viewport range / AlphaStrip / dwell prefetch ────────────────────
 const viewportRange = ref<{ first: number; last: number }>({
@@ -236,6 +251,7 @@ const visibleLettersSet = computed<Set<string>>(() => {
     if (!it) continue;
     if (it.kind === "letter-header") set.add(it.letter);
     else if (it.kind === "row") for (const l of it.letters) set.add(l);
+    else if (it.kind === "list-row") set.add(it.letter);
   }
   return set;
 });
@@ -249,6 +265,7 @@ const currentLetter = computed<string>(() => {
     if (!it) continue;
     if (it.kind === "letter-header") return it.letter;
     if (it.kind === "row" && it.letters.length > 0) return it.letters[0];
+    if (it.kind === "list-row") return it.letter;
   }
   return "";
 });
@@ -343,33 +360,23 @@ watch(virtualItems, () => {
   syncFetches(viewportRange.value);
 });
 
+// List mode pins a column header below the toolbar; AlphaStrip jumps
+// must land BELOW both pinned bars or the destination row would slide
+// behind the column header. Matches the height set in
+// `GameListHeader.vue` — keep in sync.
+const LIST_HEADER_HEIGHT = 40;
+
 function scrollToLetter(letter: string) {
   const idx = letterToIndex.value.get(letter);
   if (idx == null) return;
-  scrollerRef.value?.scrollToIndex(idx, {
-    smooth: true,
-    stickyOffset: toolbarHeight.value,
-  });
+  const stickyOffset =
+    toolbarHeight.value + (layout.value === "list" ? LIST_HEADER_HEIGHT : 0);
+  scrollerRef.value?.scrollToIndex(idx, { smooth: true, stickyOffset });
   // The viewport-driven fetch sync handles the destination — once the
   // smooth scroll settles, `update:viewportRange` fires and the cards
-  // at the landing zone start loading via `syncFetches`. No manual
-  // prefetch needed.
+  // at the landing zone start loading via `syncFetches` (grid) or via
+  // each `GameListRow`'s onMounted (list). No manual prefetch needed.
 }
-
-// Layout-toggle hydration: views mount with `fetchInitialMetadata()`
-// in grid mode (no items in `byPosition` yet — cards stream in
-// per-row). If the user toggles to list mid-session before any window
-// has loaded, the table would be empty; pull window 0 on demand to
-// give it rows. The store dedupes against already-loaded windows.
-watch(layout, (next) => {
-  if (
-    next === "list" &&
-    galleryRoms.metadataLoaded &&
-    !galleryRoms.loadedWindows.has(0)
-  ) {
-    void galleryRoms.fetchWindowAt(0);
-  }
-});
 
 // ── Search filter (debounced) ───────────────────────────────────────
 const searchInput = ref(searchTerm.value ?? "");
@@ -381,43 +388,30 @@ function setSearch(value: string) {
     const normalized = value.trim();
     if (normalized === (searchTerm.value ?? "")) return;
     searchTerm.value = normalized || null;
+    // Both layouts share the same loading model: invalidate and
+    // bootstrap metadata only; rows hydrate per-position via the row
+    // component's mount lifecycle (grid: GameCard via shell-level
+    // viewport-sync; list: GameListRow via its own onMounted).
     galleryRoms.invalidateWindows();
-    // Grid mode: bootstrap metadata only; cards repopulate per-row via
-    // the viewport sync (same staggered fade-in as scrolling). List
-    // mode: load the first window — the table reads `byPosition`.
-    if (layout.value === "list") {
-      void galleryRoms.fetchWindowAt(0);
-    } else {
-      void galleryRoms.fetchInitialMetadata();
-    }
+    void galleryRoms.fetchInitialMetadata();
   }, 300);
 }
 
-type SortEntry = {
-  key: keyof import("@/stores/roms").SimpleRom;
-  order: "asc" | "desc";
-};
-function onListOptions(options: { sortBy: SortEntry[]; page?: number }) {
-  const first = options.sortBy?.[0];
-  if (first) {
-    galleryRoms.setOrderBy(first.key);
-    galleryRoms.setOrderDir(first.order);
-    galleryRoms.invalidateWindows();
-    void galleryRoms.fetchWindowAt(0);
-    return;
-  }
-  if (options.page !== undefined) {
-    void galleryRoms.fetchWindowAt((options.page - 1) * 72);
-  }
-}
-
-// List mode reads a contiguous projection of `byPosition` sorted by
-// position. Whatever's loaded shows in RTable; page changes trigger a
-// window fetch via `onListOptions`.
-const loadedRoms = computed(() => {
-  const entries = [...byPosition.value.entries()].sort((a, b) => a[0] - b[0]);
-  return entries.map(([, rom]) => rom);
+// ── List-mode sort ────────────────────────────────────────────────
+// Header click → store order params → invalidate + bootstrap metadata.
+// The grid-mode sort goes through the same path (toolbar dropdown), so
+// no separate code path; list just exposes the click affordance.
+const listSortKey = computed<ListSortKey | null>(() => {
+  const k = orderBy.value as string;
+  return LIST_SORT_KEYS.has(k) ? (k as ListSortKey) : null;
 });
+
+function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
+  galleryRoms.setOrderBy(payload.key);
+  galleryRoms.setOrderDir(payload.dir);
+  galleryRoms.invalidateWindows();
+  void galleryRoms.fetchInitialMetadata();
+}
 
 // ── Scroll restoration ─────────────────────────────────────────────
 async function applyRestoredScroll() {
@@ -476,14 +470,18 @@ function rowPositions(row: {
 type RowItem = Extract<GalleryItem, { kind: "row" }>;
 type LetterHeaderItem = Extract<GalleryItem, { kind: "letter-header" }>;
 type EmptyItem = Extract<GalleryItem, { kind: "empty" }>;
+type ListRowItem = Extract<GalleryItem, { kind: "list-row" }>;
 const asRow = (i: GalleryItem) => i as RowItem;
 const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
 const asEmpty = (i: GalleryItem) => i as EmptyItem;
+const asListRow = (i: GalleryItem) => i as ListRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
 const rowGridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
 }));
+
+const listRowGridStyle = { gridTemplateColumns: LIST_GRID_TEMPLATE };
 
 // View-facing surface. Methods only — internal state stays internal.
 defineExpose({
@@ -547,6 +545,18 @@ defineExpose({
             @update:search="setSearch"
           />
         </div>
+
+        <!-- LIST COLUMN HEADER — sticky below the toolbar in list mode.
+             Shares `LIST_GRID_TEMPLATE` with every GameListRow underneath
+             so columns align. Header click cycles asc/desc → store
+             orderBy/orderDir → invalidate + bootstrap metadata. -->
+        <GameListHeader
+          v-if="layout === 'list'"
+          class="r-v2-shell__list-header"
+          :sort-key="listSortKey"
+          :sort-dir="orderDir"
+          @sort="onListSort"
+        />
       </template>
 
       <!-- GRID / TABLE (Section 3) — letter-headers + rows of cards in
@@ -584,14 +594,32 @@ defineExpose({
             </template>
           </div>
 
-          <GameList
-            v-else-if="itemKind(item as GalleryItem) === 'list-table'"
-            :roms="loadedRoms"
-            :total-roms="total"
-            :loading="loadingInitial"
+          <GameListRow
+            v-else-if="itemKind(item as GalleryItem) === 'list-row'"
+            :position="asListRow(item as GalleryItem).position"
             :webp="supportsWebp"
-            @update:options="onListOptions"
           />
+
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'skeleton-list-row'"
+            class="r-v2-shell__list-skeleton-row"
+            :style="listRowGridStyle"
+          >
+            <div class="r-v2-shell__list-skeleton-title">
+              <RSkeletonBlock width="28" height="38" />
+              <div class="r-v2-shell__list-skeleton-meta">
+                <RSkeletonBlock width="60%" height="12" />
+                <RSkeletonBlock width="40%" height="10" />
+              </div>
+            </div>
+            <RSkeletonBlock width="60" height="10" />
+            <RSkeletonBlock width="64" height="10" />
+            <RSkeletonBlock width="40" height="10" />
+            <RSkeletonBlock width="32" height="10" />
+            <RSkeletonBlock width="80" height="10" />
+            <RSkeletonBlock width="80" height="10" />
+            <span />
+          </div>
 
           <div
             v-else-if="itemKind(item as GalleryItem) === 'empty'"
@@ -772,6 +800,46 @@ defineExpose({
   position: sticky;
   top: 0;
   z-index: 4;
+}
+
+/* List column header — sticky just below the toolbar. `top` matches
+   the toolbar's pinned height so when both are stuck they stack
+   cleanly; the toolbar's overlay layer sits at z-index 5, so we keep
+   this at 3 (below the inflow toolbar's 4) to avoid intercepting
+   pointer events meant for the toolbar. */
+.r-v2-shell__list-header {
+  position: sticky;
+  top: var(--r-v2-shell-toolbar-h, 64px);
+  z-index: 3;
+}
+
+/* List skeleton rows — same grid template as a real GameListRow so
+   placeholder columns line up with the header. Used during the brief
+   metadata bootstrap before `total` resolves; once virtualItems flips
+   to real `list-row` entries each row component owns its own skeleton
+   state internally (per-position fetch hasn't resolved yet). */
+.r-v2-shell__list-skeleton-row {
+  display: grid;
+  align-items: center;
+  gap: 0 12px;
+  padding: 0 12px;
+  height: 56px;
+  border-bottom: 1px solid var(--r-color-border);
+}
+
+.r-v2-shell__list-skeleton-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.r-v2-shell__list-skeleton-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Overlay layer — absolute against the section, mirrors the

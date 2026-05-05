@@ -30,7 +30,22 @@ export type GalleryItem =
        * cards aren't loaded yet. */
       letters: readonly string[];
     }
-  | { kind: "list-table"; key: string }
+  /** List layout — one virtual item per ROM. The view template reads
+   * `position` and resolves the ROM (or skeleton) via `getRomAt`. The
+   * sticky column header lives in the shell's prepend, not as a virtual
+   * item, so it can stay pinned below the toolbar regardless of scroll. */
+  | {
+      kind: "list-row";
+      key: string;
+      position: number;
+      /** First letter of this position (from charIndex / letterRanges).
+       * Used by AlphaStrip's scroll-spy in list mode. */
+      letter: string;
+    }
+  /** List-layout placeholder painted while the very first metadata
+   * bootstrap is in flight (`total` is still 0). Same height as a real
+   * `list-row` so the scroller doesn't reflow once `total` resolves. */
+  | { kind: "skeleton-list-row"; key: string; index: number }
   | { kind: "load-more"; key: string; remaining: number; loading: boolean }
   | { kind: "empty"; key: string; message: string }
   | { kind: "skeleton-row"; key: string; index: number };

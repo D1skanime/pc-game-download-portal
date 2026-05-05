@@ -14,14 +14,12 @@ import { formatBytes } from "@/utils";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
-import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 const route = useRoute();
 const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const { currentPlatform, total } = storeToRefs(galleryRoms);
-const { layout } = useGalleryMode();
 
 const notFound = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
@@ -82,14 +80,9 @@ async function loadForId(platformId: number) {
     galleryRoms.setCurrentPlatform(platform);
   }
   document.title = platform.display_name;
-  // Grid mode: bootstrap metadata only; rows hydrate per-card via the
-  // viewport sync. List mode: load the first window because the table
-  // reads `byPosition` directly. See galleryRoms.fetchInitialMetadata.
-  if (layout.value === "list") {
-    await galleryRoms.fetchWindowAt(0);
-  } else {
-    await galleryRoms.fetchInitialMetadata();
-  }
+  // Bootstrap metadata only; grid (shell viewport-sync) and list
+  // (GameListRow's onMounted) both hydrate rows per-position from here.
+  await galleryRoms.fetchInitialMetadata();
   await nextTick();
   shellRef.value?.applyRestoredScroll();
 }
