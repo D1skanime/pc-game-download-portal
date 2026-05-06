@@ -185,7 +185,6 @@ function toggleStatus(target: StatusFilter) {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-width: 720px;
 }
 
 .r-v2-det-ach__empty {

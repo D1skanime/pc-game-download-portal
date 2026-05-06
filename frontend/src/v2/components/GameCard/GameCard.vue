@@ -23,7 +23,6 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
-import StatusBadge from "@/v2/components/GameCard/StatusBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import {
   pendingMorphName,
@@ -172,7 +171,7 @@ const morphStyle = computed(() => {
         />
       </RBtn>
 
-      <StatusBadge :rom="rom" />
+      <GameActionBtn :rom="rom" action="status" size="sm" />
 
       <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
       <div class="r-gc__overlay">
@@ -361,9 +360,24 @@ const morphStyle = computed(() => {
 .r-gc--focused .r-gc__rating {
   opacity: 1;
 }
-.r-gc:hover :deep(.r-gc-status),
-.r-gc:focus-visible :deep(.r-gc-status),
-.r-gc--focused :deep(.r-gc-status) {
+
+/* Status badge — pinned to the cover's top-left corner, mirror of the
+   platform icon on the right. The actual <button> lives inside
+   GameActionBtn's RMenu activator slot, so we reach it via `:deep`
+   matching the action class. Visibility:
+   - status set     → always visible (`--active-status`)
+   - status not set → invisible by default; fades in on card hover. */
+.r-gc :deep(.r-v2-game-btn--action-status) {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  z-index: 2;
+  opacity: 0;
+}
+.r-gc:hover :deep(.r-v2-game-btn--action-status),
+.r-gc:focus-visible :deep(.r-v2-game-btn--action-status),
+.r-gc--focused :deep(.r-v2-game-btn--action-status),
+.r-gc :deep(.r-v2-game-btn--active-status) {
   opacity: 1;
 }
 

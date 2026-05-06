@@ -11,6 +11,7 @@
 // the browser so "Open in new tab" etc. keep working.
 import { onBeforeUnmount, onMounted, provide, ref } from "vue";
 import { useRouter } from "vue-router";
+import storeCollections from "@/stores/collections";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import GlobalDialogs from "@/v2/components/AppShell/GlobalDialogs.vue";
@@ -22,6 +23,8 @@ import { useInputModality } from "@/v2/composables/useInputModality";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
 installPermissionsHydration();
+
+const collectionsStore = storeCollections();
 
 // Shared reactive background art — views paint covers via the injected setter.
 const layerA = ref<string | null>(null);
@@ -71,6 +74,12 @@ onMounted(() => {
   // Mirror morph: GameDetails cover → destination card on back/navbar/popstate.
   // Forward direction is handled at the source side in GameCard.
   removeBackMorph = installBackMorph(router);
+  // Hydrate collections (incl. favoriteCollection) so per-ROM favorite
+  // state resolves on direct navigation to /rom/:id without going
+  // through Home / Collections first. v1 did this in `Main.vue`.
+  if (collectionsStore.allCollections.length === 0) {
+    void collectionsStore.fetchCollections();
+  }
 });
 
 onBeforeUnmount(() => {

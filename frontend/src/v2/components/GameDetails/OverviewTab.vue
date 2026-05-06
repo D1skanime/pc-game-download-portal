@@ -8,15 +8,10 @@
 //   4. HLTB strip
 //   5. Related games — a single RExpansionPanel collapsing all of:
 //      Expansions, DLC, Remakes, Remasters, Similar games.
-import { RChip, RExpansionPanel, RIcon, RSelect, RSlider } from "@v2/lib";
+import { RChip, RExpansionPanel, RIcon, RSlider } from "@v2/lib";
 import { computed, ref, toRef, watch } from "vue";
-import type {
-  IGDBRelatedGame,
-  RomHLTBMetadata,
-  RomUserStatus,
-} from "@/__generated__";
+import type { IGDBRelatedGame, RomHLTBMetadata } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
-import { romStatusMap } from "@/utils";
 import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
 import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
@@ -43,27 +38,10 @@ const actions = useGameActions(() => romRef.value);
 
 const romUser = computed(() => props.rom.rom_user);
 
-// Status enum dropdown — booleans live in the chip row below.
-const statusOptions = [
-  { value: "incomplete", title: `${romStatusMap.incomplete.emoji} Incomplete` },
-  { value: "finished", title: `${romStatusMap.finished.emoji} Finished` },
-  {
-    value: "completed_100",
-    title: `${romStatusMap.completed_100.emoji} Completed 100%`,
-  },
-  { value: "retired", title: `${romStatusMap.retired.emoji} Retired` },
-  {
-    value: "never_playing",
-    title: `${romStatusMap.never_playing.emoji} Never playing`,
-  },
-];
-
-const statusValue = computed(() => romUser.value?.status ?? null);
-function onStatusChange(next: unknown) {
-  // RSelect emits unknown — narrow back to the enum (or null on clear)
-  // and route through setStatusEnum so the boolean flags stay intact.
-  actions.setStatusEnum((next as RomUserStatus | null) ?? null);
-}
+// Status enum lives in the action ribbon (GameActionBtn action="status")
+// — Overview
+// only handles the orthogonal boolean flags + completion + last
+// played here.
 
 // Boolean chips: now_playing / backlogged / hidden. setStatus flips
 // each independently when given the matching key. These are mutually
@@ -114,23 +92,6 @@ const hasRelated = computed(
 
     <!-- 2. Personal stats -->
     <div v-if="romUser" class="overview-tab__personal">
-      <div class="overview-tab__row">
-        <div class="overview-tab__label">Status</div>
-        <div class="overview-tab__field">
-          <RSelect
-            :model-value="statusValue"
-            :items="statusOptions"
-            placeholder="Set status…"
-            density="compact"
-            variant="outlined"
-            hide-details
-            clearable
-            class="overview-tab__select"
-            @update:model-value="onStatusChange"
-          />
-        </div>
-      </div>
-
       <div class="overview-tab__row">
         <div class="overview-tab__label">Flags</div>
         <div class="overview-tab__field overview-tab__chips">
@@ -233,7 +194,6 @@ const hasRelated = computed(
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-width: 820px;
 }
 
 .overview-tab__summary {
@@ -273,9 +233,6 @@ const hasRelated = computed(
   display: flex;
   align-items: center;
   gap: 12px;
-}
-.overview-tab__select {
-  max-width: 280px;
 }
 .overview-tab__chips {
   flex-wrap: wrap;

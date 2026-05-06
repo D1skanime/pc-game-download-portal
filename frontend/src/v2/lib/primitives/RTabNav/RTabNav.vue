@@ -2,6 +2,8 @@
 // RTabNav — single component, two visual presentations:
 //   * variant="underlined" (default) — horizontal nav with a brand
 //     underline on active. Used for primary tabs and tight subtabs.
+//     The underline is a sliding indicator (parallels RSliderBtnGroup)
+//     that translates between buttons on `modelValue` change.
 //   * variant="pill" — stacked menu-like items with a soft rounded
 //     fill on active. Pairs naturally with `orientation="vertical"`
 //     for left-rail subtabs (SaveDataTab style).
@@ -10,6 +12,14 @@
 // (string | number). Items with `show: false` are filtered out so
 // callers can pass a single declarative source.
 import { RIcon } from "@v2/lib";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import type { RTabNavItem } from "./types";
 
 defineOptions({ inheritAttrs: false });
@@ -22,7 +32,7 @@ interface Props {
   orientation?: "horizontal" | "vertical";
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   size: "md",
   variant: "underlined",
   orientation: "horizontal",
@@ -31,10 +41,100 @@ withDefaults(defineProps<Props>(), {
 defineEmits<{
   (e: "update:modelValue", v: string): void;
 }>();
+
+const visibleItems = computed(() =>
+  props.items.filter((x) => x.show !== false),
+);
+
+// ---------- Sliding underline indicator (underlined variant only) ----------
+const navEl = ref<HTMLElement | null>(null);
+const btnEls = new Map<string, HTMLElement | null>();
+const indicator = ref({ left: 0, width: 0, visible: false });
+const animate = ref(false);
+
+function setBtnEl(id: string, el: Element | null) {
+  btnEls.set(id, el as HTMLElement | null);
+}
+
+function update() {
+  if (props.variant !== "underlined") {
+    indicator.value = { ...indicator.value, visible: false };
+    return;
+  }
+  const nav = navEl.value;
+  if (!nav) {
+    indicator.value = { ...indicator.value, visible: false };
+    return;
+  }
+  const el = btnEls.get(props.modelValue);
+  if (!el) {
+    indicator.value = { ...indicator.value, visible: false };
+    return;
+  }
+  const navRect = nav.getBoundingClientRect();
+  const btnRect = el.getBoundingClientRect();
+  // Account for horizontal scroll inside an overflow-x:auto nav.
+  const scrollLeft = nav.scrollLeft;
+  indicator.value = {
+    left: btnRect.left - navRect.left + scrollLeft,
+    width: btnRect.width,
+    visible: true,
+  };
+}
+
+watch(
+  () => props.modelValue,
+  () => nextTick(update),
+);
+watch(visibleItems, () => nextTick(update), { deep: true });
+watch(
+  () => props.variant,
+  () => nextTick(update),
+);
+
+let resizeObserver: ResizeObserver | null = null;
+let lastNavWidth = 0;
+
+onMounted(async () => {
+  await nextTick();
+  update();
+  // Snap into place on the first frame, then enable the transition so
+  // subsequent picks slide. Without this the indicator visibly jumps
+  // from (0, 0) to its final position on mount.
+  requestAnimationFrame(() => {
+    animate.value = true;
+  });
+  const nav = navEl.value;
+  if (nav) {
+    lastNavWidth = nav.getBoundingClientRect().width;
+    resizeObserver = new ResizeObserver(() => {
+      const w = nav.getBoundingClientRect().width;
+      // 0→nonzero (display:none → visible): re-measure without
+      // animation so the indicator doesn't slide in from the left.
+      if (lastNavWidth === 0 && w > 0) {
+        animate.value = false;
+        update();
+        requestAnimationFrame(() => {
+          animate.value = true;
+        });
+      } else {
+        update();
+      }
+      lastNavWidth = w;
+    });
+    resizeObserver.observe(nav);
+  }
+});
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+});
 </script>
 
 <template>
   <nav
+    ref="navEl"
     class="r-tab-nav"
     :class="[
       `r-tab-nav--${size}`,
@@ -45,8 +145,9 @@ defineEmits<{
     :aria-orientation="orientation"
   >
     <button
-      v-for="t in items.filter((x) => x.show !== false)"
+      v-for="t in visibleItems"
       :key="t.id"
+      :ref="(el) => setBtnEl(t.id, el as Element | null)"
       type="button"
       role="tab"
       class="r-tab-nav__btn"
@@ -63,6 +164,18 @@ defineEmits<{
         {{ t.badge }}
       </span>
     </button>
+
+    <span
+      v-if="variant === 'underlined'"
+      class="r-tab-nav__indicator"
+      :class="{ 'r-tab-nav__indicator--animate': animate }"
+      :style="{
+        transform: `translateX(${indicator.left}px)`,
+        width: `${indicator.width}px`,
+        opacity: indicator.visible ? 1 : 0,
+      }"
+      aria-hidden="true"
+    />
   </nav>
 </template>
 
@@ -70,6 +183,7 @@ defineEmits<{
 .r-tab-nav {
   display: flex;
   gap: 0;
+  position: relative;
 }
 .r-tab-nav--horizontal {
   flex-direction: row;
@@ -97,8 +211,7 @@ defineEmits<{
   color: var(--r-color-fg-muted);
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
+    color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-tab-nav__btn:hover {
   color: var(--r-color-fg-secondary);
@@ -116,13 +229,12 @@ defineEmits<{
   border-bottom: 1px solid var(--r-color-border-strong);
 }
 .r-tab-nav--underlined .r-tab-nav__btn {
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
   border-radius: 0;
+  position: relative;
+  z-index: 1;
 }
 .r-tab-nav--underlined .r-tab-nav__btn--active {
   color: var(--r-color-fg);
-  border-bottom-color: var(--r-color-brand-primary);
 }
 .r-tab-nav--underlined.r-tab-nav--md .r-tab-nav__btn {
   padding: 8px 18px;
@@ -131,6 +243,26 @@ defineEmits<{
 .r-tab-nav--underlined.r-tab-nav--sm .r-tab-nav__btn {
   padding: 6px 12px;
   font-size: 12px;
+}
+
+/* Sliding underline — sits on the bottom border line, slides between
+   buttons on modelValue change (parallels RSliderBtnGroup's indicator). */
+.r-tab-nav__indicator {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--r-color-brand-primary);
+  border-radius: 2px 2px 0 0;
+  pointer-events: none;
+  will-change: transform, width;
+  opacity: 0;
+}
+.r-tab-nav__indicator--animate {
+  transition:
+    transform var(--r-motion-med) var(--r-motion-ease-out),
+    width var(--r-motion-med) var(--r-motion-ease-out),
+    opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
 /* ---------- Pill variant ---------- */

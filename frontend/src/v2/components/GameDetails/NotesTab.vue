@@ -259,7 +259,6 @@ async function remove(note: UserNoteSchema) {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 720px;
 }
 
 .r-v2-det-notes__empty {

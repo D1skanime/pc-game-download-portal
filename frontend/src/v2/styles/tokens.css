@@ -41,9 +41,9 @@
   --r-color-status-base-warning: #eab308;
   --r-color-status-base-danger: #ef4444;
   --r-color-status-base-info: #3b82f6;
-  --r-color-provider-igdb: #9b54ba;
+  --r-color-provider-igdb: #6366f1;
   --r-color-provider-moby: #f59e0b;
-  --r-color-provider-screenscraper: #f0f04d;
+  --r-color-provider-screenscraper: #3b82f6;
   --r-color-provider-retroachievements: #ef4444;
   --r-color-provider-steamgriddb: #0ea5e9;
   --r-color-provider-launchbox: #8b5cf6;
@@ -125,6 +125,7 @@
   --r-focus-ring-width: 2px;
   --r-focus-ring-offset: 3px;
   --r-nav-h: 58px;
+  --r-page-max-w: 1920px;
   --r-card-art-w: 158px;
   --r-card-art-h: 213px;
   --r-hero-w: 300px;

@@ -38,7 +38,6 @@ const isClickable = computed(() => isLinked.value && Boolean(props.href));
     :rel="isClickable ? 'noopener' : undefined"
   >
     <div class="provider-card__head">
-      <span class="provider-card__dot" />
       <img
         v-if="logo"
         :src="logo"
@@ -93,13 +92,6 @@ const isClickable = computed(() => isLinked.value && Boolean(props.href));
   gap: 8px;
 }
 
-/* .provider-card__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--provider-accent);
-  flex-shrink: 0;
-} */
 .provider-card__logo {
   width: 16px;
   height: 16px;

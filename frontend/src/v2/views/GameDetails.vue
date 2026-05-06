@@ -264,6 +264,12 @@ const tabs = computed<RTabNavItem[]>(() => [
   padding: 0 var(--r-row-pad) 32px;
   gap: 52px;
   min-height: 0;
+  /* Cap the canvas so the cover + info column stay readable on
+     ultrawide displays. Below the cap this is a no-op. */
+  max-width: var(--r-page-max-w);
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .r-v2-det__info {

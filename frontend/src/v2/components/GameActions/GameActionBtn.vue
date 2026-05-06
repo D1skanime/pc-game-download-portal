@@ -9,6 +9,8 @@
 //   download    → direct download link click
 //   favorite    → toggleFavorite; active state when `isFavorited`
 //   collection  → open AddToCollectionDialog; hidden if no collections
+//   status      → open status-enum picker (RMenu); icon swaps to the
+//                 current status icon when set, dashed border when empty
 //   more        → open MoreMenu (GameActionsList dropdown)
 //
 // Sizes (controls diameter + icon size + padding):
@@ -18,13 +20,16 @@
 //
 // Variants:
 //   glass      → default translucent frosted-glass pill
+//   surface    → translucent grey, page-background friendly (Details)
 //   emphasized → white-on-dark (used by Play in card + details)
 //
 // `withLabel` turns the button into a pill with "Play" / "Download" /
 // etc. text next to the icon, matching the GameDetails Play CTA.
-import { RIcon, RMenu, RMenuPanel } from "@v2/lib";
+import { RIcon, RMenu, RMenuDivider, RMenuItem, RMenuPanel } from "@v2/lib";
 import { computed, ref, toRef } from "vue";
+import type { RomUserStatus } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
+import { romStatusMap } from "@/utils";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
 
@@ -35,6 +40,7 @@ export type GameAction =
   | "download"
   | "favorite"
   | "collection"
+  | "status"
   | "more";
 
 interface Props {
@@ -61,6 +67,29 @@ const props = withDefaults(defineProps<Props>(), {
 
 const romRef = toRef(props, "rom");
 const actions = useGameActions(() => romRef.value);
+
+// Icon map for the status action — local so v1 (which still consumes
+// `romStatusMap`'s emoji) stays untouched. `mdi-progress-helper` is
+// the dashed-circle "no status set yet" placeholder.
+const STATUS_ICONS: Record<RomUserStatus, string> = {
+  incomplete: "mdi-progress-clock",
+  finished: "mdi-flag-checkered",
+  completed_100: "mdi-trophy-outline",
+  retired: "mdi-flag-off-outline",
+  never_playing: "mdi-cancel",
+};
+const STATUS_EMPTY_ICON = "mdi-progress-helper";
+const STATUS_KEYS: RomUserStatus[] = [
+  "incomplete",
+  "finished",
+  "completed_100",
+  "retired",
+  "never_playing",
+];
+
+const currentStatus = computed<RomUserStatus | null>(
+  () => props.rom.rom_user?.status ?? null,
+);
 
 type Preset = {
   icon: string;
@@ -110,6 +139,16 @@ const preset = computed<Preset>(() => {
       active: false,
     };
   }
+  if (props.action === "status") {
+    const cs = currentStatus.value;
+    return {
+      icon: cs ? STATUS_ICONS[cs] : STATUS_EMPTY_ICON,
+      activeIcon: null,
+      label: cs ? `Status: ${romStatusMap[cs].text}` : "Set status",
+      onClick: null, // menu owns the click
+      active: Boolean(cs),
+    };
+  }
   // "more" — the RMenu owns activation; no direct click handler.
   return {
     icon: "mdi-dots-horizontal",
@@ -125,13 +164,19 @@ const displayedIcon = computed(
 );
 
 const moreOpen = ref(false);
+const statusOpen = ref(false);
+
+function pickStatus(key: RomUserStatus | null) {
+  void actions.setStatusEnum(key);
+  statusOpen.value = false;
+}
 
 // For the play/download links we could render `<router-link>` /
 // `<a href>` for right-click-open-in-new-tab support, but keeping
 // `<button>` here lets the parent surface own the semantics (the whole
 // card is already a link). Both direct actions live in the composable.
 function onClick(e: MouseEvent) {
-  if (props.action === "more") return; // menu owns the click
+  if (props.action === "more" || props.action === "status") return;
   e.preventDefault();
   e.stopPropagation();
   preset.value.onClick?.();
@@ -139,32 +184,85 @@ function onClick(e: MouseEvent) {
 </script>
 
 <template>
-  <template v-if="action === 'more'">
-    <RMenu v-model="moreOpen" :offset="[8, 0]">
-      <template #activator="{ props: activatorProps }">
-        <button
-          v-bind="activatorProps"
-          type="button"
-          class="r-v2-game-btn"
-          :class="[
-            `r-v2-game-btn--${size}`,
-            `r-v2-game-btn--${variant}`,
-            { 'r-v2-game-btn--labelled': withLabel },
-          ]"
-          :aria-label="preset.label"
-          @click.prevent.stop
-        >
-          <RIcon :icon="displayedIcon" />
-          <span v-if="withLabel" class="r-v2-game-btn__label">
-            {{ preset.label }}
-          </span>
-        </button>
+  <!-- More — opens the shared GameActionsList dropdown. -->
+  <RMenu v-if="action === 'more'" v-model="moreOpen" :offset="[8, 0]">
+    <template #activator="{ props: activatorProps }">
+      <button
+        v-bind="activatorProps"
+        type="button"
+        class="r-v2-game-btn"
+        :class="[
+          `r-v2-game-btn--${size}`,
+          `r-v2-game-btn--${variant}`,
+          { 'r-v2-game-btn--labelled': withLabel },
+        ]"
+        :aria-label="preset.label"
+        @click.prevent.stop
+      >
+        <RIcon :icon="displayedIcon" />
+        <span v-if="withLabel" class="r-v2-game-btn__label">
+          {{ preset.label }}
+        </span>
+      </button>
+    </template>
+    <RMenuPanel width="260px">
+      <GameActionsList :rom="rom" @close="moreOpen = false" />
+    </RMenuPanel>
+  </RMenu>
+
+  <!-- Status — enum picker; icon mirrors the current value, dashed
+       border when no status is set. Keeps the per-ROM action set in
+       one place instead of a parallel widget. -->
+  <RMenu
+    v-else-if="action === 'status'"
+    v-model="statusOpen"
+    :offset="[8, 0]"
+    :close-on-content-click="false"
+  >
+    <template #activator="{ props: activatorProps }">
+      <button
+        v-bind="activatorProps"
+        type="button"
+        class="r-v2-game-btn"
+        :class="[
+          `r-v2-game-btn--${size}`,
+          `r-v2-game-btn--${variant}`,
+          'r-v2-game-btn--action-status',
+          {
+            'r-v2-game-btn--labelled': withLabel,
+            'r-v2-game-btn--active': preset.active,
+            'r-v2-game-btn--active-status': preset.active,
+          },
+        ]"
+        :aria-label="preset.label"
+        @click.prevent.stop
+      >
+        <RIcon :icon="displayedIcon" />
+        <span v-if="withLabel" class="r-v2-game-btn__label">
+          {{ preset.label }}
+        </span>
+      </button>
+    </template>
+    <RMenuPanel width="220px">
+      <RMenuItem
+        v-for="key in STATUS_KEYS"
+        :key="key"
+        :icon="STATUS_ICONS[key]"
+        :variant="currentStatus === key ? 'active' : 'default'"
+        @click="pickStatus(key)"
+      >
+        {{ romStatusMap[key].text }}
+      </RMenuItem>
+      <template v-if="currentStatus">
+        <RMenuDivider />
+        <RMenuItem icon="mdi-close" variant="danger" @click="pickStatus(null)">
+          Clear status
+        </RMenuItem>
       </template>
-      <RMenuPanel width="260px">
-        <GameActionsList :rom="rom" @close="moreOpen = false" />
-      </RMenuPanel>
-    </RMenu>
-  </template>
+    </RMenuPanel>
+  </RMenu>
+
+  <!-- Plain action — direct click. -->
   <button
     v-else
     type="button"
@@ -295,9 +393,15 @@ function onClick(e: MouseEvent) {
   transform: scale(0.96);
 }
 
-/* Active-state colour swaps per action. Favorite goes red; collection
-   picks up a subtle accent. */
+/* Active-state colour swaps per action. */
 .r-v2-game-btn--active-favorite {
   color: var(--r-color-fav) !important;
+}
+
+/* Status — dashed border when no status is set, signals "click to
+   pick". Once set, the button uses the regular solid border + the
+   status icon shows the choice. */
+.r-v2-game-btn--action-status:not(.r-v2-game-btn--active-status) {
+  border-style: dashed;
 }
 </style>

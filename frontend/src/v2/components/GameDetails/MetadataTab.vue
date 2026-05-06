@@ -113,7 +113,6 @@ const verifications = computed<Verification[]>(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 820px;
 }
 
 .metadata-tab__section {

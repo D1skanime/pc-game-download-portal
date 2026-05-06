@@ -54,9 +54,10 @@ defineProps<{
         ·
       </span>
       <RTag
-        :icon="verified ? 'mdi-check-decagram' : 'mdi-shield-alert-outline'"
-        :text="verified ? 'Verified' : 'Unverified'"
-        :tone="verified ? 'success' : 'neutral'"
+        v-if="verified"
+        icon="mdi-check-decagram"
+        text="Verified"
+        tone="success"
         size="sm"
       />
     </div>

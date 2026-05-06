@@ -109,9 +109,6 @@ withDefaults(defineProps<Props>(), {
 }
 
 /* Tones — set the three CSS vars; the .r-tag rule does the painting. */
-.r-tag--neutral {
-  /* defaults already match neutral */
-}
 .r-tag--brand {
   --r-tag-fg: color-mix(in srgb, var(--r-color-brand-primary) 90%, transparent);
   --r-tag-border: color-mix(

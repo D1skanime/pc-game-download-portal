@@ -153,8 +153,8 @@ export const colorLight = {
 } as const;
 
 // Cover-overlay surfaces — fixed dark glass values that never theme-flip.
-// These are used by surfaces sitting on top of cover artwork (StatusBadge,
-// GameCard chrome, GameActionBtn) where contrast against cover art matters
+// These are used by surfaces sitting on top of cover artwork
+// (GameCard chrome, GameActionBtn) where contrast against cover art matters
 // more than page theme. Inverting them in light mode would lose contrast
 // against bright covers.
 export const colorOverlay = {
@@ -276,6 +276,9 @@ export const focus = {
 export const layout = {
   navHeight: "58px",
   rowPad: "36px",
+  // Cap for the centred page content (navbar, game details body, …) on
+  // ultrawide displays. Below this width the rule is a no-op.
+  pageMaxWidth: "1500px",
   cardArtWidth: "158px",
   cardArtHeight: "213px",
   heroCardWidth: "300px",

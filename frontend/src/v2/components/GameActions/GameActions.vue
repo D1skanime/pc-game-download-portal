@@ -39,6 +39,7 @@ const actions = useGameActions(() => romRef.value);
     <GameActionBtn :rom="rom" action="download" size="lg" variant="surface" />
     <GameActionBtn :rom="rom" action="favorite" size="lg" variant="surface" />
     <GameActionBtn :rom="rom" action="collection" size="lg" variant="surface" />
+    <GameActionBtn :rom="rom" action="status" size="lg" variant="surface" />
     <GameActionBtn :rom="rom" action="more" size="lg" variant="surface" />
 
     <div v-if="rom.rom_user" class="game-actions__spacer" />
