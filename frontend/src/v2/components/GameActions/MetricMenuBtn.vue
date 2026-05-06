@@ -130,6 +130,7 @@ function clear() {
           :min="0"
           :max="100"
           :step="step"
+          :color="accent"
           density="compact"
           value-position="thumb"
           value-suffix="%"

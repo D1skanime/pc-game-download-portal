@@ -75,6 +75,20 @@ const percent = computed(() => {
 const formatted = computed(() => `${props.modelValue}${props.valueSuffix}`);
 
 const showThumbLabel = computed(() => props.valuePosition === "thumb");
+
+// Resolve the `color` prop to a CSS token so track / thumb / glow / badge
+// / bubble all share one accent. Vuetify color names that don't have a
+// 1:1 token equivalent are mapped here; anything else falls through as
+// `--r-color-${name}` with a brand-primary fallback if the var is unset.
+const COLOR_TOKEN_MAP: Record<string, string> = {
+  primary: "brand-primary",
+  secondary: "brand-secondary",
+  error: "danger",
+};
+const accentVar = computed(() => {
+  const mapped = COLOR_TOKEN_MAP[props.color] ?? props.color;
+  return `var(--r-color-${mapped}, var(--r-color-brand-primary))`;
+});
 </script>
 
 <template>
@@ -84,6 +98,7 @@ const showThumbLabel = computed(() => props.valuePosition === "thumb");
       `r-slider--pos-${valuePosition}`,
       { 'r-slider--disabled': disabled, 'r-slider--readonly': readonly },
     ]"
+    :style="{ '--slider-accent': accentVar }"
   >
     <span
       v-if="valuePosition === 'left'"
@@ -178,20 +193,18 @@ const showThumbLabel = computed(() => props.valuePosition === "thumb");
 .r-slider :deep(.v-slider-track__fill) {
   background: linear-gradient(
     90deg,
-    var(--r-color-brand-primary),
-    var(--r-color-brand-primary-hover)
+    var(--slider-accent),
+    color-mix(in srgb, var(--slider-accent), white 18%)
   ) !important;
   height: 5px !important;
   border-radius: var(--r-radius-full);
-  box-shadow: 0 0 12px
-    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--slider-accent) 35%, transparent);
   transition: box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
 .r-slider:hover :deep(.v-slider-track__fill),
 .r-slider:focus-within :deep(.v-slider-track__fill) {
-  box-shadow: 0 0 18px
-    color-mix(in srgb, var(--r-color-brand-primary) 55%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--slider-accent) 55%, transparent);
 }
 
 /* ── Tick marks ────────────────────────────────────────── */
@@ -211,7 +224,7 @@ const showThumbLabel = computed(() => props.valuePosition === "thumb");
 /* ── Thumb ─────────────────────────────────────────────── */
 
 .r-slider :deep(.v-slider-thumb__surface) {
-  background: var(--r-color-brand-primary) !important;
+  background: var(--slider-accent) !important;
   width: 14px !important;
   height: 14px !important;
   border: 2px solid var(--r-color-fg);
@@ -227,12 +240,12 @@ const showThumbLabel = computed(() => props.valuePosition === "thumb");
   transform: scale(1.18);
   box-shadow:
     var(--r-elev-2),
-    0 0 0 6px color-mix(in srgb, var(--r-color-brand-primary) 25%, transparent);
+    0 0 0 6px color-mix(in srgb, var(--slider-accent) 25%, transparent);
 }
 
 .r-slider :deep(.v-slider-thumb--pressed .v-slider-thumb__surface) {
   transform: scale(1.28);
-  background: var(--r-color-brand-primary-hover) !important;
+  background: color-mix(in srgb, var(--slider-accent), white 14%) !important;
 }
 
 /* Vuetify ripple feels heavy against this thinner thumb — drop it. */
@@ -264,15 +277,11 @@ const showThumbLabel = computed(() => props.valuePosition === "thumb");
 
 .r-slider:hover .r-slider__badge,
 .r-slider:focus-within .r-slider__badge {
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 55%,
-    transparent
-  );
+  border-color: color-mix(in srgb, var(--slider-accent) 55%, transparent);
   color: var(--r-color-fg);
   background: color-mix(
     in srgb,
-    var(--r-color-brand-primary) 12%,
+    var(--slider-accent) 12%,
     var(--r-color-bg-elevated)
   );
 }
@@ -315,12 +324,12 @@ const showThumbLabel = computed(() => props.valuePosition === "thumb");
   color: var(--r-color-fg);
   background: linear-gradient(
     180deg,
-    var(--r-color-brand-primary-hover),
-    var(--r-color-brand-primary)
+    color-mix(in srgb, var(--slider-accent), white 18%),
+    var(--slider-accent)
   );
   border-radius: var(--r-radius-full);
   box-shadow:
-    0 4px 12px color-mix(in srgb, var(--r-color-brand-primary) 50%, transparent),
+    0 4px 12px color-mix(in srgb, var(--slider-accent) 50%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--r-color-fg) 18%, transparent);
 }
 
@@ -332,7 +341,7 @@ const showThumbLabel = computed(() => props.valuePosition === "thumb");
   left: 50%;
   width: 8px;
   height: 8px;
-  background: var(--r-color-brand-primary);
+  background: var(--slider-accent);
   transform: translateX(-50%) rotate(45deg);
   border-bottom-right-radius: 2px;
   z-index: -1;
