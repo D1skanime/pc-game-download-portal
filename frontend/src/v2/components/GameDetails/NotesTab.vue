@@ -324,18 +324,6 @@ function fmtDate(iso: string): string {
 
     <div v-else class="r-v2-notes__body">
       <aside class="r-v2-notes__index">
-        <RBtn
-          v-if="canCreate && !editForm"
-          variant="outlined"
-          size="small"
-          prepend-icon="mdi-plus"
-          block
-          class="r-v2-notes__add-btn"
-          @click="startAdd"
-        >
-          Add note
-        </RBtn>
-
         <template v-if="myNotes.length > 0">
           <div class="r-v2-notes__group-label">My notes</div>
           <ul class="r-v2-notes__group">
@@ -360,6 +348,17 @@ function fmtDate(iso: string): string {
             </li>
           </ul>
         </template>
+        <RBtn
+          :disabled="!canCreate || !!editForm"
+          variant="outlined"
+          size="small"
+          prepend-icon="mdi-plus"
+          block
+          class="r-v2-notes__add-btn"
+          @click="startAdd"
+        >
+          Add note
+        </RBtn>
 
         <template v-if="communityNotes.length > 0">
           <RDivider />
@@ -738,10 +737,7 @@ function fmtDate(iso: string): string {
 }
 
 /* ── md-editor surface tweaks ──
-   md-editor ships a white card by default. We strip its chrome and
-   place it on a translucent dark-glass surface that fades into the
-   pane via a soft mask, so the rectangle reads as a glass layer
-   rather than a hard block. Both editor and preview share the same
+   md-editor ships a white card by default. Both editor and preview share the same
    surface so the two modes feel like the same panel. */
 .r-v2-notes__preview,
 .r-v2-notes__editor {
@@ -749,41 +745,6 @@ function fmtDate(iso: string): string {
   background: color-mix(in srgb, black 28%, transparent);
   border-radius: var(--r-radius-lg);
   padding: 4px 18px;
-  /* Soft fade on all four edges so the surface dissolves into the pane
-     rather than terminating in a hard rectangle. Two linear masks (one
-     vertical, one horizontal) intersected produce the inset frame. */
-  -webkit-mask-image:
-    linear-gradient(
-      to bottom,
-      transparent 0,
-      black 6px,
-      black calc(100% - 6px),
-      transparent 100%
-    ),
-    linear-gradient(
-      to right,
-      transparent 0,
-      black 6px,
-      black calc(100% - 6px),
-      transparent 100%
-    );
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(
-      to bottom,
-      transparent 0,
-      black 6px,
-      black calc(100% - 6px),
-      transparent 100%
-    ),
-    linear-gradient(
-      to right,
-      transparent 0,
-      black 6px,
-      black calc(100% - 6px),
-      transparent 100%
-    );
-  mask-composite: intersect;
 }
 
 .r-v2-notes__editor :deep(.md-editor) {

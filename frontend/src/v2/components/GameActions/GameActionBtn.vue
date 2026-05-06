@@ -134,7 +134,7 @@ const preset = computed<Preset>(() => {
     return {
       icon: "mdi-bookmark-outline",
       activeIcon: null,
-      label: "Add to collection",
+      label: "Manage collections",
       onClick: actions.addToCollection,
       active: false,
     };

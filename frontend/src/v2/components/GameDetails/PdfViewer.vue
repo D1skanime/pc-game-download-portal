@@ -178,6 +178,12 @@ const ids = {
 .r-v2-pdfv {
   display: flex;
   flex-direction: column;
+  /* Fills the parent container exactly — height comes from the chain
+     `.r-v2-det__panel → .r-v2-media → .r-v2-media__panel →
+     .r-v2-media__viewer`, all flex-sized. The viewer never overflows
+     so the only visible scroll is the PDF's own internal one. */
+  height: 100%;
+  min-height: 0;
 }
 
 /* Toolbar inherits the parent's bg-elevated — no separate background
@@ -251,15 +257,14 @@ const ids = {
 }
 
 .r-v2-pdfv__viewer {
-  /* The library can't grow into an indefinite-height parent (the chain
-     uses min-height, not height, so `height: 100%` collapses to 0).
-     Anchor a definite viewport-relative height on the canvas so it
-     always renders, with a comfortable floor for short viewports. */
-  min-height: 480px;
+  /* Fills remaining height after the toolbar via flex. min-height: 0
+     lets the canvas shrink below its intrinsic content size (PDF.js
+     would otherwise force the wrap to grow indefinitely). */
+  flex: 1;
+  min-height: 0;
 }
 .r-v2-pdfv__app {
-  height: 70vh;
-  min-height: 480px;
+  height: 100%;
 }
 
 /* vue3-pdf-app paints its own canvas chrome via this CSS variable.

@@ -362,7 +362,6 @@ async function deleteSoundtrack(fileId: number) {
                   hide-details
                 />
                 <RBtn
-                  size="small"
                   variant="outlined"
                   prepend-icon="mdi-cloud-upload-outline"
                   block
@@ -372,7 +371,6 @@ async function deleteSoundtrack(fileId: number) {
                 </RBtn>
                 <RBtn
                   v-if="rom.url_manual"
-                  size="small"
                   variant="outlined"
                   prepend-icon="mdi-cloud-download-outline"
                   block
@@ -384,7 +382,6 @@ async function deleteSoundtrack(fileId: number) {
                 </RBtn>
                 <RBtn
                   v-if="selectedManual"
-                  size="small"
                   variant="outlined"
                   color="romm-red"
                   prepend-icon="mdi-delete"
@@ -513,6 +510,11 @@ async function deleteSoundtrack(fileId: number) {
   display: flex;
   align-items: stretch;
   gap: 24px;
+  /* Fills the parent tab panel exactly so the PDF viewer (inside the
+     manual section) can size to 100% without forcing the outer panel
+     to scroll — the PDF has its own internal scroll. */
+  height: 100%;
+  min-height: 0;
 }
 
 .r-v2-media__sidebar {
@@ -593,18 +595,26 @@ async function deleteSoundtrack(fileId: number) {
 .r-v2-media__content {
   flex: 1;
   min-width: 0;
+  /* Flex column so the active subtab section (the only visible one
+     via v-show) can use `flex: 1` to fill the row's height. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .r-v2-media__file-input {
   display: none;
 }
 
-/* Panels */
+/* Panels — each subtab section fills the content height so its
+   children (PDF viewer / soundtrack / screenshots) can stretch
+   to 100% without forcing an outer scrollbar. */
 .r-v2-media__panel {
   display: flex;
   flex-direction: column;
   gap: var(--r-space-3);
-  min-height: 320px;
+  flex: 1;
+  min-height: 0;
 }
 
 @media (max-width: 768px) {
@@ -617,8 +627,11 @@ async function deleteSoundtrack(fileId: number) {
   }
 }
 
-/* Manual viewer */
+/* Manual viewer — fills the available panel height so the inner PDF
+   uses 100% and only its own scroll triggers (no outer panel scroll). */
 .r-v2-media__viewer {
+  flex: 1;
+  min-height: 0;
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   overflow: hidden;

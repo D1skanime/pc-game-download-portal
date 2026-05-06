@@ -262,6 +262,7 @@ const hasRelated = computed(
   display: flex;
   flex-direction: column;
   gap: 18px;
+  margin-top: 10px;
 }
 .overview-tab__related-section {
   display: flex;

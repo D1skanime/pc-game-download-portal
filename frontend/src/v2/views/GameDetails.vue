@@ -243,10 +243,13 @@ const tabs = computed<RTabNavItem[]>(() => [
 <style scoped>
 .r-v2-det {
   position: relative;
-  min-height: 100%;
+  /* Fits the main viewport exactly: cover + header + tabs are static
+     and only the tab panel scrolls internally. No overflow at the
+     view level → no document scroll on details. */
+  height: 100%;
   display: flex;
   flex-direction: column;
-  padding-top: 100px;
+  padding-top: 50px;
 }
 
 .r-v2-det__topbar {
@@ -260,6 +263,10 @@ const tabs = computed<RTabNavItem[]>(() => [
   z-index: 2;
   flex: 1;
   display: flex;
+  /* `stretch` (default) so the info column fills the body height —
+     needed so the inner panel can use `flex: 1` + `min-height: 0` to
+     scroll. The cover keeps its natural height via `align-self:
+     flex-start` declared on CoverColumn itself. */
   align-items: stretch;
   padding: 0 var(--r-row-pad) 32px;
   gap: 52px;
@@ -277,7 +284,10 @@ const tabs = computed<RTabNavItem[]>(() => [
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding-bottom: 32px;
+  /* Required for the inner panel's `flex: 1` + `overflow-y: auto`
+     to compute against this container's height (otherwise flex
+     children can't shrink below their intrinsic content size). */
+  min-height: 0;
 }
 
 .r-v2-det__tabs {
@@ -285,6 +295,8 @@ const tabs = computed<RTabNavItem[]>(() => [
 }
 
 .r-v2-det__panel {
+  /* Sole scroll context within the details view: cover, header and
+     tab nav stay frozen, only the active tab's content scrolls. */
   flex: 1;
   min-height: 0;
   overflow-y: auto;

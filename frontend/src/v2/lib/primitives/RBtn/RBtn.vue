@@ -6,7 +6,9 @@ defineOptions({ inheritAttrs: false });
 
 // RBtn — thin wrapper around v-btn with RomM v2 defaults:
 //   - variant="flat" (our primary visual style)
-//   - color="primary"
+//   - color undefined (neutral) — `primary` is reserved for primary
+//     actions (Login, Add note, etc.). Pass `color="primary"`
+//     explicitly when the button is THE primary action of its surface.
 //   - rounded="md"
 //   - font-weight medium, no uppercase (Vuetify's default)
 //   - debounced spinner: when `loading` flips true, the spinner only
@@ -34,7 +36,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   variant: "flat",
-  color: "primary",
+  color: undefined,
   rounded: "md",
   loading: false,
   loadingDebounce: 200,

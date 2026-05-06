@@ -8,7 +8,7 @@
 // No direct VDialog here; every v2 dialog flows through the primitive.
 //
 // Shape (top → bottom):
-//   * Bold "Add to Collection" title + muted game subtitle in the
+//   * Bold "Manage collections" title + muted game subtitle in the
 //     header slot (single `div` inside #header; close X is provided by
 //     RDialog).
 //   * "New Collection" CTA row. Collapsed: brand-tinted + tile +
@@ -185,12 +185,12 @@ function closeDialog() {
 <template>
   <RDialog v-model="show" :width="mdAndUp ? 440 : '95vw'" @close="closeDialog">
     <!-- Two-line title block replaces the single-line default so the
-         bold "Add to Collection" + muted game subtitle stack. Close X
+         bold "Manage collections" + muted game subtitle stack. Close X
          is provided by RDialog in its own header chrome. -->
     <template #header>
       <div class="r-v2-pick-coll__head">
         <span class="r-v2-pick-coll__head-title">
-          {{ t("rom.add-to-collection", "Add to Collection") }}
+          {{ t("rom.manage-collections", "Manage collections") }}
         </span>
         <span v-if="subtitle" class="r-v2-pick-coll__head-subtitle">
           {{ subtitle }}
