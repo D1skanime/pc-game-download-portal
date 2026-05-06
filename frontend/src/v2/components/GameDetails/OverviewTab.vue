@@ -2,14 +2,13 @@
 // OverviewTab — single landing surface for everything that doesn't get
 // its own tab. Top to bottom:
 //   1. Summary paragraph
-//   2. Personal stats — status select, boolean chips, completion slider,
-//      last-played row
+//   2. Personal stats — boolean chips, last-played row
 //   3. Info grid (genres / developer / franchise / collections)
 //   4. HLTB strip
 //   5. Related games — a single RCollapsible collapsing all of:
 //      Expansions, DLC, Remakes, Remasters, Similar games.
-import { RChip, RCollapsible, RIcon, RSlider } from "@v2/lib";
-import { computed, ref, toRef, watch } from "vue";
+import { RChip, RCollapsible, RIcon } from "@v2/lib";
+import { computed, toRef } from "vue";
 import type { IGDBRelatedGame, RomHLTBMetadata } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
@@ -54,21 +53,6 @@ const boolChips: { key: BoolKey; icon: string; label: string }[] = [
   { key: "hidden", icon: "mdi-eye-off-outline", label: "Hidden" },
 ];
 
-// Completion slider — local mirror so the thumb tracks the drag, with
-// the backend write deferred to drag-end (otherwise we'd send 100+
-// PUTs for a single drag).
-const completionLocal = ref(romUser.value?.completion ?? 0);
-watch(
-  () => romUser.value?.completion ?? 0,
-  (v) => {
-    completionLocal.value = v;
-  },
-);
-function commitCompletion(v: number) {
-  if (v === (romUser.value?.completion ?? 0)) return;
-  actions.setScore("completion", v);
-}
-
 // Related — show the panel only if at least one section has items.
 const hasRelated = computed(
   () =>
@@ -85,10 +69,6 @@ const hasRelated = computed(
   <section class="overview-tab">
     <!-- 1. Summary -->
     <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
-    <p v-else class="overview-tab__summary overview-tab__summary--muted">
-      No summary yet. Match this ROM to a metadata source to pull in a
-      description, genres, and release date.
-    </p>
 
     <!-- 2. Personal stats -->
     <div v-if="romUser" class="overview-tab__personal">
@@ -101,31 +81,11 @@ const hasRelated = computed(
             :variant="romUser[c.key] ? 'flat' : 'outlined'"
             :color="romUser[c.key] ? 'primary' : undefined"
             :prepend-icon="c.icon"
-            size="small"
             clickable
             @click="actions.setStatus(c.key)"
           >
             {{ c.label }}
           </RChip>
-        </div>
-      </div>
-
-      <div class="overview-tab__row">
-        <div class="overview-tab__label">Completion</div>
-        <div class="overview-tab__field overview-tab__completion">
-          <RSlider
-            v-model="completionLocal"
-            :min="0"
-            :max="100"
-            :step="1"
-            color="primary"
-            density="compact"
-            class="overview-tab__slider"
-            @end="commitCompletion(completionLocal)"
-          />
-          <span class="overview-tab__completion-val">
-            {{ completionLocal }}%
-          </span>
         </div>
       </div>
 
@@ -237,20 +197,6 @@ const hasRelated = computed(
 .overview-tab__chips {
   flex-wrap: wrap;
   gap: 6px;
-}
-.overview-tab__completion {
-  gap: 14px;
-}
-.overview-tab__slider {
-  flex: 1;
-  max-width: 360px;
-}
-.overview-tab__completion-val {
-  min-width: 3.5ch;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-size: 12.5px;
-  color: var(--r-color-fg-secondary);
 }
 .overview-tab__muted {
   color: var(--r-color-fg-faint);

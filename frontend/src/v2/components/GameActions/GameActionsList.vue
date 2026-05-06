@@ -49,7 +49,7 @@ function run(fn: () => void | Promise<void>) {
   <RMenuItem
     v-if="actions.canAddToCollection.value"
     label="Manage collections"
-    icon="mdi-bookmark-plus-outline"
+    icon="mdi-bookmark-outline"
     @click="run(actions.addToCollection)"
   />
   <RMenuItem

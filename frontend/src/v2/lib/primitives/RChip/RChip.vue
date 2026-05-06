@@ -51,6 +51,18 @@ withDefaults(defineProps<Props>(), {
   letter-spacing: 0;
 }
 
+/* Clickable chips share the RBtn rest-→-hover illumination: a touch
+   muted at rest, fully bright on hover. Vuetify adds .v-chip--clickable
+   when the `clickable` prop is set, so non-interactive chips (regions,
+   languages, tags…) keep their full opacity. */
+.r-chip.v-chip--clickable {
+  opacity: 0.85;
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-chip.v-chip--clickable:hover {
+  opacity: 1;
+}
+
 /* Optical alignment for prepend/append icons — same fix as RBtn.
    v-chip never applies text-transform: uppercase, so its mixed-case
    labels always sit in the x-height band (below the line-box centre)

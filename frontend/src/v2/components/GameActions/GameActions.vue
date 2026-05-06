@@ -6,13 +6,14 @@
 // original white pill CTA; every other button is a circular glass icon
 // button. The `more` action opens the shared GameActionsList.
 //
-// Right-side group: rating + difficulty score pickers, separated from
-// the main ribbon by a spacer. Score writes are optimistic via
-// useGameActions.setScore.
+// Right-side group: completion + rating + difficulty pickers, separated
+// from the main ribbon by a spacer. All three share MetricMenuBtn — the
+// rating/difficulty trigger an RRating popup, completion triggers an
+// RSlider popup. Writes are optimistic via useGameActions.setScore.
 import { toRef } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
-import ScoreMenuBtn from "@/v2/components/GameActions/ScoreMenuBtn.vue";
+import MetricMenuBtn from "@/v2/components/GameActions/MetricMenuBtn.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
 
 defineOptions({ inheritAttrs: false });
@@ -44,7 +45,18 @@ const actions = useGameActions(() => romRef.value);
 
     <div v-if="rom.rom_user" class="game-actions__spacer" />
 
-    <ScoreMenuBtn
+    <MetricMenuBtn
+      v-if="rom.rom_user"
+      kind="percent"
+      label="Completion"
+      icon-full="mdi-progress-check"
+      icon-empty="mdi-progress-helper"
+      accent="brand-primary"
+      :step="5"
+      :value="rom.rom_user.completion ?? 0"
+      @update:value="(v) => actions.setScore('completion', v)"
+    />
+    <MetricMenuBtn
       v-if="rom.rom_user"
       label="Rating"
       icon-full="mdi-star"
@@ -53,7 +65,7 @@ const actions = useGameActions(() => romRef.value);
       :value="rom.rom_user.rating"
       @update:value="(v) => actions.setScore('rating', v)"
     />
-    <ScoreMenuBtn
+    <MetricMenuBtn
       v-if="rom.rom_user"
       label="Difficulty"
       icon-full="mdi-chili-mild"

@@ -149,7 +149,7 @@ const tag = computed(() => {
 /* Active: filled "fav" colour */
 .r-menu-item--active,
 .r-menu-item--active:hover {
-  color: var(--r-color-fav);
+  color: var(--r-color-brand-primary);
 }
 .r-menu-item--active .r-menu-item__icon {
   opacity: 1;
