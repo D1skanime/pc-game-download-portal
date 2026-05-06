@@ -11,9 +11,21 @@ const props = defineProps<{ metadata: RomHLTBMetadata | null | undefined }>();
 
 type Entry = { label: string; value: string; count: number | null };
 
-function formatHours(h?: number | null) {
-  if (!h || h <= 0) return null;
-  return h >= 1 ? `${h.toFixed(h >= 10 ? 0 : 1)}h` : `${Math.round(h * 60)}m`;
+// Backend stores HLTB durations in seconds. Convert to hours, round to
+// the nearest 0.5h (mirrors v1's HowLongToBeat.vue), or to minutes when
+// the game is shorter than an hour.
+const intlHours = new Intl.NumberFormat("en-US", {
+  maximumSignificantDigits: 3,
+});
+
+function formatHours(secs?: number | null) {
+  if (!secs || secs <= 0) return null;
+  const hours = secs / 3600;
+  if (hours < 1) {
+    const mins = Math.round(secs / 60);
+    return mins > 0 ? `${mins}m` : null;
+  }
+  return `${intlHours.format(Math.round(hours * 2) / 2)}h`;
 }
 
 const entries = computed<Entry[]>(() => {
@@ -58,7 +70,6 @@ const entries = computed<Entry[]>(() => {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   padding: 14px 0;
-  margin: 14px 0 6px;
   max-width: 720px;
 }
 

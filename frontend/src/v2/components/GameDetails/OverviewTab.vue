@@ -105,6 +105,7 @@ const hasRelated = computed(
     <!-- 5. Related games (single collapsible, every section labelled) -->
     <RCollapsible
       v-if="hasRelated"
+      defaultOpen
       title="Related games"
       icon="mdi-gamepad-square-outline"
     >
@@ -153,7 +154,7 @@ const hasRelated = computed(
 .overview-tab {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 30px;
 }
 
 .overview-tab__summary {

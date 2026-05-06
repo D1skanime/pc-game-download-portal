@@ -48,7 +48,6 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 18px 24px;
-  margin: 18px 0 22px;
   width: 100%;
 }
 

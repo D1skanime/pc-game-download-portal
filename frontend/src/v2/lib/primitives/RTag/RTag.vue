@@ -93,6 +93,7 @@ withDefaults(defineProps<Props>(), {
 .r-tag__icon {
   flex-shrink: 0;
   color: var(--r-tag-fg);
+  margin: 2px 0px;
 }
 .r-tag__label {
   font-size: 10.5px;

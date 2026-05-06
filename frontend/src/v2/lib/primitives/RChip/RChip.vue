@@ -49,17 +49,18 @@ withDefaults(defineProps<Props>(), {
 .r-chip {
   font-weight: var(--r-font-weight-medium);
   letter-spacing: 0;
+  padding: 0px 16px;
 }
 
 /* Clickable chips share the RBtn rest-→-hover illumination: a touch
    muted at rest, fully bright on hover. Vuetify adds .v-chip--clickable
    when the `clickable` prop is set, so non-interactive chips (regions,
    languages, tags…) keep their full opacity. */
-.r-chip.v-chip--clickable {
+.r-chip {
   opacity: 0.85;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-chip.v-chip--clickable:hover {
+.r-chip:hover {
   opacity: 1;
 }
 
