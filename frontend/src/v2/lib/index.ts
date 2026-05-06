@@ -37,7 +37,7 @@ export * from "./forms/RSlider";
 export * from "./forms/RTextField";
 
 // Structural
-export * from "./structural/RExpansionPanel";
+export * from "./structural/RCollapsible";
 export * from "./structural/RList";
 export * from "./structural/RListItem";
 export * from "./structural/RToolbar";
@@ -52,6 +52,7 @@ export * from "./menus/RMenuHeader";
 export * from "./menus/RMenuItem";
 
 // Overlays
+export * from "./overlays/RCarousel";
 export * from "./overlays/RDialog";
 
 // Data

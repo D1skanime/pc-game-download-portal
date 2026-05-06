@@ -40,12 +40,16 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
 </template>
 
 <style scoped>
+/* Auto-fill grid spanning the whole details body — sections reflow to a
+   new row when the column would shrink below 240px. Mirrors the
+   responsive pattern used by ProviderGrid in the Metadata tab so both
+   surfaces feel like siblings. */
 .r-v2-det-infogrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px 32px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px 24px;
   margin: 18px 0 22px;
-  max-width: 720px;
+  width: 100%;
 }
 
 .r-v2-det-infogrid__label {
@@ -70,12 +74,5 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
   padding: 3px 9px;
   font-size: 11.5px;
   color: var(--r-color-fg-secondary);
-}
-
-@media (max-width: 768px) {
-  .r-v2-det-infogrid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
 }
 </style>

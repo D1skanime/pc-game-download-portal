@@ -9,7 +9,7 @@
 //   * Re-download primary manual + delete manual both handled here
 //
 // The PDF viewer + soundtrack player are reused from v1 for now.
-import { RBtn, REmptyState, RSelect, RTabNav, type RTabNavItem } from "@v2/lib";
+import { RBtn, RCollapsible, REmptyState, RIcon, RSelect } from "@v2/lib";
 import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
@@ -22,7 +22,7 @@ import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const PdfViewer = defineAsyncComponent(
-  () => import("@/components/Details/PDFViewer.vue"),
+  () => import("@/v2/components/GameDetails/PdfViewer.vue"),
 );
 const SoundtrackPanel = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/SoundtrackPanel.vue"),
@@ -163,12 +163,13 @@ const manualItems = computed(() =>
 const soundtrackSupported = computed(() => !props.rom.has_simple_single_file);
 
 // ---------- Subtab nav ----------
-const subtabItems = computed<RTabNavItem[]>(() => [
-  {
-    id: "manual",
-    label: "Manual",
-    icon: "mdi-book-open-page-variant-outline",
-  },
+// We render the subtab list manually (not via RTabNav) so we can inline
+// each subtab's contextual controls right under the active item — the
+// list reads as "tab + its expanded panel", not "tabs above + a separate
+// actions block". RTabNav stays a navigation-only primitive.
+type SubtabDef = { id: Subtab; label: string; icon: string };
+const subtabDefs: SubtabDef[] = [
+  { id: "manual", label: "Manual", icon: "mdi-book-open-page-variant-outline" },
   {
     id: "soundtrack",
     label: "Soundtrack",
@@ -179,7 +180,16 @@ const subtabItems = computed<RTabNavItem[]>(() => [
     label: "Screenshots",
     icon: "mdi-image-multiple-outline",
   },
-]);
+];
+
+// Whether the active subtab has any inline actions worth rendering.
+// Drives the empty-panel skip so we don't paint a stray padding block.
+function hasSubtabActions(id: Subtab): boolean {
+  if (id === "manual") return manualEntries.value.length > 0;
+  if (id === "soundtrack")
+    return soundtrackSupported.value && Boolean(props.rom.has_soundtrack);
+  return false;
+}
 
 // ---------- Upload / refresh plumbing ----------
 const manualUploadInput = ref<HTMLInputElement | null>(null);
@@ -305,18 +315,118 @@ async function deleteSoundtrack(fileId: number) {
   />
 
   <div class="r-v2-media">
-    <RTabNav
-      v-model="subTab"
-      :items="subtabItems"
-      variant="pill"
-      orientation="vertical"
-      size="sm"
-      class="r-v2-media__nav"
-    />
+    <aside class="r-v2-media__sidebar">
+      <ul
+        class="r-v2-media__subtabs"
+        role="tablist"
+        aria-orientation="vertical"
+      >
+        <li
+          v-for="t in subtabDefs"
+          :key="t.id"
+          class="r-v2-media__subtab"
+          :class="{ 'r-v2-media__subtab--active': subTab === t.id }"
+        >
+          <button
+            type="button"
+            role="tab"
+            class="r-v2-media__subtab-btn"
+            :class="{
+              'r-v2-media__subtab-btn--active': subTab === t.id,
+              'r-v2-media__subtab-btn--joined':
+                subTab === t.id && hasSubtabActions(t.id),
+            }"
+            :aria-selected="subTab === t.id"
+            @click="subTab = t.id"
+          >
+            <RIcon :icon="t.icon" size="16" />
+            <span class="r-v2-media__subtab-label">{{ t.label }}</span>
+          </button>
+
+          <!-- Inline controls panel — RCollapsible drives the open/close
+               animation; `attached` removes its top radius/border so it
+               sits flush with the active subtab button above. -->
+          <RCollapsible
+            :model-value="subTab === t.id && hasSubtabActions(t.id)"
+            attached
+            class="r-v2-media__subtab-panel"
+          >
+            <div class="r-v2-media__subtab-panel-inner">
+              <template v-if="t.id === 'manual' && manualEntries.length > 0">
+                <RSelect
+                  v-if="manualEntries.length > 1"
+                  v-model="selectedManualId"
+                  :items="manualItems"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                />
+                <RBtn
+                  size="small"
+                  variant="outlined"
+                  prepend-icon="mdi-cloud-upload-outline"
+                  block
+                  @click="triggerManualUpload"
+                >
+                  Upload
+                </RBtn>
+                <RBtn
+                  v-if="rom.url_manual"
+                  size="small"
+                  variant="outlined"
+                  prepend-icon="mdi-cloud-download-outline"
+                  block
+                  :loading="redownloadingManual"
+                  :disabled="redownloadingManual"
+                  @click="redownloadManual"
+                >
+                  Re-download
+                </RBtn>
+                <RBtn
+                  v-if="selectedManual"
+                  size="small"
+                  variant="outlined"
+                  color="romm-red"
+                  prepend-icon="mdi-delete"
+                  block
+                  @click="requestDeleteManual"
+                >
+                  Delete
+                </RBtn>
+              </template>
+
+              <template
+                v-else-if="
+                  t.id === 'soundtrack' &&
+                  soundtrackSupported &&
+                  rom.has_soundtrack
+                "
+              >
+                <RBtn
+                  size="small"
+                  variant="outlined"
+                  prepend-icon="mdi-cloud-upload-outline"
+                  block
+                  @click="triggerSoundtrackUpload"
+                >
+                  Upload tracks
+                </RBtn>
+              </template>
+            </div>
+          </RCollapsible>
+        </li>
+      </ul>
+    </aside>
 
     <div class="r-v2-media__content">
+      <!-- All three subtab sections stay mounted (v-show, not v-if).
+           PdfViewer, SoundtrackPanel and ScreenshotsTab are heavy
+           defineAsyncComponent loads — un/remounting them on every
+           subtab switch causes a visible main-thread freeze (the PDF
+           parser is the worst offender). With v-show the cost is paid
+           once on Media tab entry and switching is a CSS toggle. -->
       <!-- Manual subtab -->
-      <section v-if="subTab === 'manual'" class="r-v2-media__panel">
+      <section v-show="subTab === 'manual'" class="r-v2-media__panel">
         <REmptyState
           v-if="manualEntries.length === 0"
           icon="mdi-book-open-page-variant-outline"
@@ -342,62 +452,17 @@ async function deleteSoundtrack(fileId: number) {
           </template>
         </REmptyState>
 
-        <template v-else>
-          <div class="r-v2-media__manual-toolbar">
-            <RSelect
-              v-if="manualEntries.length > 1"
-              v-model="selectedManualId"
-              :items="manualItems"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="r-v2-media__manual-select"
-            />
-            <div v-else class="r-v2-media__manual-spacer" />
-
-            <RBtn
-              size="small"
-              variant="outlined"
-              prepend-icon="mdi-cloud-upload-outline"
-              @click="triggerManualUpload"
-            >
-              Upload
-            </RBtn>
-            <RBtn
-              v-if="rom.url_manual"
-              size="small"
-              variant="outlined"
-              prepend-icon="mdi-cloud-download-outline"
-              :loading="redownloadingManual"
-              :disabled="redownloadingManual"
-              @click="redownloadManual"
-            >
-              Re-download
-            </RBtn>
-            <RBtn
-              v-if="selectedManual"
-              size="small"
-              variant="outlined"
-              color="romm-red"
-              prepend-icon="mdi-delete"
-              @click="requestDeleteManual"
-            >
-              Delete
-            </RBtn>
-          </div>
-
-          <div class="r-v2-media__viewer">
-            <PdfViewer
-              v-if="selectedManual"
-              :key="`${selectedManual.id}-${rom.updated_at}`"
-              :pdf-url="selectedManual.url"
-            />
-          </div>
-        </template>
+        <div v-else class="r-v2-media__viewer">
+          <PdfViewer
+            v-if="selectedManual"
+            :key="`${selectedManual.id}-${rom.updated_at}`"
+            :pdf-url="selectedManual.url"
+          />
+        </div>
       </section>
 
       <!-- Soundtrack subtab -->
-      <section v-else-if="subTab === 'soundtrack'" class="r-v2-media__panel">
+      <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
         <REmptyState
           v-if="!soundtrackSupported"
           icon="mdi-music-off-outline"
@@ -430,7 +495,7 @@ async function deleteSoundtrack(fileId: number) {
       </section>
 
       <!-- Screenshots subtab -->
-      <section v-else-if="subTab === 'screenshots'" class="r-v2-media__panel">
+      <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
         <REmptyState
           v-if="(rom.merged_screenshots?.length ?? 0) === 0"
           icon="mdi-image-multiple-outline"
@@ -450,9 +515,79 @@ async function deleteSoundtrack(fileId: number) {
   gap: 24px;
 }
 
-.r-v2-media__nav {
-  width: 180px;
+.r-v2-media__sidebar {
+  width: 220px;
   flex-shrink: 0;
+}
+
+/* Subtab list — inline-expansion pattern: each tab can host a panel of
+   contextual actions right under its button. Visual mirrors RTabNav's
+   `pill` + `vertical` + `sm` size so the navigation reads identically
+   to the rest of v2. */
+.r-v2-media__subtabs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r-v2-media__subtab {
+  display: flex;
+  flex-direction: column;
+}
+.r-v2-media__subtab-btn {
+  width: 100%;
+  appearance: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--r-radius-md);
+  color: var(--r-color-fg-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: var(--r-font-weight-medium);
+  transition:
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-v2-media__subtab-btn:hover {
+  background: var(--r-color-surface-hover);
+  color: var(--r-color-fg);
+}
+.r-v2-media__subtab-btn--active {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
+  color: var(--r-color-brand-primary);
+}
+/* When the active subtab has an attached panel below, drop its bottom
+   radius so the button visually merges with the RCollapsible surface. */
+.r-v2-media__subtab-btn--joined {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.r-v2-media__subtab-label {
+  flex: 1;
+}
+
+/* Inline panel — RCollapsible (attached, headless) provides the
+   surface (bg-elevated + border + bottom radius) and the open/close
+   animation. We only add a small bottom margin so the next subtab
+   doesn't crowd the panel. */
+.r-v2-media__subtab-panel {
+  margin-bottom: var(--r-space-1);
+}
+/* Headless mode: consumer drives the inner padding so the controls
+   breathe inside the panel surface. */
+.r-v2-media__subtab-panel-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-2);
+  padding: var(--r-space-3);
 }
 
 .r-v2-media__content {
@@ -477,30 +612,13 @@ async function deleteSoundtrack(fileId: number) {
     flex-direction: column;
     gap: 14px;
   }
-  .r-v2-media__nav {
+  .r-v2-media__sidebar {
     width: auto;
   }
 }
 
-/* Manual */
-.r-v2-media__manual-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-2);
-  flex-wrap: wrap;
-}
-
-.r-v2-media__manual-select {
-  flex: 1;
-  max-width: 420px;
-}
-
-.r-v2-media__manual-spacer {
-  flex: 1;
-}
-
+/* Manual viewer */
 .r-v2-media__viewer {
-  min-height: 480px;
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   overflow: hidden;

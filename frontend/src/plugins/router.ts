@@ -460,13 +460,15 @@ const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes,
   scrollBehavior(to, from, savedPosition) {
-    // If savedPosition is available, it's a popstate navigation (back/forward)
-    if (savedPosition) {
-      return savedPosition;
-    } else {
-      // Otherwise, scroll to top
-      return { left: 0, top: 0 };
-    }
+    // popstate (back/forward) — restore the saved offset.
+    if (savedPosition) return savedPosition;
+    // Same path → only query/hash changed (e.g., the v2 GameDetails
+    // tab/subtab params, gallery filter syncs). The user's view should
+    // stay where it is; scrolling to top would make the URL update
+    // visible as a UX jump.
+    if (to.path === from.path) return false;
+    // Genuine route change — start fresh from the top.
+    return { left: 0, top: 0 };
   },
 });
 

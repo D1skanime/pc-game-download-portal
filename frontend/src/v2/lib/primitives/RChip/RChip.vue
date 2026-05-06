@@ -50,4 +50,16 @@ withDefaults(defineProps<Props>(), {
   font-weight: var(--r-font-weight-medium);
   letter-spacing: 0;
 }
+
+/* Optical alignment for prepend/append icons — same fix as RBtn.
+   v-chip never applies text-transform: uppercase, so its mixed-case
+   labels always sit in the x-height band (below the line-box centre)
+   while the icon — sized at ~85% of the text via
+   `.v-chip .v-icon { --v-icon-size-multiplier: 0.857 }` — stays at
+   the line-box geometric centre. A 3px downward nudge lines the icon
+   up with the x-height optical centre. */
+.r-chip :deep(.v-chip__prepend),
+.r-chip :deep(.v-chip__append) {
+  margin-block-start: 3px;
+}
 </style>

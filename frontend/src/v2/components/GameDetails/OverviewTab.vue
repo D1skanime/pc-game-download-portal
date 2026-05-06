@@ -6,9 +6,9 @@
 //      last-played row
 //   3. Info grid (genres / developer / franchise / collections)
 //   4. HLTB strip
-//   5. Related games — a single RExpansionPanel collapsing all of:
+//   5. Related games — a single RCollapsible collapsing all of:
 //      Expansions, DLC, Remakes, Remasters, Similar games.
-import { RChip, RExpansionPanel, RIcon, RSlider } from "@v2/lib";
+import { RChip, RCollapsible, RIcon, RSlider } from "@v2/lib";
 import { computed, ref, toRef, watch } from "vue";
 import type { IGDBRelatedGame, RomHLTBMetadata } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
@@ -143,7 +143,7 @@ const hasRelated = computed(
     <HLTBStrip :metadata="hltb" />
 
     <!-- 5. Related games (single collapsible, every section labelled) -->
-    <RExpansionPanel
+    <RCollapsible
       v-if="hasRelated"
       title="Related games"
       icon="mdi-gamepad-square-outline"
@@ -185,7 +185,7 @@ const hasRelated = computed(
           <RelatedGamesGrid title="" :items="similarGames" />
         </div>
       </div>
-    </RExpansionPanel>
+    </RCollapsible>
   </section>
 </template>
 

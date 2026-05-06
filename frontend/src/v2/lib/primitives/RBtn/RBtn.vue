@@ -110,4 +110,24 @@ onBeforeUnmount(clearTimer);
   letter-spacing: 0;
   text-transform: none;
 }
+
+/* Optical alignment for prepend/append icons.
+   Three things stack to push the icon above the text's optical centre:
+     1. Vuetify scales icons inside v-btn down to ~85% of text size
+        (`.v-btn .v-icon { --v-icon-size-multiplier: 0.857 }`), so the
+        icon sits in a smaller box centred on the line-box.
+     2. The Material Design Icons font draws glyphs slightly above the
+        em-square's geometric centre.
+     3. We render labels in Title Case (text-transform: none, overriding
+        Vuetify's default uppercase), so the visual mass of the label
+        lives in the x-height band — below the line-box centre — while
+        the icon stays at the geometric centre.
+   A stock v-btn hides this because uppercase text shifts the optical
+   centre back up to the cap-height. Nudging prepend/append slots 3px
+   down lines the icon up with the x-height optical centre across our
+   sizes. */
+.r-btn :deep(.v-btn__prepend),
+.r-btn :deep(.v-btn__append) {
+  margin-block-start: 3px;
+}
 </style>

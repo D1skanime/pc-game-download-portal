@@ -61,6 +61,10 @@ withDefaults(defineProps<Props>(), {
   border: 1px solid transparent;
   border-radius: var(--r-radius-chip);
   font-weight: var(--r-font-weight-medium);
+  /* Match the icon's line-height (.v-icon = 1) so glyph baselines align
+     with the icon's visual centre — otherwise the inherited 1.4 from
+     .r-v2 leaves descender room that pushes text visually above the icon. */
+  line-height: 1;
   white-space: nowrap;
   max-width: 100%;
   /* Tone variables are set per-tone; the box uses them so a single
