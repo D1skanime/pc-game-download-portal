@@ -111,6 +111,16 @@ onBeforeUnmount(clearTimer);
   font-weight: var(--r-font-weight-medium);
   letter-spacing: 0;
   text-transform: none;
+  /* Slightly muted at rest, fully illuminated on hover — same feel as
+     GameActionBtn over cover art. Applied via opacity so it composes
+     with any color (default/primary/error/...): the whole button —
+     text, border, icon, background — brightens together on hover.
+     Vuetify's own hover overlay still adds the bg lift on top. */
+  opacity: 0.85;
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-btn:hover:not(.v-btn--disabled) {
+  opacity: 1;
 }
 
 /* Optical alignment for prepend/append icons.

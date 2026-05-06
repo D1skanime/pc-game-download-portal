@@ -351,7 +351,6 @@ function fmtDate(iso: string): string {
         <RBtn
           :disabled="!canCreate || !!editForm"
           variant="outlined"
-          size="small"
           prepend-icon="mdi-plus"
           block
           class="r-v2-notes__add-btn"
@@ -623,7 +622,7 @@ function fmtDate(iso: string): string {
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-v2-notes__nav-item:hover {
+.r-v2-notes__nav-item:not(.r-v2-notes__nav-item--active):hover {
   background: var(--r-color-surface-hover);
   color: var(--r-color-fg);
 }

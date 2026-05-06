@@ -462,7 +462,7 @@ async function deleteSoundtrack(fileId: number) {
       <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
         <REmptyState
           v-if="!soundtrackSupported"
-          icon="mdi-music-off-outline"
+          icon="mdi-music-off"
           title="Soundtrack needs a folder-based ROM"
           hint="Single-file ROMs can't have accompanying tracks. Re-organise this ROM as a folder and the upload option will appear here."
         />

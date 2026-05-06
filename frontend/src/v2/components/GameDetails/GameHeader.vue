@@ -11,10 +11,11 @@
 import { RPlatformIcon, RTag } from "@v2/lib";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
+import { useGameActions } from "@/v2/composables/useGameActions";
 
 defineOptions({ inheritAttrs: false });
 
-defineProps<{
+const props = defineProps<{
   rom: DetailedRom;
   title: string;
   platformLabel: string;
@@ -25,6 +26,8 @@ defineProps<{
   tags: string[];
   canPlay: boolean;
 }>();
+
+const actions = useGameActions(() => props.rom);
 </script>
 
 <template>
@@ -38,7 +41,12 @@ defineProps<{
       <span v-if="releaseDate && platformLabel" class="r-v2-det-header__sep">
         ·
       </span>
-      <span class="r-v2-det-header__platform">
+      <router-link
+        v-if="actions.platformPath.value"
+        :to="actions.platformPath.value"
+        class="r-v2-det-header__platform"
+        :aria-label="`Browse ${platformLabel}`"
+      >
         <RPlatformIcon
           :slug="rom.platform_slug"
           :fs-slug="rom.platform_fs_slug"
@@ -46,7 +54,7 @@ defineProps<{
           :size="16"
         />
         {{ platformLabel }}
-      </span>
+      </router-link>
       <span
         v-if="(releaseDate || platformLabel) && verified"
         class="r-v2-det-header__sep"
@@ -119,6 +127,14 @@ defineProps<{
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: var(--r-radius-sm);
+  transition: color 0.12s ease;
+}
+.r-v2-det-header__platform:hover {
+  color: var(--r-color-fg);
 }
 
 .r-v2-det-header__tags {

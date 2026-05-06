@@ -24,6 +24,7 @@ import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useGameActions } from "@/v2/composables/useGameActions";
 import {
   pendingMorphName,
   useViewTransition,
@@ -89,13 +90,14 @@ const ratingLabel = computed(() => {
 const router = useRouter();
 const artEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
+const actions = useGameActions(() => props.rom);
 
 // Stop propagation so the card's morph + router push doesn't fire when
 // the user actually wanted to jump to the platform gallery.
 function onPlatformClick(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
-  router.push(`/platform/${props.rom.platform_id}`);
+  actions.goToPlatform();
 }
 
 function onCardClick(e: MouseEvent) {

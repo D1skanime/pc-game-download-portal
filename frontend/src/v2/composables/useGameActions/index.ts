@@ -149,6 +149,16 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     router.push(`/rom/${rom.id}/ejs`);
   }
 
+  const platformPath = computed(() => {
+    const rom = getRom();
+    return rom ? `/platform/${rom.platform_id}` : null;
+  });
+
+  function goToPlatform() {
+    const path = platformPath.value;
+    if (path) router.push(path);
+  }
+
   function download() {
     const rom = getRom();
     if (!rom) return;
@@ -234,6 +244,8 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     setStatusEnum,
     setScore,
     play,
+    goToPlatform,
+    platformPath,
     download,
     favorite,
     share,

@@ -213,7 +213,7 @@ onBeforeUnmount(() => {
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-tab-nav__btn:hover {
+.r-tab-nav__btn:not(.r-tab-nav__btn--active):hover {
   color: var(--r-color-fg-secondary);
 }
 .r-tab-nav__icon {
@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
   border-radius: var(--r-radius-md);
   background: transparent;
 }
-.r-tab-nav--pill .r-tab-nav__btn:hover {
+.r-tab-nav--pill .r-tab-nav__btn:not(.r-tab-nav__btn--active):hover {
   background: var(--r-color-surface-hover);
   color: var(--r-color-fg);
 }
