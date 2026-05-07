@@ -37,7 +37,7 @@
 // search-input debounce, URL filter sync. Each view supplies its
 // header and its own resource-load flow. List rows own their per-row
 // fetch lifecycle internally (mount = entered overscan window).
-import { RDivider, RVirtualScroller } from "@v2/lib";
+import { RDivider, RLetterHeading, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -58,6 +58,7 @@ import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
+import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import {
   galleryItemHeight,
   useGalleryVirtualItems,
@@ -115,6 +116,7 @@ defineSlots<{
 }>();
 
 useGalleryFilterUrl();
+useGalleryViewModeUrl();
 
 const route = useRoute();
 const galleryRoms = storeGalleryRoms();
@@ -574,12 +576,10 @@ defineExpose({
            with a single message. -->
       <template #default="{ item }">
         <div class="r-v2-shell__item">
-          <div
+          <RLetterHeading
             v-if="itemKind(item as GalleryItem) === 'letter-header'"
-            class="r-v2-shell__letter-heading"
-          >
-            {{ asLetterHeader(item as GalleryItem).letter }}
-          </div>
+            :label="asLetterHeader(item as GalleryItem).letter"
+          />
 
           <div
             v-else-if="itemKind(item as GalleryItem) === 'row'"
@@ -733,15 +733,6 @@ defineExpose({
    stuck state shows no separator above it. */
 .r-v2-shell__header-divider {
   margin-bottom: 16px;
-}
-
-.r-v2-shell__letter-heading {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-faint);
-  padding: 20px 0 12px;
 }
 
 .r-v2-shell__row {

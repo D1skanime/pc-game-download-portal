@@ -21,6 +21,7 @@ export * from "./primitives/RDivider";
 export * from "./primitives/REmptyState";
 export * from "./primitives/RIcon";
 export * from "./primitives/RImg";
+export * from "./primitives/RLetterHeading";
 export * from "./primitives/RProgressCircular";
 export * from "./primitives/RSkeletonBlock";
 export * from "./primitives/RSliderBtnGroup";
