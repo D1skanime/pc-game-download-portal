@@ -61,18 +61,14 @@ function run(fn: () => void | Promise<void>) {
   <RMenuDivider />
 
   <!-- Metadata actions -->
-  <RMenuItem
-    label="Match ROM…"
-    icon="mdi-magnify"
-    @click="run(actions.match)"
-  />
+  <RMenuItem label="Match ROM" icon="mdi-magnify" @click="run(actions.match)" />
   <RMenuItem
     label="Refresh metadata"
     icon="mdi-refresh"
     @click="run(actions.refreshMetadata)"
   />
   <RMenuItem
-    label="Edit…"
+    label="Edit"
     icon="mdi-pencil-outline"
     @click="run(actions.edit)"
   />
@@ -81,7 +77,7 @@ function run(fn: () => void | Promise<void>) {
 
   <!-- Destructive -->
   <RMenuItem
-    label="Delete…"
+    label="Delete"
     icon="mdi-trash-can-outline"
     variant="danger"
     @click="run(actions.remove)"
