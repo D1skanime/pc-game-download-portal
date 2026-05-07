@@ -6,6 +6,7 @@
 // same scope/role checks so unauthorised users don't see options they
 // can't use.
 import {
+  RAvatar,
   RBtn,
   RIcon,
   RMenu,
@@ -23,6 +24,7 @@ import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
+import { defaultAvatarPath } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -36,9 +38,11 @@ const { user, scopes } = storeToRefs(authStore);
 
 const open = ref(false);
 
-const userInitials = computed(() => {
-  const name = user.value?.username ?? "?";
-  return name.slice(0, 2).toUpperCase();
+const avatarSrc = computed(() => {
+  if (user.value?.avatar_path) {
+    return `/assets/romm/assets/${user.value.avatar_path}?ts=${user.value.updated_at}`;
+  }
+  return defaultAvatarPath;
 });
 
 const isAdmin = useCan("app.admin");
@@ -93,7 +97,7 @@ async function onLogout() {
         data-user-menu-trigger
         :aria-label="`Account menu for ${user?.username ?? 'Guest'}`"
       >
-        <span class="r-v2-user__avatar">{{ userInitials }}</span>
+        <RAvatar :image="avatarSrc" size="30" />
         <span class="r-v2-user__name">
           {{ user?.username ?? "Guest" }}
         </span>
@@ -108,7 +112,7 @@ async function onLogout() {
         :subtitle="user?.role ?? ''"
       >
         <template #art>
-          <span class="r-v2-user__avatar">{{ userInitials }}</span>
+          <RAvatar :image="avatarSrc" size="30" />
         </template>
       </RMenuHeader>
 
@@ -259,19 +263,6 @@ async function onLogout() {
 
 .r-v2-user__chevron {
   color: var(--r-color-fg-muted);
-}
-
-.r-v2-user__avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--r-color-avatar-gradient);
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  color: var(--r-color-overlay-fg);
-  flex-shrink: 0;
 }
 
 .r-v2-user__name {
