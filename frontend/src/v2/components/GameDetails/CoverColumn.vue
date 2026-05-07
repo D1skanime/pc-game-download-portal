@@ -39,9 +39,8 @@ const morphStyle = computed(() =>
   /* No sticky needed: GameDetails fits the main viewport exactly and
      only the inner tab panel scrolls. Cover sits at its natural Y and
      stays there because nothing scrolls in its context. */
-  padding-top: 30px;
+  padding-top: 40px;
   width: var(--r-cover-w);
-  filter: drop-shadow(0 24px 48px color-mix(in srgb, black 80%, transparent));
 }
 
 .r-v2-det-cover img {

@@ -30,6 +30,7 @@ import { computed, ref, toRef } from "vue";
 import type { RomUserStatus } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import { romStatusMap } from "@/utils";
+import type { PlayingStatus } from "@/utils";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
 
@@ -57,39 +58,73 @@ interface Props {
    */
   variant?: "glass" | "surface" | "emphasized";
   withLabel?: boolean;
+  /**
+   * Status-only: when several status states are active, the button
+   * stretches to show every icon. `horizontal` lays them in a row
+   * (ribbon), `vertical` stacks them (GameCard top-left badge).
+   */
+  orientation?: "horizontal" | "vertical";
 }
 
 const props = withDefaults(defineProps<Props>(), {
   size: "md",
   variant: "glass",
   withLabel: false,
+  orientation: "horizontal",
 });
 
 const romRef = toRef(props, "rom");
 const actions = useGameActions(() => romRef.value);
 
-// Icon map for the status action — local so v1 (which still consumes
-// `romStatusMap`'s emoji) stays untouched. `mdi-progress-helper` is
-// the dashed-circle "no status set yet" placeholder.
-const STATUS_ICONS: Record<RomUserStatus, string> = {
+// Icon map for the status menu — covers both the enum statuses and the
+// orthogonal boolean flags (now_playing / backlogged / hidden) so the
+// menu can present them as a single surface. Local map so v1 (which
+// still consumes `romStatusMap`'s emoji) stays untouched.
+// `mdi-progress-helper` is the dashed-circle "no status set yet" icon.
+const STATUS_ICONS: Record<PlayingStatus, string> = {
   incomplete: "mdi-progress-clock",
   finished: "mdi-flag-checkered",
   completed_100: "mdi-trophy-outline",
   retired: "mdi-flag-off-outline",
   never_playing: "mdi-cancel",
+  now_playing: "mdi-gamepad-variant",
+  backlogged: "mdi-clock-outline",
+  hidden: "mdi-eye-off-outline",
 };
 const STATUS_EMPTY_ICON = "mdi-progress-helper";
-const STATUS_KEYS: RomUserStatus[] = [
+const ENUM_KEYS: RomUserStatus[] = [
   "incomplete",
   "finished",
   "completed_100",
   "retired",
   "never_playing",
 ];
+type FlagKey = "now_playing" | "backlogged" | "hidden";
+// Two groups: play-status flags (now_playing / backlogged) describe
+// when the user intends to play; the visibility flag (hidden) controls
+// whether the ROM shows up in the library at all. Different category,
+// so they get their own divider in the status menu.
+const PLAY_FLAG_KEYS: FlagKey[] = ["now_playing", "backlogged"];
+const VISIBILITY_FLAG_KEYS: FlagKey[] = ["hidden"];
+const FLAG_KEYS: FlagKey[] = [...PLAY_FLAG_KEYS, ...VISIBILITY_FLAG_KEYS];
 
-const currentStatus = computed<RomUserStatus | null>(
+const enumStatus = computed<RomUserStatus | null>(
   () => props.rom.rom_user?.status ?? null,
 );
+function isFlagActive(key: FlagKey) {
+  return Boolean(props.rom.rom_user?.[key]);
+}
+// Ordered list of icons for every active status state. Enum first
+// (single radio-like pick), then flags in their declared order. Drives
+// both the activator (single icon vs multi-icon stretch pill) and the
+// counter on the multi-state label.
+const activeStatusIcons = computed<string[]>(() => {
+  const out: string[] = [];
+  if (enumStatus.value) out.push(STATUS_ICONS[enumStatus.value]);
+  for (const f of FLAG_KEYS) if (isFlagActive(f)) out.push(STATUS_ICONS[f]);
+  return out;
+});
+const hasAnyStatus = computed(() => activeStatusIcons.value.length > 0);
 
 type Preset = {
   icon: string;
@@ -140,13 +175,32 @@ const preset = computed<Preset>(() => {
     };
   }
   if (props.action === "status") {
-    const cs = currentStatus.value;
+    // Headline:
+    //   0 active → dashed "set status" placeholder
+    //   1 active → that state's own icon
+    //   ≥2 active → activator stretches and renders every icon in
+    //              `activeStatusIcons` (the template branches on length).
+    const count = activeStatusIcons.value.length;
+    const hk = actions.currentStatusKey.value;
+    let icon: string;
+    let label: string;
+    if (count === 0) {
+      icon = STATUS_EMPTY_ICON;
+      label = "Set status";
+    } else if (count === 1 && hk) {
+      icon = STATUS_ICONS[hk];
+      label = `Status: ${romStatusMap[hk].text}`;
+    } else {
+      // Multi: template renders the icon stack instead of preset.icon.
+      icon = activeStatusIcons.value[0] ?? STATUS_EMPTY_ICON;
+      label = `Status: ${count} active`;
+    }
     return {
-      icon: cs ? STATUS_ICONS[cs] : STATUS_EMPTY_ICON,
+      icon,
       activeIcon: null,
-      label: cs ? `Status: ${romStatusMap[cs].text}` : "Set status",
+      label,
       onClick: null, // menu owns the click
-      active: Boolean(cs),
+      active: count > 0,
     };
   }
   // "more" — the RMenu owns activation; no direct click handler.
@@ -166,8 +220,21 @@ const displayedIcon = computed(
 const moreOpen = ref(false);
 const statusOpen = ref(false);
 
-function pickStatus(key: RomUserStatus | null) {
-  void actions.setStatusEnum(key);
+function pickEnum(key: RomUserStatus) {
+  // Re-clicking the active enum clears just the enum — gives the user a
+  // way to drop the status without also wiping the flags via "Clear all".
+  void actions.setStatusEnum(enumStatus.value === key ? null : key);
+  statusOpen.value = false;
+}
+
+function toggleFlag(key: FlagKey) {
+  // Don't close — flags are independent toggles, the user may flip several.
+  void actions.setStatus(key);
+}
+
+function clearAllStatus() {
+  // setStatus(null) wipes both the enum and every flag in one PUT.
+  void actions.setStatus(null);
   statusOpen.value = false;
 }
 
@@ -212,7 +279,9 @@ function onClick(e: MouseEvent) {
 
   <!-- Status — enum picker; icon mirrors the current value, dashed
        border when no status is set. Keeps the per-ROM action set in
-       one place instead of a parallel widget. -->
+       one place instead of a parallel widget. With several states
+       active the activator stretches into a multi-icon pill; the
+       `orientation` prop chooses row (ribbon) vs column (GameCard). -->
   <RMenu
     v-else-if="action === 'status'"
     v-model="statusOpen"
@@ -228,35 +297,87 @@ function onClick(e: MouseEvent) {
           `r-v2-game-btn--${size}`,
           `r-v2-game-btn--${variant}`,
           'r-v2-game-btn--action-status',
+          `r-v2-game-btn--orient-${orientation}`,
           {
             'r-v2-game-btn--labelled': withLabel,
             'r-v2-game-btn--active': preset.active,
             'r-v2-game-btn--active-status': preset.active,
+            'r-v2-game-btn--multi-status': activeStatusIcons.length > 1,
           },
         ]"
         :aria-label="preset.label"
         @click.prevent.stop
       >
-        <RIcon :icon="displayedIcon" />
+        <span v-if="activeStatusIcons.length > 1" class="r-v2-game-btn__icons">
+          <RIcon
+            v-for="(ic, i) in activeStatusIcons"
+            :key="`${ic}-${i}`"
+            :icon="ic"
+          />
+        </span>
+        <RIcon v-else :icon="displayedIcon" />
         <span v-if="withLabel" class="r-v2-game-btn__label">
           {{ preset.label }}
         </span>
       </button>
     </template>
     <RMenuPanel width="220px">
+      <!-- Enum: single-pick (radio-like). Active row tints brand. -->
       <RMenuItem
-        v-for="key in STATUS_KEYS"
+        v-for="key in ENUM_KEYS"
         :key="key"
         :icon="STATUS_ICONS[key]"
-        :variant="currentStatus === key ? 'active' : 'default'"
-        @click="pickStatus(key)"
+        :variant="enumStatus === key ? 'active' : 'default'"
+        @click="pickEnum(key)"
       >
         {{ romStatusMap[key].text }}
       </RMenuItem>
-      <template v-if="currentStatus">
+
+      <RMenuDivider />
+
+      <!-- Play-status flags: independent toggles (checkbox-like). Active
+           rows tint text + icon brand-primary AND show a trailing check,
+           so the multi-select reads distinct from the radio-style enum. -->
+      <RMenuItem
+        v-for="key in PLAY_FLAG_KEYS"
+        :key="key"
+        :icon="STATUS_ICONS[key]"
+        :text-color="isFlagActive(key) ? 'brand-primary' : undefined"
+        :icon-color="isFlagActive(key) ? 'brand-primary' : undefined"
+        @click="toggleFlag(key)"
+      >
+        {{ romStatusMap[key].text }}
+        <template v-if="isFlagActive(key)" #append>
+          <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
+        </template>
+      </RMenuItem>
+
+      <RMenuDivider />
+
+      <!-- Visibility flag — distinct category (controls library
+           visibility, not play state) so it lives in its own section. -->
+      <RMenuItem
+        v-for="key in VISIBILITY_FLAG_KEYS"
+        :key="key"
+        :icon="STATUS_ICONS[key]"
+        :text-color="isFlagActive(key) ? 'brand-primary' : undefined"
+        :icon-color="isFlagActive(key) ? 'brand-primary' : undefined"
+        @click="toggleFlag(key)"
+      >
+        {{ romStatusMap[key].text }}
+        <template v-if="isFlagActive(key)" #append>
+          <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
+        </template>
+      </RMenuItem>
+
+      <template v-if="hasAnyStatus">
         <RMenuDivider />
-        <RMenuItem icon="mdi-close" variant="danger" @click="pickStatus(null)">
-          Clear status
+        <RMenuItem
+          icon="mdi-close-circle-outline"
+          variant="danger"
+          @click="clearAllStatus"
+        >
+          Clear all
         </RMenuItem>
       </template>
     </RMenuPanel>
@@ -403,5 +524,61 @@ function onClick(e: MouseEvent) {
    status icon shows the choice. */
 .r-v2-game-btn--action-status:not(.r-v2-game-btn--active-status) {
   border-style: dashed;
+}
+
+/* Multi-status — the button stretches to fit every active state's
+   icon. Width/height go auto with a min that keeps the single-state
+   diameter, so 0/1 active still reads as a circle. The icon row/column
+   lives in `__icons`. */
+.r-v2-game-btn__icons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.r-v2-game-btn--orient-horizontal .r-v2-game-btn__icons {
+  flex-direction: row;
+  gap: 6px;
+}
+.r-v2-game-btn--orient-vertical .r-v2-game-btn__icons {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.r-v2-game-btn--multi-status {
+  width: auto;
+  height: auto;
+  border-radius: var(--r-radius-pill);
+}
+.r-v2-game-btn--multi-status.r-v2-game-btn--sm {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px 8px;
+}
+.r-v2-game-btn--multi-status.r-v2-game-btn--md {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 4px 10px;
+}
+.r-v2-game-btn--multi-status.r-v2-game-btn--lg {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 4px 12px;
+}
+/* Vertical: swap the padding axis so the pill grows tall, not wide. */
+.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--sm {
+  padding: 8px 4px;
+}
+.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--md {
+  padding: 10px 4px;
+}
+.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--lg {
+  padding: 12px 4px;
+}
+
+/* Trailing check on the flag rows of the status menu — signals the
+   boolean is on. Brand color so it pops against the neutral row. */
+.r-v2-status-menu__check {
+  font-size: 12px;
+  color: var(--r-color-brand-primary);
 }
 </style>

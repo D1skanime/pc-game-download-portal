@@ -7,8 +7,14 @@
 //
 // Variants:
 //   * default — fg-secondary text, hover background var(--r-color-surface)
-//   * active  — filled accent (favourited style, brand "--r-color-fav")
+//   * active  — filled brand accent (radio-like "current" pick)
 //   * danger  — red text, red-tinted hover (destructive actions)
+//
+// `textColor` / `iconColor` accept a token suffix (e.g. "brand-primary",
+// "warning", "fav") and override the variant's defaults, so consumers can
+// recolour the label and the leading icon independently. Passing either
+// also forces the icon to full opacity (the implied semantic is "this row
+// is visually emphasized").
 import { computed } from "vue";
 
 defineOptions({ inheritAttrs: false });
@@ -27,6 +33,9 @@ interface Props {
   // by the parent (RMenu auto-closes); this prop is mainly documentation
   // for consumers that wire their own open state.
   closeOnClick?: boolean;
+  // Token-suffix overrides — `"brand-primary"` → `var(--r-color-brand-primary)`.
+  textColor?: string;
+  iconColor?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -36,6 +45,8 @@ const props = withDefaults(defineProps<Props>(), {
   to: undefined,
   href: undefined,
   closeOnClick: true,
+  textColor: undefined,
+  iconColor: undefined,
 });
 
 defineEmits<{
@@ -46,6 +57,20 @@ const tag = computed(() => {
   if (props.to) return "router-link";
   if (props.href) return "a";
   return "button";
+});
+
+const styleVars = computed(() => {
+  const out: Record<string, string> = {};
+  if (props.textColor) {
+    out["--rmi-text"] = `var(--r-color-${props.textColor})`;
+  }
+  if (props.iconColor) {
+    out["--rmi-icon"] = `var(--r-color-${props.iconColor})`;
+  }
+  if (props.textColor || props.iconColor) {
+    out["--rmi-icon-opacity"] = "1";
+  }
+  return out;
 });
 </script>
 
@@ -64,6 +89,7 @@ const tag = computed(() => {
       'r-menu-item--danger': variant === 'danger',
       'r-menu-item--disabled': disabled,
     }"
+    :style="styleVars"
     @click="(e: MouseEvent) => !disabled && $emit('click', e)"
   >
     <span class="r-menu-item__icon">
@@ -80,6 +106,8 @@ const tag = computed(() => {
 </template>
 
 <style scoped>
+/* Variants and hover states route through CSS vars so an inline-style
+   override (textColor / iconColor props) wins without specificity wars. */
 .r-menu-item {
   appearance: none;
   border: 0;
@@ -92,7 +120,7 @@ const tag = computed(() => {
   cursor: pointer;
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
+  color: var(--rmi-text, var(--r-color-fg-secondary));
   font-family: inherit;
   text-align: left;
   text-decoration: none;
@@ -104,8 +132,9 @@ const tag = computed(() => {
 }
 
 .r-menu-item:hover:not(.r-menu-item--disabled) {
+  --rmi-text: var(--r-color-fg);
+  --rmi-icon-opacity: 1;
   background: var(--r-color-surface);
-  color: var(--r-color-fg);
 }
 
 .r-menu-item__icon {
@@ -114,13 +143,9 @@ const tag = computed(() => {
   height: 15px;
   display: grid;
   place-items: center;
-  color: currentColor;
-  opacity: 0.65;
+  color: var(--rmi-icon, currentColor);
+  opacity: var(--rmi-icon-opacity, 0.65);
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-.r-menu-item:hover:not(.r-menu-item--disabled) .r-menu-item__icon {
-  opacity: 1;
 }
 
 .r-menu-item__icon :deep(svg) {
@@ -146,27 +171,27 @@ const tag = computed(() => {
   text-overflow: ellipsis;
 }
 
-/* Active: filled "fav" colour */
+/* Active — single radio-like "current" pick. */
 .r-menu-item--active,
-.r-menu-item--active:hover {
-  color: var(--r-color-brand-primary);
-}
-.r-menu-item--active .r-menu-item__icon {
-  opacity: 1;
+.r-menu-item--active:hover:not(.r-menu-item--disabled) {
+  --rmi-text: var(--r-color-brand-primary);
+  --rmi-icon-opacity: 1;
 }
 .r-menu-item--active .r-menu-item__icon :deep(svg) {
   fill: currentColor;
   stroke: currentColor;
 }
 
-/* Danger: destructive actions */
+/* Danger — destructive actions. */
+.r-menu-item--danger,
+.r-menu-item--danger:hover:not(.r-menu-item--disabled) {
+  --rmi-text: var(--r-color-danger);
+}
 .r-menu-item--danger {
-  color: var(--r-color-danger);
   opacity: 0.85;
 }
 .r-menu-item--danger:hover:not(.r-menu-item--disabled) {
   background: color-mix(in srgb, var(--r-color-danger) 12%, transparent);
-  color: var(--r-color-danger);
   opacity: 1;
 }
 

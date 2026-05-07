@@ -173,7 +173,12 @@ const morphStyle = computed(() => {
         />
       </RBtn>
 
-      <GameActionBtn :rom="rom" action="status" size="sm" />
+      <GameActionBtn
+        :rom="rom"
+        action="status"
+        size="sm"
+        orientation="vertical"
+      />
 
       <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
       <div class="r-gc__overlay">

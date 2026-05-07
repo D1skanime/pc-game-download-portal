@@ -89,12 +89,13 @@ function isActive(letter: string): boolean {
   background: transparent;
   border: 0;
   font-family: inherit;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: var(--r-font-weight-bold);
   color: var(--r-color-fg-faint);
   cursor: default;
   line-height: 1;
-  padding: 2.5px 0;
+  padding: 3px;
+  margin-top: 4px;
   width: 100%;
   text-align: center;
   border-radius: 3px;
