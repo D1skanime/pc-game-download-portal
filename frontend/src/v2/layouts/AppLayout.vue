@@ -112,38 +112,30 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* Lock the v2 shell to the viewport — the gallery owns its own
-   internal scroll, and the document itself must never scroll
-   (otherwise the navbar disappears as the page slides up). */
+/* The shell flows naturally so the document scrollbar is the single,
+   active scrollbar of the app. AppNav is `position: fixed` (defined
+   in its own SFC) and main reserves the navbar's height with a top
+   padding so content starts right under it.
+     · Views that fit within `100vh - --r-nav-h` (Gallery — its own
+       shell already uses that calc and `overflow: hidden`; GameDetails
+       uses the same calc with an internal panel scroll) generate no
+       document overflow → no document scrollbar on those routes.
+     · Views with natural flow (Home, Settings, Patcher, Scan, etc.)
+       grow with content and the document scrolls. */
 .r-v2-shell {
-  height: 100vh;
-  overflow: hidden;
   color: var(--r-color-fg);
   position: relative;
+  min-height: 100vh;
 }
 
 .r-v2-shell__app {
   position: relative;
   z-index: 2;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
 .r-v2-shell__main {
-  flex: 1;
-  min-height: 0;
   position: relative;
-  /* Vertical overflow scrolls INSIDE main, not at the document level
-     (the outer `.r-v2-shell` is locked with `overflow: hidden`). This
-     way views without an internal scroller (Home, Settings, etc.)
-     scroll within main while the navbar stays put. Views that own
-     their own scroll (Gallery — `<section>` is exactly main's height
-     with `overflow: hidden` and an internal `RVirtualScroller`)
-     simply don't generate any overflow at this level, so there's
-     never a competing scrollbar. */
-  overflow-y: auto;
-  overflow-x: hidden;
+  padding-top: var(--r-nav-h);
   outline: none;
 }
 </style>

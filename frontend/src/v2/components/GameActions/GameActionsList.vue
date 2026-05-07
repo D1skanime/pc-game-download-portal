@@ -53,6 +53,7 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.addToCollection)"
   />
   <RMenuItem
+    v-if="actions.canShareQR.value"
     label="Share (QR code)"
     icon="mdi-qrcode"
     @click="run(actions.shareQR)"

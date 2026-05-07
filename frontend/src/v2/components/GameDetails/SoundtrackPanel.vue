@@ -196,7 +196,10 @@ const activeMeta = computed<SoundtrackAudioMeta | undefined>(() =>
 );
 
 const activeArtUrl = computed(
-  () => coverUrlForMeta(activeMeta.value) ?? folderCoverUrl.value,
+  () =>
+    coverUrlForMeta(activeMeta.value) ??
+    folderCoverUrl.value ??
+    "/assets/default/album_cover.jpg",
 );
 
 const activeTitle = computed(
@@ -525,15 +528,6 @@ function seekValueText(v: number): string {
         {{ tracks.length }} track{{ tracks.length === 1 ? "" : "s" }} ·
         {{ fmt(totalDurationSeconds) }}
       </span>
-      <span v-else />
-      <RBtn
-        variant="outlined"
-        size="small"
-        prepend-icon="mdi-cloud-upload-outline"
-        @click="emit('upload-tracks')"
-      >
-        Add tracks
-      </RBtn>
     </footer>
   </div>
 </template>

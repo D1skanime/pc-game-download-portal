@@ -1,14 +1,15 @@
 <script setup lang="ts">
 // PageHeader — the top-of-page h1 + optional trailing count.
 // Used by every index view (PlatformsIndex, CollectionsIndex, Search,
-// Settings — future). Pass `count` for the plain "24" dim-grey span;
-// use the `#count` slot when you want a chip or richer content instead.
+// Settings — future). Pass `count` for the default RTag pill; use the
+// `#count` slot when you want richer content (icon, custom tone, etc).
 // Default slot sits at the end of the header (filters, actions, etc.).
 //
 // No divider here — when used as a gallery hero (Search), the gallery
 // shell paints the divider between hero and toolbar so the three
 // gallery views (Platform / Collection / Search) share one separator
 // regardless of which header sits above it.
+import { RTag } from "@v2/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -28,7 +29,7 @@ withDefaults(
         {{ title }}
       </h1>
       <slot name="count">
-        <span v-if="count != null" class="page-header__count">{{ count }}</span>
+        <RTag v-if="count != null" size="md" :text="count" />
       </slot>
     </div>
     <slot />
@@ -50,7 +51,12 @@ withDefaults(
 
 .page-header__title-wrap {
   display: flex;
-  align-items: baseline;
+  /* Center-align so non-text counts (e.g. RChip in Search) sit on the
+     h1's optical centre instead of having their synthesized baseline
+     dragged to the title baseline — that misalignment also grew the
+     wrap taller than the h1 line-box and shifted the gallery down on
+     first paint of the chip. */
+  align-items: center;
   gap: 12px;
 }
 
@@ -61,10 +67,5 @@ withDefaults(
   color: var(--r-color-fg);
   margin: 0;
   line-height: var(--r-line-height-tight);
-}
-
-.page-header__count {
-  font-size: var(--r-font-size-md);
-  color: var(--r-color-fg-muted);
 }
 </style>

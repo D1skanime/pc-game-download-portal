@@ -4,7 +4,7 @@
 // is derived from `route.path` rather than route names so gallery
 // subroutes (e.g. /rom/:id) still light up the Home tab.
 import { RBtn, RSliderBtnGroup, RTooltip, RImg } from "@v2/lib";
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
@@ -17,6 +17,28 @@ const uiVersion = useUiVersion();
 function switchToV1() {
   uiVersion.value = "v1";
 }
+
+// At the top of the page the navbar is fully transparent so the cover
+// art / page bg shows through cleanly. Once the user scrolls, content
+// would otherwise bleed visibly under the bar — we paint the glass
+// surface (bg + blur) with a soft transition so the bar stays readable.
+// Views that own their own internal scroll (Gallery, GameDetails) never
+// move window.scrollY → the bar stays transparent there.
+const scrolled = ref(false);
+const SCROLL_THRESHOLD = 4;
+
+function onScroll() {
+  scrolled.value = window.scrollY > SCROLL_THRESHOLD;
+}
+
+onMounted(() => {
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("scroll", onScroll);
+});
 
 type TabId = "home" | "platforms" | "collections" | "search";
 const tabs = [
@@ -37,58 +59,86 @@ const activeTab = computed<TabId | null>(() => {
 </script>
 
 <template>
-  <nav class="r-v2-nav">
-    <router-link to="/" class="r-v2-nav__logo" aria-label="Home">
-      <RImg
-        src="/assets/isotipo.svg"
-        alt="RomM isotipo"
-        aria-hidden="true"
-        class="r-v2-nav__logo-mark"
-        :width="32"
-      />
-      <RImg
-        src="/assets/logotipo.svg"
-        alt="RomM logotipo"
-        aria-hidden="true"
-        class="r-v2-nav__logo-word"
-        :width="70"
-      />
-    </router-link>
+  <header class="r-v2-nav-bar" :class="{ 'r-v2-nav-bar--scrolled': scrolled }">
+    <nav class="r-v2-nav">
+      <router-link to="/" class="r-v2-nav__logo" aria-label="Home">
+        <RImg
+          src="/assets/isotipo.svg"
+          alt="RomM isotipo"
+          aria-hidden="true"
+          class="r-v2-nav__logo-mark"
+          :width="32"
+        />
+        <RImg
+          src="/assets/logotipo.svg"
+          alt="RomM logotipo"
+          aria-hidden="true"
+          class="r-v2-nav__logo-word"
+          :width="70"
+        />
+      </router-link>
 
-    <div class="r-v2-nav__center">
-      <RSliderBtnGroup
-        :model-value="activeTab"
-        :items="tabs"
-        variant="tab"
-        aria-label="Primary navigation"
-      />
-    </div>
+      <div class="r-v2-nav__center">
+        <RSliderBtnGroup
+          :model-value="activeTab"
+          :items="tabs"
+          variant="tab"
+          aria-label="Primary navigation"
+        />
+      </div>
 
-    <div class="r-v2-nav__right">
-      <RTooltip text="Switch to classic UI" location="bottom">
-        <template #activator="{ props: tooltipProps }">
-          <RBtn
-            v-bind="tooltipProps"
-            prepend-icon="mdi-backup-restore"
-            size="small"
-            variant="text"
-            class="r-v2-nav__classic"
-            aria-label="Switch to classic UI"
-            @click="switchToV1"
-            >Classic UI</RBtn
-          >
-        </template>
-      </RTooltip>
+      <div class="r-v2-nav__right">
+        <RTooltip text="Switch to classic UI" location="bottom">
+          <template #activator="{ props: tooltipProps }">
+            <RBtn
+              v-bind="tooltipProps"
+              prepend-icon="mdi-backup-restore"
+              size="small"
+              variant="text"
+              class="r-v2-nav__classic"
+              aria-label="Switch to classic UI"
+              @click="switchToV1"
+              >Classic UI</RBtn
+            >
+          </template>
+        </RTooltip>
 
-      <UserMenu />
-    </div>
-  </nav>
+        <UserMenu />
+      </div>
+    </nav>
+  </header>
 </template>
 
 <style scoped>
-.r-v2-nav {
+/* Fixed full-width strip. Transparent at rest so the page bg / cover
+   art reads naturally; gains the glass surface (bg + blur + bottom
+   border) once the user starts scrolling so content doesn't bleed
+   through. The inner `<nav>` keeps its --r-page-max-w + margin auto
+   so the nav content stays centred on ultrawide displays. */
+.r-v2-nav-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
   height: var(--r-nav-h);
-  flex-shrink: 0;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition:
+    background var(--r-motion-med) var(--r-motion-ease-out),
+    backdrop-filter var(--r-motion-med) var(--r-motion-ease-out),
+    -webkit-backdrop-filter var(--r-motion-med) var(--r-motion-ease-out),
+    border-color var(--r-motion-med) var(--r-motion-ease-out);
+}
+.r-v2-nav-bar--scrolled {
+  background: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom-color: var(--r-color-border);
+}
+
+.r-v2-nav {
+  height: 100%;
   display: flex;
   align-items: center;
   padding: 0 var(--r-row-pad);

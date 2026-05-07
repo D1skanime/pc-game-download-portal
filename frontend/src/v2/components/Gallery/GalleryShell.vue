@@ -435,8 +435,17 @@ onBeforeRouteLeave((_to, from) => {
   saveCurrentScroll(from.fullPath);
 });
 
+// Gallery owns its own internal scroll (the RVirtualScroller). The
+// section is sized to `100vh - --r-nav-h` exactly, but pixel-rounding
+// or transient layout shifts can still produce a stray 1-2px document
+// overflow → a phantom doc scrollbar competing with the virtualizer.
+// Locking the body's overflow while the shell is mounted guarantees
+// the only scrollbar visible on gallery routes is the virtualizer's.
+let prevBodyOverflow: string | null = null;
+
 onMounted(() => {
-  // No-op anchor — keeps lifecycle hooks colocated for future hooks.
+  prevBodyOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
 });
 
 onBeforeUnmount(() => {
@@ -451,6 +460,9 @@ onBeforeUnmount(() => {
   visiblePositions.clear();
   inflowResizeObserver?.disconnect();
   inflowResizeObserver = null;
+  // Restore body overflow so non-gallery routes scroll normally.
+  document.body.style.overflow = prevBodyOverflow ?? "";
+  prevBodyOverflow = null;
 });
 
 // ── Slot helpers ────────────────────────────────────────────────────

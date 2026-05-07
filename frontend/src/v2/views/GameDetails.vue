@@ -243,10 +243,11 @@ const tabs = computed<RTabNavItem[]>(() => [
 <style scoped>
 .r-v2-det {
   position: relative;
-  /* Fits the main viewport exactly: cover + header + tabs are static
-     and only the tab panel scrolls internally. No overflow at the
-     view level → no document scroll on details. */
-  height: 100%;
+  /* Fits the main viewport exactly (under the fixed AppNav) so the
+     cover + header + tabs stay static and only the tab panel scrolls
+     internally. No overflow at the view level → no document scroll
+     on details. */
+  height: calc(100vh - var(--r-nav-h));
   display: flex;
   flex-direction: column;
   padding-top: 50px;

@@ -20,7 +20,7 @@ import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
-import { getDownloadPath } from "@/utils";
+import { getDownloadPath, isNintendoDSRom } from "@/utils";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 export function useGameActions(getRom: () => SimpleRom | null | undefined) {
@@ -143,6 +143,11 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
       Boolean(collectionsStore.favoriteCollection),
   );
 
+  const canShareQR = computed(() => {
+    const rom = getRom();
+    return rom ? isNintendoDSRom(rom) : false;
+  });
+
   function play() {
     const rom = getRom();
     if (!rom) return;
@@ -239,6 +244,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   return {
     isFavorited,
     canAddToCollection,
+    canShareQR,
     currentStatusKey,
     setStatus,
     setStatusEnum,

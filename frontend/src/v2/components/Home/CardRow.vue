@@ -10,7 +10,7 @@
 // The icon slot sizes to its content — whatever size the caller's inner
 // RIcon renders at drives the layout, and the title always stays
 // vertically centred with it (flex align-items:center on the head).
-import { RIcon } from "@v2/lib";
+import { RBtn } from "@v2/lib";
 import { computed } from "vue";
 import { onMounted, ref } from "vue";
 
@@ -111,24 +111,24 @@ onMounted(() => {
     </header>
 
     <div class="card-row__wrap">
-      <button
+      <RBtn
         v-if="canLeft"
-        type="button"
+        icon="mdi-chevron-left"
+        variant="tonal"
+        size="small"
         class="card-row__arrow card-row__arrow--left"
         aria-label="Scroll left"
         @click="scrollBy(-1)"
-      >
-        <RIcon icon="mdi-chevron-left" size="22" />
-      </button>
-      <button
+      />
+      <RBtn
         v-if="canRight"
-        type="button"
+        icon="mdi-chevron-right"
+        variant="tonal"
+        size="small"
         class="card-row__arrow card-row__arrow--right"
         aria-label="Scroll right"
         @click="scrollBy(1)"
-      >
-        <RIcon icon="mdi-chevron-right" size="22" />
-      </button>
+      />
 
       <div
         ref="scrollEl"
@@ -195,41 +195,33 @@ onMounted(() => {
   scroll-behavior: smooth;
 }
 
+/* Vertically centred, anchored to the row edges. The RBtn surface gets
+   a dark scrim so the arrow has contrast over busy cover thumbnails —
+   tonal alone reads too faint without a brand color. Vuetify's own
+   underlay is hidden (opacity:0) so the scrim isn't lifted by it. */
 .card-row__arrow {
-  appearance: none;
-  border: 0;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   z-index: 10;
-  width: 40px;
-  height: 72px;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  color: var(--r-color-fg-secondary);
-  transition:
-    color 0.2s,
-    opacity 0.2s;
 }
-
 .card-row__arrow--left {
-  left: 0;
-  background: linear-gradient(to right, var(--r-color-bg), transparent);
-  border-radius: 0 6px 6px 0;
+  left: 8px;
 }
 .card-row__arrow--right {
-  right: 0;
-  background: linear-gradient(to left, var(--r-color-bg), transparent);
-  border-radius: 6px 0 0 6px;
+  right: 8px;
 }
-
-.card-row__arrow :deep(.mdi) {
-  filter: drop-shadow(0 1px 4px color-mix(in srgb, black 60%, transparent));
+.card-row__arrow.r-btn {
+  background: var(--r-color-overlay-scrim-soft) !important;
+  color: var(--r-color-overlay-fg) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-
-.card-row__arrow:hover {
-  color: var(--r-color-fg);
+.card-row__arrow.r-btn:hover {
+  background: var(--r-color-overlay-scrim-strong) !important;
+}
+.card-row__arrow :deep(.v-btn__underlay) {
+  opacity: 0;
 }
 
 @media (max-width: 768px) {

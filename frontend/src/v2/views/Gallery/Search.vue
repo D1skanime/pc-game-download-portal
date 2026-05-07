@@ -3,7 +3,7 @@
 // gallery scope, kicks the initial fetch, and fills the shell's
 // `#header` slot with a PageHeader. Everything else lives in
 // `GalleryShell`.
-import { RChip } from "@v2/lib";
+import { RTag } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref } from "vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
@@ -56,13 +56,11 @@ onMounted(async () => {
     <template #header>
       <PageHeader title="Search">
         <template #count>
-          <RChip
+          <RTag
             v-if="initialSearch && !initialFetching"
-            size="small"
-            variant="tonal"
-          >
-            {{ total }} results
-          </RChip>
+            size="md"
+            :text="total"
+          />
         </template>
       </PageHeader>
     </template>
