@@ -13,22 +13,30 @@
 //   * Skeleton ↔ real swap — when `getRomAt(position)` returns null the
 //     row paints skeleton placeholders in every column; once the fetch
 //     resolves it flips to the real cells. Same row height in both
-//     states (no scroll reflow on hydration).
+//     states (no scroll reflow on hydration). Skeleton cells iterate
+//     `LIST_COLUMNS` so the column widths and shape stay in sync with
+//     the bootstrap-phase `GameListSkeletonRow`.
 //
 //   * Click → game-details navigation. Cover-thumb view transition mirrors
 //     `GameCard`'s morph so navigating from list / grid into the detail
 //     page lands on the same visual anchor.
 import { RChip, RIcon, RSkeletonBlock } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import { formatBytes } from "@/utils";
+import { formatBytes, toBrowserLocale } from "@/utils";
 import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
 import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
-import { LIST_GRID_TEMPLATE } from "./listColumns";
+import {
+  LIST_COLUMNS,
+  LIST_COVER_HEIGHT_PX,
+  LIST_COVER_WIDTH_PX,
+  LIST_GRID_TEMPLATE,
+} from "./listColumns";
 
 defineOptions({ inheritAttrs: false });
 
@@ -48,6 +56,7 @@ const props = withDefaults(defineProps<Props>(), { webp: false });
 const router = useRouter();
 const galleryRoms = storeGalleryRoms();
 const { morphTransition } = useViewTransition();
+const { locale } = useI18n();
 
 const rom = computed<SimpleRom | null>(() =>
   galleryRoms.getRomAt(props.position),
@@ -64,16 +73,27 @@ function coverUrl(item: SimpleRom): string | null {
 function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleDateString();
+    return new Date(value).toLocaleDateString(toBrowserLocale(locale.value), {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   } catch {
     return "—";
   }
 }
 
-function releaseYear(item: SimpleRom): string {
+function releaseDate(item: SimpleRom): string {
   const ts = item.metadatum?.first_release_date;
   if (!ts) return "—";
-  return new Date(ts * 1000).getFullYear().toString();
+  return new Date(Number(ts)).toLocaleDateString(
+    toBrowserLocale(locale.value),
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    },
+  );
 }
 
 function ratingValue(item: SimpleRom): string {
@@ -144,102 +164,103 @@ onBeforeUnmount(() => {
     :data-rom-id="rom?.id"
     @click="onRowClick"
   >
-    <!-- Title — cover thumb + name + filename. The thumb stays as a
-         skeleton block until the row resolves so the row's left edge
-         doesn't shift sideways on hydration. -->
-    <div class="game-list-row__cell game-list-row__title">
-      <div v-if="rom" class="game-list-row__thumb" :style="morphStyleFor(rom)">
-        <img
-          v-if="coverUrl(rom)"
-          :src="coverUrl(rom) ?? undefined"
-          :alt="rom.name ?? rom.fs_name_no_ext"
-          loading="lazy"
-        />
-        <span v-else class="game-list-row__thumb-fallback">
-          {{ (rom.name ?? rom.fs_name_no_ext).slice(0, 2).toUpperCase() }}
-        </span>
-      </div>
-      <RSkeletonBlock v-else width="28" height="38" />
-
-      <div class="game-list-row__meta">
-        <template v-if="rom">
+    <template v-if="rom">
+      <div class="game-list-row__cell game-list-row__title">
+        <div class="game-list-row__thumb" :style="morphStyleFor(rom)">
+          <img
+            v-if="coverUrl(rom)"
+            :src="coverUrl(rom) ?? undefined"
+            :alt="rom.name ?? rom.fs_name_no_ext"
+            loading="lazy"
+          />
+          <span v-else class="game-list-row__thumb-fallback">
+            {{ (rom.name ?? rom.fs_name_no_ext).slice(0, 2).toUpperCase() }}
+          </span>
+        </div>
+        <div class="game-list-row__meta">
           <div class="game-list-row__name">
             {{ rom.name ?? rom.fs_name_no_ext }}
           </div>
           <div class="game-list-row__filename">{{ rom.fs_name }}</div>
-        </template>
-        <template v-else>
-          <RSkeletonBlock width="60%" height="12" />
-          <RSkeletonBlock width="40%" height="10" />
-        </template>
+        </div>
       </div>
-    </div>
 
-    <div class="game-list-row__cell">
-      <template v-if="rom">
+      <div class="game-list-row__cell">
         {{ rom.fs_size_bytes ? formatBytes(rom.fs_size_bytes) : "—" }}
-      </template>
-      <RSkeletonBlock v-else width="60" height="10" />
-    </div>
-
-    <div class="game-list-row__cell">
-      <template v-if="rom">{{ formatDate(rom.created_at) }}</template>
-      <RSkeletonBlock v-else width="64" height="10" />
-    </div>
-
-    <div class="game-list-row__cell">
-      <template v-if="rom">{{ releaseYear(rom) }}</template>
-      <RSkeletonBlock v-else width="40" height="10" />
-    </div>
-
-    <div class="game-list-row__cell">
-      <template v-if="rom">{{ ratingValue(rom) }}</template>
-      <RSkeletonBlock v-else width="32" height="10" />
-    </div>
-
-    <div class="game-list-row__cell">
-      <div v-if="rom" class="game-list-row__pills">
-        <RChip
-          v-for="l in rom.languages?.slice(0, 3) ?? []"
-          :key="`lang-${l}`"
-          size="x-small"
-          variant="tonal"
-        >
-          {{ l }}
-        </RChip>
       </div>
-      <RSkeletonBlock v-else width="80" height="10" />
-    </div>
+      <div class="game-list-row__cell">{{ formatDate(rom.created_at) }}</div>
+      <div class="game-list-row__cell">{{ releaseDate(rom) }}</div>
+      <div class="game-list-row__cell">{{ ratingValue(rom) }}</div>
 
-    <div class="game-list-row__cell">
-      <div v-if="rom" class="game-list-row__pills">
-        <RChip
-          v-for="r in rom.regions?.slice(0, 3) ?? []"
-          :key="`reg-${r}`"
-          size="x-small"
-          variant="tonal"
-        >
-          {{ r }}
-        </RChip>
-      </div>
-      <RSkeletonBlock v-else width="80" height="10" />
-    </div>
-
-    <div class="game-list-row__cell game-list-row__cell--end">
-      <MoreMenu v-if="rom" :rom="rom">
-        <template #activator="{ props: activatorProps }">
-          <button
-            v-bind="activatorProps"
-            type="button"
-            class="game-list-row__more"
-            aria-label="More actions"
-            @click.stop
+      <div class="game-list-row__cell">
+        <div class="game-list-row__pills">
+          <RChip
+            v-for="l in rom.languages?.slice(0, 3) ?? []"
+            :key="`lang-${l}`"
+            size="x-small"
+            variant="tonal"
           >
-            <RIcon icon="mdi-dots-vertical" size="18" />
-          </button>
-        </template>
-      </MoreMenu>
-    </div>
+            {{ l }}
+          </RChip>
+        </div>
+      </div>
+      <div class="game-list-row__cell">
+        <div class="game-list-row__pills">
+          <RChip
+            v-for="r in rom.regions?.slice(0, 3) ?? []"
+            :key="`reg-${r}`"
+            size="x-small"
+            variant="tonal"
+          >
+            {{ r }}
+          </RChip>
+        </div>
+      </div>
+
+      <div class="game-list-row__cell game-list-row__cell--end">
+        <MoreMenu :rom="rom">
+          <template #activator="{ props: activatorProps }">
+            <button
+              v-bind="activatorProps"
+              type="button"
+              class="game-list-row__more"
+              aria-label="More actions"
+              @click.stop
+            >
+              <RIcon icon="mdi-dots-vertical" size="18" />
+            </button>
+          </template>
+        </MoreMenu>
+      </div>
+    </template>
+
+    <template v-else>
+      <!-- Skeleton path — column-driven so widths/shape match
+           `GameListSkeletonRow` without keeping a parallel set of
+           magic numbers in this file. -->
+      <template v-for="col in LIST_COLUMNS" :key="String(col.key)">
+        <div
+          v-if="col.key === 'name'"
+          class="game-list-row__cell game-list-row__title"
+        >
+          <RSkeletonBlock
+            :width="LIST_COVER_WIDTH_PX"
+            :height="LIST_COVER_HEIGHT_PX"
+          />
+          <div class="game-list-row__meta">
+            <RSkeletonBlock width="60%" height="12" />
+            <RSkeletonBlock width="40%" height="10" />
+          </div>
+        </div>
+        <div
+          v-else-if="col.key === 'actions'"
+          class="game-list-row__cell game-list-row__cell--end"
+        />
+        <div v-else class="game-list-row__cell">
+          <RSkeletonBlock :width="col.skeletonWidth ?? 60" height="10" />
+        </div>
+      </template>
+    </template>
   </a>
 </template>
 
@@ -247,11 +268,11 @@ onBeforeUnmount(() => {
 .game-list-row {
   display: grid;
   align-items: center;
-  gap: 0 12px;
-  padding: 0 12px;
-  height: 56px;
+  gap: 0 var(--r-space-3);
+  padding: 0 var(--r-space-3);
+  height: var(--r-list-row-h);
   border-bottom: 1px solid var(--r-color-border);
-  font-size: 13px;
+  font-size: var(--r-font-size-md);
   color: var(--r-color-fg-secondary);
   cursor: default;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
@@ -279,15 +300,15 @@ onBeforeUnmount(() => {
 .game-list-row__title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--r-space-3);
   min-width: 0;
 }
 
 .game-list-row__thumb {
-  width: 28px;
-  height: 38px;
+  width: var(--r-list-cover-w);
+  height: var(--r-list-cover-h);
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: var(--r-radius-sm);
   overflow: hidden;
   background: var(--r-color-surface);
   display: grid;
@@ -302,7 +323,7 @@ onBeforeUnmount(() => {
 }
 
 .game-list-row__thumb-fallback {
-  font-size: 10px;
+  font-size: var(--r-font-size-xs);
   font-weight: var(--r-font-weight-bold);
   color: var(--r-color-fg-muted);
 }
@@ -316,7 +337,7 @@ onBeforeUnmount(() => {
 }
 
 .game-list-row__name {
-  font-size: 13px;
+  font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg);
   white-space: nowrap;
@@ -325,7 +346,7 @@ onBeforeUnmount(() => {
 }
 
 .game-list-row__filename {
-  font-size: 11px;
+  font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -343,8 +364,8 @@ onBeforeUnmount(() => {
   appearance: none;
   background: transparent;
   border: 0;
-  padding: 4px;
-  border-radius: 4px;
+  padding: var(--r-space-1);
+  border-radius: var(--r-radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;

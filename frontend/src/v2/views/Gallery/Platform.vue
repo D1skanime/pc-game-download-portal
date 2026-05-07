@@ -36,7 +36,7 @@ const tags = computed<string[]>(() => {
   const out: string[] = [];
   if (p.category) out.push(p.category);
   if (p.family_name) out.push(p.family_name);
-  if (p.generation) out.push(`Generation ${p.generation}`);
+  if (p.generation && p.generation > 0) out.push(`Generation ${p.generation}`);
   return out;
 });
 

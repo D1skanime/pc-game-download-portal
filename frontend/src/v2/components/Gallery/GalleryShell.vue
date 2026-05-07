@@ -37,7 +37,7 @@
 // search-input debounce, URL filter sync. Each view supplies its
 // header and its own resource-load flow. List rows own their per-row
 // fetch lifecycle internally (mount = entered overscan window).
-import { RDivider, RSkeletonBlock, RVirtualScroller } from "@v2/lib";
+import { RDivider, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -53,10 +53,8 @@ import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
 import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
-import {
-  LIST_GRID_TEMPLATE,
-  type ListSortKey,
-} from "@/v2/components/Gallery/listColumns";
+import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
+import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
@@ -493,8 +491,6 @@ const rowGridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${Math.max(1, columns.value)}, minmax(var(--r-card-art-w), 1fr))`,
 }));
 
-const listRowGridStyle = { gridTemplateColumns: LIST_GRID_TEMPLATE };
-
 // View-facing surface. Methods only — internal state stays internal.
 defineExpose({
   /** Re-apply the previously-saved scroll position for the current route
@@ -612,26 +608,9 @@ defineExpose({
             :webp="supportsWebp"
           />
 
-          <div
+          <GameListSkeletonRow
             v-else-if="itemKind(item as GalleryItem) === 'skeleton-list-row'"
-            class="r-v2-shell__list-skeleton-row"
-            :style="listRowGridStyle"
-          >
-            <div class="r-v2-shell__list-skeleton-title">
-              <RSkeletonBlock width="28" height="38" />
-              <div class="r-v2-shell__list-skeleton-meta">
-                <RSkeletonBlock width="60%" height="12" />
-                <RSkeletonBlock width="40%" height="10" />
-              </div>
-            </div>
-            <RSkeletonBlock width="60" height="10" />
-            <RSkeletonBlock width="64" height="10" />
-            <RSkeletonBlock width="40" height="10" />
-            <RSkeletonBlock width="32" height="10" />
-            <RSkeletonBlock width="80" height="10" />
-            <RSkeletonBlock width="80" height="10" />
-            <span />
-          </div>
+          />
 
           <div
             v-else-if="itemKind(item as GalleryItem) === 'empty'"
@@ -823,35 +802,6 @@ defineExpose({
   position: sticky;
   top: var(--r-v2-shell-toolbar-h, 64px);
   z-index: 3;
-}
-
-/* List skeleton rows — same grid template as a real GameListRow so
-   placeholder columns line up with the header. Used during the brief
-   metadata bootstrap before `total` resolves; once virtualItems flips
-   to real `list-row` entries each row component owns its own skeleton
-   state internally (per-position fetch hasn't resolved yet). */
-.r-v2-shell__list-skeleton-row {
-  display: grid;
-  align-items: center;
-  gap: 0 12px;
-  padding: 0 12px;
-  height: 56px;
-  border-bottom: 1px solid var(--r-color-border);
-}
-
-.r-v2-shell__list-skeleton-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.r-v2-shell__list-skeleton-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
 }
 
 /* Overlay layer — absolute against the section, mirrors the

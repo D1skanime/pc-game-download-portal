@@ -53,6 +53,10 @@ const NAME_OVERRIDES = {
     heroCardWidth: "--r-hero-w",
     heroCardHeight: "--r-hero-h",
     detailCoverWidth: "--r-cover-w",
+    listRowHeight: "--r-list-row-h",
+    listHeaderHeight: "--r-list-header-h",
+    listCoverWidth: "--r-list-cover-w",
+    listCoverHeight: "--r-list-cover-h",
   },
   colorBrand: {
     fav: "--r-color-fav",

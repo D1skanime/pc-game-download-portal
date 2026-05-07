@@ -89,9 +89,9 @@ function handleClick(col: ListColumn) {
 .game-list-header {
   display: grid;
   align-items: center;
-  gap: 0 12px;
-  padding: 0 12px;
-  height: 40px;
+  gap: 0 var(--r-space-3);
+  padding: 0 var(--r-space-3);
+  height: var(--r-list-header-h);
   background: var(--r-color-bg-elevated);
   border-bottom: 1px solid var(--r-color-border);
   /* Glass tint so the BackgroundArt blur reads behind the row when the
@@ -107,18 +107,18 @@ function handleClick(col: ListColumn) {
   padding: 0;
   font: inherit;
   color: var(--r-color-fg-secondary);
-  font-size: 10.5px;
+  font-size: var(--r-font-size-xs);
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--r-space-1);
   min-width: 0;
   height: 100%;
   cursor: default;
   text-align: start;
-  border-radius: 4px;
+  border-radius: var(--r-radius-sm);
   transition: color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 

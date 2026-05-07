@@ -19,8 +19,7 @@
   --r-color-brand-secondary-pressed: #7a6bb4;
   --r-color-brand-accent: #e1a38d;
   --r-color-brand-accent-hover: #f0c8b8;
-  /* --r-color-fav: #ff4f6b; */
-  --r-color-fav: #8b74e8;
+  --r-color-fav: #ff4f6b;
   --r-color-avatar-gradient: linear-gradient(135deg, #a18fff, #6043c8);
   --r-color-romm-red: #da3633;
   --r-color-romm-green: #3fb950;
@@ -126,12 +125,16 @@
   --r-focus-ring-width: 2px;
   --r-focus-ring-offset: 3px;
   --r-nav-h: 58px;
-  --r-page-max-w: 1920px;
+  --r-page-max-w: 1500px;
   --r-card-art-w: 158px;
   --r-card-art-h: 213px;
   --r-hero-w: 300px;
   --r-hero-h: 169px;
   --r-cover-w: 240px;
+  --r-list-row-h: 80px;
+  --r-list-header-h: 40px;
+  --r-list-cover-w: 48px;
+  --r-list-cover-h: 64px;
 }
 
 html[data-input="key"] .r-v2 {

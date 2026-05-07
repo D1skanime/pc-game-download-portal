@@ -22,6 +22,7 @@
 // letter that exists in the gallery is clickable, even if its window
 // hasn't been fetched yet.
 import { computed, type ComputedRef, type Ref } from "vue";
+import { LIST_ROW_HEIGHT_PX } from "@/v2/components/Gallery/listColumns";
 import type { GroupByMode, LayoutMode } from "../useGalleryMode";
 import type { GalleryItem } from "./types";
 
@@ -35,15 +36,15 @@ export type { GalleryItem, GalleryItemKind } from "./types";
 //   * letter-header: 20px top + 16px text + 12px bottom = 48 (rounded
 //     up to 56 for breathing room).
 //   * load-more / empty: matches the rendered button / centered text.
-//   * list-row: 56px (44px content + 12px row gap baked in) — matches
-//     `.r-v2-shell__list-row` CSS. Same skeleton vs ROM height so
-//     the row swap doesn't reflow the scroller.
+//   * list-row / skeleton-list-row: sourced from `LIST_ROW_HEIGHT_PX`
+//     (token-derived) so changing the list-row height in tokens flows
+//     through here without drifting from the rendered CSS.
 const HEIGHT_BY_KIND: Record<GalleryItem["kind"], number> = {
   "letter-header": 56,
   row: 254,
   "skeleton-row": 254,
-  "list-row": 56,
-  "skeleton-list-row": 56,
+  "list-row": LIST_ROW_HEIGHT_PX,
+  "skeleton-list-row": LIST_ROW_HEIGHT_PX,
   "load-more": 80,
   empty: 240,
 };

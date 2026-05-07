@@ -284,6 +284,14 @@ export const layout = {
   heroCardWidth: "300px",
   heroCardHeight: "169px",
   detailCoverWidth: "240px",
+  // List-mode (table) gallery geometry. `GameListRow`, `GameListHeader`
+  // and `GameListSkeletonRow` all derive their pixel sizing from these,
+  // and `useGalleryVirtualItems` reads `listRowHeight` so the virtualiser's
+  // exact-offset math stays in lock-step with the rendered CSS.
+  listRowHeight: "80px",
+  listHeaderHeight: "40px",
+  listCoverWidth: "48px",
+  listCoverHeight: "64px",
 } as const;
 
 export const tokens = {
