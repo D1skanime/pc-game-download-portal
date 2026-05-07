@@ -13,10 +13,13 @@
 //                 current status icon when set, dashed border when empty
 //   more        → open MoreMenu (GameActionsList dropdown)
 //
-// Sizes (controls diameter + icon size + padding):
-//   sm  → 28px — GameCard hover overlay
-//   md  → 40px — default, GameDetails header
-//   lg  → 44px — larger emphasis
+// Sizes (controls diameter + icon size + padding) — same vocabulary as
+// RBtn / RChip / RTag:
+//   x-small → 22px
+//   small   → 28px — GameCard hover overlay
+//   default → 40px — GameDetails header
+//   large   → 44px — larger emphasis (GameActions row)
+//   x-large → 52px
 //
 // Variants:
 //   glass      → default translucent frosted-glass pill
@@ -47,7 +50,8 @@ export type GameAction =
 interface Props {
   rom: SimpleRom;
   action: GameAction;
-  size?: "sm" | "md" | "lg";
+  /** Size ladder shared with RBtn / RChip / RTag / Vuetify. */
+  size?: "x-small" | "small" | "default" | "large" | "x-large";
   /**
    * `glass` — dark scrim, designed to read on top of cover art
    *           (GameCard hover overlay).
@@ -67,7 +71,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  size: "md",
+  size: "default",
   variant: "glass",
   withLabel: false,
   orientation: "horizontal",
@@ -444,30 +448,47 @@ function onClick(e: MouseEvent) {
   transform: scale(0.94);
 }
 
-/* Sizing — circular unless `--labelled`. */
-.r-v2-game-btn--sm {
+/* Size ladder — circular unless `--labelled`. Matches the
+   x-small/small/default/large/x-large vocabulary used across primitives. */
+.r-v2-game-btn--x-small {
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+}
+.r-v2-game-btn--x-small :deep(.mdi) {
+  font-size: 14px;
+}
+.r-v2-game-btn--small {
   width: 28px;
   height: 28px;
   font-size: 11px;
 }
-.r-v2-game-btn--sm :deep(.mdi) {
+.r-v2-game-btn--small :deep(.mdi) {
   font-size: 16px;
 }
-.r-v2-game-btn--md {
+.r-v2-game-btn--default {
   width: 40px;
   height: 40px;
   font-size: 13px;
 }
-.r-v2-game-btn--md :deep(.mdi) {
+.r-v2-game-btn--default :deep(.mdi) {
   font-size: 20px;
 }
-.r-v2-game-btn--lg {
+.r-v2-game-btn--large {
   width: 44px;
   height: 44px;
   font-size: 14px;
 }
-.r-v2-game-btn--lg :deep(.mdi) {
+.r-v2-game-btn--large :deep(.mdi) {
   font-size: 22px;
+}
+.r-v2-game-btn--x-large {
+  width: 52px;
+  height: 52px;
+  font-size: 15px;
+}
+.r-v2-game-btn--x-large :deep(.mdi) {
+  font-size: 26px;
 }
 
 /* Labelled — expands to a pill with text. Used by Play in the
@@ -477,11 +498,17 @@ function onClick(e: MouseEvent) {
   width: auto;
   padding: 0 18px;
 }
-.r-v2-game-btn--labelled.r-v2-game-btn--sm {
+.r-v2-game-btn--labelled.r-v2-game-btn--x-small {
+  padding: 0 8px;
+}
+.r-v2-game-btn--labelled.r-v2-game-btn--small {
   padding: 0 12px;
 }
-.r-v2-game-btn--labelled.r-v2-game-btn--lg {
+.r-v2-game-btn--labelled.r-v2-game-btn--large {
   padding: 0 24px;
+}
+.r-v2-game-btn--labelled.r-v2-game-btn--x-large {
+  padding: 0 32px;
 }
 
 /* Surface — RTag-style translucent grey. Used in the GameDetails
@@ -549,30 +576,46 @@ function onClick(e: MouseEvent) {
   height: auto;
   border-radius: var(--r-radius-pill);
 }
-.r-v2-game-btn--multi-status.r-v2-game-btn--sm {
+.r-v2-game-btn--multi-status.r-v2-game-btn--x-small {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 3px 6px;
+}
+.r-v2-game-btn--multi-status.r-v2-game-btn--small {
   min-width: 28px;
   min-height: 28px;
   padding: 4px 8px;
 }
-.r-v2-game-btn--multi-status.r-v2-game-btn--md {
+.r-v2-game-btn--multi-status.r-v2-game-btn--default {
   min-width: 40px;
   min-height: 40px;
   padding: 4px 10px;
 }
-.r-v2-game-btn--multi-status.r-v2-game-btn--lg {
+.r-v2-game-btn--multi-status.r-v2-game-btn--large {
   min-width: 44px;
   min-height: 44px;
   padding: 4px 12px;
 }
+.r-v2-game-btn--multi-status.r-v2-game-btn--x-large {
+  min-width: 52px;
+  min-height: 52px;
+  padding: 4px 14px;
+}
 /* Vertical: swap the padding axis so the pill grows tall, not wide. */
-.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--sm {
+.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--x-small {
+  padding: 6px 3px;
+}
+.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--small {
   padding: 8px 4px;
 }
-.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--md {
+.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--default {
   padding: 10px 4px;
 }
-.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--lg {
+.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--large {
   padding: 12px 4px;
+}
+.r-v2-game-btn--multi-status.r-v2-game-btn--orient-vertical.r-v2-game-btn--x-large {
+  padding: 14px 4px;
 }
 
 /* Trailing check on the flag rows of the status menu — signals the

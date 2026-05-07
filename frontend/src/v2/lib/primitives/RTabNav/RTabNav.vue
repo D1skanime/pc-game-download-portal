@@ -27,13 +27,14 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue: string;
   items: RTabNavItem[];
-  size?: "sm" | "md";
+  /** Size ladder shared with RBtn / RChip / RTag / Vuetify. */
+  size?: "x-small" | "small" | "default" | "large" | "x-large";
   variant?: "underlined" | "pill";
   orientation?: "horizontal" | "vertical";
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  size: "md",
+  size: "default",
   variant: "underlined",
   orientation: "horizontal",
 });
@@ -236,13 +237,25 @@ onBeforeUnmount(() => {
 .r-tab-nav--underlined .r-tab-nav__btn--active {
   color: var(--r-color-fg);
 }
-.r-tab-nav--underlined.r-tab-nav--md .r-tab-nav__btn {
+.r-tab-nav--underlined.r-tab-nav--x-small .r-tab-nav__btn {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+.r-tab-nav--underlined.r-tab-nav--small .r-tab-nav__btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.r-tab-nav--underlined.r-tab-nav--default .r-tab-nav__btn {
   padding: 8px 18px;
   font-size: 13px;
 }
-.r-tab-nav--underlined.r-tab-nav--sm .r-tab-nav__btn {
-  padding: 6px 12px;
-  font-size: 12px;
+.r-tab-nav--underlined.r-tab-nav--large .r-tab-nav__btn {
+  padding: 10px 24px;
+  font-size: var(--r-font-size-lg);
+}
+.r-tab-nav--underlined.r-tab-nav--x-large .r-tab-nav__btn {
+  padding: 12px 28px;
+  font-size: var(--r-font-size-xl);
 }
 
 /* Sliding underline — sits on the bottom border line, slides between
@@ -284,13 +297,25 @@ onBeforeUnmount(() => {
 .r-tab-nav--pill .r-tab-nav__btn--active .r-tab-nav__icon {
   color: var(--r-color-brand-primary);
 }
-.r-tab-nav--pill.r-tab-nav--md .r-tab-nav__btn {
+.r-tab-nav--pill.r-tab-nav--x-small .r-tab-nav__btn {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+.r-tab-nav--pill.r-tab-nav--small .r-tab-nav__btn {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.r-tab-nav--pill.r-tab-nav--default .r-tab-nav__btn {
   padding: 10px 14px;
   font-size: 13px;
 }
-.r-tab-nav--pill.r-tab-nav--sm .r-tab-nav__btn {
-  padding: 8px 12px;
-  font-size: 12px;
+.r-tab-nav--pill.r-tab-nav--large .r-tab-nav__btn {
+  padding: 12px 18px;
+  font-size: var(--r-font-size-lg);
+}
+.r-tab-nav--pill.r-tab-nav--x-large .r-tab-nav__btn {
+  padding: 14px 22px;
+  font-size: var(--r-font-size-xl);
 }
 
 /* ---------- Badge ---------- */
@@ -323,7 +348,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  .r-tab-nav--underlined.r-tab-nav--md .r-tab-nav__btn {
+  .r-tab-nav--underlined.r-tab-nav--default .r-tab-nav__btn {
     padding: 8px 14px;
     font-size: 12px;
   }

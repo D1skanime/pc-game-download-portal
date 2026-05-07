@@ -66,7 +66,7 @@ const actions = useGameActions(() => props.rom);
         icon="mdi-check-decagram"
         text="Verified"
         tone="success"
-        size="sm"
+        size="small"
       />
     </div>
 
@@ -79,16 +79,16 @@ const actions = useGameActions(() => props.rom);
         :key="`r-${r}`"
         :text="r"
         tone="info"
-        size="sm"
+        size="small"
       />
       <RTag
         v-for="l in languages"
         :key="`l-${l}`"
         :text="l"
         tone="brand"
-        size="sm"
+        size="small"
       />
-      <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="sm" />
+      <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="small" />
     </div>
 
     <GameActions :rom="rom" :can-play="canPlay" />

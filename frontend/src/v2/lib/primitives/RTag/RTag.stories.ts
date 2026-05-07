@@ -13,7 +13,10 @@ const meta: Meta<typeof RTag> = {
       control: "select",
       options: ["neutral", "brand", "success", "danger", "warning", "info"],
     },
-    size: { control: "select", options: ["sm", "md"] },
+    size: {
+      control: "select",
+      options: ["x-small", "small", "default", "large", "x-large"],
+    },
   },
   render: (args) => ({
     components: { RTag },
@@ -27,13 +30,13 @@ type Story = StoryObj<typeof RTag>;
 
 // Header tags — the "regions / languages / custom tags" row.
 export const HeaderRegion: Story = {
-  args: { text: "USA", tone: "info", size: "sm" },
+  args: { text: "USA", tone: "info", size: "small" },
 };
 export const HeaderLanguage: Story = {
-  args: { text: "EN", tone: "brand", size: "sm" },
+  args: { text: "EN", tone: "brand", size: "small" },
 };
 export const HeaderCustom: Story = {
-  args: { text: "v4.1", size: "sm" },
+  args: { text: "v4.1", size: "small" },
 };
 
 // Hash chip — eyebrow label + monospace value.

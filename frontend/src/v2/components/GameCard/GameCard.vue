@@ -176,26 +176,21 @@ const morphStyle = computed(() => {
       <GameActionBtn
         :rom="rom"
         action="status"
-        size="sm"
+        size="small"
         orientation="vertical"
       />
 
       <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
       <div class="r-gc__overlay">
         <div class="r-gc__overlay-center">
-          <GameActionBtn
-            :rom="rom"
-            action="play"
-            size="md"
-            variant="emphasized"
-          />
+          <GameActionBtn :rom="rom" action="play" variant="emphasized" />
         </div>
 
         <div class="r-gc__overlay-bottom">
-          <GameActionBtn :rom="rom" action="download" size="sm" />
-          <GameActionBtn :rom="rom" action="collection" size="sm" />
-          <GameActionBtn :rom="rom" action="favorite" size="sm" />
-          <GameActionBtn :rom="rom" action="more" size="sm" />
+          <GameActionBtn :rom="rom" action="download" size="small" />
+          <GameActionBtn :rom="rom" action="collection" size="small" />
+          <GameActionBtn :rom="rom" action="favorite" size="small" />
+          <GameActionBtn :rom="rom" action="more" size="small" />
         </div>
       </div>
     </div>

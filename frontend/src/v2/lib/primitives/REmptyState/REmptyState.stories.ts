@@ -10,7 +10,10 @@ const meta: Meta<typeof REmptyState> = {
     title: { control: "text" },
     hint: { control: "text" },
     iconSize: { control: "text" },
-    size: { control: "select", options: ["compact", "default"] },
+    size: {
+      control: "select",
+      options: ["x-small", "small", "default", "large", "x-large"],
+    },
   },
   render: (args) => ({
     components: { REmptyState },
@@ -32,7 +35,7 @@ export const Default: Story = {
 
 export const Compact: Story = {
   args: {
-    size: "compact",
+    size: "small",
     icon: "mdi-music-note-outline",
     title: "No tracks",
   },

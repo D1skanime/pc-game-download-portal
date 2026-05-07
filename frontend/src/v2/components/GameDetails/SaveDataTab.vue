@@ -89,7 +89,7 @@ function fmtDate(iso: string | null) {
       :items="subtabItems"
       variant="pill"
       orientation="vertical"
-      size="sm"
+      size="small"
       class="save-data__nav"
     />
 

@@ -533,7 +533,7 @@ function fmtDate(iso: string): string {
 
         <REmptyState
           v-else
-          size="compact"
+          size="small"
           icon="mdi-note-search-outline"
           title="Pick a note from the list"
           hint="Or add a new one with the button above."

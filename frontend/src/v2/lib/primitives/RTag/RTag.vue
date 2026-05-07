@@ -25,8 +25,8 @@ interface Props {
   mono?: boolean;
   /** Colour preset. */
   tone?: "neutral" | "brand" | "success" | "danger" | "warning" | "info";
-  /** Compact (header chip) vs default (verification chip). */
-  size?: "sm" | "md";
+  /** Size ladder shared with RBtn / RChip / Vuetify. */
+  size?: "x-small" | "small" | "default" | "large" | "x-large";
 }
 
 withDefaults(defineProps<Props>(), {
@@ -35,7 +35,7 @@ withDefaults(defineProps<Props>(), {
   text: undefined,
   mono: false,
   tone: "neutral",
-  size: "md",
+  size: "default",
 });
 </script>
 
@@ -77,16 +77,32 @@ withDefaults(defineProps<Props>(), {
   border-color: var(--r-tag-border);
 }
 
-/* Sizes */
-.r-tag--sm {
+/* Size ladder — matches RBtn/RChip vocabulary so a single mental model
+   carries across primitives. Steps mirror the typography token scale. */
+.r-tag--x-small {
+  padding: 1px 7px;
+  font-size: var(--r-font-size-xs);
+  gap: 4px;
+}
+.r-tag--small {
   padding: 2px 9px;
-  font-size: 11.5px;
+  font-size: var(--r-font-size-sm);
   gap: 5px;
 }
-.r-tag--md {
+.r-tag--default {
   padding: 4px 10px;
   font-size: 12px;
   gap: 6px;
+}
+.r-tag--large {
+  padding: 6px 12px;
+  font-size: var(--r-font-size-md);
+  gap: 7px;
+}
+.r-tag--x-large {
+  padding: 8px 14px;
+  font-size: var(--r-font-size-lg);
+  gap: 8px;
 }
 
 /* Inner pieces */

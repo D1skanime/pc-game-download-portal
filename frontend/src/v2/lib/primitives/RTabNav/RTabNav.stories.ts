@@ -6,7 +6,10 @@ const meta: Meta<typeof RTabNav> = {
   title: "Primitives/RTabNav",
   component: RTabNav,
   argTypes: {
-    size: { control: "select", options: ["sm", "md"] },
+    size: {
+      control: "select",
+      options: ["x-small", "small", "default", "large", "x-large"],
+    },
     variant: { control: "select", options: ["underlined", "pill"] },
     orientation: { control: "select", options: ["horizontal", "vertical"] },
   },
@@ -48,7 +51,7 @@ export const WithBadges: Story = {
 
 export const Subtabs: Story = {
   args: {
-    size: "sm",
+    size: "small",
     modelValue: "saves",
     items: [
       { id: "saves", label: "Saves", badge: 5 },

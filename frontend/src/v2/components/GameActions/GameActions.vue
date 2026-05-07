@@ -33,15 +33,30 @@ const actions = useGameActions(() => romRef.value);
       v-if="canPlay"
       :rom="rom"
       action="play"
-      size="lg"
+      size="large"
       variant="emphasized"
       with-label
     />
-    <GameActionBtn :rom="rom" action="download" size="lg" variant="surface" />
-    <GameActionBtn :rom="rom" action="favorite" size="lg" variant="surface" />
-    <GameActionBtn :rom="rom" action="collection" size="lg" variant="surface" />
-    <GameActionBtn :rom="rom" action="status" size="lg" variant="surface" />
-    <GameActionBtn :rom="rom" action="more" size="lg" variant="surface" />
+    <GameActionBtn
+      :rom="rom"
+      action="download"
+      size="large"
+      variant="surface"
+    />
+    <GameActionBtn
+      :rom="rom"
+      action="favorite"
+      size="large"
+      variant="surface"
+    />
+    <GameActionBtn
+      :rom="rom"
+      action="collection"
+      size="large"
+      variant="surface"
+    />
+    <GameActionBtn :rom="rom" action="status" size="large" variant="surface" />
+    <GameActionBtn :rom="rom" action="more" size="large" variant="surface" />
 
     <div v-if="rom.rom_user" class="game-actions__spacer" />
 

@@ -29,7 +29,7 @@ withDefaults(
         {{ title }}
       </h1>
       <slot name="count">
-        <RTag v-if="count != null" size="md" :text="count" />
+        <RTag v-if="count != null" :text="count" />
       </slot>
     </div>
     <slot />

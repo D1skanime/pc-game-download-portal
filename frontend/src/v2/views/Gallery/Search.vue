@@ -56,11 +56,7 @@ onMounted(async () => {
     <template #header>
       <PageHeader title="Search">
         <template #count>
-          <RTag
-            v-if="initialSearch && !initialFetching"
-            size="md"
-            :text="total"
-          />
+          <RTag v-if="initialSearch && !initialFetching" :text="total" />
         </template>
       </PageHeader>
     </template>
