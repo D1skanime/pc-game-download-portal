@@ -109,8 +109,8 @@ function closeDialog() {
 }
 
 .r-v2-qr__canvas-wrap {
-  margin: 14px 0 6px;
-  padding: 12px;
+  margin: 20px 0px 30px;
+  padding: 6px;
   background: var(--r-color-overlay-emphasis-bg);
   border-radius: var(--r-radius-md);
   box-shadow: 0 8px 20px color-mix(in srgb, black 35%, transparent);

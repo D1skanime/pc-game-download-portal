@@ -431,6 +431,7 @@ async function deleteSoundtrack(fileId: number) {
         >
           <template #actions>
             <RBtn
+              color="primary"
               prepend-icon="mdi-cloud-upload-outline"
               @click="triggerManualUpload"
             >

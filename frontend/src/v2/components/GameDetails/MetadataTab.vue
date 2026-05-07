@@ -80,7 +80,7 @@ const verifications = computed<Verification[]>(() => {
           v-for="row in hashRows"
           :key="row.label"
           :label="row.label"
-          :text="row.value"
+          :text="row.value || '—'"
           mono
         />
       </div>
