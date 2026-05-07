@@ -12,12 +12,6 @@ defineProps<{
   title?: string;
   items: IGDBRelatedGame[];
 }>();
-
-function coverStyle(cover: string | null | undefined) {
-  return cover
-    ? { backgroundImage: `url('${cover}')` }
-    : { backgroundColor: "var(--r-color-bg-elevated)" };
-}
 </script>
 
 <template>
@@ -27,7 +21,18 @@ function coverStyle(cover: string | null | undefined) {
     </h3>
     <div class="r-v2-related__grid">
       <div v-for="g in items" :key="g.id" class="r-v2-related__card">
-        <div class="r-v2-related__cover" :style="coverStyle(g.cover_url)" />
+        <!-- `loading="eager"` is intentional: per-ROM related-games count
+             stays small (a handful per category), so paying the bytes up
+             front avoids pop-in when this section scrolls into view. Stays
+             eager even if this grid is later wrapped in a virtual scroller. -->
+        <img
+          v-if="g.cover_url"
+          class="r-v2-related__cover"
+          :src="g.cover_url"
+          :alt="g.name"
+          loading="eager"
+        />
+        <div v-else class="r-v2-related__cover r-v2-related__cover--empty" />
         <div class="r-v2-related__name">
           {{ g.name }}
         </div>
@@ -64,10 +69,15 @@ function coverStyle(cover: string | null | undefined) {
 
 .r-v2-related__cover {
   aspect-ratio: 2 / 3;
-  background-size: cover;
-  background-position: center;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  display: block;
   border-radius: var(--r-radius-art);
   box-shadow: var(--r-elev-1);
+}
+.r-v2-related__cover--empty {
+  background: var(--r-color-bg-elevated);
 }
 
 .r-v2-related__name {

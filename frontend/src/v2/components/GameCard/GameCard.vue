@@ -295,6 +295,10 @@ const morphStyle = computed(() => {
   background: var(--r-color-overlay-scrim-strong) !important;
   border: 1px solid var(--r-color-overlay-border) !important;
   color: var(--r-color-overlay-fg) !important;
+  /* Override RBtn's at-rest opacity (0.7) so the 78% scrim reads at
+     full strength — without this the bg modulates down to ~55% and
+     reads faint over busy cover art. */
+  opacity: 1 !important;
   transition:
     background 0.12s ease,
     border-color 0.12s ease,

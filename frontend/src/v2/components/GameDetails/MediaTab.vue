@@ -7,6 +7,9 @@
 //     `showManualUploadTargetDialog` (dialog mounted in AppLayout);
 //     soundtrack upload goes straight through `romApi.uploadSoundtracks`
 //   * Re-download primary manual + delete manual both handled here
+//   * Screenshots subtab is currently a placeholder — scraped screenshots
+//     live in the Overview tab. This subtab is reserved for user-uploaded
+//     screenshots, pending backend support (see TODO below).
 //
 // The PDF viewer + soundtrack player are reused from v1 for now.
 import { RBtn, RCollapsible, REmptyState, RIcon, RSelect } from "@v2/lib";
@@ -26,9 +29,6 @@ const PdfViewer = defineAsyncComponent(
 );
 const SoundtrackPanel = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/SoundtrackPanel.vue"),
-);
-const ScreenshotsTab = defineAsyncComponent(
-  () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
 );
 
 function errorMessage(err: unknown): string {
@@ -194,6 +194,7 @@ function hasSubtabActions(id: Subtab): boolean {
 // ---------- Upload / refresh plumbing ----------
 const manualUploadInput = ref<HTMLInputElement | null>(null);
 const soundtrackUploadInput = ref<HTMLInputElement | null>(null);
+const screenshotUploadInput = ref<HTMLInputElement | null>(null);
 const redownloadingManual = ref(false);
 
 function triggerManualUpload() {
@@ -202,6 +203,24 @@ function triggerManualUpload() {
 
 function triggerSoundtrackUpload() {
   soundtrackUploadInput.value?.click();
+}
+
+function triggerScreenshotUpload() {
+  screenshotUploadInput.value?.click();
+}
+
+// TODO: wire user-uploaded screenshots to the backend. Mirror the
+// soundtrack flow: hidden file input → multipart upload via a future
+// `romApi.uploadScreenshots({ romId, filesToUpload })` → success
+// snackbar + `refreshRom()` so newly-uploaded shots appear here. Once
+// real uploads exist, render them as a grid (reuse ScreenshotsTab.vue)
+// alongside the upload CTA, mirroring the manual/soundtrack panels.
+async function onScreenshotUpload(event: Event) {
+  const input = event.target as HTMLInputElement;
+  input.value = "";
+  snackbar.info("Screenshot uploads are coming soon.", {
+    icon: "mdi-information-outline",
+  });
 }
 
 async function refreshRom() {
@@ -312,6 +331,15 @@ async function deleteSoundtrack(fileId: number) {
     class="r-v2-media__file-input"
     aria-label="Upload soundtrack"
     @change="onSoundtrackUpload"
+  />
+  <input
+    ref="screenshotUploadInput"
+    type="file"
+    accept="image/*"
+    multiple
+    class="r-v2-media__file-input"
+    aria-label="Upload screenshots"
+    @change="onScreenshotUpload"
   />
 
   <div class="r-v2-media">
@@ -493,15 +521,37 @@ async function deleteSoundtrack(fileId: number) {
         />
       </section>
 
-      <!-- Screenshots subtab -->
+      <!-- Screenshots subtab — placeholder until user uploads land.
+           Scraped screenshots are shown in the Overview tab; this slot
+           is reserved for player-captured shots once the backend
+           supports them (see TODO on `onScreenshotUpload`).
+           Same folder-based gating as soundtracks: user-uploaded
+           assets live alongside the ROM, so single-file ROMs can't
+           host them. -->
       <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
         <REmptyState
-          v-if="(rom.merged_screenshots?.length ?? 0) === 0"
-          icon="mdi-image-multiple-outline"
-          title="No screenshots yet"
-          hint="Screenshots scraped from the metadata source will appear here."
+          v-if="rom.has_simple_single_file"
+          icon="mdi-image-off-outline"
+          title="Screenshots need a folder-based ROM"
+          hint="Single-file ROMs can't have accompanying screenshots. Re-organise this ROM as a folder and the upload option will appear here."
         />
-        <ScreenshotsTab v-else :urls="rom.merged_screenshots ?? []" />
+
+        <REmptyState
+          v-else
+          icon="mdi-image-multiple-outline"
+          title="Upload your own screenshots"
+          hint="Capture and keep your favourite moments here. Backend support is on the way."
+        >
+          <template #actions>
+            <RBtn
+              color="primary"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="triggerScreenshotUpload"
+            >
+              Upload screenshots
+            </RBtn>
+          </template>
+        </REmptyState>
       </section>
     </div>
   </div>

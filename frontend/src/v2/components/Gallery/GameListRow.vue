@@ -237,7 +237,9 @@ onBeforeUnmount(() => {
     <template v-else>
       <!-- Skeleton path — column-driven so widths/shape match
            `GameListSkeletonRow` without keeping a parallel set of
-           magic numbers in this file. -->
+           magic numbers in this file. Per-cell shapes (cover, pills,
+           dot) mirror the real cells underneath, so the row swap
+           doesn't reflow on data arrival. -->
       <template v-for="col in LIST_COLUMNS" :key="String(col.key)">
         <div
           v-if="col.key === 'name'"
@@ -248,16 +250,27 @@ onBeforeUnmount(() => {
             :height="LIST_COVER_HEIGHT_PX"
           />
           <div class="game-list-row__meta">
-            <RSkeletonBlock width="60%" height="12" />
-            <RSkeletonBlock width="40%" height="10" />
+            <RSkeletonBlock width="60%" :height="12" />
+            <RSkeletonBlock width="40%" :height="10" />
+          </div>
+        </div>
+        <div
+          v-else-if="col.key === 'languages' || col.key === 'regions'"
+          class="game-list-row__cell"
+        >
+          <div class="game-list-row__pills">
+            <RSkeletonBlock :width="28" :height="16" rounded="pill" />
+            <RSkeletonBlock :width="28" :height="16" rounded="pill" />
           </div>
         </div>
         <div
           v-else-if="col.key === 'actions'"
           class="game-list-row__cell game-list-row__cell--end"
-        />
+        >
+          <RSkeletonBlock :width="18" :height="18" circle />
+        </div>
         <div v-else class="game-list-row__cell">
-          <RSkeletonBlock :width="col.skeletonWidth ?? 60" height="10" />
+          <RSkeletonBlock :width="col.skeletonWidth ?? 60" :height="10" />
         </div>
       </template>
     </template>

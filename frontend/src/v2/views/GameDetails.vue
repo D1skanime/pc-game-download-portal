@@ -215,6 +215,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :sections="overviewSections"
             :hltb="currentRom.hltb_metadata"
             :last-played="lastPlayed"
+            :screenshots="currentRom.merged_screenshots ?? []"
             :expansions="expansions"
             :dlcs="dlcs"
             :remakes="remakes"

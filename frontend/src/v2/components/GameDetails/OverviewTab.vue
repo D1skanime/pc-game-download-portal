@@ -4,8 +4,10 @@
 //   1. Summary paragraph
 //   2. Last-played row (TODO: move into a SaveData tab once it lands)
 //   3. Info grid (genres / developer / franchise / collections)
-//   4. HLTB strip
-//   5. Related games — a single RCollapsible collapsing all of:
+//   4. Screenshots (also reachable via the Media tab's Screenshots subtab,
+//      which is where uploads will live)
+//   5. HLTB strip
+//   6. Related games — a single RCollapsible collapsing all of:
 //      Expansions, DLC, Remakes, Remasters, Similar games.
 //
 // Status enum + flags (now_playing / backlogged / hidden) and personal
@@ -19,6 +21,7 @@ import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
 import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
+import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -28,6 +31,7 @@ const props = defineProps<{
   sections: InfoGridSection[];
   hltb: RomHLTBMetadata | null | undefined;
   lastPlayed: string | null;
+  screenshots: string[];
   expansions: IGDBRelatedGame[];
   dlcs: IGDBRelatedGame[];
   remakes: IGDBRelatedGame[];
@@ -65,8 +69,13 @@ const hasRelated = computed(
       </div>
     </div>
 
-    <!-- 3. Info grid + 4. HLTB -->
+    <!-- 3. Info grid -->
     <InfoGrid :sections="sections" />
+
+    <!-- 4. Screenshots -->
+    <ScreenshotsTab v-if="screenshots.length" :urls="screenshots" />
+
+    <!-- 5. HLTB -->
     <HLTBStrip :metadata="hltb" />
 
     <!-- 5. Related games (single collapsible, every section labelled) -->

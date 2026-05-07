@@ -543,7 +543,7 @@ function onClick(e: MouseEvent) {
 
 /* Active-state colour swaps per action. */
 .r-v2-game-btn--active-favorite {
-  color: var(--r-color-fav) !important;
+  color: var(--r-color-brand-primary) !important;
 }
 
 /* Status — dashed border when no status is set, signals "click to

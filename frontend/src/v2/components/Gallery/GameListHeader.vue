@@ -18,8 +18,6 @@ import {
   type ListSortKey,
 } from "./listColumns";
 
-defineOptions({ inheritAttrs: false });
-
 interface Props {
   /** Currently-sorted column key. `null` when no sort is active. */
   sortKey: ListSortKey | null;

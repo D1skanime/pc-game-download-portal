@@ -14,7 +14,7 @@ import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
-import { GameCard } from "@/v2/components/GameCard";
+import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import CardRow from "@/v2/components/Home/CardRow.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";
@@ -89,13 +89,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
         <RIcon icon="mdi-play" size="20" />
       </template>
       <template v-if="fetchingContinue && !continuePlayingRoms.length">
-        <RSkeletonBlock
-          v-for="n in 4"
-          :key="`cs-${n}`"
-          width="300px"
-          height="169px"
-          rounded="lg"
-        />
+        <GameCardSkeleton v-for="n in 4" :key="`cs-${n}`" hero />
       </template>
       <template v-else>
         <GameCard
@@ -114,13 +108,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
         <RIcon icon="mdi-shimmer" size="20" />
       </template>
       <template v-if="fetchingRecent && !recentRoms.length">
-        <RSkeletonBlock
-          v-for="n in 6"
-          :key="`rs-${n}`"
-          width="158px"
-          height="213px"
-          rounded="md"
-        />
+        <GameCardSkeleton v-for="n in 6" :key="`rs-${n}`" />
       </template>
       <div v-else-if="!recentRoms.length" class="r-v2-home__empty">
         No games added yet.
