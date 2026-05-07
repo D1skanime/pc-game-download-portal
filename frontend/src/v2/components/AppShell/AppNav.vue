@@ -139,17 +139,11 @@ const activeTab = computed<TabId | null>(() => {
 
 .r-v2-nav {
   height: 100%;
+  width: 100%;
   display: flex;
   align-items: center;
   padding: 0 var(--r-row-pad);
   gap: 0;
-  /* Cap the navbar so it stays aligned with the centred page body on
-     ultrawide displays. Shares `--r-page-max-w` with `r-v2-det__body`
-     so both columns line up. */
-  max-width: var(--r-page-max-w);
-  width: 100%;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .r-v2-nav__logo {
