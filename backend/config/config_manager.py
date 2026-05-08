@@ -199,6 +199,9 @@ class ConfigManager:
             config_file.parent.mkdir(parents=True, exist_ok=True)
             config_file.touch(exist_ok=True)
 
+            # Reset any previously loaded singleton state so parsing reflects
+            # the newly created empty config file.
+            self._raw_config = {}
             self._config_file_mounted = True
             self._config_file_writable = os.access(self.config_file, os.W_OK)
         except PermissionError:
