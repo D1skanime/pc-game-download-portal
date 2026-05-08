@@ -195,8 +195,9 @@ class ConfigManager:
         )
 
         try:
-            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
-            Path(self.config_file).touch(exist_ok=True)
+            config_file = Path(self.config_file)
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+            config_file.touch(exist_ok=True)
 
             self._config_file_mounted = True
             self._config_file_writable = os.access(self.config_file, os.W_OK)
