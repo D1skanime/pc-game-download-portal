@@ -151,7 +151,7 @@ function setKindFilter(value: KindFilterValue) {
 
 <template>
   <div class="gallery-toolbar" :class="[`gallery-toolbar--${position}`]">
-    <!-- Search field (optional) — always sits left of the controls cluster. -->
+    <!-- Filter controls. Always sits left of the controls cluster. -->
     <RTextField
       v-if="showSearch"
       :model-value="search"
@@ -164,18 +164,17 @@ function setKindFilter(value: KindFilterValue) {
       class="gallery-toolbar__search"
       @update:model-value="(v: string) => setSearch(v ?? '')"
     />
+    <RSliderBtnGroup
+      v-if="showKindFilter && kindFilterItems.length > 0"
+      :model-value="kindFilter"
+      :items="kindFilterItems"
+      variant="segmented"
+      :aria-label="kindFilterAriaLabel"
+      @update:model-value="setKindFilter"
+    />
 
-    <!-- Controls cluster — pushed right via margin-left: auto. -->
+    <!-- View controls cluster — pushed right via margin-left: auto. -->
     <div class="gallery-toolbar__controls">
-      <RSliderBtnGroup
-        v-if="showKindFilter && kindFilterItems.length > 0"
-        :model-value="kindFilter"
-        :items="kindFilterItems"
-        variant="segmented"
-        :aria-label="kindFilterAriaLabel"
-        @update:model-value="setKindFilter"
-      />
-
       <RSliderBtnGroup
         v-if="showGroupBy"
         :model-value="groupByValue"

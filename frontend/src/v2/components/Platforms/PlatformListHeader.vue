@@ -5,15 +5,27 @@
 // platforms index is small enough that fixed alphabetical order is
 // fine. Kept as a separate component for visual parity with the ROM
 // gallery and so the grid template lives next to its consumers.
-import { PLATFORM_LIST_GRID_TEMPLATE } from "./platformListColumns";
-
-const gridStyle = { gridTemplateColumns: PLATFORM_LIST_GRID_TEMPLATE };
+//
+// The three metadata columns (Family / Category / Generation) drop out
+// on narrow viewports — see the @media query below — so the row stays
+// legible on mobile without horizontal scroll. The grid template flips
+// in the same breakpoint so the cells re-align with the row's compact
+// layout.
 </script>
 
 <template>
-  <div class="plat-list-header" :style="gridStyle" role="row">
+  <div class="plat-list-header" role="row">
     <div class="plat-list-header__cell">
       <span class="plat-list-header__label">Name</span>
+    </div>
+    <div class="plat-list-header__cell plat-list-header__cell--meta">
+      <span class="plat-list-header__label">Family</span>
+    </div>
+    <div class="plat-list-header__cell plat-list-header__cell--meta">
+      <span class="plat-list-header__label">Category</span>
+    </div>
+    <div class="plat-list-header__cell plat-list-header__cell--meta">
+      <span class="plat-list-header__label">Generation</span>
     </div>
     <div class="plat-list-header__cell plat-list-header__cell--end">
       <span class="plat-list-header__label">Games</span>
@@ -22,8 +34,13 @@ const gridStyle = { gridTemplateColumns: PLATFORM_LIST_GRID_TEMPLATE };
 </template>
 
 <style scoped>
+/* Grid template kept in lock-step with PLATFORM_LIST_GRID_TEMPLATE in
+   platformListColumns.ts (the constant is exported for the index
+   view's narrative; the header / row apply it via CSS so the
+   breakpoint switch works without an inline-style override fight). */
 .plat-list-header {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 96px;
   align-items: center;
   gap: 0 var(--r-space-3);
   padding: 0 var(--r-space-3);
@@ -52,5 +69,14 @@ const gridStyle = { gridTemplateColumns: PLATFORM_LIST_GRID_TEMPLATE };
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 768px) {
+  .plat-list-header {
+    grid-template-columns: minmax(0, 1fr) 96px;
+  }
+  .plat-list-header__cell--meta {
+    display: none;
+  }
 }
 </style>

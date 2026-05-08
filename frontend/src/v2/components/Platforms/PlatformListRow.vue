@@ -13,7 +13,10 @@ import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
-import { PLATFORM_LIST_GRID_TEMPLATE } from "./platformListColumns";
+import {
+  platformGenerationLabel,
+  prettifyPlatformCategory,
+} from "./platformListColumns";
 
 defineOptions({ inheritAttrs: false });
 
@@ -23,11 +26,19 @@ interface Props {
   fsSlug?: string;
   displayName: string;
   romCount?: number | null;
+  /** Optional metadata — same axes the toolbar can group by. Each
+   *  renders an em-dash when missing so columns line up regardless. */
+  familyName?: string | null;
+  category?: string | null;
+  generation?: number | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   fsSlug: undefined,
   romCount: null,
+  familyName: null,
+  category: null,
+  generation: null,
 });
 
 const router = useRouter();
@@ -44,7 +55,14 @@ const morphStyle = computed(() =>
     : undefined,
 );
 
-const gridStyle = { gridTemplateColumns: PLATFORM_LIST_GRID_TEMPLATE };
+const categoryLabel = computed(() =>
+  props.category ? prettifyPlatformCategory(props.category) : null,
+);
+const generationLabel = computed(() =>
+  typeof props.generation === "number" && props.generation > 0
+    ? platformGenerationLabel(props.generation)
+    : null,
+);
 
 function onRowClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
@@ -61,7 +79,6 @@ function onRowClick(e: MouseEvent) {
 <template>
   <a
     class="plat-list-row"
-    :style="gridStyle"
     :href="href"
     :aria-label="`Open ${displayName}`"
     @click="onRowClick"
@@ -81,6 +98,19 @@ function onRowClick(e: MouseEvent) {
       </div>
     </div>
 
+    <div class="plat-list-row__cell plat-list-row__cell--meta">
+      <span v-if="familyName">{{ familyName }}</span>
+      <span v-else class="plat-list-row__placeholder">—</span>
+    </div>
+    <div class="plat-list-row__cell plat-list-row__cell--meta">
+      <span v-if="categoryLabel">{{ categoryLabel }}</span>
+      <span v-else class="plat-list-row__placeholder">—</span>
+    </div>
+    <div class="plat-list-row__cell plat-list-row__cell--meta">
+      <span v-if="generationLabel">{{ generationLabel }}</span>
+      <span v-else class="plat-list-row__placeholder">—</span>
+    </div>
+
     <div class="plat-list-row__cell plat-list-row__cell--end">
       <span v-if="romCount != null">
         {{ romCount }}
@@ -94,8 +124,13 @@ function onRowClick(e: MouseEvent) {
 </template>
 
 <style scoped>
+/* Grid template kept in lock-step with PLATFORM_LIST_GRID_TEMPLATE in
+   platformListColumns.ts (the constant is exported for the index
+   view's narrative; the row applies it via CSS so the breakpoint
+   switch can override without an inline-style override fight). */
 .plat-list-row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 96px;
   align-items: center;
   gap: 0 var(--r-space-3);
   padding: 0 var(--r-space-3);
@@ -123,6 +158,15 @@ function onRowClick(e: MouseEvent) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.plat-list-row__cell--meta {
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-muted);
+}
+
+.plat-list-row__placeholder {
+  color: var(--r-color-fg-faint);
 }
 
 .plat-list-row__cell--end {
@@ -177,5 +221,14 @@ function onRowClick(e: MouseEvent) {
 
 .plat-list-row__count-unit {
   color: var(--r-color-fg-muted);
+}
+
+@media (max-width: 768px) {
+  .plat-list-row {
+    grid-template-columns: minmax(0, 1fr) 96px;
+  }
+  .plat-list-row__cell--meta {
+    display: none;
+  }
 }
 </style>

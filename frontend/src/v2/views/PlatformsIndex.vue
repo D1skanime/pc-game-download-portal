@@ -24,6 +24,10 @@ import GalleryToolbar, {
 import PlatformListHeader from "@/v2/components/Platforms/PlatformListHeader.vue";
 import PlatformListRow from "@/v2/components/Platforms/PlatformListRow.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
+import {
+  platformGenerationLabel,
+  prettifyPlatformCategory,
+} from "@/v2/components/Platforms/platformListColumns";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
@@ -161,20 +165,15 @@ const familyGroups = computed<Bucket[]>(() =>
 );
 
 // Category buckets. IGDB raw values come through as snake_case
-// ("portable_console", "operating_system") — `prettifyCategory`
-// produces a human label without altering the underlying key.
-function prettifyCategory(raw: string): string {
-  return raw
-    .split("_")
-    .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
-    .join(" ");
-}
+// ("portable_console", "operating_system") — `prettifyPlatformCategory`
+// (shared with PlatformListRow's metadata column) produces a human
+// label without altering the underlying key.
 const categoryGroups = computed<Bucket[]>(() =>
   bucketBy(
     filtered.value,
     (p) => {
       const c = p.category;
-      if (c) return { key: c, label: prettifyCategory(c) };
+      if (c) return { key: c, label: prettifyPlatformCategory(c) };
       return { key: "__other", label: "Other" };
     },
     (a, b) => {
@@ -186,15 +185,8 @@ const categoryGroups = computed<Bucket[]>(() =>
 );
 
 // Generation buckets. Sorted ascending; null lands in "Unknown" at
-// the end. Labels use English ordinals (1st / 2nd / 3rd / 4th… ).
-function ordinalSuffix(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${n}st`;
-  if (mod10 === 2 && mod100 !== 12) return `${n}nd`;
-  if (mod10 === 3 && mod100 !== 13) return `${n}rd`;
-  return `${n}th`;
-}
+// the end. Labels use English ordinals via the shared helper so the
+// list-mode metadata column and the group heading agree word-for-word.
 const generationGroups = computed<Bucket[]>(() =>
   bucketBy(
     filtered.value,
@@ -204,7 +196,7 @@ const generationGroups = computed<Bucket[]>(() =>
         // Pad the key so string sort puts "9" before "10".
         return {
           key: g.toString().padStart(4, "0"),
-          label: `${ordinalSuffix(g)} generation`,
+          label: platformGenerationLabel(g),
         };
       }
       return { key: "__unknown", label: "Unknown generation" };
@@ -277,7 +269,10 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       :message="`No platforms match “${searchTerm}”.`"
     />
 
-    <!-- List mode — rows underneath a sticky-style column header. -->
+    <!-- List mode — rows underneath a sticky-style column header.
+         Rows surface the same family / category / generation axes
+         the toolbar can group by, so the user reading the flat list
+         still sees what would have separated them. -->
     <div v-else-if="layout === 'list'" class="r-v2-pidx__list">
       <PlatformListHeader />
       <PlatformListRow
@@ -288,6 +283,9 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :fs-slug="p.fs_slug"
         :display-name="p.display_name"
         :rom-count="p.rom_count"
+        :family-name="p.family_name ?? null"
+        :category="p.category ?? null"
+        :generation="p.generation ?? null"
       />
     </div>
 
