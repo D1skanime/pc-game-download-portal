@@ -4,6 +4,7 @@ import glob
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Final, NotRequired, TypedDict
 
 import pydash
@@ -189,16 +190,14 @@ class ConfigManager:
             self._validate_config()
 
     def _create_missing_config_file(self) -> None:
-        log.warning(f"Config file not found, creating an empty config at {hl(self.config_file, BLUE)}")
+        log.warning(
+            f"Config file not found, creating an empty config at {hl(self.config_file, BLUE)}"
+        )
 
         try:
             os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
-            with open(self.config_file, "x"):
-                pass
+            Path(self.config_file).touch(exist_ok=True)
 
-            self._config_file_mounted = True
-            self._config_file_writable = os.access(self.config_file, os.W_OK)
-        except FileExistsError:
             self._config_file_mounted = True
             self._config_file_writable = os.access(self.config_file, os.W_OK)
         except PermissionError:

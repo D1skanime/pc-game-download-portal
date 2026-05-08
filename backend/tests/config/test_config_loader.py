@@ -120,6 +120,7 @@ def test_missing_config_file_is_created(tmp_path):
 
     loader = ConfigManager(str(config_file))
 
+    assert config_file.parent.exists()
     assert config_file.exists()
     assert config_file.read_text() == ""
     assert loader.config.CONFIG_FILE_MOUNTED
