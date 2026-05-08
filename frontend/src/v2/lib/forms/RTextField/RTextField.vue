@@ -25,6 +25,10 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue?: string | number | null;
   label?: string;
+  /** Placeholder text — auto-suppressed when `inlineLabel` is on so the
+   *  left "well" doesn't visually duplicate. Pass it freely on the
+   *  default (floating-label) variant. */
+  placeholder?: string;
   type?: string;
   variant?:
     | "filled"
@@ -59,6 +63,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   modelValue: undefined,
   label: undefined,
+  placeholder: undefined,
   type: "text",
   variant: "outlined",
   density: "comfortable",
@@ -101,7 +106,7 @@ const labelWidthCss = computed(() =>
     :style="inlineLabel ? { '--rtf-label-w': labelWidthCss } : undefined"
     :model-value="modelValue"
     :label="inlineLabel ? undefined : label"
-    :placeholder="($attrs.placeholder as string | undefined) ?? undefined"
+    :placeholder="inlineLabel ? undefined : placeholder"
     :type="type"
     :variant="variant"
     :density="density"
@@ -131,10 +136,12 @@ const labelWidthCss = computed(() =>
     <!-- Pass through every consumer slot. We filter at the iterator
          level (not inside the slot body) so VTextField doesn't see a
          second `prepend-inner` registration when we own it via the
-         v-if above. -->
+         v-if above; we also strip `#label` in inline-label mode so it
+         doesn't double-paint as Vuetify's floating label. -->
     <template
       v-for="slotName in Object.keys($slots).filter(
-        (s) => !(inlineLabel && s === 'prepend-inner'),
+        (s) =>
+          !(inlineLabel && (s === 'prepend-inner' || s === 'label')),
       )"
       #[slotName]="slotProps"
       :key="slotName"

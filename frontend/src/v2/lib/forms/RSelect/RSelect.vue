@@ -113,7 +113,7 @@ const mergedMenuProps = computed(() => {
     :hide-details="hideDetails"
     :prepend-inner-icon="inlineLabel ? undefined : prependInnerIcon"
     :append-inner-icon="appendInnerIcon"
-    :placeholder="placeholder"
+    :placeholder="inlineLabel ? undefined : placeholder"
     :chips="chips"
     :closable-chips="closableChips"
     menu-icon="mdi-chevron-down"
@@ -130,10 +130,12 @@ const mergedMenuProps = computed(() => {
     <!-- Pass through every consumer slot. We filter at the iterator
          level (not inside the slot body) so VSelect doesn't see a
          second `prepend-inner` registration when we own it via the
-         v-if above. -->
+         v-if above; we also strip `#label` in inline-label mode so it
+         doesn't double-paint as Vuetify's floating label. -->
     <template
       v-for="slotName in Object.keys($slots).filter(
-        (s) => !(inlineLabel && s === 'prepend-inner'),
+        (s) =>
+          !(inlineLabel && (s === 'prepend-inner' || s === 'label')),
       )"
       #[slotName]="slotProps"
       :key="slotName"

@@ -43,24 +43,37 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   /** Absolute position in the active gallery (0-indexed). Drives the
    * row's per-row fetch + serves as the lookup key into the store's
-   * `byPosition` map. */
-  position: number;
+   * `byPosition` map. Pass either this or `rom`, not both. */
+  position?: number;
+  /** Static ROM data — used by non-gallery surfaces (Settings → Missing
+   * games) that already own the rom list. When provided, the row skips
+   * the galleryRoms position lookup and the per-row lazy fetch. */
+  rom?: SimpleRom | null;
   /** Cover variant — when the browser supports webp the thumb URL is
    * rewritten to .webp before the request. Wired from the shell so the
    * choice is decided once per gallery render, not per row. */
   webp?: boolean;
 }
 
-const props = withDefaults(defineProps<Props>(), { webp: false });
+const props = withDefaults(defineProps<Props>(), {
+  position: undefined,
+  rom: undefined,
+  webp: false,
+});
 
 const router = useRouter();
 const galleryRoms = storeGalleryRoms();
 const { morphTransition } = useViewTransition();
 const { locale } = useI18n();
 
-const rom = computed<SimpleRom | null>(() =>
-  galleryRoms.getRomAt(props.position),
-);
+const isStatic = computed(() => props.rom !== undefined);
+
+const rom = computed<SimpleRom | null>(() => {
+  if (isStatic.value) return props.rom ?? null;
+  return props.position !== undefined
+    ? galleryRoms.getRomAt(props.position)
+    : null;
+});
 
 const gridStyle = { gridTemplateColumns: LIST_GRID_TEMPLATE };
 
@@ -138,12 +151,16 @@ function onRowClick(e: MouseEvent) {
 }
 
 onMounted(() => {
+  // Static mode (rom passed as prop) skips the gallery's per-row fetch
+  // entirely — the consumer already owns the rom data.
+  if (isStatic.value || props.position === undefined) return;
   // Entered the overscan window — kick the per-row fetch. Store dedupes
   // against in-flight + already-loaded.
   void galleryRoms.fetchRomAt(props.position);
 });
 
 onBeforeUnmount(() => {
+  if (isStatic.value || props.position === undefined) return;
   // Left the overscan window before the fetch resolved — abort so the
   // server doesn't keep building a row the user already scrolled past.
   // Idempotent if nothing was in flight.

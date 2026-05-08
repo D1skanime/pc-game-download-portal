@@ -1,107 +1,151 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import RTable from "./RTable.vue";
+import type { RTableColumn } from "./types";
 
-const meta: Meta<typeof RTable> = {
+// Cast through `Meta` because RTable is a generic component (`<T>`) —
+// Vue's compiled type narrows T to `unknown` here, which Storybook's
+// Meta<typeof RTable> can't reconcile with our concrete DemoRow stories.
+const meta: Meta = {
   title: "Data/RTable",
-  component: RTable,
+  // RTable is generic, so its component-typed shape doesn't fit
+  // Storybook's `component` slot. The cast is narrow + intentional.
+  component: RTable as never,
   argTypes: {
-    variant: {
+    loading: { control: "boolean" },
+    sortKey: { control: "text" },
+    sortDir: {
       control: "select",
-      options: ["server", "virtual", "client"],
+      options: ["asc", "desc"],
     },
-    density: {
-      control: "select",
-      options: ["default", "comfortable", "compact"],
-    },
-    rounded: { control: "boolean" },
+    clickableRows: { control: "boolean" },
   },
 };
 
 export default meta;
 
-type Story = StoryObj<typeof RTable>;
+type Story = StoryObj;
 
-const HEADERS = [
-  { title: "Title", key: "name", align: "start", sortable: true },
-  { title: "Size", key: "size", align: "start", sortable: true },
-  { title: "Added", key: "added", align: "start", sortable: true },
-  { title: "⭐", key: "rating", align: "start", sortable: true },
-] as const;
+interface DemoRow {
+  id: number;
+  name: string;
+  size: string;
+  added: string;
+  rating: number;
+}
 
-const ITEMS = [
+const COLUMNS: RTableColumn[] = [
+  {
+    key: "name",
+    label: "Title",
+    sortable: true,
+    width: "minmax(0, 1.6fr)",
+  },
+  {
+    key: "size",
+    label: "Size",
+    sortable: true,
+    width: "120px",
+    skeletonWidth: 60,
+  },
+  {
+    key: "added",
+    label: "Added",
+    sortable: true,
+    width: "140px",
+    skeletonWidth: 80,
+  },
+  {
+    key: "rating",
+    label: "Rating",
+    sortable: true,
+    width: "80px",
+    skeletonWidth: 30,
+  },
+];
+
+const ITEMS: DemoRow[] = [
   {
     id: 1,
-    name: "Super Mario World",
-    size: "512 KB",
-    added: "2024-03-14",
+    name: "Super Mario Bros.",
+    size: "32 KB",
+    added: "2024-01-12",
     rating: 9.4,
   },
   {
     id: 2,
-    name: "Chrono Trigger",
-    size: "4.0 MB",
-    added: "2024-01-02",
-    rating: 9.8,
+    name: "Mega Man X",
+    size: "1.2 MB",
+    added: "2024-02-04",
+    rating: 9.1,
   },
   {
     id: 3,
-    name: "Earthbound",
-    size: "3.0 MB",
-    added: "2024-05-21",
-    rating: 9.3,
+    name: "Chrono Trigger",
+    size: "4.0 MB",
+    added: "2024-02-21",
+    rating: 9.8,
   },
   {
     id: 4,
-    name: "Secret of Mana",
-    size: "2.0 MB",
-    added: "2024-07-09",
-    rating: 9.0,
-  },
-  {
-    id: 5,
-    name: "Final Fantasy VI",
-    size: "3.0 MB",
-    added: "2024-02-18",
-    rating: 9.6,
+    name: "Streets of Rage 2",
+    size: "1.5 MB",
+    added: "2024-03-09",
+    rating: 8.7,
   },
 ];
 
-export const ClientSide: Story = {
-  args: { variant: "client", density: "compact", rounded: true },
+export const Default: Story = {
+  args: {
+    columns: COLUMNS,
+    items: ITEMS,
+    itemKey: "id",
+    sortKey: "name",
+    sortDir: "asc",
+    clickableRows: true,
+  },
   render: (args) => ({
     components: { RTable },
-    setup: () => ({ args, HEADERS, ITEMS }),
+    setup: () => ({ args }),
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
-        <RTable
-          v-bind="args"
-          :headers="HEADERS"
-          :items="ITEMS"
-          item-value="id"
-          hover
-          hide-default-footer
-        />
+        <RTable v-bind="args" />
       </div>
     `,
   }),
 };
 
-export const WithSelection: Story = {
-  args: { variant: "client", density: "compact", rounded: true },
+export const Loading: Story = {
+  args: {
+    columns: COLUMNS,
+    items: [] as DemoRow[],
+    itemKey: "id",
+    loading: true,
+  },
   render: (args) => ({
     components: { RTable },
-    setup: () => ({ args, HEADERS, ITEMS }),
+    setup: () => ({ args }),
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
-        <RTable
-          v-bind="args"
-          :headers="HEADERS"
-          :items="ITEMS"
-          item-value="id"
-          show-select
-          hover
-          hide-default-footer
-        />
+        <RTable v-bind="args" />
+      </div>
+    `,
+  }),
+};
+
+export const Empty: Story = {
+  args: {
+    columns: COLUMNS,
+    items: [] as DemoRow[],
+    itemKey: "id",
+    emptyIcon: "mdi-folder-search-outline",
+    emptyMessage: "No rows to show",
+  },
+  render: (args) => ({
+    components: { RTable },
+    setup: () => ({ args }),
+    template: `
+      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+        <RTable v-bind="args" />
       </div>
     `,
   }),

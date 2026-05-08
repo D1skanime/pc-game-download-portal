@@ -1,11 +1,10 @@
 <script setup lang="ts">
-// LibraryManagement — v2-native rewrite. Page title + mock-style
-// underline tabs (`.settings-tabs`) + the three section composites
-// (FolderMappings / Excluded / MissingGames). The `?tab=` query param
-// is preserved so deep links keep working.
-import { RAlert } from "@v2/lib";
+// LibraryManagement — v2-native rewrite. Uses the shared `RTabNav`
+// primitive for the underline tabs (same component Game Details uses)
+// and keeps the `?tab=` query param so deep links still work.
+import { RAlert, RTabNav, type RTabNavItem } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import storeConfig from "@/stores/config";
@@ -50,16 +49,31 @@ watch(
   { immediate: true },
 );
 
-interface TabDef {
-  id: Tab;
-  label: string;
-}
+const tabs = computed<RTabNavItem[]>(() => [
+  {
+    id: "mapping",
+    label: t("settings.folder-mappings"),
+    icon: "mdi-folder-multiple-outline",
+  },
+  {
+    id: "excluded",
+    label: t("settings.excluded"),
+    icon: "mdi-eye-off-outline",
+  },
+  {
+    id: "missing",
+    label: t("settings.missing-games-tab"),
+    icon: "mdi-folder-question-outline",
+  },
+]);
 
-const tabs: TabDef[] = [
-  { id: "mapping", label: t("settings.folder-mappings") },
-  { id: "excluded", label: t("settings.excluded") },
-  { id: "missing", label: t("settings.missing-games-tab") },
-];
+// Bridge between RTabNav's string modelValue and our Tab union.
+const tabModel = computed<string>({
+  get: () => tab.value,
+  set: (v) => {
+    if ((validTabs as string[]).includes(v)) tab.value = v as Tab;
+  },
+});
 </script>
 
 <template>
@@ -77,23 +91,7 @@ const tabs: TabDef[] = [
       {{ t("settings.config-file-not-writable-desc") }}
     </RAlert>
 
-    <!-- Mock-faithful underline tabs. -->
-    <nav class="r-v2-settings-tabs" role="tablist" aria-label="Library tabs">
-      <button
-        v-for="entry in tabs"
-        :key="entry.id"
-        type="button"
-        role="tab"
-        :aria-selected="tab === entry.id"
-        :class="[
-          'r-v2-settings-tabs__btn',
-          { 'r-v2-settings-tabs__btn--active': tab === entry.id },
-        ]"
-        @click="tab = entry.id"
-      >
-        {{ entry.label }}
-      </button>
-    </nav>
+    <RTabNav v-model="tabModel" :items="tabs" class="r-v2-lib__tabs" />
 
     <FolderMappingsSection v-if="tab === 'mapping'" />
     <ExcludedSection v-else-if="tab === 'excluded'" />
@@ -102,32 +100,7 @@ const tabs: TabDef[] = [
 </template>
 
 <style scoped>
-/* Mock-faithful underline tabs — bottom border on active, with the
-   tab btn's bottom edge sitting on the strip's hairline. */
-.r-v2-settings-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--r-color-border);
+.r-v2-lib__tabs {
   margin-bottom: 20px;
-}
-.r-v2-settings-tabs__btn {
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-muted);
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition:
-    color var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-settings-tabs__btn:hover {
-  color: var(--r-color-fg-secondary);
-}
-.r-v2-settings-tabs__btn--active {
-  color: var(--r-color-fg);
-  border-bottom-color: var(--r-color-fg);
 }
 </style>

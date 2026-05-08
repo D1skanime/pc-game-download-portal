@@ -8,13 +8,21 @@
 // uppercase column heads, hairline-divided rows). The "Add" flow opens
 // a local RDialog that walks the user through type selection + value
 // entry.
-import { RBtn, REmptyState, RIcon, RTextField } from "@v2/lib";
+import {
+  RBtn,
+  REmptyState,
+  RIcon,
+  RTable,
+  RTextField,
+  type RTableColumn,
+  type RTableSortPayload,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import configApi from "@/services/api/config";
-import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
+import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
@@ -23,14 +31,19 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
-const authStore = storeAuth();
 const snackbar = useSnackbar();
+
+const canEditPlatforms = useCan("platform.edit");
 
 const search = ref("");
 const dialogOpen = ref(false);
 const newType = ref<string | null>(null);
 const newValue = ref("");
 const submitting = ref(false);
+
+type SortKey = "value" | "title";
+const sortKey = ref<SortKey>("value");
+const sortDir = ref<"asc" | "desc">("asc");
 
 type ExclusionDef = {
   key:
@@ -125,16 +138,31 @@ const exclusions = computed<Row[]>(() => {
       }
     }
   }
-  rows.sort(
-    (a, b) => a.title.localeCompare(b.title) || a.value.localeCompare(b.value),
-  );
   return rows;
+});
+
+const sortedExclusions = computed(() => {
+  const list = [...exclusions.value];
+  const dir = sortDir.value === "asc" ? 1 : -1;
+  list.sort((a, b) => {
+    if (sortKey.value === "title") {
+      return (
+        a.title.localeCompare(b.title) * dir ||
+        a.value.localeCompare(b.value)
+      );
+    }
+    // value
+    return (
+      a.value.localeCompare(b.value) * dir || a.title.localeCompare(b.title)
+    );
+  });
+  return list;
 });
 
 const filteredExclusions = computed(() => {
   const q = search.value.trim().toLowerCase();
-  if (!q) return exclusions.value;
-  return exclusions.value.filter(
+  if (!q) return sortedExclusions.value;
+  return sortedExclusions.value.filter(
     (r) =>
       r.value.toLowerCase().includes(q) || r.title.toLowerCase().includes(q),
   );
@@ -159,9 +187,7 @@ const defaultExclusions = computed(() => {
 });
 
 const canEdit = computed(
-  () =>
-    authStore.scopes.includes("platforms.write") &&
-    config.value.CONFIG_FILE_WRITABLE,
+  () => canEditPlatforms.value && config.value.CONFIG_FILE_WRITABLE,
 );
 
 function openCreate() {
@@ -213,21 +239,54 @@ async function removeRow(row: Row) {
     snackbar.error(`Could not remove exclusion: ${(err as Error).message}`);
   }
 }
+
+const columns = computed<RTableColumn[]>(() => [
+  {
+    key: "value",
+    label: t("common.name"),
+    sortable: true,
+    width: "minmax(0, 1.6fr)",
+    skeletonWidth: 160,
+  },
+  {
+    key: "title",
+    label: t("common.type"),
+    sortable: true,
+    width: "minmax(0, 1fr)",
+    skeletonWidth: 140,
+  },
+  {
+    key: "actions",
+    label: "",
+    width: "56px",
+    align: "end",
+    skeletonWidth: 0,
+  },
+]);
+
+function onSort({ key, dir }: RTableSortPayload) {
+  if (key !== "value" && key !== "title") return;
+  sortKey.value = key;
+  sortDir.value = dir;
+}
 </script>
 
 <template>
   <div class="r-v2-excluded">
     <!-- Toolbar: search + add -->
     <div class="r-v2-excluded__toolbar">
-      <div class="r-v2-search">
-        <RIcon icon="mdi-magnify" size="15" />
-        <input
-          v-model="search"
-          type="text"
-          :placeholder="t('common.search')"
-          aria-label="Search exclusions"
-        />
-      </div>
+      <RTextField
+        v-model="search"
+        inline-label
+        hide-details
+        aria-label="Search exclusions"
+        class="r-v2-excluded__search"
+      >
+        <template #label>
+          <RIcon icon="mdi-magnify" size="14" />
+          {{ t("common.search") }}
+        </template>
+      </RTextField>
       <RBtn
         v-if="canEdit"
         variant="flat"
@@ -255,43 +314,41 @@ async function removeRow(row: Row) {
         {{ t("common.add") }}
       </RBtn>
     </div>
-    <div v-else class="r-v2-table-wrap">
-      <table class="r-v2-table">
-        <thead>
-          <tr>
-            <th>{{ t("common.name") }}</th>
-            <th>{{ t("common.type") }}</th>
-            <th class="r-v2-table__col-actions" />
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in filteredExclusions"
-            :key="`${row.type}:${row.value}`"
-          >
-            <td class="r-v2-excluded__value">{{ row.value }}</td>
-            <td>
-              <span class="r-v2-excluded__type">
-                <RIcon :icon="row.icon" size="14" />
-                {{ row.title }}
-              </span>
-            </td>
-            <td class="r-v2-table__col-actions">
-              <button
-                v-if="canEdit"
-                type="button"
-                class="r-v2-icon-btn r-v2-icon-btn--danger"
-                :aria-label="t('common.delete')"
-                :title="t('common.delete')"
-                @click="removeRow(row)"
-              >
-                <RIcon icon="mdi-trash-can-outline" size="14" />
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <RTable
+      v-else
+      :columns="columns"
+      :items="filteredExclusions"
+      :item-key="(r) => `${(r as Row).type}:${(r as Row).value}`"
+      :sort-key="sortKey"
+      :sort-dir="sortDir"
+      empty-icon="mdi-folder-search-outline"
+      :empty-message="t('common.no-results')"
+      @update:sort="onSort"
+    >
+      <template #cell.value="{ row }">
+        <span class="r-v2-excluded__value">{{ (row as Row).value }}</span>
+      </template>
+      <template #cell.title="{ row }">
+        <span class="r-v2-excluded__type">
+          <RIcon :icon="(row as Row).icon" size="14" />
+          {{ (row as Row).title }}
+        </span>
+      </template>
+      <template #cell.actions="{ row }">
+        <RBtn
+          v-if="canEdit"
+          variant="text"
+          size="small"
+          icon
+          :aria-label="t('common.delete')"
+          :title="t('common.delete')"
+          class="r-v2-excluded__delete-btn"
+          @click="removeRow(row as Row)"
+        >
+          <RIcon icon="mdi-trash-can-outline" size="16" />
+        </RBtn>
+      </template>
+    </RTable>
 
     <!-- Defaults (read-only) -->
     <div v-if="defaultExclusions.length > 0" class="r-v2-excluded__defaults">
@@ -352,7 +409,6 @@ async function removeRow(row: Row) {
           <RTextField
             v-model="newValue"
             inline-label
-            :placeholder="t('settings.exclusion-placeholder')"
             :disabled="!newType"
             hide-details
             @keyup.enter="submitExclusion"
@@ -392,96 +448,23 @@ async function removeRow(row: Row) {
 .r-v2-excluded {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .r-v2-excluded__toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
-.r-v2-excluded__toolbar > .r-v2-search {
+.r-v2-excluded__search {
   flex: 1;
-}
-
-/* Mock-faithful search input. */
-.r-v2-search {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  border-radius: 8px;
-  color: var(--r-color-fg-muted);
-  transition:
-    border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    background var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-search:focus-within {
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 50%,
-    transparent
-  );
-  background: var(--r-color-surface-hover);
-}
-.r-v2-search input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  font: inherit;
-  color: var(--r-color-fg);
-  font-size: 13px;
-}
-.r-v2-search input::placeholder {
-  color: var(--r-color-fg-faint);
-}
-
-/* Table chrome — mock-faithful (border-radius 10px outer, hairline rows). */
-.r-v2-table-wrap {
-  border: 1px solid var(--r-color-border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--r-color-bg-elevated);
-}
-.r-v2-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.r-v2-table th {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
-  text-align: left;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--r-color-border);
-  background: var(--r-color-surface);
-}
-.r-v2-table td {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--r-color-border);
-  font-size: 13px;
-  color: var(--r-color-fg);
-  vertical-align: middle;
-}
-.r-v2-table tr:last-child td {
-  border-bottom: none;
-}
-.r-v2-table tr:hover td {
-  background: var(--r-color-surface);
-}
-.r-v2-table__col-actions {
-  width: 1%;
-  text-align: right;
-  white-space: nowrap;
 }
 
 .r-v2-excluded__value {
   font-weight: var(--r-font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .r-v2-excluded__type {
   display: inline-flex;
@@ -490,31 +473,10 @@ async function removeRow(row: Row) {
   color: var(--r-color-fg-muted);
 }
 
-/* Generic settings icon-button — also reused by FolderMappings. */
-.r-v2-icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--r-color-fg-muted);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-icon-btn:hover {
-  background: var(--r-color-surface);
-  color: var(--r-color-fg);
-}
-.r-v2-icon-btn--danger {
+.r-v2-excluded__delete-btn {
   color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
 }
-.r-v2-icon-btn--danger:hover {
-  background: color-mix(in srgb, var(--r-color-danger) 12%, transparent);
+.r-v2-excluded__delete-btn:hover {
   color: var(--r-color-danger);
 }
 

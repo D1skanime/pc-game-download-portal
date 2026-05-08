@@ -5,36 +5,55 @@
 // RomM platform (alias) or to a parent platform's metadata (variant).
 // Auto-detected mappings are read-only.
 //
-// Visual mirrors the mock's settings table pattern: subtle borders,
-// uppercase column heads, hairline-divided rows, hover tint. Editable
-// platform / type cells open RMenu pickers.
-import { RBtn, RIcon, RMenu, RMenuItem, RMenuPanel, RTooltip } from "@v2/lib";
+// Renders through the shared `RTable` primitive — sortable headers,
+// hairline rows, hover tint, skeleton loading state — same chrome as
+// every other table surface in the app (gallery list, missing games,
+// excluded). Editable Platform / Type cells open `RMenu` pickers via
+// `RBtn` activators.
+import {
+  RBtn,
+  RIcon,
+  RMenu,
+  RMenuItem,
+  RMenuPanel,
+  RTable,
+  RTag,
+  RTextField,
+  RTooltip,
+  type RTableColumn,
+  type RTableSortPayload,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import configApi from "@/services/api/config";
 import platformApi from "@/services/api/platform";
-import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
+import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const authStore = storeAuth();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const heartbeat = storeHeartbeat();
 const snackbar = useSnackbar();
+
+const canEditPlatforms = useCan("platform.edit");
 
 const supportedPlatforms = ref<Platform[]>([]);
 const search = ref("");
 const loading = ref(false);
 
 type RowType = "alias" | "variant" | "auto" | null;
+type SortKey = "fsSlug" | "displayName" | "type";
+
+const sortKey = ref<SortKey>("fsSlug");
+const sortDir = ref<"asc" | "desc">("asc");
 
 interface Row {
   fsSlug: string;
@@ -42,6 +61,13 @@ interface Row {
   displayName?: string;
   type: RowType;
 }
+
+const TYPE_ORDER: Record<NonNullable<RowType> | "none", number> = {
+  alias: 0,
+  variant: 1,
+  auto: 2,
+  none: 3,
+};
 
 const mappings = computed<Row[]>(() => {
   const rows: Row[] = [];
@@ -94,13 +120,37 @@ const mappings = computed<Row[]>(() => {
     }
   }
 
-  return rows.sort((a, b) => a.fsSlug.localeCompare(b.fsSlug));
+  return rows;
+});
+
+const sortedMappings = computed(() => {
+  const list = [...mappings.value];
+  const dir = sortDir.value === "asc" ? 1 : -1;
+  list.sort((a, b) => {
+    if (sortKey.value === "fsSlug") {
+      return a.fsSlug.localeCompare(b.fsSlug) * dir;
+    }
+    if (sortKey.value === "displayName") {
+      // Unmapped rows (no displayName) are pushed to the bottom regardless
+      // of direction so the visible content stays predictable.
+      const aHas = !!a.displayName;
+      const bHas = !!b.displayName;
+      if (aHas !== bHas) return aHas ? -1 : 1;
+      return (a.displayName ?? "").localeCompare(b.displayName ?? "") * dir;
+    }
+    // type
+    const aOrder = TYPE_ORDER[a.type ?? "none"];
+    const bOrder = TYPE_ORDER[b.type ?? "none"];
+    if (aOrder === bOrder) return a.fsSlug.localeCompare(b.fsSlug);
+    return (aOrder - bOrder) * dir;
+  });
+  return list;
 });
 
 const filteredMappings = computed(() => {
   const q = search.value.trim().toLowerCase();
-  if (!q) return mappings.value;
-  return mappings.value.filter(
+  if (!q) return sortedMappings.value;
+  return sortedMappings.value.filter(
     (r) =>
       r.fsSlug.toLowerCase().includes(q) ||
       (r.displayName ?? "").toLowerCase().includes(q),
@@ -108,10 +158,71 @@ const filteredMappings = computed(() => {
 });
 
 const canEdit = computed(
-  () =>
-    authStore.scopes.includes("platforms.write") &&
-    config.value.CONFIG_FILE_WRITABLE,
+  () => canEditPlatforms.value && config.value.CONFIG_FILE_WRITABLE,
 );
+
+const columns = computed<RTableColumn[]>(() => [
+  {
+    key: "fsSlug",
+    label: t("settings.folder-name-header"),
+    sortable: true,
+    width: "minmax(0, 1.4fr)",
+    skeletonWidth: 140,
+  },
+  {
+    key: "platform",
+    label: t("settings.romm-platform-header"),
+    sortable: true,
+    width: "minmax(0, 1.6fr)",
+    skeletonWidth: 160,
+  },
+  {
+    key: "type",
+    label: t("settings.type-header"),
+    sortable: true,
+    width: "160px",
+    skeletonWidth: 70,
+  },
+  {
+    key: "actions",
+    label: "",
+    width: "56px",
+    align: "end",
+    skeletonWidth: 0,
+  },
+]);
+
+function onSort({ key, dir }: RTableSortPayload) {
+  // The "platform" column header drives sorting on `displayName`.
+  if (key === "platform") {
+    sortKey.value = "displayName";
+  } else if (key === "fsSlug" || key === "type") {
+    sortKey.value = key;
+  } else {
+    return;
+  }
+  sortDir.value = dir;
+}
+
+// RTable expects a single string sortKey — translate our internal
+// `displayName` back to the column key it shows the chevron next to.
+const tableSortKey = computed(() =>
+  sortKey.value === "displayName" ? "platform" : sortKey.value,
+);
+
+type RTagTone = "neutral" | "brand" | "success" | "danger" | "warning" | "info";
+
+function typeToTone(type: Exclude<RowType, null>): RTagTone {
+  if (type === "alias") return "brand";
+  if (type === "variant") return "info";
+  return "success"; // auto
+}
+
+function typeToLabel(type: Exclude<RowType, null>): string {
+  if (type === "alias") return t("settings.folder-alias");
+  if (type === "variant") return t("settings.platform-variant");
+  return t("settings.auto-detected");
+}
 
 async function setPlatform(row: Row, slug: string | undefined) {
   loading.value = true;
@@ -200,7 +311,10 @@ async function setType(row: Row, newType: "alias" | "variant") {
   }
 }
 
+const initialLoading = ref(false);
+
 onMounted(async () => {
+  initialLoading.value = true;
   loading.value = true;
   try {
     const { data } = await platformApi.getSupportedPlatforms();
@@ -215,6 +329,7 @@ onMounted(async () => {
     snackbar.error(t("settings.unable-to-get-supported-platforms", { detail }));
   } finally {
     loading.value = false;
+    initialLoading.value = false;
   }
 });
 </script>
@@ -222,15 +337,18 @@ onMounted(async () => {
 <template>
   <div class="r-v2-mappings">
     <div class="r-v2-mappings__toolbar">
-      <div class="r-v2-search">
-        <RIcon icon="mdi-magnify" size="15" />
-        <input
-          v-model="search"
-          type="text"
-          :placeholder="t('common.search')"
-          aria-label="Search folder mappings"
-        />
-      </div>
+      <RTextField
+        v-model="search"
+        inline-label
+        hide-details
+        aria-label="Search folder mappings"
+        class="r-v2-mappings__search"
+      >
+        <template #label>
+          <RIcon icon="mdi-magnify" size="14" />
+          {{ t("common.search") }}
+        </template>
+      </RTextField>
       <RTooltip>
         <template #activator="{ props: tipProps }">
           <button
@@ -258,150 +376,137 @@ onMounted(async () => {
       </RTooltip>
     </div>
 
-    <div class="r-v2-table-wrap">
-      <table class="r-v2-table">
-        <thead>
-          <tr>
-            <th>{{ t("settings.folder-name-header") }}</th>
-            <th>{{ t("settings.romm-platform-header") }}</th>
-            <th>{{ t("settings.type-header") }}</th>
-            <th class="r-v2-table__col-actions" />
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in filteredMappings" :key="row.fsSlug">
-            <td class="r-v2-mappings__folder">{{ row.fsSlug }}</td>
-            <td>
-              <RMenu v-if="canEdit">
-                <template #activator="{ props: menuProps }">
-                  <button
-                    v-bind="menuProps"
-                    type="button"
-                    class="r-v2-mappings__platform"
-                  >
-                    <PlatformIcon
-                      v-if="row.slug"
-                      :slug="row.slug"
-                      :size="22"
-                      class="r-v2-mappings__platform-icon"
-                    />
-                    <span v-if="row.slug">{{ row.displayName }}</span>
-                    <span v-else class="r-v2-mappings__placeholder">—</span>
-                    <RIcon icon="mdi-chevron-down" size="14" />
-                  </button>
-                </template>
-                <RMenuPanel width="280px" max-height="320px">
-                  <RMenuItem
-                    v-for="platform in supportedPlatforms"
-                    :key="platform.slug"
-                    :label="platform.display_name"
-                    @click="setPlatform(row, platform.slug)"
-                  >
-                    <template #icon>
-                      <PlatformIcon :slug="platform.slug" :size="18" />
-                    </template>
-                  </RMenuItem>
-                  <RMenuItem
-                    v-if="row.slug && row.type !== 'auto'"
-                    icon="mdi-delete"
-                    variant="danger"
-                    :label="t('common.delete')"
-                    @click="setPlatform(row, undefined)"
-                  />
-                </RMenuPanel>
-              </RMenu>
-              <span v-else class="r-v2-mappings__platform">
-                <PlatformIcon
-                  v-if="row.slug"
-                  :slug="row.slug"
-                  :size="22"
-                  class="r-v2-mappings__platform-icon"
-                />
-                <span v-if="row.slug">{{ row.displayName }}</span>
-                <span v-else class="r-v2-mappings__placeholder">—</span>
-              </span>
-            </td>
-            <td>
-              <RMenu
-                v-if="canEdit && row.slug && row.type !== null"
-                location="bottom"
-              >
-                <template #activator="{ props: menuProps }">
-                  <button
-                    v-bind="menuProps"
-                    type="button"
-                    class="r-v2-mappings__type-pill"
-                    :class="`r-v2-mappings__type-pill--${row.type}`"
-                  >
-                    <span>
-                      {{
-                        row.type === "auto"
-                          ? t("settings.auto-detected")
-                          : row.type === "alias"
-                            ? t("settings.folder-alias")
-                            : t("settings.platform-variant")
-                      }}
-                    </span>
-                    <RIcon icon="mdi-chevron-down" size="12" />
-                  </button>
-                </template>
-                <RMenuPanel width="200px">
-                  <RMenuItem
-                    :label="t('settings.folder-alias')"
-                    icon="mdi-label-variant"
-                    @click="setType(row, 'alias')"
-                  />
-                  <RMenuItem
-                    :label="t('settings.platform-variant')"
-                    icon="mdi-source-branch"
-                    @click="setType(row, 'variant')"
-                  />
-                </RMenuPanel>
-              </RMenu>
-              <span
-                v-else-if="row.type"
-                class="r-v2-mappings__type-pill"
-                :class="`r-v2-mappings__type-pill--${row.type}`"
-              >
-                {{
-                  row.type === "auto"
-                    ? t("settings.auto-detected")
-                    : row.type === "alias"
-                      ? t("settings.folder-alias")
-                      : t("settings.platform-variant")
-                }}
-              </span>
-            </td>
-            <td class="r-v2-table__col-actions">
-              <button
-                v-if="canEdit && row.type !== 'auto' && row.slug"
-                type="button"
-                class="r-v2-icon-btn r-v2-icon-btn--danger"
-                :aria-label="t('common.delete')"
-                :title="t('common.delete')"
-                @click="setPlatform(row, undefined)"
-              >
-                <RIcon icon="mdi-trash-can-outline" size="14" />
-              </button>
-            </td>
-          </tr>
-          <tr v-if="filteredMappings.length === 0">
-            <td colspan="4" class="r-v2-mappings__empty">
-              <RIcon icon="mdi-folder-search-outline" size="20" />
-              <span>{{ t("common.search") }} — no folders found.</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <RBtn
-      v-if="loading"
-      variant="text"
-      :loading="loading"
-      class="r-v2-mappings__loading-row"
+    <RTable
+      :columns="columns"
+      :items="filteredMappings"
+      item-key="fsSlug"
+      :loading="initialLoading"
+      :sort-key="tableSortKey"
+      :sort-dir="sortDir"
+      empty-icon="mdi-folder-search-outline"
+      :empty-message="t('common.no-results')"
+      @update:sort="onSort"
     >
-      …
-    </RBtn>
+      <template #cell.fsSlug="{ row }">
+        <span class="r-v2-mappings__folder">{{ (row as Row).fsSlug }}</span>
+      </template>
+
+      <template #cell.platform="{ row }">
+        <RMenu v-if="canEdit">
+          <template #activator="{ props: menuProps }">
+            <RBtn
+              v-bind="menuProps"
+              variant="text"
+              size="small"
+              class="r-v2-mappings__platform"
+            >
+              <PlatformIcon
+                v-if="(row as Row).slug"
+                :slug="(row as Row).slug!"
+                :size="22"
+                class="r-v2-mappings__platform-icon"
+              />
+              <span v-if="(row as Row).slug">
+                {{ (row as Row).displayName }}
+              </span>
+              <span v-else class="r-v2-mappings__placeholder">—</span>
+              <RIcon icon="mdi-chevron-down" size="14" />
+            </RBtn>
+          </template>
+          <RMenuPanel width="280px" max-height="320px">
+            <RMenuItem
+              v-for="platform in supportedPlatforms"
+              :key="platform.slug"
+              :label="platform.display_name"
+              @click="setPlatform(row as Row, platform.slug)"
+            >
+              <template #icon>
+                <PlatformIcon :slug="platform.slug" :size="18" />
+              </template>
+            </RMenuItem>
+            <RMenuItem
+              v-if="(row as Row).slug && (row as Row).type !== 'auto'"
+              icon="mdi-delete"
+              variant="danger"
+              :label="t('common.delete')"
+              @click="setPlatform(row as Row, undefined)"
+            />
+          </RMenuPanel>
+        </RMenu>
+        <span v-else class="r-v2-mappings__platform">
+          <PlatformIcon
+            v-if="(row as Row).slug"
+            :slug="(row as Row).slug!"
+            :size="22"
+            class="r-v2-mappings__platform-icon"
+          />
+          <span v-if="(row as Row).slug">
+            {{ (row as Row).displayName }}
+          </span>
+          <span v-else class="r-v2-mappings__placeholder">—</span>
+        </span>
+      </template>
+
+      <template #cell.type="{ row }">
+        <RMenu
+          v-if="canEdit && (row as Row).slug && (row as Row).type !== null"
+          location="bottom"
+        >
+          <template #activator="{ props: menuProps }">
+            <RBtn
+              v-bind="menuProps"
+              variant="text"
+              size="x-small"
+              class="r-v2-mappings__type-trigger"
+            >
+              <RTag
+                :tone="typeToTone((row as Row).type!)"
+                :text="typeToLabel((row as Row).type!)"
+                size="x-small"
+              />
+              <RIcon
+                icon="mdi-chevron-down"
+                size="12"
+                class="r-v2-mappings__type-chev"
+              />
+            </RBtn>
+          </template>
+          <RMenuPanel width="200px">
+            <RMenuItem
+              :label="t('settings.folder-alias')"
+              icon="mdi-label-variant"
+              @click="setType(row as Row, 'alias')"
+            />
+            <RMenuItem
+              :label="t('settings.platform-variant')"
+              icon="mdi-source-branch"
+              @click="setType(row as Row, 'variant')"
+            />
+          </RMenuPanel>
+        </RMenu>
+        <RTag
+          v-else-if="(row as Row).type"
+          :tone="typeToTone((row as Row).type!)"
+          :text="typeToLabel((row as Row).type!)"
+          size="x-small"
+        />
+      </template>
+
+      <template #cell.actions="{ row }">
+        <RBtn
+          v-if="canEdit && (row as Row).type !== 'auto' && (row as Row).slug"
+          variant="text"
+          size="small"
+          icon
+          :aria-label="t('common.delete')"
+          :title="t('common.delete')"
+          class="r-v2-mappings__delete-btn"
+          @click="setPlatform(row as Row, undefined)"
+        >
+          <RIcon icon="mdi-trash-can-outline" size="16" />
+        </RBtn>
+      </template>
+    </RTable>
   </div>
 </template>
 
@@ -417,129 +522,46 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
 }
-.r-v2-mappings__toolbar > .r-v2-search {
+.r-v2-mappings__search {
   flex: 1;
-}
-
-.r-v2-search {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  border-radius: 8px;
-  color: var(--r-color-fg-muted);
-}
-.r-v2-search:focus-within {
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 50%,
-    transparent
-  );
-}
-.r-v2-search input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  font: inherit;
-  color: var(--r-color-fg);
-  font-size: 13px;
-}
-.r-v2-search input::placeholder {
-  color: var(--r-color-fg-faint);
-}
-
-.r-v2-table-wrap {
-  border: 1px solid var(--r-color-border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--r-color-bg-elevated);
-}
-.r-v2-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.r-v2-table th {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
-  text-align: left;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--r-color-border);
-  background: var(--r-color-surface);
-}
-.r-v2-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--r-color-border);
-  font-size: 13px;
-  color: var(--r-color-fg);
-  vertical-align: middle;
-}
-.r-v2-table tr:last-child td {
-  border-bottom: none;
-}
-.r-v2-table tr:hover td {
-  background: var(--r-color-surface);
-}
-.r-v2-table__col-actions {
-  width: 1%;
-  text-align: right;
-  white-space: nowrap;
 }
 
 .r-v2-icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--r-color-border);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: var(--r-color-surface);
   color: var(--r-color-fg-muted);
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-v2-icon-btn:hover {
-  background: var(--r-color-surface);
+  background: var(--r-color-surface-hover);
   color: var(--r-color-fg);
-}
-.r-v2-icon-btn--danger {
-  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
-}
-.r-v2-icon-btn--danger:hover {
-  background: color-mix(in srgb, var(--r-color-danger) 12%, transparent);
-  color: var(--r-color-danger);
 }
 
 .r-v2-mappings__folder {
   font-weight: var(--r-font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .r-v2-mappings__platform {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  background: transparent;
-  border: 1px solid transparent;
-  cursor: pointer;
-  color: var(--r-color-fg);
   font-size: 13px;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-mappings__platform:hover {
-  background: var(--r-color-surface);
-  border-color: var(--r-color-border);
+  color: var(--r-color-fg);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: var(--r-font-weight-regular);
 }
 .r-v2-mappings__platform-icon {
   flex-shrink: 0;
@@ -548,47 +570,22 @@ onMounted(async () => {
   color: var(--r-color-fg-faint);
 }
 
-.r-v2-mappings__type-pill {
+.r-v2-mappings__type-trigger {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  border: none;
-  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
 }
-button.r-v2-mappings__type-pill {
-  cursor: pointer;
-}
-.r-v2-mappings__type-pill--alias {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
-  color: var(--r-color-brand-primary);
-}
-.r-v2-mappings__type-pill--variant {
-  background: color-mix(in srgb, var(--r-color-info) 14%, transparent);
-  color: var(--r-color-info);
-}
-.r-v2-mappings__type-pill--auto {
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-success) 14%,
-    transparent
-  );
-  color: var(--r-color-success);
+.r-v2-mappings__type-chev {
+  flex-shrink: 0;
 }
 
-.r-v2-mappings__empty {
-  text-align: center;
-  color: var(--r-color-fg-muted);
-  padding: 24px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+.r-v2-mappings__delete-btn {
+  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
+}
+.r-v2-mappings__delete-btn:hover {
+  color: var(--r-color-danger);
 }
 
 .r-v2-mappings__tip {
@@ -601,9 +598,5 @@ button.r-v2-mappings__type-pill {
 .r-v2-mappings__tip-foot {
   margin: 0;
   color: var(--r-color-fg-muted);
-}
-
-.r-v2-mappings__loading-row {
-  align-self: flex-start;
 }
 </style>
