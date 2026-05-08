@@ -64,10 +64,6 @@ const tabs: TabDef[] = [
 
 <template>
   <SettingsShell bare>
-    <h1 class="r-v2-settings__page-title">
-      {{ t("common.library-management") }}
-    </h1>
-
     <RAlert v-if="!config.CONFIG_FILE_MOUNTED" type="error">
       <template #title>
         {{ t("settings.config-file-not-mounted-title") }}
@@ -106,14 +102,6 @@ const tabs: TabDef[] = [
 </template>
 
 <style scoped>
-.r-v2-settings__page-title {
-  margin: 0 0 20px;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--r-color-fg);
-}
-
 /* Mock-faithful underline tabs — bottom border on active, with the
    tab btn's bottom edge sitting on the strip's hairline. */
 .r-v2-settings-tabs {

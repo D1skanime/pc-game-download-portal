@@ -117,29 +117,41 @@ function close() {
         <div class="r-v2-user-dialog__form">
           <RTextField
             v-model="user.username"
-            variant="outlined"
-            :label="t('settings.username')"
+            inline-label
             :rules="usersStore.usernameRules"
             required
             clearable
-          />
+          >
+            <template #label>
+              <RIcon icon="mdi-account-outline" size="14" />
+              {{ t("settings.username") }}
+            </template>
+          </RTextField>
           <RTextField
             v-model="user.password"
-            variant="outlined"
-            :label="t('settings.password')"
+            inline-label
             :placeholder="t('settings.password-placeholder')"
             type="password"
             clearable
-          />
+          >
+            <template #label>
+              <RIcon icon="mdi-key-outline" size="14" />
+              {{ t("settings.password") }}
+            </template>
+          </RTextField>
           <RTextField
             v-model="user.email"
-            variant="outlined"
-            :label="t('settings.email')"
+            inline-label
             :rules="usersStore.emailRules"
             type="email"
             required
             clearable
-          />
+          >
+            <template #label>
+              <RIcon icon="mdi-email-outline" size="14" />
+              {{ t("settings.email") }}
+            </template>
+          </RTextField>
           <RSelect
             v-model="user.role"
             variant="outlined"

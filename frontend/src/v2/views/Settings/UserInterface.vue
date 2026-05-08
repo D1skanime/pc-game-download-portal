@@ -1,13 +1,18 @@
 <script setup lang="ts">
-// UserInterface — v2-native rewrite. Mirrors the mock's section layout:
-// each preference cluster lives in its own SettingsSection with a
-// toggle grid (2-column hairline-divided) and any related selects as
-// field rows at the bottom.
+// UserInterface — v2-native UI preferences view.
 //
-// The "UI version" section is v2-specific (not in the mock) but follows
-// the same chrome so it sits naturally with the rest. It stays at the
-// end so users always know where to flip back to v1 while v2 is beta.
-import { RIcon, RSelect } from "@v2/lib";
+// Sections:
+//   1. Language          (RSelect — inline-label)
+//   2. Theme             (3-button compact picker)
+//   3. Home              (toggle grid)
+//   4. Gallery           (toggle grid + boxart RSelect inline-label)
+//   5. Virtual collections (single toggle + RSelect inline-label)
+//   6. UI version        (v2-only, beta — kept last)
+//
+// The v1 "Platforms drawer" section was removed (no equivalent in v2).
+// `useUISettings` still exposes `platformsGroupBy` for v1 — we just
+// don't surface it here.
+import { RIcon, RSelect, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
@@ -30,8 +35,6 @@ const {
   showContinuePlaying,
   showPlatforms,
   showCollections,
-  // Platforms drawer
-  platformsGroupBy,
   // Gallery
   groupRoms,
   showSiblings,
@@ -85,26 +88,21 @@ const uiVersionCards = computed(() => [
       "settings.ui-version-classic-blurb",
       "The familiar RomM interface.",
     ),
+    beta: false,
   },
   {
     value: "v2" as const,
-    title: t("settings.ui-version-new", "New UI (beta)"),
+    title: t("settings.ui-version-new", "New UI"),
     icon: "mdi-star-four-points",
     blurb: t(
       "settings.ui-version-new-blurb",
       "The new design language — switch is instant.",
     ),
+    beta: true,
   },
 ]);
 
 // Selects --------------------------------------------------------------
-const platformsGroupByItems = [
-  { title: "Manufacturer", value: "family_name" },
-  { title: "Generation", value: "generation" },
-  { title: "Type", value: "category" },
-  { title: "None", value: null },
-];
-
 const boxartStyleItems = computed(() => [
   { title: t("settings.boxart-cover"), value: "cover_path" },
   { title: t("settings.boxart-box3d"), value: "box3d_path" },
@@ -130,13 +128,9 @@ function onVirtualCollectionTypeChange(value: unknown) {
 
 <template>
   <SettingsShell bare>
-    <h1 class="r-v2-settings__page-title">
-      {{ t("common.user-interface") }}
-    </h1>
-
     <SettingsSection :title="t('settings.language')" icon="mdi-translate">
       <div class="r-v2-ui__field">
-        <LanguageSelector />
+        <LanguageSelector inline-label />
       </div>
     </SettingsSection>
 
@@ -190,23 +184,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
       </div>
     </SettingsSection>
 
-    <!-- Platforms drawer: one select. -->
-    <SettingsSection
-      :title="t('settings.platforms-drawer')"
-      icon="mdi-controller"
-    >
-      <div class="r-v2-ui__field">
-        <RSelect
-          v-model="platformsGroupBy"
-          :items="platformsGroupByItems"
-          :label="t('settings.platforms-drawer-group-by')"
-          variant="outlined"
-          hide-details
-        />
-      </div>
-    </SettingsSection>
-
-    <!-- Gallery: 9 toggles + boxart-style select -->
+    <!-- Gallery: 10 toggles + boxart-style select -->
     <SettingsSection :title="t('settings.gallery')" icon="mdi-view-grid">
       <div class="r-v2-ui__toggle-grid">
         <SettingsToggleRow
@@ -265,10 +243,14 @@ function onVirtualCollectionTypeChange(value: unknown) {
         <RSelect
           v-model="boxartStyle"
           :items="boxartStyleItems"
-          :label="t('settings.boxart-style')"
-          variant="outlined"
+          inline-label
           hide-details
-        />
+        >
+          <template #label>
+            <RIcon icon="mdi-image-frame" size="14" />
+            {{ t("settings.boxart-style") }}
+          </template>
+        </RSelect>
       </div>
     </SettingsSection>
 
@@ -288,16 +270,20 @@ function onVirtualCollectionTypeChange(value: unknown) {
         <RSelect
           :model-value="virtualCollectionType"
           :items="virtualCollectionTypeItems"
-          :label="t('settings.virtual-collection-type')"
           :disabled="!showVirtualCollections"
-          variant="outlined"
+          inline-label
           hide-details
           @update:model-value="onVirtualCollectionTypeChange"
-        />
+        >
+          <template #label>
+            <RIcon icon="mdi-shape-outline" size="14" />
+            {{ t("settings.virtual-collection-type") }}
+          </template>
+        </RSelect>
       </div>
     </SettingsSection>
 
-    <!-- UI version (v2-only, not in mock) — kept last for parity. -->
+    <!-- UI version (v2-only, beta) — kept last for parity. -->
     <SettingsSection
       :title="t('settings.ui-version', 'UI version')"
       icon="mdi-new-box"
@@ -323,9 +309,21 @@ function onVirtualCollectionTypeChange(value: unknown) {
             :aria-pressed="uiVersion === card.value"
             @click="setVersion(card.value)"
           >
-            <RIcon :icon="card.icon" size="26" />
-            <span class="r-v2-ui__version-title">{{ card.title }}</span>
-            <span class="r-v2-ui__version-blurb">{{ card.blurb }}</span>
+            <span class="r-v2-ui__version-icon">
+              <RIcon :icon="card.icon" size="22" />
+            </span>
+            <span class="r-v2-ui__version-body">
+              <span class="r-v2-ui__version-titles">
+                <span class="r-v2-ui__version-title">{{ card.title }}</span>
+                <RTag
+                  v-if="card.beta"
+                  :label="t('common.beta', 'Beta')"
+                  tone="warning"
+                  size="x-small"
+                />
+              </span>
+              <span class="r-v2-ui__version-blurb">{{ card.blurb }}</span>
+            </span>
             <span v-if="uiVersion === card.value" class="r-v2-ui__version-dot">
               <RIcon icon="mdi-check" size="12" />
             </span>
@@ -337,14 +335,6 @@ function onVirtualCollectionTypeChange(value: unknown) {
 </template>
 
 <style scoped>
-.r-v2-settings__page-title {
-  margin: 0 0 20px;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--r-color-fg);
-}
-
 /* Generic field row inside a section body. */
 .r-v2-ui__field {
   padding: 16px;
@@ -429,20 +419,18 @@ function onVirtualCollectionTypeChange(value: unknown) {
 .r-v2-ui__version-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .r-v2-ui__version-card {
   position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 4px;
-  padding: 14px 16px;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--r-color-fg-secondary);
   cursor: pointer;
   text-align: left;
@@ -455,28 +443,54 @@ function onVirtualCollectionTypeChange(value: unknown) {
   border-color: var(--r-color-border-strong);
 }
 .r-v2-ui__version-card--active {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
   border-color: color-mix(
     in srgb,
-    var(--r-color-brand-primary) 45%,
+    var(--r-color-brand-primary) 50%,
     transparent
   );
   color: var(--r-color-fg);
 }
 
+.r-v2-ui__version-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
+  color: var(--r-color-brand-primary);
+}
+
+.r-v2-ui__version-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.r-v2-ui__version-titles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .r-v2-ui__version-title {
   font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
 }
 .r-v2-ui__version-blurb {
   font-size: 12px;
   color: var(--r-color-fg-muted);
+  line-height: 1.4;
 }
 
 .r-v2-ui__version-dot {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  right: 12px;
   width: 22px;
   height: 22px;
   border-radius: 50%;

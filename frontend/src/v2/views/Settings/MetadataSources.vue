@@ -164,10 +164,6 @@ onMounted(() => {
 
 <template>
   <SettingsShell bare>
-    <h1 class="r-v2-settings__page-title">
-      {{ t("scan.metadata-sources") }}
-    </h1>
-
     <div class="r-v2-meta__grid">
       <article
         v-for="source in sources"
@@ -229,14 +225,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.r-v2-settings__page-title {
-  margin: 0 0 20px;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--r-color-fg);
-}
-
 /* Mock-faithful 3-col provider grid; collapses gracefully on narrow
    viewports. */
 .r-v2-meta__grid {

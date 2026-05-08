@@ -331,33 +331,48 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         <div class="r-v2-edit__form-col">
           <RTextField
             v-model="rom.name"
+            inline-label
             hide-details
-            variant="outlined"
-            :label="t('common.name')"
             :rules="[(v: string) => !!v || t('common.required')]"
-          />
+          >
+            <template #label>
+              <RIcon icon="mdi-format-title" size="14" />
+              {{ t("common.name") }}
+            </template>
+          </RTextField>
           <RTextField
             v-model="rom.fs_name"
+            inline-label
             hide-details
-            variant="outlined"
-            :label="
-              rom.has_nested_single_file || rom.has_multiple_files
-                ? t('rom.folder-name')
-                : t('rom.filename')
-            "
             :rules="[(v: string) => !!v || t('common.required')]"
-          />
+          >
+            <template #label>
+              <RIcon
+                :icon="
+                  rom.has_nested_single_file || rom.has_multiple_files
+                    ? 'mdi-folder-outline'
+                    : 'mdi-file-outline'
+                "
+                size="14"
+              />
+              {{
+                rom.has_nested_single_file || rom.has_multiple_files
+                  ? t("rom.folder-name")
+                  : t("rom.filename")
+              }}
+            </template>
+          </RTextField>
           <p class="r-v2-edit__path">
             <RIcon icon="mdi-folder-file-outline" size="13" />
             /romm/library/{{ rom.fs_path }}/{{ rom.fs_name }}
           </p>
 
-          <RTextField
-            v-model="rom.summary"
-            hide-details
-            variant="outlined"
-            :label="t('rom.summary')"
-          />
+          <RTextField v-model="rom.summary" inline-label hide-details>
+            <template #label>
+              <RIcon icon="mdi-text" size="14" />
+              {{ t("rom.summary") }}
+            </template>
+          </RTextField>
 
           <!-- Manual -->
           <div class="r-v2-edit__row">

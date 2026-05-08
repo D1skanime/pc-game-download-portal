@@ -1,10 +1,23 @@
 <script setup lang="ts">
-// UserProfile — v2-native rewrite. Mirrors the mock layout:
+// UserProfile — v2-native rewrite. Layout:
 //   • page title
-//   • flush identity row (avatar + username + role)
-//   • Account Details section (form + apply button row)
+//   • flush identity row (96px bordered avatar + username + role chip
+//     + secondary metadata: joined + last active)
+//   • Account Details section (form rows + Discard / Apply buttons,
+//     password handled by ChangePasswordDialog)
 //   • RetroAchievements section (own component)
-import { RBtn, RIcon, RSelect, RTextField } from "@v2/lib";
+//
+// While `userToEdit` is loading we render a thin skeleton so the
+// layout doesn't pop in. Apply is disabled until the form is dirty;
+// Discard restores the original snapshot.
+import {
+  RBtn,
+  RIcon,
+  RSelect,
+  RSkeletonBlock,
+  RTag,
+  RTextField,
+} from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onMounted, onUnmounted, ref } from "vue";
@@ -14,22 +27,28 @@ import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
-import { defaultAvatarPath, getRoleIcon } from "@/utils";
+import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
+import ChangePasswordDialog from "@/v2/components/Settings/ChangePasswordDialog.vue";
 import RetroAchievementsSection from "@/v2/components/Settings/RetroAchievementsSection.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const auth = storeAuth();
 const { user } = storeToRefs(auth);
 const userToEdit = ref<UserItem | null>(null);
+const originalSnapshot = ref<Pick<
+  UserItem,
+  "username" | "email" | "role"
+> | null>(null);
 const usersStore = storeUsers();
 const imagePreviewUrl = ref<string | undefined>("");
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const submitting = ref(false);
+const passwordDialogOpen = ref(false);
 
 const roleItems = computed(() =>
   ["viewer", "editor", "admin"].map((role) => ({
@@ -37,6 +56,17 @@ const roleItems = computed(() =>
     value: role,
   })),
 );
+
+type RoleTone = "danger" | "warning" | "info";
+const ROLE_TONE: Record<string, RoleTone> = {
+  admin: "danger",
+  editor: "warning",
+  viewer: "info",
+};
+function roleToneFor(role: string | undefined): RoleTone {
+  if (role && role in ROLE_TONE) return ROLE_TONE[role];
+  return "info";
+}
 
 const avatarSrc = computed(() => {
   if (imagePreviewUrl.value) return imagePreviewUrl.value;
@@ -46,6 +76,35 @@ const avatarSrc = computed(() => {
   return defaultAvatarPath;
 });
 
+const isDirty = computed(() => {
+  if (!userToEdit.value || !originalSnapshot.value) return false;
+  return (
+    userToEdit.value.username !== originalSnapshot.value.username ||
+    (userToEdit.value.email ?? "") !== (originalSnapshot.value.email ?? "") ||
+    userToEdit.value.role !== originalSnapshot.value.role ||
+    !!userToEdit.value.avatar
+  );
+});
+
+function snapshot(item: UserItem) {
+  originalSnapshot.value = {
+    username: item.username,
+    email: item.email,
+    role: item.role,
+  };
+}
+
+function reset() {
+  if (!user.value) return;
+  userToEdit.value = { ...user.value, password: "", avatar: undefined };
+  imagePreviewUrl.value = "";
+  if (userToEdit.value) snapshot(userToEdit.value);
+}
+
+function discard() {
+  reset();
+}
+
 function triggerFileInput() {
   fileInputRef.value?.click();
 }
@@ -53,10 +112,8 @@ function triggerFileInput() {
 function previewImage(event: Event) {
   const input = event.target as HTMLInputElement;
   if (!input.files || !input.files[0] || !userToEdit.value) return;
-
   const file = input.files[0];
   userToEdit.value.avatar = file;
-
   const reader = new FileReader();
   reader.onload = () => {
     imagePreviewUrl.value = reader.result?.toString();
@@ -64,40 +121,53 @@ function previewImage(event: Event) {
   reader.readAsDataURL(file);
 }
 
-async function editUser() {
-  if (!userToEdit.value) return;
+async function applyChanges() {
+  if (!userToEdit.value || !isDirty.value) return;
   submitting.value = true;
   try {
     const { data } = await userApi.updateUser(userToEdit.value);
     snackbar.success(`User ${data.username} updated successfully`, {
       icon: "mdi-check-bold",
-      timeout: 5000,
     });
     usersStore.update(data);
-    if (data.id == auth.user?.id) {
-      auth.setCurrentUser(data);
-    }
+    if (data.id === auth.user?.id) auth.setCurrentUser(data);
     emitter?.emit("refreshDrawer", null);
+    if (userToEdit.value) snapshot(userToEdit.value);
+    userToEdit.value.avatar = undefined;
   } catch (err) {
-    const error = err as {
+    const e = err as {
       response?: { data?: { detail?: string }; statusText?: string };
       message?: string;
     };
     snackbar.error(
       `Unable to edit user: ${
-        error?.response?.data?.detail ||
-        error?.response?.statusText ||
-        error?.message
+        e?.response?.data?.detail || e?.response?.statusText || e?.message
       }`,
-      { icon: "mdi-close-circle", timeout: 5000 },
+      { icon: "mdi-close-circle" },
     );
   } finally {
     submitting.value = false;
   }
 }
 
+const joinedLabel = computed(() =>
+  user.value?.created_at
+    ? t("settings.profile-joined", {
+        date: formatTimestamp(user.value.created_at, locale.value),
+      })
+    : null,
+);
+
+const lastActiveLabel = computed(() =>
+  user.value?.last_active
+    ? t("settings.profile-last-active", {
+        date: formatTimestamp(user.value.last_active, locale.value),
+      })
+    : null,
+);
+
 onMounted(() => {
-  userToEdit.value = { ...user.value, password: "", avatar: undefined };
+  reset();
   if (userToEdit.value) {
     document.title = `${userToEdit.value.username} | Profile`;
   }
@@ -111,11 +181,7 @@ onUnmounted(() => {
 <template>
   <SettingsShell bare>
     <template v-if="userToEdit">
-      <h1 class="r-v2-settings__page-title">
-        {{ t("common.profile") }}
-      </h1>
-
-      <!-- Flush identity row — avatar + username + role. No card. -->
+      <!-- Identity row — flush (no card chrome). -->
       <div class="r-v2-profile__identity-row">
         <button
           type="button"
@@ -125,7 +191,7 @@ onUnmounted(() => {
         >
           <img :src="avatarSrc" :alt="userToEdit.username" />
           <span class="r-v2-profile__avatar-edit">
-            <RIcon icon="mdi-pencil" size="18" />
+            <RIcon icon="mdi-pencil" size="20" />
           </span>
         </button>
         <input
@@ -137,13 +203,33 @@ onUnmounted(() => {
           @change="previewImage"
         />
         <div class="r-v2-profile__identity">
-          <span class="r-v2-profile__username">
-            {{ userToEdit.username }}
-          </span>
-          <span class="r-v2-profile__role">
-            <RIcon :icon="getRoleIcon(userToEdit.role)" size="12" />
-            {{ userToEdit.role }}
-          </span>
+          <div class="r-v2-profile__name-row">
+            <span class="r-v2-profile__username">
+              {{ userToEdit.username }}
+            </span>
+            <RTag
+              :icon="getRoleIcon(userToEdit.role)"
+              :tone="roleToneFor(userToEdit.role)"
+              size="small"
+              class="r-v2-profile__role-tag"
+            >
+              {{ userToEdit.role }}
+            </RTag>
+          </div>
+          <div class="r-v2-profile__meta">
+            <span v-if="userToEdit.email" class="r-v2-profile__meta-item">
+              <RIcon icon="mdi-email-outline" size="12" />
+              {{ userToEdit.email }}
+            </span>
+            <span v-if="joinedLabel" class="r-v2-profile__meta-item">
+              <RIcon icon="mdi-calendar-blank-outline" size="12" />
+              {{ joinedLabel }}
+            </span>
+            <span v-if="lastActiveLabel" class="r-v2-profile__meta-item">
+              <RIcon icon="mdi-clock-outline" size="12" />
+              {{ lastActiveLabel }}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -155,36 +241,35 @@ onUnmounted(() => {
         <div class="r-v2-profile__field">
           <RTextField
             v-model="userToEdit.username"
-            variant="outlined"
-            :label="t('settings.username')"
+            inline-label
             :rules="usersStore.usernameRules"
             required
             clearable
-          />
-        </div>
-        <div class="r-v2-profile__field">
-          <RTextField
-            v-model="userToEdit.password"
-            variant="outlined"
-            :label="t('settings.password')"
-            type="password"
-            clearable
-          />
+          >
+            <template #label>
+              <RIcon icon="mdi-account-outline" size="14" />
+              {{ t("settings.username") }}
+            </template>
+          </RTextField>
         </div>
         <div class="r-v2-profile__field">
           <RTextField
             v-model="userToEdit.email"
-            variant="outlined"
-            :label="t('settings.email')"
+            inline-label
             :rules="usersStore.emailRules"
+            type="email"
             required
             clearable
-          />
+          >
+            <template #label>
+              <RIcon icon="mdi-email-outline" size="14" />
+              {{ t("settings.email") }}
+            </template>
+          </RTextField>
         </div>
         <div class="r-v2-profile__field">
           <RSelect
             v-model="userToEdit.role"
-            variant="outlined"
             :items="roleItems"
             :label="t('settings.role')"
             required
@@ -205,14 +290,39 @@ onUnmounted(() => {
             </template>
           </RSelect>
         </div>
+
+        <!-- Password row — opens dialog instead of inline field. -->
+        <div class="r-v2-profile__field r-v2-profile__field--row">
+          <div class="r-v2-profile__field-label">
+            <RIcon icon="mdi-key-outline" size="14" />
+            <span>{{ t("settings.password") }}</span>
+            <span class="r-v2-profile__field-hint">••••••••</span>
+          </div>
+          <RBtn
+            variant="text"
+            prepend-icon="mdi-key-variant"
+            @click="passwordDialogOpen = true"
+          >
+            {{ t("settings.change-password") }}
+          </RBtn>
+        </div>
+
         <div class="r-v2-profile__actions">
+          <RBtn
+            variant="text"
+            :disabled="!isDirty || submitting"
+            prepend-icon="mdi-undo"
+            @click="discard"
+          >
+            {{ t("settings.discard") }}
+          </RBtn>
           <RBtn
             variant="flat"
             color="primary"
             :loading="submitting"
-            :disabled="!userToEdit.username"
+            :disabled="!isDirty || !userToEdit.username"
             prepend-icon="mdi-check"
-            @click="editUser"
+            @click="applyChanges"
           >
             {{ t("common.apply") }}
           </RBtn>
@@ -221,38 +331,63 @@ onUnmounted(() => {
 
       <RetroAchievementsSection />
     </template>
+
+    <!-- Skeleton — shown until userToEdit is hydrated from auth.user. -->
+    <template v-else>
+      <div class="r-v2-profile__identity-row">
+        <RSkeletonBlock
+          shape="circle"
+          width="96px"
+          height="96px"
+          class="r-v2-profile__avatar-skeleton"
+        />
+        <div class="r-v2-profile__identity">
+          <RSkeletonBlock width="160px" height="22px" />
+          <div class="r-v2-profile__meta">
+            <RSkeletonBlock width="220px" height="12px" />
+            <RSkeletonBlock width="180px" height="12px" />
+          </div>
+        </div>
+      </div>
+      <RSkeletonBlock width="100%" height="280px" />
+    </template>
+
+    <ChangePasswordDialog
+      v-model:open="passwordDialogOpen"
+      :user-id="userToEdit?.id ?? null"
+    />
   </SettingsShell>
 </template>
 
 <style scoped>
-.r-v2-settings__page-title {
-  margin: 0 0 20px;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--r-color-fg);
-}
-
-/* Flush identity row — avatar + username + role. No card chrome. */
+/* Identity row — flush, taller (96px avatar). */
 .r-v2-profile__identity-row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   margin-bottom: 28px;
 }
 
 .r-v2-profile__avatar {
   position: relative;
   appearance: none;
-  border: 0;
   padding: 0;
-  background: transparent;
+  background: var(--r-color-surface);
   cursor: pointer;
   border-radius: 50%;
   overflow: hidden;
-  width: 72px;
-  height: 72px;
+  width: 96px;
+  height: 96px;
   flex-shrink: 0;
+  border: 1px solid var(--r-color-border-strong);
+  transition:
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-v2-profile__avatar:hover {
+  border-color: var(--r-color-brand-primary);
+  box-shadow: 0 0 0 4px
+    color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
 }
 .r-v2-profile__avatar img {
   width: 100%;
@@ -274,6 +409,9 @@ onUnmounted(() => {
 .r-v2-profile__avatar:focus-visible .r-v2-profile__avatar-edit {
   opacity: 1;
 }
+.r-v2-profile__avatar-skeleton {
+  flex-shrink: 0;
+}
 
 .r-v2-profile__file {
   position: absolute;
@@ -286,28 +424,47 @@ onUnmounted(() => {
 .r-v2-profile__identity {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
 }
 
-.r-v2-profile__username {
-  font-size: 18px;
-  font-weight: var(--r-font-weight-bold);
-  color: var(--r-color-fg);
-  line-height: 1.2;
+.r-v2-profile__name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.r-v2-profile__role {
+.r-v2-profile__username {
+  font-size: 22px;
+  font-weight: var(--r-font-weight-bold);
+  color: var(--r-color-fg);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+/* Role tag — RTag handles the base look + tone-based tint. We just
+   nudge the casing here so it reads as a proper role badge. */
+.r-v2-profile__role-tag {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Secondary metadata under the username. */
+.r-v2-profile__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
+}
+.r-v2-profile__meta-item {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  color: var(--r-color-fg-muted);
-  text-transform: capitalize;
 }
 
-/* Field rows inside the section body — hairline-divided, padding mirrors
-   the mock's settings-field. */
+/* Field rows — hairline-divided, padding mirrors the mock. */
 .r-v2-profile__field {
   padding: 14px 16px;
   border-bottom: 1px solid var(--r-color-border);
@@ -316,10 +473,39 @@ onUnmounted(() => {
   border-bottom: none;
 }
 
+.r-v2-profile__field--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.r-v2-profile__field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.r-v2-profile__field-label :deep(.r-icon) {
+  color: var(--r-color-fg-muted);
+}
+.r-v2-profile__field-label > span:nth-of-type(1) {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-muted);
+}
+.r-v2-profile__field-hint {
+  font-family: var(--r-font-family-mono, monospace);
+  font-size: 11px;
+  color: var(--r-color-fg-faint);
+  letter-spacing: 0.1em;
+}
+
 .r-v2-profile__actions {
   display: flex;
-  justify-content: flex-start;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 8px;
   padding: 14px 16px;
   border-top: 1px solid var(--r-color-border);
 }

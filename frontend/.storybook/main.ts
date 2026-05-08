@@ -43,6 +43,21 @@ const config: StorybookConfig = {
       return isBlocked(name) ? [] : [plugin];
     }
     cfg.plugins = (cfg.plugins ?? []).flatMap(keep) as typeof cfg.plugins;
+    // The runtime ROM library lives under `frontend/assets/romm/resources/`
+    // (cover art, RetroAchievement badges, …). Watching it exhausts the
+    // system's inotify handles (ENOSPC) and is irrelevant to Storybook.
+    cfg.server ??= {};
+    cfg.server.watch ??= {};
+    cfg.server.watch.ignored = [
+      ...(Array.isArray(cfg.server.watch.ignored)
+        ? cfg.server.watch.ignored
+        : cfg.server.watch.ignored
+          ? [cfg.server.watch.ignored]
+          : []),
+      "**/assets/romm/**",
+      "**/node_modules/**",
+      "**/.git/**",
+    ];
     return cfg;
   },
 };

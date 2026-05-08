@@ -165,13 +165,20 @@ const groups = computed<Group[]>(() => {
    chrome. Items run edge-to-edge so the bg-tint reads as "row selected"
    rather than "pill selected". Group labels are inline at the top of
    each group, small uppercase, very muted. */
+/* Sticky column with a hairline right border. The sidebar is glued to
+   the top of the viewport (under the navbar) and always fills the full
+   visible height so the divider reaches the bottom of the screen. The
+   document is the only scrolling container — only the content column
+   moves when the user scrolls. */
 .r-v2-settings-sidebar {
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 24px 0;
   border-right: 1px solid var(--r-color-border);
-  align-self: stretch;
+  position: sticky;
+  top: var(--r-nav-h);
+  height: calc(100vh - var(--r-nav-h));
   overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -245,7 +252,9 @@ const groups = computed<Group[]>(() => {
     border-bottom: 1px solid var(--r-color-border);
     overflow-x: auto;
     overflow-y: hidden;
-    align-self: auto;
+    position: static;
+    top: auto;
+    height: auto;
   }
   .r-v2-settings-sidebar__group {
     flex-direction: row;

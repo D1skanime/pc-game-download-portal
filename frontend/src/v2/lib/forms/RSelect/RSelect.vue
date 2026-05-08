@@ -1,4 +1,19 @@
 <script setup lang="ts">
+// RSelect — wraps v-select with the v2 visual language.
+//
+// Two looks:
+//   • Default outlined (legacy) — used in places like the language
+//     picker and a handful of one-off Settings rows pre-redesign.
+//   • Inline label prefix (`inline-label` prop) — the v2-native look
+//     for forms inside Settings: the label sits as a slightly darker
+//     "well" on the LEFT of the field, separated by a hairline; the
+//     selected value sits on the right. The label area accepts any
+//     content via the `#label` slot (text, RIcon, both…). Width is
+//     `labelWidth` (default 120px). Falls back to the `label` prop
+//     string if the slot is empty.
+//
+// Mirrors RTextField so a stack of mixed Text/Select fields aligns
+// vertically.
 import { computed } from "vue";
 import { VSelect } from "vuetify/components/VSelect";
 
@@ -29,6 +44,11 @@ interface Props {
   placeholder?: string;
   chips?: boolean;
   closableChips?: boolean;
+  /** Render the label as a left "prefix" inside the field instead of
+   *  Vuetify's floating label. Use the `#label` slot for icon + text. */
+  inlineLabel?: boolean;
+  /** Width of the inline label prefix area. Default 120px. */
+  labelWidth?: string | number;
   /** Forwarded to VSelect; the v2 panel `contentClass` is merged in so
    *  callers can still set `location`, `offset`, etc. without losing
    *  the panel styling. */
@@ -47,12 +67,20 @@ const props = withDefaults(defineProps<Props>(), {
   prependInnerIcon: undefined,
   appendInnerIcon: undefined,
   placeholder: undefined,
+  inlineLabel: false,
+  labelWidth: "120px",
   menuProps: () => ({}),
 });
 
 defineEmits<{
   (e: "update:modelValue", value: unknown): void;
 }>();
+
+const labelWidthCss = computed(() =>
+  typeof props.labelWidth === "number"
+    ? `${props.labelWidth}px`
+    : props.labelWidth,
+);
 
 // Always inject the panel content-class so the unscoped overlay
 // styles below resolve. If the caller supplies their own
@@ -69,9 +97,11 @@ const mergedMenuProps = computed(() => {
   <VSelect
     v-bind="$attrs"
     class="r-select"
+    :class="{ 'r-select--inline-label': inlineLabel }"
+    :style="inlineLabel ? { '--rsel-label-w': labelWidthCss } : undefined"
     :model-value="modelValue"
     :items="items as never"
-    :label="label"
+    :label="inlineLabel ? undefined : label"
     :variant="variant"
     :density="density"
     :item-title="itemTitle as never"
@@ -81,7 +111,7 @@ const mergedMenuProps = computed(() => {
     :disabled="disabled"
     :readonly="readonly"
     :hide-details="hideDetails"
-    :prepend-inner-icon="prependInnerIcon"
+    :prepend-inner-icon="inlineLabel ? undefined : prependInnerIcon"
     :append-inner-icon="appendInnerIcon"
     :placeholder="placeholder"
     :chips="chips"
@@ -90,8 +120,25 @@ const mergedMenuProps = computed(() => {
     :menu-props="mergedMenuProps"
     @update:model-value="(v) => $emit('update:modelValue', v)"
   >
-    <template v-for="(_, slot) in $slots" #[slot]="slotProps">
-      <slot :name="slot" v-bind="slotProps || {}" />
+    <!-- Inline label takes over Vuetify's prepend-inner slot when on. -->
+    <template v-if="inlineLabel" #prepend-inner>
+      <span class="r-select__inline-label">
+        <slot name="label">{{ label }}</slot>
+      </span>
+    </template>
+
+    <!-- Pass through every consumer slot. We filter at the iterator
+         level (not inside the slot body) so VSelect doesn't see a
+         second `prepend-inner` registration when we own it via the
+         v-if above. -->
+    <template
+      v-for="slotName in Object.keys($slots).filter(
+        (s) => !(inlineLabel && s === 'prepend-inner'),
+      )"
+      #[slotName]="slotProps"
+      :key="slotName"
+    >
+      <slot :name="slotName" v-bind="slotProps || {}" />
     </template>
   </VSelect>
 </template>
@@ -105,7 +152,8 @@ const mergedMenuProps = computed(() => {
 .r-select :deep(.v-field) {
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border-strong);
-  border-radius: var(--r-radius-pill);
+  padding-left: 0px !important;
+  border-radius: var(--r-radius-md);
   color: var(--r-color-fg-secondary);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -140,6 +188,79 @@ const mergedMenuProps = computed(() => {
 .r-select :deep(.v-field--focused .v-field__prepend-inner > .v-icon),
 .r-select :deep(.v-field--focused .v-field__append-inner > .v-icon) {
   opacity: 1;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   Inline-label variant — label-prefix on the left, selected value
+   on the right, single bordered container around both. The Vuetify
+   floating label is suppressed (we passed `:label="undefined"`) and
+   the prepend-inner slot hosts the `#label` slot content. Mirrors
+   RTextField's inline-label variant.
+   ──────────────────────────────────────────────────────────────── */
+
+.r-select--inline-label :deep(.v-field) {
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.r-select--inline-label:hover :deep(.v-field) {
+  border-color: var(--r-color-border-strong);
+}
+.r-select--inline-label :deep(.v-field--focused) {
+  border-color: var(--r-color-brand-primary);
+}
+
+/* The label "well" on the left — slightly darker bg, hairline divider
+   to the input area. */
+.r-select--inline-label :deep(.v-field__prepend-inner) {
+  width: var(--rsel-label-w, 120px);
+  min-width: var(--rsel-label-w, 120px);
+  padding: 0 14px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  background: var(--r-color-bg-elevated);
+  border-right: 1px solid var(--r-color-border);
+  color: var(--r-color-fg-secondary);
+  padding-top: 0;
+}
+.r-select--inline-label :deep(.v-field--focused .v-field__prepend-inner) {
+  border-right-color: var(--r-color-brand-primary);
+}
+
+.r-select__inline-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r-select--inline-label :deep(.v-field--focused) .r-select__inline-label {
+  color: var(--r-color-brand-primary);
+}
+
+/* Input area — let it breathe inside the field. */
+.r-select--inline-label :deep(.v-field__field) {
+  flex: 1;
+  min-width: 0;
+}
+.r-select--inline-label :deep(.v-field__input) {
+  padding: 10px 14px;
+  min-height: 38px;
+  font-size: 14px;
+  color: var(--r-color-fg);
+}
+.r-select--inline-label :deep(.v-select__selection-text) {
+  font-size: 14px;
 }
 </style>
 

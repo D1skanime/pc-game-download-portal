@@ -3,7 +3,11 @@
 // shares aesthetics with every other v2 select (status picker on the
 // Overview tab, etc). Persists the choice via useUISettings + sets the
 // vue-i18n locale.
-import { RSelect } from "@v2/lib";
+//
+// Two looks:
+//   • Default — compact pill, used on Auth/Pair shells.
+//   • `inlineLabel` — full-width inline-label field, used in Settings.
+import { RIcon, RSelect } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -12,7 +16,12 @@ import storeLanguage from "@/stores/language";
 
 defineOptions({ inheritAttrs: false });
 
-const { locale } = useI18n();
+interface Props {
+  inlineLabel?: boolean;
+}
+withDefaults(defineProps<Props>(), { inlineLabel: false });
+
+const { t, locale } = useI18n();
 const languageStore = storeLanguage();
 const { languages, selectedLanguage } = storeToRefs(languageStore);
 const { locale: localeStorage } = useUISettings();
@@ -35,6 +44,19 @@ const currentValue = computed({
 
 <template>
   <RSelect
+    v-if="inlineLabel"
+    v-model="currentValue"
+    :items="items"
+    inline-label
+    hide-details
+  >
+    <template #label>
+      <RIcon icon="mdi-translate" size="14" />
+      {{ t("settings.language") }}
+    </template>
+  </RSelect>
+  <RSelect
+    v-else
     v-model="currentValue"
     :items="items"
     density="compact"

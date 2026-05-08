@@ -354,14 +354,18 @@ function closeDialog() {
           <RTextField
             id="r-v2-match-search"
             v-model="searchText"
+            inline-label
             :disabled="searching"
-            :label="t('common.search')"
-            variant="outlined"
             density="comfortable"
             hide-details
             clearable
             @keyup.enter="searchRom"
-          />
+          >
+            <template #label>
+              <RIcon icon="mdi-magnify" size="14" />
+              {{ t("common.search") }}
+            </template>
+          </RTextField>
           <RSelect
             v-model="searchBy"
             :disabled="searching"

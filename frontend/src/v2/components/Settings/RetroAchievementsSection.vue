@@ -1,10 +1,12 @@
 <script setup lang="ts">
-// RetroAchievementsSection — v2-native rebuild of the v1
-// `Settings/UserProfile/RetroAchievements.vue`. Lets the user link/edit
-// their RA username and trigger an incremental re-sync. Uses the mock's
-// section pattern (header bar + bordered body + button row).
-import { RBtn, RTextField } from "@v2/lib";
-import { ref, watch } from "vue";
+// RetroAchievementsSection — links a RomM account to a RetroAchievements
+// profile and triggers a re-sync. Single primary button does both:
+// updates the username on the user record AND kicks off a sync of the
+// linked profile (full sync after a username change, incremental
+// otherwise). Listens to `auth.user?.ra_username` so the connection
+// state chip stays accurate.
+import { RBtn, RTag, RTextField } from "@v2/lib";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -18,7 +20,6 @@ const auth = storeAuth();
 const snackbar = useSnackbar();
 
 const username = ref(auth.user?.ra_username ?? "");
-const syncing = ref(false);
 const submitting = ref(false);
 
 watch(
@@ -28,45 +29,50 @@ watch(
   },
 );
 
-async function refreshRetroAchievements(incremental = true) {
+const linkedUsername = computed(() => auth.user?.ra_username ?? "");
+const isLinked = computed(() => linkedUsername.value.length > 0);
+const isDirty = computed(() => username.value.trim() !== linkedUsername.value);
+const canSubmit = computed(
+  () => !submitting.value && (isDirty.value || isLinked.value),
+);
+
+async function syncProfile(incremental: boolean) {
   if (!auth.user) return;
-  syncing.value = true;
-  try {
-    await userApi.refreshRetroAchievements({
-      id: auth.user.id,
-      incremental,
-    });
-    snackbar.success("RetroAchievements profile synced", {
-      icon: "mdi-check-bold",
-    });
-  } catch (error) {
-    console.error(error);
-    snackbar.error("Unable to sync your RetroAchievements profile.", {
-      icon: "mdi-close-circle",
-    });
-  } finally {
-    syncing.value = false;
-  }
+  await userApi.refreshRetroAchievements({
+    id: auth.user.id,
+    incremental,
+  });
 }
 
-async function submitRACredentials() {
+async function saveAndSync() {
   if (!auth.user) return;
   submitting.value = true;
+  const trimmed = username.value.trim();
+  const usernameChanged = trimmed !== linkedUsername.value;
+
   try {
-    await userApi.updateUser({
-      id: auth.user.id,
-      ra_username: username.value,
-    });
-    snackbar.success("Updated RetroAchievements settings", {
-      icon: "mdi-check-bold",
-    });
-    // Best-effort full sync of the newly linked profile.
-    void refreshRetroAchievements(false);
-  } catch (error) {
-    console.error(error);
-    snackbar.error("Unable to update your RetroAchievements settings.", {
-      icon: "mdi-close-circle",
-    });
+    if (usernameChanged) {
+      await userApi.updateUser({
+        id: auth.user.id,
+        ra_username: trimmed,
+      });
+    }
+    // Username change → full sync; same username → incremental refresh.
+    await syncProfile(!usernameChanged);
+    snackbar.success(
+      usernameChanged
+        ? t("settings.ra-saved-and-synced")
+        : t("settings.ra-saved-and-synced"),
+      { icon: "mdi-check-bold" },
+    );
+  } catch (err) {
+    console.error(err);
+    snackbar.error(
+      usernameChanged
+        ? t("settings.ra-update-failed")
+        : t("settings.ra-sync-failed"),
+      { icon: "mdi-close-circle" },
+    );
   } finally {
     submitting.value = false;
   }
@@ -75,34 +81,39 @@ async function submitRACredentials() {
 
 <template>
   <SettingsSection title="RetroAchievements" icon="mdi-trophy">
+    <template #header-actions>
+      <RTag
+        :icon="isLinked ? 'mdi-link-variant' : 'mdi-link-variant-off'"
+        :tone="isLinked ? 'success' : 'neutral'"
+        size="small"
+      >
+        {{
+          isLinked
+            ? t("settings.ra-connected", { username: `@${linkedUsername}` })
+            : t("settings.ra-not-linked")
+        }}
+      </RTag>
+    </template>
     <div class="r-v2-ra__field">
       <RTextField
         v-model="username"
-        variant="outlined"
-        :label="t('settings.username')"
-        prepend-inner-icon="mdi-account"
+        inline-label
         hide-details
-      />
+        @keyup.enter="saveAndSync"
+      >
+        <template #label>{{ t("settings.username") }}</template>
+      </RTextField>
     </div>
     <div class="r-v2-ra__actions">
       <RBtn
         variant="flat"
         color="primary"
         :loading="submitting"
-        :disabled="!username || syncing"
-        prepend-icon="mdi-check"
-        @click="submitRACredentials"
+        :disabled="!canSubmit || !username.trim()"
+        :prepend-icon="isDirty ? 'mdi-link-variant' : 'mdi-sync'"
+        @click="saveAndSync"
       >
-        {{ t("common.apply") }}
-      </RBtn>
-      <RBtn
-        variant="text"
-        :loading="syncing"
-        :disabled="!auth.user?.ra_username"
-        prepend-icon="mdi-sync"
-        @click="refreshRetroAchievements(true)"
-      >
-        {{ t("common.sync") }}
+        {{ isDirty ? t("common.save") : t("common.sync") }}
       </RBtn>
     </div>
   </SettingsSection>

@@ -351,14 +351,21 @@ async function removeRow(row: Row) {
           </div>
           <RTextField
             v-model="newValue"
-            variant="outlined"
-            :label="t('settings.exclusion-value')"
+            inline-label
             :placeholder="t('settings.exclusion-placeholder')"
-            :prepend-inner-icon="selectedDef?.icon"
             :disabled="!newType"
             hide-details
             @keyup.enter="submitExclusion"
-          />
+          >
+            <template #label>
+              <RIcon
+                v-if="selectedDef?.icon"
+                :icon="selectedDef.icon"
+                size="14"
+              />
+              {{ t("settings.exclusion-value") }}
+            </template>
+          </RTextField>
         </div>
       </template>
       <template #footer>

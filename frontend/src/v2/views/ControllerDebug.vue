@@ -142,8 +142,6 @@ function magnitude(x: number, y: number) {
 
 <template>
   <SettingsShell bare>
-    <h1 class="r-v2-settings__page-title">Controller debug</h1>
-
     <!-- Status -->
     <SettingsSection title="Status" icon="mdi-pulse">
       <div class="r-v2-ctrl__status">
@@ -357,14 +355,6 @@ function magnitude(x: number, y: number) {
 </template>
 
 <style scoped>
-.r-v2-settings__page-title {
-  margin: 0 0 20px;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--r-color-fg);
-}
-
 /* Status section --------------------------------------------------- */
 .r-v2-ctrl__status {
   display: flex;

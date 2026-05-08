@@ -3,15 +3,12 @@
 // (Summary + Platforms breakdown). Data fetch is a single /stats call
 // with `include_platform_stats=true`; same shape as v1.
 import { onBeforeMount, ref } from "vue";
-import { useI18n } from "vue-i18n";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 import api from "@/services/api";
 import PlatformsStatsSection from "@/v2/components/Settings/PlatformsStatsSection.vue";
 import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import SummaryStatsSection from "@/v2/components/Settings/SummaryStatsSection.vue";
-
-const { t } = useI18n();
 
 const stats = ref({
   PLATFORMS: 0,
@@ -35,10 +32,6 @@ onBeforeMount(() => {
 
 <template>
   <SettingsShell bare>
-    <h1 class="r-v2-settings__page-title">
-      {{ t("common.server-stats") }}
-    </h1>
-
     <SummaryStatsSection :stats="stats" />
     <PlatformsStatsSection
       :total-filesize="stats.TOTAL_FILESIZE_BYTES"
@@ -47,13 +40,3 @@ onBeforeMount(() => {
     />
   </SettingsShell>
 </template>
-
-<style scoped>
-.r-v2-settings__page-title {
-  margin: 0 0 20px;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--r-color-fg);
-}
-</style>

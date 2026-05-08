@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // SettingsShell — page chrome shared by every Settings route.
 //
-// Mock-faithful layout: full viewport height, two columns sharing a
-// vertical hairline divider. The sidebar stays put; the content column
-// owns its own scroll so the page title (when present) and the navbar
-// don't shift on scroll. The sidebar's active item is the navigation
-// cue, so each view skips a redundant title hero.
+// Layout: two columns sharing a vertical hairline divider. The
+// sidebar is `position: sticky` so it follows the user as the document
+// scrolls — a single document scrollbar drives both columns, matching
+// Home's behaviour (no nested scroll containers). Bounded by
+// `--r-page-max-w` so the layout never stretches beyond the same width
+// budget GameDetails uses.
 //
 // At <1024px the sidebar collapses to a horizontal scrollable strip on
 // top of the content (responsive logic lives inside SettingsSidebar).
@@ -51,31 +52,24 @@ setBgArt(null);
 <style scoped>
 .r-v2-settings {
   display: flex;
-  height: calc(100vh - var(--r-nav-h));
-  overflow: hidden;
+  align-items: flex-start;
+  min-height: calc(100vh - var(--r-nav-h));
   width: 100%;
+  max-width: var(--r-page-max-w);
+  margin: 0 auto;
 }
 
 .r-v2-settings__sidebar {
   width: 220px;
   flex-shrink: 0;
+  /* Sticky + height owned entirely by SettingsSidebar (single-source
+     of truth, no cross-scope cascade ambiguity). */
 }
 
 .r-v2-settings__content {
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
   padding: 32px 40px 60px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--r-color-border-strong) transparent;
-}
-.r-v2-settings__content::-webkit-scrollbar {
-  width: 4px;
-}
-.r-v2-settings__content::-webkit-scrollbar-thumb {
-  background: var(--r-color-border-strong);
-  border-radius: 2px;
 }
 
 .r-v2-settings__body {
@@ -104,15 +98,11 @@ setBgArt(null);
 @media (max-width: 1023px) {
   .r-v2-settings {
     flex-direction: column;
-    height: auto;
-    min-height: calc(100vh - var(--r-nav-h));
-    overflow: visible;
   }
   .r-v2-settings__sidebar {
     width: 100%;
   }
   .r-v2-settings__content {
-    overflow: visible;
     padding: 24px var(--r-row-pad) 48px;
   }
 }

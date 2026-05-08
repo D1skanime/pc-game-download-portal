@@ -88,9 +88,6 @@ onMounted(fetchTokens);
 <template>
   <SettingsShell bare>
     <header class="r-v2-tok__head">
-      <h1 class="r-v2-settings__page-title">
-        {{ t("settings.client-api-tokens") }}
-      </h1>
       <RBtn
         variant="flat"
         color="primary"
@@ -183,19 +180,11 @@ onMounted(fetchTokens);
 </template>
 
 <style scoped>
-.r-v2-settings__page-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--r-color-fg);
-}
-
 .r-v2-tok__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
+  justify-content: flex-end;
+  margin-bottom: 16px;
   gap: 12px;
 }
 
