@@ -1,10 +1,18 @@
 <script setup lang="ts">
-// UserMenu — the avatar pill in the nav that opens the full settings
-// dropdown. Items mirror v1's SettingsDrawer (Profile / User interface /
-// Library management / Metadata sources / Client API tokens /
-// Administration / Server stats / About / Log out) and are gated by the
-// same scope/role checks so unauthorised users don't see options they
-// can't use.
+// UserMenu — the avatar pill in the navbar that opens the v2 quick
+// navigator. The dropdown mirrors the SettingsSidebar's information
+// architecture so the user has the same mental model in both places:
+//
+//   • Account  — Profile, User interface
+//   • Library  — Library management, Metadata sources, Client API tokens
+//   • System   — Administration, Server stats
+//   • Tools    — Controller debug
+//   • Actions  — Scan, Upload, Patcher (librarian actions, not settings)
+//   • About / Changelog — kept as dialogs (no dedicated views)
+//   • Log out
+//
+// Items inherit the same scope/role gates as their target views so
+// unauthorised users don't see options they can't open.
 import {
   RAvatar,
   RBtn,
@@ -18,6 +26,7 @@ import {
 import type { Emitter } from "mitt";
 import { getActivePinia, storeToRefs, type StateTree } from "pinia";
 import { computed, inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
@@ -30,6 +39,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
+const { t } = useI18n();
 const router = useRouter();
 const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -47,6 +57,27 @@ const avatarSrc = computed(() => {
 
 const isAdmin = useCan("app.admin");
 
+const canSeeProfile = computed(
+  () => !!user.value?.id && scopes.value.includes("me.write"),
+);
+const canSeeLibraryMgmt = computed(() =>
+  scopes.value.includes("platforms.write"),
+);
+const canSeeMetadata = computed(() => scopes.value.includes("me.write"));
+const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
+const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
+const canSeeScan = computed(() => scopes.value.includes("platforms.write"));
+const canSeeUpload = computed(() => scopes.value.includes("roms.write"));
+
+// Library + System groups can be empty for restricted scopes — gate the
+// whole region so a lone group label doesn't dangle. Account always has
+// User interface (always visible) so no gate is needed there.
+const showLibraryGroup = computed(
+  () =>
+    canSeeLibraryMgmt.value || canSeeMetadata.value || canSeeApiTokens.value,
+);
+const showSystemGroup = computed(() => canSeeAdmin.value || isAdmin.value);
+
 function showAbout() {
   open.value = false;
   emitter?.emit("showAboutDialog", null);
@@ -54,8 +85,8 @@ function showAbout() {
 
 function showUpload() {
   open.value = false;
-  // The v2 UploadRomDialog isn't built yet; this event is the same one v1
-  // listens to, so the wiring is correct for when the v2 dialog lands.
+  // The v2 UploadRomDialog isn't built yet; this event is the same one
+  // v1 listens to, so the wiring is correct for when the v2 dialog lands.
   emitter?.emit("showUploadRomDialog", null);
 }
 
@@ -118,99 +149,131 @@ async function onLogout() {
 
       <RMenuDivider />
 
-      <!-- Profile — gated by me.write scope (matches v1). -->
-      <RMenuItem
-        v-if="user?.id && scopes.includes('me.write')"
-        :to="`/user/${user.id}`"
-        icon="mdi-account-outline"
-        label="Profile"
-        @click="open = false"
-      />
-      <RMenuItem
-        to="/user-interface"
-        icon="mdi-palette-outline"
-        label="User interface"
-        @click="open = false"
-      />
-      <RMenuItem
-        v-if="scopes.includes('platforms.write')"
-        to="/library-management"
-        icon="mdi-table-cog"
-        label="Library management"
-        @click="open = false"
-      />
-      <RMenuItem
-        to="/metadata-sources"
-        icon="mdi-database-cog-outline"
-        label="Metadata sources"
-        @click="open = false"
-      />
-      <RMenuItem
-        v-if="scopes.includes('me.write')"
-        to="/client-api-tokens"
-        icon="mdi-key-variant"
-        label="Client API tokens"
-        @click="open = false"
-      />
+      <!-- Account -->
+      <div class="r-v2-user-menu__group">
+        <div class="r-v2-user-menu__group-label">
+          {{ t("settings.group-account") }}
+        </div>
+        <RMenuItem
+          v-if="canSeeProfile"
+          :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
+          icon="mdi-account-outline"
+          :label="t('common.profile')"
+          @click="open = false"
+        />
+        <RMenuItem
+          :to="{ name: ROUTES.USER_INTERFACE }"
+          icon="mdi-palette-outline"
+          :label="t('common.user-interface')"
+          @click="open = false"
+        />
+      </div>
 
-      <RMenuDivider v-if="scopes.includes('users.write') && isAdmin" />
+      <!-- Library -->
+      <div v-if="showLibraryGroup" class="r-v2-user-menu__group">
+        <div class="r-v2-user-menu__group-label">
+          {{ t("settings.group-library") }}
+        </div>
+        <RMenuItem
+          v-if="canSeeLibraryMgmt"
+          :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
+          icon="mdi-table-cog"
+          :label="t('common.library-management')"
+          @click="open = false"
+        />
+        <RMenuItem
+          v-if="canSeeMetadata"
+          :to="{ name: ROUTES.METADATA_SOURCES }"
+          icon="mdi-database-cog-outline"
+          :label="t('scan.metadata-sources')"
+          @click="open = false"
+        />
+        <RMenuItem
+          v-if="canSeeApiTokens"
+          :to="{ name: ROUTES.CLIENT_API_TOKENS }"
+          icon="mdi-key-variant"
+          :label="t('settings.client-api-tokens')"
+          @click="open = false"
+        />
+      </div>
 
-      <RMenuItem
-        v-if="scopes.includes('users.write')"
-        to="/administration"
-        icon="mdi-shield-account-outline"
-        label="Administration"
-        @click="open = false"
-      />
-      <RMenuItem
-        v-if="isAdmin"
-        to="/server-stats"
-        icon="mdi-server"
-        label="Server stats"
-        @click="open = false"
-      />
+      <!-- System -->
+      <div v-if="showSystemGroup" class="r-v2-user-menu__group">
+        <div class="r-v2-user-menu__group-label">
+          {{ t("settings.group-system") }}
+        </div>
+        <RMenuItem
+          v-if="canSeeAdmin"
+          :to="{ name: ROUTES.ADMINISTRATION }"
+          icon="mdi-shield-account-outline"
+          :label="t('common.administration')"
+          @click="open = false"
+        />
+        <RMenuItem
+          v-if="isAdmin"
+          :to="{ name: ROUTES.SERVER_STATS }"
+          icon="mdi-server"
+          :label="t('common.server-stats')"
+          @click="open = false"
+        />
+      </div>
+
+      <!-- Tools -->
+      <div class="r-v2-user-menu__group">
+        <div class="r-v2-user-menu__group-label">
+          {{ t("settings.group-tools") }}
+        </div>
+        <RMenuItem
+          :to="{ name: ROUTES.CONTROLLER_DEBUG }"
+          icon="mdi-controller"
+          :label="t('settings.controller-debug')"
+          @click="open = false"
+        />
+      </div>
 
       <RMenuDivider />
 
-      <!-- Scope gates mirror v1 (SettingsDrawer + route guards in
-           plugins/router.ts): Scan needs platforms.write, Upload needs
-           roms.write, Patcher is open to anyone (v1's PatcherBtn has no
-           gate either). -->
-      <RMenuItem
-        v-if="scopes.includes('platforms.write')"
-        to="/scan"
-        icon="mdi-magnify-scan"
-        label="Scan"
-        @click="open = false"
-      />
-      <!-- FIXME: v2 UploadRomDialog isn't built yet — clicking emits the
-           same event v1 listens for, so this lights up automatically once
-           the dialog ships. -->
-      <RMenuItem
-        v-if="scopes.includes('roms.write')"
-        icon="mdi-cloud-upload-outline"
-        label="Upload"
-        @click="showUpload"
-      />
-      <RMenuItem
-        to="/patcher"
-        icon="mdi-file-cog"
-        label="Patcher"
-        @click="open = false"
-      />
+      <!-- Actions — librarian actions, not settings, but reachable from
+           the same dropdown for convenience. Patcher is always visible
+           (no scope gate, matches v1). -->
+      <div class="r-v2-user-menu__group">
+        <RMenuItem
+          v-if="canSeeScan"
+          :to="{ name: ROUTES.SCAN }"
+          icon="mdi-magnify-scan"
+          :label="t('settings.scan')"
+          @click="open = false"
+        />
+        <!-- FIXME: v2 UploadRomDialog isn't built yet — clicking emits
+             the same event v1 listens for, so this lights up the moment
+             the dialog ships. -->
+        <RMenuItem
+          v-if="canSeeUpload"
+          icon="mdi-cloud-upload-outline"
+          :label="t('common.upload')"
+          @click="showUpload"
+        />
+        <RMenuItem
+          :to="{ name: ROUTES.PATCHER }"
+          icon="mdi-file-cog"
+          :label="t('common.patcher')"
+          @click="open = false"
+        />
+      </div>
 
       <RMenuDivider />
 
-      <!-- About is admin-only in v1's SettingsDrawer; keep that gate. -->
+      <!-- About is admin-only in v1; keep that gate. About + Changelog
+           remain dialogs (no dedicated views) — see CLAUDE.md. -->
       <RMenuItem
         v-if="isAdmin"
         icon="mdi-help-circle-outline"
-        label="About"
+        :label="t('common.about')"
         @click="showAbout"
       />
-      <!-- FIXME: no Changelog dialog/view exists in v1 or v2 yet — the
-           item is kept visible because it was part of the menu design;
-           wire it the moment the dialog ships. -->
+      <!-- FIXME: no Changelog dialog/view exists yet — the item is kept
+           visible because it was part of the menu design; wire it the
+           moment the dialog ships. -->
       <RMenuItem
         icon="mdi-clock-outline"
         label="Changelog"
@@ -220,18 +283,9 @@ async function onLogout() {
       <RMenuDivider />
 
       <RMenuItem
-        to="/controller-debug"
-        icon="mdi-controller"
-        label="Controller debug"
-        @click="open = false"
-      />
-
-      <RMenuDivider />
-
-      <RMenuItem
         icon="mdi-logout"
         variant="danger"
-        label="Log out"
+        :label="t('common.logout')"
         @click="onLogout"
       />
     </RMenuPanel>
@@ -274,5 +328,25 @@ async function onLogout() {
   .r-v2-user__name {
     display: none;
   }
+}
+
+/* Group section inside the dropdown — small uppercase label above each
+   cluster so the IA mirrors SettingsSidebar exactly. The label is omitted
+   for the trailing Actions/About/Logout regions where dividers already
+   communicate the boundary. */
+.r-v2-user-menu__group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0 6px;
+}
+
+.r-v2-user-menu__group-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg-muted);
+  padding: 4px 12px 2px;
 }
 </style>

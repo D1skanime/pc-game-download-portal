@@ -18,13 +18,10 @@
 // the real input loop keeps running in the background.
 import { RBtn, RIcon } from "@v2/lib";
 import { onBeforeUnmount, onMounted, ref } from "vue";
-import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
 
 defineOptions({ inheritAttrs: false });
-
-const setBgArt = useBackgroundArt();
-setBgArt(null);
 
 const { modality } = useInputModality();
 
@@ -139,41 +136,36 @@ function magnitude(x: number, y: number) {
 </script>
 
 <template>
-  <section class="r-v2-ctrl">
-    <header class="r-v2-ctrl__head">
-      <div>
-        <span class="r-v2-ctrl__eyebrow">
-          <RIcon icon="mdi-bug-outline" size="13" />
-          Developer tools
-        </span>
-        <h1 class="r-v2-ctrl__title">Controller debug</h1>
-        <p class="r-v2-ctrl__subtitle">
-          Live view of connected gamepads, input modality, and the synthetic key
-          bridge driven by <code>useGamepad</code>
-        </p>
-      </div>
-      <div class="r-v2-ctrl__modality">
-        <span class="r-v2-ctrl__modality-label">Modality</span>
-        <span
-          class="r-v2-ctrl__modality-pill"
-          :class="`r-v2-ctrl__modality-pill--${modality}`"
-        >
-          <RIcon
-            :icon="
-              modality === 'pad'
-                ? 'mdi-controller'
-                : modality === 'key'
-                  ? 'mdi-keyboard-outline'
-                  : modality === 'touch'
-                    ? 'mdi-gesture-tap'
-                    : 'mdi-mouse-outline'
-            "
-            size="14"
-          />
-          {{ modality }}
-        </span>
-      </div>
-    </header>
+  <SettingsShell
+    title="Controller debug"
+    subtitle="Live view of connected gamepads, input modality, and the synthetic key bridge driven by useGamepad."
+    eyebrow="Developer tools"
+    icon="mdi-bug-outline"
+    bare
+  >
+    <!-- Modality status pill — shown above the panels since the toolbar
+         row is owned by SettingsShell now. -->
+    <div class="r-v2-ctrl__modality">
+      <span class="r-v2-ctrl__modality-label">Modality</span>
+      <span
+        class="r-v2-ctrl__modality-pill"
+        :class="`r-v2-ctrl__modality-pill--${modality}`"
+      >
+        <RIcon
+          :icon="
+            modality === 'pad'
+              ? 'mdi-controller'
+              : modality === 'key'
+                ? 'mdi-keyboard-outline'
+                : modality === 'touch'
+                  ? 'mdi-gesture-tap'
+                  : 'mdi-mouse-outline'
+          "
+          size="14"
+        />
+        {{ modality }}
+      </span>
+    </div>
 
     <!-- No pad — help state -->
     <div v-if="pads.length === 0" class="r-v2-ctrl__panel r-v2-ctrl__empty">
@@ -340,66 +332,15 @@ function magnitude(x: number, y: number) {
         Press any key or gamepad button to see events here.
       </div>
     </div>
-  </section>
+  </SettingsShell>
 </template>
 
 <style scoped>
-.r-v2-ctrl {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 24px var(--r-row-pad) 48px;
-  max-width: 1040px;
-  margin: 0 auto;
-  width: 100%;
-  min-height: calc(100vh - var(--r-nav-h));
-}
-
-.r-v2-ctrl__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.r-v2-ctrl__eyebrow {
+.r-v2-ctrl__modality {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-brand-primary);
-}
-
-.r-v2-ctrl__title {
-  margin: 4px 0 0;
-  font-size: var(--r-font-size-xl);
-  font-weight: var(--r-font-weight-bold);
-}
-
-.r-v2-ctrl__subtitle {
-  margin: 4px 0 0;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
-  max-width: 550px;
-}
-.r-v2-ctrl__subtitle code {
-  padding: 1px 6px;
-  background: var(--r-color-surface);
-  border-radius: var(--r-radius-sm);
-  font-family: var(--r-font-family-mono, monospace);
-  font-size: 11px;
-  color: var(--r-color-brand-primary);
-}
-
-.r-v2-ctrl__modality {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-end;
+  gap: 8px;
+  align-self: flex-start;
 }
 .r-v2-ctrl__modality-label {
   font-size: 10px;
