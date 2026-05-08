@@ -178,9 +178,7 @@ class ConfigManager:
             # Also check if the config file is writable
             self._config_file_writable = os.access(self.config_file, os.W_OK)
         except FileNotFoundError:
-            log.critical(
-                "Config file not found! Any changes made to the configuration will not persist after the application restarts."
-            )
+            self._create_missing_config_file()
         except PermissionError:
             log.warning(
                 "Config file not writable! Any changes made to the configuration will not persist after the application restarts."
@@ -189,6 +187,24 @@ class ConfigManager:
             # Set the config to default values
             self._parse_config()
             self._validate_config()
+
+    def _create_missing_config_file(self) -> None:
+        log.warning(f"Config file not found, creating an empty config at {hl(self.config_file, BLUE)}")
+
+        try:
+            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+            with open(self.config_file, "x"):
+                pass
+
+            self._config_file_mounted = True
+            self._config_file_writable = os.access(self.config_file, os.W_OK)
+        except FileExistsError:
+            self._config_file_mounted = True
+            self._config_file_writable = os.access(self.config_file, os.W_OK)
+        except PermissionError:
+            log.critical(
+                "Config file not found and could not be created! Any changes made to the configuration will not persist after the application restarts."
+            )
 
     @staticmethod
     def get_db_engine() -> URL:
