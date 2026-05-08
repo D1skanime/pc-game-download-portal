@@ -147,8 +147,7 @@ const sortedExclusions = computed(() => {
   list.sort((a, b) => {
     if (sortKey.value === "title") {
       return (
-        a.title.localeCompare(b.title) * dir ||
-        a.value.localeCompare(b.value)
+        a.title.localeCompare(b.title) * dir || a.value.localeCompare(b.value)
       );
     }
     // value
@@ -323,6 +322,7 @@ function onSort({ key, dir }: RTableSortPayload) {
       :sort-dir="sortDir"
       empty-icon="mdi-folder-search-outline"
       :empty-message="t('common.no-results')"
+      row-height="44px"
       @update:sort="onSort"
     >
       <template #cell.value="{ row }">
@@ -339,14 +339,12 @@ function onSort({ key, dir }: RTableSortPayload) {
           v-if="canEdit"
           variant="text"
           size="small"
-          icon
+          icon="mdi-trash-can-outline"
           :aria-label="t('common.delete')"
           :title="t('common.delete')"
           class="r-v2-excluded__delete-btn"
           @click="removeRow(row as Row)"
-        >
-          <RIcon icon="mdi-trash-can-outline" size="16" />
-        </RBtn>
+        />
       </template>
     </RTable>
 
@@ -474,10 +472,15 @@ function onSort({ key, dir }: RTableSortPayload) {
 }
 
 .r-v2-excluded__delete-btn {
-  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
+  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent) !important;
 }
 .r-v2-excluded__delete-btn:hover {
-  color: var(--r-color-danger);
+  color: var(--r-color-danger) !important;
+  background: color-mix(
+    in srgb,
+    var(--r-color-danger) 12%,
+    transparent
+  ) !important;
 }
 
 /* Empty state with CTA below. */

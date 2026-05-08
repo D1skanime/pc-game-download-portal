@@ -13,11 +13,7 @@
 import {
   RBtn,
   RIcon,
-  RMenu,
-  RMenuItem,
-  RMenuPanel,
   RTable,
-  RTag,
   RTextField,
   RTooltip,
   type RTableColumn,
@@ -26,24 +22,24 @@ import {
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import configApi from "@/services/api/config";
 import platformApi from "@/services/api/platform";
+import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
-import { useCan } from "@/v2/composables/useCan";
+import FolderMappingPlatformCell from "@/v2/components/Settings/FolderMappingPlatformCell.vue";
+import FolderMappingTypeCell from "@/v2/components/Settings/FolderMappingTypeCell.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+const authStore = storeAuth();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const heartbeat = storeHeartbeat();
 const snackbar = useSnackbar();
-
-const canEditPlatforms = useCan("platform.edit");
 
 const supportedPlatforms = ref<Platform[]>([]);
 const search = ref("");
@@ -157,8 +153,14 @@ const filteredMappings = computed(() => {
   );
 });
 
+// Same check as v1 (OAuth scope) — admin/editor get `platforms.write`
+// via FULL_SCOPES / EDIT_SCOPES on the backend. Matches the working
+// permission gate exactly, avoiding the v2 useCan-store hydration race
+// that was leaving cells unclickable on Settings load.
 const canEdit = computed(
-  () => canEditPlatforms.value && config.value.CONFIG_FILE_WRITABLE,
+  () =>
+    authStore.scopes.includes("platforms.write") &&
+    config.value.CONFIG_FILE_WRITABLE,
 );
 
 const columns = computed<RTableColumn[]>(() => [
@@ -209,20 +211,6 @@ function onSort({ key, dir }: RTableSortPayload) {
 const tableSortKey = computed(() =>
   sortKey.value === "displayName" ? "platform" : sortKey.value,
 );
-
-type RTagTone = "neutral" | "brand" | "success" | "danger" | "warning" | "info";
-
-function typeToTone(type: Exclude<RowType, null>): RTagTone {
-  if (type === "alias") return "brand";
-  if (type === "variant") return "info";
-  return "success"; // auto
-}
-
-function typeToLabel(type: Exclude<RowType, null>): string {
-  if (type === "alias") return t("settings.folder-alias");
-  if (type === "variant") return t("settings.platform-variant");
-  return t("settings.auto-detected");
-}
 
 async function setPlatform(row: Row, slug: string | undefined) {
   loading.value = true;
@@ -351,14 +339,14 @@ onMounted(async () => {
       </RTextField>
       <RTooltip>
         <template #activator="{ props: tipProps }">
-          <button
-            type="button"
-            class="r-v2-icon-btn"
+          <RBtn
             v-bind="tipProps"
+            variant="text"
+            size="small"
+            icon="mdi-information-outline"
+            class="r-v2-mappings__info-btn"
             :aria-label="t('settings.exclusions-tooltip')"
-          >
-            <RIcon icon="mdi-information-outline" size="15" />
-          </button>
+          />
         </template>
         <div class="r-v2-mappings__tip">
           <p>
@@ -385,6 +373,7 @@ onMounted(async () => {
       :sort-dir="sortDir"
       empty-icon="mdi-folder-search-outline"
       :empty-message="t('common.no-results')"
+      row-height="44px"
       @update:sort="onSort"
     >
       <template #cell.fsSlug="{ row }">
@@ -392,103 +381,19 @@ onMounted(async () => {
       </template>
 
       <template #cell.platform="{ row }">
-        <RMenu v-if="canEdit">
-          <template #activator="{ props: menuProps }">
-            <RBtn
-              v-bind="menuProps"
-              variant="text"
-              size="small"
-              class="r-v2-mappings__platform"
-            >
-              <PlatformIcon
-                v-if="(row as Row).slug"
-                :slug="(row as Row).slug!"
-                :size="22"
-                class="r-v2-mappings__platform-icon"
-              />
-              <span v-if="(row as Row).slug">
-                {{ (row as Row).displayName }}
-              </span>
-              <span v-else class="r-v2-mappings__placeholder">—</span>
-              <RIcon icon="mdi-chevron-down" size="14" />
-            </RBtn>
-          </template>
-          <RMenuPanel width="280px" max-height="320px">
-            <RMenuItem
-              v-for="platform in supportedPlatforms"
-              :key="platform.slug"
-              :label="platform.display_name"
-              @click="setPlatform(row as Row, platform.slug)"
-            >
-              <template #icon>
-                <PlatformIcon :slug="platform.slug" :size="18" />
-              </template>
-            </RMenuItem>
-            <RMenuItem
-              v-if="(row as Row).slug && (row as Row).type !== 'auto'"
-              icon="mdi-delete"
-              variant="danger"
-              :label="t('common.delete')"
-              @click="setPlatform(row as Row, undefined)"
-            />
-          </RMenuPanel>
-        </RMenu>
-        <span v-else class="r-v2-mappings__platform">
-          <PlatformIcon
-            v-if="(row as Row).slug"
-            :slug="(row as Row).slug!"
-            :size="22"
-            class="r-v2-mappings__platform-icon"
-          />
-          <span v-if="(row as Row).slug">
-            {{ (row as Row).displayName }}
-          </span>
-          <span v-else class="r-v2-mappings__placeholder">—</span>
-        </span>
+        <FolderMappingPlatformCell
+          :row="row as Row"
+          :supported-platforms="supportedPlatforms"
+          :can-edit="canEdit"
+          @select="(slug) => setPlatform(row as Row, slug)"
+        />
       </template>
 
       <template #cell.type="{ row }">
-        <RMenu
-          v-if="canEdit && (row as Row).slug && (row as Row).type !== null"
-          location="bottom"
-        >
-          <template #activator="{ props: menuProps }">
-            <RBtn
-              v-bind="menuProps"
-              variant="text"
-              size="x-small"
-              class="r-v2-mappings__type-trigger"
-            >
-              <RTag
-                :tone="typeToTone((row as Row).type!)"
-                :text="typeToLabel((row as Row).type!)"
-                size="x-small"
-              />
-              <RIcon
-                icon="mdi-chevron-down"
-                size="12"
-                class="r-v2-mappings__type-chev"
-              />
-            </RBtn>
-          </template>
-          <RMenuPanel width="200px">
-            <RMenuItem
-              :label="t('settings.folder-alias')"
-              icon="mdi-label-variant"
-              @click="setType(row as Row, 'alias')"
-            />
-            <RMenuItem
-              :label="t('settings.platform-variant')"
-              icon="mdi-source-branch"
-              @click="setType(row as Row, 'variant')"
-            />
-          </RMenuPanel>
-        </RMenu>
-        <RTag
-          v-else-if="(row as Row).type"
-          :tone="typeToTone((row as Row).type!)"
-          :text="typeToLabel((row as Row).type!)"
-          size="x-small"
+        <FolderMappingTypeCell
+          :row="row as Row"
+          :can-edit="canEdit"
+          @select="(t) => setType(row as Row, t)"
         />
       </template>
 
@@ -497,14 +402,12 @@ onMounted(async () => {
           v-if="canEdit && (row as Row).type !== 'auto' && (row as Row).slug"
           variant="text"
           size="small"
-          icon
+          icon="mdi-trash-can-outline"
           :aria-label="t('common.delete')"
           :title="t('common.delete')"
           class="r-v2-mappings__delete-btn"
           @click="setPlatform(row as Row, undefined)"
-        >
-          <RIcon icon="mdi-trash-can-outline" size="16" />
-        </RBtn>
+        />
       </template>
     </RTable>
   </div>
@@ -553,39 +456,17 @@ onMounted(async () => {
   text-overflow: ellipsis;
 }
 
-.r-v2-mappings__platform {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--r-color-fg);
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: var(--r-font-weight-regular);
-}
-.r-v2-mappings__platform-icon {
-  flex-shrink: 0;
-}
-.r-v2-mappings__placeholder {
-  color: var(--r-color-fg-faint);
-}
-
-.r-v2-mappings__type-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  text-transform: none;
-  letter-spacing: 0;
-}
-.r-v2-mappings__type-chev {
-  flex-shrink: 0;
-}
-
+/* Delete row action — danger-tinted icon RBtn. */
 .r-v2-mappings__delete-btn {
-  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
+  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent) !important;
 }
 .r-v2-mappings__delete-btn:hover {
-  color: var(--r-color-danger);
+  color: var(--r-color-danger) !important;
+  background: color-mix(
+    in srgb,
+    var(--r-color-danger) 12%,
+    transparent
+  ) !important;
 }
 
 .r-v2-mappings__tip {
