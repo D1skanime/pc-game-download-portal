@@ -37,6 +37,14 @@ export interface KindFilterItem {
   title?: string;
 }
 
+export interface GroupByItem {
+  id: GroupByMode;
+  icon?: string;
+  label?: string;
+  ariaLabel?: string;
+  title?: string;
+}
+
 const props = withDefaults(
   defineProps<{
     groupBy: Ref<GroupByMode> | GroupByMode;
@@ -44,6 +52,10 @@ const props = withDefaults(
     position?: ToolbarPosition;
     /** Show the GroupBy toggle (hide it on views where grouping doesn't make sense). */
     showGroupBy?: boolean;
+    /** Override the GroupBy options — used by index views (Platforms)
+     *  to expose richer modes (family / category / generation) beyond
+     *  the default flat / letter pair. */
+    groupByItems?: GroupByItem[];
     /** Show the search field on the left. v-model:search controls its value. */
     showSearch?: boolean;
     search?: string;
@@ -58,6 +70,26 @@ const props = withDefaults(
   {
     position: "header",
     showGroupBy: true,
+    // Inline default — flat + by-letter, the universal pair every
+    // gallery surface (Platform / Collection / Search) supports. Index
+    // views (PlatformsIndex) override this with a richer list. Cannot
+    // reference an outer const here: `withDefaults`' factory is hoisted
+    // outside `setup()`, so any module-scope identifier it touched
+    // would explode at compile time.
+    groupByItems: () => [
+      {
+        id: "none",
+        icon: "mdi-view-agenda-outline",
+        ariaLabel: "Flat view",
+        title: "Flat view",
+      },
+      {
+        id: "letter",
+        icon: "mdi-alphabetical-variant",
+        ariaLabel: "Group by letter",
+        title: "Group by letter",
+      },
+    ],
     showSearch: false,
     search: "",
     searchPlaceholder: "Search…",
@@ -84,21 +116,6 @@ function toValue<T>(source: Ref<T> | T): T {
 
 const groupByValue = computed(() => toValue(props.groupBy));
 const layoutValue = computed(() => toValue(props.layout));
-
-const groupByItems = [
-  {
-    id: "none" as const,
-    icon: "mdi-view-agenda-outline",
-    ariaLabel: "Flat view",
-    title: "Flat view",
-  },
-  {
-    id: "letter" as const,
-    icon: "mdi-alphabetical-variant",
-    ariaLabel: "Group by letter",
-    title: "Group by letter",
-  },
-];
 
 const layoutItems = [
   {
@@ -203,18 +220,14 @@ function setKindFilter(value: KindFilterValue) {
             />
             <RMenuDivider />
           </template>
-          <template v-if="showGroupBy">
+          <template v-if="showGroupBy && groupByItems.length > 0">
             <RMenuItem
-              label="Flat"
-              icon="mdi-view-agenda-outline"
-              :variant="groupByValue === 'none' ? 'active' : 'default'"
-              @click="setGroupBy('none')"
-            />
-            <RMenuItem
-              label="Group by letter"
-              icon="mdi-alphabetical-variant"
-              :variant="groupByValue === 'letter' ? 'active' : 'default'"
-              @click="setGroupBy('letter')"
+              v-for="item in groupByItems"
+              :key="item.id"
+              :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
+              :icon="item.icon"
+              :variant="groupByValue === item.id ? 'active' : 'default'"
+              @click="setGroupBy(item.id)"
             />
             <RMenuDivider />
           </template>

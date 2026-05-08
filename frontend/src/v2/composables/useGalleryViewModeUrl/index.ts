@@ -27,8 +27,19 @@ import {
   useGalleryMode,
 } from "@/v2/composables/useGalleryMode";
 
+const VALID_GROUP_BY: readonly GroupByMode[] = [
+  "letter",
+  "family",
+  "category",
+  "generation",
+  "none",
+];
+
 function parseGroupBy(value: unknown): GroupByMode | null {
-  return value === "letter" || value === "none" ? value : null;
+  return typeof value === "string" &&
+    (VALID_GROUP_BY as readonly string[]).includes(value)
+    ? (value as GroupByMode)
+    : null;
 }
 
 function parseLayout(value: unknown): LayoutMode | null {
