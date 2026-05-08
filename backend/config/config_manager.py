@@ -202,6 +202,8 @@ class ConfigManager:
             self._config_file_mounted = True
             self._config_file_writable = os.access(self.config_file, os.W_OK)
         except PermissionError:
+            self._config_file_mounted = False
+            self._config_file_writable = False
             log.critical(
                 "Config file not found and could not be created! Any changes made to the configuration will not persist after the application restarts."
             )
