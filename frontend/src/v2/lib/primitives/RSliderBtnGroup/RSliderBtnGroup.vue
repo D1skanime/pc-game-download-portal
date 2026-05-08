@@ -155,7 +155,7 @@ onBeforeUnmount(() => {
       :style="{
         transform: `translateX(${rect.left}px)`,
         width: `${rect.width}px`,
-        opacity: rect.visible ? 1 : 0,
+        opacity: rect.visible && !disabled ? 1 : 0,
       }"
       aria-hidden="true"
     />
@@ -265,10 +265,17 @@ onBeforeUnmount(() => {
 
 /* Whole-cluster disabled — dim everything and block clicks. Router-link
    items don't honour a `disabled` prop, so pointer-events:none is the
-   reliable escape hatch. */
+   reliable escape hatch. The active indicator is hidden via the inline
+   opacity binding (see template); the active button must drop its
+   inverted text colour too so it reads like every other muted item
+   instead of leaving a low-contrast `--r-color-bg` ghost behind. */
 .r-slider-btn-group--disabled {
   opacity: 0.4;
   pointer-events: none;
+}
+.r-slider-btn-group--disabled .r-slider-btn-group__btn--active,
+.r-slider-btn-group--disabled .r-slider-btn-group__btn--active:hover {
+  color: var(--r-color-fg-secondary) !important;
 }
 
 /* Button — common. Indicator owns the active background; buttons stay

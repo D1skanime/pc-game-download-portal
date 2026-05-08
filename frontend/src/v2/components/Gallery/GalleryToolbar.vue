@@ -28,6 +28,15 @@ import type {
 
 defineOptions({ inheritAttrs: false });
 
+export type KindFilterValue = "all" | "regular" | "virtual";
+export interface KindFilterItem {
+  id: KindFilterValue;
+  icon?: string;
+  label?: string;
+  ariaLabel?: string;
+  title?: string;
+}
+
 const props = withDefaults(
   defineProps<{
     groupBy: Ref<GroupByMode> | GroupByMode;
@@ -39,6 +48,12 @@ const props = withDefaults(
     showSearch?: boolean;
     search?: string;
     searchPlaceholder?: string;
+    /** Show the kind filter (sits left of GroupBy). Used by CollectionsIndex
+     *  to switch between all / non-virtual / virtual collections. */
+    showKindFilter?: boolean;
+    kindFilter?: KindFilterValue;
+    kindFilterItems?: KindFilterItem[];
+    kindFilterAriaLabel?: string;
   }>(),
   {
     position: "header",
@@ -46,6 +61,10 @@ const props = withDefaults(
     showSearch: false,
     search: "",
     searchPlaceholder: "Search…",
+    showKindFilter: false,
+    kindFilter: "all",
+    kindFilterItems: () => [],
+    kindFilterAriaLabel: "Filter by kind",
   },
 );
 
@@ -53,6 +72,7 @@ const emit = defineEmits<{
   (e: "update:groupBy", value: GroupByMode): void;
   (e: "update:layout", value: LayoutMode): void;
   (e: "update:search", value: string): void;
+  (e: "update:kindFilter", value: KindFilterValue): void;
 }>();
 
 // Support both a Ref or a plain value — keeps consumption flexible.
@@ -106,6 +126,10 @@ function setLayout(value: LayoutMode) {
 function setSearch(value: string) {
   emit("update:search", value);
 }
+
+function setKindFilter(value: KindFilterValue) {
+  emit("update:kindFilter", value);
+}
 </script>
 
 <template>
@@ -126,6 +150,15 @@ function setSearch(value: string) {
 
     <!-- Controls cluster — pushed right via margin-left: auto. -->
     <div class="gallery-toolbar__controls">
+      <RSliderBtnGroup
+        v-if="showKindFilter && kindFilterItems.length > 0"
+        :model-value="kindFilter"
+        :items="kindFilterItems"
+        variant="segmented"
+        :aria-label="kindFilterAriaLabel"
+        @update:model-value="setKindFilter"
+      />
+
       <RSliderBtnGroup
         v-if="showGroupBy"
         :model-value="groupByValue"
@@ -159,6 +192,17 @@ function setSearch(value: string) {
           </RBtn>
         </template>
         <RMenuPanel width="220px">
+          <template v-if="showKindFilter && kindFilterItems.length > 0">
+            <RMenuItem
+              v-for="item in kindFilterItems"
+              :key="item.id"
+              :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
+              :icon="item.icon"
+              :variant="kindFilter === item.id ? 'active' : 'default'"
+              @click="setKindFilter(item.id)"
+            />
+            <RMenuDivider />
+          </template>
           <template v-if="showGroupBy">
             <RMenuItem
               label="Flat"

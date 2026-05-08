@@ -94,7 +94,7 @@ const showLetterGroups = computed(
       :layout="layout"
       :search="searchTerm"
       show-search
-      search-placeholder="Search platforms…"
+      search-placeholder="Search platforms"
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
       @update:search="searchTerm = $event"
