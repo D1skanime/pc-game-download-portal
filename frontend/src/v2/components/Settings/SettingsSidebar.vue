@@ -161,34 +161,37 @@ const groups = computed<Group[]>(() => {
 </template>
 
 <style scoped>
+/* Mock-faithful: flush column with a hairline right border, NO card
+   chrome. Items run edge-to-edge so the bg-tint reads as "row selected"
+   rather than "pill selected". Group labels are inline at the top of
+   each group, small uppercase, very muted. */
 .r-v2-settings-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 14px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-lg);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  align-self: flex-start;
-  position: sticky;
-  top: calc(var(--r-nav-h) + 16px);
+  gap: 2px;
+  padding: 24px 0;
+  border-right: 1px solid var(--r-color-border);
+  align-self: stretch;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .r-v2-settings-sidebar__group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
+}
+.r-v2-settings-sidebar__group + .r-v2-settings-sidebar__group {
+  margin-top: 8px;
 }
 
 .r-v2-settings-sidebar__group-label {
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   font-size: 10px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg-muted);
-  padding: 0 10px 4px;
+  font-weight: var(--r-font-weight-bold);
+  color: var(--r-color-fg-faint);
+  padding: 10px 20px 6px;
 }
 
 .r-v2-settings-sidebar__list {
@@ -197,17 +200,15 @@ const groups = computed<Group[]>(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
 .r-v2-settings-sidebar__item {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 9px 10px;
-  border-radius: 9px;
+  gap: 10px;
+  padding: 9px 20px;
   text-decoration: none;
-  color: var(--r-color-fg-secondary);
+  color: var(--r-color-fg-muted);
   font-size: 13px;
   font-weight: var(--r-font-weight-medium);
   transition:
@@ -218,54 +219,49 @@ const groups = computed<Group[]>(() => {
 
 .r-v2-settings-sidebar__icon {
   flex-shrink: 0;
-  opacity: 0.7;
-  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
 .r-v2-settings-sidebar__item:hover {
-  background: var(--r-color-surface);
   color: var(--r-color-fg);
-}
-.r-v2-settings-sidebar__item:hover .r-v2-settings-sidebar__icon {
-  opacity: 1;
+  background: var(--r-color-surface);
 }
 
 .r-v2-settings-sidebar__item--active,
 .r-v2-settings-sidebar__item--active:hover {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 16%, transparent);
-  color: var(--r-color-brand-primary);
-}
-.r-v2-settings-sidebar__item--active .r-v2-settings-sidebar__icon {
-  opacity: 1;
+  color: var(--r-color-fg);
+  background: var(--r-color-surface-hover);
 }
 
-/* Below 1024px: collapse to a flat horizontal scrollable strip — items
-   keep their group order, group labels disappear (they'd duplicate the
-   already-visible eyebrow on the content side). */
+/* Below 1024px: horizontal scrollable strip — items keep their group
+   order; group labels disappear so the strip reads as a single tab row.
+   Tracks the same flush feel: no card border, just a bottom hairline. */
 @media (max-width: 1023px) {
   .r-v2-settings-sidebar {
     flex-direction: row;
     align-items: center;
-    gap: 6px;
-    padding: 6px;
+    gap: 0;
+    padding: 6px var(--r-row-pad);
+    border-right: none;
+    border-bottom: 1px solid var(--r-color-border);
     overflow-x: auto;
     overflow-y: hidden;
-    position: static;
-    top: auto;
-    scrollbar-width: thin;
+    align-self: auto;
   }
   .r-v2-settings-sidebar__group {
     flex-direction: row;
     flex-shrink: 0;
     align-items: center;
-    gap: 6px;
+    gap: 0;
+  }
+  .r-v2-settings-sidebar__group + .r-v2-settings-sidebar__group {
+    margin-top: 0;
   }
   .r-v2-settings-sidebar__group + .r-v2-settings-sidebar__group::before {
     content: "";
     width: 1px;
     height: 18px;
     background: var(--r-color-border);
-    margin-right: 4px;
+    margin: 0 6px;
     flex-shrink: 0;
   }
   .r-v2-settings-sidebar__group-label {
@@ -273,14 +269,10 @@ const groups = computed<Group[]>(() => {
   }
   .r-v2-settings-sidebar__list {
     flex-direction: row;
-    gap: 4px;
   }
   .r-v2-settings-sidebar__item {
-    padding: 8px 12px;
+    padding: 7px 14px;
     border-radius: var(--r-radius-pill);
-  }
-  .r-v2-settings-sidebar__label {
-    white-space: nowrap;
   }
 }
 </style>

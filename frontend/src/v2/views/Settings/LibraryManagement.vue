@@ -1,19 +1,18 @@
 <script setup lang="ts">
-// LibraryManagement — v2 chrome around the v1 FolderMappings / Excluded /
-// MissingGames sub-components. Tabs drive a ?tab= query param for
-// deep-linking, same as v1. The config-file-unmounted / not-writable
-// warnings are preserved verbatim.
-import { RAlert, RSliderBtnGroup } from "@v2/lib";
+// LibraryManagement — v2-native rewrite. Page title + mock-style
+// underline tabs (`.settings-tabs`) + the three section composites
+// (FolderMappings / Excluded / MissingGames). The `?tab=` query param
+// is preserved so deep links keep working.
+import { RAlert } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import Excluded from "@/components/Settings/LibraryManagement/Config/Excluded.vue";
-import FolderMappings from "@/components/Settings/LibraryManagement/Config/FolderMappings.vue";
-import MissingGames from "@/components/Settings/LibraryManagement/Config/MissingGames.vue";
 import storeConfig from "@/stores/config";
+import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
+import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
+import MissingGamesSection from "@/v2/components/Settings/MissingGamesSection.vue";
 import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
-import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -51,41 +50,23 @@ watch(
   { immediate: true },
 );
 
-const tabs = computed<SliderBtnGroupItem<Tab>[]>(() => [
-  {
-    id: "mapping",
-    label: t("settings.folder-mappings"),
-    icon: "mdi-folder-cog",
-  },
-  { id: "excluded", label: t("settings.excluded"), icon: "mdi-cancel" },
-  {
-    id: "missing",
-    label: t("settings.missing-games-tab"),
-    icon: "mdi-folder-question",
-  },
-]);
-
-function setTab(id: Tab) {
-  tab.value = id;
+interface TabDef {
+  id: Tab;
+  label: string;
 }
+
+const tabs: TabDef[] = [
+  { id: "mapping", label: t("settings.folder-mappings") },
+  { id: "excluded", label: t("settings.excluded") },
+  { id: "missing", label: t("settings.missing-games-tab") },
+];
 </script>
 
 <template>
-  <SettingsShell
-    :title="t('common.library-management')"
-    subtitle="Folder mappings, excluded paths, and missing-from-disk games."
-    icon="mdi-folder-cog"
-    bare
-  >
-    <div class="r-v2-lib__tabs">
-      <RSliderBtnGroup
-        variant="tab"
-        :model-value="tab"
-        :items="tabs"
-        aria-label="Library management section"
-        @update:model-value="setTab"
-      />
-    </div>
+  <SettingsShell bare>
+    <h1 class="r-v2-settings__page-title">
+      {{ t("common.library-management") }}
+    </h1>
 
     <RAlert v-if="!config.CONFIG_FILE_MOUNTED" type="error">
       <template #title>
@@ -100,27 +81,65 @@ function setTab(id: Tab) {
       {{ t("settings.config-file-not-writable-desc") }}
     </RAlert>
 
-    <div class="r-v2-lib__body">
-      <FolderMappings v-if="tab === 'mapping'" />
-      <Excluded v-else-if="tab === 'excluded'" />
-      <MissingGames v-else-if="tab === 'missing'" />
-    </div>
+    <!-- Mock-faithful underline tabs. -->
+    <nav class="r-v2-settings-tabs" role="tablist" aria-label="Library tabs">
+      <button
+        v-for="entry in tabs"
+        :key="entry.id"
+        type="button"
+        role="tab"
+        :aria-selected="tab === entry.id"
+        :class="[
+          'r-v2-settings-tabs__btn',
+          { 'r-v2-settings-tabs__btn--active': tab === entry.id },
+        ]"
+        @click="tab = entry.id"
+      >
+        {{ entry.label }}
+      </button>
+    </nav>
+
+    <FolderMappingsSection v-if="tab === 'mapping'" />
+    <ExcludedSection v-else-if="tab === 'excluded'" />
+    <MissingGamesSection v-else-if="tab === 'missing'" />
   </SettingsShell>
 </template>
 
 <style scoped>
-.r-v2-lib__tabs {
-  display: flex;
-  justify-content: flex-start;
+.r-v2-settings__page-title {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--r-color-fg);
 }
 
-.r-v2-lib__body {
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-lg);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  padding: 6px;
-  min-height: 180px;
+/* Mock-faithful underline tabs — bottom border on active, with the
+   tab btn's bottom edge sitting on the strip's hairline. */
+.r-v2-settings-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--r-color-border);
+  margin-bottom: 20px;
+}
+.r-v2-settings-tabs__btn {
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: var(--r-font-weight-medium);
+  color: var(--r-color-fg-muted);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition:
+    color var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-v2-settings-tabs__btn:hover {
+  color: var(--r-color-fg-secondary);
+}
+.r-v2-settings-tabs__btn--active {
+  color: var(--r-color-fg);
+  border-bottom-color: var(--r-color-fg);
 }
 </style>

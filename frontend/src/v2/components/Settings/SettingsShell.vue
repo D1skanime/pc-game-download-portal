@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // SettingsShell — page chrome shared by every Settings route.
 //
-// Two-column layout: a sticky sidebar on the left (SettingsSidebar) and
-// the page content on the right (eyebrow + title + body slot). Each
-// individual settings view stays tiny — it declares its metadata and
-// renders its body into the default slot.
+// Mock-faithful layout: full viewport height, two columns sharing a
+// vertical hairline divider. The sidebar stays put; the content column
+// owns its own scroll so the page title (when present) and the navbar
+// don't shift on scroll. The sidebar's active item is the navigation
+// cue, so each view skips a redundant title hero.
 //
 // At <1024px the sidebar collapses to a horizontal scrollable strip on
 // top of the content (responsive logic lives inside SettingsSidebar).
@@ -14,10 +15,6 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 defineOptions({ inheritAttrs: false });
 
 defineProps<{
-  title: string;
-  subtitle?: string;
-  eyebrow?: string;
-  icon?: string;
   /**
    * When true, renders the content slot directly without the default
    * glass wrapper. Use for views that already provide their own
@@ -53,56 +50,32 @@ setBgArt(null);
 
 <style scoped>
 .r-v2-settings {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 24px;
-  padding: 24px var(--r-row-pad) 48px;
-  max-width: 1280px;
-  margin: 0 auto;
+  display: flex;
+  height: calc(100vh - var(--r-nav-h));
+  overflow: hidden;
   width: 100%;
-  min-height: calc(100vh - var(--r-nav-h));
 }
 
 .r-v2-settings__sidebar {
-  /* Sidebar applies its own glass surface; the shell just slots it in. */
+  width: 220px;
+  flex-shrink: 0;
 }
 
 .r-v2-settings__content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex: 1;
   min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 32px 40px 60px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--r-color-border-strong) transparent;
 }
-
-.r-v2-settings__head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0 2px;
+.r-v2-settings__content::-webkit-scrollbar {
+  width: 4px;
 }
-
-.r-v2-settings__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-brand-primary);
-}
-
-.r-v2-settings__title {
-  margin: 0;
-  font-size: var(--r-font-size-xl);
-  font-weight: var(--r-font-weight-bold);
-}
-
-.r-v2-settings__subtitle {
-  margin: 2px 0 0;
-  color: var(--r-color-fg-secondary);
-  font-size: var(--r-font-size-sm);
-  max-width: 640px;
+.r-v2-settings__content::-webkit-scrollbar-thumb {
+  background: var(--r-color-border-strong);
+  border-radius: 2px;
 }
 
 .r-v2-settings__body {
@@ -119,19 +92,28 @@ setBgArt(null);
   padding: 18px;
 }
 
-/* Bare variant — content slot owns its own surfaces (settings views with
-   their own section cards). The wrapper panel is dropped so the
+/* Bare variant — content slot owns its own surfaces (settings views
+   with their own section cards). The wrapper panel is dropped so the
    embedded cards don't double-nest. */
 .r-v2-settings__body--bare {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 24px;
 }
 
 @media (max-width: 1023px) {
   .r-v2-settings {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - var(--r-nav-h));
+    overflow: visible;
+  }
+  .r-v2-settings__sidebar {
+    width: 100%;
+  }
+  .r-v2-settings__content {
+    overflow: visible;
+    padding: 24px var(--r-row-pad) 48px;
   }
 }
 </style>

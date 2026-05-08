@@ -1,15 +1,15 @@
 <script setup lang="ts">
-// ServerStats — v2 chrome around the v1 SummaryStats + PlatformsStats
-// components. Data fetch is a single /stats call; the response shape is
-// unchanged.
+// ServerStats — v2-native rewrite. Composes the two stat sections
+// (Summary + Platforms breakdown). Data fetch is a single /stats call
+// with `include_platform_stats=true`; same shape as v1.
 import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
-import PlatformsStats from "@/components/Settings/ServerStats/PlatformsStats.vue";
-import SummaryStats from "@/components/Settings/ServerStats/SummaryStats.vue";
 import api from "@/services/api";
+import PlatformsStatsSection from "@/v2/components/Settings/PlatformsStatsSection.vue";
 import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
+import SummaryStatsSection from "@/v2/components/Settings/SummaryStatsSection.vue";
 
 const { t } = useI18n();
 
@@ -34,17 +34,26 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <SettingsShell
-    :title="t('common.server-stats')"
-    subtitle="Library-wide totals and per-platform breakdowns."
-    icon="mdi-chart-bar"
-    bare
-  >
-    <SummaryStats :stats="stats" />
-    <PlatformsStats
+  <SettingsShell bare>
+    <h1 class="r-v2-settings__page-title">
+      {{ t("common.server-stats") }}
+    </h1>
+
+    <SummaryStatsSection :stats="stats" />
+    <PlatformsStatsSection
       :total-filesize="stats.TOTAL_FILESIZE_BYTES"
       :metadata-coverage="stats.METADATA_COVERAGE"
       :region-breakdown="stats.REGION_BREAKDOWN"
     />
   </SettingsShell>
 </template>
+
+<style scoped>
+.r-v2-settings__page-title {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--r-color-fg);
+}
+</style>

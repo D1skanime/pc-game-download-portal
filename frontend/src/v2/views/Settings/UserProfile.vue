@@ -1,19 +1,22 @@
 <script setup lang="ts">
-// UserProfile — v2-native rewrite. Same contract as v1: hero (avatar +
-// username + role), Account details form, and the RetroAchievements
-// section (reused as-is from v1 for this wave).
+// UserProfile — v2-native rewrite. Mirrors the mock layout:
+//   • page title
+//   • flush identity row (avatar + username + role)
+//   • Account Details section (form + apply button row)
+//   • RetroAchievements section (own component)
 import { RBtn, RIcon, RSelect, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import RetroAchievements from "@/components/Settings/UserProfile/RetroAchievements.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
+import RetroAchievementsSection from "@/v2/components/Settings/RetroAchievementsSection.vue";
+import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -26,6 +29,7 @@ const imagePreviewUrl = ref<string | undefined>("");
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const submitting = ref(false);
 
 const roleItems = computed(() =>
   ["viewer", "editor", "admin"].map((role) => ({
@@ -60,31 +64,36 @@ function previewImage(event: Event) {
   reader.readAsDataURL(file);
 }
 
-function editUser() {
+async function editUser() {
   if (!userToEdit.value) return;
-
-  userApi
-    .updateUser(userToEdit.value)
-    .then(({ data }) => {
-      snackbar.success(`User ${data.username} updated successfully`, {
-        icon: "mdi-check-bold",
-        timeout: 5000,
-      });
-      usersStore.update(data);
-      if (data.id == auth.user?.id) {
-        auth.setCurrentUser(data);
-      }
-    })
-    .catch(({ response, message }) => {
-      snackbar.error(
-        `Unable to edit user: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
-        { icon: "mdi-close-circle", timeout: 5000 },
-      );
+  submitting.value = true;
+  try {
+    const { data } = await userApi.updateUser(userToEdit.value);
+    snackbar.success(`User ${data.username} updated successfully`, {
+      icon: "mdi-check-bold",
+      timeout: 5000,
     });
-
-  emitter?.emit("refreshDrawer", null);
+    usersStore.update(data);
+    if (data.id == auth.user?.id) {
+      auth.setCurrentUser(data);
+    }
+    emitter?.emit("refreshDrawer", null);
+  } catch (err) {
+    const error = err as {
+      response?: { data?: { detail?: string }; statusText?: string };
+      message?: string;
+    };
+    snackbar.error(
+      `Unable to edit user: ${
+        error?.response?.data?.detail ||
+        error?.response?.statusText ||
+        error?.message
+      }`,
+      { icon: "mdi-close-circle", timeout: 5000 },
+    );
+  } finally {
+    submitting.value = false;
+  }
 }
 
 onMounted(() => {
@@ -100,15 +109,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <SettingsShell
-    :title="t('common.user-profile')"
-    subtitle="Manage your account details, avatar, and linked services."
-    icon="mdi-account-circle"
-    bare
-  >
+  <SettingsShell bare>
     <template v-if="userToEdit">
-      <!-- Identity hero -->
-      <div class="r-v2-profile__hero">
+      <h1 class="r-v2-settings__page-title">
+        {{ t("common.profile") }}
+      </h1>
+
+      <!-- Flush identity row — avatar + username + role. No card. -->
+      <div class="r-v2-profile__identity-row">
         <button
           type="button"
           class="r-v2-profile__avatar"
@@ -128,25 +136,23 @@ onUnmounted(() => {
           :aria-label="t('settings.change-avatar', 'Change avatar')"
           @change="previewImage"
         />
-
         <div class="r-v2-profile__identity">
-          <h2 class="r-v2-profile__username">
+          <span class="r-v2-profile__username">
             {{ userToEdit.username }}
-          </h2>
+          </span>
           <span class="r-v2-profile__role">
-            <RIcon :icon="getRoleIcon(userToEdit.role)" size="14" />
+            <RIcon :icon="getRoleIcon(userToEdit.role)" size="12" />
             {{ userToEdit.role }}
           </span>
         </div>
       </div>
 
       <!-- Account details -->
-      <section class="r-v2-profile__section">
-        <header class="r-v2-profile__section-head">
-          <RIcon icon="mdi-account" size="16" />
-          <h2>{{ t("settings.account-details", "Account details") }}</h2>
-        </header>
-        <div class="r-v2-profile__form">
+      <SettingsSection
+        :title="t('settings.account-details', 'Account details')"
+        icon="mdi-account"
+      >
+        <div class="r-v2-profile__field">
           <RTextField
             v-model="userToEdit.username"
             variant="outlined"
@@ -155,6 +161,8 @@ onUnmounted(() => {
             required
             clearable
           />
+        </div>
+        <div class="r-v2-profile__field">
           <RTextField
             v-model="userToEdit.password"
             variant="outlined"
@@ -162,6 +170,8 @@ onUnmounted(() => {
             type="password"
             clearable
           />
+        </div>
+        <div class="r-v2-profile__field">
           <RTextField
             v-model="userToEdit.email"
             variant="outlined"
@@ -170,6 +180,8 @@ onUnmounted(() => {
             required
             clearable
           />
+        </div>
+        <div class="r-v2-profile__field">
           <RSelect
             v-model="userToEdit.role"
             variant="outlined"
@@ -192,39 +204,41 @@ onUnmounted(() => {
               </v-list-item>
             </template>
           </RSelect>
-          <div class="r-v2-profile__actions">
-            <RBtn
-              variant="flat"
-              color="primary"
-              :disabled="!userToEdit.username"
-              prepend-icon="mdi-check"
-              @click="editUser"
-            >
-              {{ t("common.apply") }}
-            </RBtn>
-          </div>
         </div>
-      </section>
+        <div class="r-v2-profile__actions">
+          <RBtn
+            variant="flat"
+            color="primary"
+            :loading="submitting"
+            :disabled="!userToEdit.username"
+            prepend-icon="mdi-check"
+            @click="editUser"
+          >
+            {{ t("common.apply") }}
+          </RBtn>
+        </div>
+      </SettingsSection>
 
-      <!-- RetroAchievements (reused v1 primitive). -->
-      <section class="r-v2-profile__section r-v2-profile__section--legacy">
-        <RetroAchievements />
-      </section>
+      <RetroAchievementsSection />
     </template>
   </SettingsShell>
 </template>
 
 <style scoped>
-.r-v2-profile__hero {
+.r-v2-settings__page-title {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--r-color-fg);
+}
+
+/* Flush identity row — avatar + username + role. No card chrome. */
+.r-v2-profile__identity-row {
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 18px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-lg);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  margin-bottom: 28px;
 }
 
 .r-v2-profile__avatar {
@@ -236,8 +250,8 @@ onUnmounted(() => {
   cursor: pointer;
   border-radius: 50%;
   overflow: hidden;
-  width: 88px;
-  height: 88px;
+  width: 72px;
+  height: 72px;
   flex-shrink: 0;
 }
 .r-v2-profile__avatar img {
@@ -272,14 +286,15 @@ onUnmounted(() => {
 .r-v2-profile__identity {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 .r-v2-profile__username {
-  margin: 0;
-  font-size: var(--r-font-size-lg);
+  font-size: 18px;
   font-weight: var(--r-font-weight-bold);
+  color: var(--r-color-fg);
+  line-height: 1.2;
 }
 
 .r-v2-profile__role {
@@ -287,46 +302,26 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--r-color-fg-secondary);
+  color: var(--r-color-fg-muted);
   text-transform: capitalize;
 }
 
-.r-v2-profile__section {
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-lg);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* Field rows inside the section body — hairline-divided, padding mirrors
+   the mock's settings-field. */
+.r-v2-profile__field {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--r-color-border);
 }
-
-.r-v2-profile__section-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--r-color-fg);
-}
-.r-v2-profile__section-head h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.r-v2-profile__form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.r-v2-profile__field:last-of-type {
+  border-bottom: none;
 }
 
 .r-v2-profile__actions {
   display: flex;
   justify-content: flex-start;
-  margin-top: 4px;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--r-color-border);
 }
 
 .r-v2-profile__role-line {
@@ -334,11 +329,5 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   text-transform: capitalize;
-}
-
-.r-v2-profile__section--legacy {
-  padding: 0;
-  background: transparent;
-  border: 0;
 }
 </style>

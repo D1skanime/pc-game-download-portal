@@ -1,23 +1,17 @@
 <script setup lang="ts">
-// ControllerDebug — live inspector for gamepad input + modality tracking.
+// ControllerDebug — live inspector for gamepad input + modality
+// tracking. Polls `navigator.getGamepads()` each frame (matches
+// `useGamepad`'s cadence) and shows:
+//   * status row — input modality + connected-pad count
+//   * one panel per connected pad — sticks, buttons, raw axes
+//   * Gamepad → keyboard mapping legend (in sync with useGamepad)
+//   * keydown feed — every dispatch (real + synthetic) with timestamp
 //
-// Polls `navigator.getGamepads()` each frame (matches `useGamepad`'s cadence)
-// and displays:
-//   * every connected pad's id / index / mapping
-//   * per-button pressed state + analog value
-//   * left and right stick axis values with a deadzone ring visualisation
-//   * live `html[data-input]` modality attribute
-//   * a scrolling log of synthetic keydown events we emit app-wide
-//
-// Handy for:
-//   - verifying the gamepad is connected in the expected slot
-//   - checking button numbering against Standard Gamepad mapping
-//   - confirming the synthetic-key bridge from `useGamepad` actually fires
-//
-// Polling is independent of `useGamepad` — this view is its own read path;
-// the real input loop keeps running in the background.
+// Polling is independent of `useGamepad` — this view is its own read
+// path; the real input loop keeps running in the background.
 import { RBtn, RIcon } from "@v2/lib";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
 
@@ -61,7 +55,7 @@ const KEYBIND_LEGEND: { button: string; key: string }[] = [
   { button: "RB / R1", key: "→ next AppNav section" },
 ];
 
-type GamepadSnapshot = {
+interface GamepadSnapshot {
   key: string;
   index: number;
   id: string;
@@ -69,22 +63,33 @@ type GamepadSnapshot = {
   connected: boolean;
   buttons: { pressed: boolean; value: number }[];
   axes: number[];
-};
+}
 
 const pads = ref<GamepadSnapshot[]>([]);
 const rafId = ref<number>(0);
 
-// Keyboard-event feed — tracks every key dispatch so we can see the
-// gamepad→keyboard bridge firing in real time. Keydown only, capped list.
-type LogEntry = {
+interface LogEntry {
   id: number;
   at: number;
   key: string;
   from: "real" | "synthetic";
-};
+}
 const keyLog = ref<LogEntry[]>([]);
 const LOG_CAP = 30;
 let logCounter = 1;
+
+const modalityIcon = computed(() => {
+  switch (modality.value) {
+    case "pad":
+      return "mdi-controller";
+    case "key":
+      return "mdi-keyboard-outline";
+    case "touch":
+      return "mdi-gesture-tap";
+    default:
+      return "mdi-mouse-outline";
+  }
+});
 
 function tick() {
   const list = navigator.getGamepads?.() ?? [];
@@ -136,69 +141,76 @@ function magnitude(x: number, y: number) {
 </script>
 
 <template>
-  <SettingsShell
-    title="Controller debug"
-    subtitle="Live view of connected gamepads, input modality, and the synthetic key bridge driven by useGamepad."
-    eyebrow="Developer tools"
-    icon="mdi-bug-outline"
-    bare
-  >
-    <!-- Modality status pill — shown above the panels since the toolbar
-         row is owned by SettingsShell now. -->
-    <div class="r-v2-ctrl__modality">
-      <span class="r-v2-ctrl__modality-label">Modality</span>
-      <span
-        class="r-v2-ctrl__modality-pill"
-        :class="`r-v2-ctrl__modality-pill--${modality}`"
-      >
-        <RIcon
-          :icon="
-            modality === 'pad'
-              ? 'mdi-controller'
-              : modality === 'key'
-                ? 'mdi-keyboard-outline'
-                : modality === 'touch'
-                  ? 'mdi-gesture-tap'
-                  : 'mdi-mouse-outline'
-          "
-          size="14"
-        />
-        {{ modality }}
-      </span>
-    </div>
+  <SettingsShell bare>
+    <h1 class="r-v2-settings__page-title">Controller debug</h1>
+
+    <!-- Status -->
+    <SettingsSection title="Status" icon="mdi-pulse">
+      <div class="r-v2-ctrl__status">
+        <div class="r-v2-ctrl__status-row">
+          <span class="r-v2-ctrl__status-label">Modality</span>
+          <span class="r-v2-ctrl__pill" :class="`r-v2-ctrl__pill--${modality}`">
+            <RIcon :icon="modalityIcon" size="13" />
+            {{ modality }}
+          </span>
+        </div>
+        <div class="r-v2-ctrl__status-row">
+          <span class="r-v2-ctrl__status-label">Connected gamepads</span>
+          <span
+            class="r-v2-ctrl__pill"
+            :class="
+              pads.length > 0
+                ? 'r-v2-ctrl__pill--success'
+                : 'r-v2-ctrl__pill--muted'
+            "
+          >
+            <RIcon
+              :icon="pads.length > 0 ? 'mdi-controller' : 'mdi-controller-off'"
+              size="13"
+            />
+            {{ pads.length }}
+          </span>
+        </div>
+      </div>
+    </SettingsSection>
 
     <!-- No pad — help state -->
-    <div v-if="pads.length === 0" class="r-v2-ctrl__panel r-v2-ctrl__empty">
-      <RIcon icon="mdi-controller-off" size="40" />
-      <p>No gamepads detected.</p>
-      <p class="r-v2-ctrl__hint">
-        Press any button on your controller to wake it up. On Linux some pads
-        require <code>evtest</code> / <code>joydev</code> permissions.
-      </p>
-    </div>
+    <SettingsSection
+      v-if="pads.length === 0"
+      title="No gamepad detected"
+      icon="mdi-controller-off"
+    >
+      <div class="r-v2-ctrl__empty">
+        <RIcon icon="mdi-gamepad-variant-outline" size="40" />
+        <p>Press any button on your controller to wake it up.</p>
+        <p class="r-v2-ctrl__hint">
+          On Linux some pads require <code>evtest</code> /
+          <code>joydev</code> permissions.
+        </p>
+      </div>
+    </SettingsSection>
 
-    <!-- One panel per connected pad -->
-    <div
+    <!-- One section per connected pad -->
+    <SettingsSection
       v-for="pad in pads"
       :key="pad.key"
-      class="r-v2-ctrl__panel r-v2-ctrl__pad"
+      :title="pad.id"
+      icon="mdi-controller"
     >
-      <header class="r-v2-ctrl__pad-head">
-        <div>
-          <p class="r-v2-ctrl__pad-id" :title="pad.id">
-            <RIcon icon="mdi-controller" size="14" />
-            {{ pad.id }}
-          </p>
-          <p class="r-v2-ctrl__pad-meta">
-            Slot {{ pad.index }} · mapping
-            <span class="r-v2-ctrl__tag">{{ pad.mapping }}</span>
-            ·
-            <span :class="pad.connected ? 'r-v2-ctrl__ok' : 'r-v2-ctrl__bad'">
-              {{ pad.connected ? "connected" : "disconnected" }}
-            </span>
-          </p>
-        </div>
-      </header>
+      <template #header-actions>
+        <span class="r-v2-ctrl__pad-slot">Slot {{ pad.index }}</span>
+        <span class="r-v2-ctrl__tag">{{ pad.mapping }}</span>
+        <span
+          class="r-v2-ctrl__pill"
+          :class="
+            pad.connected
+              ? 'r-v2-ctrl__pill--success'
+              : 'r-v2-ctrl__pill--danger'
+          "
+        >
+          {{ pad.connected ? "online" : "offline" }}
+        </span>
+      </template>
 
       <div class="r-v2-ctrl__pad-body">
         <!-- Sticks -->
@@ -210,6 +222,8 @@ function magnitude(x: number, y: number) {
           >
             <div class="r-v2-ctrl__stick-ring">
               <div class="r-v2-ctrl__stick-deadzone" />
+              <div class="r-v2-ctrl__stick-axis r-v2-ctrl__stick-axis--h" />
+              <div class="r-v2-ctrl__stick-axis r-v2-ctrl__stick-axis--v" />
               <div
                 class="r-v2-ctrl__stick-dot"
                 :style="{
@@ -221,7 +235,7 @@ function magnitude(x: number, y: number) {
                       pad.axes[stickIdx + 1] ?? 0,
                     ) > 0.05
                       ? 1
-                      : 0.4,
+                      : 0.45,
                 }"
               />
             </div>
@@ -259,7 +273,7 @@ function magnitude(x: number, y: number) {
 
         <!-- Raw axes fallback (if >4 axes present) -->
         <div v-if="pad.axes.length > 4" class="r-v2-ctrl__axes">
-          <p class="r-v2-ctrl__axes-title">All axes</p>
+          <div class="r-v2-ctrl__axes-title">All axes</div>
           <div v-for="(value, i) in pad.axes" :key="i" class="r-v2-ctrl__axis">
             <span class="r-v2-ctrl__axis-idx">Axis {{ i }}</span>
             <div class="r-v2-ctrl__axis-track">
@@ -277,46 +291,44 @@ function magnitude(x: number, y: number) {
           </div>
         </div>
       </div>
-    </div>
+    </SettingsSection>
 
     <!-- Mapping legend -->
-    <div class="r-v2-ctrl__panel r-v2-ctrl__legend">
-      <header class="r-v2-ctrl__section-head">
-        <RIcon icon="mdi-swap-horizontal" size="16" />
-        <h2>Gamepad → keyboard mapping</h2>
-      </header>
-      <div class="r-v2-ctrl__legend-grid">
+    <SettingsSection
+      title="Gamepad → keyboard mapping"
+      icon="mdi-swap-horizontal"
+    >
+      <div class="r-v2-ctrl__legend">
         <div
           v-for="bind in KEYBIND_LEGEND"
           :key="bind.button"
           class="r-v2-ctrl__legend-row"
         >
-          <span>{{ bind.button }}</span>
+          <span class="r-v2-ctrl__legend-from">{{ bind.button }}</span>
           <RIcon icon="mdi-arrow-right-thin" size="12" />
-          <code>{{ bind.key }}</code>
+          <code class="r-v2-ctrl__legend-to">{{ bind.key }}</code>
         </div>
       </div>
-    </div>
+    </SettingsSection>
 
     <!-- Keydown log -->
-    <div class="r-v2-ctrl__panel r-v2-ctrl__log">
-      <header class="r-v2-ctrl__section-head">
-        <RIcon icon="mdi-console-line" size="16" />
-        <h2>Keyboard event feed</h2>
+    <SettingsSection title="Keyboard event feed" icon="mdi-console-line">
+      <template #header-actions>
         <RBtn
           size="small"
           variant="text"
           prepend-icon="mdi-delete-outline"
+          :disabled="keyLog.length === 0"
           @click="clearLog"
         >
           Clear
         </RBtn>
-      </header>
+      </template>
       <p class="r-v2-ctrl__log-hint">
         <strong>synthetic</strong> = dispatched by <code>useGamepad</code>.
         <strong>real</strong> = physical keyboard.
       </p>
-      <ul v-if="keyLog.length" class="r-v2-ctrl__log-list">
+      <ul v-if="keyLog.length" class="r-v2-ctrl__log">
         <li
           v-for="entry in keyLog"
           :key="entry.id"
@@ -324,79 +336,141 @@ function magnitude(x: number, y: number) {
           :class="`r-v2-ctrl__log-row--${entry.from}`"
         >
           <span class="r-v2-ctrl__log-time">{{ formatTime(entry.at) }}</span>
-          <span class="r-v2-ctrl__log-tag">{{ entry.from }}</span>
+          <span
+            class="r-v2-ctrl__pill"
+            :class="
+              entry.from === 'synthetic'
+                ? 'r-v2-ctrl__pill--brand'
+                : 'r-v2-ctrl__pill--muted'
+            "
+          >
+            {{ entry.from }}
+          </span>
           <code class="r-v2-ctrl__log-key">{{ entry.key }}</code>
         </li>
       </ul>
       <div v-else class="r-v2-ctrl__log-empty">
         Press any key or gamepad button to see events here.
       </div>
-    </div>
+    </SettingsSection>
   </SettingsShell>
 </template>
 
 <style scoped>
-.r-v2-ctrl__modality {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  align-self: flex-start;
+.r-v2-settings__page-title {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--r-color-fg);
 }
-.r-v2-ctrl__modality-label {
-  font-size: 10px;
+
+/* Status section --------------------------------------------------- */
+.r-v2-ctrl__status {
+  display: flex;
+  flex-direction: column;
+}
+.r-v2-ctrl__status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--r-color-border);
+}
+.r-v2-ctrl__status-row:last-child {
+  border-bottom: none;
+}
+.r-v2-ctrl__status-label {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
   color: var(--r-color-fg-muted);
 }
-.r-v2-ctrl__modality-pill {
+
+/* Shared status pill (matches mock + other v2 status surfaces). */
+.r-v2-ctrl__pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: var(--r-radius-pill);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
-  color: var(--r-color-brand-primary);
-  border: 1px solid
-    color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent);
+  text-transform: uppercase;
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+  color: var(--r-color-fg-muted);
 }
-.r-v2-ctrl__modality-pill--pad {
+.r-v2-ctrl__pill--brand,
+.r-v2-ctrl__pill--key,
+.r-v2-ctrl__pill--mouse,
+.r-v2-ctrl__pill--touch {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 28%,
+    transparent
+  );
+  color: var(--r-color-brand-primary);
+}
+.r-v2-ctrl__pill--success,
+.r-v2-ctrl__pill--pad {
   background: color-mix(
     in srgb,
-    var(--r-color-status-base-success) 14%,
+    var(--r-color-status-base-success) 12%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 28%,
     transparent
   );
   color: var(--r-color-success);
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-status-base-success) 30%,
-    transparent
-  );
 }
-
-.r-v2-ctrl__panel {
+.r-v2-ctrl__pill--danger {
   background: color-mix(
     in srgb,
-    var(--r-color-canvas-bg-deep) 70%,
+    var(--r-color-status-base-danger) 12%,
     transparent
   );
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-lg);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  padding: 16px;
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 28%,
+    transparent
+  );
+  color: var(--r-color-danger);
+}
+.r-v2-ctrl__pill--muted {
+  /* defaults already match */
 }
 
+/* Pad section header chips ----------------------------------------- */
+.r-v2-ctrl__pad-slot {
+  font-family: var(--r-font-family-mono, monospace);
+  font-size: 10px;
+  color: var(--r-color-fg-muted);
+}
+.r-v2-ctrl__tag {
+  padding: 2px 8px;
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-pill);
+  font-family: var(--r-font-family-mono, monospace);
+  font-size: 10px;
+  color: var(--r-color-fg-secondary);
+}
+
+/* Empty state ------------------------------------------------------- */
 .r-v2-ctrl__empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 48px 16px;
+  padding: 40px 16px 32px;
   color: var(--r-color-fg-muted);
   text-align: center;
 }
@@ -406,65 +480,41 @@ function magnitude(x: number, y: number) {
 .r-v2-ctrl__empty p {
   margin: 0;
   font-size: 13px;
+  color: var(--r-color-fg);
 }
 .r-v2-ctrl__hint {
   max-width: 420px;
-  color: var(--r-color-fg-muted);
-  font-size: 12px;
+  color: var(--r-color-fg-muted) !important;
+  font-size: 12px !important;
 }
 .r-v2-ctrl__hint code {
   padding: 1px 4px;
   background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
   border-radius: 3px;
   font-family: var(--r-font-family-mono, monospace);
   font-size: 11px;
 }
 
-.r-v2-ctrl__pad-head {
-  padding-bottom: 12px;
-  border-bottom: 1px solid None;
-  margin-bottom: 14px;
-}
-.r-v2-ctrl__pad-id {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.r-v2-ctrl__pad-meta {
-  margin: 4px 0 0;
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-}
-.r-v2-ctrl__tag {
-  padding: 1px 6px;
-  background: var(--r-color-surface);
-  border-radius: var(--r-radius-sm);
-  font-family: var(--r-font-family-mono, monospace);
-  font-size: 10px;
-  color: var(--r-color-fg-secondary);
-}
-.r-v2-ctrl__ok {
-  color: var(--r-color-success);
-}
-.r-v2-ctrl__bad {
-  color: var(--r-color-danger-fg);
-}
-
+/* Pad body --------------------------------------------------------- */
 .r-v2-ctrl__pad-body {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 20px;
+  gap: 18px;
+  padding: 16px;
   align-items: start;
 }
+@media (max-width: 720px) {
+  .r-v2-ctrl__pad-body {
+    grid-template-columns: 1fr;
+  }
+  .r-v2-ctrl__sticks {
+    flex-direction: row !important;
+    justify-content: center;
+  }
+}
 
+/* Sticks ----------------------------------------------------------- */
 .r-v2-ctrl__sticks {
   display: flex;
   flex-direction: column;
@@ -482,7 +532,7 @@ function magnitude(x: number, y: number) {
   width: 96px;
   height: 96px;
   border-radius: 50%;
-  background: var(--r-color-bg-elevated);
+  background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
 }
 .r-v2-ctrl__stick-deadzone {
@@ -490,6 +540,24 @@ function magnitude(x: number, y: number) {
   inset: 35%;
   border-radius: 50%;
   border: 1px dashed var(--r-color-border-strong);
+}
+/* Faint cross-hair so the centre is readable at a glance. */
+.r-v2-ctrl__stick-axis {
+  position: absolute;
+  background: var(--r-color-border);
+  opacity: 0.5;
+}
+.r-v2-ctrl__stick-axis--h {
+  top: 50%;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+}
+.r-v2-ctrl__stick-axis--v {
+  top: 8%;
+  bottom: 8%;
+  left: 50%;
+  width: 1px;
 }
 .r-v2-ctrl__stick-dot {
   position: absolute;
@@ -505,19 +573,22 @@ function magnitude(x: number, y: number) {
 .r-v2-ctrl__stick-label {
   margin: 6px 0 0;
   font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg-secondary);
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__stick-values {
   margin: 0;
   font-size: 10px;
   font-family: var(--r-font-family-mono, monospace);
-  color: var(--r-color-fg-muted);
+  color: var(--r-color-fg-faint);
 }
 
+/* Buttons grid ----------------------------------------------------- */
 .r-v2-ctrl__buttons {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 6px;
   align-self: start;
 }
@@ -528,9 +599,9 @@ function magnitude(x: number, y: number) {
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
-  background: var(--r-color-bg-elevated);
+  background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-sm);
+  border-radius: 8px;
   font-size: 11px;
   overflow: hidden;
   transition:
@@ -579,22 +650,24 @@ function magnitude(x: number, y: number) {
   color: var(--r-color-fg-muted);
 }
 
+/* Axes (overflow > 4) ---------------------------------------------- */
 .r-v2-ctrl__axes {
   grid-column: 1 / -1;
   padding-top: 12px;
   margin-top: 6px;
-  border-top: 1px solid None;
+  border-top: 1px solid var(--r-color-border);
 }
 .r-v2-ctrl__axes-title {
   margin: 0 0 8px;
   font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__axis {
   display: grid;
-  grid-template-columns: 60px 1fr 60px;
+  grid-template-columns: 64px 1fr 64px;
   align-items: center;
   gap: 10px;
   padding: 4px 0;
@@ -616,7 +689,7 @@ function magnitude(x: number, y: number) {
   top: -2px;
   bottom: -2px;
   width: 1px;
-  background: var(--r-color-surface-hover);
+  background: var(--r-color-border);
 }
 .r-v2-ctrl__axis-fill {
   position: absolute;
@@ -631,54 +704,51 @@ function magnitude(x: number, y: number) {
   text-align: right;
 }
 
-.r-v2-ctrl__section-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--r-color-fg);
-  margin-bottom: 12px;
-}
-.r-v2-ctrl__section-head h2 {
-  margin: 0;
-  font-size: 12px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  flex: 1;
-}
-
-.r-v2-ctrl__legend-grid {
+/* Mapping legend --------------------------------------------------- */
+.r-v2-ctrl__legend {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 6px;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 720px) {
+  .r-v2-ctrl__legend {
+    grid-template-columns: 1fr;
+  }
 }
 .r-v2-ctrl__legend-row {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 8px;
+  grid-template-columns: 1fr auto 1.4fr;
+  gap: 10px;
   align-items: center;
-  padding: 6px 10px;
-  background: var(--r-color-bg-elevated);
-  border-radius: var(--r-radius-sm);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--r-color-border);
   font-size: 12px;
 }
-.r-v2-ctrl__legend-row span {
-  color: var(--r-color-fg);
+.r-v2-ctrl__legend-row:last-child,
+.r-v2-ctrl__legend-row:nth-last-child(2):nth-child(odd) {
+  /* Drop the bottom border for the last row in each column. */
+  border-bottom: none;
 }
-.r-v2-ctrl__legend-row code {
+.r-v2-ctrl__legend-row :deep(.r-icon) {
+  color: var(--r-color-fg-faint);
+}
+.r-v2-ctrl__legend-from {
+  color: var(--r-color-fg-secondary);
+  font-weight: var(--r-font-weight-medium);
+}
+.r-v2-ctrl__legend-to {
   font-family: var(--r-font-family-mono, monospace);
   color: var(--r-color-brand-primary);
   font-size: 11px;
-  text-align: right;
-}
-.r-v2-ctrl__legend-row :deep(.r-icon) {
-  color: var(--r-color-fg-muted);
+  text-align: left;
 }
 
+/* Keydown log ------------------------------------------------------ */
 .r-v2-ctrl__log-hint {
-  margin: 0 0 10px;
+  margin: 0;
+  padding: 10px 14px;
   font-size: 11px;
   color: var(--r-color-fg-muted);
+  border-bottom: 1px solid var(--r-color-border);
 }
 .r-v2-ctrl__log-hint code {
   padding: 1px 4px;
@@ -687,61 +757,43 @@ function magnitude(x: number, y: number) {
   font-family: var(--r-font-family-mono, monospace);
   color: var(--r-color-fg-secondary);
 }
-.r-v2-ctrl__log-list {
+.r-v2-ctrl__log {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: 240px;
+  max-height: 280px;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 .r-v2-ctrl__log-row {
   display: grid;
-  grid-template-columns: 100px 70px 1fr;
-  gap: 10px;
+  grid-template-columns: 100px 96px 1fr;
+  gap: 12px;
   align-items: center;
-  padding: 4px 10px;
-  background: var(--r-color-bg-elevated);
-  border-radius: var(--r-radius-sm);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--r-color-border);
   font-size: 11px;
 }
+.r-v2-ctrl__log-row:last-child {
+  border-bottom: none;
+}
 .r-v2-ctrl__log-row--synthetic {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 6%, transparent);
 }
 .r-v2-ctrl__log-time {
   font-family: var(--r-font-family-mono, monospace);
   color: var(--r-color-fg-muted);
-}
-.r-v2-ctrl__log-tag {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg-muted);
-}
-.r-v2-ctrl__log-row--synthetic .r-v2-ctrl__log-tag {
-  color: var(--r-color-brand-primary);
 }
 .r-v2-ctrl__log-key {
   font-family: var(--r-font-family-mono, monospace);
   color: var(--r-color-fg);
 }
 .r-v2-ctrl__log-empty {
-  padding: 24px;
+  padding: 28px 16px;
   text-align: center;
   color: var(--r-color-fg-muted);
   font-size: 12px;
-}
-
-@media (max-width: 720px) {
-  .r-v2-ctrl__pad-body {
-    grid-template-columns: 1fr;
-  }
-  .r-v2-ctrl__sticks {
-    flex-direction: row;
-    justify-content: center;
-  }
 }
 </style>
