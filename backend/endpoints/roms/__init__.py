@@ -49,11 +49,13 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
+    meta_playmatch_handler,
     meta_ra_handler,
     meta_ss_handler,
 )
@@ -62,6 +64,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomUserStatus
+from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -1296,12 +1299,26 @@ async def update_rom(
         }
     )
 
+    # Re-parse tags from the filename so region/language/revision/version/tags
+    # stay in sync whenever the fs_name changes.
+    if new_fs_name != rom.fs_name:
+        parsed_tags = fs_rom_handler.parse_tags(new_fs_name)
+        cleaned_data.update(
+            {
+                "regions": parsed_tags.regions,
+                "languages": parsed_tags.languages,
+                "tags": parsed_tags.other_tags,
+                "revision": parsed_tags.revision,
+                "version": parsed_tags.version,
+            }
+        )
+
     if remove_cover:
         cleaned_data.update(await fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
+            file_ext = validate_image_upload(artwork, label="Artwork")
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
@@ -1425,6 +1442,9 @@ async def update_rom(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    if meta_playmatch_handler.is_manual_match(form_data.model_fields_set):
+        fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
