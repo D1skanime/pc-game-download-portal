@@ -174,7 +174,12 @@ class LaunchboxHandler(MetadataHandler):
         )
 
     async def get_rom_by_id(
-        self, database_id: int, *, remote_enabled: bool = True
+        self,
+        database_id: int,
+        *,
+        remote_enabled: bool = True,
+        fs_name: str | None = None,
+        platform_slug: str | None = None,
     ) -> LaunchboxRom:
         if not self.is_enabled():
             return LaunchboxRom(launchbox_id=None)
@@ -186,17 +191,42 @@ class LaunchboxHandler(MetadataHandler):
         if not remote:
             return LaunchboxRom(launchbox_id=None)
 
+        # Merge local-only fields when a local LaunchBox install has the same game
+        local: dict[str, str] | None = None
+        if fs_name and platform_slug:
+            candidate = await self._local.get_rom(fs_name, platform_slug)
+            if (
+                candidate is not None
+                and safe_int(candidate.get("DatabaseID")) == database_id
+            ):
+                local = candidate
+
+        platform_name = (
+            get_platform(platform_slug).get("name") if platform_slug else None
+        )
         remote_images = await self._remote.fetch_images(
             remote=remote, remote_enabled=remote_enabled
         )
-        media_req = remote_media_req(
-            remote=remote,
-            remote_images=remote_images,
-            remote_enabled=remote_enabled,
-        )
+        if local is not None:
+            media_req = local_media_req(
+                platform_name=platform_name,
+                fs_name=fs_name or "",
+                local=local,
+                remote=remote,
+                remote_images=remote_images,
+                remote_enabled=remote_enabled,
+            )
+        else:
+            media_req = remote_media_req(
+                remote=remote,
+                remote_images=remote_images,
+                remote_enabled=remote_enabled,
+                platform_name=platform_name,
+                fs_name=fs_name or "",
+            )
 
         return build_rom(
-            local=None,
+            local=local,
             remote=remote,
             launchbox_id=database_id,
             media_req=media_req,

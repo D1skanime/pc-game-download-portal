@@ -818,6 +818,26 @@ class TestPopulateRomSpecificPaths:
         assert path.endswith("/video.mp4")
         assert "7" in path and "42" in path
 
+    def test_video_path_preserves_source_extension(self):
+        from config.config_manager import MetadataMediaType
+
+        for src_ext, expected in (
+            (".mkv", "/video.mkv"),
+            (".webm", "/video.webm"),
+            (".MOV", "/video.mov"),
+        ):
+            metadata: LaunchboxMetadata = {
+                "first_release_date": None,
+                "images": [],
+                "video_url": f"launchbox-file://Videos/NES/Mario{src_ext}",
+            }
+            with patch(
+                "handler.metadata.launchbox_handler.media.get_preferred_media_types"
+            ) as mock_preferred:
+                mock_preferred.return_value = [MetadataMediaType.VIDEO]
+                populate_rom_specific_paths(metadata, self._rom())
+            assert metadata.get("video_path", "").endswith(expected)
+
     def test_video_not_in_preferred_media_skips(self):
         metadata: LaunchboxMetadata = {
             "first_release_date": None,
@@ -920,12 +940,16 @@ class TestRemoteMatchLocalImages:
 
         # Assert: both the clear logo and box-front cover resolved to
         # launchbox-file:// URLs, even though the local XML never matched.
+        assert "launchbox_metadata" in result
         images = result["launchbox_metadata"]["images"]
         assert len(images) == 1
+        assert "type" in images[0]
+        assert "url" in images[0]
         assert images[0]["type"] == "Clear Logo"
         assert images[0]["url"] == (
             "launchbox-file://Images/Atari 2600/Clear Logo/H.E.R.O-01.png"
         )
+        assert "url_cover" in result
         assert result["url_cover"] == (
             "launchbox-file://Images/Atari 2600/Box - Front/H.E.R.O-01.png"
         )

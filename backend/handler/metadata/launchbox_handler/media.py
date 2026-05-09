@@ -544,13 +544,18 @@ def populate_rom_specific_paths(
     destination path for local media that the handler surfaced a URL for.
     Currently just covers video.
     """
-    if MetadataMediaType.VIDEO in get_preferred_media_types() and metadata.get(
-        "video_url"
+    if (
+        MetadataMediaType.VIDEO in get_preferred_media_types()
+        and "video_url" in metadata
+        and metadata.get("video_url")
     ):
         base = fs_resource_handler.get_media_resources_path(
             rom.platform_id, rom.id, MetadataMediaType.VIDEO
         )
-        metadata["video_path"] = f"{base}/video.mp4"
+        ext = Path(metadata["video_url"]).suffix.lower()
+        if ext not in VIDEO_EXTS:
+            ext = ".mp4"
+        metadata["video_path"] = f"{base}/video{ext}"
     return metadata
 
 

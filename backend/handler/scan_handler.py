@@ -625,7 +625,10 @@ async def scan_rom(
                 and launchbox_remote_enabled
             ):
                 launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
-                    rom.launchbox_id, remote_enabled=True
+                    rom.launchbox_id,
+                    remote_enabled=True,
+                    fs_name=rom_attrs["fs_name"],
+                    platform_slug=platform_slug,
                 )
             else:
                 launchbox_rom = await meta_launchbox_handler.get_rom(
