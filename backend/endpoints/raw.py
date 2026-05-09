@@ -43,7 +43,7 @@ def head_raw_asset(request: Request, path: str):
 
     # Check if file exists and is a file (not directory)
     if not resolved_path.exists() or not resolved_path.is_file():
-        return HTTPException(status_code=404, detail="Asset not found")
+        raise HTTPException(status_code=404, detail="Asset not found")
 
     return _build_asset_response(resolved_path)
 
@@ -69,6 +69,6 @@ def get_raw_asset(request: Request, path: str):
 
     # Check if file exists and is a file (not directory)
     if not resolved_path.exists() or not resolved_path.is_file():
-        return HTTPException(status_code=404, detail="Asset not found")
+        raise HTTPException(status_code=404, detail="Asset not found")
 
     return _build_asset_response(resolved_path)
