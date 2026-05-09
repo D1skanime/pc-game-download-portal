@@ -11,8 +11,9 @@ exclude:
         names: []
     single_file:
       extensions:
-        - "xml"
-        - "txt"
+        - xml
+        - txt
+      names: []
 filesystem: {}
 system:
   platforms:
