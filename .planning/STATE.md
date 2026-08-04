@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Roadmap created; Phase 1 is ready for planning.
-last_updated: "2026-08-04T20:44:11Z"
-last_activity: 2026-08-04 -- Completed plan 01-01 immutable storage models and migration
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-08-04T20:56:05Z"
+last_activity: 2026-08-04 -- Completed plan 01-02 pure lexical normalization and bounded errors
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
-  percent: 20
+  completed_plans: 2
+  percent: 40
 ---
 
 ﻿# Project State
@@ -26,30 +26,30 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 01 (immutable-storage-foundation) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Executing Phase 01
-Last activity: 2026-08-04 -- Completed plan 01-01 immutable storage models and migration
+Last activity: 2026-08-04 -- Completed plan 01-02 pure lexical normalization and bounded errors
 
-Progress: [##--------] 20%
+Progress: [####------] 40%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 1
-- Average duration: 17 min
-- Total execution time: 0.28 hours
+- Total plans completed: 2
+- Average duration: 12 min
+- Total execution time: 0.38 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 1 | 17 min | 17 min |
+| 01 | 2 | 23 min | 12 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 17 min
-- Trend: Baseline established
+- Last 5 plans: 17 min, 6 min
+- Trend: Stable
 
 *Updated after each plan completion*
 
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - [Phase 8]: V1 removal is bounded and passes its own v2 regression gate.
 - [Phase 1]: Indexed root and mapping paths are bounded to 700 characters for portable utf8mb4 uniqueness.
 - [Phase 1]: MySQL verifies 0108 from a clean 0107-compatible baseline because older migration DDL is not MySQL 8-compatible.
+- [Phase 1]: Empty logical paths are accepted only by the explicit internal root contract; platform mappings remain non-empty.
+- [Phase 1]: Lexical normalization preserves valid case and Unicode exactly while returning bounded errors for unsafe text.
 
 ### Pending Todos
 
@@ -86,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-08-04T20:44:11Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-08-04T20:56:05Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None

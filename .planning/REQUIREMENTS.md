@@ -15,10 +15,10 @@
 
 ### Safe Path Resolution
 
-- [ ] **PATH-01**: A central resolver accepts only normalized relative paths and rejects absolute Linux paths, Windows drive paths, UNC paths, empty invalid segments, and parent traversal.
+- [x] **PATH-01**: A central resolver accepts only normalized relative paths and rejects absolute Linux paths, Windows drive paths, UNC paths, empty invalid segments, and parent traversal.
 - [ ] **PATH-02**: The resolver canonicalizes root and target and proves the target remains inside the selected root after symlink resolution.
 - [ ] **PATH-03**: Platform mappings accept existing readable directories only and reject files, missing targets, disabled roots, and escaped symlinks.
-- [ ] **PATH-04**: The resolver handles spaces, dots, hyphens, umlauts, Unicode, long names, and nested directories without unsafe string-prefix containment checks.
+- [x] **PATH-04**: The resolver handles spaces, dots, hyphens, umlauts, Unicode, long names, and nested directories without unsafe string-prefix containment checks.
 - [ ] **PATH-05**: Milestone 1 rejects symlinks by default unless a narrower in-root behavior is explicitly proven safe by tests.
 
 ### Platform Storage Mappings
@@ -147,10 +147,10 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | ROOT-03 | Phase 1 | Pending |
 | ROOT-04 | Phase 1 | Complete |
 | ROOT-05 | Phase 2 | Pending |
-| PATH-01 | Phase 1 | Pending |
+| PATH-01 | Phase 1 | Complete |
 | PATH-02 | Phase 1 | Pending |
 | PATH-03 | Phase 1 | Pending |
-| PATH-04 | Phase 1 | Pending |
+| PATH-04 | Phase 1 | Complete |
 | PATH-05 | Phase 1 | Pending |
 | MAP-01 | Phase 3 | Pending |
 | MAP-02 | Phase 3 | Pending |
