@@ -8,9 +8,9 @@
 ### External Storage Roots
 
 - [ ] **ROOT-01**: An operator can mount one existing NAS games root at a deployment-configured container path and register it as an active storage root.
-- [ ] **ROOT-02**: Every external storage root has the immutable mode `external_read_only`; milestone 1 exposes no writable-library mode or toggle.
+- [x] **ROOT-02**: Every external storage root has the immutable mode `external_read_only`; milestone 1 exposes no writable-library mode or toggle.
 - [ ] **ROOT-03**: The application reports whether an external root is reachable, readable, non-writable, and when it was last checked, without creating anything below it.
-- [ ] **ROOT-04**: Database records store the deployment-owned container root separately from platform mappings and never store NAS host paths in mappings.
+- [x] **ROOT-04**: Database records store the deployment-owned container root separately from platform mappings and never store NAS host paths in mappings.
 - [ ] **ROOT-05**: Database, resources, assets, configuration, cache, hashes, scan state, temporary files, and audit records use writable locations outside the external root.
 
 ### Safe Path Resolution
@@ -143,9 +143,9 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ROOT-01 | Phase 1 | Pending |
-| ROOT-02 | Phase 1 | Pending |
+| ROOT-02 | Phase 1 | Complete |
 | ROOT-03 | Phase 1 | Pending |
-| ROOT-04 | Phase 1 | Pending |
+| ROOT-04 | Phase 1 | Complete |
 | ROOT-05 | Phase 2 | Pending |
 | PATH-01 | Phase 1 | Pending |
 | PATH-02 | Phase 1 | Pending |

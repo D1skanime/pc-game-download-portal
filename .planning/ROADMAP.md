@@ -30,7 +30,7 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 **Plans:** 5 plans
 
 Plans:
-- [ ] `01-01-PLAN.md` - Immutable storage models and portable 0108 migration
+- [x] `01-01-PLAN.md` - Immutable storage models and portable 0108 migration
 - [ ] `01-02-PLAN.md` - Pure lexical normalization and bounded errors
 - [ ] `01-03-PLAN.md` - Non-mutating health and canonical resolution
 - [ ] `01-04-PLAN.md` - Atomic root registration and mapping persistence
@@ -133,7 +133,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Immutable Storage Foundation | 0/TBD | Not started | - |
+| 1. Immutable Storage Foundation | 1/5 | In progress | - |
 | 2. Read-only Policy Boundary | 0/TBD | Not started | - |
 | 3. Mapping Administration Contracts | 0/TBD | Not started | - |
 | 4. V2 Storage Design Specification | 0/TBD | Not started | - |
