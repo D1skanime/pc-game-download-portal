@@ -32,7 +32,7 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 Plans:
 - [x] `01-01-PLAN.md` - Immutable storage models and portable 0108 migration
 - [x] `01-02-PLAN.md` - Pure lexical normalization and bounded errors
-- [ ] `01-03-PLAN.md` - Non-mutating health and canonical resolution
+- [x] `01-03-PLAN.md` - Non-mutating health and canonical resolution
 - [ ] `01-04-PLAN.md` - Atomic root registration and mapping persistence
 - [ ] `01-05-PLAN.md` - Adversarial matrix and cross-dialect evidence
 

@@ -9,17 +9,17 @@
 
 - [ ] **ROOT-01**: An operator can mount one existing NAS games root at a deployment-configured container path and register it as an active storage root.
 - [x] **ROOT-02**: Every external storage root has the immutable mode `external_read_only`; milestone 1 exposes no writable-library mode or toggle.
-- [ ] **ROOT-03**: The application reports whether an external root is reachable, readable, non-writable, and when it was last checked, without creating anything below it.
+- [x] **ROOT-03**: The application reports whether an external root is reachable, readable, non-writable, and when it was last checked, without creating anything below it.
 - [x] **ROOT-04**: Database records store the deployment-owned container root separately from platform mappings and never store NAS host paths in mappings.
 - [ ] **ROOT-05**: Database, resources, assets, configuration, cache, hashes, scan state, temporary files, and audit records use writable locations outside the external root.
 
 ### Safe Path Resolution
 
 - [x] **PATH-01**: A central resolver accepts only normalized relative paths and rejects absolute Linux paths, Windows drive paths, UNC paths, empty invalid segments, and parent traversal.
-- [ ] **PATH-02**: The resolver canonicalizes root and target and proves the target remains inside the selected root after symlink resolution.
-- [ ] **PATH-03**: Platform mappings accept existing readable directories only and reject files, missing targets, disabled roots, and escaped symlinks.
+- [x] **PATH-02**: The resolver canonicalizes root and target and proves the target remains inside the selected root after symlink resolution.
+- [x] **PATH-03**: Platform mappings accept existing readable directories only and reject files, missing targets, disabled roots, and escaped symlinks.
 - [x] **PATH-04**: The resolver handles spaces, dots, hyphens, umlauts, Unicode, long names, and nested directories without unsafe string-prefix containment checks.
-- [ ] **PATH-05**: Milestone 1 rejects symlinks by default unless a narrower in-root behavior is explicitly proven safe by tests.
+- [x] **PATH-05**: Milestone 1 rejects symlinks by default unless a narrower in-root behavior is explicitly proven safe by tests.
 
 ### Platform Storage Mappings
 
@@ -144,14 +144,14 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 |-------------|-------|--------|
 | ROOT-01 | Phase 1 | Pending |
 | ROOT-02 | Phase 1 | Complete |
-| ROOT-03 | Phase 1 | Pending |
+| ROOT-03 | Phase 1 | Complete |
 | ROOT-04 | Phase 1 | Complete |
 | ROOT-05 | Phase 2 | Pending |
 | PATH-01 | Phase 1 | Complete |
-| PATH-02 | Phase 1 | Pending |
-| PATH-03 | Phase 1 | Pending |
+| PATH-02 | Phase 1 | Complete |
+| PATH-03 | Phase 1 | Complete |
 | PATH-04 | Phase 1 | Complete |
-| PATH-05 | Phase 1 | Pending |
+| PATH-05 | Phase 1 | Complete |
 | MAP-01 | Phase 3 | Pending |
 | MAP-02 | Phase 3 | Pending |
 | MAP-03 | Phase 3 | Pending |
