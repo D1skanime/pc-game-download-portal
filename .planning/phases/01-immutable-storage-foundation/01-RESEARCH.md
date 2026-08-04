@@ -401,26 +401,26 @@ __table_args__ = (
 |---|-------|---------|---------------|
 | A1 | URL decoding is excluded from the resolver layer. | Pattern 1 | Phase 3 transport tests may require a shared decoding boundary. |
 | A2 | `container_path` should be unique. | Pattern 4 | Duplicate root records might be a supported future aliasing use case. |
-| A3 | Portable row locking can sufficiently narrow ancestor-overlap concurrency. | Pattern 4 | May require root-level serialization or a version field. |
+| A3 | Locking every active StorageRoot row in deterministic ID order serializes mapping overlap checks while Phase 1 root registration remains deployment-initialization-only. | Pattern 4 | Concurrent active-root registration would need the same lock contract in a later administration phase. |
 | A4 | Raw normalization edge examples behave as described across accepted inputs. | Pitfall 1 | Test matrix must settle exact accepted dot/empty semantics. |
 | A5 | Root symlinks should be rejected as part of D-22. | Pitfall 2 | Deployment may rely on a symlinked mount point, requiring explicit user decision. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does internal empty relative path represent the root?**
+1. **RESOLVED: Does internal empty relative path represent the root?**
    - What we know: Context leaves this to agent discretion; mappings must point to an explicitly valid directory. [VERIFIED: CONTEXT.md]
    - What's unclear: Whether a platform may map to the root itself.
-   - Recommendation: Allow empty only in an internal root-health call, persist mapping paths as non-empty. This makes invalid empty-segment behavior unambiguous and avoids a platform claiming the whole root. [ASSUMED]
+   - Resolution: Empty represents the root only for the explicit internal root-health and root-resolution contract. Platform mappings always persist a non-empty normalized relative path, so no platform maps to the root itself. [RESOLVED: agent discretion, D-11, D-17, D-19]
 
-2. **Can the configured root itself be a symlink?**
+2. **RESOLVED: Can the configured root itself be a symlink?**
    - What we know: all symlinks are rejected by default and canonical root containment is required. [VERIFIED: D-20, D-22]
    - What's unclear: Whether deployment tooling presents `/romm/library` as a symlink rather than a mount point.
-   - Recommendation: Reject a symlink root in Phase 1; require a direct mount path. Confirm with the operator before locking if their container uses symlink indirection. [ASSUMED]
+   - Resolution: Reject a configured root when its filesystem entry is a symlink, and reject every symlink target component in milestone 1. Deployment must provide a direct mount path. [RESOLVED: D-20, D-22]
 
-3. **How should non-writable observation be represented?**
+3. **RESOLVED: How should non-writable observation be represented?**
    - What we know: health must report it, and writable observation is unsafe. [VERIFIED: D-09, D-10]
    - What's unclear: exact status enum versus independent booleans.
-   - Recommendation: persist independent booleans plus `last_error_code` and `last_error_message`; derive aggregate status later in API schemas. This avoids losing partial evidence. [ASSUMED]
+   - Resolution: Persist nullable bounded `reachable`, `readable`, and `non_writable` observations plus nullable `last_checked_at`, `last_error_code`, and `last_error_message` directly on `StorageRoot`. Health uses metadata and access observation only, never a write probe. [RESOLVED: agent discretion, D-09, D-10]
 
 ## Environment Availability
 
@@ -430,7 +430,7 @@ __table_args__ = (
 | uv | Tests/migrations | Available through project workflow | repository-managed | None needed. [VERIFIED: `CLAUDE.md`] |
 | MariaDB | Migration CI | Repository CI/config | supported target | CI service. [VERIFIED: backend skill] |
 | PostgreSQL | Migration CI | Repository CI/config | supported target | CI service. [VERIFIED: backend skill] |
-| MySQL | Portability target | Not probed locally | - | SQLAlchemy/Alembic portable DDL plus targeted CI/manual database. [VERIFIED: `CLAUDE.md`] |
+| MySQL | Portability target | Docker image available through repository Docker workflows | `mysql:8.4` | Repository verifier starts an ephemeral MySQL container and CI executes the same migration cycle. [RESOLVED: `CLAUDE.md`, Docker/CI pattern] |
 
 **Missing dependencies with no fallback:** None identified for planning. [VERIFIED: repository stack]
 
@@ -486,7 +486,7 @@ Unreadability tests should run under a non-root identity or mock only the permis
 - [ ] `backend/tests/handler/filesystem/test_storage_resolver.py`
 - [ ] `backend/tests/handler/database/test_storage_handler.py`
 - [ ] `backend/tests/models/test_storage.py`
-- [ ] Migration test/CI command that upgrades, downgrades one revision, and re-upgrades on MariaDB and PostgreSQL.
+- [ ] `backend/tools/verify_storage_migrations.py` starts isolated MariaDB 10.11, MySQL 8.4, and PostgreSQL 15 containers and runs upgrade, downgrade to 0107, and re-upgrade independently; `.github/workflows/migrations.yml` is the authoritative CI gate for the same matrix.
 
 ## Security Domain
 
@@ -508,7 +508,7 @@ Unreadability tests should run under a non-root identity or mock only the permis
 | Symlink escape | Tampering / Information Disclosure | Reject links at root and every component using `lstat`, then strict resolve. [CITED: Python os/pathlib docs] |
 | TOCTOU component replacement | Tampering | Declare point-in-time resolver limit; later opens use descriptor-relative no-follow semantics. [CITED: Python os docs] |
 | Error path disclosure | Information Disclosure | Translate `OSError` into bounded codes/messages without unrelated absolute paths. [VERIFIED: D-24] |
-| Concurrent duplicate mapping | Tampering | Unique constraints plus one transaction. [CITED: SQLAlchemy constraints docs] |
+| Concurrent duplicate or cross-root overlapping mapping | Tampering | In one transaction, lock all active StorageRoot rows by ascending ID with `SELECT FOR UPDATE`, compare and recheck canonical targets, then insert; uniqueness remains an exact-collision backstop. [CITED: SQLAlchemy ORM query guide; SQLAlchemy constraints docs] |
 | Health write probe | Tampering | Metadata/read-only operations and before/after manifest. [VERIFIED: D-05, D-31] |
 
 ## What Might Have Been Missed

@@ -1,4 +1,4 @@
-# Project State
+﻿# Project State
 
 ## Project Reference
 
@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 1 of 9 (Immutable Storage Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-08-04 - Initial milestone roadmap created with 63 of 63 v1 requirements mapped.
+Plan: 0 of 5 in current phase
+Status: Planned, ready to execute
+Last activity: 2026-08-04 - Phase 1 planned in 5 plans across 4 waves with Nyquist-complete validation mapping.
 
 Progress: [----------] 0%
 
@@ -52,7 +52,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Phase 1]: Validate descriptor-relative no-follow access and residual long-read race behavior during phase research.
+- [Phase 1]: Point-in-time resolution rejects configured-root and target-component symlinks; descriptor-relative no-follow opens and residual long-read race enforcement remain Phase 2 consumer-policy work.
 - [Phase 5]: Confirm NAS watcher fidelity; scheduled and manual scans remain authoritative by default.
 - [Phase 9]: Confirm NAS protocol, mount options, atime behavior, and a safe activation window before real-NAS rollout.
 

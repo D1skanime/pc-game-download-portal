@@ -1,4 +1,4 @@
-# Roadmap: RomM PC Library
+﻿# Roadmap: RomM PC Library
 
 ## Overview
 
@@ -27,7 +27,14 @@ This milestone establishes an immutable NAS storage boundary before any feature 
   2. A platform location is stored only as a normalized relative path, separate from the deployment-owned container root and without a NAS host path.
   3. Valid nested and Unicode directories resolve inside the root, while absolute, drive, UNC, traversal, missing, file-target, disabled-root, and symlink cases fail closed.
   4. The storage schema upgrades across MariaDB, MySQL, and PostgreSQL without changing any source-library content.
-**Plans**: TBD
+**Plans:** 5 plans
+
+Plans:
+- [ ] `01-01-PLAN.md` - Immutable storage models and portable 0108 migration
+- [ ] `01-02-PLAN.md` - Pure lexical normalization and bounded errors
+- [ ] `01-03-PLAN.md` - Non-mutating health and canonical resolution
+- [ ] `01-04-PLAN.md` - Atomic root registration and mapping persistence
+- [ ] `01-05-PLAN.md` - Adversarial matrix and cross-dialect evidence
 
 ### Phase 2: Read-only Policy Boundary
 **Goal**: Every operation addressing an external root is authorized by one deny-by-default policy before filesystem access.
