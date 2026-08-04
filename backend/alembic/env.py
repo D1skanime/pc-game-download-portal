@@ -1,9 +1,9 @@
 import sys
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import create_engine
 
+from alembic import context
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
 from models.assets import Save, Screenshot, State  # noqa
@@ -27,6 +27,7 @@ unify_logger("alembic")
 sys.path.append(f"{Path(__file__).parent.parent.resolve()}")
 
 target_metadata = BaseModel.metadata
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -55,10 +56,7 @@ def include_object(object, name, type_, reflected, compare_to):
     # generated_* are STORED generated columns backing views.
     # They are maintained in raw SQL (dialect-specific expressions) rather
     # than the ORM model, so hide them from autogenerate to avoid false drops.
-    if type_ == "column" and name.startswith("generated_"):
-        return False
-
-    return True
+    return not (type_ == "column" and name.startswith("generated_"))
 
 
 def run_migrations_offline() -> None:

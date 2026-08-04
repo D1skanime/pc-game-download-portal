@@ -3,7 +3,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
@@ -13,7 +20,7 @@ if TYPE_CHECKING:
 
 
 STORAGE_ROOT_NAME_MAX_LENGTH = 400
-STORAGE_ROOT_PATH_MAX_LENGTH = 1000
+STORAGE_ROOT_PATH_MAX_LENGTH = 700
 STORAGE_ROOT_MODE_MAX_LENGTH = 32
 STORAGE_ROOT_SAFE_ERROR_MAX_LENGTH = 1000
 STORAGE_MAPPING_PATH_MAX_LENGTH = 700
