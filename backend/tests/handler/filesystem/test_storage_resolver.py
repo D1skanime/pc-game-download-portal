@@ -243,9 +243,12 @@ def test_symlink_at_every_component_and_target_form_is_rejected(tmp_path: Path, 
             resolve_directory(_root(root_path), relative)
 
 
+
+
 def test_canonical_sibling_prefix_is_not_containment(tmp_path: Path) -> None:
     root_path = tmp_path / "library"
     root_path.mkdir()
+    (root_path / "games").mkdir()
     sibling = tmp_path / "library-old"
     sibling.mkdir()
     with patch("handler.filesystem.storage_resolver.os.access", _permission_observer), patch("handler.filesystem.storage_resolver._strict_resolve_target", return_value=sibling.resolve()):
