@@ -142,11 +142,74 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| ROOT-01 | Phase 1 | Pending |
+| ROOT-02 | Phase 1 | Pending |
+| ROOT-03 | Phase 1 | Pending |
+| ROOT-04 | Phase 1 | Pending |
+| ROOT-05 | Phase 2 | Pending |
+| PATH-01 | Phase 1 | Pending |
+| PATH-02 | Phase 1 | Pending |
+| PATH-03 | Phase 1 | Pending |
+| PATH-04 | Phase 1 | Pending |
+| PATH-05 | Phase 1 | Pending |
+| MAP-01 | Phase 3 | Pending |
+| MAP-02 | Phase 3 | Pending |
+| MAP-03 | Phase 3 | Pending |
+| MAP-04 | Phase 3 | Pending |
+| MAP-05 | Phase 3 | Pending |
+| MAP-06 | Phase 3 | Pending |
+| SAFE-01 | Phase 2 | Pending |
+| SAFE-02 | Phase 2 | Pending |
+| SAFE-03 | Phase 2 | Pending |
+| SAFE-04 | Phase 2 | Pending |
+| SAFE-05 | Phase 2 | Pending |
+| SAFE-06 | Phase 2 | Pending |
+| SCAN-01 | Phase 5 | Pending |
+| SCAN-02 | Phase 5 | Pending |
+| SCAN-03 | Phase 5 | Pending |
+| SCAN-04 | Phase 5 | Pending |
+| SCAN-05 | Phase 5 | Pending |
+| SCAN-06 | Phase 5 | Pending |
+| CAT-01 | Phase 6 | Pending |
+| CAT-02 | Phase 6 | Pending |
+| CAT-03 | Phase 6 | Pending |
+| CAT-04 | Phase 6 | Pending |
+| API-01 | Phase 3 | Pending |
+| API-02 | Phase 3 | Pending |
+| API-03 | Phase 3 | Pending |
+| API-04 | Phase 3 | Pending |
+| AUD-01 | Phase 3 | Pending |
+| AUD-02 | Phase 3 | Pending |
+| UI-01 | Phase 7 | Pending |
+| UI-02 | Phase 7 | Pending |
+| UI-03 | Phase 7 | Pending |
+| UI-04 | Phase 7 | Pending |
+| UI-05 | Phase 4 | Pending |
+| UI-06 | Phase 7 | Pending |
+| V2-01 | Phase 8 | Pending |
+| V2-02 | Phase 8 | Pending |
+| V2-03 | Phase 8 | Pending |
+| V2-04 | Phase 8 | Pending |
+| V2-05 | Phase 8 | Pending |
+| MIG-01 | Phase 6 | Pending |
+| MIG-02 | Phase 6 | Pending |
+| MIG-03 | Phase 6 | Pending |
+| MIG-04 | Phase 6 | Pending |
+| MIG-05 | Phase 6 | Pending |
+| TEST-01 | Phase 1 | Pending |
+| TEST-02 | Phase 3 | Pending |
+| TEST-03 | Phase 2 | Pending |
+| TEST-04 | Phase 9 | Pending |
+| TEST-05 | Phase 9 | Pending |
+| TEST-06 | Phase 9 | Pending |
+| DOC-01 | Phase 9 | Pending |
+| DOC-02 | Phase 9 | Pending |
+| DOC-03 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 65 total
-- Mapped to phases: 0
-- Unmapped: 65
+- v1 requirements: 63 total
+- Mapped to phases: 63
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-08-04*
