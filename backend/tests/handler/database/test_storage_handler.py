@@ -1,11 +1,12 @@
 import os
+import shutil
+import stat
+import tempfile
 import threading
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import event, select
-
 from exceptions.storage_exceptions import (
     DuplicateStorageMappingError,
     InvalidRelativePathError,
@@ -17,6 +18,7 @@ from handler.database import db_storage_handler
 from handler.database.base_handler import sync_engine, sync_session
 from models.platform import Platform
 from models.storage import PlatformStorageMapping, StorageRoot
+from sqlalchemy import event, select
 
 
 def access(_path, mode):
@@ -36,6 +38,42 @@ def add_objects(session, base: Path, roots):
         platforms.append(platform)
     session.flush()
     return stored_roots, platforms
+
+
+def manifest(path: Path):
+    entries = []
+    for item in sorted(path.rglob("*"), key=lambda value: str(value.relative_to(path))):
+        metadata = item.lstat()
+        entries.append(
+            (
+                str(item.relative_to(path)),
+                stat.S_IFMT(metadata.st_mode),
+                metadata.st_size,
+                stat.S_IMODE(metadata.st_mode),
+                metadata.st_mtime_ns,
+                os.readlink(item) if item.is_symlink() else None,
+            )
+        )
+    return tuple(entries)
+
+
+def install_mutation_tripwires(monkeypatch):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("storage persistence attempted a source mutation")
+
+    for owner, name in (
+        (Path, "mkdir"),
+        (Path, "unlink"),
+        (Path, "rename"),
+        (Path, "replace"),
+        (shutil, "copy"),
+        (shutil, "copy2"),
+        (shutil, "copytree"),
+        (shutil, "move"),
+        (tempfile, "NamedTemporaryFile"),
+        (tempfile, "TemporaryFile"),
+    ):
+        monkeypatch.setattr(owner, name, forbidden)
 
 
 def test_register_existing_root_without_mutation(tmp_path: Path):
@@ -64,6 +102,30 @@ def test_register_rejects_relative_missing_and_writable(tmp_path: Path):
         pytest.raises(UnsafeWritableRootError),
     ):
         db_storage_handler.register_root("Writable", str(tmp_path))
+
+
+def test_registration_and_mapping_preserve_source_manifest_and_avoid_mutation_primitives(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    root_path = tmp_path / "library"
+    target = root_path / "Nintendo Switch" / "nested"
+    target.mkdir(parents=True)
+    source = target / "game.nsp"
+    source.write_bytes(b"immutable archive")
+    before = manifest(root_path)
+
+    install_mutation_tripwires(monkeypatch)
+    with patch("handler.filesystem.storage_resolver.os.access", side_effect=access):
+        root = db_storage_handler.register_root("Archive", str(root_path))
+        with sync_session.begin() as session:
+            platform = Platform(name="switch", slug="switch", fs_slug="switch")
+            session.add(platform)
+            session.flush()
+            platform_id = platform.id
+        db_storage_handler.save_mapping(platform_id, root.id, "Nintendo Switch/nested")
+
+    assert manifest(root_path) == before
+    assert source.read_bytes() == b"immutable archive"
 
 
 @pytest.mark.parametrize("candidate", ["games", "games/child", "games/child/deeper"])
