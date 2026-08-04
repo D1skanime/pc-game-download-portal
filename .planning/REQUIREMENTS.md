@@ -91,7 +91,7 @@
 
 ### Verification and Documentation
 
-- [ ] **TEST-01**: Unit tests cover valid, Unicode, nested, empty, traversal, absolute, drive, UNC, missing, file-target, disabled-root, and symlink path cases.
+- [x] **TEST-01**: Unit tests cover valid, Unicode, nested, empty, traversal, absolute, drive, UNC, missing, file-target, disabled-root, and symlink path cases.
 - [ ] **TEST-02**: API tests cover root listing, directory browsing, mapping lifecycle, authorization, traversal, mapping tests, and scan preview.
 - [ ] **TEST-03**: Mutation tests prove delete, rename, move, overwrite, upload, directory creation, extraction, patching, sidecar writing, cover writing, and symlink escape fail for external roots.
 - [ ] **TEST-04**: Integration tests prove read-only mounting, scanning, streaming, downloading, multiple mappings, mapping changes, restart persistence, and legacy migration.
@@ -123,94 +123,96 @@
 
 ## Out of Scope
 
-| Feature | Reason |
-|---------|--------|
-| Writable external game libraries | Conflicts with the immutable archive boundary |
-| Automatic source organization | Existing NAS structure remains user-owned |
-| Original-file deletion from RomM | Unacceptable archive risk |
-| Per-platform Docker mounts | One shared games root plus database mappings is the product model |
-| Host-path entry in the normal UI | Deployment owns absolute container roots; UI stores relative mappings only |
-| PC components in milestone 1 | Depends on the verified storage boundary |
-| Manifest downloads and resume in milestone 1 | Depends on stable immutable file identity |
-| Windows downloader in milestone 1 | Depends on component and manifest contracts |
-| Full v2 visual redesign in milestone 1 | New storage surfaces establish direction; broader redesign is deferred |
-| Copying Team4s React components | Team4s is a design reference, not a code or runtime dependency |
+| Feature                                      | Reason                                                                     |
+| -------------------------------------------- | -------------------------------------------------------------------------- |
+| Writable external game libraries             | Conflicts with the immutable archive boundary                              |
+| Automatic source organization                | Existing NAS structure remains user-owned                                  |
+| Original-file deletion from RomM             | Unacceptable archive risk                                                  |
+| Per-platform Docker mounts                   | One shared games root plus database mappings is the product model          |
+| Host-path entry in the normal UI             | Deployment owns absolute container roots; UI stores relative mappings only |
+| PC components in milestone 1                 | Depends on the verified storage boundary                                   |
+| Manifest downloads and resume in milestone 1 | Depends on stable immutable file identity                                  |
+| Windows downloader in milestone 1            | Depends on component and manifest contracts                                |
+| Full v2 visual redesign in milestone 1       | New storage surfaces establish direction; broader redesign is deferred     |
+| Copying Team4s React components              | Team4s is a design reference, not a code or runtime dependency             |
 
 ## Traceability
 
 Roadmap creation populates this table. Every v1 requirement must map to exactly one phase.
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| ROOT-01 | Phase 1 | Complete |
-| ROOT-02 | Phase 1 | Complete |
-| ROOT-03 | Phase 1 | Complete |
-| ROOT-04 | Phase 1 | Complete |
-| ROOT-05 | Phase 2 | Pending |
-| PATH-01 | Phase 1 | Complete |
-| PATH-02 | Phase 1 | Complete |
-| PATH-03 | Phase 1 | Complete |
-| PATH-04 | Phase 1 | Complete |
-| PATH-05 | Phase 1 | Complete |
-| MAP-01 | Phase 3 | Pending |
-| MAP-02 | Phase 3 | Pending |
-| MAP-03 | Phase 3 | Pending |
-| MAP-04 | Phase 3 | Pending |
-| MAP-05 | Phase 3 | Pending |
-| MAP-06 | Phase 3 | Pending |
-| SAFE-01 | Phase 2 | Pending |
-| SAFE-02 | Phase 2 | Pending |
-| SAFE-03 | Phase 2 | Pending |
-| SAFE-04 | Phase 2 | Pending |
-| SAFE-05 | Phase 2 | Pending |
-| SAFE-06 | Phase 2 | Pending |
-| SCAN-01 | Phase 5 | Pending |
-| SCAN-02 | Phase 5 | Pending |
-| SCAN-03 | Phase 5 | Pending |
-| SCAN-04 | Phase 5 | Pending |
-| SCAN-05 | Phase 5 | Pending |
-| SCAN-06 | Phase 5 | Pending |
-| CAT-01 | Phase 6 | Pending |
-| CAT-02 | Phase 6 | Pending |
-| CAT-03 | Phase 6 | Pending |
-| CAT-04 | Phase 6 | Pending |
-| API-01 | Phase 3 | Pending |
-| API-02 | Phase 3 | Pending |
-| API-03 | Phase 3 | Pending |
-| API-04 | Phase 3 | Pending |
-| AUD-01 | Phase 3 | Pending |
-| AUD-02 | Phase 3 | Pending |
-| UI-01 | Phase 7 | Pending |
-| UI-02 | Phase 7 | Pending |
-| UI-03 | Phase 7 | Pending |
-| UI-04 | Phase 7 | Pending |
-| UI-05 | Phase 4 | Pending |
-| UI-06 | Phase 7 | Pending |
-| V2-01 | Phase 8 | Pending |
-| V2-02 | Phase 8 | Pending |
-| V2-03 | Phase 8 | Pending |
-| V2-04 | Phase 8 | Pending |
-| V2-05 | Phase 8 | Pending |
-| MIG-01 | Phase 6 | Pending |
-| MIG-02 | Phase 6 | Pending |
-| MIG-03 | Phase 6 | Pending |
-| MIG-04 | Phase 6 | Pending |
-| MIG-05 | Phase 6 | Pending |
-| TEST-01 | Phase 1 | Pending |
-| TEST-02 | Phase 3 | Pending |
-| TEST-03 | Phase 2 | Pending |
-| TEST-04 | Phase 9 | Pending |
-| TEST-05 | Phase 9 | Pending |
-| TEST-06 | Phase 9 | Pending |
-| DOC-01 | Phase 9 | Pending |
-| DOC-02 | Phase 9 | Pending |
-| DOC-03 | Phase 9 | Pending |
+| Requirement | Phase   | Status   |
+| ----------- | ------- | -------- |
+| ROOT-01     | Phase 1 | Complete |
+| ROOT-02     | Phase 1 | Complete |
+| ROOT-03     | Phase 1 | Complete |
+| ROOT-04     | Phase 1 | Complete |
+| ROOT-05     | Phase 2 | Pending  |
+| PATH-01     | Phase 1 | Complete |
+| PATH-02     | Phase 1 | Complete |
+| PATH-03     | Phase 1 | Complete |
+| PATH-04     | Phase 1 | Complete |
+| PATH-05     | Phase 1 | Complete |
+| MAP-01      | Phase 3 | Pending  |
+| MAP-02      | Phase 3 | Pending  |
+| MAP-03      | Phase 3 | Pending  |
+| MAP-04      | Phase 3 | Pending  |
+| MAP-05      | Phase 3 | Pending  |
+| MAP-06      | Phase 3 | Pending  |
+| SAFE-01     | Phase 2 | Pending  |
+| SAFE-02     | Phase 2 | Pending  |
+| SAFE-03     | Phase 2 | Pending  |
+| SAFE-04     | Phase 2 | Pending  |
+| SAFE-05     | Phase 2 | Pending  |
+| SAFE-06     | Phase 2 | Pending  |
+| SCAN-01     | Phase 5 | Pending  |
+| SCAN-02     | Phase 5 | Pending  |
+| SCAN-03     | Phase 5 | Pending  |
+| SCAN-04     | Phase 5 | Pending  |
+| SCAN-05     | Phase 5 | Pending  |
+| SCAN-06     | Phase 5 | Pending  |
+| CAT-01      | Phase 6 | Pending  |
+| CAT-02      | Phase 6 | Pending  |
+| CAT-03      | Phase 6 | Pending  |
+| CAT-04      | Phase 6 | Pending  |
+| API-01      | Phase 3 | Pending  |
+| API-02      | Phase 3 | Pending  |
+| API-03      | Phase 3 | Pending  |
+| API-04      | Phase 3 | Pending  |
+| AUD-01      | Phase 3 | Pending  |
+| AUD-02      | Phase 3 | Pending  |
+| UI-01       | Phase 7 | Pending  |
+| UI-02       | Phase 7 | Pending  |
+| UI-03       | Phase 7 | Pending  |
+| UI-04       | Phase 7 | Pending  |
+| UI-05       | Phase 4 | Pending  |
+| UI-06       | Phase 7 | Pending  |
+| V2-01       | Phase 8 | Pending  |
+| V2-02       | Phase 8 | Pending  |
+| V2-03       | Phase 8 | Pending  |
+| V2-04       | Phase 8 | Pending  |
+| V2-05       | Phase 8 | Pending  |
+| MIG-01      | Phase 6 | Pending  |
+| MIG-02      | Phase 6 | Pending  |
+| MIG-03      | Phase 6 | Pending  |
+| MIG-04      | Phase 6 | Pending  |
+| MIG-05      | Phase 6 | Pending  |
+| TEST-01     | Phase 1 | Complete |
+| TEST-02     | Phase 3 | Pending  |
+| TEST-03     | Phase 2 | Pending  |
+| TEST-04     | Phase 9 | Pending  |
+| TEST-05     | Phase 9 | Pending  |
+| TEST-06     | Phase 9 | Pending  |
+| DOC-01      | Phase 9 | Pending  |
+| DOC-02      | Phase 9 | Pending  |
+| DOC-03      | Phase 9 | Pending  |
 
 **Coverage:**
+
 - v1 requirements: 63 total
 - Mapped to phases: 63
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-08-04*
-*Last updated: 2026-08-04 after initial definition*
+
+_Requirements defined: 2026-08-04_
+_Last updated: 2026-08-04 after initial definition_

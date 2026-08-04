@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-04-PLAN.md
-last_updated: "2026-08-04T21:23:22Z"
-last_activity: 2026-08-04 -- Completed plan 01-04 atomic root registration and mapping persistence
+status: verifying
+stopped_at: Completed 01-05-PLAN.md
+last_updated: "2026-08-04T21:39:48.114Z"
+last_activity: 2026-08-04
 progress:
   total_phases: 9
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 11
 ---
 
-﻿# Project State
+# Project State
 
 ## Project Reference
 
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 Phase: 01 (immutable-storage-foundation) — EXECUTING
 Plan: 5 of 5
-Status: Executing Phase 01
-Last activity: 2026-08-04 -- Completed plan 01-04 atomic root registration and mapping persistence
+Status: Phase complete — ready for verification
+Last activity: 2026-08-04
 
 Progress: [########--] 80%
 
@@ -42,16 +42,17 @@ Progress: [########--] 80%
 
 **By Phase:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01 | 4 | 37 min | 9 min |
+| Phase | Plans | Total  | Avg/Plan |
+| ----- | ----- | ------ | -------- |
+| 01    | 4     | 37 min | 9 min    |
 
 **Recent Trend:**
 
 - Last 5 plans: 17 min, 6 min, 4 min, 10 min
 - Trend: Stable
 
-*Updated after each plan completion*
+_Updated after each plan completion_
+| Phase 01 P05 | 11min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,7 @@ Recent decisions affecting current work:
 - [Phase 1]: MySQL verifies 0108 from a clean 0107-compatible baseline because older migration DDL is not MySQL 8-compatible.
 - [Phase 1]: Empty logical paths are accepted only by the explicit internal root contract; platform mappings remain non-empty.
 - [Phase 1]: Lexical normalization preserves valid case and Unicode exactly while returning bounded errors for unsafe text.
+- [Phase 01]: CI treats MariaDB, MySQL, and PostgreSQL as independent migration authorities.
 
 ### Pending Todos
 
@@ -80,14 +82,14 @@ None yet.
 
 ## Deferred Items
 
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| Product | PC components and file revisions | Deferred to later milestone | Initialization |
+| Category | Item                                               | Status                      | Deferred At    |
+| -------- | -------------------------------------------------- | --------------------------- | -------------- |
+| Product  | PC components and file revisions                   | Deferred to later milestone | Initialization |
 | Delivery | Manifests, resumable downloads, and Windows client | Deferred to later milestone | Initialization |
-| UX | Broader redesign beyond new storage surfaces | Deferred to later milestone | Initialization |
+| UX       | Broader redesign beyond new storage surfaces       | Deferred to later milestone | Initialization |
 
 ## Session Continuity
 
-Last session: 2026-08-04T21:23:22Z
-Stopped at: Completed 01-04-PLAN.md
+Last session: 2026-08-04T21:39:48.110Z
+Stopped at: Completed 01-05-PLAN.md
 Resume file: None
