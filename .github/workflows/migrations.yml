@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run PostgreSQL Migrations
+      - name: Run PostgreSQL migration cycle
         working-directory: backend
         env:
           ROMM_DB_DRIVER: postgresql
@@ -56,7 +56,10 @@ jobs:
           DB_NAME: testdb
           ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
           ROMM_BASE_PATH: romm_test
-        run: uv run alembic upgrade head
+        run: |
+          uv run alembic upgrade head
+          uv run alembic downgrade 0107_roms_dedup_cover_index
+          uv run alembic upgrade head
 
   migrate-mariadb:
     runs-on: ubuntu-latest
@@ -96,7 +99,7 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run MariaDB Migrations
+      - name: Run MariaDB migration cycle
         working-directory: backend
         env:
           ROMM_DB_DRIVER: mariadb
@@ -107,4 +110,71 @@ jobs:
           DB_NAME: testdb
           ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
           ROMM_BASE_PATH: romm_test
-        run: uv run alembic upgrade head
+        run: |
+          uv run alembic upgrade head
+          uv run alembic downgrade 0107_roms_dedup_cover_index
+          uv run alembic upgrade head
+
+  migrate-mysql:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_USER: user
+          MYSQL_PASSWORD: password
+          MYSQL_DATABASE: testdb
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u root --password=root"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install mariadb connectors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb3 libmariadb-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
+
+      - name: Install python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Bootstrap MySQL 0107-compatible baseline
+        env:
+          MYSQL_PWD: root
+        run: |
+          mysql -h 127.0.0.1 -u root testdb <<'SQL'
+          CREATE TABLE platforms (id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY);
+          CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY);
+          INSERT INTO alembic_version (version_num) VALUES ('0107_roms_dedup_cover_index');
+          SQL
+
+      - name: Run MySQL migration cycle
+        working-directory: backend
+        env:
+          ROMM_DB_DRIVER: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: user
+          DB_PASSWD: password
+          DB_NAME: testdb
+          ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          ROMM_BASE_PATH: romm_test
+        run: |
+          uv run alembic upgrade head
+          uv run alembic downgrade 0107_roms_dedup_cover_index
+          uv run alembic upgrade head

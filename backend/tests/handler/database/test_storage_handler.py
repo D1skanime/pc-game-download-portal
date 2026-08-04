@@ -7,6 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import event, select
+
 from exceptions.storage_exceptions import (
     DuplicateStorageMappingError,
     InvalidRelativePathError,
@@ -18,7 +20,6 @@ from handler.database import db_storage_handler
 from handler.database.base_handler import sync_engine, sync_session
 from models.platform import Platform
 from models.storage import PlatformStorageMapping, StorageRoot
-from sqlalchemy import event, select
 
 
 def access(_path, mode):
