@@ -1,0 +1,151 @@
+from pathlib import Path
+from unittest.mock import patch
+import os
+import threading
+
+import pytest
+from sqlalchemy import event, select
+from sqlalchemy.exc import IntegrityError
+
+from exceptions.storage_exceptions import InvalidRelativePathError, StorageMappingOverlapError, UnsafeWritableRootError
+from handler.database import db_storage_handler
+from handler.database.base_handler import sync_engine, sync_session
+from models.platform import Platform
+from models.storage import PlatformStorageMapping, StorageRoot
+
+
+def access(_path, mode):
+    return mode != os.W_OK
+
+
+def add_objects(session, base: Path, roots):
+    platforms = []
+    stored_roots = []
+    for name, path in roots:
+        root = StorageRoot(name=name, container_path=str(path))
+        session.add(root)
+        stored_roots.append(root)
+    for name in ("one", "two", "three"):
+        platform = Platform(name=name, slug=name, fs_slug=name)
+        session.add(platform)
+        platforms.append(platform)
+    session.flush()
+    return stored_roots, platforms
+
+
+def test_register_existing_root_without_mutation(tmp_path: Path):
+    root_path = tmp_path / "library"
+    root_path.mkdir()
+    before = list(tmp_path.rglob("*"))
+    with patch("handler.filesystem.storage_resolver.os.access", side_effect=access):
+        root = db_storage_handler.register_root("Archive", str(root_path), mode="writable")
+    assert root.mode == "external_read_only"
+    assert root.reachable and root.readable and root.non_writable
+    assert list(tmp_path.rglob("*")) == before
+
+
+def test_register_rejects_relative_missing_and_writable(tmp_path: Path):
+    with pytest.raises(InvalidRelativePathError):
+        db_storage_handler.register_root("Bad", "relative")
+    with pytest.raises(Exception):
+        db_storage_handler.register_root("Missing", str(tmp_path / "missing"))
+    with patch("handler.filesystem.storage_resolver.os.access", return_value=True):
+        with pytest.raises(UnsafeWritableRootError):
+            db_storage_handler.register_root("Writable", str(tmp_path))
+
+
+@pytest.mark.parametrize("candidate", ["games", "games/child", "games/child/deeper"])
+def test_overlap_equal_ancestor_descendant_and_rollback(tmp_path: Path, candidate: str):
+    (tmp_path / "games" / "child" / "deeper").mkdir(parents=True)
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
+    with patch("handler.filesystem.storage_resolver.os.access", side_effect=access):
+        db_storage_handler.save_mapping(platforms[0].id, roots[0].id, "games/child")
+        with pytest.raises(StorageMappingOverlapError):
+            db_storage_handler.save_mapping(platforms[1].id, roots[0].id, candidate)
+    with sync_session() as session:
+        assert session.scalar(select(PlatformStorageMapping).where(PlatformStorageMapping.platform_id == platforms[1].id)) is None
+
+
+def test_cross_root_canonical_overlap_and_text_prefix_non_overlap(tmp_path: Path):
+    shared = tmp_path / "shared"
+    nested = shared / "nested"
+    (nested / "target").mkdir(parents=True)
+    (shared / "target-old").mkdir()
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("outer", shared), ("inner", nested)])
+    with patch("handler.filesystem.storage_resolver.os.access", side_effect=access):
+        db_storage_handler.save_mapping(platforms[0].id, roots[0].id, "nested/target")
+        with pytest.raises(StorageMappingOverlapError):
+            db_storage_handler.save_mapping(platforms[1].id, roots[1].id, "target")
+        db_storage_handler.save_mapping(platforms[2].id, roots[0].id, "target-old")
+
+
+def test_platform_unique_constraint_is_backstop(tmp_path: Path):
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
+    with patch("handler.filesystem.storage_resolver.os.access", side_effect=access):
+        db_storage_handler.save_mapping(platforms[0].id, roots[0].id, "a")
+        with pytest.raises(IntegrityError):
+            db_storage_handler.save_mapping(platforms[0].id, roots[0].id, "b")
+
+
+def test_active_root_lock_is_ordered_before_mapping_load(tmp_path: Path):
+    (tmp_path / "a").mkdir()
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
+    statements = []
+    def listener(_c, _cu, statement, _p, _ctx, _many):
+        statements.append(statement)
+    event.listen(sync_engine, "before_cursor_execute", listener)
+    try:
+        with patch("handler.filesystem.storage_resolver.os.access", side_effect=access):
+            db_storage_handler.save_mapping(platforms[0].id, roots[0].id, "a")
+    finally:
+        event.remove(sync_engine, "before_cursor_execute", listener)
+    lock = next(sql for sql in statements if "FOR UPDATE" in sql.upper())
+    assert "ORDER BY storage_roots.id" in lock and "storage_roots.active" in lock
+
+
+def test_concurrent_initial_cross_root_overlap_one_commit(tmp_path: Path):
+    shared = tmp_path / "shared"
+    nested = shared / "nested"
+    (nested / "target").mkdir(parents=True)
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("outer", shared), ("inner", nested)])
+    barrier = threading.Barrier(2)
+    outcomes = []
+    errors = []
+    def attempt(platform_id, root_id, path):
+        try:
+            with sync_session.begin() as session:
+                assert session.scalar(select(PlatformStorageMapping)) is None
+                barrier.wait(timeout=5)
+                db_storage_handler.save_mapping(platform_id, root_id, path, session=session)
+            outcomes.append("commit")
+        except StorageMappingOverlapError:
+            outcomes.append("overlap")
+        except BaseException as error:
+            errors.append(error)
+    threads = [
+        threading.Thread(target=attempt, args=(platforms[0].id, roots[0].id, "nested/target")),
+        threading.Thread(target=attempt, args=(platforms[1].id, roots[1].id, "target")),
+    ]
+    access_patch = patch(
+        "handler.filesystem.storage_resolver.os.access", side_effect=access
+    )
+    access_patch.start()
+    try:
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+    finally:
+        access_patch.stop()
+
+    assert sorted(outcomes) == ["commit", "overlap"]
+    with sync_session() as session:
+        assert len(session.scalars(select(PlatformStorageMapping)).all()) == 1
+
