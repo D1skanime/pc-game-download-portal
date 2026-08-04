@@ -36,7 +36,7 @@ def test_normalize_rejects_unsafe_lexical_forms(raw: str, case: str) -> None:
         normalize_relative_path(raw)
 
 
-def test_normalize_internal_root_contract_allows_empty_path() -> None:
+def test_normalize_intenal_root_contract_allows_empty_path() -> None:
     assert normalize_relative_path("", allow_root=True) == ""
 
 
@@ -45,8 +45,8 @@ def test_normalize_internal_root_contract_allows_empty_path() -> None:
     [
         "Nintendo Switch",
         "Sony.PlayStation-2",
-        "M?nchen/?ber Spiele",
-        "???/???",
+        "M\u00fcnchen/\u00dcber Spiele",
+        "\u65e5\u672c\u8a9e/\u30b2\u30fc\u30e0",
         "nested/archive.with dots/game-set",
         "a" * 255,
     ],
@@ -56,7 +56,7 @@ def test_valid_names_are_preserved_exactly(raw: str) -> None:
 
 
 def test_valid_names_preserve_composed_and_decomposed_unicode() -> None:
-    composed = "Caf?"
+    composed = "Caf\u00e9"
     decomposed = unicodedata.normalize("NFD", composed)
 
     assert composed != decomposed
