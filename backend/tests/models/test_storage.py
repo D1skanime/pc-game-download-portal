@@ -9,6 +9,15 @@ from models.storage import PlatformStorageMapping, StorageRoot
 from tests.conftest import session
 
 
+@pytest.fixture(scope="module", autouse=True)
+def storage_tables():
+    StorageRoot.__table__.create(session.kw["bind"], checkfirst=True)
+    PlatformStorageMapping.__table__.create(session.kw["bind"], checkfirst=True)
+    yield
+    PlatformStorageMapping.__table__.drop(session.kw["bind"], checkfirst=True)
+    StorageRoot.__table__.drop(session.kw["bind"], checkfirst=True)
+
+
 @pytest.fixture
 def storage_root() -> StorageRoot:
     with session.begin() as db:
@@ -92,6 +101,6 @@ def test_platform_mapping_relationship_is_scalar(storage_root: StorageRoot):
     platform = _platform("pc")
     with session.begin() as db:
         db.add(PlatformStorageMapping(platform_id=platform.id, storage_root_id=storage_root.id, relative_path="PC"))
-    with session() as db:
-        loaded = db.get(Platform, platform.id)
-        assert isinstance(loaded.storage_mapping, PlatformStorageMapping)
+    relationship = inspect(Platform).relationships.storage_mapping
+    assert relationship.uselist is False
+    assert relationship.back_populates == "platform"

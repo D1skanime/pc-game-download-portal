@@ -10,6 +10,7 @@ from models.rom import Rom
 
 if TYPE_CHECKING:
     from models.firmware import Firmware
+    from models.storage import PlatformStorageMapping
 
 
 DEFAULT_COVER_ASPECT_RATIO = "2 / 3"
@@ -53,6 +54,12 @@ class Platform(BaseModel):
     roms: Mapped[list[Rom]] = relationship(lazy="raise", back_populates="platform")
     firmware: Mapped[list[Firmware]] = relationship(
         lazy="raise", back_populates="platform"
+    )
+    storage_mapping: Mapped[PlatformStorageMapping | None] = relationship(
+        lazy="raise",
+        back_populates="platform",
+        uselist=False,
+        passive_deletes=True,
     )
 
     aspect_ratio: Mapped[str] = mapped_column(

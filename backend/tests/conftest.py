@@ -29,6 +29,7 @@ from models.device_save_sync import DeviceSaveSync
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
+from models.storage import PlatformStorageMapping, StorageRoot
 from models.sync_session import SyncSession
 from models.user import Role, User
 
@@ -100,7 +101,9 @@ def clear_database():
         s.query(Screenshot).delete(synchronize_session="evaluate")
         s.query(RomFile).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
+        s.query(PlatformStorageMapping).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")
+        s.query(StorageRoot).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
 
     # Drop any cached gallery filter values to keep tests isolated.
