@@ -72,3 +72,21 @@ class UnsafeWritableRootError(StorageResolutionError):
 
     def __init__(self, storage_root_id: int):
         super().__init__(f"Storage root {storage_root_id} is writable")
+
+
+class StorageMappingOverlapError(StorageResolutionError):
+    code = "storage_mapping_overlap"
+
+    def __init__(self, storage_root_id: int, relative_path: str):
+        super().__init__(
+            f"Storage mapping {storage_root_id}:{relative_path} overlaps an active mapping"
+        )
+
+
+class DuplicateStorageMappingError(StorageResolutionError):
+    code = "duplicate_storage_mapping"
+
+    def __init__(self, platform_id: int, storage_root_id: int):
+        super().__init__(
+            f"Storage mapping for platform {platform_id} conflicts in root {storage_root_id}"
+        )
