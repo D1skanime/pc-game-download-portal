@@ -214,21 +214,95 @@ def test_unrelated_integrity_error_is_bounded_and_not_duplicate(tmp_path: Path):
     assert str(error.value) == "Storage mapping could not be persisted"
 
 
+MAPPING_UNIQUE_KEYS = (
+    "uq_platform_storage_mappings_platform_id",
+    "uq_platform_storage_mappings_root_relative_path",
+)
+
+
+def dbapi_original(message: str, *, constraint_name=None, errno=None):
+    attributes = {}
+    if constraint_name is not None:
+        attributes["diag"] = type(
+            "Diagnostic", (), {"constraint_name": constraint_name}
+        )()
+    if errno is not None:
+        attributes["errno"] = errno
+    return type("Original", (), attributes | {"__str__": lambda self: message})()
+
+
 @pytest.mark.parametrize(
-    "constraint_name",
+    ("original", "expected"),
     [
-        "uq_platform_storage_mappings_platform_id",
-        "uq_platform_storage_mappings_root_relative_path",
+        *[
+            (dbapi_original("hidden", constraint_name=key), True)
+            for key in MAPPING_UNIQUE_KEYS
+        ],
+        (
+            dbapi_original(
+                "hidden", constraint_name="fk_platform_storage_mappings_platform_id"
+            ),
+            False,
+        ),
+        *[
+            (dbapi_original(f"Duplicate entry for key '{key}'", errno=1062), True)
+            for key in MAPPING_UNIQUE_KEYS
+        ],
+        *[
+            (dbapi_original(f"Failure mentioning {key}", errno=1452), False)
+            for key in MAPPING_UNIQUE_KEYS
+        ],
+        *[
+            (dbapi_original(f"Unknown failure mentioning {key}"), False)
+            for key in MAPPING_UNIQUE_KEYS
+        ],
     ],
 )
-def test_only_named_mapping_unique_constraints_are_duplicates(constraint_name: str):
-    diagnostic = type("Diagnostic", (), {"constraint_name": constraint_name})()
-    original = type("Original", (), {"diag": diagnostic})()
-    error = IntegrityError("hidden SQL", {}, original)
-    assert db_storage_handler._is_mapping_unique_violation(error)
+def test_mapping_unique_vendor_diagnostic_matrix(original, expected):
+    error = IntegrityError("hidden SQL", {"secret": "parameter"}, original)
+    assert db_storage_handler._is_mapping_unique_violation(error) is expected
 
-    diagnostic.constraint_name = "fk_platform_storage_mappings_platform_id"
-    assert not db_storage_handler._is_mapping_unique_violation(error)
+
+@pytest.mark.parametrize(
+    "original",
+    [
+        *[
+            dbapi_original(f"Failure mentioning {key}", errno=1452)
+            for key in MAPPING_UNIQUE_KEYS
+        ],
+        *[
+            dbapi_original(f"Unknown failure mentioning {key}")
+            for key in MAPPING_UNIQUE_KEYS
+        ],
+    ],
+)
+def test_vendor_diagnostic_negatives_are_bounded_persistence_errors(
+    tmp_path: Path, original
+):
+    (tmp_path / "private-path").mkdir()
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
+        real_flush = session.flush
+
+        def fail_mapping_flush(*args, **kwargs):
+            if any(isinstance(item, PlatformStorageMapping) for item in session.new):
+                raise IntegrityError(
+                    "SELECT secret FROM mappings",
+                    {"token": "private-parameter"},
+                    original,
+                )
+            return real_flush(*args, **kwargs)
+
+        with (
+            patch("handler.filesystem.storage_resolver.os.access", side_effect=access),
+            patch.object(session, "flush", side_effect=fail_mapping_flush),
+            pytest.raises(StoragePersistenceError) as error,
+        ):
+            db_storage_handler.save_mapping(
+                platforms[0].id, roots[0].id, "private-path", session=session
+            )
+    assert error.type is StoragePersistenceError
+    assert str(error.value) == "Storage mapping could not be persisted"
 
 
 def test_active_root_lock_is_ordered_before_mapping_load(tmp_path: Path):
