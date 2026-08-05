@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 01-07-PLAN.md
-last_updated: "2026-08-05T20:22:22.992Z"
+status: ready
+stopped_at: Phase 1 verified; Phase 2 not started
+last_updated: "2026-08-05T20:25:56.000Z"
 last_activity: 2026-08-05
 progress:
   total_phases: 9
@@ -18,19 +18,19 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-04)
+See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 01 — immutable-storage-foundation
+**Current focus:** Phase 02 - read-only-policy-boundary
 
 ## Current Position
 
 Phase: 2
 Plan: Not started
-Status: Plan complete, awaiting phase verification
+Status: Phase 1 complete; Phase 2 not started
 Last activity: 2026-08-05
 
-Progress: [##########] 100%
+Progress: [----------] 0%
 
 ## Performance Metrics
 
@@ -75,10 +75,6 @@ Recent decisions affecting current work:
 - [Phase 01]: Only explicitly named mapping uniqueness constraints translate to duplicate-domain errors.
 - [Phase 01]: Raw MariaDB/MySQL mapping key names require DBAPI errno 1062; PostgreSQL structured constraint names remain authoritative.
 
-### Pending Todos
-
-- Verify Phase 01 after the final MariaDB/MySQL diagnostic-classification gap closure.
-
 ### Blockers/Concerns
 
 - [Phase 1]: Point-in-time resolution rejects configured-root and target-component symlinks; descriptor-relative no-follow opens and residual long-read race enforcement remain Phase 2 consumer-policy work.
@@ -95,6 +91,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-05T20:13:06Z
-Stopped at: Completed 01-07-PLAN.md
+Last session: 2026-08-05T20:25:56Z
+Stopped at: Phase 1 verified; Phase 2 not started
 Resume file: None

@@ -72,36 +72,39 @@ The codebase is a brownfield modular monolith: Python 3.13, FastAPI, SQLAlchemy,
 
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Name the fork RomM PC Library and repository `romm-pc-library` | The name covers NAS-first storage, later PC components, and download workflows without implying a separate unrelated product | Pending |
-| Make the first milestone only the secure NAS integration | The storage boundary must be proven before PC components or transfer protocols depend on it | Pending |
-| Mount one NAS games root and map platforms to relative subdirectories | Existing collections already have useful, user-owned organization and must not be restructured for RomM | Pending |
-| Support only `external_read_only` for external roots | A writable toggle creates an unacceptable risk to the original archive | Pending |
-| Enforce read-only behavior in Docker and a central backend policy | Defense in depth protects the archive even when UI or endpoint code is bypassed | Pending |
-| Store no generated RomM data beside source games | Original directories remain clean and immutable | Pending |
-| Treat removal as catalog-only | Users can correct the RomM index without risking source deletion | Pending |
-| Build and retain only UI v2 | The user does not need v1, and maintaining two interfaces would duplicate work and preserve a frozen compatibility surface | Pending |
-| Remove v1 as a bounded milestone workstream | Deletion must be verified separately so storage safety work is not obscured by frontend cleanup | Pending |
-| Use Team4s as a read-only design reference for new v2 surfaces | RomM v2 needs a less administrative visual character, while its Vue architecture and product identity must remain independent | Pending |
-| Defer a complete v2 visual redesign | The first milestone applies the direction to new storage workflows without expanding into every existing screen | Pending |
-| Defer PC components, manifests, and Windows downloads | They depend on a stable storage-root and immutable-file contract | Pending |
+| Decision                                                              | Rationale                                                                                                                     | Outcome |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Name the fork RomM PC Library and repository `romm-pc-library`        | The name covers NAS-first storage, later PC components, and download workflows without implying a separate unrelated product  | Pending |
+| Make the first milestone only the secure NAS integration              | The storage boundary must be proven before PC components or transfer protocols depend on it                                   | Pending |
+| Mount one NAS games root and map platforms to relative subdirectories | Existing collections already have useful, user-owned organization and must not be restructured for RomM                       | Pending |
+| Support only `external_read_only` for external roots                  | A writable toggle creates an unacceptable risk to the original archive                                                        | Pending |
+| Enforce read-only behavior in Docker and a central backend policy     | Defense in depth protects the archive even when UI or endpoint code is bypassed                                               | Pending |
+| Store no generated RomM data beside source games                      | Original directories remain clean and immutable                                                                               | Pending |
+| Treat removal as catalog-only                                         | Users can correct the RomM index without risking source deletion                                                              | Pending |
+| Build and retain only UI v2                                           | The user does not need v1, and maintaining two interfaces would duplicate work and preserve a frozen compatibility surface    | Pending |
+| Remove v1 as a bounded milestone workstream                           | Deletion must be verified separately so storage safety work is not obscured by frontend cleanup                               | Pending |
+| Use Team4s as a read-only design reference for new v2 surfaces        | RomM v2 needs a less administrative visual character, while its Vue architecture and product identity must remain independent | Pending |
+| Defer a complete v2 visual redesign                                   | The first milestone applies the direction to new storage workflows without expanding into every existing screen               | Pending |
+| Defer PC components, manifests, and Windows downloads                 | They depend on a stable storage-root and immutable-file contract                                                              | Pending |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
 **After each phase transition:**
+
 1. Move validated requirements to Validated with a phase reference.
 2. Move invalidated requirements to Out of Scope with a reason.
 3. Add requirements or decisions discovered during implementation.
 4. Recheck that the project description and core value remain accurate.
 
 **After each milestone:**
+
 1. Review every section against the implemented system.
 2. Reconfirm that archive immutability remains the primary value.
 3. Audit deferred and excluded work before starting the next milestone.
 4. Update the current technical and operational context.
 
 ---
-*Last updated: 2026-08-04 after initialization*
+
+_Last updated: 2026-08-05 after Phase 1 completion_
