@@ -6,7 +6,7 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 
 ## Phases
 
-- [ ] **Phase 1: Immutable Storage Foundation** - Establish portable root and mapping identity plus canonical, adversarially tested path resolution.
+- [x] **Phase 1: Immutable Storage Foundation** - Establish portable root and mapping identity plus canonical, adversarially tested path resolution. (completed 2026-08-05)
 - [ ] **Phase 2: Read-only Policy Boundary** - Enforce one server-side operation policy and separate source storage from every writable RomM location.
 - [ ] **Phase 3: Mapping Administration Contracts** - Provide authorized, audited APIs for roots, safe browsing, and mapping lifecycle operations.
 - [ ] **Phase 4: V2 Storage Design Specification** - Derive a RomM-native design contract for the new storage surfaces from read-only Team4s principles.
@@ -161,14 +161,14 @@ Plans:
 
 ## Progress
 
-| Phase                                   | Plans Complete | Status      | Completed |
-| --------------------------------------- | -------------- | ----------- | --------- |
-| 1. Immutable Storage Foundation         | 6/7            | In progress | -         |
-| 2. Read-only Policy Boundary            | 0/TBD          | Not started | -         |
-| 3. Mapping Administration Contracts     | 0/TBD          | Not started | -         |
-| 4. V2 Storage Design Specification      | 0/TBD          | Not started | -         |
-| 5. Preview and Read-path Cutover        | 0/TBD          | Not started | -         |
-| 6. Safe Lifecycle and Legacy Migration  | 0/TBD          | Not started | -         |
-| 7. V2 Storage Administration Experience | 0/TBD          | Not started | -         |
-| 8. Bounded V1 Removal                   | 0/TBD          | Not started | -         |
-| 9. Operational Immutability Proof       | 0/TBD          | Not started | -         |
+| Phase                                   | Plans Complete | Status      | Completed  |
+| --------------------------------------- | -------------- | ----------- | ---------- |
+| 1. Immutable Storage Foundation         | 7/7            | Complete    | 2026-08-05 |
+| 2. Read-only Policy Boundary            | 0/TBD          | Not started | -          |
+| 3. Mapping Administration Contracts     | 0/TBD          | Not started | -          |
+| 4. V2 Storage Design Specification      | 0/TBD          | Not started | -          |
+| 5. Preview and Read-path Cutover        | 0/TBD          | Not started | -          |
+| 6. Safe Lifecycle and Legacy Migration  | 0/TBD          | Not started | -          |
+| 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
+| 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
+| 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |
