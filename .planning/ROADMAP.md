@@ -30,7 +30,7 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 3. Valid nested and Unicode directories resolve inside the root, while absolute, drive, UNC, traversal, missing, file-target, disabled-root, and symlink cases fail closed.
 4. The storage schema upgrades across MariaDB, MySQL, and PostgreSQL without changing any source-library content.
 
-**Plans:** 6/6 plans complete
+**Plans:** 6/7 plans complete
 
 Plans:
 
@@ -40,6 +40,7 @@ Plans:
 - [x] `01-04-PLAN.md` - Atomic root registration and mapping persistence
 - [x] `01-05-PLAN.md` - Adversarial matrix and cross-dialect evidence
 - [x] `01-06-PLAN.md` - PostgreSQL-safe mapping locks and bounded persistence errors
+- [ ] 01-07-PLAN.md - MariaDB/MySQL errno-gated duplicate diagnostic classification
 
 ### Phase 2: Read-only Policy Boundary
 
@@ -160,14 +161,14 @@ Plans:
 
 ## Progress
 
-| Phase                                   | Plans Complete | Status      | Completed  |
-| --------------------------------------- | -------------- | ----------- | ---------- |
-| 1. Immutable Storage Foundation         | 6/6            | Complete    | 2026-08-05 |
-| 2. Read-only Policy Boundary            | 0/TBD          | Not started | -          |
-| 3. Mapping Administration Contracts     | 0/TBD          | Not started | -          |
-| 4. V2 Storage Design Specification      | 0/TBD          | Not started | -          |
-| 5. Preview and Read-path Cutover        | 0/TBD          | Not started | -          |
-| 6. Safe Lifecycle and Legacy Migration  | 0/TBD          | Not started | -          |
-| 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
-| 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
-| 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |
+| Phase                                   | Plans Complete | Status      | Completed |
+| --------------------------------------- | -------------- | ----------- | --------- |
+| 1. Immutable Storage Foundation         | 6/7            | In progress | -         |
+| 2. Read-only Policy Boundary            | 0/TBD          | Not started | -         |
+| 3. Mapping Administration Contracts     | 0/TBD          | Not started | -         |
+| 4. V2 Storage Design Specification      | 0/TBD          | Not started | -         |
+| 5. Preview and Read-path Cutover        | 0/TBD          | Not started | -         |
+| 6. Safe Lifecycle and Legacy Migration  | 0/TBD          | Not started | -         |
+| 7. V2 Storage Administration Experience | 0/TBD          | Not started | -         |
+| 8. Bounded V1 Removal                   | 0/TBD          | Not started | -         |
+| 9. Operational Immutability Proof       | 0/TBD          | Not started | -         |
