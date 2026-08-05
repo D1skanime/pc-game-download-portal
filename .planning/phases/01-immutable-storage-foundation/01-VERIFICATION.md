@@ -1,153 +1,150 @@
 ---
 phase: 01-immutable-storage-foundation
-verified: 2026-08-04T21:30:47Z
+verified: 2026-08-05T05:46:21Z
 status: gaps_found
-score: 12/14 must-haves verified
+score: 13/14 must-haves verified
 overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 12/14
+  gaps_closed:
+    - "PostgreSQL mapping persistence now uses a mapping-only entity-qualified lock and passes isolated PostgreSQL execution."
+    - "Missing platform identities and generic unrelated IntegrityError paths remain bounded and distinct."
+  gaps_remaining:
+    - "MariaDB/MySQL raw diagnostic fallback can misclassify a non-duplicate IntegrityError that mentions a mapping constraint name."
+  regressions: []
 gaps:
-  - truth: "Mappings validate and save atomically on every supported database dialect"
+  - truth: "Only named mapping uniqueness violations become DuplicateStorageMappingError, with truthful vendor-specific classification"
     status: failed
-    reason: "The mapping lock query combines joinedload of storage_root with an unqualified FOR UPDATE. PostgreSQL rejects locking the nullable side of the emitted outer join, so save_mapping cannot reach persistence on a supported dialect."
+    reason: "The non-PostgreSQL fallback matches a known constraint substring without requiring MariaDB/MySQL duplicate-key errno 1062."
     artifacts:
       - path: "backend/handler/database/storage_handler.py"
-        issue: "Lines 83-87 use joinedload(PlatformStorageMapping.storage_root).with_for_update()."
+        issue: "_is_mapping_unique_violation uses unrestricted raw-message substring matching when diag.constraint_name is absent."
       - path: "backend/tests/handler/database/test_storage_handler.py"
-        issue: "Persistence behavior is exercised against MariaDB only; no PostgreSQL handler execution catches the invalid SQL."
+        issue: "Tests cover PostgreSQL-like diagnostics only, not vendor positive and negative cases."
     missing:
-      - "Lock only PlatformStorageMapping rows on PostgreSQL and load roots separately, for example with selectinload and with_for_update(of=PlatformStorageMapping)."
-      - "Add a PostgreSQL save_mapping behavioral test, not only migration DDL coverage."
-  - truth: "Persistence failures remain typed, bounded, and semantically correct"
-    status: failed
-    reason: "Every IntegrityError is translated to DuplicateStorageMappingError, including foreign-key failures for nonexistent platforms or raced root deletion."
-    artifacts:
-      - path: "backend/handler/database/storage_handler.py"
-        issue: "Lines 120-123 classify all database constraint failures as duplicates."
-      - path: "backend/tests/handler/database/test_storage_handler.py"
-        issue: "No test covers nonexistent platform_id, root deletion races, or non-unique integrity failures."
-    missing:
-      - "Validate referenced identities in the transaction and translate only named unique constraints to DuplicateStorageMappingError."
-      - "Add tests for foreign-key and other non-duplicate IntegrityError paths."
+      - "Require errno 1062 before matching either approved MariaDB/MySQL unique key name."
+      - "Return false for unknown DBAPI shapes."
+      - "Test errno-1062 positives for both keys and non-1062/unknown-shape negatives containing a known key name."
 deferred:
   - truth: "Descriptor-bound protection against a symlink/path swap after point-in-time resolution"
     addressed_in: "Phase 2"
-    evidence: "Phase 2 requires one deny-by-default policy before filesystem access and coverage of every operation addressing an external root; Phase 1 PLANs explicitly accept TOCTOU because Phase 1 opens no content file."
+    evidence: "Phase 2 owns policy enforcement before filesystem access; Phase 1 opens no content file."
 ---
 
 # Phase 1: Immutable Storage Foundation Verification Report
 
 **Phase Goal:** Operators have a portable storage model whose roots and relative mappings cannot resolve outside the approved immutable library.
-**Verified:** 2026-08-04T21:30:47Z
+**Verified:** 2026-08-05T05:46:21Z
 **Status:** gaps_found
-**Re-verification:** No, initial verification
+**Re-verification:** Yes, after plan 01-06 gap closure
 
 ## Goal Achievement
 
 ### Observable Truths
 
-| #   | Truth                                                                                       | Status   | Evidence                                                                                                                                                                                                 |
-| --- | ------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Existing external roots register active and health inspection does not create content       | VERIFIED | `register_root` requires an absolute existing directory, calls metadata-only `check_storage_root_health`, forces active immutable mode, and the registration tests use manifests and mutation tripwires. |
-| 2   | Only `external_read_only` persists                                                          | VERIFIED | ORM and revision 0108 define named check constraints restricting mode to `external_read_only`.                                                                                                           |
-| 3   | Mappings contain root identity plus a normalized relative path, never a NAS host path       | VERIFIED | `PlatformStorageMapping` has only identity, timestamp, and `relative_path` columns; normalization precedes persistence.                                                                                  |
-| 4   | Unsafe lexical forms fail before filesystem composition                                     | VERIFIED | `normalize_relative_path` rejects POSIX absolute, Windows drive/UNC/backslash, control characters, empty/dot/traversal segments before constructing target paths.                                        |
-| 5   | Valid nested, long, and Unicode archive names are preserved exactly                         | VERIFIED | Normalizer returns the original string unchanged; parameterized and property tests cover composed/decomposed Unicode and nesting.                                                                        |
-| 6   | Health is bounded and write-free                                                            | VERIFIED | Health uses `lstat`, `os.access`, and field assignment only; tests compare source manifests and tripwire mutation primitives.                                                                            |
-| 7   | Missing, inactive, writable, unreadable, file-target, and escaped targets fail closed       | VERIFIED | Resolver checks active immutable roots, existence, directory type, permissions, canonical containment, and typed errors.                                                                                 |
-| 8   | Point-in-time configured-root and component symlinks fail closed                            | VERIFIED | Root and every target component are checked with `lstat`; symlink-position and target-form tests exist. Descriptor-bound post-check use is deferred to Phase 2.                                          |
-| 9   | Existing deployment roots register without creation                                         | VERIFIED | Handler health-gates before flush and tests assert identical source manifests.                                                                                                                           |
-| 10  | Mappings validate and save atomically on supported dialects                                 | FAILED   | PostgreSQL rejects the joined eager-load plus unqualified `FOR UPDATE` query at `storage_handler.py:83-87`.                                                                                              |
-| 11  | Duplicate and overlap races fail closed on the exercised MariaDB path                       | VERIFIED | Ordered active-root locks, recheck, uniqueness constraints, and coordinated two-session tests exist.                                                                                                     |
-| 12  | Persistence errors are typed, bounded, and correct                                          | FAILED   | Broad `IntegrityError` handling mislabels all constraint failures as duplicates.                                                                                                                         |
-| 13  | Writable fixtures remain identical through health, resolution, registration, and validation | VERIFIED | Resolver and handler test suites record before/after manifests and install mutation tripwires.                                                                                                           |
-| 14  | Revision 0108 is reversible and filesystem-free across MariaDB, MySQL, and PostgreSQL       | VERIFIED | Migration contains schema operations only; verifier and pinned CI jobs define independent upgrade/downgrade/re-upgrade cycles for all three dialects. Current rerun was unavailable, noted below.        |
+| #   | Truth                                                                                  | Status   | Evidence                                                                                 |
+| --- | -------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| 1   | Existing external roots register active without creating content                       | VERIFIED | Existing-directory health gate, forced immutable mode, manifests and mutation tripwires. |
+| 2   | Only external_read_only persists                                                       | VERIFIED | ORM and revision 0108 named check constraint.                                            |
+| 3   | Mappings store root identity and normalized relative path only                         | VERIFIED | Mapping schema and normalization contain no NAS host path.                               |
+| 4   | Unsafe lexical forms fail before composition                                           | VERIFIED | Absolute, drive, UNC, backslash, control, empty, dot and traversal cases reject.         |
+| 5   | Nested, long and Unicode names are preserved                                           | VERIFIED | Adversarial resolver tests pass.                                                         |
+| 6   | Health is bounded and write-free                                                       | VERIFIED | Metadata/access observation only; manifests remain unchanged.                            |
+| 7   | Unsafe root and target states fail closed                                              | VERIFIED | Missing, inactive, writable, unreadable, file and escape cases reject.                   |
+| 8   | Root and component symlinks fail closed at resolution time                             | VERIFIED | lstat component walk and symlink matrix.                                                 |
+| 9   | Registration and mapping persistence do not mutate source                              | VERIFIED | Source manifests and mutation tripwires pass.                                            |
+| 10  | Mapping persistence works atomically on behavior dialects                              | VERIFIED | 22 isolated tests pass on MariaDB and 22 on PostgreSQL.                                  |
+| 11  | Concurrent overlaps yield one commit and one bounded conflict                          | VERIFIED | Coordinated two-session tests pass on MariaDB and PostgreSQL.                            |
+| 12  | Missing identities and generic unrelated persistence failures are bounded and distinct | VERIFIED | Explicit handler tests pass.                                                             |
+| 13  | Vendor duplicate classification is truthful and bounded                                | FAILED   | Raw fallback ignores errno; current unit test uses only diag.constraint_name.            |
+| 14  | Revision 0108 is reversible and filesystem-free on all dialects                        | VERIFIED | Fresh MariaDB 10.11, MySQL 8.4 and PostgreSQL 15 cycles passed.                          |
 
-**Score:** 12/14 truths verified
+**Score:** 13/14 truths verified
 
 ### Deferred Items
 
-| #   | Item                                                                                   | Addressed In | Evidence                                                                                                                                                                     |
-| --- | -------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Descriptor-relative, no-follow enforcement against concurrent symlink/path replacement | Phase 2      | Phase 2 owns policy enforcement before actual filesystem access. Phase 1 PLAN 01-03 and 01-05 explicitly scope resolution to point-in-time checks and open no content files. |
+| Item                                                                     | Addressed In | Evidence                                            |
+| ------------------------------------------------------------------------ | ------------ | --------------------------------------------------- |
+| Descriptor-relative no-follow enforcement against concurrent replacement | Phase 2      | Phase 2 owns enforcement before actual file access. |
 
 ### Required Artifacts
 
-| Artifact                                                        | Expected                                         | Status   | Details                                                                                                             |
-| --------------------------------------------------------------- | ------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------- |
-| `backend/models/storage.py`                                     | Root and mapping identities                      | VERIFIED | Substantive models, named constraints, relationships, and health fields; imported by handlers and Alembic metadata. |
-| `backend/alembic/versions/0108_immutable_storage_foundation.py` | Portable reversible schema                       | VERIFIED | Creates roots before mappings and drops in reverse order; no filesystem import or data transform.                   |
-| `backend/handler/filesystem/storage_resolver.py`                | Pure normalization, health, canonical resolution | VERIFIED | Substantive and wired into persistence; point-in-time boundary only.                                                |
-| `backend/exceptions/storage_exceptions.py`                      | Bounded domain errors                            | PARTIAL  | Substantive and wired, but handler applies duplicate error too broadly.                                             |
-| `backend/handler/database/storage_handler.py`                   | Root and mapping persistence                     | FAILED   | Substantive and registered, but PostgreSQL lock SQL is invalid and integrity classification is overbroad.           |
-| `backend/tests/handler/filesystem/test_storage_resolver.py`     | Adversarial filesystem matrix                    | VERIFIED | Covers lexical, Unicode, health, target, containment, symlink, and immutable-manifest cases.                        |
-| `backend/tests/handler/database/test_storage_handler.py`        | Transaction and race evidence                    | PARTIAL  | Good MariaDB coverage; missing supported PostgreSQL handler execution and non-duplicate integrity cases.            |
-| `.github/workflows/migrations.yml`                              | Three-dialect migration gate                     | PARTIAL  | Three dialect jobs exist, but pull-request paths include only `backend/alembic/versions/**`.                        |
+| Artifact                                                      | Expected                          | Status   | Details                                                                                  |
+| ------------------------------------------------------------- | --------------------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| backend/models/storage.py                                     | Root and mapping identities       | VERIFIED | Substantive constraints and relationships, wired to Alembic.                             |
+| backend/alembic/versions/0108_immutable_storage_foundation.py | Portable schema                   | VERIFIED | All three migration cycles pass, no filesystem operation.                                |
+| backend/handler/filesystem/storage_resolver.py                | Normalization, health, resolution | VERIFIED | Substantive, wired and adversarially tested.                                             |
+| backend/exceptions/storage_exceptions.py                      | Bounded errors                    | VERIFIED | All storage error classes are substantive and used.                                      |
+| backend/handler/database/storage_handler.py                   | Atomic persistence                | PARTIAL  | Locking fixed; vendor diagnostic fallback remains overbroad.                             |
+| backend/tests/handler/filesystem/test_storage_resolver.py     | Adversarial matrix                | VERIFIED | TEST-01 and immutable evidence covered.                                                  |
+| backend/tests/handler/database/test_storage_handler.py        | Race and error evidence           | PARTIAL  | Behavior passes; vendor classification matrix absent.                                    |
+| backend/tools/verify_storage_migrations.py                    | Isolated dialect gate             | VERIFIED | Ephemeral containers, cleanup, MariaDB/PostgreSQL behavior and MySQL migration baseline. |
 
 ### Key Link Verification
 
-| From                         | To                          | Via                                    | Status | Details                                                                         |
-| ---------------------------- | --------------------------- | -------------------------------------- | ------ | ------------------------------------------------------------------------------- |
-| `backend/models/platform.py` | `backend/models/storage.py` | scalar `back_populates` relationship   | WIRED  | Platform has optional scalar `storage_mapping`; mapping links back to platform. |
-| `storage_resolver.py`        | `storage_exceptions.py`     | typed rejection                        | WIRED  | Resolver raises bounded storage-domain exceptions.                              |
-| `storage_resolver.py`        | `models/storage.py`         | mode and active state                  | WIRED  | Root resolution checks `active` and exact immutable mode.                       |
-| `storage_handler.py`         | `storage_resolver.py`       | health and canonical target validation | WIRED  | Registration calls health; mapping load calls normalization and resolution.     |
-| resolver tests               | resolver public contracts   | direct calls                           | WIRED  | Tests invoke normalization, health, root resolution, and directory resolution.  |
+| From                | To                           | Via                                     | Status  | Details                                                               |
+| ------------------- | ---------------------------- | --------------------------------------- | ------- | --------------------------------------------------------------------- |
+| models/platform.py  | models/storage.py            | scalar back_populates                   | WIRED   | Platform and mapping relationships connect.                           |
+| storage_resolver.py | storage models/errors        | state checks and typed rejection        | WIRED   | Immutable mode, active state and bounded errors used.                 |
+| storage_handler.py  | storage_resolver.py          | health and canonical validation         | WIRED   | Registration and save invoke resolver.                                |
+| storage_handler.py  | PlatformStorageMapping       | selectin load and entity-qualified lock | WIRED   | PostgreSQL execution passes.                                          |
+| storage_handler.py  | DuplicateStorageMappingError | DBAPI classification                    | PARTIAL | PostgreSQL structured path precise; raw vendor path lacks errno gate. |
 
 ### Data-Flow Trace (Level 4)
 
-Not applicable. This phase adds backend persistence and resolution primitives, not a dynamic rendering surface or consumer cutover.
+Not applicable. This phase has no dynamic rendering surface.
 
 ### Behavioral Spot-Checks
 
-| Behavior                               | Command                                                | Result                                                                                                                                | Status |
-| -------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Focused phase suite                    | `docker exec romm-dev ... uv run pytest ...`           | Existing container has no `uv`; repository virtualenv points to stale `/app/.venv/bin/python3`. No service was restarted or replaced. | SKIP   |
-| Python compilation                     | host `python3 -m compileall` on phase modules          | Interpreter attempted writes into root-owned `__pycache__` and was denied; no source file changed.                                    | SKIP   |
-| Static PostgreSQL lock-path inspection | inspect SQLAlchemy query at `storage_handler.py:83-87` | Joined eager load emits outer join combined with unqualified `FOR UPDATE`; known PostgreSQL-invalid shape remains current.            | FAIL   |
+| Behavior                          | Command                                                        | Result                                            | Status           |
+| --------------------------------- | -------------------------------------------------------------- | ------------------------------------------------- | ---------------- |
+| MariaDB behavior/concurrency      | verify_storage_migrations.py with --handler-tests              | 22 passed                                         | PASS             |
+| PostgreSQL behavior/concurrency   | same isolated verifier                                         | 22 passed                                         | PASS             |
+| Current classification test       | pytest -k only_named_mapping_unique_constraints_are_duplicates | 2 passed, PostgreSQL-like diagnostics only        | PASS, INCOMPLETE |
+| MariaDB/MySQL negative diagnostic | inspect _is_mapping_unique_violation                           | No errno check; known substring alone is accepted | FAIL             |
 
 ### Probe Execution
 
-No phase probe scripts are declared. Migration verification is a stateful ephemeral-container tool and was not rerun because this verification was constrained not to alter running services; its code and CI contract were inspected instead.
+| Probe                  | Command                                                                                                                            | Result                                                                                                                                             | Status |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Three-dialect verifier | python3 backend/tools/verify_storage_migrations.py --dialects mariadb mysql postgresql --runner-container romm-dev --handler-tests | Exit 0 in 31.7s; all cycles passed; 22 MariaDB and 22 PostgreSQL behavior tests passed; MySQL behavior skipped on documented minimal 0107 baseline | PASS   |
 
 ### Requirements Coverage
 
-| Requirement | Source              | Status    | Evidence                                                                                           |
-| ----------- | ------------------- | --------- | -------------------------------------------------------------------------------------------------- |
-| ROOT-01     | Roadmap/Plans 01-04 | SATISFIED | Existing-root-only active registration exists and is non-mutating.                                 |
-| ROOT-02     | Roadmap/Plan 01-01  | SATISFIED | ORM and DB constraint permit immutable mode only. The ignored public `mode` argument is a warning. |
-| ROOT-03     | Roadmap/Plan 01-03  | SATISFIED | Reachable/readable/non-writable/timestamp/safe error fields are populated without a write probe.   |
-| ROOT-04     | Roadmap/Plan 01-01  | SATISFIED | Root container path is separate; mapping stores no absolute or host path.                          |
-| PATH-01     | Roadmap/Plan 01-02  | SATISFIED | Central lexical rejection covers required forms.                                                   |
-| PATH-02     | Roadmap/Plan 01-03  | SATISFIED | Root and target are strictly resolved and checked with `relative_to`.                              |
-| PATH-03     | Roadmap/Plan 01-03  | SATISFIED | Existing readable directories only; missing/file/inactive/escape cases reject.                     |
-| PATH-04     | Roadmap/Plan 01-02  | SATISFIED | Valid names preserved; containment avoids string prefixes.                                         |
-| PATH-05     | Roadmap/Plan 01-03  | SATISFIED | Configured-root and each component symlink are rejected at resolution time.                        |
-| TEST-01     | Roadmap/Plan 01-05  | SATISFIED | Named tests cover every listed adversarial category.                                               |
+| Requirement | Status    | Evidence                                                  |
+| ----------- | --------- | --------------------------------------------------------- |
+| ROOT-01     | SATISFIED | Existing-root-only registration and persistence tests.    |
+| ROOT-02     | SATISFIED | Immutable mode ORM and DB constraint.                     |
+| ROOT-03     | SATISFIED | Non-mutating health fields and manifest evidence.         |
+| ROOT-04     | SATISFIED | Root path is separate; mapping is relative only.          |
+| PATH-01     | SATISFIED | Central lexical rejection matrix.                         |
+| PATH-02     | SATISFIED | Strict canonical containment.                             |
+| PATH-03     | SATISFIED | Existing readable directory and fail-closed state checks. |
+| PATH-04     | SATISFIED | Unicode, nesting and safe component containment.          |
+| PATH-05     | SATISFIED | Root and component symlink rejection.                     |
+| TEST-01     | SATISFIED | Every required path category has passing coverage.        |
 
-No orphaned Phase 1 requirement was found.
+No orphaned Phase 1 requirement exists.
 
 ### Anti-Patterns Found
 
-| File                                          | Line    | Pattern                                    | Severity | Impact                                                                         |
-| --------------------------------------------- | ------- | ------------------------------------------ | -------- | ------------------------------------------------------------------------------ |
-| `backend/handler/database/storage_handler.py` | 83-87   | `joinedload` plus unqualified `FOR UPDATE` | BLOCKER  | Mapping persistence fails on PostgreSQL.                                       |
-| `backend/handler/database/storage_handler.py` | 120-123 | broad `IntegrityError` classification      | BLOCKER  | Referential and future constraint failures are falsely reported as duplicates. |
-| `backend/tests/models/test_storage.py`        | 12-18   | module fixture drops migrated tables       | WARNING  | Full-suite outcome is order-dependent after this module.                       |
-| `.github/workflows/migrations.yml`            | 3-7     | narrow path trigger                        | WARNING  | Model, Alembic environment, and verifier changes can bypass migration CI.      |
-| `backend/handler/database/storage_handler.py` | 38, 48  | ignored `mode` argument                    | WARNING  | Unsupported caller input succeeds with different persisted semantics.          |
+| File                                                   | Line    | Pattern                              | Severity | Impact                                                           |
+| ------------------------------------------------------ | ------- | ------------------------------------ | -------- | ---------------------------------------------------------------- |
+| backend/handler/database/storage_handler.py            | 41-42   | Raw diagnostic substring fallback    | BLOCKER  | Non-duplicate MariaDB/MySQL errors can be mislabeled duplicates. |
+| backend/tests/handler/database/test_storage_handler.py | 217-231 | PostgreSQL-only synthetic diagnostic | WARNING  | Unsafe vendor fallback passes tests.                             |
 
-No unreferenced TBD, FIXME, or XXX debt marker was identified in the reviewed phase implementation.
+No unreferenced TBD, FIXME or XXX marker was found.
 
 ### Human Verification Required
 
-None. The observable blocking defects are statically determinable. Real NAS activation and operational atime proof are explicitly outside Phase 1 and scheduled for Phase 9.
+None. The remaining gap is programmatically determinable.
 
 ### Gaps Summary
 
-The immutable schema, lexical boundary, metadata-only health, point-in-time canonical resolution, and adversarial fixtures are substantive and wired. The phase nevertheless cannot pass because the persistence layer is not behaviorally portable: its mapping lock query fails on PostgreSQL, and its error boundary misclassifies all integrity failures as duplicate mappings. These are current-code defects, not SUMMARY discrepancies or human-only uncertainties.
-
-The code review's symlink TOCTOU concern is real but explicitly scoped to actual file use in Phase 2, so it is recorded as deferred rather than used to fail Phase 1. The remaining three review warnings are confirmed and should be fixed with the blockers because they weaken test determinism, CI coverage, and API semantics.
+Plan 01-06 closes both original blockers: PostgreSQL mapping persistence now executes with a legal entity-qualified lock, and missing identities plus generic unrelated integrity errors remain bounded and distinct. One blocker remains. MariaDB/MySQL duplicate classification accepts an approved key-name substring without first requiring errno 1062, and no vendor-specific positive/negative tests constrain it. Phase 1 remains gaps_found until both the vendor error code and approved key name are required and negative cases are tested.
 
 ---
 
-_Verified: 2026-08-04T21:30:47Z_
+_Verified: 2026-08-05T05:46:21Z_
 _Verifier: the agent (gsd-verifier)_
