@@ -43,6 +43,9 @@ class DBStorageHandler(DBBaseHandler):
         constraint_name = getattr(diagnostic, "constraint_name", None)
         if constraint_name is not None:
             return constraint_name in cls._MAPPING_UNIQUE_CONSTRAINTS
+        errno = getattr(error.orig, "errno", None)
+        if errno != 1062:
+            return False
         message = str(error.orig)
         return any(name in message for name in cls._MAPPING_UNIQUE_CONSTRAINTS)
 
