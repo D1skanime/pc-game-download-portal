@@ -196,19 +196,39 @@ def test_unrelated_integrity_error_is_bounded_and_not_duplicate(tmp_path: Path):
     (tmp_path / "a").mkdir()
     with sync_session.begin() as session:
         roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
+        real_flush = session.flush
+
+        def fail_mapping_flush(*args, **kwargs):
+            if any(isinstance(item, PlatformStorageMapping) for item in session.new):
+                raise IntegrityError("SQL", {}, Exception("detail"))
+            return real_flush(*args, **kwargs)
+
         with (
             patch("handler.filesystem.storage_resolver.os.access", side_effect=access),
-            patch.object(
-                session,
-                "flush",
-                side_effect=IntegrityError("SQL", {}, Exception("detail")),
-            ),
+            patch.object(session, "flush", side_effect=fail_mapping_flush),
             pytest.raises(StoragePersistenceError) as error,
         ):
             db_storage_handler.save_mapping(
                 platforms[0].id, roots[0].id, "a", session=session
             )
     assert str(error.value) == "Storage mapping could not be persisted"
+
+
+@pytest.mark.parametrize(
+    "constraint_name",
+    [
+        "uq_platform_storage_mappings_platform_id",
+        "uq_platform_storage_mappings_root_relative_path",
+    ],
+)
+def test_only_named_mapping_unique_constraints_are_duplicates(constraint_name: str):
+    diagnostic = type("Diagnostic", (), {"constraint_name": constraint_name})()
+    original = type("Original", (), {"diag": diagnostic})()
+    error = IntegrityError("hidden SQL", {}, original)
+    assert db_storage_handler._is_mapping_unique_violation(error)
+
+    diagnostic.constraint_name = "fk_platform_storage_mappings_platform_id"
+    assert not db_storage_handler._is_mapping_unique_violation(error)
 
 
 def test_active_root_lock_is_ordered_before_mapping_load(tmp_path: Path):
@@ -226,8 +246,20 @@ def test_active_root_lock_is_ordered_before_mapping_load(tmp_path: Path):
             db_storage_handler.save_mapping(platforms[0].id, roots[0].id, "a")
     finally:
         event.remove(sync_engine, "before_cursor_execute", listener)
-    lock = next(sql for sql in statements if "FOR UPDATE" in sql.upper())
+    lock = next(
+        sql
+        for sql in statements
+        if "FOR UPDATE" in sql.upper() and "FROM storage_roots" in sql
+    )
     assert "ORDER BY storage_roots.id" in lock and "storage_roots.active" in lock
+    mapping_lock = next(
+        sql
+        for sql in statements
+        if "FOR UPDATE" in sql.upper() and "FROM platform_storage_mappings" in sql
+    )
+    assert "JOIN storage_roots" not in mapping_lock
+    if sync_engine.dialect.name == "postgresql":
+        assert "FOR UPDATE OF platform_storage_mappings" in mapping_lock
 
 
 def test_concurrent_initial_cross_root_overlap_one_commit(tmp_path: Path):

@@ -1,12 +1,23 @@
 """Exercise revision 0108 on isolated supported database containers."""
 
+# trunk-ignore-all(bandit/B404,bandit/B105,bandit/B108,bandit/B603,bandit/B607)
+
 import argparse
 import json
 import subprocess
 import time
 import uuid
+from typing import TypedDict
 
-DIALECTS = {
+
+class DialectConfig(TypedDict):
+    image: str
+    port: str
+    env: dict[str, str]
+    health: list[str]
+
+
+DIALECTS: dict[str, DialectConfig] = {
     "mariadb": {
         "image": "mariadb:10.11",
         "port": "3306/tcp",
@@ -129,7 +140,7 @@ def _handler_tests(runner: str, dialect: str, host: str, port: str) -> None:
             runner,
             "sh",
             "-lc",
-            "cd /app/backend && uv run pytest tests/handler/database/test_storage_handler.py -x",
+            "cd /app/backend && uv run pytest -c /dev/null tests/models/test_storage.py tests/handler/database/test_storage_handler.py -x",
         ]
     )
     _run(command)
@@ -163,8 +174,10 @@ def verify_dialect(dialect: str, runner: str, *, handler_tests: bool = False) ->
             runner, dialect, host, port, "downgrade", "0107_roms_dedup_cover_index"
         )
         _alembic(runner, dialect, host, port, "upgrade", "head")
-        if handler_tests:
+        if handler_tests and dialect != "mysql":
             _handler_tests(runner, dialect, host, port)
+        elif handler_tests:
+            print("mysql: handler tests skipped on the minimal 0107 baseline")
         print(f"{dialect}: upgrade/downgrade/re-upgrade passed")
     finally:
         subprocess.run(

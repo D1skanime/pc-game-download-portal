@@ -25,6 +25,13 @@ class MissingStorageRootError(StorageResolutionError):
         super().__init__(f"Storage root {storage_root_id} was not found")
 
 
+class MissingStoragePlatformError(StorageResolutionError):
+    code = "missing_storage_platform"
+
+    def __init__(self, platform_id: int):
+        super().__init__(f"Storage platform {platform_id} was not found")
+
+
 class InactiveStorageRootError(StorageResolutionError):
     code = "inactive_storage_root"
 
@@ -90,3 +97,10 @@ class DuplicateStorageMappingError(StorageResolutionError):
         super().__init__(
             f"Storage mapping for platform {platform_id} conflicts in root {storage_root_id}"
         )
+
+
+class StoragePersistenceError(StorageResolutionError):
+    code = "storage_persistence_error"
+
+    def __init__(self):
+        super().__init__("Storage mapping could not be persisted")
