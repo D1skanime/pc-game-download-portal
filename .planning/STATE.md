@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Planned 01-06-PLAN.md for verification gaps
-last_updated: "2026-08-04T21:39:48.114Z"
-last_activity: 2026-08-04
+status: phase_complete
+stopped_at: Completed 01-06-PLAN.md
+last_updated: "2026-08-05T05:39:04Z"
+last_activity: 2026-08-05
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 6
-  completed_plans: 5
-  percent: 9
+  completed_plans: 6
+  percent: 11
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 01 (immutable-storage-foundation) — EXECUTING
-Plan: 5 of 6
-Status: Gap closure planned — 01-06 pending
-Last activity: 2026-08-04
+Plan: 6 of 6
+Status: Phase complete
+Last activity: 2026-08-05
 
-Progress: [########--] 83%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [########--] 83%
 
 _Updated after each plan completion_
 | Phase 01 P05 | 11min | 2 tasks | 2 files |
+| Phase 01 P06 | 10min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,8 @@ Recent decisions affecting current work:
 - [Phase 1]: Empty logical paths are accepted only by the explicit internal root contract; platform mappings remain non-empty.
 - [Phase 1]: Lexical normalization preserves valid case and Unicode exactly while returning bounded errors for unsafe text.
 - [Phase 01]: CI treats MariaDB, MySQL, and PostgreSQL as independent migration authorities.
+- [Phase 01]: Mapping locks target only the mapping entity and load storage roots separately for PostgreSQL portability.
+- [Phase 01]: Only explicitly named mapping uniqueness constraints translate to duplicate-domain errors.
 
 ### Pending Todos
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-08-04T21:39:48.110Z
-Stopped at: Completed 01-05-PLAN.md
+Last session: 2026-08-05T05:39:04Z
+Stopped at: Completed 01-06-PLAN.md
 Resume file: None
