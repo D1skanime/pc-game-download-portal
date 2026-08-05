@@ -3,19 +3,10 @@ from datetime import datetime
 import pytest
 from sqlalchemy import delete, inspect
 from sqlalchemy.exc import IntegrityError
+from tests.conftest import session
 
 from models.platform import Platform
 from models.storage import PlatformStorageMapping, StorageRoot
-from tests.conftest import session
-
-
-@pytest.fixture(scope="module", autouse=True)
-def storage_tables():
-    StorageRoot.__table__.create(session.kw["bind"], checkfirst=True)
-    PlatformStorageMapping.__table__.create(session.kw["bind"], checkfirst=True)
-    yield
-    PlatformStorageMapping.__table__.drop(session.kw["bind"], checkfirst=True)
-    StorageRoot.__table__.drop(session.kw["bind"], checkfirst=True)
 
 
 @pytest.fixture

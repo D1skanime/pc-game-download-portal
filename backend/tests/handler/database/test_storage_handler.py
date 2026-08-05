@@ -8,12 +8,15 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy import event, select
+from sqlalchemy.exc import IntegrityError
 
 from exceptions.storage_exceptions import (
     DuplicateStorageMappingError,
     InvalidRelativePathError,
+    MissingStoragePlatformError,
     MissingStorageRootError,
     StorageMappingOverlapError,
+    StoragePersistenceError,
     UnsafeWritableRootError,
 )
 from handler.database import db_storage_handler
@@ -174,6 +177,38 @@ def test_platform_unique_constraint_is_backstop(tmp_path: Path):
         db_storage_handler.save_mapping(platforms[0].id, roots[0].id, "a")
         with pytest.raises(DuplicateStorageMappingError):
             db_storage_handler.save_mapping(platforms[0].id, roots[0].id, "b")
+
+
+def test_missing_platform_is_bounded_and_not_duplicate(tmp_path: Path):
+    (tmp_path / "a").mkdir()
+    with sync_session.begin() as session:
+        roots, _ = add_objects(session, tmp_path, [("root", tmp_path)])
+    with (
+        patch("handler.filesystem.storage_resolver.os.access", side_effect=access),
+        pytest.raises(MissingStoragePlatformError) as error,
+    ):
+        db_storage_handler.save_mapping(999999, roots[0].id, "a")
+    assert "999999" in str(error.value)
+    assert "SELECT" not in str(error.value)
+
+
+def test_unrelated_integrity_error_is_bounded_and_not_duplicate(tmp_path: Path):
+    (tmp_path / "a").mkdir()
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
+        with (
+            patch("handler.filesystem.storage_resolver.os.access", side_effect=access),
+            patch.object(
+                session,
+                "flush",
+                side_effect=IntegrityError("SQL", {}, Exception("detail")),
+            ),
+            pytest.raises(StoragePersistenceError) as error,
+        ):
+            db_storage_handler.save_mapping(
+                platforms[0].id, roots[0].id, "a", session=session
+            )
+    assert str(error.value) == "Storage mapping could not be persisted"
 
 
 def test_active_root_lock_is_ordered_before_mapping_load(tmp_path: Path):

@@ -110,7 +110,32 @@ def _bootstrap_mysql_0107(name: str) -> None:
     _run(["docker", "exec", name, "mysql", "-uroot", "-proot", "-e", statement])
 
 
-def verify_dialect(dialect: str, runner: str) -> None:
+def _handler_tests(runner: str, dialect: str, host: str, port: str) -> None:
+    environment = {
+        "ROMM_DB_DRIVER": dialect,
+        "DB_HOST": host,
+        "DB_PORT": port,
+        "DB_USER": "romm",
+        "DB_PASSWD": "romm",
+        "DB_NAME": "romm_migration",
+        "ROMM_AUTH_SECRET_KEY": "storage-handler-verifier-only",
+        "ROMM_BASE_PATH": "/tmp/romm-storage-handler-verifier",
+    }
+    command = ["docker", "exec"]
+    for key, value in environment.items():
+        command.extend(["-e", f"{key}={value}"])
+    command.extend(
+        [
+            runner,
+            "sh",
+            "-lc",
+            "cd /app/backend && uv run pytest tests/handler/database/test_storage_handler.py -x",
+        ]
+    )
+    _run(command)
+
+
+def verify_dialect(dialect: str, runner: str, *, handler_tests: bool = False) -> None:
     config = DIALECTS[dialect]
     name = f"romm-storage-migration-{dialect}-{uuid.uuid4().hex[:10]}"
     command = [
@@ -138,6 +163,8 @@ def verify_dialect(dialect: str, runner: str) -> None:
             runner, dialect, host, port, "downgrade", "0107_roms_dedup_cover_index"
         )
         _alembic(runner, dialect, host, port, "upgrade", "head")
+        if handler_tests:
+            _handler_tests(runner, dialect, host, port)
         print(f"{dialect}: upgrade/downgrade/re-upgrade passed")
     finally:
         subprocess.run(
@@ -154,9 +181,10 @@ def main() -> None:
         "--dialects", nargs="+", choices=sorted(DIALECTS), required=True
     )
     parser.add_argument("--runner-container", default="romm-dev")
+    parser.add_argument("--handler-tests", action="store_true")
     args = parser.parse_args()
     for dialect in args.dialects:
-        verify_dialect(dialect, args.runner_container)
+        verify_dialect(dialect, args.runner_container, handler_tests=args.handler_tests)
 
 
 if __name__ == "__main__":
