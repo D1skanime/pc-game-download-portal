@@ -30,7 +30,7 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 3. Valid nested and Unicode directories resolve inside the root, while absolute, drive, UNC, traversal, missing, file-target, disabled-root, and symlink cases fail closed.
 4. The storage schema upgrades across MariaDB, MySQL, and PostgreSQL without changing any source-library content.
 
-**Plans:** 6/7 plans complete
+**Plans:** 7/7 plans complete
 
 Plans:
 
@@ -40,7 +40,7 @@ Plans:
 - [x] `01-04-PLAN.md` - Atomic root registration and mapping persistence
 - [x] `01-05-PLAN.md` - Adversarial matrix and cross-dialect evidence
 - [x] `01-06-PLAN.md` - PostgreSQL-safe mapping locks and bounded persistence errors
-- [ ] 01-07-PLAN.md - MariaDB/MySQL errno-gated duplicate diagnostic classification
+- [x] 01-07-PLAN.md - MariaDB/MySQL errno-gated duplicate diagnostic classification
 
 ### Phase 2: Read-only Policy Boundary
 
