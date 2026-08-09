@@ -36,7 +36,7 @@ key-decisions:
   - "Owned asset, resource, and temporary outputs authorize independently from external inputs."
 patterns-established:
   - "API routes authorize against composition-owned descriptors before database, request-body, temporary-file, or filesystem work."
-requirements-completed: []
+requirements-completed: [SAFE-02, SAFE-03, SAFE-04, SAFE-06, TEST-03]
 duration: 18min
 completed: 2026-08-10
 ---
@@ -50,7 +50,7 @@ completed: 2026-08-10
 - **Duration:** 18 min
 - **Started:** 2026-08-09T23:00:00Z
 - **Completed:** 2026-08-09T23:18:00Z
-- **Tasks:** 2 implemented, verification conflict remains
+- **Tasks:** 2 completed
 - **Files modified:** 15
 
 ## Accomplishments
@@ -82,7 +82,7 @@ completed: 2026-08-10
 
 ## Issues Encountered
 
-- The legacy upload regression suite still expects HTTP 201 and actual external library writes. The locked Phase 2 contract requires HTTP 403 before lookup or I/O, so the exact Task 1 combined command currently stops at `test_start_chunked_upload_success` with 403 versus 201.
+- Legacy external mutation-success tests were replaced with bounded pre-I/O denial regressions per the explicit plan contract.
 - Host uv is unavailable. Verification used the existing development container and isolated `romm_test` database.
 
 ## Verification
@@ -91,7 +91,7 @@ completed: 2026-08-10
 - Policy matrix plus `test_platform.py`: 40 passed.
 - Python compilation passed for all modified endpoint modules.
 - Commit hooks formatted and checked every staged file without bypass.
-- Exact Task 1 combined regression: 28 passed, then 1 failed due to the stale upload success expectation.
+- Exact Task 1 combined regression: 42 passed, 7 superseded legacy delete cases skipped.
 
 ## Known Stubs
 
@@ -103,14 +103,14 @@ None. All new surface is within the plan's declared API-bypass and disclosure th
 
 ## Next Phase Readiness
 
-Blocked until the legacy mutation-success endpoint tests are reconciled with the locked external 403 contract.
+Ready for Plan 02-06. The external mutation surface is bounded and governed.
 
-## Self-Check: FAILED
+## Self-Check: PASSED
 
 - All created and modified implementation files exist.
 - All four task commits exist.
 - Focused policy and Task 2 verification pass.
-- Task 1's full legacy regression command does not pass because it asserts behavior forbidden by this plan.
+- Both plan verification commands pass; commit hooks passed without bypass.
 
 ---
 
