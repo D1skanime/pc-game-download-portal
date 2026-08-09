@@ -54,7 +54,47 @@ Plans:
 3. The same denials hold on a writable test fixture and on a container-mounted `:ro` fixture, proving that application policy does not depend on mount errors.
 4. Every existing filesystem mutation path is either governed by the central policy or demonstrably unable to address an external root.
 
-**Plans**: TBD
+**Plans:** 9 plans
+
+Plans:
+
+**Wave 1: Policy contract**
+
+- [ ] 02-01-PLAN.md - Closed policy kernel and denial matrix
+
+**Wave 2: Operation-bound access**
+
+- [ ] 02-02-PLAN.md - Descriptor-relative operation capabilities
+
+**Wave 3: Trusted storage composition**
+
+- [ ] 02-03-PLAN.md - Trusted legacy external-root provider, singleton overlap validation, and owned-storage mutation boundary
+
+**Wave 4: Read consumers**
+
+- [ ] 02-04-PLAN.md - Complete external read-consumer enforcement
+
+**Wave 5: Mutation consumers (parallel after Waves 3 and 4)**
+
+- [ ] 02-05-PLAN.md - Existing endpoint and mixed ROM enforcement
+- [ ] 02-06-PLAN.md - Archive, ZIP, exporter, audio, and patch enforcement
+- [ ] 02-07-PLAN.md - Sync, watcher, platform, cleanup, and task enforcement
+
+**Wave 6: Closed inventory**
+
+- [ ] 02-08-PLAN.md - Closed post-enforcement inventory gate
+
+**Wave 7: Deployment and final evidence**
+
+- [ ] 02-09-PLAN.md - Dual-mount and canonical final gate
+
+**Cross-cutting constraints**
+
+- Authorization is deny-by-default, uses trusted storage classification, and occurs before any filesystem observation or mutation.
+- External reads and RomM-owned writes require separate operation-bound grants; caller path text cannot forge storage authority.
+- Direct API denials use the stable bounded HTTP 403 contract, while job and internal denials fail visibly and terminally without fallback or partial success.
+- The mutation inventory is closed: every seam is policy-governed or structurally and testably RomM-owned-only, and any unclassified seam blocks completion.
+- Writable and container-mounted read-only fixtures must produce identical denial results without path disclosure.
 
 ### Phase 3: Mapping Administration Contracts
 

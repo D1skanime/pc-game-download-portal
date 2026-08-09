@@ -196,12 +196,12 @@ Current paths are siblings under `ROMM_BASE_PATH`; uploads default under resourc
 
 1. **I/O before authorization:** even `exists`, `stat`, `resolve`, enumeration, or constructor `mkdir` violates D-16. Pure policy must run first. [VERIFIED]
 2. **Generic read grant:** it silently broadens fine-grained rights. Separate public capability types and share only private FD helpers. [VERIFIED: D-01, D-14]
-3. **FD leaks/lifetime:** streaming needs a duplicated FD and deterministic response cleanup. Add `/proc/self/fd` leak tests. [ASSUMED]
+3. **FD leaks/lifetime:** streaming and subprocess adapters must keep the authorized FD open until the response or child process finishes, pass only a duplicated descriptor when ownership is transferred, and close it deterministically. Add descriptor-count and post-close tests. [VERIFIED: `backend/utils/rom_patcher/patcher.py`, `backend/utils/archives.py`, Python subprocess contract]
 4. **Leaf-only no-follow:** intermediate symlinks remain traversable. Open every component. [CITED: Linux open(2)]
 5. **Negative ownership inference:** arbitrary system paths become writable. Only trusted owned descriptors qualify. [VERIFIED: D-06]
 6. **Swallowed job denial:** produces partial success. Preserve the code and fail terminally. [VERIFIED: D-11]
 7. **Only testing `:ro`:** can pass via `EROFS`. Writable fixture and zero-call tripwires prove application denial. [VERIFIED: D-16]
-8. **Converting FD back to path:** downstream reopening recreates TOCTOU. Record FileResponse/nginx/subprocess seams explicitly. [ASSUMED]
+8. **Reopening ordinary paths:** `FileResponse`, nginx aliases, and current archive/patch helpers reopen supplied names and therefore cannot consume an external capability unchanged. Backend subprocess adapters may use `/proc/self/fd/<n>` only with `pass_fds=(n,)`; nginx remains a separate opener and receives no external path in Phase 2. [VERIFIED: `backend/endpoints/roms/files.py`, `docker/nginx/templates/default.conf.template`, `backend/utils/archives.py`, `backend/utils/rom_patcher/patcher.py`]
 
 ## State of the Art
 
@@ -215,20 +215,18 @@ Current paths are siblings under `ROMM_BASE_PATH`; uploads default under resourc
 
 ## Assumptions Log
 
-| #   | Claim                                                               | Risk                                                 |
-| --- | ------------------------------------------------------------------- | ---------------------------------------------------- |
-| A1  | Non-enum inputs are rejected rather than coerced.                   | Low, naming only.                                    |
-| A2  | Exact capability classes and FD duplication shape.                  | Medium, consumer needs may narrow protocols.         |
-| A3  | Some subprocess tools can consume inherited FDs or `/proc/self/fd`. | High, prove per tool.                                |
-| A4  | Exact HTTP JSON fields/error code spelling.                         | Medium, OpenAPI convention may differ.               |
-| A5  | Owned enum names and startup overlap hook.                          | Medium, invariant is locked.                         |
-| A6  | FD-only use is possible for all later consumers.                    | High, path-reopening seams may remain for Phase 5/9. |
+| #   | Claim                                              | Risk                                         |
+| --- | -------------------------------------------------- | -------------------------------------------- |
+| A1  | Non-enum inputs are rejected rather than coerced.  | Low, naming only.                            |
+| A2  | Exact capability classes and FD duplication shape. | Medium, consumer needs may narrow protocols. |
+| A4  | Exact HTTP JSON fields/error code spelling.        | Medium, OpenAPI convention may differ.       |
+| A5  | Owned enum names and startup overlap hook.         | Medium, invariant is locked.                 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Nginx downloads:** nginx cannot inherit the backend FD. Phase 2 classifies/blocks bypass; Phase 5 designs read cutover and Phase 9 proves nginx. [VERIFIED: roadmap]
-2. **External tools:** archive/patch utilities may reopen paths. Keep external bytes input-only and owned output-only; test each adapter before use. [VERIFIED: code] [ASSUMED: adapter technique]
-3. **Writable fixture vs health:** Phase 1 operational resolution rejects writable roots, while D-16 requires writable policy fixtures. Construct trusted model identities directly for pure policy tests; production access retains health gates. [VERIFIED: resolver and D-16] [ASSUMED: fixture construction]
+1. **RESOLVED, nginx downloads:** The current production branch creates `X-Accel-Redirect: /library/<full_path>`, and nginx independently opens that name through its `/library/` alias. It cannot use or prove the backend's descriptor-bound authorization. Phase 2 must classify this as an unavailable adapter for trusted external roots: no external capability may be converted to `FileRedirectResponse`, `FileResponse`, an absolute path, or an X-Accel URI. The Phase 2 inventory test must fail if an external-root branch reaches either response constructor. Allowed external `STREAM` and `DOWNLOAD` operations remain represented by FD-owning capabilities, but wiring those capabilities into mapped download routes is Phase 5; nginx performance/proof remains Phase 9. Existing legacy-library routing is not converted in this phase. [VERIFIED: `backend/endpoints/roms/files.py:120-143`, `backend/utils/nginx.py:56-85`, `docker/nginx/templates/default.conf.template:103-107`, `.planning/ROADMAP.md`]
+2. **RESOLVED, external-tool adapters:** The live Python archive readers already accept file objects for ZIP paths, while 7zz and bsdtar and the Node patcher currently receive ordinary path strings and reopen them. The implementation-ready adapter is: retain or duplicate the authorized read FD, invoke Linux child processes with `/proc/self/fd/<fd>` and `pass_fds=(fd,)`, keep the capability alive through `communicate()` or process iteration, and close the duplicate in `finally`. Archive commands remain list/read-to-stdout only. The patcher receives two inherited read descriptors for ROM and library patch input plus one separately authorized RomM-owned output path; uploaded patches and output remain in owned temp storage. No subprocess receives an external destination path. Adapter tests must assert the exact `pass_fds` tuple, proc-FD arguments, capability lifetime, child failure propagation, no fallback to an ordinary source path, and unchanged source manifests. [VERIFIED: `backend/utils/archives.py:131-211,331-401,445-541,578-610`, `backend/utils/rom_patcher/patcher.py:27-75`, `backend/utils/rom_patcher/patcher.js:39-90`, `backend/endpoints/roms/patch.py:118-194`; CITED: https://docs.python.org/3/library/subprocess.html]
+3. **RESOLVED, writable fixture versus health:** D-16 is a policy-denial test, not a successful production-resolution test. Build the same source tree once, expose it at two logical fixture roots, one ordinary writable directory and one container bind mount with `:ro`, then construct unsaved `StorageRoot` identities directly with fixed IDs, `mode=external_read_only`, and `active=True`. Call the pure policy authorization entry point directly for the complete denied/unknown matrix while I/O tripwires cover `stat`, `lstat`, `open`, enumeration, and mutation; therefore neither fixture invokes `check_storage_root_health` or `resolve_storage_root`. Separately, allowed-access integration tests use only the `:ro` identity and the normal resolver/access health gate. The container verifier must mount the same host fixture twice, `/fixtures/writable` and `/fixtures/read-only:ro`, and assert identical typed denials and identical before/after manifests. This preserves Phase 1's production rejection of writable roots without weakening D-16's proof that application policy, rather than `EROFS`, denied the operation. [VERIFIED: `backend/tests/handler/filesystem/test_storage_resolver.py:81-150`, `backend/handler/filesystem/storage_resolver.py:51-110`, `backend/models/storage.py:27-56`, `backend/docker-compose.test.yml`, D-16]
 
 ## Environment Availability
 
