@@ -11,12 +11,14 @@ from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
 from endpoints.responses.rom import SoundtrackTrackMetaSchema, TrackMetaSchema
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
-from handler.filesystem import fs_rom_handler
+from handler.filesystem import fs_rom_handler, legacy_external_storage
+from handler.filesystem.storage_policy import StorageOperation
 from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -90,6 +92,10 @@ async def add_rom_soundtracks(
         ),
     ],
 ) -> Response:
+    authorize_api_storage_operation(
+        StorageOperation.SIDECAR_WRITE, legacy_external_storage
+    )
+
     """Upload a soundtrack audio file for a multi-file ROM."""
 
     rom = db_rom_handler.get_rom(id)
@@ -228,6 +234,8 @@ async def delete_rom_soundtrack(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
+    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
+
     """Delete a single soundtrack file from a ROM."""
 
     rom = db_rom_handler.get_rom(id)

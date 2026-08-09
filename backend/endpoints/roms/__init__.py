@@ -45,6 +45,7 @@ from endpoints.responses.rom import (
     RomUserSchema,
     SimpleRomSchema,
 )
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from exceptions.storage_exceptions import MissingStorageTargetError
@@ -2021,6 +2022,8 @@ async def convert_rom_to_folder(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
 ) -> DetailedRomSchema:
+    authorize_api_storage_operation(StorageOperation.EXTRACT, legacy_external_storage)
+
     """Promote a single-file ROM to a folder ROM in place.
 
     Keeps the same id and all relations; no rescan. A no-op (clean success) if
@@ -2066,6 +2069,8 @@ async def delete_roms(
         ),
     ],
 ) -> BulkOperationResponse:
+    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
+
     """Delete roms."""
 
     perms = get_permissions(request)

@@ -10,13 +10,19 @@ from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
 
 from decorators.auth import protected_route
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
-from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem import (
+    fs_resource_handler,
+    fs_rom_handler,
+    legacy_external_storage,
+)
 from handler.filesystem.resources_handler import ALLOWED_MANUAL_EXTENSIONS
+from handler.filesystem.storage_policy import StorageOperation
 from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -199,6 +205,10 @@ async def add_rom_manual_file(
         ),
     ],
 ) -> Response:
+    authorize_api_storage_operation(
+        StorageOperation.SIDECAR_WRITE, legacy_external_storage
+    )
+
     """Upload a manual PDF into the ROM's own manual/ subfolder."""
 
     rom = db_rom_handler.get_rom(id)
@@ -308,6 +318,8 @@ async def delete_rom_manual_file(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
+    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
+
     """Delete a single manual file from a ROM's manual/ subfolder."""
 
     rom = db_rom_handler.get_rom(id)

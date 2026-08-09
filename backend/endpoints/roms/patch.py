@@ -13,10 +13,16 @@ from starlette.responses import FileResponse
 
 from config import ROM_PATCHER_MAX_FILE_SIZE_BYTES
 from decorators.auth import protected_route
+from endpoints.storage_policy import authorize_api_storage_operation
 from handler.auth.constants import Scope
 from handler.auth.dependencies import ResolvedPermissions, get_permissions
 from handler.database import db_rom_handler
-from handler.filesystem import fs_rom_handler
+from handler.filesystem import (
+    fs_rom_handler,
+    legacy_external_storage,
+    storage_composition,
+)
+from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -66,6 +72,11 @@ async def patch_rom(
         ),
     ] = None,
 ):
+    authorize_api_storage_operation(StorageOperation.READ, legacy_external_storage)
+    authorize_api_storage_operation(
+        StorageOperation.PATCH, storage_composition.owned[OwnedStorageKind.TEMP]
+    )
+
     """Apply a patch to a ROM file server-side and return the patched file.
 
     The base ROM file must exist in the library. The patch is supplied either

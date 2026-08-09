@@ -10,6 +10,7 @@ from starlette.responses import FileResponse
 from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.storage_exceptions import MissingStorageTargetError
 from handler.auth.constants import Scope
@@ -170,6 +171,8 @@ async def delete_rom_file(
     rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
+    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
+
     """Delete a single file from a ROM."""
 
     # Removing a game file destroys library content, so it needs the same

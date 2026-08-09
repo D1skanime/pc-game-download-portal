@@ -9,9 +9,11 @@ from starlette.responses import Response
 
 from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
+from endpoints.storage_policy import authorize_api_storage_operation
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler
-from handler.filesystem import fs_rom_handler
+from handler.filesystem import fs_rom_handler, legacy_external_storage
+from handler.filesystem.storage_policy import StorageOperation
 from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.router import APIRouter
@@ -111,6 +113,8 @@ async def start_chunked_upload(
         Header(alias="x-upload-total-chunks", ge=1),
     ],
 ) -> dict:
+    authorize_api_storage_operation(StorageOperation.UPLOAD, legacy_external_storage)
+
     """Initiate a chunked ROM upload session."""
 
     db_platform = db_platform_handler.get_platform(platform_id)
@@ -249,6 +253,8 @@ async def complete_chunked_upload(
     request: Request,
     upload_id: str,
 ) -> Response:
+    authorize_api_storage_operation(StorageOperation.UPLOAD, legacy_external_storage)
+
     """Assemble all chunks into the final ROM file."""
 
     _validate_upload_id(upload_id)

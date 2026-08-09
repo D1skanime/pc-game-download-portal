@@ -11,6 +11,17 @@ from endpoints.storage_policy import authorize_api_storage_operation
 from handler.filesystem import legacy_external_storage, storage_composition
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_database() -> None:
+    """This policy contract suite is database free."""
+
+
+@pytest.fixture(autouse=True)
+def clear_database() -> None:
+    """Override shared database cleanup for policy-only evidence."""
+
+
 TASK_1_ROUTE_MATRIX = (
     ("roms/upload.py", "start_chunked_upload", "UPLOAD", "legacy_external_storage"),
     ("roms/upload.py", "complete_chunked_upload", "UPLOAD", "legacy_external_storage"),
