@@ -141,3 +141,99 @@ def test_owned_output_authorization_proceeds() -> None:
     grant = authorize_api_storage_operation(StorageOperation.PATCH, descriptor)
     assert grant.storage is descriptor
     assert grant.operation is StorageOperation.PATCH
+
+
+TASK_2_ROUTE_MATRIX = (
+    (
+        "saves.py",
+        "add_save",
+        "WRITE",
+        "storage_composition.owned[OwnedStorageKind.ASSETS]",
+    ),
+    (
+        "saves.py",
+        "update_save",
+        "OVERWRITE",
+        "storage_composition.owned[OwnedStorageKind.ASSETS]",
+    ),
+    (
+        "saves.py",
+        "delete_saves",
+        "DELETE",
+        "storage_composition.owned[OwnedStorageKind.ASSETS]",
+    ),
+    (
+        "states.py",
+        "add_state",
+        "WRITE",
+        "storage_composition.owned[OwnedStorageKind.ASSETS]",
+    ),
+    (
+        "states.py",
+        "update_state",
+        "OVERWRITE",
+        "storage_composition.owned[OwnedStorageKind.ASSETS]",
+    ),
+    (
+        "states.py",
+        "delete_states",
+        "DELETE",
+        "storage_composition.owned[OwnedStorageKind.ASSETS]",
+    ),
+    (
+        "collections.py",
+        "add_collection",
+        "COVER_WRITE",
+        "storage_composition.owned[OwnedStorageKind.RESOURCES]",
+    ),
+    (
+        "collections.py",
+        "update_collection",
+        "COVER_WRITE",
+        "storage_composition.owned[OwnedStorageKind.RESOURCES]",
+    ),
+    (
+        "collections.py",
+        "delete_collection",
+        "DELETE",
+        "storage_composition.owned[OwnedStorageKind.RESOURCES]",
+    ),
+    ("firmware.py", "add_firmware", "UPLOAD", "legacy_external_storage"),
+    ("firmware.py", "delete_firmware", "DELETE", "legacy_external_storage"),
+    ("platform.py", "add_platform", "MKDIR", "legacy_external_storage"),
+)
+
+
+@pytest.mark.parametrize(
+    ("relative_file", "function_name", "operation", "provider"),
+    TASK_2_ROUTE_MATRIX,
+)
+def test_remaining_real_mutation_routes_use_trusted_policy_provider(
+    relative_file: str, function_name: str, operation: str, provider: str
+) -> None:
+    calls = _function_calls(relative_file, function_name)
+    expected = (
+        f"authorize_api_storage_operation(StorageOperation.{operation}, {provider})"
+    )
+    assert expected in calls
+
+
+def test_identity_form_cannot_supply_storage_classification() -> None:
+    from endpoints.forms.identity import UserForm
+
+    form = UserForm(
+        username="caller",
+        storage_class="romm_owned",
+        storage_id="root:999",
+        root_path="/romm/resources",
+    )
+    assert set(form.model_dump()) == {
+        "username",
+        "password",
+        "email",
+        "role",
+        "enabled",
+        "ra_username",
+        "avatar",
+        "ui_settings",
+    }
