@@ -7,13 +7,14 @@ from config import SYNC_BASE_PATH
 from logger.logger import log
 
 from .base_handler import FSHandler
+from .storage_policy import OwnedStorageDescriptor, OwnedStorageKind
 
 
 class FSSyncHandler(FSHandler):
     """Filesystem handler for sync folder operations (File Transfer mode)."""
 
-    def __init__(self) -> None:
-        super().__init__(base_path=SYNC_BASE_PATH)
+    def __init__(self, storage: OwnedStorageDescriptor) -> None:
+        super().__init__(base_path=SYNC_BASE_PATH, storage=storage)
 
     def build_incoming_path(
         self, device_id: str, platform_slug: str | None = None
@@ -120,4 +121,6 @@ def get_fs_sync_handler() -> FSSyncHandler:
     Deferred so that startup doesn't fail when sync is unconfigured or its
     base path is not writable.
     """
-    return FSSyncHandler()
+    from . import storage_composition
+
+    return FSSyncHandler(storage_composition.owned[OwnedStorageKind.SYNC])
