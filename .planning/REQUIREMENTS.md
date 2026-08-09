@@ -11,7 +11,7 @@
 - [x] **ROOT-02**: Every external storage root has the immutable mode `external_read_only`; milestone 1 exposes no writable-library mode or toggle.
 - [x] **ROOT-03**: The application reports whether an external root is reachable, readable, non-writable, and when it was last checked, without creating anything below it.
 - [x] **ROOT-04**: Database records store the deployment-owned container root separately from platform mappings and never store NAS host paths in mappings.
-- [ ] **ROOT-05**: Database, resources, assets, configuration, cache, hashes, scan state, temporary files, and audit records use writable locations outside the external root.
+- [x] **ROOT-05**: Database, resources, assets, configuration, cache, hashes, scan state, temporary files, and audit records use writable locations outside the external root.
 
 ### Safe Path Resolution
 
@@ -32,8 +32,8 @@
 
 ### Central Read-only Policy
 
-- [ ] **SAFE-01**: A central server-side storage policy permits only list, read, scan, stat, hash, stream, and download operations on `external_read_only` roots.
-- [ ] **SAFE-02**: The policy rejects create, upload, write, overwrite, rename, move, copy, delete, extract, patch, and directory creation before filesystem access.
+- [x] **SAFE-01**: A central server-side storage policy permits only list, read, scan, stat, hash, stream, and download operations on `external_read_only` roots.
+- [x] **SAFE-02**: The policy rejects create, upload, write, overwrite, rename, move, copy, delete, extract, patch, and directory creation before filesystem access.
 - [ ] **SAFE-03**: Direct API calls receive `403 Forbidden` for prohibited operations even when the UI does not expose the action.
 - [ ] **SAFE-04**: All existing filesystem mutation paths are inventoried and routed through the central policy or proven unable to address external roots.
 - [ ] **SAFE-05**: Docker examples and integration tests mount the external library with `:ro`; application policy remains mandatory rather than relying on mount errors.
@@ -93,7 +93,7 @@
 
 - [x] **TEST-01**: Unit tests cover valid, Unicode, nested, empty, traversal, absolute, drive, UNC, missing, file-target, disabled-root, and symlink path cases.
 - [ ] **TEST-02**: API tests cover root listing, directory browsing, mapping lifecycle, authorization, traversal, mapping tests, and scan preview.
-- [ ] **TEST-03**: Mutation tests prove delete, rename, move, overwrite, upload, directory creation, extraction, patching, sidecar writing, cover writing, and symlink escape fail for external roots.
+- [x] **TEST-03**: Mutation tests prove delete, rename, move, overwrite, upload, directory creation, extraction, patching, sidecar writing, cover writing, and symlink escape fail for external roots.
 - [ ] **TEST-04**: Integration tests prove read-only mounting, scanning, streaming, downloading, multiple mappings, mapping changes, restart persistence, and legacy migration.
 - [ ] **TEST-05**: Before/after evidence proves source content, names, structure, sizes, hashes, and non-access timestamps remain unchanged across scan, metadata matching, mapping changes, catalog removal, download, and hashing.
 - [ ] **TEST-06**: Production-like nginx and worker paths enforce the same authorized database-identity and storage-root boundary as development paths.
@@ -146,7 +146,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | ROOT-02     | Phase 1 | Complete |
 | ROOT-03     | Phase 1 | Complete |
 | ROOT-04     | Phase 1 | Complete |
-| ROOT-05     | Phase 2 | Pending  |
+| ROOT-05     | Phase 2 | Complete |
 | PATH-01     | Phase 1 | Complete |
 | PATH-02     | Phase 1 | Complete |
 | PATH-03     | Phase 1 | Complete |
@@ -158,8 +158,8 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | MAP-04      | Phase 3 | Pending  |
 | MAP-05      | Phase 3 | Pending  |
 | MAP-06      | Phase 3 | Pending  |
-| SAFE-01     | Phase 2 | Pending  |
-| SAFE-02     | Phase 2 | Pending  |
+| SAFE-01     | Phase 2 | Complete |
+| SAFE-02     | Phase 2 | Complete |
 | SAFE-03     | Phase 2 | Pending  |
 | SAFE-04     | Phase 2 | Pending  |
 | SAFE-05     | Phase 2 | Pending  |
@@ -198,7 +198,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | MIG-05      | Phase 6 | Pending  |
 | TEST-01     | Phase 1 | Complete |
 | TEST-02     | Phase 3 | Pending  |
-| TEST-03     | Phase 2 | Pending  |
+| TEST-03     | Phase 2 | Complete |
 | TEST-04     | Phase 9 | Pending  |
 | TEST-05     | Phase 9 | Pending  |
 | TEST-06     | Phase 9 | Pending  |

@@ -54,13 +54,13 @@ Plans:
 3. The same denials hold on a writable test fixture and on a container-mounted `:ro` fixture, proving that application policy does not depend on mount errors.
 4. Every existing filesystem mutation path is either governed by the central policy or demonstrably unable to address an external root.
 
-**Plans:** 9 plans
+**Plans:** 1/9 plans complete
 
 Plans:
 
 **Wave 1: Policy contract**
 
-- [ ] 02-01-PLAN.md - Closed policy kernel and denial matrix
+- [x] 02-01-PLAN.md - Closed policy kernel and denial matrix
 
 **Wave 2: Operation-bound access**
 
