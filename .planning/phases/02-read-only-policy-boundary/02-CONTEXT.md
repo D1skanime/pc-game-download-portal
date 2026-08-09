@@ -55,8 +55,10 @@ The exact Python names, module boundaries, capability representation, error-code
 
 ### Project and Phase Contract
 
+- `.planning/PROJECT.md` - Defines the canonical Linux repository, immutable archive value, milestone scope, constraints, and locked project decisions.
+- `.planning/REQUIREMENTS.md` - Defines exact Phase 2 requirement contracts and milestone traceability.
 - `.planning/ROADMAP.md` - Defines the Phase 2 goal, requirements identifiers, success criteria, dependencies, and later-phase boundaries.
-- `.planning/STATE.md` - Records the immutable external-root decision and project-level safety concerns. It currently references a missing `.planning/PROJECT.md`; do not assume unavailable project content.
+- `.planning/STATE.md` - Records Phase 1 as verified and Phase 2 as the next implementation focus.
 - `CLAUDE.md` - Defines repository architecture, backend conventions, verification requirements, and contribution constraints.
 
 ### Existing Architecture
@@ -77,7 +79,10 @@ No external specification or ADR was referenced during discussion.
 
 ### Reusable Assets
 
-- Phase 1 planned storage resolver and storage models: supply trusted external-root and mapping identities once Phase 1 is implemented.
+- Phase 1 storage models, migration, resolver, typed errors, and persistence handler are implemented and verified. Phase 2 must consume these existing contracts rather than recreate them.
+- `backend/models/storage.py`: provides trusted root and mapping identities with immutable storage classification.
+- `backend/handler/filesystem/storage_resolver.py`: provides normalized, contained, point-in-time path resolution and safe health inspection.
+- `backend/handler/database/storage_handler.py`: provides verified root registration and mapping persistence for policy consumers.
 - `FSHandler` locking and async file helpers: existing operational behavior can inform capability adapters, but its constructor and mutation methods are unsafe for direct external-root use.
 - Existing pytest filesystem fixtures and handler tests: provide patterns for writable-tree manifests, mutation tripwires, and asynchronous tests.
 

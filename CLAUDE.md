@@ -2,6 +2,14 @@
 
 RomM is a self-hosted ROM manager and player: scan a game library off disk, enrich it with metadata from 10+ providers, browse it in a web UI, and play in the browser.
 
+## Canonical development environment
+
+**The canonical repository is `/home/d1sk/romm` on the SSH host `team4s-linux`.** All code inspection, Git operations, GSD workflows, planning artifacts, implementation, tests, and commits must run against that Linux checkout.
+
+The Windows directory `C:\Users\admin\Documents\RomM` is a control and reference workspace only. Use Windows for chat orchestration and browser-based live testing. Do not treat its Git history, working tree, `.planning/` directory, or source files as implementation evidence. Do not create canonical GSD artifacts or code commits there.
+
+From the Windows control VM, connect with `ssh team4s-linux` and use `/home/d1sk/romm`. Before auditing status or making changes, confirm the remote path and current branch with `pwd`, `git branch --show-current`, and `git status --short` on Linux.
+
 ---
 
 ## The stack at a glance
