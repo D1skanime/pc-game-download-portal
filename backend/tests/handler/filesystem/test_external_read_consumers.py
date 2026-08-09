@@ -86,3 +86,32 @@ def test_enumeration_and_scan_modules_declare_exact_capabilities() -> None:
         }
         assert operation in attributes, f"{relative} lacks {operation} capability"
         assert "legacy_external_storage" in (repo / relative).read_text()
+
+
+@pytest.mark.parametrize(
+    ("relative", "operation"),
+    [
+        ("backend/handler/filesystem/roms_handler.py", "READ"),
+        ("backend/endpoints/streaming.py", "STREAM"),
+        ("backend/endpoints/roms/files.py", "DOWNLOAD"),
+        ("backend/endpoints/roms/__init__.py", "DOWNLOAD"),
+    ],
+)
+def test_rom_consumers_declare_exact_capabilities(
+    relative: str, operation: str
+) -> None:
+    repo = Path(__file__).parents[4]
+    source = (repo / relative).read_text()
+    tree = ast.parse(source)
+    attributes = {
+        node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
+    }
+    assert operation in attributes
+    assert "legacy_external_storage" in source
+
+
+def test_external_downloads_do_not_construct_path_responses() -> None:
+    repo = Path(__file__).parents[4]
+    files_source = (repo / "backend/endpoints/roms/files.py").read_text()
+    assert "StreamingResponse" in files_source
+    assert "open_storage_access" in files_source
