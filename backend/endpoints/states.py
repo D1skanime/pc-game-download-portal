@@ -7,12 +7,14 @@ from fastapi.responses import FileResponse
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
 from endpoints.roms import refresh_affected_smart_collections
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
-from handler.filesystem import fs_asset_handler
+from handler.filesystem import fs_asset_handler, storage_composition
 from handler.filesystem.assets_handler import build_asset_file_response
+from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -44,6 +46,10 @@ async def add_state(
     stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
+    authorize_api_storage_operation(
+        StorageOperation.WRITE, storage_composition.owned[OwnedStorageKind.ASSETS]
+    )
+
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
 
@@ -259,6 +265,10 @@ async def update_state(
     stateFile: UploadFile | None = STATE_FILE_UPDATE,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPDATE,
 ) -> StateSchema:
+    authorize_api_storage_operation(
+        StorageOperation.OVERWRITE, storage_composition.owned[OwnedStorageKind.ASSETS]
+    )
+
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
 
@@ -385,6 +395,10 @@ async def delete_states(
         ),
     ],
 ) -> list[int]:
+    authorize_api_storage_operation(
+        StorageOperation.DELETE, storage_composition.owned[OwnedStorageKind.ASSETS]
+    )
+
     """Delete states."""
     if not states:
         error = "No states were provided"

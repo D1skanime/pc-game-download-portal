@@ -15,6 +15,7 @@ from endpoints.responses.collection import (
     VirtualCollectionSchema,
 )
 from endpoints.roms import refresh_affected_smart_collections
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
     CollectionNotFoundInDatabaseException,
@@ -23,9 +24,10 @@ from exceptions.endpoint_exceptions import (
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.database import db_collection_handler, db_rom_handler
-from handler.filesystem import fs_resource_handler
+from handler.filesystem import fs_resource_handler, storage_composition
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.filesystem.base_handler import CoverSize
+from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -94,6 +96,11 @@ async def add_collection(
         default="", description="Remote URL to fetch and use as cover artwork."
     ),
 ) -> CollectionSchema:
+    authorize_api_storage_operation(
+        StorageOperation.COVER_WRITE,
+        storage_composition.owned[OwnedStorageKind.RESOURCES],
+    )
+
     """Create collection endpoint
 
     Args:
@@ -442,6 +449,11 @@ async def update_collection(
     description: str | None = Form(default=None),
     url_cover: str | None = Form(default=None, description="Updated remote cover URL."),
 ) -> CollectionSchema:
+    authorize_api_storage_operation(
+        StorageOperation.COVER_WRITE,
+        storage_composition.owned[OwnedStorageKind.RESOURCES],
+    )
+
     """Update collection endpoint
 
     Args:
@@ -664,6 +676,10 @@ async def delete_collection(
     request: Request,
     id: Annotated[int, PathVar(description="Collection internal id.", ge=1)],
 ) -> None:
+    authorize_api_storage_operation(
+        StorageOperation.DELETE, storage_composition.owned[OwnedStorageKind.RESOURCES]
+    )
+
     """Delete a collection by ID."""
     collection = db_collection_handler.get_collection(id)
     if not collection:

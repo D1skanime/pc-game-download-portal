@@ -7,6 +7,7 @@ from fastapi import Query, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
@@ -16,7 +17,8 @@ from handler.auth.dependencies import (
     get_permissions,
 )
 from handler.database import db_platform_handler
-from handler.filesystem import fs_platform_handler
+from handler.filesystem import fs_platform_handler, legacy_external_storage
+from handler.filesystem.storage_policy import StorageOperation
 from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -46,6 +48,8 @@ async def add_platform(
     request: Request,
     fs_slug: Annotated[str, Body(description="Platform slug.", embed=True)],
 ) -> PlatformSchema:
+    authorize_api_storage_operation(StorageOperation.MKDIR, legacy_external_storage)
+
     """Create a platform."""
 
     try:

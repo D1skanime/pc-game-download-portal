@@ -12,6 +12,7 @@ from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummarySchema
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
@@ -23,7 +24,8 @@ from handler.database import (
     db_screenshot_handler,
     db_sync_session_handler,
 )
-from handler.filesystem import fs_asset_handler
+from handler.filesystem import fs_asset_handler, storage_composition
+from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -171,6 +173,10 @@ async def add_save(
     saveFile: UploadFile = SAVE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPLOAD,
 ) -> SaveSchema:
+    authorize_api_storage_operation(
+        StorageOperation.WRITE, storage_composition.owned[OwnedStorageKind.ASSETS]
+    )
+
     """Upload a save file for a ROM."""
     check_asset_upload_size(saveFile, "Save file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
@@ -565,6 +571,10 @@ async def update_save(
     saveFile: UploadFile | None = SAVE_FILE_UPDATE,
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPDATE,
 ) -> SaveSchema:
+    authorize_api_storage_operation(
+        StorageOperation.OVERWRITE, storage_composition.owned[OwnedStorageKind.ASSETS]
+    )
+
     """Update a save file."""
 
     check_asset_upload_size(saveFile, "Save file")
@@ -712,6 +722,10 @@ async def delete_saves(
         ),
     ],
 ) -> list[int]:
+    authorize_api_storage_operation(
+        StorageOperation.DELETE, storage_composition.owned[OwnedStorageKind.ASSETS]
+    )
+
     """Delete saves."""
     if not saves:
         error = "No saves were provided"

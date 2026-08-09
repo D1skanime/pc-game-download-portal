@@ -7,6 +7,7 @@ from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
+from endpoints.storage_policy import authorize_api_storage_operation
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -15,7 +16,8 @@ from handler.auth.dependencies import (
     get_permissions,
 )
 from handler.database import db_firmware_handler, db_platform_handler
-from handler.filesystem import fs_firmware_handler
+from handler.filesystem import fs_firmware_handler, legacy_external_storage
+from handler.filesystem.storage_policy import StorageOperation
 from handler.scan_handler import scan_firmware
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -36,6 +38,8 @@ async def add_firmware(
     platform_id: int,
     files: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddFirmwareResponse:
+    authorize_api_storage_operation(StorageOperation.UPLOAD, legacy_external_storage)
+
     """Upload firmware files endpoint
 
     Args:
@@ -278,6 +282,8 @@ async def delete_firmware(
         ),
     ],
 ) -> BulkOperationResponse:
+    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
+
     """Delete firmware."""
 
     perms = get_permissions(request)
