@@ -6,12 +6,13 @@ from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import FirmwareNotFoundException
 from utils.hashing import crc32_to_hex
 
-from .base_handler import FSHandler
+from .base_handler import ExternalFSHandler
+from .storage_policy import ExternalStorageDescriptor
 
 
-class FSFirmwareHandler(FSHandler):
-    def __init__(self) -> None:
-        super().__init__(base_path=LIBRARY_BASE_PATH)
+class FSFirmwareHandler(ExternalFSHandler):
+    def __init__(self, storage: ExternalStorageDescriptor) -> None:
+        super().__init__(base_path=storage._root_path, storage=storage)
 
     def get_firmware_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import PurePath
 from typing import Iterable
@@ -67,18 +67,21 @@ class ExternalStorageDescriptor:
     root_id: int
     mapping_id: int | None
     storage_class: str
+    _root_path: PurePath = field(repr=False)
 
     def __init__(
         self,
         token: object,
         root_id: int,
         mapping_id: int | None,
+        root_path: PurePath,
     ) -> None:
         if token is not _DESCRIPTOR_TOKEN:
             raise TypeError("storage descriptors are created by composition")
         object.__setattr__(self, "root_id", root_id)
         object.__setattr__(self, "mapping_id", mapping_id)
         object.__setattr__(self, "storage_class", EXTERNAL_READ_ONLY_MODE)
+        object.__setattr__(self, "_root_path", root_path)
 
     @property
     def storage_id(self) -> str:
@@ -92,18 +95,21 @@ class OwnedStorageDescriptor:
     kind: OwnedStorageKind
     logical_root: str
     storage_class: str
+    _root_path: PurePath | None = field(repr=False)
 
     def __init__(
         self,
         token: object,
         kind: OwnedStorageKind,
         logical_root: str,
+        root_path: PurePath | None = None,
     ) -> None:
         if token is not _DESCRIPTOR_TOKEN:
             raise TypeError("storage descriptors are created by composition")
         object.__setattr__(self, "kind", kind)
         object.__setattr__(self, "logical_root", logical_root)
         object.__setattr__(self, "storage_class", "romm_owned")
+        object.__setattr__(self, "_root_path", root_path)
 
     @property
     def storage_id(self) -> str:
@@ -127,7 +133,18 @@ def create_external_descriptor(
         raise TypeError("a trusted StorageRoot is required")
     if storage_root.id is None or storage_root.mode != EXTERNAL_READ_ONLY_MODE:
         raise ValueError("storage root has no trusted external classification")
-    return ExternalStorageDescriptor(_DESCRIPTOR_TOKEN, storage_root.id, mapping_id)
+    return _create_external_descriptor(
+        storage_root.id, PurePath(storage_root.container_path), mapping_id=mapping_id
+    )
+
+
+def _create_external_descriptor(
+    root_id: int,
+    root_path: PurePath,
+    *,
+    mapping_id: int | None = None,
+) -> ExternalStorageDescriptor:
+    return ExternalStorageDescriptor(_DESCRIPTOR_TOKEN, root_id, mapping_id, root_path)
 
 
 def create_owned_descriptor(
@@ -139,6 +156,18 @@ def create_owned_descriptor(
     if not logical_root or "/" in logical_root or "\\" in logical_root:
         raise ValueError("logical root must be a bounded identifier")
     return OwnedStorageDescriptor(_DESCRIPTOR_TOKEN, kind, logical_root)
+
+
+def _create_bound_owned_descriptor(
+    kind: OwnedStorageKind,
+    logical_root: str,
+    root_path: PurePath,
+) -> OwnedStorageDescriptor:
+    if not isinstance(kind, OwnedStorageKind):
+        raise TypeError("an explicit owned storage kind is required")
+    if not logical_root or "/" in logical_root or "\\" in logical_root:
+        raise ValueError("logical root must be a bounded identifier")
+    return OwnedStorageDescriptor(_DESCRIPTOR_TOKEN, kind, logical_root, root_path)
 
 
 def validate_disjoint_storage_roots(

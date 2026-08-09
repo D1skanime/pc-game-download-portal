@@ -15,6 +15,7 @@ from models.user import User
 from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
 
 from .base_handler import FSHandler
+from .storage_policy import OwnedStorageDescriptor
 
 # libmagic loads its database on construction (~few MB read from disk), so we
 # share a single Magic instance across requests. The underlying magic_t handle
@@ -84,8 +85,8 @@ def build_asset_file_response(
 
 
 class FSAssetsHandler(FSHandler):
-    def __init__(self) -> None:
-        super().__init__(base_path=ASSETS_BASE_PATH)
+    def __init__(self, storage: OwnedStorageDescriptor) -> None:
+        super().__init__(base_path=ASSETS_BASE_PATH, storage=storage)
 
     def user_folder_path(self, user: User):
         return os.path.join("users", user.fs_safe_folder_name)

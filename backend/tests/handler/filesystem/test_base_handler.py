@@ -10,7 +10,25 @@ import pytest
 from fastapi import UploadFile
 
 from handler.filesystem.base_handler import FSHandler
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    _create_bound_owned_descriptor,
+)
 from models.base import FILE_NAME_MAX_LENGTH
+
+
+def _owned_storage(path: str):
+    return _create_bound_owned_descriptor(OwnedStorageKind.TEMP, "test", Path(path))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_database() -> None:
+    """The base filesystem suite is database free."""
+
+
+@pytest.fixture(autouse=True)
+def clear_database() -> None:
+    """Override shared database cleanup for this focused suite."""
 
 
 class TestFSHandler:
@@ -26,7 +44,7 @@ class TestFSHandler:
     @pytest.fixture
     def handler(self, temp_dir):
         """Create FSHandler instance for testing"""
-        return FSHandler(temp_dir)
+        return FSHandler(temp_dir, _owned_storage(temp_dir))
 
     @pytest.fixture
     def sample_file_content(self):
@@ -46,14 +64,14 @@ class TestFSHandler:
         # Remove the directory to test creation
         shutil.rmtree(temp_dir)
 
-        handler = FSHandler(temp_dir)
+        handler = FSHandler(temp_dir, _owned_storage(temp_dir))
 
         assert handler.base_path.exists()
         assert handler.base_path.is_dir()
 
     def test_init_resolves_path(self, temp_dir):
         """Test that FSHandler resolves the base path"""
-        handler = FSHandler(temp_dir)
+        handler = FSHandler(temp_dir, _owned_storage(temp_dir))
 
         assert handler.base_path == Path(temp_dir).resolve()
 
@@ -594,4 +612,7 @@ class TestFSHandlerInit:
             Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
         ):
             with pytest.raises(PermissionError):
-                FSHandler("/some/unwritable/path")
+                FSHandler(
+                    "/some/unwritable/path",
+                    _owned_storage("/some/unwritable/path"),
+                )

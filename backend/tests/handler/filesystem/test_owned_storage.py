@@ -19,6 +19,16 @@ from handler.filesystem.storage_policy import (
 EXPECTED_OWNED_KINDS = frozenset(OwnedStorageKind)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_database() -> None:
+    """The owned-storage suite is filesystem-only."""
+
+
+@pytest.fixture(autouse=True)
+def clear_database() -> None:
+    """Override shared database cleanup for this focused suite."""
+
+
 def _config(
     tmp_path: Path, *, external: Path | None = None
 ) -> StorageCompositionConfig:

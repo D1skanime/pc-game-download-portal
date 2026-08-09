@@ -38,6 +38,12 @@ LIBRARY_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
 ZIP_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/zips"
+DATABASE_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/database"
+CONFIG_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/config"
+CACHE_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache"
+HASHES_BASE_PATH: Final[str] = f"{RESOURCES_BASE_PATH}/hashes"
+SCAN_STATE_BASE_PATH: Final[str] = f"{RESOURCES_BASE_PATH}/scan"
+AUDIT_BASE_PATH: Final[str] = f"{RESOURCES_BASE_PATH}/audit"
 FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 
 # ROM UPLOADS

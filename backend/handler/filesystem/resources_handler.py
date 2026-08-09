@@ -18,6 +18,7 @@ from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
+from .storage_policy import OwnedStorageDescriptor
 
 LOCAL_FILE_SCHEMES = ("file://", "launchbox-file://")
 
@@ -108,8 +109,8 @@ def _is_chroma_key_placeholder(image_path: Path) -> bool:
 
 
 class FSResourcesHandler(FSHandler):
-    def __init__(self) -> None:
-        super().__init__(base_path=RESOURCES_BASE_PATH)
+    def __init__(self, storage: OwnedStorageDescriptor) -> None:
+        super().__init__(base_path=RESOURCES_BASE_PATH, storage=storage)
         self.image_converter = ImageConverter()
 
     def get_platform_resources_path(self, platform_id: int) -> str:

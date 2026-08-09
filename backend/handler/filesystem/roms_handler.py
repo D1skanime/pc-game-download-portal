@@ -49,8 +49,9 @@ from .base_handler import (
     LANGUAGES_NAME_KEYS,
     REGIONS_BY_SHORTCODE,
     REGIONS_NAME_KEYS,
-    FSHandler,
+    ExternalFSHandler,
 )
+from .storage_policy import ExternalStorageDescriptor
 
 # PICO-8 cartridges are often stored as PNG files
 PICO8_CARTRIDGE_EXTENSION = ".p8.png"
@@ -166,9 +167,9 @@ class ParsedRomFiles:
     ra_hash: str
 
 
-class FSRomsHandler(FSHandler):
-    def __init__(self) -> None:
-        super().__init__(base_path=LIBRARY_BASE_PATH)
+class FSRomsHandler(ExternalFSHandler):
+    def __init__(self, storage: ExternalStorageDescriptor) -> None:
+        super().__init__(base_path=storage._root_path, storage=storage)
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()

@@ -15,13 +15,25 @@ from .storage_access import (
     StreamCapability,
     open_storage_access,
 )
+from .storage_composition import (
+    StorageComposition,
+    StorageCompositionConfig,
+    build_storage_composition,
+    trusted_storage_config,
+)
+from .storage_policy import OwnedStorageKind
 from .sync_handler import FSSyncHandler, get_fs_sync_handler
 
-fs_asset_handler = FSAssetsHandler()
-fs_firmware_handler = FSFirmwareHandler()
-fs_platform_handler = FSPlatformsHandler()
-fs_rom_handler = FSRomsHandler()
-fs_resource_handler = FSResourcesHandler()
+storage_composition = build_storage_composition()
+legacy_external_storage = storage_composition.legacy_external
+
+fs_asset_handler = FSAssetsHandler(storage_composition.owned[OwnedStorageKind.ASSETS])
+fs_firmware_handler = FSFirmwareHandler(legacy_external_storage)
+fs_platform_handler = FSPlatformsHandler(legacy_external_storage)
+fs_rom_handler = FSRomsHandler(legacy_external_storage)
+fs_resource_handler = FSResourcesHandler(
+    storage_composition.owned[OwnedStorageKind.RESOURCES]
+)
 
 __all__ = [
     "FSAssetsHandler",
@@ -38,7 +50,10 @@ __all__ = [
     "ResolveCapability",
     "ScanCapability",
     "StatCapability",
+    "StorageComposition",
+    "StorageCompositionConfig",
     "StreamCapability",
+    "build_storage_composition",
     "fs_asset_handler",
     "fs_firmware_handler",
     "fs_platform_handler",
@@ -46,5 +61,8 @@ __all__ = [
     "fs_rom_handler",
     "get_fs_launchbox_handler",
     "get_fs_sync_handler",
+    "legacy_external_storage",
     "open_storage_access",
+    "storage_composition",
+    "trusted_storage_config",
 ]

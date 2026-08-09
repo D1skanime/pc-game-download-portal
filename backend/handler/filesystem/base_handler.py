@@ -24,6 +24,13 @@ from models.base import (
 )
 from utils.filesystem import iter_directories, iter_files, link_or_copy_file
 
+from .storage_policy import (
+    ExternalStorageDescriptor,
+    OwnedStorageDescriptor,
+    StorageOperation,
+    StoragePolicy,
+)
+
 UUID_V4_REGEX = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}",
     re.IGNORECASE,
@@ -151,8 +158,17 @@ class Asset(Enum):
 
 
 class FSHandler:
-    def __init__(self, base_path: str):
-        self.base_path = Path(base_path).resolve()
+    def __init__(
+        self,
+        base_path: str | Path,
+        storage: OwnedStorageDescriptor,
+    ) -> None:
+        if not isinstance(storage, OwnedStorageDescriptor):
+            raise TypeError("FSHandler requires an owned storage descriptor")
+        if storage._root_path is None or Path(base_path) != storage._root_path:
+            raise ValueError("owned storage descriptor does not match base path")
+        self.storage = storage
+        self.base_path = Path(base_path)
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_mutex = asyncio.Lock()
         self.base_path.mkdir(parents=True, exist_ok=True)
@@ -677,3 +693,60 @@ class FSHandler:
                 raise FileNotFoundError(f"File not found: {full_path}")
 
             return full_path.stat().st_size
+
+
+class ExternalFSHandler(FSHandler):
+    """Legacy read adapter that cannot acquire mutation authority."""
+
+    def __init__(
+        self,
+        base_path: str | Path,
+        storage: ExternalStorageDescriptor,
+    ) -> None:
+        if not isinstance(storage, ExternalStorageDescriptor):
+            raise TypeError("external handler requires an external storage descriptor")
+        if Path(base_path) != storage._root_path:
+            raise ValueError("external storage descriptor does not match base path")
+        self.storage = storage
+        self.base_path = Path(base_path)
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._lock_mutex = asyncio.Lock()
+
+    def _deny_mutation(self, operation: StorageOperation) -> None:
+        StoragePolicy.authorize(operation, self.storage)
+
+    async def make_directory(self, path: str) -> None:
+        self._deny_mutation(StorageOperation.MKDIR)
+
+    async def remove_directory(self, path: str) -> None:
+        self._deny_mutation(StorageOperation.DELETE)
+
+    async def write_file(
+        self,
+        file: UploadFile | BinaryIO | bytes,
+        path: str,
+        filename: str | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        self._deny_mutation(
+            StorageOperation.OVERWRITE if overwrite else StorageOperation.WRITE
+        )
+
+    async def write_file_streamed(self, path: str, filename: str):
+        self._deny_mutation(StorageOperation.WRITE)
+
+    async def copy_file(
+        self,
+        source_file: str | Path,
+        dest_file: str,
+        overwrite: bool = False,
+        *,
+        allow_link: bool = False,
+    ) -> None:
+        self._deny_mutation(StorageOperation.COPY)
+
+    async def move_file_or_folder(self, source_path: str, dest_path: str) -> None:
+        self._deny_mutation(StorageOperation.MOVE)
+
+    async def remove_file(self, file_path: str) -> None:
+        self._deny_mutation(StorageOperation.DELETE)

@@ -8,12 +8,13 @@ from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from logger.logger import log
 
-from .base_handler import FSHandler, LibraryStructure
+from .base_handler import ExternalFSHandler, LibraryStructure
+from .storage_policy import ExternalStorageDescriptor
 
 
-class FSPlatformsHandler(FSHandler):
-    def __init__(self) -> None:
-        super().__init__(base_path=LIBRARY_BASE_PATH)
+class FSPlatformsHandler(ExternalFSHandler):
+    def __init__(self, storage: ExternalStorageDescriptor) -> None:
+        super().__init__(base_path=storage._root_path, storage=storage)
 
     def _exclude_platforms(self, platforms: list):
         cnfg = cm.get_config()
