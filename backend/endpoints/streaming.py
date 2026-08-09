@@ -17,6 +17,8 @@ from decorators.auth import protected_route
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
+from handler.filesystem import legacy_external_storage, open_storage_access
+from handler.filesystem.storage_policy import StorageOperation, StoragePolicy
 from handler.redis_handler import async_cache
 from models.user import Role
 from utils.router import APIRouter
@@ -563,6 +565,7 @@ async def claim_session(
             },
         )
 
+    StoragePolicy.authorize(StorageOperation.STREAM, legacy_external_storage)
     try:
         # Tell the broker to load the ROM, raises HTTPException on failure.
         # Wrapped in asyncio.to_thread because urllib is synchronous.

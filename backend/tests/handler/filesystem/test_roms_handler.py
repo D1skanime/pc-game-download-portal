@@ -11,6 +11,7 @@ from hypothesis import strategies as st
 from tests._zipfile_shim import reload_zipfile
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
+from exceptions.storage_exceptions import StoragePolicyDenied
 from handler.filesystem.base_handler import (
     LANGUAGES_BY_SHORTCODE,
     REGIONS_BY_SHORTCODE,
@@ -610,30 +611,19 @@ class TestFSRomsHandler:
             await handler.rename_fs_rom(old_name, new_name, fs_path)
 
     async def test_rename_fs_rom_successful_rename(self, handler: FSRomsHandler):
-        """Test successful ROM file rename"""
-        # Create a test file to rename
+        """External ROM storage rejects rename before changing the source."""
         test_file = handler.base_path / "n64/roms/test_rename.n64"
         test_file.write_text("Test ROM content")
-
-        old_name = "test_rename.n64"
-        new_name = "renamed_rom.n64"
-        fs_path = "n64/roms"
-
         try:
-            await handler.rename_fs_rom(old_name, new_name, fs_path)
-
-            # Check that old file is gone and new file exists
-            old_path = handler.base_path / fs_path / old_name
-            new_path = handler.base_path / fs_path / new_name
-
-            assert not old_path.exists()
-            assert new_path.exists()
-            assert new_path.read_text() == "Test ROM content"
+            with pytest.raises(StoragePolicyDenied):
+                await handler.rename_fs_rom(
+                    "test_rename.n64", "renamed_rom.n64", "n64/roms"
+                )
+            assert test_file.exists()
+            assert not (handler.base_path / "n64/roms/renamed_rom.n64").exists()
         finally:
-            # Clean up
-            new_path = handler.base_path / fs_path / new_name
-            if new_path.exists():
-                new_path.unlink()
+            if test_file.exists():
+                test_file.unlink()
 
     def test_integration_with_base_handler_methods(self, handler: FSRomsHandler):
         """Test that FSRomsHandler properly inherits from FSHandler"""
@@ -1488,6 +1478,8 @@ class TestExtractCHDHash:
 
     def test_extract_chd_hash_permission_error(self, tmp_path):
         """Test graceful handling of permission errors"""
+        if os.geteuid() == 0:
+            pytest.skip("root bypasses file permission bits")
         chd_file = tmp_path / "no_read_permission.chd"
 
         header = bytearray(124)

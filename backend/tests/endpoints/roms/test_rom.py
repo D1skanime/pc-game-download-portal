@@ -500,8 +500,9 @@ def test_get_rom_content_single_file(
         follow_redirects=False,
     )
     assert response.status_code == status.HTTP_200_OK
-    # Single-file roms are proxied through nginx via X-Accel-Redirect.
-    assert "X-Accel-Redirect" in response.headers
+    # External files are streamed from descriptor-bound download capabilities.
+    assert "X-Accel-Redirect" not in response.headers
+    assert response.headers["content-disposition"].startswith("attachment")
 
 
 def test_get_rom_content_single_file_missing_on_disk_returns_404(
@@ -530,7 +531,7 @@ def test_get_rom_content_valid_file_id(
         follow_redirects=False,
     )
     assert response.status_code == status.HTTP_200_OK
-    assert "X-Accel-Redirect" in response.headers
+    assert "X-Accel-Redirect" not in response.headers
 
 
 def test_get_rom_content_stale_file_id_returns_404(
@@ -573,7 +574,7 @@ def test_get_romfile_content_visible_rom(
         follow_redirects=False,
     )
     assert response.status_code == status.HTTP_200_OK
-    assert "X-Accel-Redirect" in response.headers
+    assert "X-Accel-Redirect" not in response.headers
 
 
 def test_get_romfile_content_hidden_rom_returns_404(

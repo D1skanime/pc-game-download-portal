@@ -4,17 +4,23 @@ from anyio import Path
 from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from starlette.responses import FileResponse
 
 from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from exceptions.storage_exceptions import MissingStorageTargetError
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
 from handler.database import db_rom_handler
-from handler.filesystem import fs_rom_handler
+from handler.filesystem import (
+    fs_rom_handler,
+    legacy_external_storage,
+    open_storage_access,
+)
+from handler.filesystem.storage_policy import StorageOperation
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -131,25 +137,25 @@ async def get_romfile_content(
     # Markdown manual into HTML).
     headers = {"X-Content-Type-Options": "nosniff"} if disposition == "inline" else {}
 
-    # Serve the file directly in development mode for emulatorjs
-    if DEV_MODE:
-        rom_path = fs_rom_handler.validate_path(file.full_path)
-        # Starlette sets Content-Length and honors Range natively — inline
-        # disposition lets <audio> seek via Range requests.
-        return FileResponse(
-            path=rom_path,
-            filename=file.file_name,
-            media_type=media_type,
-            content_disposition_type=disposition,
-            headers=headers,
-        )
+    def download_chunks():
+        try:
+            access = open_storage_access(
+                legacy_external_storage, StorageOperation.DOWNLOAD, file.full_path
+            )
+        except MissingStorageTargetError:
+            return
+        try:
+            yield from access.download()
+        finally:
+            access.close()
 
-    # Otherwise proxy through nginx (which parses Range itself via X-Accel-Redirect)
-    return FileRedirectResponse(
-        download_path=Path(f"/library/{file.full_path}"),
-        disposition=disposition,
+    return StreamingResponse(
+        download_chunks(),
         media_type=media_type,
-        headers=headers,
+        headers={
+            **headers,
+            "Content-Disposition": f'{disposition}; filename="{file.file_name}"',
+        },
     )
 
 
@@ -191,8 +197,7 @@ async def delete_rom_file(
         await fs_rom_handler.remove_file(file_rel_path)
     except FileNotFoundError:
         log.warning(
-            f"ROM file {hl(file_rel_path)} not found on disk; "
-            f"removing DB row anyway"
+            f"ROM file {hl(file_rel_path)} not found on disk; removing DB row anyway"
         )
     except Exception as exc:
         log.error(f"Error deleting ROM file {hl(file_rel_path)}", exc_info=exc)

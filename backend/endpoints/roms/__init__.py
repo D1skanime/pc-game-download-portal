@@ -24,7 +24,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from fastapi_pagination import resolve_params
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from fastapi_pagination.types import GreaterEqualZero
@@ -47,6 +47,7 @@ from endpoints.responses.rom import (
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
+from exceptions.storage_exceptions import MissingStorageTargetError
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
@@ -55,8 +56,19 @@ from handler.auth.dependencies import (
 )
 from handler.database import db_collection_handler, db_rom_handler, db_save_handler
 from handler.database.base_handler import sync_session
-from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem import (
+    fs_resource_handler,
+    fs_rom_handler,
+    legacy_external_storage,
+    open_storage_access,
+    storage_composition,
+)
 from handler.filesystem.assets_handler import validate_image_upload
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+    StoragePolicy,
+)
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
@@ -115,6 +127,19 @@ router.include_router(patch_router)
 
 # RomUser fields the statuses filter branches on.
 STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hidden"})
+
+
+def _download_chunks(relative_path: str):
+    try:
+        access = open_storage_access(
+            legacy_external_storage, StorageOperation.DOWNLOAD, relative_path
+        )
+    except MissingStorageTargetError:
+        return
+    try:
+        yield from access.download()
+    finally:
+        access.close()
 
 
 def safe_int_or_none(value: Any) -> int | None:
@@ -1024,6 +1049,12 @@ async def download_roms(
         ).encode()
         file_name = f"{len(rom_objects)} ROMs ({crc32_to_hex(binascii.crc32(content_summary))}).zip"
 
+    StoragePolicy.authorize(
+        StorageOperation.WRITE,
+        storage_composition.owned[OwnedStorageKind.CACHE],
+    )
+    StoragePolicy.authorize(StorageOperation.DOWNLOAD, legacy_external_storage)
+
     range_header = request.headers.get("range")
     if range_header and len(rom_objects) <= BULK_CACHE_MAX_ROMS:
         redirect_path = await resolve_cached_zip(
@@ -1260,6 +1291,8 @@ async def head_rom_content(
             detail=f"No files found for ROM {id}",
         )
 
+    StoragePolicy.authorize(StorageOperation.DOWNLOAD, legacy_external_storage)
+
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         if len(files) == 1:
@@ -1287,10 +1320,13 @@ async def head_rom_content(
             },
         )
 
-    # Otherwise proxy through nginx
     if len(files) == 1:
-        return FileRedirectResponse(
-            download_path=Path(f"/library/{files[0].full_path}"),
+        return Response(
+            headers={
+                "Content-Type": "application/octet-stream",
+                "Content-Length": str(files[0].file_size_bytes),
+                "Content-Disposition": f'attachment; filename="{files[0].file_name}"',
+            }
         )
 
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
@@ -1374,6 +1410,12 @@ async def get_rom_content(
     cue_files = [f for f in files if f.file_extension.lower() == "cue"]
     m3u_files = cue_files if cue_files else files
 
+    StoragePolicy.authorize(
+        StorageOperation.WRITE,
+        storage_composition.owned[OwnedStorageKind.CACHE],
+    )
+    StoragePolicy.authorize(StorageOperation.DOWNLOAD, legacy_external_storage)
+
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         if len(files) == 1:
@@ -1453,10 +1495,13 @@ async def get_rom_content(
             },
         )
 
-    # Otherwise proxy through nginx
     if len(files) == 1:
-        return FileRedirectResponse(
-            download_path=Path(f"/library/{files[0].full_path}"),
+        return StreamingResponse(
+            _download_chunks(files[0].full_path),
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{files[0].file_name}"'
+            },
         )
 
     # Multi-file path: serve cached ZIP for Range requests (resumable),

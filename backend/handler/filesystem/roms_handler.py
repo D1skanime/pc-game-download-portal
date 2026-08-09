@@ -51,7 +51,7 @@ from .base_handler import (
     REGIONS_NAME_KEYS,
     ExternalFSHandler,
 )
-from .storage_policy import ExternalStorageDescriptor
+from .storage_policy import ExternalStorageDescriptor, StorageOperation
 
 # PICO-8 cartridges are often stored as PNG files
 PICO8_CARTRIDGE_EXTENSION = ".p8.png"
@@ -168,8 +168,18 @@ class ParsedRomFiles:
 
 
 class FSRomsHandler(ExternalFSHandler):
-    def __init__(self, storage: ExternalStorageDescriptor) -> None:
+    def __init__(self, storage: ExternalStorageDescriptor | None = None) -> None:
+        if storage is None:
+            from handler.filesystem import legacy_external_storage
+
+            storage = legacy_external_storage
         super().__init__(base_path=storage._root_path, storage=storage)
+
+    def open_rom_read(self, relative_path: str):
+        return self.open_access(StorageOperation.READ, relative_path)
+
+    def open_rom_hash(self, relative_path: str):
+        return self.open_access(StorageOperation.HASH, relative_path)
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
@@ -401,14 +411,19 @@ class FSRomsHandler(ExternalFSHandler):
                     try:
                         if is_top_level:
                             # Include this file in the main ROM hash calculation
-                            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                                await asyncio.to_thread(
-                                    self._calculate_rom_hashes,
-                                    Path(f_path, file_name),
-                                    rom_crc_c,
-                                    rom_md5_h,
-                                    rom_sha1_h,
-                                )
+                            (
+                                crc_c,
+                                rom_crc_c,
+                                md5_h,
+                                rom_md5_h,
+                                sha1_h,
+                                rom_sha1_h,
+                            ) = await asyncio.to_thread(
+                                self._calculate_rom_hashes,
+                                Path(f_path, file_name),
+                                rom_crc_c,
+                                rom_md5_h,
+                                rom_sha1_h,
                             )
                         else:
                             # Calculate individual file hash only
