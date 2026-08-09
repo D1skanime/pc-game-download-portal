@@ -33,6 +33,16 @@ READS = {
 MUTATIONS = set(StorageOperation) - READS
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_database() -> None:
+    """The policy unit suite is deliberately filesystem and database free."""
+
+
+@pytest.fixture(autouse=True)
+def clear_database() -> None:
+    """Override the shared database cleanup for this pure policy suite."""
+
+
 def _root(path: str = "/external/archive") -> StorageRoot:
     root = StorageRoot(
         name="Archive", container_path=path, mode=EXTERNAL_READ_ONLY_MODE, active=True
@@ -134,7 +144,7 @@ def test_descriptor_constructors_are_not_publicly_forgeable():
     ],
 )
 def test_caller_path_text_cannot_reclassify(external, text):
-    assert text not in vars(external).values()
+    assert text not in (external.root_id, external.mapping_id, external.storage_class)
     with pytest.raises((TypeError, ValueError)):
         create_owned_descriptor(text, "forged")
 

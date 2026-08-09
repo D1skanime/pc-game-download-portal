@@ -104,3 +104,15 @@ class StoragePersistenceError(StorageResolutionError):
 
     def __init__(self):
         super().__init__("Storage mapping could not be persisted")
+
+
+class StoragePolicyDenied(StorageResolutionError):
+    """Bounded denial for a storage operation and trusted classification."""
+
+    code = "external_storage_operation_denied"
+
+    def __init__(self, operation: str, storage_class: str, storage_id: str) -> None:
+        self.operation = operation
+        self.storage_class = storage_class
+        self.storage_id = storage_id
+        super().__init__(f"{operation} denied for {storage_class} storage {storage_id}")
