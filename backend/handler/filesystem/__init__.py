@@ -4,6 +4,17 @@ from .launchbox_handler import FSLaunchboxHandler, get_fs_launchbox_handler
 from .platforms_handler import FSPlatformsHandler
 from .resources_handler import FSResourcesHandler
 from .roms_handler import FSRomsHandler
+from .storage_access import (
+    DownloadCapability,
+    HashCapability,
+    ListCapability,
+    ReadCapability,
+    ResolveCapability,
+    ScanCapability,
+    StatCapability,
+    StreamCapability,
+    open_storage_access,
+)
 from .sync_handler import FSSyncHandler, get_fs_sync_handler
 
 fs_asset_handler = FSAssetsHandler()
@@ -20,6 +31,14 @@ __all__ = [
     "FSResourcesHandler",
     "FSRomsHandler",
     "FSSyncHandler",
+    "DownloadCapability",
+    "HashCapability",
+    "ListCapability",
+    "ReadCapability",
+    "ResolveCapability",
+    "ScanCapability",
+    "StatCapability",
+    "StreamCapability",
     "fs_asset_handler",
     "fs_firmware_handler",
     "fs_platform_handler",
@@ -27,4 +46,5 @@ __all__ = [
     "fs_rom_handler",
     "get_fs_launchbox_handler",
     "get_fs_sync_handler",
+    "open_storage_access",
 ]
