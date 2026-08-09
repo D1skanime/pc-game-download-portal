@@ -37,7 +37,7 @@
 - [ ] **SAFE-03**: Direct API calls receive `403 Forbidden` for prohibited operations even when the UI does not expose the action.
 - [ ] **SAFE-04**: All existing filesystem mutation paths are inventoried and routed through the central policy or proven unable to address external roots.
 - [ ] **SAFE-05**: Docker examples and integration tests mount the external library with `:ro`; application policy remains mandatory rather than relying on mount errors.
-- [ ] **SAFE-06**: Reading, scanning, hashing, streaming, and downloading create no temporary, metadata, cover, sidecar, cache, or lock files inside the external root.
+- [x] **SAFE-06**: Reading, scanning, hashing, streaming, and downloading create no temporary, metadata, cover, sidecar, cache, or lock files inside the external root.
 
 ### Scanner, Watcher, and Preview
 
@@ -163,7 +163,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | SAFE-03     | Phase 2 | Pending  |
 | SAFE-04     | Phase 2 | Pending  |
 | SAFE-05     | Phase 2 | Pending  |
-| SAFE-06     | Phase 2 | Pending  |
+| SAFE-06     | Phase 2 | Complete |
 | SCAN-01     | Phase 5 | Pending  |
 | SCAN-02     | Phase 5 | Pending  |
 | SCAN-03     | Phase 5 | Pending  |
