@@ -35,7 +35,7 @@
 - [x] **SAFE-01**: A central server-side storage policy permits only list, read, scan, stat, hash, stream, and download operations on `external_read_only` roots.
 - [x] **SAFE-02**: The policy rejects create, upload, write, overwrite, rename, move, copy, delete, extract, patch, and directory creation before filesystem access.
 - [ ] **SAFE-03**: Direct API calls receive `403 Forbidden` for prohibited operations even when the UI does not expose the action.
-- [ ] **SAFE-04**: All existing filesystem mutation paths are inventoried and routed through the central policy or proven unable to address external roots.
+- [x] **SAFE-04**: All existing filesystem mutation paths are inventoried and routed through the central policy or proven unable to address external roots.
 - [ ] **SAFE-05**: Docker examples and integration tests mount the external library with `:ro`; application policy remains mandatory rather than relying on mount errors.
 - [x] **SAFE-06**: Reading, scanning, hashing, streaming, and downloading create no temporary, metadata, cover, sidecar, cache, or lock files inside the external root.
 
@@ -161,7 +161,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | SAFE-01     | Phase 2 | Complete |
 | SAFE-02     | Phase 2 | Complete |
 | SAFE-03     | Phase 2 | Pending  |
-| SAFE-04     | Phase 2 | Pending  |
+| SAFE-04     | Phase 2 | Complete |
 | SAFE-05     | Phase 2 | Pending  |
 | SAFE-06     | Phase 2 | Complete |
 | SCAN-01     | Phase 5 | Pending  |
