@@ -16,6 +16,7 @@ from exceptions.storage_exceptions import (
     UnsafeSymlinkError,
 )
 from handler.filesystem.storage_policy import (
+    ExternalStorageDescriptor,
     StorageOperation,
     StoragePolicy,
     create_external_descriptor,
@@ -43,25 +44,39 @@ def _bounded_open_error(
     return StorageResolutionError("Storage target is not accessible")
 
 
-def _open_root(storage_root: StorageRoot) -> int:
+def _root_path(storage_root: StorageRoot | ExternalStorageDescriptor) -> str:
+    if isinstance(storage_root, ExternalStorageDescriptor):
+        return str(storage_root._root_path)
+    return storage_root.container_path
+
+
+def _open_root(storage_root: StorageRoot | ExternalStorageDescriptor) -> int:
     try:
-        descriptor = os.open(storage_root.container_path, _BASE_FLAGS | os.O_DIRECTORY)
+        descriptor = os.open(_root_path(storage_root), _BASE_FLAGS | os.O_DIRECTORY)
     except OSError as error:
         if error.errno == errno.ENOTDIR:
             try:
-                if stat_module.S_ISLNK(os.lstat(storage_root.container_path).st_mode):
+                if stat_module.S_ISLNK(os.lstat(_root_path(storage_root)).st_mode):
                     raise UnsafeSymlinkError() from error
             except FileNotFoundError:
                 pass
         raise _bounded_open_error(error, root=True) from error
     if not stat_module.S_ISDIR(os.fstat(descriptor).st_mode):
         os.close(descriptor)
-        raise MissingStorageRootError(storage_root.id)
+        root_id = (
+            storage_root.root_id
+            if isinstance(storage_root, ExternalStorageDescriptor)
+            else storage_root.id
+        )
+        raise MissingStorageRootError(root_id)
     return descriptor
 
 
 def _open_target(
-    storage_root: StorageRoot, relative_path: str, *, directory: bool
+    storage_root: StorageRoot | ExternalStorageDescriptor,
+    relative_path: str,
+    *,
+    directory: bool | None,
 ) -> int:
     current = _open_root(storage_root)
     if not relative_path:
@@ -74,7 +89,7 @@ def _open_target(
         for index, component in enumerate(components):
             final = index == len(components) - 1
             flags = _BASE_FLAGS
-            if not final or directory:
+            if not final or directory is True:
                 flags |= os.O_DIRECTORY
             try:
                 following = os.open(component, flags, dir_fd=current)
@@ -86,7 +101,7 @@ def _open_target(
                         )
                         if stat_module.S_ISLNK(metadata.st_mode):
                             raise UnsafeSymlinkError() from error
-                        if final and directory:
+                        if final and directory is True:
                             raise NonDirectoryStorageTargetError() from error
                     except FileNotFoundError:
                         pass
@@ -94,9 +109,9 @@ def _open_target(
             os.close(current)
             current = following
         metadata = os.fstat(current)
-        if directory and not stat_module.S_ISDIR(metadata.st_mode):
+        if directory is True and not stat_module.S_ISDIR(metadata.st_mode):
             raise NonDirectoryStorageTargetError()
-        if not directory and not stat_module.S_ISREG(metadata.st_mode):
+        if directory is False and not stat_module.S_ISREG(metadata.st_mode):
             raise StorageResolutionError("Storage target is not a regular file")
         return current
     except Exception:
@@ -200,10 +215,16 @@ _CAPABILITIES = {
 
 
 def open_storage_access(
-    storage_root: StorageRoot, operation: StorageOperation, raw_relative_path: str
+    storage_root: StorageRoot | ExternalStorageDescriptor,
+    operation: StorageOperation,
+    raw_relative_path: str,
 ) -> _DescriptorCapability:
     """Authorize and bind one external read operation to an already-open descriptor."""
-    descriptor = create_external_descriptor(storage_root)
+    descriptor = (
+        storage_root
+        if isinstance(storage_root, ExternalStorageDescriptor)
+        else create_external_descriptor(storage_root)
+    )
     grant = StoragePolicy.authorize(operation, descriptor)
     relative_path = normalize_relative_path(
         raw_relative_path, allow_root=grant.operation in _DIRECTORY_OPERATIONS
@@ -212,6 +233,10 @@ def open_storage_access(
     target = _open_target(
         storage_root,
         relative_path,
-        directory=grant.operation in _DIRECTORY_OPERATIONS,
+        directory=(
+            True
+            if grant.operation in _DIRECTORY_OPERATIONS
+            else None if grant.operation is StorageOperation.STAT else False
+        ),
     )
     return capability_type(target)

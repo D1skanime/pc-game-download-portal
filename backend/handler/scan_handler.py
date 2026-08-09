@@ -9,8 +9,15 @@ from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
-from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
+from handler.filesystem import (
+    fs_asset_handler,
+    fs_firmware_handler,
+    fs_rom_handler,
+    legacy_external_storage,
+    open_storage_access,
+)
 from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.storage_policy import StorageOperation
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_gamelist_handler,
@@ -191,6 +198,10 @@ async def scan_platform(
     Returns
         Platform object
     """
+    with open_storage_access(
+        legacy_external_storage, StorageOperation.SCAN, ""
+    ) as access:
+        access.scan()
     platform_attrs: dict[str, Any] = {}
     platform_attrs["fs_slug"] = fs_slug
 

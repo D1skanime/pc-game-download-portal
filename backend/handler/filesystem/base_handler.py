@@ -3,6 +3,7 @@ import fnmatch
 import os
 import re
 import shutil
+import stat
 import tempfile
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -16,6 +17,7 @@ from anyio import open_file
 from starlette.datastructures import UploadFile
 
 from config.config_manager import config_manager as cm
+from exceptions.storage_exceptions import StorageResolutionError
 from models.base import (
     FILE_NAME_MAX_LENGTH,
     compute_file_extension,
@@ -168,7 +170,7 @@ class FSHandler:
         if storage._root_path is None or Path(base_path) != storage._root_path:
             raise ValueError("owned storage descriptor does not match base path")
         self.storage = storage
-        self.base_path = Path(base_path)
+        self.base_path = Path(base_path).resolve()
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_mutex = asyncio.Lock()
         self.base_path.mkdir(parents=True, exist_ok=True)
@@ -705,15 +707,64 @@ class ExternalFSHandler(FSHandler):
     ) -> None:
         if not isinstance(storage, ExternalStorageDescriptor):
             raise TypeError("external handler requires an external storage descriptor")
-        if Path(base_path) != storage._root_path:
+        if Path(base_path).resolve() != Path(storage._root_path).resolve():
             raise ValueError("external storage descriptor does not match base path")
         self.storage = storage
-        self.base_path = Path(base_path)
+        self.base_path = Path(base_path).resolve()
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_mutex = asyncio.Lock()
 
     def _deny_mutation(self, operation: StorageOperation) -> None:
         StoragePolicy.authorize(operation, self.storage)
+
+    def open_access(self, operation: StorageOperation, relative_path: str):
+        from .storage_access import open_storage_access
+
+        return open_storage_access(self.storage, operation, relative_path)
+
+    async def list_directories(self, path: str) -> list[str]:
+        with self.open_access(StorageOperation.LIST, path) as listing:
+            entries = listing.list()
+        directories = []
+        for entry in entries:
+            relative = f"{path}/{entry}" if path else entry
+            try:
+                with self.open_access(StorageOperation.STAT, relative) as metadata:
+                    if stat.S_ISDIR(metadata.stat().st_mode):
+                        directories.append(entry)
+            except StorageResolutionError:
+                continue
+        return directories
+
+    async def list_files(self, path: str) -> list[str]:
+        with self.open_access(StorageOperation.LIST, path) as listing:
+            entries = listing.list()
+        files = []
+        for entry in entries:
+            relative = f"{path}/{entry}" if path else entry
+            try:
+                with self.open_access(StorageOperation.STAT, relative) as metadata:
+                    if stat.S_ISREG(metadata.stat().st_mode):
+                        files.append(entry)
+            except StorageResolutionError:
+                continue
+        return files
+
+    async def read_file(self, file_path: str) -> bytes:
+        with self.open_access(StorageOperation.READ, file_path) as reader:
+            return reader.read()
+
+    async def file_exists(self, file_path: str) -> bool:
+        try:
+            with self.open_access(StorageOperation.STAT, file_path) as metadata:
+                metadata.stat()
+            return True
+        except StorageResolutionError:
+            return False
+
+    async def get_file_size(self, file_path: str) -> int:
+        with self.open_access(StorageOperation.STAT, file_path) as metadata:
+            return metadata.stat().st_size
 
     async def make_directory(self, path: str) -> None:
         self._deny_mutation(StorageOperation.MKDIR)

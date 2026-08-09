@@ -211,6 +211,13 @@ class Config:
 
     @functools.cached_property
     def has_structure_path_a(self) -> bool:
+        from handler.filesystem import legacy_external_storage, open_storage_access
+        from handler.filesystem.storage_policy import StorageOperation
+
+        with open_storage_access(
+            legacy_external_storage, StorageOperation.LIST, ""
+        ) as access:
+            access.list()
         # Structure A ({roms_folder}/{platform}) takes priority: if the top-level roms
         # folder exists, claim Structure A even if some platform dirs happen to
         # contain a {roms_folder} sub-folder.
@@ -219,6 +226,13 @@ class Config:
 
     @functools.cached_property
     def has_structure_path_b(self) -> bool:
+        from handler.filesystem import legacy_external_storage, open_storage_access
+        from handler.filesystem.storage_policy import StorageOperation
+
+        with open_storage_access(
+            legacy_external_storage, StorageOperation.LIST, ""
+        ) as access:
+            access.list()
         if self.has_structure_path_a:
             return False
 

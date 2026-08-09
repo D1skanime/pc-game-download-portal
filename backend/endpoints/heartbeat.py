@@ -30,8 +30,9 @@ from endpoints.responses.heartbeat import HeartbeatResponse
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
-from handler.filesystem import fs_platform_handler
+from handler.filesystem import fs_platform_handler, legacy_external_storage
 from handler.filesystem.base_handler import LibraryStructure
+from handler.filesystem.storage_policy import StorageOperation
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_gamelist_handler,
@@ -195,6 +196,12 @@ async def get_setup_library_info(request: Request):
         - existing_platforms: list of objects with fs_slug and rom_count
         - supported_platforms: list of all supported platforms with metadata
     """
+
+    assert fs_platform_handler.storage is legacy_external_storage
+    with fs_platform_handler.open_access(
+        StorageOperation.LIST, fs_platform_handler.get_platforms_directory()
+    ) as access:
+        access.list()
 
     # Check authentication - only allow public access if no admin users
     # If admin users exist, this would need authentication (but won't be called during setup)

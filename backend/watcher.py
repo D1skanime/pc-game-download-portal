@@ -22,6 +22,8 @@ from config import (
 from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
 from handler.database import db_platform_handler
+from handler.filesystem import legacy_external_storage, open_storage_access
+from handler.filesystem.storage_policy import StorageOperation
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_hasheous_handler,
@@ -115,6 +117,10 @@ def get_pending_scan_jobs() -> list[Job]:
 
 
 def process_changes(changes: Sequence[Change]) -> None:
+    with open_storage_access(
+        legacy_external_storage, StorageOperation.LIST, ""
+    ) as access:
+        access.list()
     if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
         return
 

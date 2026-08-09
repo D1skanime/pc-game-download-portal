@@ -78,7 +78,7 @@ def test_enumeration_and_scan_modules_declare_exact_capabilities() -> None:
         "backend/endpoints/heartbeat.py": "LIST",
         "backend/config/config_manager.py": "LIST",
     }
-    repo = Path(__file__).parents[3]
+    repo = Path(__file__).parents[4]
     for relative, operation in expected.items():
         tree = ast.parse((repo / relative).read_text())
         attributes = {

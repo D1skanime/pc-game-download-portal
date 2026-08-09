@@ -37,8 +37,11 @@ from handler.filesystem import (
     fs_platform_handler,
     fs_resource_handler,
     fs_rom_handler,
+    legacy_external_storage,
+    open_storage_access,
 )
 from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.storage_policy import StorageOperation
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
 from handler.metadata.ss_handler import add_ss_auth_to_url
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
@@ -852,6 +855,11 @@ async def scan_platforms(
         roms_ids (list[int], optional): List of selected roms to be scanned.
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
+    with open_storage_access(
+        legacy_external_storage, StorageOperation.SCAN, ""
+    ) as access:
+        access.scan()
+
     # The flag is cleared by the scan that observes it, so one set against a
     # scan that ended first would otherwise stop this one before it began. A
     # scan still on a worker owns the flag though, and clearing it there would

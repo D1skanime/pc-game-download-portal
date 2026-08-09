@@ -13,7 +13,11 @@ from .storage_policy import ExternalStorageDescriptor
 
 
 class FSPlatformsHandler(ExternalFSHandler):
-    def __init__(self, storage: ExternalStorageDescriptor) -> None:
+    def __init__(self, storage: ExternalStorageDescriptor | None = None) -> None:
+        if storage is None:
+            from handler.filesystem import legacy_external_storage
+
+            storage = legacy_external_storage
         super().__init__(base_path=storage._root_path, storage=storage)
 
     def _exclude_platforms(self, platforms: list):
