@@ -4,6 +4,7 @@ import ast
 from pathlib import Path
 
 from handler.filesystem.storage_inventory import (
+    EXTERNAL_AUTHORITY_PROVIDER,
     INVENTORY,
     InventoryDisposition,
     InventoryKind,
@@ -247,10 +248,7 @@ def test_inventory_enforcement_links_resolve_to_real_symbols() -> None:
 
 
 AUTHORITY_FACTORY = "_create_external_descriptor"
-AUTHORITY_PROVIDER = (
-    "handler.filesystem.storage_composition",
-    "build_storage_composition",
-)
+AUTHORITY_PROVIDER = EXTERNAL_AUTHORITY_PROVIDER
 
 
 def _runtime_python_files(root: Path) -> list[Path]:
@@ -280,8 +278,26 @@ def _authority_seams(root: Path) -> set[tuple[str, str, str]]:
                 annotations = ast.unparse(node.args)
                 if AUTHORITY_FACTORY in names:
                     seams.add((module, node.name, "descriptor_factory"))
-                if "StorageRoot" in annotations or (
-                    "StorageRoot" in names and "container_path" in attrs
+                branches_on_root = any(
+                    isinstance(child, ast.Call)
+                    and isinstance(child.func, ast.Name)
+                    and child.func.id == "isinstance"
+                    and "StorageRoot"
+                    in {
+                        name.id
+                        for name in ast.walk(child)
+                        if isinstance(name, ast.Name)
+                    }
+                    for child in ast.walk(node)
+                )
+                access_function = any(
+                    term in node.name
+                    for term in ("open", "access", "authorize", "descriptor")
+                )
+                if (
+                    access_function
+                    and "StorageRoot" in annotations
+                    and ("container_path" in attrs or branches_on_root)
                 ):
                     seams.add((module, node.name, "raw_storage_root"))
     return seams

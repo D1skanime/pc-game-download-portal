@@ -21,10 +21,8 @@ from handler.filesystem.storage_policy import (
     OwnedStorageDescriptor,
     StorageOperation,
     StoragePolicy,
-    create_external_descriptor,
 )
 from handler.filesystem.storage_resolver import normalize_relative_path
-from models.storage import StorageRoot
 
 _BASE_FLAGS = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
 _DIRECTORY_OPERATIONS = {
@@ -47,17 +45,15 @@ def _bounded_open_error(
 
 
 def _root_path(
-    storage_root: StorageRoot | ExternalStorageDescriptor | OwnedStorageDescriptor,
+    storage_root: ExternalStorageDescriptor | OwnedStorageDescriptor,
 ) -> str:
-    if isinstance(storage_root, (ExternalStorageDescriptor, OwnedStorageDescriptor)):
-        if storage_root._root_path is None:
-            raise TypeError("a bound storage descriptor is required")
-        return str(storage_root._root_path)
-    return storage_root.container_path
+    if storage_root._root_path is None:
+        raise TypeError("a bound storage descriptor is required")
+    return str(storage_root._root_path)
 
 
 def _open_root(
-    storage_root: StorageRoot | ExternalStorageDescriptor | OwnedStorageDescriptor,
+    storage_root: ExternalStorageDescriptor | OwnedStorageDescriptor,
 ) -> int:
     try:
         descriptor = os.open(_root_path(storage_root), _BASE_FLAGS | os.O_DIRECTORY)
@@ -74,14 +70,14 @@ def _open_root(
         root_id = (
             storage_root.root_id
             if isinstance(storage_root, ExternalStorageDescriptor)
-            else storage_root.id
+            else 0
         )
         raise MissingStorageRootError(root_id)
     return descriptor
 
 
 def _open_target(
-    storage_root: StorageRoot | ExternalStorageDescriptor | OwnedStorageDescriptor,
+    storage_root: ExternalStorageDescriptor | OwnedStorageDescriptor,
     relative_path: str,
     *,
     directory: bool | None,
@@ -242,17 +238,14 @@ _CAPABILITIES = {
 
 
 def open_storage_access(
-    storage_root: StorageRoot | ExternalStorageDescriptor | OwnedStorageDescriptor,
+    storage_root: ExternalStorageDescriptor | OwnedStorageDescriptor,
     operation: StorageOperation,
     raw_relative_path: str,
 ) -> _DescriptorCapability:
     """Authorize and bind one external read operation to an already-open descriptor."""
-    descriptor = (
-        storage_root
-        if isinstance(storage_root, ExternalStorageDescriptor)
-        else create_external_descriptor(storage_root)
-    )
-    grant = StoragePolicy.authorize(operation, descriptor)
+    if not isinstance(storage_root, ExternalStorageDescriptor):
+        raise TypeError("a bound external storage descriptor is required")
+    grant = StoragePolicy.authorize(operation, storage_root)
     relative_path = normalize_relative_path(
         raw_relative_path, allow_root=grant.operation in _DIRECTORY_OPERATIONS
     )

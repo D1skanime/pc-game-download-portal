@@ -40,6 +40,10 @@ class InventoryRow:
 _EXTERNAL = "external_read_only"
 _OWNED = "romm_owned"
 _NONE = "none"
+EXTERNAL_AUTHORITY_PROVIDER = (
+    "handler.filesystem.storage_composition",
+    "build_storage_composition",
+)
 _READ_EVIDENCE = Evidence(
     "tests/handler/filesystem/test_external_read_consumers.py",
     "test_enumeration_and_scan_modules_declare_exact_capabilities",

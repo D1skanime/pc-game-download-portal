@@ -6,7 +6,7 @@ from pathlib import PurePath
 from typing import Iterable
 
 from exceptions.storage_exceptions import StoragePolicyDenied
-from models.storage import EXTERNAL_READ_ONLY_MODE, StorageRoot
+from models.storage import EXTERNAL_READ_ONLY_MODE
 
 
 class StorageOperation(StrEnum):
@@ -123,19 +123,6 @@ StorageDescriptor = ExternalStorageDescriptor | OwnedStorageDescriptor
 class StorageGrant:
     operation: StorageOperation
     storage: StorageDescriptor
-
-
-def create_external_descriptor(
-    storage_root: StorageRoot, *, mapping_id: int | None = None
-) -> ExternalStorageDescriptor:
-    """Create an immutable descriptor from composition-owned model identity."""
-    if not isinstance(storage_root, StorageRoot):
-        raise TypeError("a trusted StorageRoot is required")
-    if storage_root.id is None or storage_root.mode != EXTERNAL_READ_ONLY_MODE:
-        raise ValueError("storage root has no trusted external classification")
-    return _create_external_descriptor(
-        storage_root.id, PurePath(storage_root.container_path), mapping_id=mapping_id
-    )
 
 
 def _create_external_descriptor(
