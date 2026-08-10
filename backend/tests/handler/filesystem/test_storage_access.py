@@ -244,9 +244,10 @@ def test_owned_create_replace_delete_and_directory_are_descriptor_relative(tmp_p
     assert not (tmp_path / "nested" / "game.bin").exists()
 
 
-def test_subprocess_adapter_lists_only_the_capability_fd(archive):
+def test_subprocess_adapter_lists_only_the_capability_fd(tmp_path):
+    (tmp_path / "game.rom").write_bytes(b"game")
     with open_storage_access(
-        _root(archive), StorageOperation.READ, "Nintendo/M?nchen/???.rom"
+        _root(tmp_path), StorageOperation.READ, "game.rom"
     ) as access:
         argv, pass_fds = access.subprocess_fd("tool", "--input")
         assert argv[:2] == ("tool", "--input")
