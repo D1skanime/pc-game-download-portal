@@ -5,6 +5,12 @@ import pytest
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
+from handler.filesystem.storage_access import open_owned_access
+from handler.filesystem.storage_composition import (
+    StorageCompositionConfig,
+    build_storage_composition,
+)
+from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -312,6 +318,33 @@ class TestFormatHelpers:
         assert exporter._escape_multiline("single line") == "single line"
         assert exporter._escape_multiline("line1\nline2") == "line1\n  line2"
         assert exporter._escape_multiline("line1\n\nline3") == "line1\n  .\n  line3"
+
+
+@pytest.mark.asyncio
+async def test_export_platform_to_file_requires_owned_destination(
+    admin_user: User, tmp_path
+):
+    platform = db_platform_handler.add_platform(
+        Platform(name="NES", slug="nes", fs_slug="nes")
+    )
+    library = tmp_path / "library"
+    library.mkdir()
+    owned = {kind: tmp_path / kind.value for kind in OwnedStorageKind}
+    for path in owned.values():
+        path.mkdir()
+    composition = build_storage_composition(StorageCompositionConfig(library, owned))
+    with open_owned_access(
+        composition.owned[OwnedStorageKind.RESOURCES],
+        StorageOperation.OVERWRITE,
+        "metadata.txt",
+    ) as destination:
+        assert await PegasusExporter(local_export=True).export_platform_to_file(
+            platform.id, request=None, destination=destination
+        )
+    assert (
+        "collection:"
+        in (owned[OwnedStorageKind.RESOURCES] / "metadata.txt").read_text()
+    )
 
 
 class TestCollectAssets:
