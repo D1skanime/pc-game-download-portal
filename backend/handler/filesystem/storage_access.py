@@ -435,7 +435,7 @@ def open_owned_access(
     if storage._root_path is None:
         raise TypeError("a composition-bound owned storage descriptor is required")
     if operation not in _OWNED_CAPABILITIES:
-        StoragePolicy.authorize(operation, object())
+        StoragePolicy.authorize(operation, storage)
     StoragePolicy.authorize(operation, storage)
     relative_path = normalize_relative_path(raw_relative_path)
     capability_type = _OWNED_CAPABILITIES[operation]

@@ -1,3 +1,4 @@
+# mypy: disable-error-code=call-arg
 import builtins
 import importlib
 import os

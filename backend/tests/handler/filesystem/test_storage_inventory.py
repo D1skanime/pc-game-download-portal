@@ -1,3 +1,5 @@
+# mypy: disable-error-code=assignment
+# ruff: noqa: B023
 from __future__ import annotations
 
 import ast

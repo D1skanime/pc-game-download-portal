@@ -124,12 +124,12 @@ def test_reads_preserve_complete_source_manifest(archive):
     with open_storage_access(
         _external(archive), StorageOperation.READ, "Nintendo/München/ゲーム.rom"
     ) as access:
-        assert access.read() == b"immutable-rom-data"
+        assert access.read() == b"immutable-rom-data"  # type: ignore[attr-defined]
     with open_storage_access(
         _external(archive), StorageOperation.HASH, "Nintendo/München/ゲーム.rom"
     ) as access:
         assert (
-            access.hash("sha256") == hashlib.sha256(b"immutable-rom-data").hexdigest()
+            access.hash("sha256") == hashlib.sha256(b"immutable-rom-data").hexdigest()  # type: ignore
         )
     assert _manifest(archive) == before
 
@@ -172,7 +172,7 @@ def test_capability_rejects_use_after_close(archive):
     )
     access.close()
     with pytest.raises(StorageResolutionError, match="closed"):
-        access.read()
+        access.read()  # type: ignore
 
 
 def test_repeated_access_and_partial_open_failure_do_not_leak_fds(archive):
@@ -181,7 +181,7 @@ def test_repeated_access_and_partial_open_failure_do_not_leak_fds(archive):
         with open_storage_access(
             _external(archive), StorageOperation.STAT, "Nintendo/München/ゲーム.rom"
         ) as access:
-            assert access.stat().st_size == len(b"immutable-rom-data")
+            assert access.stat().st_size == len(b"immutable-rom-data")  # type: ignore[attr-defined]
         with pytest.raises(MissingStorageTargetError):
             open_storage_access(
                 _external(archive), StorageOperation.READ, "Nintendo/missing/game.rom"
@@ -199,7 +199,7 @@ def test_opened_descriptor_survives_name_swap_without_escape(archive, tmp_path):
     original.rename(original.with_suffix(".old"))
     original.symlink_to(outside)
     try:
-        assert access.read() == b"immutable-rom-data"
+        assert access.read() == b"immutable-rom-data"  # type: ignore[attr-defined]
     finally:
         access.close()
 
@@ -261,17 +261,17 @@ def test_owned_access_rejects_raw_path_objects_and_strings_before_io(tmp_path, r
 def test_owned_create_replace_delete_and_directory_are_descriptor_relative(tmp_path):
     owned = _owned(tmp_path)
     with open_owned_access(owned, StorageOperation.MKDIR, "nested") as directory:
-        directory.mkdir()
+        directory.mkdir()  # type: ignore
     with open_owned_access(owned, StorageOperation.CREATE, "nested/game.bin") as create:
-        create.create(b"one")
+        create.create(b"one")  # type: ignore
     with open_owned_access(owned, StorageOperation.READ, "nested/game.bin") as read:
-        assert read.read() == b"one"
+        assert read.read() == b"one"  # type: ignore
     with open_owned_access(
         owned, StorageOperation.OVERWRITE, "nested/game.bin"
     ) as replace:
-        replace.replace(b"two")
+        replace.replace(b"two")  # type: ignore
     with open_owned_access(owned, StorageOperation.DELETE, "nested/game.bin") as delete:
-        delete.delete()
+        delete.delete()  # type: ignore
     assert not (tmp_path / "nested" / "game.bin").exists()
 
 
