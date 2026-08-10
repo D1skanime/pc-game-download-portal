@@ -177,13 +177,13 @@ Load roots from the database, copy each health-visible value into a response-ori
 
 ### Pattern 2: Contained bounded directory enumeration
 
-Add a resolver function that first calls `resolve_storage_root`, normalizes the requested parent with `allow_root=True`, rejects symlink components, then enumerates only immediate child directories. For every child use `lstat`, reject symlinks, and expose only `name`, the POSIX relative path, and `navigable`. Sort by a deterministic binary/case-sensitive key with a stable tie-breaker, fetch `limit + 1`, and emit an opaque cursor bound to root ID and parent path. Cap `limit` in the Pydantic query model. [VERIFIED: D-02 through D-04 and existing resolver behavior]
+Add a resolver function that first calls `resolve_storage_root`, normalizes the requested parent with `allow_root=True`, rejects symlink components, then enumerates only immediate child directories. For every child use `lstat`, reject symlinks, and expose only `name`, the POSIX relative path, and `navigable`. Sort by a deterministic binary/case-sensitive key with a stable tie-breaker, retain the smallest `limit + 1` entries after the cursor with `heapq.nsmallest`, and emit an opaque cursor bound to root ID and parent path. Cap both page size and scanned directory entries in the Pydantic/service contract. [VERIFIED: D-02 through D-04 and existing resolver behavior]
 
-Do not call `Path.iterdir()` and then materialize an unbounded list before slicing. Use `os.scandir()` as the enumeration primitive and stop after enough entries after cursor comparison. A filesystem directory has no snapshot transaction, so document cursor stability as deterministic continuation for unchanged content, not a promise against concurrent NAS changes.
+Do not call `Path.iterdir()` and then materialize an unbounded list before slicing. `os.scandir()` cannot stop after the first `limit + 1` entries while also promising global deterministic sort order. Instead stream entries through a bounded `heapq.nsmallest(limit + 1, generator, key=...)`, retaining O(limit) entries, and stop with a typed `directory_scan_limit_exceeded` error if the hard scan ceiling is crossed. This explicitly rejects an oversized directory rather than silently returning an incomplete page. A filesystem directory has no snapshot transaction, so cursor stability is deterministic continuation only for unchanged content, not a promise against concurrent NAS changes.
 
 ### Pattern 3: Non-mutating test and preview
 
-Factor validation into a pure/read-only handler path returning a typed result. `test_mapping` performs platform/root lookup, normalization, active-root validation, canonical containment, readability, and active conflict detection, but does not add, update, delete, flush, or audit. Preview in Phase 3 should be a bounded contract result derived from the tested directory and must not invoke scanner/catalog mutation; its exact content should remain minimal enough for TEST-02. [VERIFIED: D-05, phase boundary]
+Factor validation into a pure/read-only handler path returning a typed result. `test_mapping` performs platform/root lookup, normalization, active-root validation, canonical containment, readability, and active conflict detection, but does not add, update, delete, flush, or audit. Phase 3 preview is resolved as a bounded directory-level candidate summary: mapping/platform/root identifiers, mapping version, normalized relative path, examined-entry count, candidate file count, candidate directory count, `truncated`, and a continuation cursor. It returns no candidate names or paths and invokes neither scanner nor catalog persistence. The same scan ceiling and bounded-memory top-k rule as browsing applies. [RESOLVED: D-05, D-08, Phase 3 boundary, TEST-02]
 
 ### Pattern 4: Versioned transactional lifecycle
 
@@ -191,11 +191,15 @@ Add `version` starting at 1 and increment it on update, deactivate, or reactivat
 
 Creation has no prior version, but must lock platform/root/mapping rows and reject a second active mapping. If an inactive row is reused, treat reactivation as its own action with its current `expected_version`, increment version, and append audit. Do not silently overwrite an inactive historical row during create.
 
+The public lifecycle is resolved as follows: create always creates a genuinely new active row and never revives or overwrites inactive history. Reactivation is available only through the explicit mapping activation operation, addressed by mapping ID and guarded by its current `expected_version`; it re-runs all active-only platform and overlap validation, increments version, and writes an `activate` audit row. [RESOLVED: D-09, D-11, D-12, D-13]
+
 ### Pattern 5: Active-only uniqueness and overlap
 
 The current unique constraints prevent inactive history from releasing a platform or path. Migration 0109 must remove both unconditional unique constraints. Enforce active-only platform uniqueness and equal/ancestor/descendant conflicts within the locked handler transaction. Keep deterministic lock ordering across all active roots and mappings to preserve the Phase 1 concurrency guarantee. Translate any remaining integrity failures by named constraints only and never return DB messages. [VERIFIED: current model/migration/handler tests]
 
 Because MariaDB, MySQL, and PostgreSQL differ in partial/filtered unique index support, do not base correctness on a PostgreSQL-only `WHERE active` index. A portable helper identity column would add dialect and null-semantics complexity. The existing lock-first strategy is the repository-consistent primary guard, backed by cross-dialect concurrent tests.
+
+Migration 0109 downgrade must be fail-closed when Phase 3 history cannot be represented by the 0108 schema. Before any DDL, abort if an audit row exists, any mapping is inactive, any mapping version differs from 1, or active rows would violate the restored 0108 unique constraints. The failure must leave the complete 0109 schema and data intact. A pristine upgraded 0108 dataset may downgrade and re-upgrade. The verifier seeds and mutates a real lifecycle dataset on MariaDB, MySQL, and PostgreSQL, asserts the preflight rejection without partial DDL, then separately proves the pristine downgrade/re-upgrade path. [RESOLVED: portable reversibility and audit preservation]
 
 ### Pattern 6: Append-only same-transaction audit
 
@@ -361,28 +365,21 @@ Sources: existing SQLAlchemy 2 query style in `backend/handler/database/`; offic
 | --- | ---------------------------------------------------------------------------------------------------------------------- | ------- | ------------- |
 |     | None. All implementation recommendations derive from locked context, repository code, or cited official documentation. |         |               |
 
-## Open Questions
+## Resolved Planning Decisions
 
-1. **Preview payload depth**
-   - What we know: API-03 and TEST-02 require scan preview, while the phase boundary excludes scanner cutover and catalog mutation.
-   - What's unclear: Exact preview fields are not locked.
-   - Recommendation: Plan a bounded, non-mutating directory-level preview contract that proves resolvability and reports a capped candidate summary without invoking the full scanner. If ROADMAP intent expects game candidates, isolate that as the final plan after core mapping contracts.
-
-2. **Inactive row reactivation UX semantics**
-   - What we know: D-11 and D-13 explicitly require inactive history and activation/deactivation audit actions.
-   - What's unclear: Whether POST create may reactivate an old row.
-   - Recommendation: Expose explicit activation/deactivation endpoints with version preconditions; keep create limited to a genuinely new active mapping.
+1. **Preview payload depth:** The Phase 3 preview is the bounded, non-mutating directory-level candidate summary defined in Pattern 3. It does not call scanner/catalog code and does not return candidate names or paths. Scanner-aware preview expansion remains Phase 5.
+2. **Inactive row reactivation semantics:** Create never reuses an inactive row. Reactivation is an explicit mapping-ID operation with `expected_version`, complete active-conflict validation, version increment, and one atomic `activate` audit row.
 
 ## Environment Availability
 
-| Dependency         | Required By             | Available | Version           | Fallback                                                              |
-| ------------------ | ----------------------- | --------- | ----------------- | --------------------------------------------------------------------- |
-| SSH Linux checkout | All work                | Yes       | `/home/d1sk/romm` | None needed                                                           |
-| Python host        | Inspection only         | Yes       | 3.10.12           | Run project code in `romm-dev` container with Python 3.13 environment |
-| Docker             | Tests and migrations    | Yes       | 29.6.2            | None needed                                                           |
-| `uv` on host       | Direct backend commands | No        | None              | Use existing `romm-dev` container commands                            |
-| Trunk on host      | Formatting/lint         | No        | None              | Use repository/container CI-compatible invocation where installed     |
-| Node on host       | OpenAPI generation      | No        | None              | Use frontend container or project-supported Node environment          |
+| Dependency         | Required By             | Available | Version           | Fallback                                                                                                                    |
+| ------------------ | ----------------------- | --------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| SSH Linux checkout | All work                | Yes       | `/home/d1sk/romm` | None needed                                                                                                                 |
+| Python host        | Inspection only         | Yes       | 3.10.12           | Run project code in `romm-dev` container with Python 3.13 environment                                                       |
+| Docker             | Tests and migrations    | Yes       | 29.6.2            | None needed                                                                                                                 |
+| `uv` on host       | Direct backend commands | No        | None              | Use existing `romm-dev` container commands                                                                                  |
+| Trunk on host      | Formatting/lint         | No        | None              | Download the official launcher exactly as pinned by `trunk-io/trunk-action@75699af...`; `.trunk/trunk.yaml` pins CLI 1.25.0 |
+| Node on host       | OpenAPI generation      | No        | None              | Use frontend container or project-supported Node environment                                                                |
 
 **Missing dependencies with no fallback:** None identified.
 
@@ -392,12 +389,12 @@ Sources: existing SQLAlchemy 2 query style in `backend/handler/database/`; offic
 
 ### Test Framework
 
-| Property           | Value                                                                                                                                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Framework          | pytest 9.x, pytest-asyncio, pytest-xdist, Hypothesis                                                                                                                                                  |
-| Config file        | `backend/pytest.ini`, root `pyproject.toml`, `backend/tests/conftest.py`                                                                                                                              |
-| Quick run command  | `docker exec romm-dev sh -lc 'cd /romm/backend && uv run pytest tests/endpoints/test_storage.py tests/handler/database/test_storage_handler.py tests/handler/filesystem/test_storage_resolver.py -q'` |
-| Full suite command | `docker exec romm-dev sh -lc 'cd /romm/backend && uv run pytest -vv'`                                                                                                                                 |
+| Property           | Value                                                                                                                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework          | pytest 9.x, pytest-asyncio, pytest-xdist, Hypothesis                                                                                                                                                 |
+| Config file        | `backend/pytest.ini`, root `pyproject.toml`, `backend/tests/conftest.py`                                                                                                                             |
+| Quick run command  | `docker exec romm-dev sh -lc 'cd /app/backend && uv run pytest tests/endpoints/test_storage.py tests/handler/database/test_storage_handler.py tests/handler/filesystem/test_storage_resolver.py -q'` |
+| Full suite command | `docker exec romm-dev sh -lc 'cd /app/backend && uv run pytest -vv'`                                                                                                                                 |
 
 ### Phase Requirements to Test Map
 
@@ -421,7 +418,7 @@ Sources: existing SQLAlchemy 2 query style in `backend/handler/database/`; offic
 
 - **Per task commit:** Run the directly affected storage test file.
 - **Per wave merge:** Run the complete focused storage suite.
-- **Phase gate:** Run full backend pytest, cross-dialect migration verifier, `trunk fmt && trunk check`, OpenAPI generation, and frontend typecheck.
+- **Phase gate:** Run full backend pytest; run the migration verifier for MariaDB, MySQL, and PostgreSQL lifecycle/preflight cycles; run handler concurrency on MariaDB and PostgreSQL with `--handler-tests --handler-test-repetitions 10`; download the official Trunk launcher exactly as `.github/workflows/trunk-check.yml`'s pinned `trunk-io/trunk-action@75699af9e26881e564e9d832ef7dc3af25ec031b` does (`curl -fsSL https://trunk.io/releases/trunk` into `mktemp -d`) and execute `trunk check --all`; then regenerate OpenAPI and run frontend typecheck.
 
 ### Wave 0 Gaps
 
@@ -470,6 +467,7 @@ Sources: existing SQLAlchemy 2 query style in `backend/handler/database/`; offic
 - `backend/decorators/auth.py` and `backend/handler/auth/dependencies.py`, established auth and admin checks.
 - `backend/main.py` and `backend/endpoints/responses/`, router and OpenAPI composition.
 - `backend/tests/handler/database/test_storage_handler.py`, `backend/tests/handler/filesystem/test_storage_resolver.py`, `backend/tests/models/test_storage.py`, established adversarial and concurrency tests.
+- `.github/workflows/trunk-check.yml`, `.trunk/trunk.yaml`, and pinned `trunk-io/trunk-action@75699af9e26881e564e9d832ef7dc3af25ec031b`, reproducible official Trunk launcher and CLI 1.25.0 gate.
 - `.planning/phases/01-immutable-storage-foundation/01-VERIFICATION.md` and `.planning/phases/02-read-only-policy-boundary/02-VERIFICATION.md`, verified upstream foundations.
 - https://fastapi.tiangolo.com/tutorial/handling-errors/, official typed HTTP error behavior.
 - https://docs.pydantic.dev/latest/concepts/models/, official model validation behavior.
