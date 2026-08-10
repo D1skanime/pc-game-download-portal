@@ -1,15 +1,24 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 from mutagen.mp4 import MP4, MP4Cover
 
+from handler.filesystem.storage_access import open_owned_access
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+    _create_bound_owned_descriptor,
+)
 from utils.audio_tags import (
     _allowed_mime_types,
     _extract_picture_from_mp4,
     _parse_leading_int,
     _parse_year,
     persist_embedded_cover,
+    remove_cover_with_capability,
     track_meta_columns,
+    write_cover_with_capability,
 )
 
 
@@ -177,3 +186,26 @@ class TestPersistEmbeddedCover:
             )
         assert result is None
         mock_open.assert_not_called()
+
+
+def _owned_resources(path: Path):
+    return _create_bound_owned_descriptor(OwnedStorageKind.RESOURCES, "resources", path)
+
+
+def test_audio_cover_write_and_delete_require_separate_owned_capabilities(tmp_path):
+    owned = _owned_resources(tmp_path)
+    with open_owned_access(owned, StorageOperation.CREATE, "cover.jpg") as create:
+        write_cover_with_capability(create, b"image")
+    assert (tmp_path / "cover.jpg").read_bytes() == b"image"
+    with open_owned_access(owned, StorageOperation.DELETE, "cover.jpg") as delete:
+        assert remove_cover_with_capability(delete)
+    assert not (tmp_path / "cover.jpg").exists()
+
+
+def test_audio_cover_helpers_reject_raw_paths_before_io(tmp_path):
+    before = tuple(tmp_path.iterdir())
+    with pytest.raises(TypeError):
+        write_cover_with_capability(tmp_path / "cover.jpg", b"image")
+    with pytest.raises(TypeError):
+        remove_cover_with_capability(str(tmp_path / "cover.jpg"))
+    assert tuple(tmp_path.iterdir()) == before
