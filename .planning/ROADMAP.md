@@ -54,7 +54,7 @@ Plans:
 3. The same denials hold on a writable test fixture and on a container-mounted `:ro` fixture, proving that application policy does not depend on mount errors.
 4. Every existing filesystem mutation path is either governed by the central policy or demonstrably unable to address an external root.
 
-**Plans:** 10/10 plans complete
+**Plans:** 11 plans (10 complete, 1 gap-closure plan pending)
 
 Plans:
 
@@ -91,6 +91,10 @@ Plans:
 **Wave 8: Verification gap closure**
 
 - [x] 02-10-PLAN.md - Close external identity authority and fail-closed inventory discovery
+
+**Wave 9: Independent discovery gap closure**
+
+- [ ] 02-11-PLAN.md - Close alias-aware and typed raw-root AST authority discovery
 
 **Cross-cutting constraints**
 

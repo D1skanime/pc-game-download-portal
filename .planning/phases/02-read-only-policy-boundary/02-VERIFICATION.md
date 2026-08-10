@@ -1,128 +1,124 @@
 ---
 phase: 02-read-only-policy-boundary
-verified: 2026-08-10T10:58:06Z
+verified: 2026-08-10T11:49:49Z
 status: gaps_found
-score: 3/5 must-haves verified
+score: 4/5 must-haves verified
 overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 3/5
+  gaps_closed:
+    - "Caller-supplied path text cannot create or alter a trusted external classification"
+  gaps_remaining:
+    - "Every existing filesystem mutation and read seam is governed by the central policy or structurally unable to address an external root"
+  regressions: []
 gaps:
-  - truth: "Caller-supplied path text cannot create or alter a trusted external classification"
-    status: failed
-    reason: "The public create_external_descriptor() accepts any caller-constructed StorageRoot, including an unsaved model with an arbitrary container_path and caller-assigned id. open_storage_access() also accepts StorageRoot directly and converts it through that factory. Composition is therefore not the sole authority for external identity."
-    artifacts:
-      - path: "backend/handler/filesystem/storage_policy.py"
-        issue: "Public create_external_descriptor() trusts any StorageRoot instance rather than a composition-owned descriptor."
-      - path: "backend/handler/filesystem/storage_access.py"
-        issue: "open_storage_access() accepts raw StorageRoot and derives authority from its container_path."
-      - path: "backend/tests/handler/filesystem/test_storage_policy.py"
-        issue: "Tests normalize the bypass by creating unsaved StorageRoot objects with arbitrary paths and passing them to the public factory."
-    missing:
-      - "Remove the raw StorageRoot compatibility path from open_storage_access()."
-      - "Restrict external descriptor construction to trusted composition or database identity resolution, with a regression test proving arbitrary in-memory StorageRoot/path input cannot gain access."
   - truth: "Every existing filesystem mutation and read seam is governed by the central policy or structurally unable to address an external root"
     status: failed
-    reason: "The closed inventory does not classify the public raw-StorageRoot descriptor factory/access path, so its discovery-equality claim is incomplete and SAFE-04 is not established."
+    reason: "The independent AST authority discovery is not closed. It misses an aliased import/call of _create_external_descriptor and misses a StorageRoot.container_path accessor whose function name is not one of open/access/authorize/descriptor. A verifier-seeded pair of these mutants produced an empty discovered seam set, so the equality gate can pass while parallel authority seams exist."
     artifacts:
-      - path: "backend/handler/filesystem/storage_inventory.py"
-        issue: "Inventory lists build_storage_composition as the identity provider but omits create_external_descriptor and the raw StorageRoot branch in open_storage_access."
       - path: "backend/tests/handler/filesystem/test_storage_inventory.py"
-        issue: "The AST gate passes by construction without rejecting this alternative classification/access seam."
+        issue: "_authority_seams() searches only the literal function-local name _create_external_descriptor and gates raw StorageRoot detection on selected function-name substrings; it does not resolve import aliases and does not inspect every typed raw-root accessor."
+      - path: "backend/handler/filesystem/storage_inventory.py"
+        issue: "The declared composition-only provider is sound for current production source, but its independent discovery enforcement is incomplete."
     missing:
-      - "Extend discovery to reject every external descriptor factory or raw StorageRoot access path outside trusted composition."
-      - "Re-run the inventory and full Phase 2 suite after closing the bypass."
+      - "Make AST discovery resolve ImportFrom aliases and calls through those aliases, rejecting private-factory imports/calls outside trusted composition."
+      - "Detect StorageRoot parameters that branch on the model or access container_path regardless of function naming."
+      - "Add seeded alias-import/call and neutrally named raw-root mutants, then rerun focused inventory and full Phase 2 gates."
 ---
 
 # Phase 2: Read-only Policy Boundary Verification Report
 
 **Phase Goal:** Every operation addressing an external root is authorized by one deny-by-default policy before filesystem access.
-**Verified:** 2026-08-10T10:58:06Z
+**Verified:** 2026-08-10T11:49:49Z
 **Status:** gaps_found
-**Re-verification:** No, initial verification
+**Re-verification:** Yes, after gap-closure plan 02-10
 
 ## Goal Achievement
 
 ### Observable Truths
 
-| #   | Truth                                                                                                                                                                         | Status   | Evidence                                                                                                                                                                                                                                                                                        |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Users can perform the closed external read set while RomM-owned output remains outside the root.                                                                              | VERIFIED | `StorageOperation` and `EXTERNAL_READ_OPERATIONS` define RESOLVE/LIST/STAT/READ/SCAN/HASH/STREAM/DOWNLOAD; descriptor-relative capabilities and separately bound owned descriptors are substantive. The dual-mount verifier passed with unchanged manifests and writable owned output.          |
-| 2   | External create/upload/write/overwrite/rename/move/copy/delete/extract/patch/mkdir/sidecar/cover attempts deny before filesystem access, including API and internal channels. | VERIFIED | Pure policy/access tests reached 292 passes before the environment-dependent suite setup; code routes mutation operations through `StoragePolicyDenied`, and tests contain pre-I/O tripwires plus bounded HTTP/job assertions.                                                                  |
-| 3   | Writable and container-mounted read-only fixtures produce identical application-level denials.                                                                                | VERIFIED | `python3 backend/tools/verify_read_only_policy.py` exited 0: `PASS: writable and :ro mounts produced identical pre-I/O typed denials, unchanged manifests, and writable owned output`.                                                                                                          |
-| 4   | Caller input cannot create or alter trusted external classification.                                                                                                          | FAILED   | `storage_policy.py:128-138` publicly converts any caller-created `StorageRoot` and its `container_path`; `storage_access.py:244-253` accepts raw `StorageRoot` and invokes that factory. `test_storage_policy.py:38-56,153` constructs unsaved arbitrary-path roots and treats them as trusted. |
-| 5   | The post-enforcement inventory closes every external read/mutation seam.                                                                                                      | FAILED   | The inventory names composition as the trusted provider but does not inventory or reject the public `create_external_descriptor()` and raw-`StorageRoot` branch. Its equality gate therefore cannot prove SAFE-04.                                                                              |
+| #   | Truth                                                                                                                                                                         | Status   | Evidence                                                                                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Users can perform the closed external read set while RomM-owned output remains outside the root.                                                                              | VERIFIED | The exact read allowlist remains RESOLVE/LIST/STAT/READ/SCAN/HASH/STREAM/DOWNLOAD. The full Phase 2 suite passed, and the dual-mount verifier confirmed unchanged external manifests plus writable owned output.                                                                                                    |
+| 2   | External create/upload/write/overwrite/rename/move/copy/delete/extract/patch/mkdir/sidecar/cover attempts deny before filesystem access, including API and internal channels. | VERIFIED | Policy/access and endpoint/job tests passed in the 865-test full gate. The dual-mount verifier observed identical typed pre-I/O denials on writable and read-only mounts.                                                                                                                                           |
+| 3   | Writable and container-mounted read-only fixtures produce identical application-level denials.                                                                                | VERIFIED | `python3 backend/tools/verify_read_only_policy.py` exited 0 with its PASS marker for denial parity, unchanged manifests, and writable owned output.                                                                                                                                                                 |
+| 4   | Caller input cannot create or alter trusted external classification.                                                                                                          | VERIFIED | The public `create_external_descriptor` surface is absent. `open_storage_access()` accepts only `ExternalStorageDescriptor`, rejects raw/unsaved `StorageRoot` before authorization, normalization, or I/O, and descriptor construction is token-gated. Focused tests passed 297/297.                               |
+| 5   | The post-enforcement inventory closes every external read/mutation and authority seam.                                                                                        | FAILED   | Current production source has only the composition call, but `_authority_seams()` misses aliased private-factory calls and neutrally named raw `StorageRoot.container_path` accessors. An independent seeded probe returned `[]` for both mutants, contradicting the plan's every-import/call/raw-seam requirement. |
 
-**Score:** 3/5 truths verified
+**Score:** 4/5 truths verified
 
 ### Required Artifacts
 
-| Artifact                                            | Expected                                             | Status   | Details                                                                                                                         |
-| --------------------------------------------------- | ---------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `backend/handler/filesystem/storage_policy.py`      | Closed deny-by-default policy and trusted identities | PARTIAL  | Policy matrix is substantive, but external identity construction is publicly forgeable from an arbitrary model/path.            |
-| `backend/handler/filesystem/storage_access.py`      | Operation-bound descriptor-relative capabilities     | PARTIAL  | Capabilities are substantive and no-follow, but the public entry point accepts raw `StorageRoot` and creates authority from it. |
-| `backend/handler/filesystem/storage_composition.py` | Sole trusted root composition                        | VERIFIED | Builds one legacy external descriptor and ten explicit owned descriptors after lexical overlap validation.                      |
-| `backend/handler/filesystem/storage_inventory.py`   | Closed runtime seam registry                         | FAILED   | Omits the alternative descriptor-construction/access seam.                                                                      |
-| `backend/tools/verify_read_only_policy.py`          | Writable/:ro parity proof                            | VERIFIED | Executed independently and passed.                                                                                              |
-| `backend/docker-compose.policy-test.yml`            | Dual fixture mount contract                          | VERIFIED | Wired to the verifier and used successfully.                                                                                    |
-| `examples/docker-compose.example.yml`               | External `:ro`, owned storage separate               | VERIFIED | Deployment example contains separated mounts; verifier confirms the test composition.                                           |
+| Artifact                                                     | Expected                                             | Status   | Details                                                                                                                             |
+| ------------------------------------------------------------ | ---------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/handler/filesystem/storage_policy.py`               | Closed policy and non-public external construction   | VERIFIED | Public model factory removed; external descriptor constructor requires the private token; `_create_external_descriptor` is private. |
+| `backend/handler/filesystem/storage_access.py`               | Descriptor-only operation capabilities               | VERIFIED | Raw `StorageRoot` support is removed; type check at lines 246-247 precedes policy, normalization, and target opening.               |
+| `backend/handler/filesystem/storage_composition.py`          | Sole current runtime external descriptor constructor | VERIFIED | The only current runtime call to `_create_external_descriptor` is in `build_storage_composition`, after disjoint-root validation.   |
+| `backend/handler/filesystem/storage_inventory.py`            | Closed authority inventory                           | PARTIAL  | Declares composition as the authority provider, but enforcement depends on incomplete test-side AST discovery.                      |
+| `backend/tests/handler/filesystem/test_storage_inventory.py` | Independent fail-closed authority discovery          | FAILED   | Literal-name and function-name heuristics allow simple alias and raw-root mutants to evade detection.                               |
+| `backend/tools/verify_read_only_policy.py`                   | Writable/read-only parity proof                      | VERIFIED | Independently executed and passed. The private factory use is isolated under excluded `backend/tools`.                              |
 
 ### Key Link Verification
 
-| From                     | To                          | Via                                     | Status           | Details                                                                                              |
-| ------------------------ | --------------------------- | --------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------- |
-| storage consumers        | `storage_access.py`         | exact operation capabilities            | VERIFIED         | Production consumers call `open_storage_access`; capability classes bind an already-open descriptor. |
-| `storage_access.py`      | `storage_policy.py`         | authorize before target open            | VERIFIED         | `StoragePolicy.authorize()` precedes normalization and `_open_target()`.                             |
-| `storage_composition.py` | owned/external handlers     | immutable descriptors                   | VERIFIED         | Filesystem singletons receive composition-built descriptors.                                         |
-| caller/model path        | trusted external descriptor | public factory/raw compatibility branch | NOT_WIRED SAFELY | This is an unauthorized parallel trust path that bypasses composition ownership.                     |
-| inventory tests          | production seams            | AST discovery equality                  | PARTIAL          | Discovery does not identify the parallel descriptor factory/access path.                             |
+| From                         | To                         | Via                                   | Status        | Details                                                                                       |
+| ---------------------------- | -------------------------- | ------------------------------------- | ------------- | --------------------------------------------------------------------------------------------- |
+| `storage_composition.py`     | `storage_policy.py`        | private `_create_external_descriptor` | VERIFIED      | Exactly one current runtime factory call was found, in `build_storage_composition`.           |
+| `storage_access.py`          | `storage_policy.py`        | descriptor authorization before I/O   | VERIFIED      | Runtime type rejection precedes `StoragePolicy.authorize`, normalization, and `_open_target`. |
+| caller-created `StorageRoot` | external access            | raw model input                       | VERIFIED SAFE | Regression tripwires establish rejection before authorization and filesystem access.          |
+| inventory AST gate           | production authority seams | syntax-derived equality               | NOT CLOSED    | Alias imports/calls and neutrally named raw-root accessors are not discovered.                |
 
 ### Data-Flow Trace (Level 4)
 
-Not applicable to UI rendering. Security data flow was traced instead: `StorageRoot.container_path` -> `create_external_descriptor()` -> descriptor `_root_path` -> `open_storage_access()` -> `_open_root()`/`os.open()`. This is real data flow and demonstrates the gap.
+Security flow is `trusted_storage_config` -> `build_storage_composition` -> `_create_external_descriptor` -> `ExternalFSHandler.storage` -> `open_storage_access` -> `StoragePolicy.authorize` -> descriptor-relative `os.open`. No current production `StorageRoot.container_path` path reaches `open_storage_access`. The failed independent mutant probe shows the inventory cannot guarantee this remains exclusive.
 
 ### Behavioral Spot-Checks
 
-| Behavior                                         | Command                                                                             | Result                                                                                    | Status  |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------- |
-| Pure policy/access/owned prefix of Phase 2 suite | canonical pytest list with `-x -q` in `romm-dev`                                    | 292 passed, then database setup attempted `127.0.0.1:3306` and errored                    | WARNING |
-| Inventory gate                                   | `uv run pytest tests/handler/filesystem/test_storage_inventory.py -q` in `romm-dev` | 6 setup errors because `backend/pytest.ini` forces DB_HOST=127.0.0.1 inside the container | WARNING |
-| Dual-mount parity                                | `python3 backend/tools/verify_read_only_policy.py`                                  | exit 0, identical typed denials and unchanged manifests                                   | PASS    |
-
-The pytest failures are environment/setup failures rather than assertion failures. They do not create the blocker verdict; the source-level trust bypass does.
+| Behavior                             | Command                                                                                                                | Result                                            | Status |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ------ |
+| Focused authority and inventory gate | containerized pytest for policy/access/inventory                                                                       | 297 passed, 1 existing Alembic warning            | PASS   |
+| Full Phase 2 regression              | exact 02-10 Phase 2 test list in repository image with MariaDB namespace and disposable Valkey                         | 865 passed, 8 skipped, 1 existing Alembic warning | PASS   |
+| Raw unsaved model rejection          | focused `test_raw_storage_root_is_rejected_before_authorization_or_io` within gate                                     | passed                                            | PASS   |
+| Independent AST evasion probe        | seed aliased factory call plus `resolve_root(root: StorageRoot)` reading `container_path`, invoke `_authority_seams()` | returned `[]`                                     | FAIL   |
 
 ### Probe Execution
 
-| Probe                       | Command                                            | Result                  | Status |
-| --------------------------- | -------------------------------------------------- | ----------------------- | ------ |
-| Phase 2 dual-mount verifier | `python3 backend/tools/verify_read_only_policy.py` | exit 0 with PASS marker | PASS   |
+| Probe                       | Command                                            | Result              | Status |
+| --------------------------- | -------------------------------------------------- | ------------------- | ------ |
+| Phase 2 dual-mount verifier | `python3 backend/tools/verify_read_only_policy.py` | PASS marker, exit 0 | PASS   |
 
 ### Requirements Coverage
 
-| Requirement | Source Plans               | Status    | Evidence                                                                                                                    |
-| ----------- | -------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------- |
-| ROOT-05     | 02-01, 02-03, 02-06, 02-09 | SATISFIED | Ten owned kinds are explicitly bound outside the external root; dual-mount verifier confirms owned output remains writable. |
-| SAFE-01     | 02-01, 02-04, 02-08, 02-09 | SATISFIED | Exact external allowlist and operation capabilities exist and are exercised.                                                |
-| SAFE-02     | 02-01, 02-03, 02-05..02-09 | SATISFIED | Mutation matrix denies external operations before I/O.                                                                      |
-| SAFE-03     | 02-05, 02-09               | SATISFIED | Typed bounded `external_storage_operation_denied` translation and route matrix exist.                                       |
-| SAFE-04     | 02-03..02-09               | BLOCKED   | Inventory misses the raw model-to-descriptor/access seam, so complete governance is false.                                  |
-| SAFE-05     | 02-09                      | SATISFIED | Example uses `:ro`; independent dual-mount verifier passed.                                                                 |
-| SAFE-06     | 02-02..02-09               | SATISFIED | Descriptor reads and parity manifest proof show no source-side output.                                                      |
-| TEST-03     | 02-01..02-09               | SATISFIED | Mutation/pre-I/O matrices are substantive; 292 tests passed before DB-dependent setup and the mount verifier passed.        |
+| Requirement | Source Plans                      | Status    | Evidence                                                                                                                              |
+| ----------- | --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| ROOT-05     | 02-01, 02-03, 02-06, 02-09        | SATISFIED | Closed owned kinds remain disjoint; dual-mount proof confirms owned output remains writable.                                          |
+| SAFE-01     | 02-01, 02-04, 02-08, 02-09, 02-10 | SATISFIED | External allowlist and descriptor-only access are enforced and tested.                                                                |
+| SAFE-02     | 02-01, 02-03, 02-05..02-09        | SATISFIED | Mutation attempts deny before I/O in full regression and mount probe.                                                                 |
+| SAFE-03     | 02-05, 02-09                      | SATISFIED | Bounded HTTP/internal denial tests pass.                                                                                              |
+| SAFE-04     | 02-03..02-10                      | BLOCKED   | Current seams are governed, but the promised fail-closed inventory does not discover all parallel factory/import/call/raw-root forms. |
+| SAFE-05     | 02-09                             | SATISFIED | Writable and `:ro` parity verifier passed.                                                                                            |
+| SAFE-06     | 02-02..02-09                      | SATISFIED | External manifests remain unchanged and owned output stays separate.                                                                  |
+| TEST-03     | 02-01..02-10                      | SATISFIED | Focused, full, and dual-mount suites pass; the additional adversarial inventory probe exposes the remaining coverage gap.             |
 
 No Phase 2 requirement is orphaned from plan frontmatter.
 
 ### Anti-Patterns Found
 
-| File                                                      | Line | Pattern                                                        | Severity | Impact                                                        |
-| --------------------------------------------------------- | ---- | -------------------------------------------------------------- | -------- | ------------------------------------------------------------- |
-| `backend/handler/filesystem/storage_policy.py`            | 128  | Public trust factory accepts arbitrary in-memory `StorageRoot` | BLOCKER  | Caller-selected absolute path becomes an external descriptor. |
-| `backend/handler/filesystem/storage_access.py`            | 244  | Raw `StorageRoot` compatibility overload                       | BLOCKER  | Parallel authority path bypasses composition ownership.       |
-| `backend/tests/handler/filesystem/test_storage_policy.py` | 38   | Test helper assigns id to unsaved arbitrary-path model         | BLOCKER  | Tests endorse rather than reject classification forgery.      |
+| File                                                         | Line    | Pattern                                                                      | Severity | Impact                                                                                    |
+| ------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `backend/tests/handler/filesystem/test_storage_inventory.py` | 267-304 | AST discovery relies on literal symbol and selected function-name heuristics | BLOCKER  | A parallel authority seam can be introduced while the closed-equality test remains green. |
 
-No unreferenced TBD, FIXME, or XXX debt markers were found in the central Phase 2 policy/access/composition/inventory/verifier files.
+No unreferenced TBD, FIXME, or XXX markers were found in the six 02-10 policy/access/inventory files.
 
 ### Human Verification Required
 
-None. The blocking gap is directly observable in code, and all Phase 2 behavior is specified as automatable. The database-host setup warning should be corrected or rerun in a properly networked test environment after the code gap is fixed.
+None. The phase is backend policy/inventory work, and the remaining failure is directly reproducible programmatically.
 
 ### Gaps Summary
 
-The policy denies mutations correctly once given an external descriptor, but the trust boundary that creates that descriptor is not closed. Any caller can construct an unsaved `StorageRoot` with a chosen absolute container path and id, then pass it through the public factory or directly to `open_storage_access()`. The inventory does not detect this alternate seam. Consequently the phase goal, D-04/D-13/D-15, and SAFE-04 are not achieved even though the policy matrix and dual-mount denial verifier pass.
+Plan 02-10 closes the original caller-created `StorageRoot` and selected-path authority bypass. Runtime access is descriptor-only, and all focused, full, and dual-mount tests pass. The second prior gap remains because the new independent inventory does not satisfy its own fail-closed contract: ordinary import aliasing evades private-factory discovery, and raw `StorageRoot.container_path` use is ignored unless the function name contains one of four selected substrings. Since SAFE-04 and truth 5 require every seam to be discovered, this is a blocker rather than a warning.
+
+---
+
+_Verified: 2026-08-10T11:49:49Z_
+_Verifier: the agent (gsd-verifier)_
