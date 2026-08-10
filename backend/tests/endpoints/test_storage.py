@@ -247,15 +247,41 @@ def test_browse_has_bounded_path_safe_errors(
 
 def test_storage_openapi_excludes_sensitive_fields(client):
     schema = client.get("/openapi.json").json()
-    assert "/api/storage/roots" in schema["paths"]
-    assert "/api/storage/roots/{storage_root_id}/browse" in schema["paths"]
-    serialized = str(
-        {
-            name: value
-            for name, value in schema["components"]["schemas"].items()
-            if name.startswith("Storage")
-        }
-    )
+    expected_methods = {
+        "/api/storage/roots": {"get"},
+        "/api/storage/roots/{storage_root_id}": {"get"},
+        "/api/storage/roots/{storage_root_id}/browse": {"get"},
+        "/api/storage/mappings/platforms/{platform_id}": {"get"},
+        "/api/storage/mappings/platforms/{platform_id}/preview": {"get"},
+        "/api/storage/mappings/test": {"post"},
+        "/api/storage/mappings": {"post"},
+        "/api/storage/mappings/{mapping_id}": {"put", "delete"},
+        "/api/storage/mappings/{mapping_id}/deactivate": {"post"},
+        "/api/storage/mappings/{mapping_id}/activate": {"post"},
+        "/api/storage/mapping-audits": {"get"},
+    }
+    for path, methods in expected_methods.items():
+        assert methods <= set(schema["paths"][path])
+
+    storage_schemas = {
+        name: value
+        for name, value in schema["components"]["schemas"].items()
+        if name.startswith("Storage")
+    }
+    assert {
+        "StorageRootSchema",
+        "StorageRootHealthSchema",
+        "StorageDirectoryEntrySchema",
+        "StorageDirectoryPageSchema",
+        "StorageMappingSchema",
+        "StorageMappingTestSchema",
+        "StorageMappingPreviewSchema",
+        "StorageMappingAuditSchema",
+        "StorageMappingAuditPageSchema",
+        "StorageErrorResponse",
+        "StorageConflictResponse",
+    } <= set(storage_schemas)
+    serialized = str(storage_schemas)
     assert not any(
         field in serialized
         for field in (
@@ -263,6 +289,12 @@ def test_storage_openapi_excludes_sensitive_fields(client):
             "safe_error",
             "platform_mappings",
             "absolute_path",
+            "candidate_name",
+            "candidate_path",
+            "/sentinel/absolute",
+            "nas/library",
+            "RAW OS ERROR",
+            "SQL SELECT",
         )
     )
 
