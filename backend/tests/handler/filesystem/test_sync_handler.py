@@ -5,11 +5,23 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from exceptions.storage_exceptions import StoragePolicyDenied
+from handler.filesystem.storage_policy import StorageOperation, StoragePolicy
 from handler.filesystem.sync_handler import FSSyncHandler, get_fs_sync_handler
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_database() -> None:
+    pass
+
+
+@pytest.fixture(autouse=True)
+def clear_database() -> None:
+    pass
 
 
 class TestFSSyncHandler:
@@ -154,3 +166,34 @@ class TestFSSyncHandlerLazyFactory:
                     get_fs_sync_handler()
         finally:
             get_fs_sync_handler.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("method", "operation", "args"),
+    [
+        ("ensure_device_directories", StorageOperation.MKDIR, ("device",)),
+        ("list_incoming_files", StorageOperation.LIST, ("device",)),
+        ("compute_file_hash", StorageOperation.HASH, ("save.sav",)),
+        (
+            "write_outgoing_file",
+            StorageOperation.OVERWRITE,
+            ("device", "gba", "save.sav", b"data"),
+        ),
+        ("remove_incoming_file", StorageOperation.DELETE, ("save.sav",)),
+    ],
+)
+def test_sync_operations_authorize_owned_storage_before_io(
+    tmp_path, monkeypatch, method, operation, args
+):
+    handler = FSSyncHandler.__new__(FSSyncHandler)
+    handler.base_path = tmp_path
+    handler.storage = object()
+    denial = StoragePolicyDenied(operation.value, "owned:sync", "sync")
+    authorize = MagicMock(side_effect=denial)
+    monkeypatch.setattr(StoragePolicy, "authorize", authorize)
+
+    with pytest.raises(StoragePolicyDenied) as caught:
+        getattr(handler, method)(*args)
+
+    assert caught.value is denial
+    authorize.assert_called_once_with(operation, handler.storage)
