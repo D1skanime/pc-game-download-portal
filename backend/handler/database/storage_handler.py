@@ -102,6 +102,7 @@ class DBStorageHandler(DBBaseHandler):
         candidate = resolve_directory(root, relative_path)
         mappings = session.scalars(
             select(PlatformStorageMapping)
+            .where(PlatformStorageMapping.active.is_(True))
             .options(selectinload(PlatformStorageMapping.storage_root))
             .with_for_update(of=PlatformStorageMapping)
         ).all()
@@ -136,6 +137,16 @@ class DBStorageHandler(DBBaseHandler):
         _, relative_path = self._load_and_validate(
             session, storage_root_id, relative_path
         )
+        active_mapping_id = session.scalar(
+            select(PlatformStorageMapping.id)
+            .where(
+                PlatformStorageMapping.platform_id == platform_id,
+                PlatformStorageMapping.active.is_(True),
+            )
+            .with_for_update(of=PlatformStorageMapping)
+        )
+        if active_mapping_id is not None:
+            raise DuplicateStorageMappingError(platform_id, storage_root_id)
         # Re-load under the same root lock immediately before persistence.
         self._load_and_validate(session, storage_root_id, relative_path)
         mapping = PlatformStorageMapping(

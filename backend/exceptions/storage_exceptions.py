@@ -84,10 +84,18 @@ class UnsafeWritableRootError(StorageResolutionError):
 class StorageMappingOverlapError(StorageResolutionError):
     code = "storage_mapping_overlap"
 
-    def __init__(self, storage_root_id: int, relative_path: str):
-        super().__init__(
-            f"Storage mapping {storage_root_id}:{relative_path} overlaps an active mapping"
-        )
+    def __init__(
+        self,
+        storage_root_id: int,
+        relative_path: str | None = None,
+        *,
+        platform_id: int | None = None,
+        mapping_id: int | None = None,
+    ):
+        self.storage_root_id = storage_root_id
+        self.platform_id = platform_id
+        self.mapping_id = mapping_id
+        super().__init__("Storage mapping overlaps an active mapping")
 
 
 class DuplicateStorageMappingError(StorageResolutionError):
@@ -116,3 +124,43 @@ class StoragePolicyDenied(StorageResolutionError):
         self.storage_class = storage_class
         self.storage_id = storage_id
         super().__init__(f"{operation} denied for {storage_class} storage {storage_id}")
+
+
+class MissingPlatformStorageMappingError(StorageResolutionError):
+    code = "platform_mapping_missing"
+
+    def __init__(self, platform_id: int):
+        self.platform_id = platform_id
+        super().__init__(f"Storage mapping for platform {platform_id} was not found")
+
+
+class StaleStorageMappingVersionError(StorageResolutionError):
+    code = "storage_mapping_stale_version"
+
+    def __init__(self, mapping_id: int, current_version: int):
+        self.mapping_id = mapping_id
+        self.current_version = current_version
+        super().__init__(f"Storage mapping {mapping_id} has version {current_version}")
+
+
+class InvalidStorageCursorError(StorageResolutionError):
+    code = "invalid_storage_cursor"
+
+    def __init__(self):
+        super().__init__("Storage cursor is invalid")
+
+
+class StorageScanLimitError(StorageResolutionError):
+    code = "storage_scan_limit_exceeded"
+
+    def __init__(self, storage_root_id: int):
+        self.storage_root_id = storage_root_id
+        super().__init__(f"Storage scan limit exceeded for root {storage_root_id}")
+
+
+class SafeStorageFilesystemError(StorageResolutionError):
+    code = "storage_filesystem_error"
+
+    def __init__(self, storage_root_id: int):
+        self.storage_root_id = storage_root_id
+        super().__init__(f"Storage operation failed for root {storage_root_id}")

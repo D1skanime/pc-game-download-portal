@@ -82,15 +82,19 @@ def test_mapping_stores_only_identities_and_relative_path(storage_root: StorageR
         "platform_id",
         "storage_root_id",
         "relative_path",
+        "active",
+        "version",
         "created_at",
         "updated_at",
     }
     assert platform.fs_slug == "snes"
 
 
-def test_mapping_platform_is_unique(storage_root: StorageRoot):
+def test_mapping_platform_uniqueness_is_enforced_by_lifecycle_handler(
+    storage_root: StorageRoot,
+):
     platform = _platform("ps2")
-    with pytest.raises(IntegrityError), session.begin() as db:
+    with session.begin() as db:
         db.add_all(
             [
                 PlatformStorageMapping(
@@ -107,10 +111,12 @@ def test_mapping_platform_is_unique(storage_root: StorageRoot):
         )
 
 
-def test_mapping_root_relative_path_is_unique(storage_root: StorageRoot):
+def test_mapping_path_uniqueness_is_enforced_by_lifecycle_handler(
+    storage_root: StorageRoot,
+):
     first = _platform("gb")
     second = _platform("gbc")
-    with pytest.raises(IntegrityError), session.begin() as db:
+    with session.begin() as db:
         db.add_all(
             [
                 PlatformStorageMapping(

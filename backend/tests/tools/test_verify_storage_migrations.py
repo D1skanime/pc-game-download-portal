@@ -52,6 +52,7 @@ def test_handler_test_repetitions_must_be_positive():
 
 def test_verify_dialect_exercises_pristine_and_history_paths(monkeypatch):
     calls = []
+    monkeypatch.setattr(verifier.subprocess, "run", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         verifier, "_run", lambda *args, **kwargs: calls.append(args[0]) or ""
     )

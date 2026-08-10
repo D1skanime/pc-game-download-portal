@@ -121,7 +121,9 @@ def _bootstrap_mysql_0107(name: str) -> None:
     _run(["docker", "exec", name, "mysql", "-uroot", "-proot", "-e", statement])
 
 
-def _handler_tests(runner: str, dialect: str, host: str, port: str) -> None:
+def _handler_tests(
+    runner: str, dialect: str, host: str, port: str, repetitions: int = 1
+) -> None:
     environment = {
         "ROMM_DB_DRIVER": dialect,
         "DB_HOST": host,
@@ -143,10 +145,79 @@ def _handler_tests(runner: str, dialect: str, host: str, port: str) -> None:
             "cd /app/backend && uv run pytest -c /dev/null tests/models/test_storage.py tests/handler/database/test_storage_handler.py -x",
         ]
     )
+    for _ in range(repetitions):
+        _run(command)
+
+
+def _database_environment(dialect: str, host: str, port: str) -> dict[str, str]:
+    return {
+        "ROMM_DB_DRIVER": dialect,
+        "DB_HOST": host,
+        "DB_PORT": port,
+        "DB_USER": "romm",
+        "DB_PASSWD": "romm",
+        "DB_NAME": "romm_migration",
+        "ROMM_AUTH_SECRET_KEY": "storage-migration-verifier-only",
+        "ROMM_BASE_PATH": "/tmp/romm-storage-migration-verifier",
+    }
+
+
+def _execute_sql(runner: str, dialect: str, host: str, port: str, sql: str) -> None:
+    command = ["docker", "exec"]
+    for key, value in _database_environment(dialect, host, port).items():
+        command.extend(["-e", f"{key}={value}"])
+    program = (
+        "from config.config_manager import ConfigManager; "
+        "from sqlalchemy import create_engine, text; "
+        "engine=create_engine(ConfigManager.get_db_engine()); "
+        f"sql={sql!r}; "
+        "connection=engine.connect(); transaction=connection.begin(); "
+        "connection.execute(text(sql)); transaction.commit(); connection.close()"
+    )
+    command.extend(
+        ["--workdir", "/app/backend", runner, "/app/.venv/bin/python", "-c", program]
+    )
     _run(command)
 
 
-def verify_dialect(dialect: str, runner: str, *, handler_tests: bool = False) -> None:
+def _verify_lifecycle_downgrade_rejected(
+    dialect: str, runner: str, host: str, port: str
+) -> None:
+    platform_statements = (
+        [
+            "INSERT INTO platforms (id) VALUES (900001)",
+            "INSERT INTO platforms (id) VALUES (900002)",
+        ]
+        if dialect == "mysql"
+        else [
+            "INSERT INTO platforms (id, name, slug, fs_slug, missing_from_fs) VALUES (900001, 'Verifier One', 'verifier-one', 'verifier-one', FALSE)",
+            "INSERT INTO platforms (id, name, slug, fs_slug, missing_from_fs) VALUES (900002, 'Verifier Two', 'verifier-two', 'verifier-two', FALSE)",
+        ]
+    )
+    statements = [
+        *platform_statements,
+        "INSERT INTO storage_roots (id, name, container_path, mode, active) VALUES (900001, 'Verifier', '/verifier', 'external_read_only', TRUE)",
+        "INSERT INTO platform_storage_mappings (id, platform_id, storage_root_id, relative_path, active, version) VALUES (900001, 900001, 900001, 'History', FALSE, 2)",
+        "INSERT INTO platform_storage_mappings (id, platform_id, storage_root_id, relative_path, active, version) VALUES (900002, 900001, 900001, 'Replacement', TRUE, 1)",
+        "INSERT INTO platform_storage_mappings (id, platform_id, storage_root_id, relative_path, active, version) VALUES (900003, 900002, 900001, 'History', TRUE, 1)",
+        "INSERT INTO storage_mapping_audits (actor_user_id, actor_display_name, platform_id, mapping_id, action, old_storage_root_id, old_relative_path, old_version, old_active, new_storage_root_id, new_relative_path, new_version, new_active) VALUES (1, 'Verifier', 900001, 900001, 'deactivate', 900001, 'History', 1, TRUE, 900001, 'History', 2, FALSE)",
+    ]
+    for statement in statements:
+        _execute_sql(runner, dialect, host, port, statement)
+    try:
+        _alembic(runner, dialect, host, port, "downgrade", "0108_storage_foundation")
+    except subprocess.CalledProcessError:
+        return
+    raise RuntimeError(f"{dialect}: lifecycle downgrade unexpectedly succeeded")
+
+
+def verify_dialect(
+    dialect: str,
+    runner: str,
+    *,
+    handler_tests: bool = False,
+    handler_test_repetitions: int = 1,
+) -> None:
     config = DIALECTS[dialect]
     name = f"romm-storage-migration-{dialect}-{uuid.uuid4().hex[:10]}"
     command = [
@@ -170,12 +241,11 @@ def verify_dialect(dialect: str, runner: str, *, handler_tests: bool = False) ->
         if dialect == "mysql":
             _bootstrap_mysql_0107(name)
         _alembic(runner, dialect, host, port, "upgrade", "head")
-        _alembic(
-            runner, dialect, host, port, "downgrade", "0107_roms_dedup_cover_index"
-        )
+        _alembic(runner, dialect, host, port, "downgrade", "0108_storage_foundation")
         _alembic(runner, dialect, host, port, "upgrade", "head")
+        _verify_lifecycle_downgrade_rejected(dialect, runner, host, port)
         if handler_tests and dialect != "mysql":
-            _handler_tests(runner, dialect, host, port)
+            _handler_tests(runner, dialect, host, port, handler_test_repetitions)
         elif handler_tests:
             print("mysql: handler tests skipped on the minimal 0107 baseline")
         print(f"{dialect}: upgrade/downgrade/re-upgrade passed")
@@ -188,16 +258,33 @@ def verify_dialect(dialect: str, runner: str, *, handler_tests: bool = False) ->
         )
 
 
-def main() -> None:
+def _positive_integer(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--dialects", nargs="+", choices=sorted(DIALECTS), required=True
     )
     parser.add_argument("--runner-container", default="romm-dev")
     parser.add_argument("--handler-tests", action="store_true")
-    args = parser.parse_args()
+    parser.add_argument("--handler-test-repetitions", type=_positive_integer, default=1)
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     for dialect in args.dialects:
-        verify_dialect(dialect, args.runner_container, handler_tests=args.handler_tests)
+        verify_dialect(
+            dialect,
+            args.runner_container,
+            handler_tests=args.handler_tests,
+            handler_test_repetitions=args.handler_test_repetitions,
+        )
 
 
 if __name__ == "__main__":
