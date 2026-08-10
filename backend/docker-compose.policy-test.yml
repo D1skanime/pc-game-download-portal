@@ -1,0 +1,43 @@
+services:
+  policy-writable:
+    image: romm-romm-dev:latest
+    working_dir: /workspace/backend
+    environment:
+      ROMM_AUTH_SECRET_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+    entrypoint:
+      - python3
+      - /workspace/backend/tools/verify_read_only_policy.py
+      - --probe
+    volumes:
+      - type: bind
+        source: ${POLICY_REPO_ROOT:?set POLICY_REPO_ROOT}
+        target: /workspace
+        read_only: true
+      - type: bind
+        source: ${POLICY_FIXTURE_SOURCE:?set POLICY_FIXTURE_SOURCE}
+        target: /policy/external
+      - type: bind
+        source: ${POLICY_OWNED_OUTPUT:?set POLICY_OWNED_OUTPUT}
+        target: /policy/owned
+
+  policy-readonly:
+    image: romm-romm-dev:latest
+    working_dir: /workspace/backend
+    environment:
+      ROMM_AUTH_SECRET_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+    entrypoint:
+      - python3
+      - /workspace/backend/tools/verify_read_only_policy.py
+      - --probe
+    volumes:
+      - type: bind
+        source: ${POLICY_REPO_ROOT:?set POLICY_REPO_ROOT}
+        target: /workspace
+        read_only: true
+      - type: bind
+        source: ${POLICY_FIXTURE_SOURCE:?set POLICY_FIXTURE_SOURCE}
+        target: /policy/external
+        read_only: true
+      - type: bind
+        source: ${POLICY_OWNED_OUTPUT:?set POLICY_OWNED_OUTPUT}
+        target: /policy/owned
