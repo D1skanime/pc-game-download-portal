@@ -4,6 +4,7 @@ import dataclasses
 import functools
 import hashlib
 import os
+import shutil
 import tempfile
 import time
 import zipfile
@@ -12,7 +13,8 @@ from typing import TYPE_CHECKING
 
 import anyio
 
-from config import LIBRARY_BASE_PATH, ZIP_CACHE_PATH
+from config import ZIP_CACHE_PATH
+from handler.filesystem.storage_access import DownloadCapability, OwnedReplace
 from logger.formatter import highlight as hl
 from logger.logger import log
 
@@ -115,43 +117,30 @@ def _ensure_zipfile_writable() -> None:
 
 
 def build_cached_zip(
-    namespace: str,
     entries: list[ZipFileEntry],
+    sources: list[DownloadCapability],
     m3u_content: bytes | None,
     m3u_filename: str | None,
-    cache_key: str,
-) -> Path:
-    """Build a ZIP_STORED archive on disk and return its path.
-
-    Writes to a temp file in the same directory, then atomically renames to
-    the final path to prevent serving partial files.
-    """
-    target = _cache_file(namespace, cache_key)
-    if target.exists():
-        return target
-
-    target.parent.mkdir(parents=True, exist_ok=True)
-
-    fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
-    try:
-        os.close(fd)
+    destination: OwnedReplace,
+) -> None:
+    """Build a ZIP from DOWNLOAD capabilities into an owned replacement."""
+    if len(entries) != len(sources):
+        raise ValueError("each ZIP entry requires one download capability")
+    if not isinstance(destination, OwnedReplace) or not all(
+        isinstance(source, DownloadCapability) for source in sources
+    ):
+        raise TypeError("ZIP building requires download inputs and owned output")
+    with destination.binary_file() as output:
         _ensure_zipfile_writable()
-        with zipfile.ZipFile(tmp_path, "w") as zf:
-            for entry in entries:
-                src = Path(LIBRARY_BASE_PATH) / entry.full_path
-                zf.write(src, arcname=entry.download_name)
+        with zipfile.ZipFile(output, "w") as zf:
+            for entry, source in zip(entries, sources, strict=True):
+                with source.binary_file() as input_file, zf.open(
+                    entry.download_name, "w"
+                ) as member:
+                    shutil.copyfileobj(input_file, member)
 
             if m3u_content is not None and m3u_filename is not None:
                 zf.writestr(m3u_filename, m3u_content)
-
-        os.rename(tmp_path, target)
-    except BaseException:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        raise
-
-    log.info(f"Built cached ZIP in {hl(namespace)}: {hl(target.name)}")
-    return target
 
 
 def get_zip_redirect_path(namespace: str, cache_key: str) -> Path:
@@ -162,6 +151,8 @@ def get_zip_redirect_path(namespace: str, cache_key: str) -> Path:
 async def resolve_cached_zip(
     namespace: str,
     entries: list[ZipFileEntry],
+    sources: list[DownloadCapability],
+    destination: OwnedReplace,
     *,
     hidden_folder: bool = False,
     m3u_content: bytes | None = None,
@@ -178,18 +169,16 @@ async def resolve_cached_zip(
         return None
 
     cache_key = get_cache_key(namespace, entries, hidden_folder)
-    if get_cached_zip(namespace, cache_key):
-        return get_zip_redirect_path(namespace, cache_key)
 
     try:
         await anyio.to_thread.run_sync(
             functools.partial(
                 build_cached_zip,
-                namespace=namespace,
                 entries=entries,
+                sources=sources,
                 m3u_content=m3u_content,
                 m3u_filename=m3u_filename,
-                cache_key=cache_key,
+                destination=destination,
             )
         )
     except Exception as e:

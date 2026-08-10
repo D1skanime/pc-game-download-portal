@@ -1,6 +1,7 @@
 import binascii
 import json
 from base64 import b64encode
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
@@ -65,6 +66,7 @@ from handler.filesystem import (
     storage_composition,
 )
 from handler.filesystem.assets_handler import validate_image_upload
+from handler.filesystem.storage_access import open_owned_access
 from handler.filesystem.storage_policy import (
     OwnedStorageKind,
     StorageOperation,
@@ -112,6 +114,49 @@ from .patch import router as patch_router
 from .screenshot import router as screenshot_router
 from .soundtrack import router as soundtrack_router
 from .upload import router as upload_router
+
+
+async def _resolve_capability_cached_zip(
+    namespace: str,
+    entries: list[ZipFileEntry],
+    *,
+    hidden_folder: bool = False,
+    m3u_content: bytes | None = None,
+    m3u_filename: str | None = None,
+    log_label: str,
+):
+    cache = storage_composition.owned[OwnedStorageKind.CACHE]
+    try:
+        with open_owned_access(cache, StorageOperation.MKDIR, namespace) as directory:
+            directory.mkdir()
+    except Exception:
+        pass
+    cache_key = get_cache_key(namespace, entries, hidden_folder)
+    with ExitStack() as stack:
+        sources = [
+            stack.enter_context(
+                open_storage_access(
+                    legacy_external_storage, StorageOperation.DOWNLOAD, entry.full_path
+                )
+            )
+            for entry in entries
+        ]
+        destination = stack.enter_context(
+            open_owned_access(
+                cache, StorageOperation.OVERWRITE, f"{namespace}/{cache_key}.zip"
+            )
+        )
+        return await resolve_cached_zip(
+            namespace,
+            entries,
+            sources,
+            destination,
+            hidden_folder=hidden_folder,
+            m3u_content=m3u_content,
+            m3u_filename=m3u_filename,
+            log_label=log_label,
+        )
+
 
 router = APIRouter(
     prefix="/roms",
@@ -1058,7 +1103,7 @@ async def download_roms(
 
     range_header = request.headers.get("range")
     if range_header and len(rom_objects) <= BULK_CACHE_MAX_ROMS:
-        redirect_path = await resolve_cached_zip(
+        redirect_path = await _resolve_capability_cached_zip(
             get_bulk_namespace([r.id for r in rom_objects]),
             all_entries,
             log_label=f"bulk download ({len(rom_objects)} ROMs)",
@@ -1510,7 +1555,7 @@ async def get_rom_content(
     range_header = request.headers.get("range")
     if range_header:
         has_m3u = rom.has_m3u_file()
-        redirect_path = await resolve_cached_zip(
+        redirect_path = await _resolve_capability_cached_zip(
             str(rom.id),
             [ZipFileEntry.from_rom_file(f, hidden_folder) for f in files],
             hidden_folder=hidden_folder,

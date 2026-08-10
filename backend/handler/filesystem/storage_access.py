@@ -216,6 +216,12 @@ class StreamCapability(_DescriptorCapability):
 
 
 class DownloadCapability(_DescriptorCapability):
+    @contextmanager
+    def binary_file(self) -> Iterator[BinaryIO]:
+        descriptor = os.dup(self._require_descriptor())
+        with os.fdopen(descriptor, "rb", closefd=True) as file:
+            yield file
+
     def download(self, chunk_size: int = 1024 * 1024) -> Iterator[bytes]:
         descriptor = self._require_descriptor()
         os.lseek(descriptor, 0, os.SEEK_SET)
@@ -328,6 +334,34 @@ class OwnedCreate(_OwnedMutationCapability):
 
 
 class OwnedReplace(_OwnedMutationCapability):
+    @contextmanager
+    def binary_file(self) -> Iterator[BinaryIO]:
+        parent = self._require_parent()
+        temporary = f".{self._name}.{os.getpid()}.tmp"
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(
+                temporary,
+                os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+                0o644,
+                dir_fd=parent,
+            )
+            with os.fdopen(descriptor, "w+b", closefd=False) as file:
+                yield file
+                file.flush()
+                os.fsync(descriptor)
+            os.close(descriptor)
+            descriptor = None
+            os.replace(temporary, self._name, src_dir_fd=parent, dst_dir_fd=parent)
+        except BaseException:
+            if descriptor is not None:
+                os.close(descriptor)
+            try:
+                os.unlink(temporary, dir_fd=parent)
+            except OSError:
+                pass
+            raise
+
     def replace(self, content: bytes) -> None:
         parent = self._require_parent()
         temporary = f".{self._name}.{os.getpid()}.tmp"
