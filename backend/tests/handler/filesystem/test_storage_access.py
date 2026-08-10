@@ -20,7 +20,12 @@ from handler.filesystem.storage_access import (
     open_owned_access,
     open_storage_access,
 )
+from handler.filesystem.storage_composition import (
+    StorageCompositionConfig,
+    build_storage_composition,
+)
 from handler.filesystem.storage_policy import (
+    ExternalStorageDescriptor,
     OwnedStorageKind,
     StorageOperation,
     _create_bound_owned_descriptor,
@@ -47,6 +52,13 @@ def _root(path: Path) -> StorageRoot:
     )
     root.id = 17
     return root
+
+
+def _external(path: Path) -> ExternalStorageDescriptor:
+    owned = {kind: path.parent / "owned" / kind.value for kind in OwnedStorageKind}
+    return build_storage_composition(
+        StorageCompositionConfig(path, owned)
+    ).legacy_external
 
 
 def _manifest(root: Path) -> tuple[tuple[object, ...], ...]:
@@ -100,7 +112,7 @@ def test_each_capability_has_only_its_operation_surface(archive, operation, meth
         in {StorageOperation.LIST, StorageOperation.SCAN, StorageOperation.RESOLVE}
         else "Nintendo/München/ゲーム.rom"
     )
-    with open_storage_access(_root(archive), operation, relative) as capability:
+    with open_storage_access(_external(archive), operation, relative) as capability:
         public = {name for name in dir(capability) if not name.startswith("_")}
         assert method in public
         assert not ({"path", "open", "write", "unlink", "rename", "replace"} & public)
@@ -110,11 +122,11 @@ def test_each_capability_has_only_its_operation_surface(archive, operation, meth
 def test_reads_preserve_complete_source_manifest(archive):
     before = _manifest(archive)
     with open_storage_access(
-        _root(archive), StorageOperation.READ, "Nintendo/München/ゲーム.rom"
+        _external(archive), StorageOperation.READ, "Nintendo/München/ゲーム.rom"
     ) as access:
         assert access.read() == b"immutable-rom-data"
     with open_storage_access(
-        _root(archive), StorageOperation.HASH, "Nintendo/München/ゲーム.rom"
+        _external(archive), StorageOperation.HASH, "Nintendo/München/ゲーム.rom"
     ) as access:
         assert (
             access.hash("sha256") == hashlib.sha256(b"immutable-rom-data").hexdigest()
@@ -138,23 +150,25 @@ def test_root_intermediate_and_leaf_symlinks_are_rejected(tmp_path, position):
         (real / "nested" / "game.rom").unlink()
         (real / "nested" / "game.rom").symlink_to(tmp_path / "outside")
     with pytest.raises(UnsafeSymlinkError):
-        open_storage_access(_root(root_path), StorageOperation.READ, relative)
+        open_storage_access(_external(root_path), StorageOperation.READ, relative)
 
 
 def test_directory_and_file_kind_checks_are_bounded(archive):
     with pytest.raises(NonDirectoryStorageTargetError):
         open_storage_access(
-            _root(archive), StorageOperation.LIST, "Nintendo/München/ゲーム.rom"
+            _external(archive), StorageOperation.LIST, "Nintendo/München/ゲーム.rom"
         )
     with pytest.raises(StorageResolutionError):
-        open_storage_access(_root(archive), StorageOperation.READ, "Nintendo/München")
+        open_storage_access(
+            _external(archive), StorageOperation.READ, "Nintendo/München"
+        )
     with pytest.raises(MissingStorageTargetError):
-        open_storage_access(_root(archive), StorageOperation.READ, "missing.rom")
+        open_storage_access(_external(archive), StorageOperation.READ, "missing.rom")
 
 
 def test_capability_rejects_use_after_close(archive):
     access = open_storage_access(
-        _root(archive), StorageOperation.READ, "Nintendo/München/ゲーム.rom"
+        _external(archive), StorageOperation.READ, "Nintendo/München/ゲーム.rom"
     )
     access.close()
     with pytest.raises(StorageResolutionError, match="closed"):
@@ -165,12 +179,12 @@ def test_repeated_access_and_partial_open_failure_do_not_leak_fds(archive):
     before = len(os.listdir("/proc/self/fd"))
     for _ in range(40):
         with open_storage_access(
-            _root(archive), StorageOperation.STAT, "Nintendo/München/ゲーム.rom"
+            _external(archive), StorageOperation.STAT, "Nintendo/München/ゲーム.rom"
         ) as access:
             assert access.stat().st_size == len(b"immutable-rom-data")
         with pytest.raises(MissingStorageTargetError):
             open_storage_access(
-                _root(archive), StorageOperation.READ, "Nintendo/missing/game.rom"
+                _external(archive), StorageOperation.READ, "Nintendo/missing/game.rom"
             )
     assert len(os.listdir("/proc/self/fd")) <= before + 1
 
@@ -180,7 +194,7 @@ def test_opened_descriptor_survives_name_swap_without_escape(archive, tmp_path):
     outside = tmp_path / "outside.rom"
     outside.write_bytes(b"outside-secret")
     access = open_storage_access(
-        _root(archive), StorageOperation.READ, "Nintendo/München/ゲーム.rom"
+        _external(archive), StorageOperation.READ, "Nintendo/München/ゲーム.rom"
     )
     original.rename(original.with_suffix(".old"))
     original.symlink_to(outside)
@@ -188,6 +202,23 @@ def test_opened_descriptor_survives_name_swap_without_escape(archive, tmp_path):
         assert access.read() == b"immutable-rom-data"
     finally:
         access.close()
+
+
+def test_raw_storage_root_is_rejected_before_authorization_or_io(tmp_path, monkeypatch):
+    forged = _root(tmp_path / "caller-selected")
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("authority, normalization, or I/O was reached")
+
+    monkeypatch.setattr(
+        "handler.filesystem.storage_access.StoragePolicy.authorize", forbidden
+    )
+    monkeypatch.setattr(
+        "handler.filesystem.storage_access.normalize_relative_path", forbidden
+    )
+    monkeypatch.setattr("handler.filesystem.storage_access.os.open", forbidden)
+    with pytest.raises(TypeError, match="bound external storage descriptor"):
+        open_storage_access(forged, StorageOperation.READ, "game.rom")
 
 
 def _owned(path: Path):
@@ -247,7 +278,7 @@ def test_owned_create_replace_delete_and_directory_are_descriptor_relative(tmp_p
 def test_subprocess_adapter_lists_only_the_capability_fd(tmp_path):
     (tmp_path / "game.rom").write_bytes(b"game")
     with open_storage_access(
-        _root(tmp_path), StorageOperation.READ, "game.rom"
+        _external(tmp_path), StorageOperation.READ, "game.rom"
     ) as access:
         argv, pass_fds = access.subprocess_fd("tool", "--input")
         assert argv[:2] == ("tool", "--input")

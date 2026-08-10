@@ -1,4 +1,5 @@
 import builtins
+import importlib
 import os
 import shutil
 import tempfile
@@ -7,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from exceptions.storage_exceptions import StoragePolicyDenied
+from handler.filesystem.storage_composition import build_storage_composition
 from handler.filesystem.storage_policy import (
     EXTERNAL_READ_OPERATIONS,
     ExternalStorageDescriptor,
@@ -14,7 +16,6 @@ from handler.filesystem.storage_policy import (
     OwnedStorageKind,
     StorageOperation,
     StoragePolicy,
-    create_external_descriptor,
     create_owned_descriptor,
     validate_disjoint_storage_roots,
 )
@@ -53,7 +54,7 @@ def _root(path: str = "/external/archive") -> StorageRoot:
 
 @pytest.fixture
 def external() -> ExternalStorageDescriptor:
-    return create_external_descriptor(_root(), mapping_id=23)
+    return build_storage_composition().legacy_external
 
 
 @pytest.mark.parametrize("operation", sorted(READS, key=str))
@@ -149,9 +150,21 @@ def test_caller_path_text_cannot_reclassify(external, text):
         create_owned_descriptor(text, "forged")
 
 
-def test_external_descriptor_contains_only_trusted_identity():
-    descriptor = create_external_descriptor(_root("/secret/path"), mapping_id=23)
-    assert (descriptor.root_id, descriptor.mapping_id) == (17, 23)
+def test_external_descriptor_factory_is_not_public_runtime_surface():
+    policy = importlib.import_module("handler.filesystem.storage_policy")
+    assert not hasattr(policy, "create_external_descriptor")
+
+
+def test_unsaved_storage_root_cannot_create_external_authority():
+    policy = importlib.import_module("handler.filesystem.storage_policy")
+    forged = _root("/caller/selected/archive")
+    forged.id = 991
+    assert getattr(policy, "create_external_descriptor", None) is None
+
+
+def test_external_descriptor_contains_only_trusted_identity(external):
+    descriptor = external
+    assert (descriptor.root_id, descriptor.mapping_id) == (0, None)
     assert not hasattr(descriptor, "path")
     assert not hasattr(descriptor, "container_path")
 
@@ -183,13 +196,13 @@ def test_policy_denial_is_bounded_and_path_free(external):
     assert (denial.operation, denial.storage_class, denial.storage_id) == (
         "delete",
         "external_read_only",
-        "mapping:23",
+        "root:0",
     )
     assert vars(denial) == {
         "operation": "delete",
         "storage_class": "external_read_only",
-        "storage_id": "mapping:23",
-        "message": "delete denied for external_read_only storage mapping:23",
+        "storage_id": "root:0",
+        "message": "delete denied for external_read_only storage root:0",
     }
     assert "/external" not in str(denial) and ".." not in str(denial)
     assert len(str(denial)) <= 160

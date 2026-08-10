@@ -244,3 +244,62 @@ def test_inventory_enforcement_links_resolve_to_real_symbols() -> None:
             if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
         }
         assert symbol in definitions
+
+
+AUTHORITY_FACTORY = "_create_external_descriptor"
+AUTHORITY_PROVIDER = (
+    "handler.filesystem.storage_composition",
+    "build_storage_composition",
+)
+
+
+def _runtime_python_files(root: Path) -> list[Path]:
+    excluded = {"tests", "tools", "alembic", "__pycache__"}
+    return [
+        path
+        for path in root.rglob("*.py")
+        if not excluded.intersection(path.relative_to(root).parts)
+    ]
+
+
+def _authority_seams(root: Path) -> set[tuple[str, str, str]]:
+    seams: set[tuple[str, str, str]] = set()
+    for path in _runtime_python_files(root):
+        module = ".".join(path.relative_to(root).with_suffix("").parts)
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                names = {
+                    child.id for child in ast.walk(node) if isinstance(child, ast.Name)
+                }
+                attrs = {
+                    child.attr
+                    for child in ast.walk(node)
+                    if isinstance(child, ast.Attribute)
+                }
+                annotations = ast.unparse(node.args)
+                if AUTHORITY_FACTORY in names:
+                    seams.add((module, node.name, "descriptor_factory"))
+                if "StorageRoot" in annotations or (
+                    "StorageRoot" in names and "container_path" in attrs
+                ):
+                    seams.add((module, node.name, "raw_storage_root"))
+    return seams
+
+
+def test_runtime_authority_seams_are_closed_and_composition_only() -> None:
+    assert _authority_seams(BACKEND) == {(*AUTHORITY_PROVIDER, "descriptor_factory")}
+
+
+def test_authority_discovery_rejects_seeded_factory_and_raw_root_mutants(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "factory.py").write_text(
+        "def forge():\n    return _create_external_descriptor(9, '/tmp')\n"
+    )
+    (tmp_path / "raw.py").write_text(
+        "def open_any(root: StorageRoot):\n    return root.container_path\n"
+    )
+    seams = _authority_seams(tmp_path)
+    assert ("factory", "forge", "descriptor_factory") in seams
+    assert ("raw", "open_any", "raw_storage_root") in seams
