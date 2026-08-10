@@ -68,7 +68,7 @@ def _raise_safe_storage_error(error: StorageResolutionError) -> None:
     )
     raise HTTPException(
         status_code=_ERROR_STATUS.get(
-            type(error), status.HTTP_422_UNPROCESSABLE_ENTITY
+            type(error), status.HTTP_422_UNPROCESSABLE_CONTENT
         ),
         detail=detail.model_dump(mode="json"),
     ) from None
