@@ -13,8 +13,10 @@ from sqlalchemy.exc import IntegrityError
 from exceptions.storage_exceptions import (
     DuplicateStorageMappingError,
     InvalidRelativePathError,
+    MissingPlatformStorageMappingError,
     MissingStoragePlatformError,
     MissingStorageRootError,
+    StaleStorageMappingVersionError,
     StorageMappingOverlapError,
     StoragePersistenceError,
     UnsafeWritableRootError,
@@ -22,7 +24,12 @@ from exceptions.storage_exceptions import (
 from handler.database import db_storage_handler
 from handler.database.base_handler import sync_engine, sync_session
 from models.platform import Platform
-from models.storage import PlatformStorageMapping, StorageRoot
+from models.storage import (
+    PlatformStorageMapping,
+    StorageMappingAudit,
+    StorageMappingAuditAction,
+    StorageRoot,
+)
 
 
 def access(_path, mode):
@@ -373,6 +380,7 @@ def test_concurrent_initial_cross_root_overlap_one_commit(tmp_path: Path):
         for thread in threads:
             thread.start()
         for thread in threads:
+
             thread.join(timeout=10)
     finally:
         access_patch.stop()
@@ -380,3 +388,124 @@ def test_concurrent_initial_cross_root_overlap_one_commit(tmp_path: Path):
     assert sorted(outcomes) == ["commit", "overlap"]
     with sync_session() as session:
         assert len(session.scalars(select(PlatformStorageMapping)).all()) == 1
+
+
+def test_mapping_lifecycle_is_versioned_active_only_and_audited(tmp_path: Path):
+    for name in ("a", "b", "c"):
+        (tmp_path / name).mkdir()
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
+    with patch("handler.filesystem.storage_resolver.os.access", side_effect=access):
+        tested = db_storage_handler.test_mapping(platforms[0].id, roots[0].id, "a")
+        assert tested.relative_path == "a"
+        created = db_storage_handler.create_mapping(
+            platforms[0].id,
+            roots[0].id,
+            "a",
+            actor_user_id=41,
+            actor_display_name="Original Admin",
+        )
+        assert created.active and created.version == 1
+        db_storage_handler.deactivate_mapping(
+            created.id,
+            expected_version=1,
+            actor_user_id=41,
+            actor_display_name="Original Admin",
+        )
+        replacement = db_storage_handler.create_mapping(
+            platforms[0].id,
+            roots[0].id,
+            "b",
+            actor_user_id=42,
+            actor_display_name="Replacement Admin",
+        )
+        assert replacement.id != created.id
+        with pytest.raises(StorageMappingOverlapError):
+            db_storage_handler.reactivate_mapping(
+                created.id,
+                expected_version=2,
+                actor_user_id=41,
+                actor_display_name="Renamed Admin",
+            )
+        with pytest.raises(StaleStorageMappingVersionError) as stale:
+            db_storage_handler.update_mapping(
+                replacement.id,
+                roots[0].id,
+                "c",
+                expected_version=99,
+                actor_user_id=42,
+                actor_display_name="Replacement Admin",
+            )
+        assert stale.value.current_version == 1
+        removed = db_storage_handler.remove_mapping(
+            replacement.id,
+            expected_version=1,
+            actor_user_id=42,
+            actor_display_name="Replacement Admin",
+        )
+        assert not removed.active and removed.version == 2
+    with pytest.raises(MissingPlatformStorageMappingError):
+        db_storage_handler.get_active_mapping(platforms[0].id)
+    with sync_session() as session:
+        audits = session.scalars(
+            select(StorageMappingAudit).order_by(StorageMappingAudit.id)
+        ).all()
+        assert [item.action for item in audits] == [
+            StorageMappingAuditAction.CREATE,
+            StorageMappingAuditAction.DEACTIVATE,
+            StorageMappingAuditAction.CREATE,
+            StorageMappingAuditAction.REMOVE,
+        ]
+        assert audits[0].actor_display_name == "Original Admin"
+        assert audits[-1].new_active is False
+        assert audits[-1].new_version == 2
+
+
+def test_mapping_lifecycle_rollback_removes_mutation_and_audit(tmp_path: Path):
+    (tmp_path / "a").mkdir()
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
+    with pytest.raises(RuntimeError), sync_session.begin() as session:
+        with patch("handler.filesystem.storage_resolver.os.access", side_effect=access):
+            db_storage_handler.create_mapping(
+                platforms[0].id,
+                roots[0].id,
+                "a",
+                actor_user_id=1,
+                actor_display_name="Admin",
+                session=session,
+            )
+            raise RuntimeError("rollback")
+    with sync_session() as session:
+        assert session.scalar(select(PlatformStorageMapping)) is None
+        assert session.scalar(select(StorageMappingAudit)) is None
+
+
+def test_audit_cursor_is_newest_first_and_filter_bound(tmp_path: Path):
+    for name in ("a", "b"):
+        (tmp_path / name).mkdir()
+    with sync_session.begin() as session:
+        roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
+    with patch("handler.filesystem.storage_resolver.os.access", side_effect=access):
+        first = db_storage_handler.create_mapping(
+            platforms[0].id, roots[0].id, "a", actor_user_id=1, actor_display_name="A"
+        )
+        db_storage_handler.deactivate_mapping(
+            first.id, expected_version=1, actor_user_id=1, actor_display_name="A"
+        )
+        db_storage_handler.create_mapping(
+            platforms[1].id, roots[0].id, "b", actor_user_id=2, actor_display_name="B"
+        )
+    page, cursor = db_storage_handler.list_mapping_audits(limit=2)
+    assert len(page) == 2 and cursor
+    assert page[0].id > page[1].id
+    filtered, _ = db_storage_handler.list_mapping_audits(
+        platform_id=platforms[0].id, limit=10
+    )
+    assert {row.platform_id for row in filtered} == {platforms[0].id}
+    from exceptions.storage_exceptions import InvalidStorageCursorError
+
+    with pytest.raises(InvalidStorageCursorError):
+        db_storage_handler.list_mapping_audits(
+            platform_id=platforms[0].id, cursor=cursor, limit=2
+        )
