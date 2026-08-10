@@ -22,8 +22,19 @@ created: 2026-08-10
 | **Container fallback**    | `docker exec romm-dev sh -lc 'cd /app/backend && uv run pytest <selection> -x'` because host `uv` is unavailable                                                                                                                                                                             |
 | **Cross-dialect command** | `python3 backend/tools/verify_storage_migrations.py --dialects mariadb mysql postgresql` plus `python3 backend/tools/verify_storage_migrations.py --dialects mariadb postgresql --handler-tests --handler-test-repetitions 10`                                                               |
 | **Trunk CI gate**         | `trunk_tmp="$(mktemp -d)" && curl -fsSL https://trunk.io/releases/trunk -o "$trunk_tmp/trunk" && chmod u+x "$trunk_tmp/trunk" && "$trunk_tmp/trunk" version && "$trunk_tmp/trunk" check --all`; this reproduces pinned `trunk-action` launcher setup and `.trunk/trunk.yaml` pins CLI 1.25.0 |
-| **Contract gate**         | Start backend, run `cd frontend && npm run generate && npm run typecheck`; use the project frontend container because host Node is unavailable                                                                                                                                               |
+| **Contract gate**         | Start task-owned Uvicorn in `romm-dev` on unexported `127.0.0.1:39003`, poll `/openapi.json`, then run Node 24 with `--network container:romm-dev` and matching explicit `openapi` CLI flags; PID-signature trap cleanup is mandatory and host networking is forbidden                       |
 | **Estimated runtime**     | Narrow task selection: target 30 seconds or less; focused phase suite: target 120 seconds or less; cross-dialect and generated-contract gates measured separately                                                                                                                            |
+
+## Isolated OpenAPI Generation Gate
+
+The executable command is the `<automated>` block in `03-06-PLAN.md` Task 2. Its verified environment contract is:
+
+1. `romm-dev` bind-mounts the canonical backend at `/app/backend` and provides `uv` plus `curl`. Start only `uv run uvicorn main:app --host 127.0.0.1 --port 39003 --no-access-log` with the test-only `ROMM_AUTH_SECRET_KEY`; do not run `main.py`, migrations, workers, or watchers.
+2. Container port 3000 is already the RomM Vite listener and maps to host port 3100 in this checkout. Leave it untouched. Port 39003 is loopback-only inside the existing `romm-dev` network namespace and has no host publication.
+3. Preflight the task PID file before installing the trap. The trap kills only the PID whose `/proc/<pid>/cmdline` matches the exact Uvicorn host/port signature, then removes only the task PID/log and dynamically named task node_modules volume. `pkill`, `killall`, and broad process matching are forbidden.
+4. Poll `http://127.0.0.1:39003/openapi.json` from `romm-dev` for at most 60 seconds. A timeout is a failed gate and still runs cleanup.
+5. Run `node:24-bookworm` with `--network container:romm-dev`; host network mode is forbidden. Invoke local `./node_modules/.bin/openapi` against the same loopback URL with the exact generator flags from `frontend/package.json`, then run `npm run typecheck`.
+6. Do not inspect, restart, stop, or connect to Team4s containers/services, and do not use host port 3000.
 
 ## Sampling Rate and Gates
 
