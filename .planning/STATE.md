@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-08-10T21:34:00Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-08-10T21:43:31Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 24
-  completed_plans: 19
+  completed_plans: 20
   percent: 22
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 3
-Plan: 1 of 6
+Plan: 2 of 6
 Status: In progress
 Last activity: 2026-08-10
 
-Progress: [##--------] 17%
+Progress: [###-------] 33%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ _Updated after each plan completion_
 | Phase 02 P10 | 18min | 3 tasks | 6 files |
 | Phase 02 P11 | 10min | 3 tasks | 1 files |
 | Phase 03 P01 | 25min | 2 tasks | 9 files |
+| Phase 03 P02 | 9min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,8 @@ Recent decisions affecting current work:
 - [Phase 02]: Private factory imports and aliased calls are independently discovered; typed StorageRoot branches and container_path access are function-name independent. - Close the final independent AST authority-discovery gap while preserving explicit Phase 1 non-authority resolvers.
 - [Phase 03]: Active mapping conflicts use portable supporting indexes plus ordered handler locking; audit history is stored as relationship-free scalar snapshots.
 - [Phase 03]: 0109 downgrade fails before DDL when lifecycle history cannot be represented by 0108.
+- [Phase 03]: Directory cursors bind version, root identity, normalized parent, and the final visible binary sort key.
+- [Phase 03]: Live root health is a pure value snapshot; registration compatibility adapts it explicitly onto the ORM row.
 
 ### Blockers/Concerns
 
@@ -124,6 +127,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-10T21:34:00Z
-Stopped at: Completed 03-01-PLAN.md
-Resume file: .planning/phases/03-mapping-administration-contracts/03-02-PLAN.md
+Last session: 2026-08-10T21:43:31Z
+Stopped at: Completed 03-02-PLAN.md
+Resume file: .planning/phases/03-mapping-administration-contracts/03-03-PLAN.md

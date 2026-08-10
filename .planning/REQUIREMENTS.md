@@ -25,7 +25,7 @@
 
 - [ ] **MAP-01**: An administrator can assign a platform to an existing relative subdirectory of an active storage root.
 - [x] **MAP-02**: A platform has at most one active mapping in milestone 1, while the schema permits multiple storage roots for future use.
-- [ ] **MAP-03**: Creating, changing, testing, or removing a mapping performs no source filesystem mutation.
+- [x] **MAP-03**: Creating, changing, testing, or removing a mapping performs no source filesystem mutation.
 - [ ] **MAP-04**: Multiple platforms can map to distinct directories below the same external root.
 - [ ] **MAP-05**: Unsafe overlapping mappings are rejected unless a future explicit policy allows them.
 - [ ] **MAP-06**: A missing mapping produces a clear operator-facing error and never falls back silently to an unrelated directory.
@@ -57,8 +57,8 @@
 
 ### Administration API and Audit
 
-- [ ] **API-01**: Authorized administrators can list storage roots and inspect their safe status through the established FastAPI and OpenAPI conventions.
-- [ ] **API-02**: Authorized administrators can list directories inside a root using relative paths only, with containment and permission checks on every request.
+- [x] **API-01**: Authorized administrators can list storage roots and inspect their safe status through the established FastAPI and OpenAPI conventions.
+- [x] **API-02**: Authorized administrators can list directories inside a root using relative paths only, with containment and permission checks on every request.
 - [ ] **API-03**: Authorized administrators can read, create, change, test, preview, and remove platform mappings through typed endpoints.
 - [ ] **API-04**: Non-administrators cannot mutate roots or mappings, and unauthenticated callers cannot enumerate library structure.
 - [x] **AUD-01**: Mapping creation, change, and removal records actor, timestamp, platform, action, and old/new root and relative path values.
@@ -92,7 +92,7 @@
 ### Verification and Documentation
 
 - [x] **TEST-01**: Unit tests cover valid, Unicode, nested, empty, traversal, absolute, drive, UNC, missing, file-target, disabled-root, and symlink path cases.
-- [ ] **TEST-02**: API tests cover root listing, directory browsing, mapping lifecycle, authorization, traversal, mapping tests, and scan preview.
+- [x] **TEST-02**: API tests cover root listing, directory browsing, mapping lifecycle, authorization, traversal, mapping tests, and scan preview.
 - [x] **TEST-03**: Mutation tests prove delete, rename, move, overwrite, upload, directory creation, extraction, patching, sidecar writing, cover writing, and symlink escape fail for external roots.
 - [ ] **TEST-04**: Integration tests prove read-only mounting, scanning, streaming, downloading, multiple mappings, mapping changes, restart persistence, and legacy migration.
 - [ ] **TEST-05**: Before/after evidence proves source content, names, structure, sizes, hashes, and non-access timestamps remain unchanged across scan, metadata matching, mapping changes, catalog removal, download, and hashing.
@@ -154,7 +154,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | PATH-05     | Phase 1 | Complete |
 | MAP-01      | Phase 3 | Pending  |
 | MAP-02      | Phase 3 | Complete |
-| MAP-03      | Phase 3 | Pending  |
+| MAP-03      | Phase 3 | Complete |
 | MAP-04      | Phase 3 | Pending  |
 | MAP-05      | Phase 3 | Pending  |
 | MAP-06      | Phase 3 | Pending  |
@@ -174,8 +174,8 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | CAT-02      | Phase 6 | Pending  |
 | CAT-03      | Phase 6 | Pending  |
 | CAT-04      | Phase 6 | Pending  |
-| API-01      | Phase 3 | Pending  |
-| API-02      | Phase 3 | Pending  |
+| API-01      | Phase 3 | Complete |
+| API-02      | Phase 3 | Complete |
 | API-03      | Phase 3 | Pending  |
 | API-04      | Phase 3 | Pending  |
 | AUD-01      | Phase 3 | Complete |
@@ -197,7 +197,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | MIG-04      | Phase 6 | Pending  |
 | MIG-05      | Phase 6 | Pending  |
 | TEST-01     | Phase 1 | Complete |
-| TEST-02     | Phase 3 | Pending  |
+| TEST-02     | Phase 3 | Complete |
 | TEST-03     | Phase 2 | Complete |
 | TEST-04     | Phase 9 | Pending  |
 | TEST-05     | Phase 9 | Pending  |
