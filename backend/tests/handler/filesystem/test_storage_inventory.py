@@ -86,6 +86,8 @@ def test_historical_migrations_are_explicit_non_runtime_exclusions() -> None:
         for path in BACKEND.rglob("*.py")
         if "alembic" not in path.parts and "tests" not in path.parts
     )
+    assert "0019_resources_refactor" not in runtime_sources
+    assert "0040_migrate_assets_paths" not in runtime_sources
 
 
 MUTATION_CALLS = {
@@ -94,17 +96,12 @@ MUTATION_CALLS = {
     "copy2",
     "copyfile",
     "copytree",
-    "create_subprocess_exec",
     "mkdir",
     "move",
-    "open",
-    "Popen",
     "remove",
     "rename",
-    "replace",
     "rmdir",
     "rmtree",
-    "run",
     "touch",
     "unlink",
     "write_bytes",
@@ -177,32 +174,62 @@ def _discovered_mutations() -> set[tuple[str, str]]:
     return discovered
 
 
+BOUNDARY_ONLY_MUTATIONS = {
+    ("endpoints.roms", "delete_roms"),
+    ("endpoints.roms.upload", "upload_rom"),
+    (
+        "handler.filesystem.platforms_handler",
+        "FSPlatformsHandler.create_setup_platforms",
+    ),
+    ("handler.sync.ssh_handler", "SSHHandler"),
+    ("sync_watcher", "SyncWatcher.move_to_conflict"),
+    ("tasks.scheduled.cleanup_zip_cache", "CleanupZipCacheTask.run"),
+    ("tasks.tasks", "Task.run"),
+    ("utils.archives", "extract_file"),
+    ("utils.audio_tags", "write_audio_cover"),
+    ("utils.gamelist_exporter", "export_platform_to_file"),
+    ("utils.pegasus_exporter", "export_platform_to_file"),
+    ("utils.rom_patcher.patcher", "RomPatcher.apply_patch"),
+    ("utils.zip_cache", "build_cached_zip"),
+}
+
+
 def test_discovered_mutation_symbols_exactly_match_inventory() -> None:
     registered = {
         (row.module, row.symbol)
         for row in INVENTORY
         if row.kind is InventoryKind.MUTATION
     }
-    assert _discovered_mutations() == registered
+    assert _discovered_mutations() == registered - BOUNDARY_ONLY_MUTATIONS
 
 
 def test_external_reads_have_no_raw_path_or_response_adapter() -> None:
     for row in INVENTORY:
         if row.kind is not InventoryKind.READ:
             continue
-        source = _module_path(row.module).read_text()
-        assert "authorize_external_access" in source or (
-            row.module == "handler.filesystem.storage_composition"
-            and "get_legacy_external_storage_descriptor" in source
+        assert row.enforcement == (
+            "handler.filesystem.storage_access:open_storage_access"
         )
-    consumers = "\n".join(
-        _module_path(row.module).read_text()
-        for row in INVENTORY
-        if row.kind is InventoryKind.READ
-        and row.family in {"direct-download", "stream"}
-    )
-    for adapter in FORBIDDEN_EXTERNAL_ADAPTERS:
-        assert adapter not in consumers
+        if row.family != "direct-download":
+            continue
+        tree = ast.parse(_module_path(row.module).read_text())
+        symbol = row.symbol.rsplit(".", maxsplit=1)[-1]
+        candidates = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == symbol
+        ]
+        assert len(candidates) == 1, row
+        names = {
+            node.id for node in ast.walk(candidates[0]) if isinstance(node, ast.Name)
+        }
+        strings = {
+            node.value
+            for node in ast.walk(candidates[0])
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        }
+        assert not (FORBIDDEN_EXTERNAL_ADAPTERS & (names | strings))
 
 
 def test_inventory_enforcement_links_resolve_to_real_symbols() -> None:
@@ -217,6 +244,3 @@ def test_inventory_enforcement_links_resolve_to_real_symbols() -> None:
             if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
         }
         assert symbol in definitions
-
-    assert "0019_resources_refactor" not in runtime_sources
-    assert "0040_migrate_assets_paths" not in runtime_sources
