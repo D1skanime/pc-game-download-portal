@@ -11,8 +11,20 @@ from exceptions.storage_exceptions import (
     StorageResolutionError,
     UnsafeSymlinkError,
 )
-from handler.filesystem.storage_access import open_storage_access
-from handler.filesystem.storage_policy import StorageOperation
+from handler.filesystem.storage_access import (
+    OwnedCreate,
+    OwnedDelete,
+    OwnedDirectory,
+    OwnedRead,
+    OwnedReplace,
+    open_owned_access,
+    open_storage_access,
+)
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+    _create_bound_owned_descriptor,
+)
 from models.storage import EXTERNAL_READ_ONLY_MODE, StorageRoot
 
 
@@ -176,3 +188,67 @@ def test_opened_descriptor_survives_name_swap_without_escape(archive, tmp_path):
         assert access.read() == b"immutable-rom-data"
     finally:
         access.close()
+
+
+def _owned(path: Path):
+    return _create_bound_owned_descriptor(OwnedStorageKind.CACHE, "cache", path)
+
+
+@pytest.mark.parametrize(
+    ("operation", "capability_type", "method"),
+    [
+        (StorageOperation.READ, OwnedRead, "read"),
+        (StorageOperation.CREATE, OwnedCreate, "create"),
+        (StorageOperation.OVERWRITE, OwnedReplace, "replace"),
+        (StorageOperation.DELETE, OwnedDelete, "delete"),
+        (StorageOperation.MKDIR, OwnedDirectory, "mkdir"),
+    ],
+)
+def test_owned_capabilities_expose_only_named_authority(
+    tmp_path, operation, capability_type, method
+):
+    (tmp_path / "existing.bin").write_bytes(b"old")
+    relative = "new" if operation is StorageOperation.MKDIR else "existing.bin"
+    capability = open_owned_access(_owned(tmp_path), operation, relative)
+    try:
+        assert isinstance(capability, capability_type)
+        public = {name for name in dir(capability) if not name.startswith("_")}
+        assert method in public
+        assert not ({"path", "open", "write", "unlink", "rename"} & public)
+    finally:
+        capability.close()
+
+
+@pytest.mark.parametrize("raw", [Path("x"), "/tmp/x"])
+def test_owned_access_rejects_raw_path_objects_and_strings_before_io(tmp_path, raw):
+    before = _manifest(tmp_path)
+    with pytest.raises((TypeError, StorageResolutionError)):
+        open_owned_access(raw, StorageOperation.CREATE, "new.bin")
+    assert _manifest(tmp_path) == before
+
+
+def test_owned_create_replace_delete_and_directory_are_descriptor_relative(tmp_path):
+    owned = _owned(tmp_path)
+    with open_owned_access(owned, StorageOperation.MKDIR, "nested") as directory:
+        directory.mkdir()
+    with open_owned_access(owned, StorageOperation.CREATE, "nested/game.bin") as create:
+        create.create(b"one")
+    with open_owned_access(owned, StorageOperation.READ, "nested/game.bin") as read:
+        assert read.read() == b"one"
+    with open_owned_access(
+        owned, StorageOperation.OVERWRITE, "nested/game.bin"
+    ) as replace:
+        replace.replace(b"two")
+    with open_owned_access(owned, StorageOperation.DELETE, "nested/game.bin") as delete:
+        delete.delete()
+    assert not (tmp_path / "nested" / "game.bin").exists()
+
+
+def test_subprocess_adapter_lists_only_the_capability_fd(archive):
+    with open_storage_access(
+        _root(archive), StorageOperation.READ, "Nintendo/M?nchen/???.rom"
+    ) as access:
+        argv, pass_fds = access.subprocess_fd("tool", "--input")
+        assert argv[:2] == ("tool", "--input")
+        assert argv[2] == f"/proc/self/fd/{pass_fds[0]}"
+        assert pass_fds == (access.fileno(),)
