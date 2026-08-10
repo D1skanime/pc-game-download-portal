@@ -150,7 +150,11 @@ def process_changes(changes: Sequence[Change]) -> None:
         change
         for change in changes
         if change[0] in VALID_EVENTS
-        and not _is_excluded(os.fsdecode(change[1]).split(LIBRARY_BASE_PATH)[-1])
+        and not _is_excluded(
+            os.path.relpath(
+                os.fsdecode(change[1]), start=legacy_external_storage._root_path
+            )
+        )
     ]
     if not changes:
         return
@@ -162,8 +166,12 @@ def process_changes(changes: Sequence[Change]) -> None:
         for change in changes:
             event_type, change_path = change
             src_path = os.fsdecode(change_path)
-            event_src = src_path.split(LIBRARY_BASE_PATH)[-1]
-            event_src_parts = event_src.split("/")
+            event_src = os.path.relpath(
+                src_path, start=legacy_external_storage._root_path
+            )
+            if event_src == ".." or event_src.startswith(f"..{os.sep}"):
+                continue
+            event_src_parts = event_src.split(os.sep)
             if len(event_src_parts) <= structure_level:
                 log.warning(
                     f"Filesystem event path '{event_src}' does not have enough segments for structure_level {structure_level}. Skipping event."

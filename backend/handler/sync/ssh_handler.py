@@ -25,6 +25,12 @@ from anyio import Path as AnyioPath
 from anyio import open_file
 
 from config import SYNC_SSH_KEYS_PATH, SYNC_SSH_KNOWN_HOSTS_PATH
+from handler.filesystem.storage_policy import (
+    OwnedStorageDescriptor,
+    OwnedStorageKind,
+    StorageOperation,
+    StoragePolicy,
+)
 from logger.logger import log
 
 
@@ -48,7 +54,9 @@ class SSHSyncHandler:
     ({keys_path}/{device_id}.pem) or uses an explicit path from sync_config.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, storage: OwnedStorageDescriptor) -> None:
+        self.storage = storage
+        StoragePolicy.authorize(StorageOperation.MKDIR, storage)
         self.keys_path = Path(SYNC_SSH_KEYS_PATH)
         try:
             self.keys_path.mkdir(parents=True, exist_ok=True)
@@ -189,7 +197,10 @@ class SSHSyncHandler:
         Returns (local_temp_path, content_hash).
         """
         if local_path is None:
-            fd, local_path = tempfile.mkstemp(prefix="romm_sync_")
+            StoragePolicy.authorize(StorageOperation.CREATE, self.storage)
+            fd, local_path = tempfile.mkstemp(
+                prefix="romm_sync_", dir=self.storage._root_path
+            )
             os.close(fd)
 
         async with conn.start_sftp_client() as sftp:
@@ -240,4 +251,6 @@ def get_ssh_sync_handler() -> SSHSyncHandler:
     or the keys directory is not writable. The handler raises a clear error
     at call time if the directory cannot be created.
     """
-    return SSHSyncHandler()
+    from handler.filesystem import storage_composition
+
+    return SSHSyncHandler(storage_composition.owned[OwnedStorageKind.SYNC])

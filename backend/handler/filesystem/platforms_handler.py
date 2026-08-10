@@ -9,7 +9,7 @@ from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from logger.logger import log
 
 from .base_handler import ExternalFSHandler, LibraryStructure
-from .storage_policy import ExternalStorageDescriptor
+from .storage_policy import ExternalStorageDescriptor, StorageOperation, StoragePolicy
 
 
 class FSPlatformsHandler(ExternalFSHandler):
@@ -33,6 +33,7 @@ class FSPlatformsHandler(ExternalFSHandler):
 
     def create_library_structure(self) -> None:
         """Creates the library structure with a roms folder."""
+        StoragePolicy.authorize(StorageOperation.MKDIR, self.storage)
         cnfg = cm.get_config()
         roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
         os.makedirs(roms_path, exist_ok=True)

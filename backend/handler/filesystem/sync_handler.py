@@ -7,7 +7,12 @@ from config import SYNC_BASE_PATH
 from logger.logger import log
 
 from .base_handler import FSHandler
-from .storage_policy import OwnedStorageDescriptor, OwnedStorageKind
+from .storage_policy import (
+    OwnedStorageDescriptor,
+    OwnedStorageKind,
+    StorageOperation,
+    StoragePolicy,
+)
 
 
 class FSSyncHandler(FSHandler):
@@ -41,6 +46,7 @@ class FSSyncHandler(FSHandler):
         return os.path.join(*parts)
 
     def ensure_device_directories(self, device_id: str) -> None:
+        StoragePolicy.authorize(StorageOperation.MKDIR, self.storage)
         incoming = self.base_path / self.build_incoming_path(device_id)
         outgoing = self.base_path / self.build_outgoing_path(device_id)
 
@@ -54,6 +60,7 @@ class FSSyncHandler(FSHandler):
 
         Returns list of dicts with keys: platform_slug, file_name, full_path, file_size, mtime
         """
+        StoragePolicy.authorize(StorageOperation.LIST, self.storage)
         incoming_dir = self.base_path / self.build_incoming_path(device_id)
         if not incoming_dir.exists():
             return []
@@ -82,6 +89,7 @@ class FSSyncHandler(FSHandler):
 
     def compute_file_hash(self, file_path: str) -> str:
         """Compute MD5 hash of a file synchronously (for watcher context)."""
+        StoragePolicy.authorize(StorageOperation.HASH, self.storage)
         hash_obj = hashlib.md5(usedforsecurity=False)
         with open(file_path, "rb") as f:
             while chunk := f.read(8192):
@@ -92,6 +100,7 @@ class FSSyncHandler(FSHandler):
         self, device_id: str, platform_slug: str, file_name: str, data: bytes
     ) -> str:
         """Write a file to a device's outgoing directory."""
+        StoragePolicy.authorize(StorageOperation.OVERWRITE, self.storage)
         outgoing_dir = self.base_path / self.build_outgoing_path(
             device_id, platform_slug
         )
@@ -102,6 +111,7 @@ class FSSyncHandler(FSHandler):
 
     def remove_incoming_file(self, full_path: str) -> None:
         """Remove a processed file from the incoming directory."""
+        StoragePolicy.authorize(StorageOperation.DELETE, self.storage)
         path = Path(full_path)
         if path.exists() and path.is_file():
             # Validate the file is within our base path

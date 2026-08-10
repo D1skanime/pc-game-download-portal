@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from handler.database import db_device_handler, db_save_handler
+from handler.filesystem import storage_composition
+from handler.filesystem.storage_policy import OwnedStorageKind
 from handler.filesystem.sync_handler import FSSyncHandler
 from models.assets import Save
 from models.device import Device, SyncMode
@@ -29,6 +31,7 @@ class TestExtractDeviceAndPlatform:
     @pytest.fixture(autouse=True)
     def patch_base_path(self, handler: FSSyncHandler, temp_dir):
         handler.base_path = Path(temp_dir)
+        handler.storage = storage_composition.owned[OwnedStorageKind.SYNC]
         with patch("sync_watcher.get_fs_sync_handler", return_value=handler):
             yield
 
@@ -83,6 +86,7 @@ class TestEnsureConflictsDir:
     @pytest.fixture(autouse=True)
     def patch_base_path(self, handler: FSSyncHandler, temp_dir):
         handler.base_path = Path(temp_dir)
+        handler.storage = storage_composition.owned[OwnedStorageKind.SYNC]
         with patch("sync_watcher.get_fs_sync_handler", return_value=handler):
             yield
 
@@ -134,6 +138,7 @@ class TestProcessIncomingFileFilenameOnlyMatching:
     def patch_fs_sync_handler(self, temp_dir):
         handler = FSSyncHandler.__new__(FSSyncHandler)
         handler.base_path = Path(temp_dir)
+        handler.storage = storage_composition.owned[OwnedStorageKind.SYNC]
         with patch("sync_watcher.get_fs_sync_handler", return_value=handler):
             yield handler
 
