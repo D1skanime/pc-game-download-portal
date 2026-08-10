@@ -18,6 +18,7 @@ RomM adapts to an existing game archive without requiring or permitting any chan
 - RomM provides authenticated library browsing, metadata enrichment, streaming, downloading, collections, user state, and browser players through FastAPI and Vue. Existing upstream capability.
 - RomM supports MariaDB, MySQL, and PostgreSQL, Redis-backed jobs and sessions, OpenAPI-generated frontend contracts, and container deployment. Existing upstream capability.
 - The current branch contains the active UI v2 implementation under `frontend/src/v2/`, including the main library, scan, player, administration, and settings surfaces. Existing upstream capability.
+- Phase 2 validated the deny-by-default external storage policy, pre-I/O mutation denials, trusted descriptor boundary, closed filesystem seam inventory, read-only mount parity, and separation of RomM-owned writable output. Validated in Phase 2: Read-only Policy Boundary.
 
 ### Active
 
@@ -107,4 +108,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-08-05 after Phase 1 completion_
+_Last updated: 2026-08-10 after Phase 2 completion_
