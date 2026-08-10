@@ -12,6 +12,8 @@ from mutagen.mp4 import MP4
 from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
+from exceptions.storage_exceptions import MissingStorageTargetError
+from handler.filesystem.storage_access import OwnedCreate, OwnedDelete
 from logger.logger import log
 from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
 
@@ -396,3 +398,19 @@ def extract_embedded_cover(full_path: str) -> tuple[bytes, str] | None:
         return _extract_picture_from_id3(tags)
 
     return None
+
+
+def write_cover_with_capability(destination: OwnedCreate, data: bytes) -> None:
+    if not isinstance(destination, OwnedCreate):
+        raise TypeError("an owned create capability is required")
+    destination.create(data)
+
+
+def remove_cover_with_capability(destination: OwnedDelete) -> bool:
+    if not isinstance(destination, OwnedDelete):
+        raise TypeError("an owned delete capability is required")
+    try:
+        destination.delete()
+    except MissingStorageTargetError:
+        return True
+    return True

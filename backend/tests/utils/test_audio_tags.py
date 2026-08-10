@@ -22,6 +22,16 @@ from utils.audio_tags import (
 )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_database() -> None:
+    """Audio utilities are database free."""
+
+
+@pytest.fixture(autouse=True)
+def clear_database() -> None:
+    """Override shared cleanup for utility tests."""
+
+
 class TestParseYear:
     def test_clean(self):
         assert _parse_year("1992") == 1992
