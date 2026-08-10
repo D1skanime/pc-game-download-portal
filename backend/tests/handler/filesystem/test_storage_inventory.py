@@ -73,3 +73,18 @@ def test_every_inventory_row_has_one_disposition_and_runnable_evidence() -> None
         assert row.destination_class
         assert row.operations
         assert row.evidence.test in _defined_tests(row.evidence.path)
+
+
+def test_historical_migrations_are_explicit_non_runtime_exclusions() -> None:
+    migration_files = {
+        "alembic/versions/0019_resources_refactor.py",
+        "alembic/versions/0040_migrate_assets_paths.py",
+    }
+    assert all((BACKEND / path).is_file() for path in migration_files)
+    runtime_sources = "\n".join(
+        path.read_text()
+        for path in BACKEND.rglob("*.py")
+        if "alembic" not in path.parts and "tests" not in path.parts
+    )
+    assert "0019_resources_refactor" not in runtime_sources
+    assert "0040_migrate_assets_paths" not in runtime_sources
