@@ -1,15 +1,13 @@
-import shutil
-import tempfile
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
+from uuid import uuid4
 
 from fastapi import File, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, UploadFile, status
 from pydantic import BaseModel
-from starlette.background import BackgroundTask
-from starlette.responses import FileResponse
+from starlette.responses import Response
 
 from config import ROM_PATCHER_MAX_FILE_SIZE_BYTES
 from decorators.auth import protected_route
@@ -18,9 +16,17 @@ from handler.auth.constants import Scope
 from handler.auth.dependencies import ResolvedPermissions, get_permissions
 from handler.database import db_rom_handler
 from handler.filesystem import (
-    fs_rom_handler,
     legacy_external_storage,
     storage_composition,
+)
+from handler.filesystem.storage_access import (
+    OwnedCreate,
+    OwnedDelete,
+    OwnedDirectory,
+    OwnedRead,
+    ReadCapability,
+    open_owned_access,
+    open_storage_access,
 )
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from logger.formatter import BLUE
@@ -126,19 +132,22 @@ async def patch_rom(
             ),
         )
 
-    rom_path = fs_rom_handler.validate_path(rom_file.full_path)
     rom_ext = Path(rom_file.file_name).suffix
     rom_base = Path(rom_file.file_name).stem
-
-    tmp_dir = tempfile.mkdtemp(prefix="romm_patch_")
+    temp_storage = storage_composition.owned[OwnedStorageKind.TEMP]
+    temp_dir = f"romm_patch_{uuid4().hex}"
+    with open_owned_access(temp_storage, StorageOperation.MKDIR, temp_dir) as directory:
+        directory.mkdir()
+    cleanup_names: list[str] = []
 
     try:
         if patch_file is not None:
-            patch_path, patch_display_name = await _stage_uploaded_patch(
-                patch_file, tmp_dir
+            patch_capability, patch_display_name, patch_name = (
+                await _stage_uploaded_patch(patch_file, temp_storage, temp_dir)
             )
+            cleanup_names.append(patch_name)
         elif patch_file_id is not None:
-            patch_path, patch_display_name = _resolve_library_patch(
+            patch_capability, patch_display_name = _resolve_library_patch(
                 patch_file_id, perms
             )
         else:
@@ -154,19 +163,31 @@ async def patch_rom(
         else:
             resolved_output_name = f"{rom_base} (patched-{patch_base}){rom_ext}"
 
-        output_path = Path(tmp_dir) / resolved_output_name
+        output_relative = f"{temp_dir}/patched{rom_ext}"
+        cleanup_names.append(output_relative)
 
         log.info(
             f"User {hl(current_username, color=BLUE)} is patching "
             f"ROM file {hl(rom_file.file_name)} with patch {hl(patch_display_name)}"
         )
 
-        validated = await apply_patch(rom_path, patch_path, output_path)
-    except HTTPException:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-        raise
+        with (
+            open_storage_access(
+                legacy_external_storage, StorageOperation.READ, rom_file.full_path
+            ) as rom_capability,
+            patch_capability,
+            open_owned_access(
+                temp_storage, StorageOperation.CREATE, output_relative
+            ) as output_capability,
+        ):
+            validated = await apply_patch(
+                rom_capability, patch_capability, output_capability
+            )
+        with open_owned_access(
+            temp_storage, StorageOperation.READ, output_relative
+        ) as output_read:
+            output_content = output_read.read()
     except PatcherError as e:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
         # Detail may contain server paths from node/RomPatcher.js; keep it server-side.
         log.error(f"Patching failed: {e}")
         raise HTTPException(
@@ -174,14 +195,30 @@ async def patch_rom(
             detail="Patching failed",
         ) from e
     except Exception as e:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
         log.error(f"Unexpected patching error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Patching failed",
         ) from e
 
-    output_size = output_path.stat().st_size
+    finally:
+        for cleanup_name in reversed(cleanup_names):
+            try:
+                with open_owned_access(
+                    temp_storage, StorageOperation.DELETE, cleanup_name
+                ) as delete_capability:
+                    delete_capability.delete()
+            except Exception:
+                pass
+        try:
+            with open_owned_access(
+                temp_storage, StorageOperation.MKDIR, temp_dir
+            ) as directory:
+                directory.rmdir()
+        except Exception:
+            pass
+
+    output_size = len(output_content)
     log.info(
         f"Successfully patched ROM for user {hl(current_username, color=BLUE)}: "
         f"{hl(resolved_output_name)} ({output_size} bytes)"
@@ -192,9 +229,8 @@ async def patch_rom(
             f"ROM {hl(rom_file.file_name)}; output may be incorrect"
         )
 
-    return FileResponse(
-        path=str(output_path),
-        filename=resolved_output_name,
+    return Response(
+        content=output_content,
         media_type="application/octet-stream",
         headers={
             "Content-Disposition": f"attachment; filename*=UTF-8''{quote(resolved_output_name)}; filename=\"{quote(resolved_output_name)}\"",
@@ -202,14 +238,13 @@ async def patch_rom(
             # Lets callers warn when the patch's source checksum didn't match the ROM.
             "X-Patch-Validated": "true" if validated else "false",
         },
-        background=BackgroundTask(shutil.rmtree, tmp_dir, True),
     )
 
 
 def _resolve_library_patch(
     patch_file_id: int, perms: ResolvedPermissions
-) -> tuple[Path, str]:
-    """Resolve a patch that already lives in the library to a filesystem path."""
+) -> tuple[ReadCapability, str]:
+    """Bind a library patch to an external read capability."""
     patch_file = db_rom_handler.get_rom_file_by_id(patch_file_id)
     if not patch_file:
         raise HTTPException(
@@ -246,13 +281,18 @@ def _resolve_library_patch(
             ),
         )
 
-    return fs_rom_handler.validate_path(patch_file.full_path), patch_file.file_name
+    return (
+        open_storage_access(
+            legacy_external_storage, StorageOperation.READ, patch_file.full_path
+        ),
+        patch_file.file_name,
+    )
 
 
 async def _stage_uploaded_patch(
-    patch_file: UploadFile, tmp_dir: str
-) -> tuple[Path, str]:
-    """Stream an uploaded patch into ``tmp_dir`` after validating it.
+    patch_file: UploadFile, temp_storage, temp_dir: str
+) -> tuple[OwnedRead, str, str]:
+    """Stage an uploaded patch into owned temporary storage.
 
     The upload is never stored in the library; it lives only in the temp dir,
     which the response's background task removes once streaming completes.
@@ -266,20 +306,20 @@ async def _stage_uploaded_patch(
         )
 
     # Fixed on-disk name (never the client filename) avoids any path traversal.
-    patch_path = Path(tmp_dir) / f"uploaded_patch{patch_ext}"
+    patch_name = f"{temp_dir}/uploaded_patch{patch_ext}"
     size = 0
-    with patch_path.open("wb") as buffer:
-        while chunk := await patch_file.read(_UPLOAD_CHUNK_SIZE):
-            size += len(chunk)
-            if size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=(
-                        f"Patch file is too large to patch "
-                        f"(max {ROM_PATCHER_MAX_FILE_SIZE_BYTES} bytes)"
-                    ),
-                )
-            buffer.write(chunk)
+    content = bytearray()
+    while chunk := await patch_file.read(_UPLOAD_CHUNK_SIZE):
+        size += len(chunk)
+        if size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Patch file is too large to patch "
+                    f"(max {ROM_PATCHER_MAX_FILE_SIZE_BYTES} bytes)"
+                ),
+            )
+        content.extend(chunk)
 
     if size == 0:
         raise HTTPException(
@@ -287,4 +327,12 @@ async def _stage_uploaded_patch(
             detail="Uploaded patch file is empty",
         )
 
-    return patch_path, display_name
+    with open_owned_access(
+        temp_storage, StorageOperation.CREATE, patch_name
+    ) as create_capability:
+        create_capability.create(bytes(content))
+    return (
+        open_owned_access(temp_storage, StorageOperation.READ, patch_name),
+        display_name,
+        patch_name,
+    )

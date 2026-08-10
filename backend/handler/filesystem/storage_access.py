@@ -293,6 +293,23 @@ class _OwnedMutationCapability:
 
 
 class OwnedCreate(_OwnedMutationCapability):
+    @contextmanager
+    def subprocess_file(self) -> Iterator[int]:
+        parent = self._require_parent()
+        try:
+            descriptor = os.open(
+                self._name,
+                os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+                0o644,
+                dir_fd=parent,
+            )
+        except OSError as error:
+            raise _bounded_open_error(error) from error
+        try:
+            yield descriptor
+        finally:
+            os.close(descriptor)
+
     def create(self, content: bytes) -> None:
         parent = self._require_parent()
         try:
@@ -349,6 +366,12 @@ class OwnedDirectory(_OwnedMutationCapability):
     def mkdir(self) -> None:
         try:
             os.mkdir(self._name, mode=0o755, dir_fd=self._require_parent())
+        except OSError as error:
+            raise _bounded_open_error(error) from error
+
+    def rmdir(self) -> None:
+        try:
+            os.rmdir(self._name, dir_fd=self._require_parent())
         except OSError as error:
             raise _bounded_open_error(error) from error
 
