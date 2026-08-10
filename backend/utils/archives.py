@@ -18,6 +18,7 @@ import magic
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
 
 from config import SEVEN_ZIP_TIMEOUT
+from handler.filesystem.storage_access import ReadCapability
 from logger.logger import log
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 
@@ -78,6 +79,14 @@ def detect_mime_type(file_path: os.PathLike[str] | str) -> str:
         return ""
 
 
+def archive_subprocess_input(
+    capability: ReadCapability, *argv: str
+) -> tuple[tuple[str, ...], tuple[int, ...]]:
+    if not isinstance(capability, ReadCapability):
+        raise TypeError("a read capability is required")
+    return capability.subprocess_fd(*argv)
+
+
 def is_compressed_file(file_path: str | Path) -> bool:
     file_type = detect_mime_type(file_path)
     return file_type in COMPRESSED_MIME_TYPES or str(file_path).lower().endswith(
@@ -91,9 +100,11 @@ def read_basic_file(file_path: os.PathLike[str]) -> Iterator[bytes]:
             yield chunk
 
 
-def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
+def read_zip_file(file: ReadCapability | IO[bytes]) -> Iterator[bytes]:
     try:
-        with zipfile.ZipFile(file, "r") as z:
+        if not isinstance(file, ReadCapability):
+            raise TypeError("a read capability or binary handle is required")
+        with file.binary_file() as source, zipfile.ZipFile(source, "r") as z:
             # Find the biggest file in the archive
             largest_file = max(z.infolist(), key=lambda x: x.file_size)
             with z.open(largest_file, "r") as f:

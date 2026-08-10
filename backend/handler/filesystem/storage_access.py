@@ -5,7 +5,8 @@ import hashlib
 import os
 import stat as stat_module
 from collections.abc import Iterator
-from typing import Self
+from contextlib import contextmanager
+from typing import BinaryIO, Self
 
 from exceptions.storage_exceptions import (
     MissingStorageRootError,
@@ -173,6 +174,12 @@ class StatCapability(_DescriptorCapability):
 
 
 class ReadCapability(_DescriptorCapability):
+    @contextmanager
+    def binary_file(self) -> Iterator[BinaryIO]:
+        descriptor = os.dup(self._require_descriptor())
+        with os.fdopen(descriptor, "rb", closefd=True) as file:
+            yield file
+
     def read(self) -> bytes:
         descriptor = self._require_descriptor()
         os.lseek(descriptor, 0, os.SEEK_SET)
