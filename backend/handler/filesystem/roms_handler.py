@@ -664,8 +664,10 @@ class FSRomsHandler(ExternalFSHandler):
                     rom_crc_c = binascii.crc32(chunk, rom_crc_c)
 
             if extension == ".zip" or file_type == "application/zip":
-                for chunk in read_zip_file(file_path):
-                    update_hashes(chunk)
+                relative_path = str(file_path.relative_to(self.base_path))
+                with self.open_rom_read(relative_path) as source:
+                    for chunk in read_zip_file(source):
+                        update_hashes(chunk)
 
             elif extension == ".tar" or file_type == "application/x-tar":
                 for chunk in read_tar_file(file_path):
