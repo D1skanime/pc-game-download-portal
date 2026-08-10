@@ -2,9 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { StorageDirectoryEntrySchema } from './StorageDirectoryEntrySchema';
+import type { StorageDirectoryEntrySchema } from "./StorageDirectoryEntrySchema";
 export type StorageDirectoryPageSchema = {
-    entries: Array<StorageDirectoryEntrySchema>;
-    next_cursor?: (string | null);
+  entries: Array<StorageDirectoryEntrySchema>;
+  next_cursor?: string | null;
 };
-

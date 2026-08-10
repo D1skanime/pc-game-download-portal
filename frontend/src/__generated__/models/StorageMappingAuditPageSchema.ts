@@ -2,9 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { StorageMappingAuditSchema } from './StorageMappingAuditSchema';
+import type { StorageMappingAuditSchema } from "./StorageMappingAuditSchema";
 export type StorageMappingAuditPageSchema = {
-    entries: Array<StorageMappingAuditSchema>;
-    next_cursor?: (string | null);
+  entries: Array<StorageMappingAuditSchema>;
+  next_cursor?: string | null;
 };
-

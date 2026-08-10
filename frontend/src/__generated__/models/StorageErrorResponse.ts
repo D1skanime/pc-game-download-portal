@@ -2,8 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { StorageErrorDetail } from './StorageErrorDetail';
+import type { StorageErrorDetail } from "./StorageErrorDetail";
 export type StorageErrorResponse = {
-    detail: StorageErrorDetail;
+  detail: StorageErrorDetail;
 };
-

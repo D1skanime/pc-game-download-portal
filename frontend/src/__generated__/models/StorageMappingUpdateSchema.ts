@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type StorageMappingUpdateSchema = {
-    storage_root_id: number;
-    relative_path: string;
-    expected_version: number;
+  storage_root_id: number;
+  relative_path: string;
+  expected_version: number;
 };
-

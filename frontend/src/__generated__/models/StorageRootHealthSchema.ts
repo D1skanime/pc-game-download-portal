@@ -3,10 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type StorageRootHealthSchema = {
-    reachable: boolean;
-    readable: boolean;
-    non_writable: (boolean | null);
-    checked_at: string;
-    error?: (string | null);
+  reachable: boolean;
+  readable: boolean;
+  non_writable: boolean | null;
+  checked_at: string;
+  error?: string | null;
 };
-

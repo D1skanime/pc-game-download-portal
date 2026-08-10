@@ -2,9 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { StorageReadErrorCode } from './StorageReadErrorCode';
+import type { StorageReadErrorCode } from "./StorageReadErrorCode";
 export type StorageErrorDetail = {
-    code: StorageReadErrorCode;
-    message: string;
+  code: StorageReadErrorCode;
+  message: string;
 };
-

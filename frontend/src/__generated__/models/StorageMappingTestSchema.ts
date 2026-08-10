@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type StorageMappingTestSchema = {
-    platform_id: number;
-    storage_root_id: number;
-    relative_path: string;
-    valid?: boolean;
+  platform_id: number;
+  storage_root_id: number;
+  relative_path: string;
+  valid?: boolean;
 };
-

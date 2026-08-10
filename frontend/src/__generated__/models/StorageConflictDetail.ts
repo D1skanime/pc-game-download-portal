@@ -2,12 +2,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { StorageConflictErrorCode } from './StorageConflictErrorCode';
+import type { StorageConflictErrorCode } from "./StorageConflictErrorCode";
 export type StorageConflictDetail = {
-    code: StorageConflictErrorCode;
-    message: string;
-    platform_id?: (number | null);
-    mapping_id?: (number | null);
-    current_version?: (number | null);
+  code: StorageConflictErrorCode;
+  message: string;
+  platform_id?: number | null;
+  mapping_id?: number | null;
+  current_version?: number | null;
 };
-
