@@ -415,7 +415,7 @@ def test_mapping_lifecycle_is_versioned_active_only_and_audited(tmp_path: Path):
         replacement = db_storage_handler.create_mapping(
             platforms[0].id,
             roots[0].id,
-            "b",
+            "a",
             actor_user_id=42,
             actor_display_name="Replacement Admin",
         )
@@ -448,7 +448,9 @@ def test_mapping_lifecycle_is_versioned_active_only_and_audited(tmp_path: Path):
         db_storage_handler.get_active_mapping(platforms[0].id)
     with sync_session() as session:
         audits = session.scalars(
-            select(StorageMappingAudit).order_by(StorageMappingAudit.id)
+            select(StorageMappingAudit)
+            .where(StorageMappingAudit.mapping_id.in_([created.id, replacement.id]))
+            .order_by(StorageMappingAudit.id)
         ).all()
         assert [item.action for item in audits] == [
             StorageMappingAuditAction.CREATE,
@@ -462,6 +464,9 @@ def test_mapping_lifecycle_is_versioned_active_only_and_audited(tmp_path: Path):
 
 
 def test_mapping_lifecycle_rollback_removes_mutation_and_audit(tmp_path: Path):
+    with sync_session() as session:
+        audit_count = len(session.scalars(select(StorageMappingAudit)).all())
+
     (tmp_path / "a").mkdir()
     with sync_session.begin() as session:
         roots, platforms = add_objects(session, tmp_path, [("root", tmp_path)])
@@ -478,7 +483,7 @@ def test_mapping_lifecycle_rollback_removes_mutation_and_audit(tmp_path: Path):
             raise RuntimeError("rollback")
     with sync_session() as session:
         assert session.scalar(select(PlatformStorageMapping)) is None
-        assert session.scalar(select(StorageMappingAudit)) is None
+        assert len(session.scalars(select(StorageMappingAudit)).all()) == audit_count
 
 
 def test_audit_cursor_is_newest_first_and_filter_bound(tmp_path: Path):
