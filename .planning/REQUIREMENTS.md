@@ -24,7 +24,7 @@
 ### Platform Storage Mappings
 
 - [ ] **MAP-01**: An administrator can assign a platform to an existing relative subdirectory of an active storage root.
-- [ ] **MAP-02**: A platform has at most one active mapping in milestone 1, while the schema permits multiple storage roots for future use.
+- [x] **MAP-02**: A platform has at most one active mapping in milestone 1, while the schema permits multiple storage roots for future use.
 - [ ] **MAP-03**: Creating, changing, testing, or removing a mapping performs no source filesystem mutation.
 - [ ] **MAP-04**: Multiple platforms can map to distinct directories below the same external root.
 - [ ] **MAP-05**: Unsafe overlapping mappings are rejected unless a future explicit policy allows them.
@@ -61,8 +61,8 @@
 - [ ] **API-02**: Authorized administrators can list directories inside a root using relative paths only, with containment and permission checks on every request.
 - [ ] **API-03**: Authorized administrators can read, create, change, test, preview, and remove platform mappings through typed endpoints.
 - [ ] **API-04**: Non-administrators cannot mutate roots or mappings, and unauthenticated callers cannot enumerate library structure.
-- [ ] **AUD-01**: Mapping creation, change, and removal records actor, timestamp, platform, action, and old/new root and relative path values.
-- [ ] **AUD-02**: Audit output never exposes NAS host paths or unrelated filesystem paths.
+- [x] **AUD-01**: Mapping creation, change, and removal records actor, timestamp, platform, action, and old/new root and relative path values.
+- [x] **AUD-02**: Audit output never exposes NAS host paths or unrelated filesystem paths.
 
 ### V2 Administration Experience
 
@@ -153,7 +153,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | PATH-04     | Phase 1 | Complete |
 | PATH-05     | Phase 1 | Complete |
 | MAP-01      | Phase 3 | Pending  |
-| MAP-02      | Phase 3 | Pending  |
+| MAP-02      | Phase 3 | Complete |
 | MAP-03      | Phase 3 | Pending  |
 | MAP-04      | Phase 3 | Pending  |
 | MAP-05      | Phase 3 | Pending  |
@@ -178,8 +178,8 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | API-02      | Phase 3 | Pending  |
 | API-03      | Phase 3 | Pending  |
 | API-04      | Phase 3 | Pending  |
-| AUD-01      | Phase 3 | Pending  |
-| AUD-02      | Phase 3 | Pending  |
+| AUD-01      | Phase 3 | Complete |
+| AUD-02      | Phase 3 | Complete |
 | UI-01       | Phase 7 | Pending  |
 | UI-02       | Phase 7 | Pending  |
 | UI-03       | Phase 7 | Pending  |
