@@ -12,6 +12,12 @@ from config import (
     SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
 )
 from handler.database import db_platform_handler, db_rom_handler
+from handler.filesystem import storage_composition
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+    StoragePolicy,
+)
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType, update_job_meta
 from utils.context import initialize_context
@@ -102,6 +108,10 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
         Args:
             force: Clean up even when the database reports an empty library.
         """
+        StoragePolicy.authorize(
+            StorageOperation.DELETE,
+            storage_composition.owned[OwnedStorageKind.RESOURCES],
+        )
         log.info(f"Starting {self.title} task...")
 
         cleanup_stats = CleanupStats()

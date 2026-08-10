@@ -2,6 +2,12 @@ import shutil
 import time
 
 from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
+from handler.filesystem import storage_composition
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+    StoragePolicy,
+)
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 
@@ -22,6 +28,11 @@ class CleanupUploadTmpTask(PeriodicTask):
         if not self.enabled:
             self.unschedule()
             return
+
+        StoragePolicy.authorize(
+            StorageOperation.DELETE,
+            storage_composition.owned[OwnedStorageKind.TEMP],
+        )
 
         if not ROM_UPLOAD_TMP_BASE.exists():
             return

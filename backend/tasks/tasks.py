@@ -9,6 +9,7 @@ from rq.job import Job
 from rq_scheduler import Scheduler
 
 from config import TASK_TIMEOUT
+from exceptions.storage_exceptions import StoragePolicyDenied
 from exceptions.task_exceptions import SchedulerException
 from handler.redis_handler import get_job_func_name, low_prio_queue
 from logger.logger import log
@@ -28,6 +29,8 @@ def update_job_meta(metadata: dict[str, Any]) -> None:
         if current_job:
             current_job.meta.update(metadata)
             current_job.save_meta()
+    except StoragePolicyDenied:
+        raise
     except Exception as e:
         # Silently fail if we can't update meta (e.g., not running in RQ context)
         log.debug(f"Could not update job meta: {e}")

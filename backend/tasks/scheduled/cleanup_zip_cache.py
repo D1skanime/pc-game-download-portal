@@ -1,3 +1,9 @@
+from handler.filesystem import storage_composition
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+    StoragePolicy,
+)
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 from utils.zip_cache import cleanup_stale_zips
@@ -19,6 +25,11 @@ class CleanupZipCacheTask(PeriodicTask):
         if not self.enabled:
             self.unschedule()
             return
+
+        StoragePolicy.authorize(
+            StorageOperation.DELETE,
+            storage_composition.owned[OwnedStorageKind.CACHE],
+        )
 
         deleted = cleanup_stale_zips()
         if deleted:

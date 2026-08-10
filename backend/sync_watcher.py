@@ -20,6 +20,7 @@ from typing import cast
 import sentry_sdk
 
 from config import ENABLE_SYNC_FOLDER_WATCHER, SENTRY_DSN
+from exceptions.storage_exceptions import StoragePolicyDenied
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -164,6 +165,8 @@ def _process_device_incoming(
                 device, sync_session.id, platform_slug, filename, full_path
             )
             completed += 1
+        except StoragePolicyDenied:
+            raise
         except Exception:
             log.error(
                 f"Sync watcher: failed to process {filename} for device {device_id}",

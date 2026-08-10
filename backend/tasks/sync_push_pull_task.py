@@ -12,6 +12,7 @@ from anyio import Path as AnyioPath
 from anyio import open_file
 
 from config import ENABLE_SYNC_PUSH_PULL, SYNC_PUSH_PULL_CRON
+from exceptions.storage_exceptions import StoragePolicyDenied
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -104,6 +105,8 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict:
     try:
         ssh_sync_handler = get_ssh_sync_handler()
         conn = await ssh_sync_handler.connect(sync_config, device_id=device.id)
+    except StoragePolicyDenied:
+        raise
     except Exception as e:
         log.error(f"Push-pull: failed to connect to device {device.id}: {e}")
         db_sync_session_handler.fail_session(
@@ -158,6 +161,8 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict:
                     )
                 if action != "skipped":
                     completed += 1
+            except StoragePolicyDenied:
+                raise
             except Exception:
                 log.error(
                     f"Push-pull: failed to process {remote_save.file_name} "
@@ -180,6 +185,8 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict:
         )
         completed += push_count
 
+    except StoragePolicyDenied:
+        raise
     except Exception as e:
         log.error(f"Push-pull sync failed for device {device.id}: {e}", exc_info=True)
         db_sync_session_handler.fail_session(
@@ -406,6 +413,8 @@ async def _push_missing_saves(
                         f"Push-pull: pushed missing save {hl(save.file_name)} "
                         f"to device {device.id}"
                     )
+                except StoragePolicyDenied:
+                    raise
                 except Exception:
                     log.error(
                         f"Push-pull: failed to push {save.file_name} to device {device.id}",
