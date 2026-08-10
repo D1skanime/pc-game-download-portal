@@ -1,10 +1,24 @@
+import os
+import subprocess
+import sys
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from handler.filesystem.storage_access import ReadCapability
 from utils import archives
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_database() -> None:
+    """Archive utilities are database free."""
+
+
+@pytest.fixture(autouse=True)
+def clear_database() -> None:
+    """Override shared cleanup for utility tests."""
 
 
 def _fake_7z_listing(names: list[str]) -> str:
@@ -471,3 +485,32 @@ class TestRarArchives:
             "--",
             "game.gba",
         ]
+
+
+def test_zip_reader_consumes_read_capability_without_raw_path(tmp_path):
+    archive_path = tmp_path / "game.zip"
+    (tmp_path / "game.rom").write_bytes(b"rom")
+    subprocess.run(
+        [
+            sys.executable,
+            "-S",
+            "-c",
+            "import zipfile; z=zipfile.ZipFile(r'game.zip', r'w'); z.writestr(r'game.rom', b'rom'); z.close()",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    descriptor = os.open(archive_path, os.O_RDONLY | os.O_CLOEXEC)
+    capability = ReadCapability(descriptor)
+    try:
+        assert b"".join(archives.read_zip_file(capability)) == b"rom"
+    finally:
+        capability.close()
+
+
+def test_archive_subprocess_uses_proc_fd_and_pass_fds():
+    capability = MagicMock(spec=ReadCapability)
+    capability.subprocess_fd.return_value = (("7zz", "/proc/self/fd/41"), (41,))
+    command, pass_fds = archives.archive_subprocess_input(capability, "7zz")
+    assert command == ("7zz", "/proc/self/fd/41")
+    assert pass_fds == (41,)
