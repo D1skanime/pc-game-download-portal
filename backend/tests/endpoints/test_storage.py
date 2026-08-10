@@ -7,6 +7,7 @@ from exceptions.storage_exceptions import (
     DuplicateStorageMappingError,
     InvalidRelativePathError,
     InvalidStorageCursorError,
+    MissingPlatformStorageMappingError,
     MissingStorageRootError,
     SafeStorageFilesystemError,
     StaleStorageMappingVersionError,
@@ -383,6 +384,102 @@ def test_mapping_mutations_capture_authenticated_actor_and_version(
     assert captured["actor_user_id"] > 0
     assert captured["actor_display_name"]
     assert response.json()["version"] == 4
+
+
+@pytest.mark.parametrize("kind", ["anonymous", "viewer"])
+def test_mapping_preview_authorizes_before_lookup(
+    client, viewer_access_token, monkeypatch, kind
+):
+    from endpoints import storage as endpoint
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("mapping preview executed before admin authorization")
+
+    monkeypatch.setattr(
+        endpoint.db_storage_handler, "get_active_mapping", forbidden, raising=False
+    )
+    headers = {} if kind == "anonymous" else _auth(viewer_access_token)
+    response = client.get(
+        "/api/storage/mappings/platforms/5/preview?limit=2", headers=headers
+    )
+    assert response.status_code == (401 if kind == "anonymous" else 403)
+
+
+def test_mapping_preview_requires_active_mapping(client, access_token, monkeypatch):
+    from endpoints import storage as endpoint
+
+    def missing(platform_id):
+        raise MissingPlatformStorageMappingError(platform_id)
+
+    monkeypatch.setattr(endpoint.db_storage_handler, "get_active_mapping", missing)
+    response = client.get(
+        "/api/storage/mappings/platforms/5/preview", headers=_auth(access_token)
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "code": "platform_mapping_missing",
+        "message": "Platform has no active storage mapping",
+        "platform_id": 5,
+    }
+
+
+def test_mapping_preview_is_bounded_non_mutating_and_allowlisted(
+    client, access_token, monkeypatch
+):
+    from endpoints import storage as endpoint
+
+    mapping = _mapping()
+    root = _root()
+    before_mapping = mapping.__dict__.copy()
+    before_root = root.__dict__.copy()
+    calls = []
+    monkeypatch.setattr(
+        endpoint.db_storage_handler, "get_active_mapping", lambda platform_id: mapping
+    )
+    monkeypatch.setattr(endpoint.db_storage_handler, "get_root", lambda root_id: root)
+    monkeypatch.setattr(
+        endpoint,
+        "preview_storage_mapping",
+        lambda mapped, storage_root, limit, cursor: calls.append(
+            (mapped, storage_root, limit, cursor)
+        )
+        or endpoint.StorageMappingPreview(
+            examined_entry_count=9,
+            candidate_file_count=1,
+            candidate_directory_count=1,
+            truncated=True,
+            next_cursor="opaque-next",
+        ),
+    )
+    response = client.get(
+        "/api/storage/mappings/platforms/5/preview?limit=2&cursor=opaque",
+        headers=_auth(access_token),
+    )
+    assert response.status_code == 200
+    assert calls == [(mapping, root, 2, "opaque")]
+    assert response.json() == {
+        "mapping_id": 11,
+        "platform_id": 5,
+        "storage_root_id": 7,
+        "mapping_version": 3,
+        "relative_path": "Nintendo/SNES",
+        "examined_entry_count": 9,
+        "candidate_file_count": 1,
+        "candidate_directory_count": 1,
+        "truncated": True,
+        "next_cursor": "opaque-next",
+    }
+    assert mapping.__dict__ == before_mapping
+    assert root.__dict__ == before_root
+    assert not any(
+        forbidden in response.text
+        for forbidden in (
+            "container_path",
+            "candidate_name",
+            "/sentinel/absolute",
+            "unrelated-secret-mapping",
+        )
+    )
 
 
 @pytest.mark.parametrize(
