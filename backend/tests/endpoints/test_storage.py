@@ -482,6 +482,43 @@ def test_mapping_preview_is_bounded_non_mutating_and_allowlisted(
     )
 
 
+def test_mapping_preview_continues_in_global_order_with_bounded_results(
+    tmp_path, monkeypatch
+):
+    from endpoints import storage as endpoint
+
+    for name in ("Zulu.rom", "Alpha", "Beta.rom"):
+        path = tmp_path / name
+        path.mkdir() if "." not in name else path.write_bytes(b"rom")
+    monkeypatch.setattr(endpoint, "resolve_directory", lambda root, path: tmp_path)
+
+    first = endpoint.preview_storage_mapping(_mapping(), _root(), 2, None)
+    second = endpoint.preview_storage_mapping(_mapping(), _root(), 2, first.next_cursor)
+
+    assert first.examined_entry_count == 3
+    assert first.candidate_directory_count == 1
+    assert first.candidate_file_count == 1
+    assert first.truncated is True
+    assert first.next_cursor is not None
+    assert second.examined_entry_count == 3
+    assert second.candidate_directory_count == 0
+    assert second.candidate_file_count == 1
+    assert second.truncated is False
+    assert second.next_cursor is None
+
+
+def test_mapping_preview_enforces_hard_scan_ceiling(tmp_path, monkeypatch):
+    from endpoints import storage as endpoint
+
+    for name in ("one.rom", "two.rom", "three.rom"):
+        (tmp_path / name).write_bytes(b"rom")
+    monkeypatch.setattr(endpoint, "resolve_directory", lambda root, path: tmp_path)
+    monkeypatch.setattr(endpoint, "MAX_DIRECTORY_SCAN_ENTRIES", 2)
+
+    with pytest.raises(StorageScanLimitError):
+        endpoint.preview_storage_mapping(_mapping(), _root(), 1, None)
+
+
 @pytest.mark.parametrize(
     ("error", "code", "extra"),
     [

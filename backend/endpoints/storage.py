@@ -1,3 +1,9 @@
+import base64
+import binascii
+import heapq
+import json
+import os
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import HTTPException, Query, Request, status
@@ -14,6 +20,7 @@ from endpoints.responses.storage import (
     StorageMappingAuditPageSchema,
     StorageMappingAuditSchema,
     StorageMappingCreateSchema,
+    StorageMappingPreviewSchema,
     StorageMappingSchema,
     StorageMappingSnapshotSchema,
     StorageMappingTestSchema,
@@ -30,18 +37,23 @@ from exceptions.storage_exceptions import (
     MissingPlatformStorageMappingError,
     MissingStorageRootError,
     MissingStorageTargetError,
+    SafeStorageFilesystemError,
     StaleStorageMappingVersionError,
     StorageMappingOverlapError,
     StorageResolutionError,
+    StorageScanLimitError,
+    UnsafeSymlinkError,
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_admin
 from handler.database import db_storage_handler
 from handler.filesystem.storage_resolver import (
     MAX_DIRECTORY_PAGE_SIZE,
+    MAX_DIRECTORY_SCAN_ENTRIES,
     MAX_STORAGE_CURSOR_LENGTH,
     browse_storage_directories,
     get_storage_root_health_snapshot,
+    resolve_directory,
 )
 from models.storage import (
     STORAGE_MAPPING_PATH_MAX_LENGTH,
@@ -53,6 +65,101 @@ from models.storage import (
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/storage", tags=["storage"])
+
+
+@dataclass(frozen=True, slots=True)
+class StorageMappingPreview:
+    examined_entry_count: int
+    candidate_file_count: int
+    candidate_directory_count: int
+    truncated: bool
+    next_cursor: str | None
+
+
+def _preview_cursor(mapping: PlatformStorageMapping, name: str) -> str:
+    payload = json.dumps(
+        {
+            "v": 1,
+            "mapping": mapping.id,
+            "version": mapping.version,
+            "path": mapping.relative_path,
+            "name": name,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return base64.urlsafe_b64encode(payload).decode().rstrip("=")
+
+
+def _preview_after(mapping: PlatformStorageMapping, cursor: str | None) -> bytes | None:
+    if cursor is None:
+        return None
+    if not cursor or len(cursor) > MAX_STORAGE_CURSOR_LENGTH:
+        raise InvalidStorageCursorError
+    try:
+        payload = json.loads(
+            base64.b64decode(
+                cursor + "=" * (-len(cursor) % 4), altchars=b"-_", validate=True
+            )
+        )
+    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        raise InvalidStorageCursorError from None
+    if (
+        not isinstance(payload, dict)
+        or set(payload) != {"v", "mapping", "version", "path", "name"}
+        or payload["v"] != 1
+        or payload["mapping"] != mapping.id
+        or payload["version"] != mapping.version
+        or payload["path"] != mapping.relative_path
+        or not isinstance(payload["name"], str)
+    ):
+        raise InvalidStorageCursorError
+    return payload["name"].encode()
+
+
+def preview_storage_mapping(
+    mapping: PlatformStorageMapping,
+    storage_root: StorageRoot,
+    limit: int,
+    cursor: str | None,
+) -> StorageMappingPreview:
+    directory = resolve_directory(storage_root, mapping.relative_path)
+    after = _preview_after(mapping, cursor)
+    examined = 0
+
+    def candidates():
+        nonlocal examined
+        try:
+            with os.scandir(directory) as iterator:
+                for item in iterator:
+                    examined += 1
+                    if examined > MAX_DIRECTORY_SCAN_ENTRIES:
+                        raise StorageScanLimitError(storage_root.id)
+                    if item.is_symlink():
+                        raise UnsafeSymlinkError
+                    key = item.name.encode()
+                    if after is not None and key <= after:
+                        continue
+                    if item.is_dir(follow_symlinks=False):
+                        yield key, item.name, True
+                    elif item.is_file(follow_symlinks=False):
+                        yield key, item.name, False
+        except (StorageScanLimitError, UnsafeSymlinkError):
+            raise
+        except OSError:
+            raise SafeStorageFilesystemError(storage_root.id) from None
+
+    selected = heapq.nsmallest(limit + 1, candidates(), key=lambda item: item[0])
+    visible = selected[:limit]
+    truncated = len(selected) > limit
+    return StorageMappingPreview(
+        examined_entry_count=examined,
+        candidate_file_count=sum(not item[2] for item in visible),
+        candidate_directory_count=sum(item[2] for item in visible),
+        truncated=truncated,
+        next_cursor=_preview_cursor(mapping, visible[-1][1]) if truncated else None,
+    )
+
 
 _ERROR_STATUS = {
     InvalidRelativePathError: status.HTTP_400_BAD_REQUEST,
@@ -290,6 +397,42 @@ def test_storage_mapping(
         platform_id=mapping.platform_id,
         storage_root_id=mapping.storage_root_id,
         relative_path=mapping.relative_path,
+    )
+
+
+@protected_route(
+    router.get,
+    "/mappings/platforms/{platform_id}/preview",
+    [Scope.USERS_READ],
+    response_model=StorageMappingPreviewSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def preview_platform_storage_mapping(
+    request: Request,
+    platform_id: int,
+    limit: Annotated[int, Query(ge=1, le=MAX_DIRECTORY_PAGE_SIZE)] = 50,
+    cursor: Annotated[str | None, Query(max_length=MAX_STORAGE_CURSOR_LENGTH)] = None,
+) -> StorageMappingPreviewSchema:
+    assert_admin(request)
+    try:
+        mapping = db_storage_handler.get_active_mapping(platform_id)
+        root = db_storage_handler.get_root(mapping.storage_root_id)
+        preview = preview_storage_mapping(mapping, root, limit, cursor)
+    except StorageResolutionError as error:
+        if isinstance(error, MissingPlatformStorageMappingError):
+            _raise_mapping_conflict(error)
+        _raise_safe_storage_error(error)
+    return StorageMappingPreviewSchema(
+        mapping_id=mapping.id,
+        platform_id=mapping.platform_id,
+        storage_root_id=mapping.storage_root_id,
+        mapping_version=mapping.version,
+        relative_path=mapping.relative_path,
+        examined_entry_count=preview.examined_entry_count,
+        candidate_file_count=preview.candidate_file_count,
+        candidate_directory_count=preview.candidate_directory_count,
+        truncated=preview.truncated,
+        next_cursor=preview.next_cursor,
     )
 
 

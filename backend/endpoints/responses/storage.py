@@ -106,6 +106,19 @@ class StorageMappingTestSchema(BaseModel):
     valid: Literal[True] = True
 
 
+class StorageMappingPreviewSchema(BaseModel):
+    mapping_id: int
+    platform_id: int
+    storage_root_id: int
+    mapping_version: int = Field(gt=0)
+    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    examined_entry_count: int = Field(ge=0)
+    candidate_file_count: int = Field(ge=0)
+    candidate_directory_count: int = Field(ge=0)
+    truncated: bool
+    next_cursor: str | None = Field(default=None, max_length=MAX_STORAGE_CURSOR_LENGTH)
+
+
 class StorageConflictErrorCode(enum.StrEnum):
     PLATFORM_MAPPING_MISSING = "platform_mapping_missing"
     DUPLICATE_STORAGE_MAPPING = "duplicate_storage_mapping"
