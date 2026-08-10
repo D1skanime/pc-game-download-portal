@@ -262,7 +262,6 @@ def test_storage_openapi_excludes_sensitive_fields(client):
             "safe_error",
             "platform_mappings",
             "absolute_path",
-            "mapping",
         )
     )
 

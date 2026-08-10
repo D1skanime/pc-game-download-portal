@@ -4,19 +4,34 @@ from fastapi import HTTPException, Query, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.storage import (
+    StorageConflictDetail,
+    StorageConflictErrorCode,
+    StorageConflictResponse,
     StorageDirectoryEntrySchema,
     StorageDirectoryPageSchema,
     StorageErrorDetail,
     StorageErrorResponse,
+    StorageMappingAuditPageSchema,
+    StorageMappingAuditSchema,
+    StorageMappingCreateSchema,
+    StorageMappingSchema,
+    StorageMappingSnapshotSchema,
+    StorageMappingTestSchema,
+    StorageMappingUpdateSchema,
+    StorageMappingVersionSchema,
     StorageReadErrorCode,
     StorageRootHealthSchema,
     StorageRootSchema,
 )
 from exceptions.storage_exceptions import (
+    DuplicateStorageMappingError,
     InvalidRelativePathError,
     InvalidStorageCursorError,
+    MissingPlatformStorageMappingError,
     MissingStorageRootError,
     MissingStorageTargetError,
+    StaleStorageMappingVersionError,
+    StorageMappingOverlapError,
     StorageResolutionError,
 )
 from handler.auth.constants import Scope
@@ -28,7 +43,13 @@ from handler.filesystem.storage_resolver import (
     browse_storage_directories,
     get_storage_root_health_snapshot,
 )
-from models.storage import STORAGE_MAPPING_PATH_MAX_LENGTH, StorageRoot
+from models.storage import (
+    STORAGE_MAPPING_PATH_MAX_LENGTH,
+    PlatformStorageMapping,
+    StorageMappingAudit,
+    StorageMappingAuditAction,
+    StorageRoot,
+)
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/storage", tags=["storage"])
@@ -58,6 +79,16 @@ _ERROR_RESPONSES = {
     400: {"model": StorageErrorResponse},
     404: {"model": StorageErrorResponse},
     422: {"model": StorageErrorResponse},
+}
+_MAPPING_RESPONSES = {
+    **_ERROR_RESPONSES,
+    409: {"model": StorageConflictResponse},
+}
+_CONFLICT_MESSAGES = {
+    "platform_mapping_missing": "Platform has no active storage mapping",
+    "duplicate_storage_mapping": "Platform already has an active storage mapping",
+    "storage_mapping_overlap": "Storage mapping overlaps an active mapping",
+    "storage_mapping_stale_version": "Storage mapping changed; reload before retrying",
 }
 
 
@@ -91,6 +122,69 @@ def _root_schema(root: StorageRoot) -> StorageRootSchema:
             error=health.error,
         ),
     )
+
+
+def _mapping_schema(mapping: PlatformStorageMapping) -> StorageMappingSchema:
+    return StorageMappingSchema(
+        id=mapping.id,
+        platform_id=mapping.platform_id,
+        storage_root_id=mapping.storage_root_id,
+        relative_path=mapping.relative_path,
+        active=mapping.active,
+        version=mapping.version,
+    )
+
+
+def _snapshot_schema(
+    audit: StorageMappingAudit, prefix: str
+) -> StorageMappingSnapshotSchema | None:
+    root_id = getattr(audit, f"{prefix}_storage_root_id")
+    if root_id is None:
+        return None
+    return StorageMappingSnapshotSchema(
+        storage_root_id=root_id,
+        relative_path=getattr(audit, f"{prefix}_relative_path"),
+        version=getattr(audit, f"{prefix}_version"),
+        active=getattr(audit, f"{prefix}_active"),
+    )
+
+
+def _audit_schema(audit: StorageMappingAudit) -> StorageMappingAuditSchema:
+    return StorageMappingAuditSchema(
+        id=audit.id,
+        actor_user_id=audit.actor_user_id,
+        actor_display_name=audit.actor_display_name,
+        platform_id=audit.platform_id,
+        mapping_id=audit.mapping_id,
+        action=audit.action,
+        old=_snapshot_schema(audit, "old"),
+        new=_snapshot_schema(audit, "new"),
+        created_at=audit.created_at,
+    )
+
+
+def _actor(request: Request) -> dict[str, object]:
+    return {
+        "actor_user_id": request.user.id,
+        "actor_display_name": request.user.username,
+    }
+
+
+def _raise_mapping_conflict(error: StorageResolutionError) -> None:
+    code = error.code
+    if code not in _CONFLICT_MESSAGES:
+        _raise_safe_storage_error(error)
+    detail = StorageConflictDetail(
+        code=StorageConflictErrorCode(code),
+        message=_CONFLICT_MESSAGES[code],
+        platform_id=getattr(error, "platform_id", None),
+        mapping_id=getattr(error, "mapping_id", None),
+        current_version=getattr(error, "current_version", None),
+    )
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=detail.model_dump(mode="json", exclude_none=True),
+    ) from None
 
 
 @protected_route(
@@ -151,4 +245,207 @@ def browse_storage_root(
             for entry in page.entries
         ],
         next_cursor=page.next_cursor,
+    )
+
+
+@protected_route(
+    router.get,
+    "/mappings/platforms/{platform_id}",
+    [Scope.USERS_READ],
+    response_model=StorageMappingSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def get_platform_storage_mapping(
+    request: Request, platform_id: int
+) -> StorageMappingSchema:
+    assert_admin(request)
+    try:
+        return _mapping_schema(db_storage_handler.get_active_mapping(platform_id))
+    except StorageResolutionError as error:
+        _raise_mapping_conflict(error)
+
+
+@protected_route(
+    router.post,
+    "/mappings/test",
+    [Scope.USERS_WRITE],
+    response_model=StorageMappingTestSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def test_storage_mapping(
+    request: Request, body: StorageMappingCreateSchema
+) -> StorageMappingTestSchema:
+    assert_admin(request)
+    try:
+        mapping = db_storage_handler.test_mapping(
+            body.platform_id, body.storage_root_id, body.relative_path
+        )
+    except StorageResolutionError as error:
+        if isinstance(
+            error, (DuplicateStorageMappingError, StorageMappingOverlapError)
+        ):
+            _raise_mapping_conflict(error)
+        _raise_safe_storage_error(error)
+    return StorageMappingTestSchema(
+        platform_id=mapping.platform_id,
+        storage_root_id=mapping.storage_root_id,
+        relative_path=mapping.relative_path,
+    )
+
+
+@protected_route(
+    router.post,
+    "/mappings",
+    [Scope.USERS_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    response_model=StorageMappingSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def create_storage_mapping(
+    request: Request, body: StorageMappingCreateSchema
+) -> StorageMappingSchema:
+    assert_admin(request)
+    try:
+        mapping = db_storage_handler.create_mapping(
+            body.platform_id,
+            body.storage_root_id,
+            body.relative_path,
+            **_actor(request),
+        )
+    except StorageResolutionError as error:
+        if isinstance(
+            error, (DuplicateStorageMappingError, StorageMappingOverlapError)
+        ):
+            _raise_mapping_conflict(error)
+        _raise_safe_storage_error(error)
+    return _mapping_schema(mapping)
+
+
+@protected_route(
+    router.put,
+    "/mappings/{mapping_id}",
+    [Scope.USERS_WRITE],
+    response_model=StorageMappingSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def update_storage_mapping(
+    request: Request, mapping_id: int, body: StorageMappingUpdateSchema
+) -> StorageMappingSchema:
+    assert_admin(request)
+    try:
+        mapping = db_storage_handler.update_mapping(
+            mapping_id,
+            body.storage_root_id,
+            body.relative_path,
+            expected_version=body.expected_version,
+            **_actor(request),
+        )
+    except StorageResolutionError as error:
+        if isinstance(
+            error,
+            (
+                DuplicateStorageMappingError,
+                StorageMappingOverlapError,
+                StaleStorageMappingVersionError,
+                MissingPlatformStorageMappingError,
+            ),
+        ):
+            _raise_mapping_conflict(error)
+        _raise_safe_storage_error(error)
+    return _mapping_schema(mapping)
+
+
+def _change_mapping_state(
+    request: Request, mapping_id: int, body: StorageMappingVersionSchema, operation: str
+) -> StorageMappingSchema:
+    handler = getattr(db_storage_handler, operation)
+    try:
+        mapping = handler(
+            mapping_id, expected_version=body.expected_version, **_actor(request)
+        )
+    except StorageResolutionError as error:
+        if isinstance(
+            error,
+            (
+                DuplicateStorageMappingError,
+                StorageMappingOverlapError,
+                StaleStorageMappingVersionError,
+                MissingPlatformStorageMappingError,
+            ),
+        ):
+            _raise_mapping_conflict(error)
+        _raise_safe_storage_error(error)
+    return _mapping_schema(mapping)
+
+
+@protected_route(
+    router.post,
+    "/mappings/{mapping_id}/deactivate",
+    [Scope.USERS_WRITE],
+    response_model=StorageMappingSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def deactivate_storage_mapping(
+    request: Request, mapping_id: int, body: StorageMappingVersionSchema
+) -> StorageMappingSchema:
+    assert_admin(request)
+    return _change_mapping_state(request, mapping_id, body, "deactivate_mapping")
+
+
+@protected_route(
+    router.delete,
+    "/mappings/{mapping_id}",
+    [Scope.USERS_WRITE],
+    response_model=StorageMappingSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def remove_storage_mapping(
+    request: Request, mapping_id: int, body: StorageMappingVersionSchema
+) -> StorageMappingSchema:
+    assert_admin(request)
+    return _change_mapping_state(request, mapping_id, body, "remove_mapping")
+
+
+@protected_route(
+    router.post,
+    "/mappings/{mapping_id}/activate",
+    [Scope.USERS_WRITE],
+    response_model=StorageMappingSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def activate_storage_mapping(
+    request: Request, mapping_id: int, body: StorageMappingVersionSchema
+) -> StorageMappingSchema:
+    assert_admin(request)
+    return _change_mapping_state(request, mapping_id, body, "reactivate_mapping")
+
+
+@protected_route(
+    router.get,
+    "/mapping-audits",
+    [Scope.USERS_READ],
+    response_model=StorageMappingAuditPageSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def get_storage_mapping_audits(
+    request: Request,
+    platform_id: Annotated[int | None, Query(gt=0)] = None,
+    mapping_id: Annotated[int | None, Query(gt=0)] = None,
+    action: StorageMappingAuditAction | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    cursor: Annotated[str | None, Query(max_length=2048)] = None,
+) -> StorageMappingAuditPageSchema:
+    assert_admin(request)
+    try:
+        entries, next_cursor = db_storage_handler.list_mapping_audits(
+            platform_id=platform_id,
+            mapping_id=mapping_id,
+            action=action.value if action is not None else None,
+            cursor=cursor,
+            limit=limit,
+        )
+    except StorageResolutionError as error:
+        _raise_safe_storage_error(error)
+    return StorageMappingAuditPageSchema(
+        entries=[_audit_schema(entry) for entry in entries], next_cursor=next_cursor
     )

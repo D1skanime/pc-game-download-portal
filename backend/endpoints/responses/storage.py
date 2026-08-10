@@ -9,9 +9,12 @@ from handler.filesystem.storage_resolver import (
     MAX_STORAGE_CURSOR_LENGTH,
 )
 from models.storage import (
+    STORAGE_AUDIT_ACTOR_MAX_LENGTH,
+    STORAGE_MAPPING_PATH_MAX_LENGTH,
     STORAGE_ROOT_MODE_MAX_LENGTH,
     STORAGE_ROOT_NAME_MAX_LENGTH,
     STORAGE_ROOT_PATH_MAX_LENGTH,
+    StorageMappingAuditAction,
 )
 
 
@@ -69,3 +72,80 @@ class StorageDirectoryPageSchema(BaseModel):
         max_length=MAX_DIRECTORY_PAGE_SIZE
     )
     next_cursor: str | None = Field(default=None, max_length=MAX_STORAGE_CURSOR_LENGTH)
+
+
+class StorageMappingCreateSchema(BaseModel):
+    platform_id: int = Field(gt=0)
+    storage_root_id: int = Field(gt=0)
+    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+
+
+class StorageMappingUpdateSchema(BaseModel):
+    storage_root_id: int = Field(gt=0)
+    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    expected_version: int = Field(gt=0)
+
+
+class StorageMappingVersionSchema(BaseModel):
+    expected_version: int = Field(gt=0)
+
+
+class StorageMappingSchema(BaseModel):
+    id: int
+    platform_id: int
+    storage_root_id: int
+    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    active: bool
+    version: int = Field(gt=0)
+
+
+class StorageMappingTestSchema(BaseModel):
+    platform_id: int
+    storage_root_id: int
+    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    valid: Literal[True] = True
+
+
+class StorageConflictErrorCode(enum.StrEnum):
+    PLATFORM_MAPPING_MISSING = "platform_mapping_missing"
+    DUPLICATE_STORAGE_MAPPING = "duplicate_storage_mapping"
+    STORAGE_MAPPING_OVERLAP = "storage_mapping_overlap"
+    STORAGE_MAPPING_STALE_VERSION = "storage_mapping_stale_version"
+
+
+class StorageConflictDetail(BaseModel):
+    code: StorageConflictErrorCode
+    message: str = Field(min_length=1, max_length=160)
+    platform_id: int | None = None
+    mapping_id: int | None = None
+    current_version: int | None = Field(default=None, gt=0)
+
+
+class StorageConflictResponse(BaseModel):
+    detail: StorageConflictDetail
+
+
+class StorageMappingSnapshotSchema(BaseModel):
+    storage_root_id: int
+    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    version: int = Field(gt=0)
+    active: bool
+
+
+class StorageMappingAuditSchema(BaseModel):
+    id: int
+    actor_user_id: int
+    actor_display_name: str = Field(
+        min_length=1, max_length=STORAGE_AUDIT_ACTOR_MAX_LENGTH
+    )
+    platform_id: int
+    mapping_id: int
+    action: StorageMappingAuditAction
+    old: StorageMappingSnapshotSchema | None
+    new: StorageMappingSnapshotSchema | None
+    created_at: UTCDatetime
+
+
+class StorageMappingAuditPageSchema(BaseModel):
+    entries: list[StorageMappingAuditSchema] = Field(max_length=100)
+    next_cursor: str | None = Field(default=None, max_length=2048)
