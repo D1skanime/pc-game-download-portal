@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-08-10T22:10:09Z"
-last_activity: 2026-08-10
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-08-11T00:20:00Z"
+last_activity: 2026-08-11
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 24
-  completed_plans: 21
+  completed_plans: 22
   percent: 22
 ---
 
@@ -26,17 +26,17 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 3
-Plan: 4 of 6
+Plan: 5 of 6
 Status: In progress
-Last activity: 2026-08-10
+Last activity: 2026-08-11
 
-Progress: [#######---] 67%
+Progress: [########--] 83%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 19
+- Total plans completed: 20
 - Average duration: 10 min
 - Total execution time: 1.41 hours
 
@@ -70,6 +70,7 @@ _Updated after each plan completion_
 | Phase 03 P02 | 9min | 2 tasks | 2 files |
 | Phase 03 P03 | 22min | 2 tasks | 2 files |
 | Phase 03 P04 | 6min | 2 tasks | 5 files |
+| Phase 03 P05 | 10min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,8 @@ Recent decisions affecting current work:
 
 - [Phase 03]: Storage read routes require users.read plus explicit admin authority before lookup or filesystem observation.
 - [Phase 03]: Root and browse contracts serialize explicit allowlists and translate storage failures to bounded static messages.
+- [Phase 03]: Mapping mutations derive immutable actor attribution from authenticated requests and require explicit optimistic versions.
+- [Phase 03]: Mapping conflicts expose only stable codes, allowlisted identifiers, and current versions where applicable.
 
 ### Blockers/Concerns
 
@@ -134,6 +137,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-10T22:10:09Z
-Stopped at: Completed 03-04-PLAN.md
-Resume file: .planning/phases/03-mapping-administration-contracts/03-05-PLAN.md
+Last session: 2026-08-11T00:20:00Z
+Stopped at: Completed 03-05-PLAN.md
+Resume file: .planning/phases/03-mapping-administration-contracts/03-06-PLAN.md
