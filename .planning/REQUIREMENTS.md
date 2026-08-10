@@ -23,12 +23,12 @@
 
 ### Platform Storage Mappings
 
-- [ ] **MAP-01**: An administrator can assign a platform to an existing relative subdirectory of an active storage root.
+- [x] **MAP-01**: An administrator can assign a platform to an existing relative subdirectory of an active storage root.
 - [x] **MAP-02**: A platform has at most one active mapping in milestone 1, while the schema permits multiple storage roots for future use.
 - [x] **MAP-03**: Creating, changing, testing, or removing a mapping performs no source filesystem mutation.
-- [ ] **MAP-04**: Multiple platforms can map to distinct directories below the same external root.
-- [ ] **MAP-05**: Unsafe overlapping mappings are rejected unless a future explicit policy allows them.
-- [ ] **MAP-06**: A missing mapping produces a clear operator-facing error and never falls back silently to an unrelated directory.
+- [x] **MAP-04**: Multiple platforms can map to distinct directories below the same external root.
+- [x] **MAP-05**: Unsafe overlapping mappings are rejected unless a future explicit policy allows them.
+- [x] **MAP-06**: A missing mapping produces a clear operator-facing error and never falls back silently to an unrelated directory.
 
 ### Central Read-only Policy
 
@@ -152,12 +152,12 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | PATH-03     | Phase 1 | Complete |
 | PATH-04     | Phase 1 | Complete |
 | PATH-05     | Phase 1 | Complete |
-| MAP-01      | Phase 3 | Pending  |
+| MAP-01      | Phase 3 | Complete |
 | MAP-02      | Phase 3 | Complete |
 | MAP-03      | Phase 3 | Complete |
-| MAP-04      | Phase 3 | Pending  |
-| MAP-05      | Phase 3 | Pending  |
-| MAP-06      | Phase 3 | Pending  |
+| MAP-04      | Phase 3 | Complete |
+| MAP-05      | Phase 3 | Complete |
+| MAP-06      | Phase 3 | Complete |
 | SAFE-01     | Phase 2 | Complete |
 | SAFE-02     | Phase 2 | Complete |
 | SAFE-03     | Phase 2 | Complete |

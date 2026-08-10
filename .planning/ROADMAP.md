@@ -117,13 +117,13 @@ Plans:
 4. Unauthenticated callers cannot enumerate library structure, non-administrators cannot mutate mappings, and missing mappings never fall back silently.
 5. Mapping changes produce an audit record with actor, timestamp, platform, action, and old/new relative values without leaking host or unrelated filesystem paths.
 
-**Plans:** 2/6 plans complete
+**Plans:** 3/6 plans complete
 
 Plans:
 
 - [x] 03-01-PLAN.md - Portable mapping lifecycle and immutable audit schema
 - [x] 03-02-PLAN.md - Pure live health and bounded contained directory browsing
-- [ ] 03-03-PLAN.md - Transactional optimistic mapping lifecycle and audit service
+- [x] 03-03-PLAN.md - Transactional optimistic mapping lifecycle and audit service
 - [ ] 03-04-PLAN.md - Authorized safe root and browser API contracts
 - [ ] 03-05-PLAN.md - Typed audited mapping administration API lifecycle
 - [ ] 03-06-PLAN.md - Non-mutating preview, OpenAPI generation, and final evidence
