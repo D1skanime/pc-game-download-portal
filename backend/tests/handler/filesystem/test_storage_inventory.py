@@ -309,15 +309,64 @@ def test_runtime_authority_seams_are_closed_and_composition_only() -> None:
     assert _authority_seams(BACKEND) == {(*AUTHORITY_PROVIDER, "descriptor_factory")}
 
 
-def test_authority_discovery_rejects_seeded_factory_and_raw_root_mutants(
+def test_authority_discovery_rejects_unused_factory_import(tmp_path: Path) -> None:
+    (tmp_path / "unused_factory_import.py").write_text(
+        "def retain_import():\n"
+        "    from handler.filesystem.storage_policy import (\n"
+        "        _create_external_descriptor as make_descriptor,\n"
+        "    )\n"
+        "    return None\n"
+    )
+
+    assert (
+        "unused_factory_import",
+        "retain_import",
+        "descriptor_factory",
+    ) in _authority_seams(tmp_path)
+
+
+def test_authority_discovery_rejects_factory_alias_call(tmp_path: Path) -> None:
+    (tmp_path / "factory_alias_call.py").write_text(
+        "def forge_elsewhere():\n"
+        "    from handler.filesystem.storage_policy import (\n"
+        "        _create_external_descriptor as make_descriptor,\n"
+        "    )\n"
+        "    return make_descriptor(9, '/tmp')\n"
+    )
+
+    assert (
+        "factory_alias_call",
+        "forge_elsewhere",
+        "descriptor_factory",
+    ) in _authority_seams(tmp_path)
+
+
+def test_authority_discovery_rejects_neutral_container_path_access(
     tmp_path: Path,
 ) -> None:
-    (tmp_path / "factory.py").write_text(
-        "def forge():\n    return _create_external_descriptor(9, '/tmp')\n"
+    (tmp_path / "neutral_path.py").write_text(
+        "def select(root: StorageRoot):\n    return root.container_path\n"
     )
-    (tmp_path / "raw.py").write_text(
-        "def open_any(root: StorageRoot):\n    return root.container_path\n"
+
+    assert (
+        "neutral_path",
+        "select",
+        "raw_storage_root",
+    ) in _authority_seams(tmp_path)
+
+
+def test_authority_discovery_rejects_neutral_storage_root_branch(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "neutral_branch.py").write_text(
+        "def choose(root: StorageRoot):\n"
+        "    if isinstance(root, StorageRoot):\n"
+        "        return root\n"
+        "    return None\n"
     )
-    seams = _authority_seams(tmp_path)
-    assert ("factory", "forge", "descriptor_factory") in seams
-    assert ("raw", "open_any", "raw_storage_root") in seams
+
+    assert (
+        "neutral_branch",
+        "choose",
+        "raw_storage_root",
+    ) in _authority_seams(tmp_path)
