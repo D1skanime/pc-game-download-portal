@@ -303,10 +303,14 @@ def test_create_setup_platforms_creates_structure_a_when_none_exists(
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
 
-                assert response.status_code == status.HTTP_201_CREATED
-                # Should create roms folder first
-                mock_makedirs.assert_called_once()
-                assert "roms" in str(mock_makedirs.call_args[0][0])
+                assert response.status_code == status.HTTP_403_FORBIDDEN
+                assert response.json()["detail"] == {
+                    "code": "external_storage_operation_denied",
+                    "operation": "mkdir",
+                    "storage_class": "external_read_only",
+                    "storage_id": "root:0",
+                }
+                mock_makedirs.assert_not_called()
 
 
 def test_create_setup_platforms_skips_existing_platforms(

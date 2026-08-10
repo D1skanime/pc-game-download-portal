@@ -9,7 +9,7 @@ import hashlib
 import json
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 import tempfile
 from contextlib import ExitStack
@@ -126,7 +126,7 @@ def _run_service(service: str, fixture: Path, owned: Path) -> dict[str, Any]:
         "POLICY_OWNED_OUTPUT": str(owned),
         "POLICY_REPO_ROOT": str(REPO_ROOT),
     }
-    completed = subprocess.run(
+    completed = subprocess.run(  # nosec B603 B607
         ["docker", "compose", "-f", str(COMPOSE_FILE), "run", "--rm", service],
         cwd=REPO_ROOT,
         env=environment,

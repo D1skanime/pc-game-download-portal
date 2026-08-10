@@ -5,7 +5,7 @@ from contextlib import ExitStack
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any, Sequence
+from typing import Annotated, Any, Sequence, cast
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -66,7 +66,12 @@ from handler.filesystem import (
     storage_composition,
 )
 from handler.filesystem.assets_handler import validate_image_upload
-from handler.filesystem.storage_access import open_owned_access
+from handler.filesystem.storage_access import (
+    DownloadCapability,
+    OwnedDirectory,
+    OwnedReplace,
+    open_owned_access,
+)
 from handler.filesystem.storage_policy import (
     OwnedStorageKind,
     StorageOperation,
@@ -127,24 +132,37 @@ async def _resolve_capability_cached_zip(
 ):
     cache = storage_composition.owned[OwnedStorageKind.CACHE]
     try:
-        with open_owned_access(cache, StorageOperation.MKDIR, namespace) as directory:
+        with cast(
+            OwnedDirectory,
+            open_owned_access(cache, StorageOperation.MKDIR, namespace),
+        ) as directory:
             directory.mkdir()
-    except Exception:
+    except Exception:  # nosec B110
         pass
     cache_key = get_cache_key(namespace, entries, hidden_folder)
     with ExitStack() as stack:
         sources = [
-            stack.enter_context(
-                open_storage_access(
-                    legacy_external_storage, StorageOperation.DOWNLOAD, entry.full_path
-                )
+            cast(
+                DownloadCapability,
+                stack.enter_context(
+                    open_storage_access(
+                        legacy_external_storage,
+                        StorageOperation.DOWNLOAD,
+                        entry.full_path,
+                    )
+                ),
             )
             for entry in entries
         ]
-        destination = stack.enter_context(
-            open_owned_access(
-                cache, StorageOperation.OVERWRITE, f"{namespace}/{cache_key}.zip"
-            )
+        destination = cast(
+            OwnedReplace,
+            stack.enter_context(
+                open_owned_access(
+                    cache,
+                    StorageOperation.OVERWRITE,
+                    f"{namespace}/{cache_key}.zip",
+                )
+            ),
         )
         return await resolve_cached_zip(
             namespace,
@@ -177,8 +195,11 @@ STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hi
 
 def _download_chunks(relative_path: str):
     try:
-        access = open_storage_access(
-            legacy_external_storage, StorageOperation.DOWNLOAD, relative_path
+        access = cast(
+            DownloadCapability,
+            open_storage_access(
+                legacy_external_storage, StorageOperation.DOWNLOAD, relative_path
+            ),
         )
     except MissingStorageTargetError:
         return
@@ -2114,9 +2135,12 @@ async def delete_roms(
         ),
     ],
 ) -> BulkOperationResponse:
-    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
-
     """Delete roms."""
+
+    if delete_from_fs:
+        authorize_api_storage_operation(
+            StorageOperation.DELETE, legacy_external_storage
+        )
 
     perms = get_permissions(request)
     assert_can(perms, PermEntity.ROMS, PermAction.DELETE)

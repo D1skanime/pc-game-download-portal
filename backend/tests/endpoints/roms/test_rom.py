@@ -864,12 +864,10 @@ def test_delete_roms_from_fs_flat(
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": [rom.id]},
     )
-    assert response.status_code == status.HTTP_200_OK
-
-    body = response.json()
-    assert body["successful_items"] == 1
-    assert body["failed_ids"] == []
-    mock_remove_file.assert_called_once()
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    mock_validate_path.assert_not_called()
+    mock_remove_file.assert_not_called()
     mock_remove_directory.assert_not_called()
 
 
@@ -908,14 +906,11 @@ def test_delete_roms_from_fs_flat_cleans_empty_parent(
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": [rom.id]},
     )
-    assert response.status_code == status.HTTP_200_OK
-
-    body = response.json()
-    assert body["successful_items"] == 1
-    assert body["failed_ids"] == []
-    mock_remove_file.assert_called_once()
-    # remove_directory should be called to clean up the empty parent dir
-    mock_remove_directory.assert_called_once()
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    mock_validate_path.assert_not_called()
+    mock_remove_file.assert_not_called()
+    mock_remove_directory.assert_not_called()
 
 
 @patch(
@@ -960,12 +955,10 @@ def test_delete_roms_from_fs_nested(
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [nested_rom.id], "delete_from_fs": [nested_rom.id]},
     )
-    assert response.status_code == status.HTTP_200_OK
-
-    body = response.json()
-    assert body["successful_items"] == 1
-    assert body["failed_ids"] == []
-    mock_remove_directory.assert_called_once()
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    mock_validate_path.assert_not_called()
+    mock_remove_directory.assert_not_called()
 
 
 @patch("endpoints.roms.fs_rom_handler.validate_path")
@@ -985,13 +978,10 @@ def test_delete_roms_from_fs_missing_file_still_deletes_db_entry(
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": [rom.id]},
     )
-    assert response.status_code == status.HTTP_200_OK
-
-    body = response.json()
-    assert body["successful_items"] == 1
-    assert body["failed_ids"] == []
-    assert body["errors"] == []
-    assert db_rom_handler.get_rom(rom.id) is None
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    mock_validate_path.assert_not_called()
+    assert db_rom_handler.get_rom(rom.id) is not None
 
 
 def test_update_rom_user_props_flat_payload(

@@ -28,6 +28,7 @@ from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from exceptions.storage_exceptions import StoragePolicyDenied
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler, legacy_external_storage
@@ -352,6 +353,16 @@ async def create_setup_platforms(request: Request, platform_slugs: list[str]):
 
     except HTTPException:
         raise
+    except StoragePolicyDenied as denial:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": denial.code,
+                "operation": denial.operation,
+                "storage_class": denial.storage_class,
+                "storage_id": denial.storage_id,
+            },
+        ) from denial
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
