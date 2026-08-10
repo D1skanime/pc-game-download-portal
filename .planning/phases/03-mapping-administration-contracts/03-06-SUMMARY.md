@@ -56,6 +56,7 @@ completed: 2026-08-11
 1. **Task 1 RED: bounded preview contract** - `a1c9fd516` (test)
 2. **Task 1 GREEN: non-mutating preview** - `31395485b` (feat)
 3. **Task 2: generated storage API contracts** - `9a270f7cb` (chore)
+4. **Post-verification: authoritative generated-contract formatting** - `f3f51a8e2` (style)
 
 ## Files Created/Modified
 
@@ -112,12 +113,14 @@ None.
 - Migration verifier: MariaDB, MySQL, and PostgreSQL upgrade/downgrade/re-upgrade passed with lifecycle-history downgrade rejection.
 - Handler verifier: 10 repetitions each on MariaDB and PostgreSQL passed.
 - Source and Git safety: `git diff --check` passed; unrelated untracked files remained untouched.
+- Post-verification formatting: repository-pinned Prettier 3.9.5 removed generator EOF whitespace from the 17 reported models; `git diff --check fd7f5a709..HEAD`, Node 24 typecheck, and the OpenAPI endpoint test passed.
 
 ## Self-Check: PASSED
 
 - All modified and generated contract files exist.
 - RED commit `a1c9fd516` precedes GREEN commit `31395485b`.
 - Generated-contract commit `9a270f7cb` exists.
+- Generated formatting commit `f3f51a8e2` exists.
 - Task-owned PID files, logs, and Docker volumes were removed.
 - Team4s services and host/container port 3000 were not inspected, modified, restarted, or stopped.
 
