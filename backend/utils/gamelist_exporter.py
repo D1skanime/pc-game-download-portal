@@ -13,11 +13,15 @@ from starlette.datastructures import URLPath
 from config import FRONTEND_RESOURCES_PATH, YOUTUBE_BASE_URL
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
-from handler.filesystem import fs_platform_handler, fs_resource_handler
 from handler.filesystem.storage_access import OwnedReplace
+from handler.filesystem.storage_resolver import normalize_relative_path
 from logger.logger import log
 from models.rom import Rom
-from utils.filesystem import link_or_copy_file
+
+
+def _resource_path(raw_path: str) -> Path:
+    return Path(normalize_relative_path(raw_path))
+
 
 # Map gamelist asset keys to subdirectory names inside assets/
 ASSET_DIRS: dict[str, str] = {
@@ -64,18 +68,16 @@ class GamelistExporter:
         assets: dict[str, Path] = {}
 
         if rom.path_cover_l:
-            assets["box2d"] = fs_resource_handler.validate_path(rom.path_cover_l)
+            assets["box2d"] = _resource_path(rom.path_cover_l)
 
         if rom.path_screenshots:
-            assets["screenshot"] = fs_resource_handler.validate_path(
-                rom.path_screenshots[0]
-            )
+            assets["screenshot"] = _resource_path(rom.path_screenshots[0])
 
         if rom.path_video:
-            assets["video"] = fs_resource_handler.validate_path(rom.path_video)
+            assets["video"] = _resource_path(rom.path_video)
 
         if rom.path_manual:
-            assets["manual"] = fs_resource_handler.validate_path(rom.path_manual)
+            assets["manual"] = _resource_path(rom.path_manual)
 
         ss = rom.ss_metadata or {}
         gl = rom.gamelist_metadata or {}
@@ -103,7 +105,7 @@ class GamelistExporter:
         for asset_key, candidates in extended.items():
             for candidate in candidates:
                 if candidate:
-                    assets[asset_key] = fs_resource_handler.validate_path(candidate)
+                    assets[asset_key] = _resource_path(candidate)
                     break
 
         return assets
@@ -130,11 +132,6 @@ class GamelistExporter:
                 dest_name = f"{rom.fs_name_no_ext}{source_path.suffix}"
                 rel_path = f"./assets/{subdir}/{dest_name}"
 
-                if platform_dir is not None:
-                    dest_path = platform_dir / rel_path
-                    if not self._copy_asset(source_path, dest_path):
-                        continue
-
                 refs[asset_key] = rel_path
             return refs
 
@@ -142,30 +139,13 @@ class GamelistExporter:
             raise ValueError("Request object must be provided for non-local exports")
 
         for asset_key, source_path in assets.items():
-            resource_part = source_path.relative_to(
-                Path(fs_resource_handler.base_path).resolve()
-            )
             refs[asset_key] = str(
                 URLPath(
-                    f"{FRONTEND_RESOURCES_PATH}/{resource_part.as_posix()}"
+                    f"{FRONTEND_RESOURCES_PATH}/{source_path.as_posix()}"
                 ).make_absolute_url(request.base_url)
             )
 
         return refs
-
-    def _copy_asset(self, source: Path, dest: Path) -> bool:
-        """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
-        (otherwise). Returns True on success."""
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.exists():
-            return True
-
-        try:
-            link_or_copy_file(source, dest)
-            return True
-        except OSError as e:
-            log.warning(f"Failed to copy {source} -> {dest}: {e}")
-            return False
 
     def _create_game_element(
         self,

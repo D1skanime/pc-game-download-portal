@@ -4,6 +4,7 @@ from xml.etree.ElementTree import fromstring
 import pytest
 
 from config import FRONTEND_RESOURCES_PATH
+from exceptions.storage_exceptions import InvalidRelativePathError
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from handler.filesystem.storage_access import open_owned_access
@@ -307,7 +308,7 @@ def test_export_gamelist_xml_rejects_path_traversal(platform_with_roms):
     db_rom_handler.update_rom(roms[0].id, {"path_cover_l": "../../etc/passwd"})
 
     exporter = GamelistExporter(local_export=True)
-    with pytest.raises(ValueError, match="invalid parent directory references"):
+    with pytest.raises(InvalidRelativePathError, match="safe relative path"):
         exporter.export_platform_to_xml(platform.id, request=None)
 
 

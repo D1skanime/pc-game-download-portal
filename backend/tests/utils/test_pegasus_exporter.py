@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TypedDict
 from unittest.mock import MagicMock
 
@@ -369,9 +370,9 @@ class TestCollectAssets:
         )
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
 
-        assert assets["box_front"] == tmp_path / "roms/1/1/cover/big.png"
-        assert assets["screenshot"] == tmp_path / "roms/1/1/screenshots/0.jpg"
-        assert assets["video"] == tmp_path / "roms/1/1/video/video.mp4"
+        assert assets["box_front"] == Path("roms/1/1/cover/big.png")
+        assert assets["screenshot"] == Path("roms/1/1/screenshots/0.jpg")
+        assert assets["video"] == Path("roms/1/1/video/video.mp4")
 
     @pytest.mark.parametrize(
         "ss_key, ss_value, expected_pegasus_key",
@@ -395,7 +396,7 @@ class TestCollectAssets:
 
         rom = _mock_rom(ss_metadata={ss_key: ss_value}, gamelist_metadata=None)
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
-        assert assets[expected_pegasus_key] == f
+        assert assets[expected_pegasus_key] == Path(ss_value)
 
     def test_gamelist_metadata(self, tmp_path, monkeypatch):
         monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path)
@@ -408,27 +409,10 @@ class TestCollectAssets:
             gamelist_metadata={"marquee_path": "roms/1/1/marquee/m.png"},
         )
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
-        assert assets["marquee"] == f
+        assert assets["marquee"] == Path("roms/1/1/marquee/m.png")
 
 
 class TestCopyAndEntry:
-    def test_copy_asset(self, tmp_path):
-        source = tmp_path / "source.png"
-        source.write_bytes(b"data")
-        dest = tmp_path / "out" / "dest.png"
-
-        assert PegasusExporter(local_export=True)._copy_asset(source, dest)
-        assert dest.read_bytes() == b"data"
-
-    def test_copy_asset_skips_existing(self, tmp_path):
-        source = tmp_path / "source.png"
-        source.write_bytes(b"new")
-        dest = tmp_path / "dest.png"
-        dest.write_bytes(b"old")
-
-        assert PegasusExporter(local_export=True)._copy_asset(source, dest)
-        assert dest.read_bytes() == b"old"
-
     def test_game_entry_with_assets(self):
         metadatum = MagicMock()
         metadatum.companies = metadatum.genres = metadatum.player_count = None

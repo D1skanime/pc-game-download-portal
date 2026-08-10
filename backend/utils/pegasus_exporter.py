@@ -4,13 +4,17 @@ from pathlib import Path
 from fastapi import Request
 
 from handler.database import db_platform_handler, db_rom_handler
-from handler.filesystem import fs_platform_handler, fs_resource_handler
 from handler.filesystem.storage_access import OwnedReplace
+from handler.filesystem.storage_resolver import normalize_relative_path
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom
-from utils.filesystem import link_or_copy_file
+
+
+def _resource_path(raw_path: str) -> Path:
+    return Path(normalize_relative_path(raw_path))
+
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
 # Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/
@@ -173,15 +177,13 @@ class PegasusExporter:
         assets: dict[str, Path] = {}
 
         if rom.path_cover_l:
-            assets["box_front"] = fs_resource_handler.validate_path(rom.path_cover_l)
+            assets["box_front"] = _resource_path(rom.path_cover_l)
 
         if rom.path_screenshots:
-            assets["screenshot"] = fs_resource_handler.validate_path(
-                rom.path_screenshots[0]
-            )
+            assets["screenshot"] = _resource_path(rom.path_screenshots[0])
 
         if rom.path_video:
-            assets["video"] = fs_resource_handler.validate_path(rom.path_video)
+            assets["video"] = _resource_path(rom.path_video)
 
         # Extended media from screenscraper / gamelist metadata
         ss = rom.ss_metadata or {}
@@ -206,7 +208,7 @@ class PegasusExporter:
                 continue
             for candidate in candidates:
                 if candidate:
-                    assets[pegasus_key] = fs_resource_handler.validate_path(candidate)
+                    assets[pegasus_key] = _resource_path(candidate)
                     break
 
         return assets
@@ -289,20 +291,6 @@ class PegasusExporter:
         lines.append(f"x-romm-id: {rom.id}")
 
         return "\n".join(lines)
-
-    def _copy_asset(self, source: Path, dest: Path) -> bool:
-        """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
-        (otherwise). Returns True on success."""
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.exists():
-            return True
-
-        try:
-            link_or_copy_file(source, dest)
-            return True
-        except OSError as e:
-            log.warning(f"Failed to copy {source} -> {dest}: {e}")
-            return False
 
     def export_platform_to_pegasus(
         self, platform_id: int, request: Request | None
