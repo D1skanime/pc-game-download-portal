@@ -251,6 +251,10 @@ def test_inventory_enforcement_links_resolve_to_real_symbols() -> None:
 
 AUTHORITY_FACTORY = "_create_external_descriptor"
 AUTHORITY_PROVIDER = EXTERNAL_AUTHORITY_PROVIDER
+NON_AUTHORITY_RAW_ROOTS = {
+    ("handler.filesystem.storage_resolver", "check_storage_root_health"),
+    ("handler.filesystem.storage_resolver", "resolve_storage_root"),
+}
 
 
 def _runtime_python_files(root: Path) -> list[Path]:
@@ -262,46 +266,136 @@ def _runtime_python_files(root: Path) -> list[Path]:
     ]
 
 
+def _factory_aliases(nodes: list[ast.stmt]) -> set[str]:
+    return {
+        alias.asname or alias.name
+        for statement in nodes
+        if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for node in ast.walk(statement)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+        if alias.name == AUTHORITY_FACTORY
+    }
+
+
+def _function_nodes(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[ast.AST]:
+    nodes: list[ast.AST] = []
+
+    class Visitor(ast.NodeVisitor):
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            if node is function:
+                self.generic_visit(node)
+
+        visit_AsyncFunctionDef = visit_FunctionDef
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:
+            return
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:
+            return
+
+        def generic_visit(self, node: ast.AST) -> None:
+            nodes.append(node)
+            super().generic_visit(node)
+
+    Visitor().visit(function)
+    return nodes
+
+
+def _is_storage_root_annotation(annotation: ast.expr | None) -> bool:
+    if annotation is None:
+        return False
+    return any(
+        (isinstance(node, ast.Name) and node.id == "StorageRoot")
+        or (isinstance(node, ast.Attribute) and node.attr == "StorageRoot")
+        or (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and "StorageRoot" in node.value
+        )
+        for node in ast.walk(annotation)
+    )
+
+
+def _typed_storage_root_parameters(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> set[str]:
+    parameters = [
+        *function.args.posonlyargs,
+        *function.args.args,
+        *function.args.kwonlyargs,
+    ]
+    if function.args.vararg is not None:
+        parameters.append(function.args.vararg)
+    if function.args.kwarg is not None:
+        parameters.append(function.args.kwarg)
+    return {
+        parameter.arg
+        for parameter in parameters
+        if _is_storage_root_annotation(parameter.annotation)
+    }
+
+
 def _authority_seams(root: Path) -> set[tuple[str, str, str]]:
     seams: set[tuple[str, str, str]] = set()
     for path in _runtime_python_files(root):
         module = ".".join(path.relative_to(root).with_suffix("").parts)
         tree = ast.parse(path.read_text())
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                names = {
-                    child.id for child in ast.walk(node) if isinstance(child, ast.Name)
-                }
-                attrs = {
-                    child.attr
-                    for child in ast.walk(node)
-                    if isinstance(child, ast.Attribute)
-                }
-                annotations = ast.unparse(node.args)
-                if AUTHORITY_FACTORY in names:
-                    seams.add((module, node.name, "descriptor_factory"))
-                branches_on_root = any(
-                    isinstance(child, ast.Call)
-                    and isinstance(child.func, ast.Name)
-                    and child.func.id == "isinstance"
-                    and "StorageRoot"
-                    in {
-                        name.id
-                        for name in ast.walk(child)
-                        if isinstance(name, ast.Name)
-                    }
-                    for child in ast.walk(node)
-                )
-                access_function = any(
-                    term in node.name
-                    for term in ("open", "access", "authorize", "descriptor")
-                )
-                if (
-                    access_function
-                    and "StorageRoot" in annotations
-                    and ("container_path" in attrs or branches_on_root)
-                ):
-                    seams.add((module, node.name, "raw_storage_root"))
+        module_aliases = _factory_aliases(tree.body)
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            nodes = _function_nodes(function)
+            local_aliases = {
+                alias.asname or alias.name
+                for node in nodes
+                if isinstance(node, ast.ImportFrom)
+                for alias in node.names
+                if alias.name == AUTHORITY_FACTORY
+            }
+            if local_aliases or any(
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in module_aliases | local_aliases
+                for node in nodes
+            ):
+                seams.add((module, function.name, "descriptor_factory"))
+
+            root_parameters = _typed_storage_root_parameters(function)
+            accesses_container_path = any(
+                isinstance(node, ast.Attribute)
+                and node.attr == "container_path"
+                and isinstance(node.value, ast.Name)
+                and node.value.id in root_parameters
+                for node in nodes
+            )
+            branch_expressions = [
+                node.test
+                for node in nodes
+                if isinstance(node, (ast.If, ast.IfExp, ast.While))
+            ]
+            branch_expressions.extend(
+                node.subject for node in nodes if isinstance(node, ast.Match)
+            )
+            branch_expressions.extend(
+                node.guard
+                for node in nodes
+                if isinstance(node, ast.match_case) and node.guard is not None
+            )
+            branches_on_root = any(
+                isinstance(candidate, ast.Name) and candidate.id in root_parameters
+                for expression in branch_expressions
+                for candidate in ast.walk(expression)
+            )
+            raw_root_seam = (module, function.name)
+            if (
+                raw_root_seam not in NON_AUTHORITY_RAW_ROOTS
+                and root_parameters
+                and (accesses_container_path or branches_on_root)
+            ):
+                seams.add((*raw_root_seam, "raw_storage_root"))
     return seams
 
 
