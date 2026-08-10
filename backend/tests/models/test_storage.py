@@ -6,7 +6,12 @@ from sqlalchemy.exc import IntegrityError
 from tests.conftest import session
 
 from models.platform import Platform
-from models.storage import PlatformStorageMapping, StorageRoot
+from models.storage import (
+    PlatformStorageMapping,
+    StorageMappingAudit,
+    StorageMappingAuditAction,
+    StorageRoot,
+)
 
 
 @pytest.fixture
@@ -149,3 +154,96 @@ def test_platform_mapping_relationship_is_scalar(storage_root: StorageRoot):
     relationship = inspect(Platform).relationships.storage_mapping
     assert relationship.uselist is False
     assert relationship.back_populates == "platform"
+
+
+def test_mapping_lifecycle_defaults_and_portable_indexes(storage_root: StorageRoot):
+    platform = _platform("lifecycle")
+    with session.begin() as db:
+        mapping = PlatformStorageMapping(
+            platform_id=platform.id,
+            storage_root_id=storage_root.id,
+            relative_path="Lifecycle",
+        )
+        db.add(mapping)
+        db.flush()
+        assert mapping.active is True
+        assert mapping.version == 1
+
+    table = PlatformStorageMapping.__table__
+    constraint_names = {constraint.name for constraint in table.constraints}
+    assert {"active", "version"} <= set(table.columns.keys())
+    assert "uq_platform_storage_mappings_platform_id" not in constraint_names
+    assert "uq_platform_storage_mappings_root_relative_path" not in constraint_names
+    assert {
+        "ix_platform_storage_mappings_active_platform",
+        "ix_platform_storage_mappings_active_root_path",
+    } <= {index.name for index in table.indexes}
+
+
+def test_inactive_mapping_rows_do_not_reserve_platform_or_path(
+    storage_root: StorageRoot,
+):
+    first = _platform("inactive-first")
+    second = _platform("inactive-second")
+    with session.begin() as db:
+        db.add(
+            PlatformStorageMapping(
+                platform_id=first.id,
+                storage_root_id=storage_root.id,
+                relative_path="Reusable",
+                active=False,
+                version=2,
+            )
+        )
+    with session.begin() as db:
+        db.add_all(
+            [
+                PlatformStorageMapping(
+                    platform_id=first.id,
+                    storage_root_id=storage_root.id,
+                    relative_path="Replacement",
+                ),
+                PlatformStorageMapping(
+                    platform_id=second.id,
+                    storage_root_id=storage_root.id,
+                    relative_path="Reusable",
+                ),
+            ]
+        )
+
+
+def test_audit_snapshot_is_scalar_bounded_and_relationship_free():
+    columns = StorageMappingAudit.__table__.columns
+    assert set(columns.keys()) == {
+        "id",
+        "actor_user_id",
+        "actor_display_name",
+        "platform_id",
+        "mapping_id",
+        "action",
+        "old_storage_root_id",
+        "old_relative_path",
+        "old_version",
+        "old_active",
+        "new_storage_root_id",
+        "new_relative_path",
+        "new_version",
+        "new_active",
+        "created_at",
+    }
+    assert columns.actor_display_name.type.length == 255
+    assert columns.old_relative_path.type.length == 700
+    assert columns.new_relative_path.type.length == 700
+    assert not inspect(StorageMappingAudit).relationships
+    assert set(StorageMappingAuditAction) == {
+        StorageMappingAuditAction.CREATE,
+        StorageMappingAuditAction.UPDATE,
+        StorageMappingAuditAction.REMOVE,
+        StorageMappingAuditAction.ACTIVATE,
+        StorageMappingAuditAction.DEACTIVATE,
+    }
+
+
+def test_audit_has_no_host_path_fields():
+    forbidden = {"container_path", "nas_path", "absolute_path", "safe_error"}
+    assert forbidden.isdisjoint(StorageMappingAudit.__table__.columns.keys())
