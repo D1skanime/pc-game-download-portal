@@ -5,6 +5,9 @@ from fastapi.responses import Response
 
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
+from handler.filesystem import storage_composition
+from handler.filesystem.storage_access import open_owned_access
+from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -40,10 +43,14 @@ async def export_gamelist_xml(
         files_written = []
 
         for platform_id in platform_ids:
-            success = await exporter.export_platform_to_file(
-                platform_id,
-                request,
-            )
+            with open_owned_access(
+                storage_composition.owned[OwnedStorageKind.RESOURCES],
+                StorageOperation.OVERWRITE,
+                f"gamelist_{platform_id}.xml",
+            ) as destination:
+                success = await exporter.export_platform_to_file(
+                    platform_id, request, destination
+                )
             if success:
                 files_written.append(f"gamelist_{platform_id}.xml")
             else:
@@ -93,10 +100,14 @@ async def export_pegasus(
         files_written = []
 
         for platform_id in platform_ids:
-            success = await exporter.export_platform_to_file(
-                platform_id,
-                request,
-            )
+            with open_owned_access(
+                storage_composition.owned[OwnedStorageKind.RESOURCES],
+                StorageOperation.OVERWRITE,
+                f"metadata_pegasus_{platform_id}.txt",
+            ) as destination:
+                success = await exporter.export_platform_to_file(
+                    platform_id, request, destination
+                )
             if success:
                 files_written.append(f"metadata_pegasus_{platform_id}.txt")
             else:

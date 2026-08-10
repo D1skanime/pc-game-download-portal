@@ -14,6 +14,7 @@ from config import FRONTEND_RESOURCES_PATH, YOUTUBE_BASE_URL
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.filesystem.storage_access import OwnedReplace
 from logger.logger import log
 from models.rom import Rom
 from utils.filesystem import link_or_copy_file
@@ -332,9 +333,9 @@ class GamelistExporter:
         self,
         platform_id: int,
         request: Request | None,
+        destination: OwnedReplace,
     ) -> bool:
-        """Export platform ROMs to gamelist.xml in the platform's directory,
-        copying media assets into a local assets/ folder when local_export=True.
+        """Export platform ROM metadata to an owned destination capability.
 
         Returns:
             True if successful, False otherwise
@@ -345,23 +346,14 @@ class GamelistExporter:
                 log.error(f"Platform with ID {platform_id} not found")
                 return False
 
-            platform_fs_structure = fs_platform_handler.get_platform_fs_structure(
-                platform.fs_slug
-            )
-            platform_dir = (
-                fs_platform_handler.base_path / platform_fs_structure
-                if self.local_export
-                else None
-            )
-
             xml_content, _ = self._build_gamelist_xml(
-                platform_id, request=request, platform_dir=platform_dir
+                platform_id, request=request, platform_dir=None
             )
-            await fs_platform_handler.write_file(
-                xml_content.encode("utf-8"), platform_fs_structure, "gamelist.xml"
-            )
+            if not isinstance(destination, OwnedReplace):
+                raise TypeError("gamelist export requires an owned replacement")
+            destination.replace(xml_content.encode("utf-8"))
 
-            log.info(f"Exported gamelist.xml to {platform_fs_structure}/gamelist.xml")
+            log.info(f"Exported gamelist.xml for platform {platform.fs_slug}")
             return True
         except Exception as e:
             log.error(f"Failed to export gamelist.xml for platform {platform_id}: {e}")

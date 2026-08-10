@@ -39,9 +39,11 @@ from handler.filesystem import (
     fs_rom_handler,
     legacy_external_storage,
     open_storage_access,
+    storage_composition,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.filesystem.storage_policy import StorageOperation
+from handler.filesystem.storage_access import open_owned_access
+from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
 from handler.metadata.ss_handler import add_ss_auth_to_url
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
@@ -1007,10 +1009,16 @@ async def scan_platforms(
             for platform_slug in platform_list:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
-                    export_success = await gamelist_exporter.export_platform_to_file(
-                        platform.id,
-                        request=None,
-                    )
+                    with open_owned_access(
+                        storage_composition.owned[OwnedStorageKind.RESOURCES],
+                        StorageOperation.OVERWRITE,
+                        f"gamelist_{platform.id}.xml",
+                    ) as destination:
+                        export_success = (
+                            await gamelist_exporter.export_platform_to_file(
+                                platform.id, request=None, destination=destination
+                            )
+                        )
                     if export_success:
                         log.info(
                             f"Auto-exported gamelist.xml for platform {platform.name} after scan"
@@ -1027,10 +1035,14 @@ async def scan_platforms(
             for platform_slug in platform_list:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
-                    export_success = await pegasus_exporter.export_platform_to_file(
-                        platform.id,
-                        request=None,
-                    )
+                    with open_owned_access(
+                        storage_composition.owned[OwnedStorageKind.RESOURCES],
+                        StorageOperation.OVERWRITE,
+                        f"metadata_pegasus_{platform.id}.txt",
+                    ) as destination:
+                        export_success = await pegasus_exporter.export_platform_to_file(
+                            platform.id, request=None, destination=destination
+                        )
                     if export_success:
                         log.info(
                             f"Auto-exported metadata.pegasus.txt for platform {platform.name} after scan"

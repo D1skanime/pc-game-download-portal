@@ -5,6 +5,7 @@ from fastapi import Request
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.filesystem.storage_access import OwnedReplace
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.platform import Platform
@@ -345,6 +346,7 @@ class PegasusExporter:
         self,
         platform_id: int,
         request: Request | None,
+        destination: OwnedReplace,
     ) -> bool:
         """Export platform ROMs to metadata.pegasus.txt file in the platform's directory,
         including media assets copied into a local assets/ folder.
@@ -362,11 +364,6 @@ class PegasusExporter:
                 log.error(f"Platform with ID {platform_id} not found")
                 return False
 
-            platform_fs_structure = fs_platform_handler.get_platform_fs_structure(
-                platform.fs_slug
-            )
-            platform_dir = fs_platform_handler.base_path / platform_fs_structure
-
             roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
 
             lines: list[str] = []
@@ -382,19 +379,6 @@ class PegasusExporter:
                 if rom.missing_from_fs:
                     continue
 
-                exported_assets: dict[str, str] = {}
-
-                if self.local_export:
-                    assets = self._collect_assets(rom)
-
-                    for asset_key, source_path in assets.items():
-                        subdir = ASSET_DIRS.get(asset_key, asset_key)
-                        dest_name = f"{rom.fs_name_no_ext}{source_path.suffix}"
-                        dest_path = platform_dir / "assets" / subdir / dest_name
-
-                        if self._copy_asset(source_path, dest_path):
-                            exported_assets[asset_key] = f"assets/{subdir}/{dest_name}"
-
                 if game_count > 0:
                     lines.append("")
 
@@ -402,17 +386,15 @@ class PegasusExporter:
                     self._create_game_entry(
                         rom,
                         request=request,
-                        exported_assets=exported_assets if exported_assets else None,
+                        exported_assets=None,
                     )
                 )
                 game_count += 1
 
             content = "\n".join(lines) + "\n"
-            await fs_platform_handler.write_file(
-                content.encode("utf-8"),
-                platform_fs_structure,
-                "metadata.pegasus.txt",
-            )
+            if not isinstance(destination, OwnedReplace):
+                raise TypeError("Pegasus export requires an owned replacement")
+            destination.replace(content.encode("utf-8"))
 
             log.info(
                 f"Exported metadata.pegasus.txt with {game_count} ROMs for platform {platform.name}"
