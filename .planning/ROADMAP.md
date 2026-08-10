@@ -117,7 +117,7 @@ Plans:
 4. Unauthenticated callers cannot enumerate library structure, non-administrators cannot mutate mappings, and missing mappings never fall back silently.
 5. Mapping changes produce an audit record with actor, timestamp, platform, action, and old/new relative values without leaking host or unrelated filesystem paths.
 
-**Plans:** 5/6 plans complete
+**Plans:** 6/6 plans complete
 
 Plans:
 
@@ -126,7 +126,7 @@ Plans:
 - [x] 03-03-PLAN.md - Transactional optimistic mapping lifecycle and audit service
 - [x] 03-04-PLAN.md - Authorized safe root and browser API contracts
 - [x] 03-05-PLAN.md - Typed audited mapping administration API lifecycle
-- [ ] 03-06-PLAN.md - Non-mutating preview, OpenAPI generation, and final evidence
+- [x] 03-06-PLAN.md - Non-mutating preview, OpenAPI generation, and final evidence
 
 ### Phase 4: V2 Storage Design Specification
 
@@ -222,7 +222,7 @@ Plans:
 | --------------------------------------- | -------------- | ----------- | ---------- |
 | 1. Immutable Storage Foundation         | 7/7            | Complete    | 2026-08-05 |
 | 2. Read-only Policy Boundary            | 11/11          | Complete    | 2026-08-10 |
-| 3. Mapping Administration Contracts     | 0/TBD          | Not started | -          |
+| 3. Mapping Administration Contracts     | 6/6            | Executed    | 2026-08-11 |
 | 4. V2 Storage Design Specification      | 0/TBD          | Not started | -          |
 | 5. Preview and Read-path Cutover        | 0/TBD          | Not started | -          |
 | 6. Safe Lifecycle and Legacy Migration  | 0/TBD          | Not started | -          |
