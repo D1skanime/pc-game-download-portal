@@ -10,7 +10,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from exceptions.storage_exceptions import StoragePolicyDenied
-from handler.filesystem.storage_policy import StorageOperation, StoragePolicy
+from handler.filesystem import storage_composition
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+    StoragePolicy,
+)
 from handler.filesystem.sync_handler import FSSyncHandler, get_fs_sync_handler
 
 
@@ -38,6 +43,7 @@ class TestFSSyncHandler:
     @pytest.fixture(autouse=True)
     def patch_base_path(self, handler: FSSyncHandler, temp_dir):
         handler.base_path = Path(temp_dir)
+        handler.storage = storage_composition.owned[OwnedStorageKind.SYNC]
 
     def test_build_incoming_path(self, handler: FSSyncHandler):
         path = handler.build_incoming_path("device-1")
