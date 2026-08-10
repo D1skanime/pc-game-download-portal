@@ -54,7 +54,7 @@ Plans:
 3. The same denials hold on a writable test fixture and on a container-mounted `:ro` fixture, proving that application policy does not depend on mount errors.
 4. Every existing filesystem mutation path is either governed by the central policy or demonstrably unable to address an external root.
 
-**Plans:** 6/9 plans executed
+**Plans:** 7/9 plans executed
 
 Plans:
 
@@ -78,7 +78,7 @@ Plans:
 
 - [x] 02-05-PLAN.md - Existing endpoint and mixed ROM enforcement
 - [x] 02-06-PLAN.md - Archive, ZIP, exporter, audio, and patch enforcement
-- [ ] 02-07-PLAN.md - Sync, watcher, platform, cleanup, and task enforcement
+- [x] 02-07-PLAN.md - Sync, watcher, platform, cleanup, and task enforcement
 
 **Wave 6: Closed inventory**
 
@@ -204,7 +204,7 @@ Plans:
 | Phase                                   | Plans Complete | Status      | Completed  |
 | --------------------------------------- | -------------- | ----------- | ---------- |
 | 1. Immutable Storage Foundation         | 7/7            | Complete    | 2026-08-05 |
-| 2. Read-only Policy Boundary            | 4/9            | In Progress |            |
+| 2. Read-only Policy Boundary            | 7/9            | In Progress |            |
 | 3. Mapping Administration Contracts     | 0/TBD          | Not started | -          |
 | 4. V2 Storage Design Specification      | 0/TBD          | Not started | -          |
 | 5. Preview and Read-path Cutover        | 0/TBD          | Not started | -          |
