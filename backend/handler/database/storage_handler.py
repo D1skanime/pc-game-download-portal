@@ -59,6 +59,24 @@ class DBStorageHandler(DBBaseHandler):
         return any(name in message for name in cls._MAPPING_UNIQUE_CONSTRAINTS)
 
     @begin_session
+    def get_roots(
+        self, *, session: Session = None  # type: ignore
+    ) -> list[StorageRoot]:
+        return list(session.scalars(select(StorageRoot).order_by(StorageRoot.id)).all())
+
+    @begin_session
+    def get_root(
+        self,
+        storage_root_id: int,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> StorageRoot:
+        root = session.get(StorageRoot, storage_root_id)
+        if root is None:
+            raise MissingStorageRootError(storage_root_id)
+        return root
+
+    @begin_session
     def register_root(
         self,
         name: str,
