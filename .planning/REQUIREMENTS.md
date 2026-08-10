@@ -60,7 +60,7 @@
 - [x] **API-01**: Authorized administrators can list storage roots and inspect their safe status through the established FastAPI and OpenAPI conventions.
 - [x] **API-02**: Authorized administrators can list directories inside a root using relative paths only, with containment and permission checks on every request.
 - [ ] **API-03**: Authorized administrators can read, create, change, test, preview, and remove platform mappings through typed endpoints.
-- [ ] **API-04**: Non-administrators cannot mutate roots or mappings, and unauthenticated callers cannot enumerate library structure.
+- [x] **API-04**: Non-administrators cannot mutate roots or mappings, and unauthenticated callers cannot enumerate library structure.
 - [x] **AUD-01**: Mapping creation, change, and removal records actor, timestamp, platform, action, and old/new root and relative path values.
 - [x] **AUD-02**: Audit output never exposes NAS host paths or unrelated filesystem paths.
 
@@ -177,7 +177,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | API-01      | Phase 3 | Complete |
 | API-02      | Phase 3 | Complete |
 | API-03      | Phase 3 | Pending  |
-| API-04      | Phase 3 | Pending  |
+| API-04      | Phase 3 | Complete |
 | AUD-01      | Phase 3 | Complete |
 | AUD-02      | Phase 3 | Complete |
 | UI-01       | Phase 7 | Pending  |

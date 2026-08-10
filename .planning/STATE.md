@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-08-10T22:00:00Z"
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-08-10T22:10:09Z"
 last_activity: 2026-08-10
 progress:
   total_phases: 9
@@ -26,17 +26,17 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 3
-Plan: 3 of 6
+Plan: 4 of 6
 Status: In progress
 Last activity: 2026-08-10
 
-Progress: [#####-----] 50%
+Progress: [#######---] 67%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 18
+- Total plans completed: 19
 - Average duration: 10 min
 - Total execution time: 1.41 hours
 
@@ -69,6 +69,7 @@ _Updated after each plan completion_
 | Phase 03 P01 | 25min | 2 tasks | 9 files |
 | Phase 03 P02 | 9min | 2 tasks | 2 files |
 | Phase 03 P03 | 22min | 2 tasks | 2 files |
+| Phase 03 P04 | 6min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Directory cursors bind version, root identity, normalized parent, and the final visible binary sort key.
 - [Phase 03]: Live root health is a pure value snapshot; registration compatibility adapts it explicitly onto the ORM row.
 
+- [Phase 03]: Storage read routes require users.read plus explicit admin authority before lookup or filesystem observation.
+- [Phase 03]: Root and browse contracts serialize explicit allowlists and translate storage failures to bounded static messages.
+
 ### Blockers/Concerns
 
 - [Phase 1]: Point-in-time resolution rejects configured-root and target-component symlinks; descriptor-relative no-follow opens and residual long-read race enforcement remain Phase 2 consumer-policy work.
@@ -130,6 +134,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-10T22:00:00Z
-Stopped at: Completed 03-03-PLAN.md
-Resume file: .planning/phases/03-mapping-administration-contracts/03-04-PLAN.md
+Last session: 2026-08-10T22:10:09Z
+Stopped at: Completed 03-04-PLAN.md
+Resume file: .planning/phases/03-mapping-administration-contracts/03-05-PLAN.md
