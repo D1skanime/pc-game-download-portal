@@ -54,6 +54,8 @@ from handler.metadata.ss_handler import (
     SSRom,
     note_rate_limited_rom,
 )
+from handler.scan_command import MappedScanCommand as _MappedScanCommand
+from handler.storage.read_context import MappingReadContext
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -76,6 +78,26 @@ class ScanType(enum.StrEnum):
     UNMATCHED = "unmatched"
     COMPLETE = "complete"
     HASHES = "hashes"
+
+
+class MappedScanCommand(_MappedScanCommand):
+    """Canonical scan command re-exported at the orchestration boundary."""
+
+
+async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
+    """Execute discovery against one immutable mapping revision.
+
+    The caller owns RomM database, resource, asset, hash, cache, and scan-state
+    outputs. Source access remains confined to the operation-bound capability.
+    """
+    context = MappingReadContext(command.mapping_id, command.expected_revision)
+    with context.open(StorageOperation.SCAN) as capability:
+        entries = capability.scan()
+        result = scan_batch(command, entries, context)
+        if asyncio.iscoroutine(result):
+            result = await result
+    context.boundary()
+    return result
 
 
 @enum.unique

@@ -7,7 +7,7 @@ import re
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from anyio import Path as AnyioPath
 
@@ -52,6 +52,10 @@ from .base_handler import (
     ExternalFSHandler,
 )
 from .storage_policy import ExternalStorageDescriptor, StorageOperation
+
+if TYPE_CHECKING:
+    from handler.storage.read_context import MappingReadContext
+
 
 # PICO-8 cartridges are often stored as PNG files
 PICO8_CARTRIDGE_EXTENSION = ".p8.png"
@@ -180,6 +184,18 @@ class FSRomsHandler(ExternalFSHandler):
 
     def open_rom_hash(self, relative_path: str):
         return self.open_access(StorageOperation.HASH, relative_path)
+
+    @staticmethod
+    def open_mapped_scan(context: "MappingReadContext", relative_path: str = ""):
+        return context.open(StorageOperation.SCAN, relative_path)
+
+    @staticmethod
+    def open_mapped_read(context: "MappingReadContext", relative_path: str):
+        return context.open(StorageOperation.READ, relative_path)
+
+    @staticmethod
+    def open_mapped_hash(context: "MappingReadContext", relative_path: str):
+        return context.open(StorageOperation.HASH, relative_path)
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
