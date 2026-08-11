@@ -4,6 +4,7 @@ import json
 import os
 from collections.abc import Sequence
 from datetime import timedelta
+from pathlib import Path
 from typing import cast
 
 import sentry_sdk
@@ -13,17 +14,15 @@ from rq.job import Job, JobStatus
 
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    LIBRARY_BASE_PATH,
-    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCAN_TIMEOUT,
     SENTRY_DSN,
     TASK_RESULT_TTL,
 )
 from config.config_manager import config_manager as cm
-from endpoints.sockets.scan import scan_platforms
-from handler.database import db_platform_handler
-from handler.filesystem import legacy_external_storage, open_storage_access
-from handler.filesystem.storage_policy import StorageOperation
+from endpoints.sockets.scan import execute_mapping_scan
+from exceptions.storage_exceptions import MissingPlatformStorageMappingError
+from handler.database import db_platform_handler, db_storage_handler
+from handler.filesystem.storage_resolver import resolve_directory
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_hasheous_handler,
@@ -38,19 +37,16 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.redis_handler import get_job_func_name, low_prio_queue, redis_client
+from handler.redis_handler import low_prio_queue, redis_client
+from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
 from handler.scan_handler import MetadataSource, ScanType
-from logger.formatter import CYAN
-from logger.formatter import highlight as hl
 from logger.logger import log
 from tasks.tasks import TaskType, tasks_scheduler
 from utils import get_version
 
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    release=f"romm@{get_version()}",
-)
+sentry_sdk.init(dsn=SENTRY_DSN, release=f"romm@{get_version()}")
 tracer = trace.get_tracer(__name__)
+WATCHER_DEBOUNCE_SECONDS = 30
 
 
 @enum.unique
@@ -60,219 +56,155 @@ class EventType(enum.StrEnum):
     DELETED = "deleted"
 
 
-VALID_EVENTS = frozenset(
-    (
-        EventType.ADDED,
-        EventType.DELETED,
-    )
-)
-
-# A change is a tuple representing a file change, first element is the event type, second is the
-# path of the file or directory that changed.
+VALID_EVENTS = frozenset((EventType.ADDED, EventType.DELETED))
 Change = tuple[EventType, str]
 
 
-def get_pending_scan_jobs() -> list[Job]:
-    """Get all pending scan jobs (scheduled, queued, or running) for scan_platforms function.
-
-    Returns:
-        list[Job]: List of pending scan jobs that are not completed or failed
-    """
-    pending_jobs = []
-
-    # Get jobs from the scheduler (delayed/scheduled jobs)
-    scheduled_jobs = tasks_scheduler.get_jobs()
-    for job in scheduled_jobs:
-        if (
-            isinstance(job, Job)
-            and get_job_func_name(job) == "endpoints.sockets.scan.scan_platforms"
-            and job.get_status()
-            in [JobStatus.SCHEDULED, JobStatus.QUEUED, JobStatus.STARTED]
-        ):
-            pending_jobs.append(job)
-
-    # Get jobs from the queue (immediate jobs)
-    queue_jobs = low_prio_queue.get_jobs()
-    for job in queue_jobs:
-        if (
-            isinstance(job, Job)
-            and get_job_func_name(job) == "endpoints.sockets.scan.scan_platforms"
-            and job.get_status() in [JobStatus.QUEUED, JobStatus.STARTED]
-        ):
-            pending_jobs.append(job)
-
-    # Get currently running jobs from workers
-    workers = Worker.all(connection=redis_client)
-    for worker in workers:
-        current_job = worker.get_current_job()
-        if (
-            current_job
-            and get_job_func_name(current_job)
-            == "endpoints.sockets.scan.scan_platforms"
-            and current_job.get_status() == JobStatus.STARTED
-        ):
-            pending_jobs.append(current_job)
-
-    return pending_jobs
+def _metadata_sources() -> list[str]:
+    source_mapping: dict[str, bool] = {
+        MetadataSource.IGDB: meta_igdb_handler.is_enabled(),
+        MetadataSource.SS: meta_ss_handler.is_enabled(),
+        MetadataSource.MOBY: meta_moby_handler.is_enabled(),
+        MetadataSource.RA: meta_ra_handler.is_enabled(),
+        MetadataSource.LAUNCHBOX: meta_launchbox_handler.is_enabled(),
+        MetadataSource.HASHEOUS: meta_hasheous_handler.is_enabled(),
+        MetadataSource.PLAYMATCH: meta_playmatch_handler.is_enabled(),
+        MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
+        MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
+        MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
+        MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
+        MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
+    }
+    return [source for source, enabled in source_mapping.items() if enabled]
 
 
-def process_changes(changes: Sequence[Change]) -> None:
-    with open_storage_access(
-        legacy_external_storage, StorageOperation.LIST, ""
-    ) as access:
-        access.list()
-    if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
-        return
+def _active_mappings() -> list[object]:
+    mappings = []
+    for platform in db_platform_handler.get_platforms():
+        try:
+            mappings.append(db_storage_handler.get_active_mapping(platform.id))
+        except MissingPlatformStorageMappingError:
+            continue
+    return mappings
 
-    # Filter for valid events, applying the same exclusion rules as the scanner:
-    # exact-match and fnmatch patterns for files, plus excluded directory names
-    # checked against every path component so events inside excluded dirs are ignored.
+
+def _mapping_for_event(event_path: str, mappings: Sequence[object]):
+    """Resolve an event canonically and reject outside or symlink-escaped paths."""
+    candidate = Path(os.fsdecode(event_path)).resolve(strict=False)
+    matches = []
+    for mapping in mappings:
+        root = resolve_directory(mapping.storage_root, mapping.relative_path)
+        try:
+            relative = candidate.relative_to(root)
+        except ValueError:
+            continue
+        matches.append((len(root.parts), mapping, relative))
+    if not matches:
+        return None
+    _, mapping, relative = max(matches, key=lambda item: item[0])
+    return mapping, relative
+
+
+def _is_excluded(relative_path: Path) -> bool:
     cnfg = cm.get_config()
-    structure_level = 1 if cnfg.has_structure_path_b else 2
-    excluded_patterns = (
+    patterns = (
         cnfg.EXCLUDED_SINGLE_FILES
         + cnfg.EXCLUDED_MULTI_FILES
         + cnfg.EXCLUDED_MULTI_PARTS_FILES
     )
-
-    def _is_excluded(path: str) -> bool:
-        parts = path.strip("/").split("/")
-        for part in parts:
-            if part.startswith(".romm_tmp_"):
-                return True
-            if any(
-                part == pat or fnmatch.fnmatch(part, pat) for pat in excluded_patterns
-            ):
-                return True
-        return False
-
-    changes = [
-        change
-        for change in changes
-        if change[0] in VALID_EVENTS
-        and not _is_excluded(
-            os.path.relpath(
-                os.fsdecode(change[1]), start=legacy_external_storage._root_path
-            )
+    return any(
+        part.startswith(".romm_tmp_")
+        or any(
+            part == pattern or fnmatch.fnmatch(part, pattern) for pattern in patterns
         )
+        for part in relative_path.parts
+    )
+
+
+def get_pending_scan_jobs(mapping_id: int | None = None) -> list[Job]:
+    """Return unique delayed, queued, and active mapped scan jobs."""
+    jobs: dict[str, Job] = {}
+    candidates = [*tasks_scheduler.get_jobs(), *low_prio_queue.get_jobs()]
+    candidates.extend(
+        job
+        for worker in Worker.all(connection=redis_client)
+        if (job := worker.get_current_job()) is not None
+    )
+    for job in candidates:
+        if not isinstance(job, Job):
+            continue
+        if job.get_status() not in {
+            JobStatus.SCHEDULED,
+            JobStatus.QUEUED,
+            JobStatus.STARTED,
+        }:
+            continue
+        job_mapping_id = (job.meta or {}).get("mapping_id")
+        if job_mapping_id is None:
+            continue
+        if mapping_id is None or job_mapping_id == mapping_id:
+            jobs[job.id] = job
+    return list(jobs.values())
+
+
+def _enqueue_watcher_command(
+    command: MappedScanCommand, metadata_sources: list[str]
+) -> None:
+    jobs = get_pending_scan_jobs(command.mapping_id)
+    queued = [
+        job
+        for job in jobs
+        if job.get_status() in {JobStatus.SCHEDULED, JobStatus.QUEUED}
     ]
-    if not changes:
+    if queued:
         return
+    tasks_scheduler.enqueue_in(
+        timedelta(seconds=WATCHER_DEBOUNCE_SECONDS),
+        execute_mapping_scan,
+        command=command,
+        metadata_sources=metadata_sources,
+        timeout=SCAN_TIMEOUT,
+        job_result_ttl=TASK_RESULT_TTL,
+        meta={
+            "task_name": "Watcher Scan",
+            "task_type": TaskType.SCAN,
+            "mapping_id": command.mapping_id,
+            "expected_revision": command.expected_revision,
+            "trigger": ScanTrigger.WATCHER.value,
+            "authoritative": False,
+        },
+    )
 
+
+def process_changes(changes: Sequence[Change]) -> None:
+    if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
+        return
+    metadata_sources = _metadata_sources()
+    if not metadata_sources:
+        log.warning("No metadata sources enabled, skipping watcher scan")
+        return
+    mappings = _active_mappings()
+    affected: dict[int, object] = {}
     with tracer.start_as_current_span("process_changes"):
-        # Find affected platform slugs
-        fs_slugs: set[str] = set()
-        changes_platform_directory = False
-        for change in changes:
-            event_type, change_path = change
-            src_path = os.fsdecode(change_path)
-            event_src = os.path.relpath(
-                src_path, start=legacy_external_storage._root_path
+        for event_type, event_path in changes:
+            if event_type not in VALID_EVENTS:
+                continue
+            resolved = _mapping_for_event(event_path, mappings)
+            if resolved is None:
+                continue
+            mapping, relative_path = resolved
+            if _is_excluded(relative_path):
+                continue
+            affected[mapping.id] = mapping
+        for mapping in affected.values():
+            command = MappedScanCommand(
+                mapping_id=mapping.id,
+                expected_revision=mapping.version,
+                trigger=ScanTrigger.WATCHER,
+                scope=ScanScope.PLATFORM,
+                scan_type=ScanType.QUICK.value,
             )
-            if event_src == ".." or event_src.startswith(f"..{os.sep}"):
-                continue
-            event_src_parts = event_src.split(os.sep)
-            if len(event_src_parts) <= structure_level:
-                log.warning(
-                    f"Filesystem event path '{event_src}' does not have enough segments for structure_level {structure_level}. Skipping event."
-                )
-                continue
-
-            if len(event_src_parts) == structure_level + 1:
-                changes_platform_directory = True
-
-            log.info(f"Filesystem event: {event_type} {event_src}")
-            fs_slugs.add(event_src_parts[structure_level])
-
-        if not fs_slugs:
-            log.info("No valid filesystem slugs found in changes, exiting...")
-            return
-
-        # Check whether any metadata source is enabled
-        source_mapping: dict[str, bool] = {
-            MetadataSource.IGDB: meta_igdb_handler.is_enabled(),
-            MetadataSource.SS: meta_ss_handler.is_enabled(),
-            MetadataSource.MOBY: meta_moby_handler.is_enabled(),
-            MetadataSource.RA: meta_ra_handler.is_enabled(),
-            MetadataSource.LAUNCHBOX: meta_launchbox_handler.is_enabled(),
-            MetadataSource.HASHEOUS: meta_hasheous_handler.is_enabled(),
-            MetadataSource.PLAYMATCH: meta_playmatch_handler.is_enabled(),
-            MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
-            MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
-            MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
-            MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
-            MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
-        }
-        metadata_sources = [source for source, flag in source_mapping.items() if flag]
-        if not metadata_sources:
-            log.warning("No metadata sources enabled, skipping rescan")
-            return
-
-        # Get currently pending scan jobs (scheduled, queued, or running)
-        pending_jobs = get_pending_scan_jobs()
-
-        # If a full rescan is already scheduled, skip further processing
-        full_rescan_jobs = [
-            job for job in pending_jobs if job.args and job.args[0] == []
-        ]
-        if full_rescan_jobs:
-            log.info(f"Full rescan already scheduled ({len(full_rescan_jobs)} job(s))")
-            return
-
-        time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
-        rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
-
-        # Any change to a platform directory should trigger a full rescan
-        if changes_platform_directory:
-            log.info(f"Platform directory changed, {rescan_in_msg}")
-            tasks_scheduler.enqueue_in(
-                time_delta,
-                scan_platforms,
-                platform_ids=[],
-                metadata_sources=metadata_sources,
-                scan_type=ScanType.UPDATE,
-                timeout=SCAN_TIMEOUT,
-                job_result_ttl=TASK_RESULT_TTL,
-                meta={
-                    "task_name": "Unidentified Scan",
-                    "task_type": TaskType.SCAN,
-                },
-            )
-            return
-
-        # Otherwise, process each platform slug
-        for fs_slug in fs_slugs:
-            # TODO: Query platforms from the database in bulk
-            db_platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
-            if not db_platform:
-                continue
-
-            # Skip if a scan is already scheduled for this platform
-            platform_scan_jobs = [
-                job
-                for job in pending_jobs
-                if job.args and db_platform.id in job.args[0]
-            ]
-            if platform_scan_jobs:
-                log.info(
-                    f"Scan already scheduled for {hl(fs_slug)} ({len(platform_scan_jobs)} job(s))"
-                )
-                continue
-
-            log.info(f"Change detected in {hl(fs_slug)} folder, {rescan_in_msg}")
-            tasks_scheduler.enqueue_in(
-                time_delta,
-                scan_platforms,
-                platform_ids=[db_platform.id],
-                metadata_sources=metadata_sources,
-                scan_type=ScanType.QUICK,
-                timeout=SCAN_TIMEOUT,
-                job_result_ttl=TASK_RESULT_TTL,
-                meta={
-                    "task_name": "Quick Scan",
-                    "task_type": TaskType.SCAN,
-                },
-            )
+            _enqueue_watcher_command(command, metadata_sources)
 
 
 if __name__ == "__main__":
