@@ -4,6 +4,7 @@ import fnmatch
 import hashlib
 import os
 import re
+import zipfile
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
@@ -196,6 +197,49 @@ class FSRomsHandler(ExternalFSHandler):
     @staticmethod
     def open_mapped_hash(context: "MappingReadContext", relative_path: str):
         return context.open(StorageOperation.HASH, relative_path)
+
+    @staticmethod
+    def calculate_mapped_hashes(
+        context: "MappingReadContext", relative_path: str
+    ) -> FileHash:
+        """Hash one mapping revision through a single operation-bound handle."""
+        crc_c = 0
+        md5_h = hashlib.md5(usedforsecurity=False)
+        sha1_h = hashlib.sha1(usedforsecurity=False)
+
+        def update(chunk: bytes) -> None:
+            nonlocal crc_c
+            context.boundary()
+            crc_c = binascii.crc32(chunk, crc_c)
+            md5_h.update(chunk)
+            sha1_h.update(chunk)
+
+        with context.open(StorageOperation.HASH, relative_path) as capability:
+            descriptor = os.dup(capability.fileno())
+            try:
+                with os.fdopen(descriptor, "rb", closefd=True) as source:
+                    if relative_path.lower().endswith(".zip"):
+                        try:
+                            with zipfile.ZipFile(source) as archive:
+                                members = [
+                                    m for m in archive.infolist() if not m.is_dir()
+                                ]
+                                if not members:
+                                    raise ArchiveReadError("archive has no files")
+                                largest = max(members, key=lambda m: m.file_size)
+                                with archive.open(largest) as member:
+                                    while chunk := member.read(1024 * 1024):
+                                        update(chunk)
+                        except (OSError, RuntimeError, zipfile.BadZipFile) as error:
+                            raise ArchiveReadError(
+                                "archive could not be read"
+                            ) from error
+                    else:
+                        while chunk := source.read(1024 * 1024):
+                            update(chunk)
+            finally:
+                context.boundary()
+        return _make_file_hash(crc_c, md5_h, sha1_h)
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
