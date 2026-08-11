@@ -123,3 +123,87 @@ Only after explicit save may the client enqueue the bounded background preview. 
 | D-11, D-12 | Arbitrary-depth recursive boundary and sibling exclusion |
 
 This plan intentionally leaves D-15 through D-21 state, input, responsive, system mapping, and provenance detail to Plan 04-02 while preserving their locked constraints.
+## 9. State Matrix and Recovery Contract
+
+The page shell, platform heading, route navigation, relative breadcrumbs, and current step stay mounted. Each state replaces only its named region and combines an icon, localized explicit text, and semantic tone. Color never carries meaning alone. Recovery is local and effective. Focus remains on the activating control when it exists, otherwise it moves to the region heading or recovery action. No state exposes a technical path, raw exception, cursor, or unrelated identifier.
+
+| State | Region | Icon and localized text intent | Tone | Recovery and focus restoration | Forbidden disclosure |
+|---|---|---|---|---|---|
+| Loading | Affected summary, list, or preview | Loading label with `RSkeletonBlock` matching final shape | neutral | Keep focus in stable shell; announce local completion | Guessed content or location |
+| Unmapped | Mapping summary | Link-off icon, no storage folder mapped | info | `Map storage`; focus first root | Lookup details |
+| Empty folder | Folder list | Folder-open icon, no children but open folder is selectable | neutral | `Select this folder`; retain breadcrumb and focus anchor | Implied scan result |
+| Inactive | Safety summary | Pause icon and explicit inactive label | warning | `Choose another root`; return focus to prior selection | Administrative internals |
+| Unreachable | Safety or browser | Link-off icon and reachability text | danger | `Check again`; restore that button | Endpoint or mount detail |
+| Unreadable | Safety or browser | Lock icon and readable-state text | danger | `Choose another folder`; focus breadcrumb or first row | Filesystem detail |
+| Writable warning | Safety | Shield-alert icon, non-writability not confirmed | warning | `Check again`; keep draft | Claim that archive is safe |
+| Unknown non-writability | Safety | Help icon, write protection not verified | warning | `Check again`; focus stays local | Treating `null` as safe |
+| Forbidden | Administration region | Lock icon and bounded authorization text | danger | `Return to platform`; focus destination | Role, policy, or path detail |
+| Missing | Summary | Search-off icon and bounded missing text | warning | `Reload mapping` or `Choose another root`; preserve draft | Silent fallback |
+| Unsafe symlink | Browser or fast test | Shield-lock icon and bounded unsafe-folder text | danger | `Choose another folder`; focus breadcrumb | Link target or resolved path |
+| Invalid cursor | Folder list | Refresh icon and bounded pagination text | warning | `Reload this folder` from page one; nearest surviving row | Cursor value |
+| Scan limit | Shallow preview | Gauge icon and bounded-result text | info | `Continue preview` only with an API cursor | Invented totals |
+| Test failure | Fast-test region | Close icon and bounded reason | danger | One relevant `Choose another folder` or `Check again` action | Raw validation data |
+| Stale version | Save region | History icon, mapping changed since draft opened | warning | `Reload mapping`, compare, then explicitly replace draft | Actor or unrelated mapping |
+| Overlap or duplicate | Save region | Layers-alert icon and bounded conflict text | danger | `Choose another folder`; keep draft and focus boundary | Conflicting location |
+| Preview missing | Preview | Chart icon, no preview for saved mapping | neutral | `Start preview`; keep focus local | Unsaved-draft inference |
+| Pending preview | Preview | Clock icon, preview queued or running | info | No retry while active; overview remains usable | Invented percent |
+| Partial preview | Preview | Progress icon, `At least {observed} entries` plus server budget reason | warning | `Refresh preview` when available; mapping remains active | Exact totals or percentages |
+| Complete preview | Preview | Check icon and bounded completion timestamp | success | Optional `Refresh preview`; restore action anchor | Claim of a full future scan |
+| Stale preview | Preview | History icon, older mapping version | warning | `Start current preview`; never merge stale observations | Stale facts as current |
+| Bounded problems | Preview | Alert icon, localized count and allowlisted summaries | warning | `Review problems`; return focus to summary | Raw exception, path, or unbounded list |
+| Generic error | Affected region | Alert icon and bounded fallback text | danger | `Try again` only when effective, otherwise relevant navigation | Technical diagnostics |
+
+## 10. Typography, Spacing, Navigation, Cards, and States
+
+Typography uses repository type and weight tokens for titles, headings, body, metadata, and labels. Breadcrumbs retain the full accessible name when visually truncated. Spacing uses repository space tokens and `--r-row-pad`. Navigation uses the one canonical route and one drill-down model; `RSteps` shows root, folder, fast test, and save, while preview is post-save status. Use one `RCard` or Settings section shell with repository radius, elevation, border, foreground, surface, and semantic status tokens. Nested-card stacks, raw colors, raw Vuetify substitutes, and decorative motion that ignores reduced-motion tokens are prohibited.
+
+## 11. Universal Input and Focus Geometry
+
+Mouse, touch, keyboard, and gamepad provide equivalent outcomes through the existing `useInput` system. Declare `RFocusZone` regions for route navigation, overview actions, guided steps, breadcrumbs and folder rows, and dialog actions. Do not create ad hoc key handlers or a parallel focus system.
+
+| Context | Mouse and touch | Keyboard | Gamepad | Focus continuity |
+|---|---|---|---|---|
+| Overview | Activate visible primary action; targets are at least 44px | Tab and arrows follow zones; Enter confirms | D-pad moves spatially; confirm activates; cancel returns | Local refresh retains action or focuses region heading |
+| Guided flow | Direct activation cannot skip test or save | Ordered zones match stage | Confirm advances enabled action; cancel discards draft only | New stage focuses heading then first control |
+| Folder browser | Row opens; separate button selects | Up/down moves rows; Enter opens; breadcrumbs move upward | D-pad follows list; confirm opens | Pagination restores row identity or nearest row |
+| Dialog or drawer | Explicit Cancel and confirm | Trapped focus; destructive removal starts on Cancel; Escape cancels once | Overlay scope prevents input leakage | Close returns focus to opener |
+| Conflict recovery | Adjacent recovery control | Announcement precedes recovery | Recovery is next spatial target | Reload preserves draft and focuses changed summary |
+| Preview update | Overview remains usable | Live announcement never steals focus | Geometry does not change under focus | pending, partial, complete, stale, and problems stay local |
+
+Focus rings use repository focus tokens only for `data-input="key"` and `data-input="pad"`. Touch and gamepad targets meet 44px. Hidden controls are unmounted and excluded from tab and spatial navigation.
+
+## 12. Responsive Composition
+
+Use `useBreakpoint` for conditional mounting and `html[data-bp]` selectors for layout. Raw layout media queries are prohibited. The same drill-down browser and selection boundary apply at xs, sm, md, lg, and xl.
+
+| Breakpoint | Composition | Browser and overlays | Focus rule |
+|---|---|---|---|
+| xs | One column, stacked actions, `--r-row-pad` | Browser, `RDialog`, and `RDrawer` are full-bleed; breadcrumbs may collapse visually | Mount-gate desktop chrome; 44px targets |
+| sm | One column with wider spacing | Same list; established sheet behavior for large menus | Unmount hidden wide actions |
+| md | Summary above guided workspace | Same list, no tree or split pane | Zones order shell, summary, workspace |
+| lg | Wider measure may use sibling summary and workspace regions | Same list and pagination | Spatial movement follows visible geometry |
+| xl | More breathing room, not more information density | Same bounded list; no recursive prefetch | No desktop-only focus model or action |
+
+## 13. Token and Primitive Matrix
+
+| Need | Tokens or mechanism | Primitive or composition |
+|---|---|---|
+| Hierarchy | Type scale, weights, foreground, `--r-row-pad` | Semantic headings in `RCard` or Settings section shell |
+| Surface | Space, radius, elevation, border, surface | `RCard`, no nested cards |
+| Sequence | Brand and foreground | `RSteps`, `RBtn` |
+| Folder navigation | Row padding, hover, selected, focus | `RList`, `RListItem`, breadcrumb actions |
+| State and recovery | Success, warning, danger, info, neutral | `RAlert`, `REmptyState`, `RBtn` |
+| Loading and progress | Skeleton, motion, reduced motion | `RSkeletonBlock`; `RProgressLinear` only for real determinate values |
+| Forms and actions | Focus, disabled, touch target | Existing form primitives and `RBtn` |
+| Confirmation and mobile workspace | Panel, border, radius, elevation, focus, motion | `RDialog`, `RDrawer` with managed scope |
+
+Phase 7 uses `useCan("app.admin")` as an administration visibility hint while backend authorization remains authoritative. Visible copy is localized. Parallel overlay, breakpoint, and focus systems do not satisfy this contract.
+
+## 14. Plan 04-02 State and System Traceability
+
+| Decision | Contract location |
+|---|---|
+| D-15 | Stable shell and local State Matrix regions |
+| D-16 | Icon, localized text, and semantic tone in every state row |
+| D-17 | Effective local recovery and forbidden-disclosure columns |
+| D-18 | Universal Input matrix and focus restoration |
