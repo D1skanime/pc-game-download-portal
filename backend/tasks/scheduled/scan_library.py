@@ -2,7 +2,11 @@ from config import (
     ENABLE_SCHEDULED_RESCAN,
     SCHEDULED_RESCAN_CRON,
 )
-from endpoints.sockets.scan import ScanStats, scan_platforms
+from endpoints.sockets.scan import (
+    ScanStats,
+    execute_mapping_scans,
+    mapping_scan_commands,
+)
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_hasheous_handler,
@@ -17,6 +21,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
+from handler.scan_command import ScanScope, ScanTrigger
 from handler.scan_handler import MetadataSource, ScanType
 from logger.logger import log
 from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, PeriodicTask, TaskType
@@ -63,10 +68,15 @@ class ScanLibraryTask(PeriodicTask):
             return scan_stats.to_dict()
 
         log.info("Scheduled library scan started...")
-        scan_stats = await scan_platforms(
-            platform_ids=[],
-            metadata_sources=metadata_sources,
+        commands = mapping_scan_commands(
+            [],
+            trigger=ScanTrigger.SCHEDULED,
+            scope=ScanScope.LIBRARY,
             scan_type=ScanType.QUICK,
+        )
+        scan_stats = await execute_mapping_scans(
+            commands,
+            metadata_sources=metadata_sources,
         )
         log.info("Scheduled library scan done")
 

@@ -31,6 +31,7 @@ from handler.database import (
     db_firmware_handler,
     db_platform_handler,
     db_rom_handler,
+    db_storage_handler,
 )
 from handler.filesystem import (
     fs_firmware_handler,
@@ -56,9 +57,11 @@ from handler.redis_handler import (
     low_prio_queue,
     redis_client,
 )
+from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    execute_mapped_scan,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -1066,6 +1069,83 @@ async def scan_platforms(
     return scan_stats
 
 
+async def execute_mapping_scan(
+    command: MappedScanCommand,
+    *,
+    metadata_sources: list[str],
+    roms_ids: list[int] | None = None,
+    launchbox_remote_enabled: bool = True,
+    playmatch_enabled: bool = True,
+) -> ScanStats:
+    """Run a scan from immutable mapping identity, never a caller-supplied path."""
+    mapping = db_storage_handler.get_mapping(command.mapping_id)
+
+    async def _scan_batch(
+        _command: MappedScanCommand, _entries: list[str], _context: object
+    ) -> ScanStats:
+        return await scan_platforms(
+            platform_ids=[mapping.platform_id],
+            metadata_sources=metadata_sources,
+            scan_type=ScanType(command.scan_type),
+            roms_ids=roms_ids,
+            launchbox_remote_enabled=launchbox_remote_enabled,
+            playmatch_enabled=playmatch_enabled,
+        )
+
+    return await execute_mapped_scan(command, _scan_batch)
+
+
+def mapping_scan_commands(
+    platform_ids: list[int],
+    *,
+    trigger: ScanTrigger,
+    scope: ScanScope,
+    scan_type: ScanType,
+) -> list[MappedScanCommand]:
+    """Freeze the active mapping revision for each selected platform."""
+    platforms = db_platform_handler.get_platforms()
+    selected = (
+        [platform for platform in platforms if platform.id in platform_ids]
+        if platform_ids
+        else platforms
+    )
+    return [
+        MappedScanCommand(
+            mapping_id=mapping.id,
+            expected_revision=mapping.version,
+            trigger=trigger,
+            scope=scope,
+            scan_type=scan_type.value,
+        )
+        for mapping in (
+            db_storage_handler.get_active_mapping(platform.id) for platform in selected
+        )
+    ]
+
+
+async def execute_mapping_scans(
+    commands: list[MappedScanCommand],
+    *,
+    metadata_sources: list[str],
+    roms_ids: list[int] | None = None,
+    launchbox_remote_enabled: bool = True,
+    playmatch_enabled: bool = True,
+) -> ScanStats:
+    """Execute mapping commands through the common executor."""
+    combined = ScanStats()
+    for command in commands:
+        result = await execute_mapping_scan(
+            command,
+            metadata_sources=metadata_sources,
+            roms_ids=roms_ids,
+            launchbox_remote_enabled=launchbox_remote_enabled,
+            playmatch_enabled=playmatch_enabled,
+        )
+        for field in result.to_dict():
+            setattr(combined, field, getattr(combined, field) + getattr(result, field))
+    return combined
+
+
 async def reject_unauthorized_scan(sid: str) -> bool:
     """Return ``True`` (and notify the caller) if the socket may not run scans.
 
@@ -1117,27 +1197,29 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
     playmatch_enabled = bool(options.get("playmatch_enabled", True))
+    commands = mapping_scan_commands(
+        platform_ids,
+        trigger=ScanTrigger.MANUAL,
+        scope=ScanScope.ROM if roms_ids else ScanScope.PLATFORM,
+        scan_type=scan_type,
+    )
 
     if DEV_MODE:
-        return await scan_platforms(
-            platform_ids=platform_ids,
+        return await execute_mapping_scans(
+            commands,
             metadata_sources=metadata_sources,
-            scan_type=scan_type,
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
-            platform_fs_slugs=platform_fs_slugs,
         )
 
     return high_prio_queue.enqueue(
-        scan_platforms,
-        platform_ids=platform_ids,
+        execute_mapping_scans,
+        commands=commands,
         metadata_sources=metadata_sources,
-        scan_type=scan_type,
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,
-        platform_fs_slugs=platform_fs_slugs,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={
