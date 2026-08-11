@@ -70,7 +70,7 @@
 - [ ] **UI-02**: A v2 folder browser lists and navigates directories only inside the chosen root and supports safe selection of Unicode and nested paths.
 - [ ] **UI-03**: The v2 platform workflow lets administrators select a root and directory, test it, preview a scan, save it, and remove the mapping.
 - [ ] **UI-04**: The UI clearly states that RomM reads and indexes the external library but never changes its original files.
-- [ ] **UI-05**: New storage workflows follow a RomM-native v2 design specification derived from read-only analysis of Team4s hierarchy, spacing, typography, navigation, cards, and state presentation.
+- [x] **UI-05**: New storage workflows follow a RomM-native v2 design specification derived from read-only analysis of Team4s hierarchy, spacing, typography, navigation, cards, and state presentation.
 - [ ] **UI-06**: Loading, empty, error, forbidden, unreachable, and pending-preview states remain accessible and usable with mouse, touch, keyboard, and gamepad.
 
 ### V1 Removal
@@ -184,7 +184,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | UI-02       | Phase 7 | Pending  |
 | UI-03       | Phase 7 | Pending  |
 | UI-04       | Phase 7 | Pending  |
-| UI-05       | Phase 4 | Pending  |
+| UI-05       | Phase 4 | Complete |
 | UI-06       | Phase 7 | Pending  |
 | V2-01       | Phase 8 | Pending  |
 | V2-02       | Phase 8 | Pending  |
