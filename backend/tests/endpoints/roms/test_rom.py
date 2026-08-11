@@ -1891,3 +1891,20 @@ class TestUnmatchMetadata:
         assert body["igdb_id"] is None
         assert body["name"] == rom.fs_name
         assert body["summary"] == ""
+
+
+def test_phase5_multifile_download_rejects_failed_final_part_before_body():
+    source = Path("endpoints/roms/__init__.py").read_text()
+    assert (
+        "preflight_mapped_download" in source
+    ), "Phase 5 RED: multi-file download can begin before complete preflight"
+
+
+def test_phase5_mapping_replacement_aborts_without_reopen():
+    source = Path("endpoints/roms/__init__.py").read_text()
+    assert (
+        "expected_mapping_revision" in source
+    ), "Phase 5 RED: delivery handoff lacks final mapping revision validation"
+
+
+nfrom

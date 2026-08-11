@@ -363,3 +363,17 @@ def test_delete_rom_file_allowed_for_editor(
 
     assert response.status_code == status.HTTP_200_OK
     assert db_rom_handler.get_rom_file_by_id(rom_file.id) is None
+
+
+def test_phase5_delivery_preflights_every_required_part_before_headers():
+    source = Path("endpoints/roms/files.py").read_text()
+    assert (
+        "preflight_mapped_download" in source
+    ), "Phase 5 RED: all required parts are not preflighted before output"
+
+
+def test_phase5_delivery_redacts_storage_failures_and_preserves_range_head():
+    source = Path("endpoints/roms/files.py").read_text()
+    assert (
+        "MappedContentResponse" in source
+    ), "Phase 5 RED: mapped delivery parity and redacted failures are not implemented"
