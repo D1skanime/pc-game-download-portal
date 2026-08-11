@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type StorageDirectoryEntrySchema = {
-  name: string;
-  relative_path: string;
-  navigable: boolean;
+    name: string;
+    relative_path: string;
+    navigable: boolean;
 };

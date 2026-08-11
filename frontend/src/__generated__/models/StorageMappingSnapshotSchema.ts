@@ -3,8 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type StorageMappingSnapshotSchema = {
-  storage_root_id: number;
-  relative_path: string;
-  version: number;
-  active: boolean;
+    storage_root_id: number;
+    relative_path: string;
+    version: number;
+    active: boolean;
 };

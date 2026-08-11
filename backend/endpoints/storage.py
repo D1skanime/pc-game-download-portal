@@ -8,6 +8,7 @@ from typing import Annotated
 
 from fastapi import HTTPException, Query, Request, status
 
+from config import TASK_RESULT_TTL
 from decorators.auth import protected_route
 from endpoints.responses.storage import (
     StorageConflictDetail,
@@ -21,6 +22,7 @@ from endpoints.responses.storage import (
     StorageMappingAuditSchema,
     StorageMappingCreateSchema,
     StorageMappingPreviewSchema,
+    StorageMappingPreviewStateSchema,
     StorageMappingSchema,
     StorageMappingSnapshotSchema,
     StorageMappingTestSchema,
@@ -46,7 +48,7 @@ from exceptions.storage_exceptions import (
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_admin
-from handler.database import db_storage_handler
+from handler.database import db_mapping_previews_handler, db_storage_handler
 from handler.filesystem.storage_resolver import (
     MAX_DIRECTORY_PAGE_SIZE,
     MAX_DIRECTORY_SCAN_ENTRIES,
@@ -55,6 +57,7 @@ from handler.filesystem.storage_resolver import (
     get_storage_root_health_snapshot,
     resolve_directory,
 )
+from handler.redis_handler import low_prio_queue
 from models.storage import (
     STORAGE_MAPPING_PATH_MAX_LENGTH,
     PlatformStorageMapping,
@@ -62,6 +65,7 @@ from models.storage import (
     StorageMappingAuditAction,
     StorageRoot,
 )
+from tasks.manual.preview_mapping import preview_mapping_task
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/storage", tags=["storage"])
@@ -434,6 +438,84 @@ def preview_platform_storage_mapping(
         truncated=preview.truncated,
         next_cursor=preview.next_cursor,
     )
+
+
+def _preview_state_schema(mapping, preview) -> StorageMappingPreviewStateSchema:
+    health = get_storage_root_health_snapshot(mapping.storage_root)
+    return StorageMappingPreviewStateSchema(
+        mapping_id=mapping.id,
+        mapping_version=preview.observed_revision,
+        health=StorageRootHealthSchema(
+            reachable=health.reachable,
+            readable=health.readable,
+            non_writable=health.non_writable,
+            checked_at=health.checked_at,
+            error=health.error,
+        ),
+        state=preview.state,
+        observed_files=preview.observed_files,
+        observed_directories=preview.observed_directories,
+        observed_bytes=preview.observed_bytes,
+        lower_bound=preview.lower_bound,
+        budget_reason=preview.budget_reason,
+        timestamp=preview.completed_at,
+        problems=preview.problems,
+        stale=preview.stale,
+    )
+
+
+@protected_route(
+    router.post,
+    "/mappings/{mapping_id}/preview",
+    [Scope.USERS_WRITE],
+    response_model=StorageMappingPreviewStateSchema,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=_MAPPING_RESPONSES,
+)
+def refresh_platform_storage_mapping_preview(
+    request: Request, mapping_id: int
+) -> StorageMappingPreviewStateSchema:
+    assert_admin(request)
+    mapping = db_storage_handler.get_mapping(mapping_id)
+    preview = db_mapping_previews_handler.mark_pending(mapping.id, mapping.version)
+    low_prio_queue.enqueue(
+        preview_mapping_task.run,
+        kwargs={
+            "mapping_id": mapping.id,
+            "expected_revision": mapping.version,
+        },
+        job_timeout=preview_mapping_task.timeout,
+        result_ttl=TASK_RESULT_TTL,
+        meta={
+            "task_name": preview_mapping_task.title,
+            "task_type": preview_mapping_task.task_type.value,
+        },
+    )
+    return _preview_state_schema(mapping, preview)
+
+
+@protected_route(
+    router.get,
+    "/mappings/{mapping_id}/preview",
+    [Scope.USERS_READ],
+    response_model=StorageMappingPreviewStateSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def get_platform_storage_mapping_preview(
+    request: Request, mapping_id: int
+) -> StorageMappingPreviewStateSchema:
+    assert_admin(request)
+    mapping = db_storage_handler.get_mapping(mapping_id)
+    preview = db_mapping_previews_handler.get(mapping_id)
+    if preview is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "mapping_preview_missing",
+                "message": "No preview has been started for this mapping",
+            },
+        )
+    return _preview_state_schema(mapping, preview)
 
 
 @protected_route(

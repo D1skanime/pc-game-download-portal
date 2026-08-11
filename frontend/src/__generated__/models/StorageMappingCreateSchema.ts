@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type StorageMappingCreateSchema = {
-  platform_id: number;
-  storage_root_id: number;
-  relative_path: string;
+    platform_id: number;
+    storage_root_id: number;
+    relative_path: string;
 };

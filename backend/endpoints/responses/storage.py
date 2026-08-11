@@ -119,6 +119,22 @@ class StorageMappingPreviewSchema(BaseModel):
     next_cursor: str | None = Field(default=None, max_length=MAX_STORAGE_CURSOR_LENGTH)
 
 
+class StorageMappingPreviewStateSchema(BaseModel):
+    mapping_id: int
+    mapping_version: int = Field(gt=0)
+    health: StorageRootHealthSchema
+    state: Literal["pending", "partial", "complete"]
+    observed_files: int = Field(ge=0)
+    observed_directories: int = Field(ge=0)
+    observed_bytes: int = Field(ge=0)
+    lower_bound: bool
+    budget_reason: Literal["time_budget", "entry_budget"] | None = None
+    timestamp: UTCDatetime | None = None
+    problems: dict[str, int] = Field(default_factory=dict)
+    stale: bool
+    error_code: str | None = Field(default=None, max_length=64)
+
+
 class StorageConflictErrorCode(enum.StrEnum):
     PLATFORM_MAPPING_MISSING = "platform_mapping_missing"
     DUPLICATE_STORAGE_MAPPING = "duplicate_storage_mapping"

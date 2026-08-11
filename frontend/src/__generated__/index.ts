@@ -186,6 +186,7 @@ export type { StorageMappingAuditPageSchema } from './models/StorageMappingAudit
 export type { StorageMappingAuditSchema } from './models/StorageMappingAuditSchema';
 export type { StorageMappingCreateSchema } from './models/StorageMappingCreateSchema';
 export type { StorageMappingPreviewSchema } from './models/StorageMappingPreviewSchema';
+export type { StorageMappingPreviewStateSchema } from './models/StorageMappingPreviewStateSchema';
 export type { StorageMappingSchema } from './models/StorageMappingSchema';
 export type { StorageMappingSnapshotSchema } from './models/StorageMappingSnapshotSchema';
 export type { StorageMappingTestSchema } from './models/StorageMappingTestSchema';

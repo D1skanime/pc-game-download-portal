@@ -3,5 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type StorageMappingVersionSchema = {
-  expected_version: number;
+    expected_version: number;
 };

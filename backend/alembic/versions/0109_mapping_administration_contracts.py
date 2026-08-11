@@ -26,14 +26,22 @@ def _timestamps() -> list[sa.Column]:
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("platform_storage_mappings") as batch_op:
-        batch_op.add_column(
-            sa.Column("active", sa.Boolean(), server_default=sa.true(), nullable=True)
-        )
-        batch_op.add_column(
-            sa.Column("version", sa.Integer(), server_default="1", nullable=True)
-        )
     connection = op.get_bind()
+    existing_columns = {
+        column["name"]
+        for column in sa.inspect(connection).get_columns("platform_storage_mappings")
+    }
+    with op.batch_alter_table("platform_storage_mappings") as batch_op:
+        if "active" not in existing_columns:
+            batch_op.add_column(
+                sa.Column(
+                    "active", sa.Boolean(), server_default=sa.true(), nullable=True
+                )
+            )
+        if "version" not in existing_columns:
+            batch_op.add_column(
+                sa.Column("version", sa.Integer(), server_default="1", nullable=True)
+            )
     connection.execute(
         sa.text(
             "UPDATE platform_storage_mappings SET active = :active, version = 1 WHERE active IS NULL OR version IS NULL"
