@@ -2,7 +2,7 @@
 
 Phase 3 baseline: commit d56d949ac, verified by .planning/phases/03-mapping-administration-contracts/03-VERIFICATION.md
 Decision coverage: D-05, D-06, D-10, D-11, D-12, D-14, D-17
-Status: Ready for approval
+Status: Approved
 
 ## Mandatory Contract Bindings
 
@@ -45,3 +45,5 @@ Status: Ready for approval
 ## Approval
 
 Approved for downstream Phase 5 plans. Every mandatory Phase 3 contract is landed and named exactly. Durable preview persistence is assigned to Plan 05-04.
+
+Resume signal: approved
