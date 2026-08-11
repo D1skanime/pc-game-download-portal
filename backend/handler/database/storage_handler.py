@@ -267,6 +267,19 @@ class DBStorageHandler(DBBaseHandler):
         return mapping
 
     @begin_session
+    @begin_session
+    def get_mapping(
+        self, mapping_id: int, *, session: Session = None  # type: ignore
+    ) -> PlatformStorageMapping:
+        mapping = session.scalar(
+            select(PlatformStorageMapping)
+            .where(PlatformStorageMapping.id == mapping_id)
+            .options(selectinload(PlatformStorageMapping.storage_root))
+        )
+        if mapping is None:
+            raise MissingPlatformStorageMappingError(0)
+        return mapping
+
     def test_mapping(
         self,
         platform_id: int,
