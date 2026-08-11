@@ -207,3 +207,48 @@ Phase 7 uses `useCan("app.admin")` as an administration visibility hint while ba
 | D-16 | Icon, localized text, and semantic tone in every state row |
 | D-17 | Effective local recovery and forbidden-disclosure columns |
 | D-18 | Universal Input matrix and focus restoration |
+
+## 15. Principles Provenance Matrix
+
+Team4s was inspected read-only only to identify abstract presentation principles. The resulting contract is an original RomM interpretation expressed through the existing RomM v2 system.
+
+| Abstract principle observed | Original RomM interpretation | RomM tokens and primitives | No-copy confirmation |
+|---|---|---|---|
+| Hierarchy makes the primary administrative question immediately legible | Lead with platform identity and archive safety, then friendly root, relative folder, preview, and actions | Type and foreground tokens, `RCard`, semantic headings | no-copy: no external markup, component structure, or wording |
+| Consistent spacing separates related groups without excess containers | Use `--r-row-pad` and repository space tokens inside one section shell | Space, radius, border, elevation tokens, `RCard` | no-copy: no external measurements or style declarations |
+| Restrained typography distinguishes title, status, metadata, and action | Apply the RomM type scale and weights with localized labels | Type and foreground tokens, `RAlert`, `RBtn` | no-copy: no external font, type stylesheet, or identity |
+| Navigation preserves context while advancing one task | Converge two entries on one platform-led route and use one drill-down list | `RSteps`, `RList`, `RListItem`, breadcrumb actions | no-copy: no React navigation component or route source |
+| Cards group information without fragmenting the page | Use one compact RomM surface with stable internal regions, not nested stacks | Surface, border, radius, elevation tokens, `RCard` | no-copy: no external card component, CSS, or asset |
+| State presentation couples strong status cues with recovery | Use icon, localized text, semantic tone, local recovery, and focus continuity | Status and focus tokens, `RAlert`, `REmptyState`, `RSkeletonBlock`, `RBtn` | no-copy: no external state copy, illustration, or implementation |
+
+D-19 is satisfied by the abstract-principle, original-interpretation, token/primitive, and no-copy columns. D-20 is satisfied because no Team4s React component, source file, screenshot, asset, branding, identity, runtime dependency, or other code was copied, modified, embedded, or introduced. D-21 is satisfied because this text-only specification contains no Team4s screenshot and does not reproduce its visual identity. RomM examples and existing RomM v2 primitives are the only implementation references.
+
+## 16. D-01 through D-21 Traceability
+
+| Decisions | Objective evidence |
+|---|---|
+| D-01, D-04, D-05 | Guided Mapping Flow orders choose, browse/select, fast test, explicit save, queued preview; active and draft stay separate |
+| D-02 | Route and entry convergence is platform-led |
+| D-03, D-06, D-07, D-09 | Mapped overview and screen anatomy define compact, safety-led hierarchy and one contextual primary action |
+| D-08 | Scope and Backend Contract allow friendly root plus authorized relative breadcrumbs only |
+| D-10, D-13, D-14 | Folder Browser uses one lean drill-down list and explicit current-folder selection |
+| D-11, D-12 | Folder Browser examples and boundary confirmation cover arbitrary-depth recursive subsets and sibling exclusion |
+| D-15, D-16, D-17, D-18 | State Matrix and Universal Input require local replacement, icon/text/tone, effective recovery, and focus continuity |
+| D-19 | Principles Provenance Matrix records each required field |
+| D-20 | Explicit no-copy disclosure rejects external code, artifacts, identity, and dependencies |
+| D-21 | Text-only abstract principles and RomM-native examples reject screenshots and identity reproduction |
+
+## 17. UI-05 Acceptance Checklist
+
+- [x] One platform-led route receives platform-detail and settings entry without a second workflow or draft model.
+- [x] Backend root, health, browse, mapping, conflict, shallow preview, and queued preview fields remain authoritative and are not conflated.
+- [x] Location display is limited to friendly root identity and server-authorized relative breadcrumbs; absolute and technical paths are prohibited.
+- [x] Fast test, explicit versioned save using `expected_version`, persisted overview update, and queued preview occur in that exact order; preview cannot block or roll back save.
+- [x] Deep Unicode folders use arbitrary-depth breadcrumbs and one selected recursive subtree; descendants are included and siblings excluded.
+- [x] Navigation remains paginated and bounded for hundreds of folders and terabyte-scale libraries, with no size, recursive walk, full scan, or hash work before save.
+- [x] Loading, empty, health, authorization, browse, conflict, preview, problem, stale, and bounded error states have icon, localized text intent, semantic tone, recovery, redaction, and focus behavior.
+- [x] Hierarchy, Typography, Spacing, Navigation, Cards, and state presentation map to existing RomM tokens and `R*` primitives in both themes.
+- [x] Mouse, touch, keyboard, and gamepad use the existing input and focus systems with modal scope and focus restoration.
+- [x] xs, sm, md, lg, and xl use one browser model, `useBreakpoint`, `data-bp`, mount-gated chrome, 44px targets, and full-bleed mobile overlays.
+- [x] The Principles Provenance Matrix provides original RomM interpretations and explicit no-copy confirmation for abstract Team4s principles.
+- [x] This phase changes documentation only. Runtime UI, backend, generated contracts, dependencies, deployment, and Phase 5 artifacts remain outside scope.
