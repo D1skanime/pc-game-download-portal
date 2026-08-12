@@ -10,7 +10,22 @@ from handler.filesystem.storage_composition import (
     build_storage_composition,
 )
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
-from utils.zip_cache import ZipFileEntry, build_cached_zip, get_cache_key
+from utils.zip_cache import (
+    AuthorizedZipSource,
+    ZipFileEntry,
+    build_cached_zip,
+    get_cache_key,
+)
+
+
+class _BoundaryContext:
+    def boundary(self) -> None:
+        return None
+
+
+def test_zip_entry_rejects_host_paths() -> None:
+    with pytest.raises(ValueError):
+        ZipFileEntry("one.bin", 1, 2, "/srv/nas/private/game.bin", 1, 1.0)
 
 
 def _composition(tmp_path: Path):
@@ -23,8 +38,8 @@ def _composition(tmp_path: Path):
 
 
 def test_cache_key_is_order_independent() -> None:
-    first = ZipFileEntry("a.bin", "a.bin", 1, 1.0)
-    second = ZipFileEntry("b.bin", "b.bin", 2, 1.0)
+    first = ZipFileEntry("a.bin", 1, 2, "a.bin", 1, 1.0)
+    second = ZipFileEntry("b.bin", 1, 2, "b.bin", 2, 1.0)
     assert get_cache_key("rom", [first, second]) == get_cache_key(
         "rom", [second, first]
     )
@@ -38,8 +53,8 @@ def test_build_cached_zip_copies_download_capabilities_to_owned_output(
     (library / "a.bin").write_bytes(b"a")
     (library / "b.bin").write_bytes(b"bb")
     entries = [
-        ZipFileEntry("one.bin", "a.bin", 1, 1.0),
-        ZipFileEntry("two.bin", "b.bin", 2, 1.0),
+        ZipFileEntry("one.bin", 1, 2, "a.bin", 1, 1.0),
+        ZipFileEntry("two.bin", 1, 2, "b.bin", 2, 1.0),
     ]
     with ExitStack() as stack:
         sources = [
@@ -59,7 +74,11 @@ def test_build_cached_zip_copies_download_capabilities_to_owned_output(
                 "archive.zip",
             )
         )
-        build_cached_zip(entries, sources, b"one.bin\n", "list.m3u", output)
+        authorized = [
+            AuthorizedZipSource(entry, _BoundaryContext(), source)
+            for entry, source in zip(entries, sources, strict=True)
+        ]
+        build_cached_zip(authorized, b"one.bin\n", "list.m3u", output)
 
     with ZipFile(tmp_path / OwnedStorageKind.CACHE.value / "archive.zip") as archive:
         assert archive.read("one.bin") == b"a"
@@ -68,6 +87,6 @@ def test_build_cached_zip_copies_download_capabilities_to_owned_output(
 
 
 def test_build_cached_zip_rejects_raw_paths(tmp_path: Path) -> None:
-    entry = ZipFileEntry("one.bin", "a.bin", 1, 1.0)
+    entry = ZipFileEntry("one.bin", 1, 2, "a.bin", 1, 1.0)
     with pytest.raises(TypeError):
-        build_cached_zip([entry], [tmp_path / "a.bin"], None, None, tmp_path / "x.zip")  # type: ignore[list-item,arg-type]
+        build_cached_zip([tmp_path / "a.bin"], None, None, tmp_path / "x.zip")  # type: ignore[list-item,arg-type]
