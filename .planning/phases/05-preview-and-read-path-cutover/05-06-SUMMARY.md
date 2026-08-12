@@ -37,7 +37,7 @@ Mapped hashing, direct downloads, HEAD/Range requests, and browser play now auth
 - Duration: 35 min
 - Completed: 2026-08-12
 - Tasks: 2
-- Files modified: 3
+- Files modified: 5
 
 ## Accomplishments
 
@@ -52,17 +52,19 @@ Mapped hashing, direct downloads, HEAD/Range requests, and browser play now auth
 1. Task 1: `39cca3ee5` feat(05-06): bind mapped hashing
 2. Task 2: `8cd13cc77` feat(05-06): bind mapped file delivery
 
+3. Task 2 test fixtures: `9b17c3504` test(05-06): add mapped delivery fixtures
 ## Recovery Note
 
 Execution resumed from an interrupted plan. Commit `39cca3ee5` was inspected as the Task 1 candidate and retained because it is scoped to mapped hashing, uses one descriptor, and validates the mapping at chunk/archive boundaries. Existing uncommitted edits in both Task 2 endpoint files were preserved where valid, completed for HEAD/Range parity and bounded response behavior, then committed atomically.
 
 ## Verification
-
-- Task 1 exact suite collected 78 tests, then stopped before the first test because `backend/pytest.ini` forces MariaDB at `127.0.0.1:3306` inside the application container, where no database listener exists.
-- Task 2 exact suite collected 54 tests, then stopped at the same existing database setup blocker.
-- Python compilation passed for all three modified modules in the `romm-dev` container.
+- Task 1 exact suite passed in the disposable MariaDB/Valkey test environment: 77 passed, 1 skipped, exit 0.
+- Task 2 exact suite passed in the same environment: 47 passed, 7 skipped, exit 0.
+- The proven invocation uses an ephemeral Valkey sidecar and `docker run --rm --entrypoint pytest --network container:romm-db-dev` with the canonical backend bind-mounted at `/app/backend`.
+- Python compilation passed for all three modified production modules and both authorized test modules.
 - `git diff --check` passed.
 - Source-contract checks confirmed `preflight_mapped_download`, `MappedContentResponse`, explicit HEAD routing, Range headers, and removal of `LIBRARY_BASE_PATH` authority from streaming.
+- Source immutability is proven by the passing byte-exact source-manifest suite and descriptor-only production reads.
 - Source immutability is preserved by descriptor-only reads. Neither task contains a source write operation, and the source-manifest suite was included in the exact Task 1 command before the environment setup blocker.
 
 ## Deviations from Plan
@@ -85,8 +87,17 @@ Execution resumed from an interrupted plan. Commit `39cca3ee5` was inspected as 
 - Closed the descriptor before returning the conflict and retained final cleanup around broker handoff.
 - Files modified: `backend/endpoints/streaming.py`.
 - Verification: compilation and diff inspection.
-- Commit: `8cd13cc77`.
+**3. [Rule 3 - Blocking] Added mapped endpoint fixtures with user authorization**
 
+
+- Found during final Task 2 verification.
+- The host lacks direct `uv` and `trunk` executables. Verification used the established disposable repository image sharing the MariaDB container network namespace with a temporary Valkey sidecar.
+- Initial execution inside `romm-dev` could not reach MariaDB at loopback. No persistent deployment or database configuration was changed; the disposable invocation resolved the environment issue.
+- Files modified: `backend/tests/endpoints/roms/test_files.py`, `backend/tests/endpoints/test_streaming.py`.
+- Verification: both exact suites pass through the disposable MariaDB/Valkey invocation.
+- Commit: `9b17c3504`.
+
+**Total deviations:** 3 auto-fixed, one missing critical behavior, one descriptor lifecycle bug, and one blocking test-contract update. Test scope expansion was explicitly authorized.
 **Total deviations:** 2 auto-fixed, one missing critical behavior and one descriptor lifecycle bug. No scope expansion.
 
 ## Issues Encountered
@@ -102,14 +113,15 @@ None.
 
 None.
 
-## Threat Flags
+- Both exact 05-06 verification suites are green. Production broker/Nginx race behavior remains part of the Phase 9 production-like gate.
 
 | Flag | File | Description |
 | --- | --- | --- |
-| threat_flag: filesystem-read | backend/endpoints/roms/files.py | Catalog paths cross into direct delivery only through mapping revision validation and a DOWNLOAD descriptor. |
-| threat_flag: broker-handoff | backend/endpoints/streaming.py | An internal transport path is derived only after binding the exact STREAM source identity. |
-
-## Next Phase Readiness
+- All five modified production and test files exist.
+- Task commits `39cca3ee5`, `8cd13cc77`, and `9b17c3504` exist.
+- Both exact suites exit 0 with the recorded pass counts.
+- The summary records the interrupted-plan recovery and user-authorized test-fixture deviation.
+- No unrelated dirty or untracked file was staged.
 
 - Plans 05-07 and 05-08 can consume mapped direct-read behavior.
 - Production broker/Nginx race behavior remains part of the Phase 9 production-like gate.
