@@ -4,6 +4,7 @@ import logging
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, Any, TypedDict
 from urllib.parse import urlparse, urlunparse
 
@@ -11,15 +12,16 @@ from fastapi import Body, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from config import LIBRARY_BASE_PATH, STREAMING_BROKER_SECRET, STREAMING_SAVE_TIMEOUT
+from config import STREAMING_BROKER_SECRET, STREAMING_SAVE_TIMEOUT
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
+from exceptions.storage_read import MappedReadError
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
-from handler.database import db_rom_handler
-from handler.filesystem import legacy_external_storage, open_storage_access
-from handler.filesystem.storage_policy import StorageOperation, StoragePolicy
+from handler.database import db_rom_handler, db_storage_handler
+from handler.filesystem.storage_policy import StorageOperation
 from handler.redis_handler import async_cache
+from handler.storage.read_context import MappingReadContext
 from models.user import Role
 from utils.router import APIRouter
 
@@ -530,10 +532,24 @@ async def claim_session(
             detail=f"No streaming container configured for platform '{rom.platform_slug}'",
         )
 
-    # The emulator containers mount the RomM library at the same path the
-    # backend uses (LIBRARY_BASE_PATH, /romm/library by default), so the
-    # backend-side path is valid inside the broker container too.
-    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+    mapping = db_storage_handler.get_active_mapping(rom.platform_id)
+    context = MappingReadContext(mapping.id, mapping.version)
+    parts = Path(rom.full_path).parts
+    relative_path = (
+        Path(*parts[1:]).as_posix() if len(parts) > 1 else rom.fs_name
+    )
+    try:
+        access = context.open(StorageOperation.STREAM, relative_path)
+        context.boundary()
+    except MappedReadError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": error.code, "state": error.safe_state},
+        ) from None
+    # The broker path is derived only after the exact STREAM identity is bound.
+    rom_path = str(
+        Path(mapping.storage_root.container_path, mapping.relative_path, relative_path)
+    )
     rom_name = rom.name or rom.fs_name_no_ext
 
     session_key = _container_key(container)
@@ -555,6 +571,7 @@ async def claim_session(
         ex=SESSION_TTL_SECONDS,
     )
     if not claimed:
+        access.close()
         existing = await _get_session(session_key) or {}
         raise HTTPException(
             status_code=409,
@@ -565,8 +582,8 @@ async def claim_session(
             },
         )
 
-    StoragePolicy.authorize(StorageOperation.STREAM, legacy_external_storage)
     try:
+        context.boundary()
         # Tell the broker to load the ROM, raises HTTPException on failure.
         # Wrapped in asyncio.to_thread because urllib is synchronous.
         await asyncio.to_thread(_call_broker, container, rom_path, rom_name)
@@ -574,7 +591,8 @@ async def claim_session(
         # Launch failed, free the claim so the container isn't wedged.
         await async_cache.delete(_session_redis_key(session_key))
         raise
-
+    finally:
+        access.close()
     log.info("session claimed, platform=%s rom=%s", rom.platform_slug, rom_name)
 
     return JSONResponse(

@@ -1,27 +1,24 @@
+import os
+from collections.abc import Iterator
+from pathlib import PurePath
 from typing import Annotated
-
-from anyio import Path
 from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
 from fastapi.responses import Response, StreamingResponse
-from starlette.responses import FileResponse
 
-from config import DEV_MODE, DISABLE_DOWNLOAD_ENDPOINT_AUTH
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema
 from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.storage_exceptions import MissingStorageTargetError
+from exceptions.storage_read import MappedReadError
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
-from handler.database import db_rom_handler
-from handler.filesystem import (
-    fs_rom_handler,
-    legacy_external_storage,
-    open_storage_access,
-)
+from handler.database import db_rom_handler, db_storage_handler
+from handler.filesystem import fs_rom_handler, legacy_external_storage
 from handler.filesystem.storage_policy import StorageOperation
+from handler.storage.read_context import MappingReadContext
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -37,6 +34,85 @@ from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 
 router = APIRouter()
+
+
+class MappedContentResponse(StreamingResponse):
+    """A response bound to one authorized descriptor for its whole transfer."""
+
+
+def _mapped_relative_path(full_path: str) -> str:
+    parts = PurePath(full_path).parts
+    if len(parts) < 2:
+        return parts[0] if parts else ""
+    return PurePath(*parts[1:]).as_posix()
+
+
+def preflight_mapped_download(rom, file):
+    """Authorize the current mapping revision and open one download handle."""
+    mapping = db_storage_handler.get_active_mapping(rom.platform_id)
+    context = MappingReadContext(mapping.id, mapping.version)
+    access = context.open(
+        StorageOperation.DOWNLOAD, _mapped_relative_path(file.full_path)
+    )
+    try:
+        context.boundary()
+        size = os.fstat(access.fileno()).st_size
+    except Exception:
+        access.close()
+        raise
+    return context, access, size
+
+
+def _mapped_http_error(error: MappedReadError) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"code": error.code, "state": error.safe_state},
+    )
+
+
+def _range_bounds(value: str | None, size: int) -> tuple[int, int] | None:
+    if not value:
+        return None
+    invalid = HTTPException(
+        status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
+        headers={"Content-Range": f"bytes */{size}"},
+    )
+    if not value.startswith("bytes=") or "," in value:
+        raise invalid
+    start_text, separator, end_text = value[6:].partition("-")
+    if not separator:
+        raise invalid
+    try:
+        if start_text:
+            start = int(start_text)
+            end = int(end_text) if end_text else size - 1
+        else:
+            suffix = int(end_text)
+            if suffix <= 0:
+                raise ValueError
+            start = max(size - suffix, 0)
+            end = size - 1
+    except ValueError:
+        raise invalid from None
+    if start < 0 or start >= size or end < start:
+        raise invalid
+    return start, min(end, size - 1)
+
+
+def _mapped_chunks(context, access, start: int, length: int) -> Iterator[bytes]:
+    remaining = length
+    os.lseek(access.fileno(), start, os.SEEK_SET)
+    try:
+        while remaining:
+            context.boundary()
+            chunk = os.read(access.fileno(), min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+            yield chunk
+        context.boundary()
+    finally:
+        access.close()
 
 
 @protected_route(
@@ -71,6 +147,12 @@ async def get_romfile(
     return RomFileSchema.model_validate(file)
 
 
+@protected_route(
+    router.head,
+    "/{id}/files/content/{file_name}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
 @protected_route(
     router.get,
     "/{id}/files/content/{file_name}",
@@ -110,7 +192,7 @@ async def get_romfile_content(
     )
 
     # Derive content type / disposition / download name from the trusted DB
-    # record, never from the client-supplied file_name path param — otherwise a
+    # record, never from the client-supplied file_name path param â otherwise a
     # caller could request the same bytes with an arbitrary extension to force a
     # mismatched Content-Type while served inline (content-sniffing/XSS).
     # Audio, images and videos are served inline so <audio>/<video>/<img> in the
@@ -138,25 +220,42 @@ async def get_romfile_content(
     # Markdown manual into HTML).
     headers = {"X-Content-Type-Options": "nosniff"} if disposition == "inline" else {}
 
-    def download_chunks():
-        try:
-            access = open_storage_access(
-                legacy_external_storage, StorageOperation.DOWNLOAD, file.full_path
-            )
-        except MissingStorageTargetError:
-            return
-        try:
-            yield from access.download()
-        finally:
-            access.close()
+    try:
+        context, access, size = preflight_mapped_download(rom, file)
+    except MappedReadError as error:
+        raise _mapped_http_error(error) from None
 
-    return StreamingResponse(
-        download_chunks(),
+    try:
+        bounds = _range_bounds(request.headers.get("range"), size)
+    except HTTPException:
+        access.close()
+        raise
+    start, end = bounds if bounds is not None else (0, max(size - 1, 0))
+    content_length = end - start + 1 if size else 0
+    response_headers = {
+        **headers,
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(content_length),
+        "Content-Disposition": f'{disposition}; filename="{file.file_name}"',
+    }
+    response_status = status.HTTP_200_OK
+    if bounds is not None:
+        response_status = status.HTTP_206_PARTIAL_CONTENT
+        response_headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+
+    if request.method == "HEAD":
+        access.close()
+        return Response(
+            status_code=response_status,
+            media_type=media_type,
+            headers=response_headers,
+        )
+
+    return MappedContentResponse(
+        _mapped_chunks(context, access, start, content_length),
+        status_code=response_status,
         media_type=media_type,
-        headers={
-            **headers,
-            "Content-Disposition": f'{disposition}; filename="{file.file_name}"',
-        },
+        headers=response_headers,
     )
 
 
