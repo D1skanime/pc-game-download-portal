@@ -91,7 +91,7 @@ async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
     outputs. Source access remains confined to the operation-bound capability.
     """
     context = MappingReadContext(command.mapping_id, command.expected_revision)
-    with context.open(StorageOperation.SCAN) as capability:
+    with context.open(StorageOperation.SCAN, first_use_operation="scan") as capability:
         entries = capability.scan()
         context.boundary()
         result = scan_batch(command, entries, context)

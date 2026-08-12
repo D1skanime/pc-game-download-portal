@@ -2,6 +2,7 @@ import os
 from collections.abc import Iterator
 from pathlib import PurePath
 from typing import Annotated
+
 from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
@@ -47,12 +48,14 @@ def _mapped_relative_path(full_path: str) -> str:
     return PurePath(*parts[1:]).as_posix()
 
 
-def preflight_mapped_download(rom, file):
+def preflight_mapped_download(rom, file, *, first_use_operation: str = "download"):
     """Authorize the current mapping revision and open one download handle."""
     mapping = db_storage_handler.get_active_mapping(rom.platform_id)
     context = MappingReadContext(mapping.id, mapping.version)
     access = context.open(
-        StorageOperation.DOWNLOAD, _mapped_relative_path(file.full_path)
+        StorageOperation.DOWNLOAD,
+        _mapped_relative_path(file.full_path),
+        first_use_operation=first_use_operation,
     )
     try:
         context.boundary()

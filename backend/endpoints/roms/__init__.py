@@ -195,6 +195,7 @@ def preflight_mapped_downloads(items) -> list[AuthorizedZipSource]:
                 context.open(
                     StorageOperation.DOWNLOAD,
                     _mapped_relative_path(file.full_path),
+                    first_use_operation="download",
                 ),
             )
             try:
@@ -1344,7 +1345,9 @@ async def _deliver_rom_content(
 ):
     if len(files) == 1:
         try:
-            context, access, size = preflight_mapped_download(rom, files[0])
+            context, access, size = preflight_mapped_download(
+                rom, files[0], first_use_operation="play"
+            )
         except MappedReadError as error:
             raise _mapped_http_error(error) from None
         try:

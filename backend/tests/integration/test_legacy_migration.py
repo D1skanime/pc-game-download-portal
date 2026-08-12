@@ -284,10 +284,12 @@ def test_productive_consumer_cas_inventory_uses_the_shared_open_boundary():
     files = Path("endpoints/roms/files.py").read_text()
 
     assert "mark_first_use" in read_context
-    assert "context.open(StorageOperation.SCAN)" in scan
+    assert "StorageOperation.SCAN" in scan
+    assert 'first_use_operation="scan"' in scan
     assert "context.open(StorageOperation.HASH" in rom_filesystem
     assert "context.open(StorageOperation.STREAM" in streaming
     assert 'first_use_operation="play"' in roms
-    assert 'first_use_operation="download"' in files
+    assert 'first_use_operation: str = "download"' in files
+    assert "first_use_operation=first_use_operation" in files
     assert "for rom, file, download_name in items" in roms
     assert "context.open(" in roms

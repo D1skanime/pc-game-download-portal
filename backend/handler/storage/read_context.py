@@ -33,6 +33,15 @@ class MappingRepository(Protocol):
     def get_mapping(self, mapping_id: int): ...
 
 
+_FIRST_USE_OPERATIONS = {
+    StorageOperation.SCAN: "scan",
+    StorageOperation.HASH: "hash",
+    StorageOperation.STREAM: "stream",
+    StorageOperation.READ: "play",
+    StorageOperation.DOWNLOAD: "download",
+}
+
+
 @dataclass(frozen=True, slots=True)
 class MappingReadContext:
     mapping_id: int
@@ -76,6 +85,15 @@ class MappingReadContext:
             raise UnreachableMappedStorageError(self.mapping_id, self.expected_revision)
         return mapping
 
+    def _mark_first_use(self, operation: str) -> None:
+        from handler.database import db_legacy_migration_handler
+
+        db_legacy_migration_handler.mark_first_use(
+            self.mapping_id,
+            expected_revision=self.expected_revision,
+            operation=operation,
+        )
+
     def boundary(self) -> None:
         self.validate()
 
@@ -85,8 +103,18 @@ class MappingReadContext:
     def before_response_commit(self) -> None:
         self.boundary()
 
-    def open(self, operation: StorageOperation, relative_path: str = ""):
+    def open(
+        self,
+        operation: StorageOperation,
+        relative_path: str = "",
+        *,
+        first_use_operation: str | None = None,
+    ):
         mapping = self.validate()
+        marker = first_use_operation or _FIRST_USE_OPERATIONS.get(operation)
+        if marker is not None:
+            self._mark_first_use(marker)
+            mapping = self.validate()
         try:
             mapped_root = resolve_directory(mapping.storage_root, mapping.relative_path)
             logical_path = normalize_relative_path(

@@ -632,6 +632,53 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         )
 
     @begin_session
+    def mark_first_use(
+        self,
+        mapping_id: int,
+        *,
+        expected_revision: int,
+        operation: str,
+        now: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> LegacyMigration | None:
+        if operation not in {"scan", "hash", "stream", "play", "download"}:
+            raise ValueError("unsupported legacy first-use operation")
+
+        migration = session.scalar(
+            select(LegacyMigration)
+            .where(LegacyMigration.mapping_id == mapping_id)
+            .with_for_update(of=LegacyMigration)
+        )
+        if migration is None:
+            return None
+
+        mapping = session.scalar(
+            select(PlatformStorageMapping)
+            .where(PlatformStorageMapping.id == mapping_id)
+            .with_for_update(of=PlatformStorageMapping)
+        )
+        if (
+            migration.state != LegacyMigrationState.COMPLETED
+            or mapping is None
+            or mapping.id != migration.mapping_id
+            or not mapping.active
+            or mapping.version != expected_revision
+        ):
+            from exceptions.storage_read import StaleMappedReadError
+
+            raise StaleMappedReadError(mapping_id, expected_revision)
+
+        if migration.first_used_at is None:
+            first_used_at = now or datetime.now(timezone.utc)
+            if first_used_at.tzinfo is None:
+                first_used_at = first_used_at.replace(tzinfo=timezone.utc)
+            migration.first_used_at = first_used_at
+            migration.first_use_operation = operation
+            migration.version += 1
+            session.flush()
+        return migration
+
+    @begin_session
     def get_detection_result(
         self,
         result_id: int,
