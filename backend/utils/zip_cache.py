@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import time
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import TYPE_CHECKING
 
 import anyio
@@ -21,7 +21,6 @@ from logger.logger import log
 
 if TYPE_CHECKING:
     from handler.storage.read_context import MappingReadContext
-    from models.rom import RomFile
 
 CACHE_KEY_LENGTH = 16
 SECONDS_PER_HOUR = 3600
@@ -43,16 +42,14 @@ class ZipFileEntry:
     file_size_bytes: int
     updated_at_epoch: float
 
-    @classmethod
-    def from_rom_file(cls, file: RomFile, hidden_folder: bool) -> ZipFileEntry:
-        return cls(
-            download_name=file.file_name_for_download(hidden_folder),
-            mapping_id=0,
-            expected_mapping_revision=0,
-            logical_path=file.full_path,
-            file_size_bytes=file.file_size_bytes,
-            updated_at_epoch=file.updated_at.timestamp(),
-        )
+    def __post_init__(self) -> None:
+        if self.mapping_id <= 0 or self.expected_mapping_revision <= 0:
+            raise ValueError("ZIP entries require positive mapping identity")
+        for value in (self.download_name, self.logical_path):
+            path = PurePath(value)
+            if path.is_absolute() or ".." in path.parts:
+                raise ValueError("ZIP entries require bounded logical paths")
+
 
 
 @dataclasses.dataclass(frozen=True)

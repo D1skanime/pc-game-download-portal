@@ -62,7 +62,7 @@ def test_build_cached_zip_copies_download_capabilities_to_owned_output(
                 open_storage_access(
                     composition.legacy_external,
                     StorageOperation.DOWNLOAD,
-                    entry.full_path,
+                    entry.logical_path,
                 )
             )
             for entry in entries
