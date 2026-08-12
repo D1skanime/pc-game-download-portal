@@ -641,3 +641,142 @@ def test_mapping_audit_page_is_filter_bound_and_allowlisted(
         "version": 2,
         "active": True,
     }
+
+
+def _removal_consequences(count=4, version=3):
+    return SimpleNamespace(
+        mapping_id=11,
+        platform_id=5,
+        mapping_version=version,
+        retained_visible_unreachable_catalog_count=count,
+        preserves_metadata=True,
+        preserves_saves=True,
+        preserves_states=True,
+        preserves_play_history=True,
+        source_immutable=True,
+        mapping_revision_invalidated=False,
+        cancels_mapping_work_at_safe_boundaries=True,
+    )
+
+
+@pytest.mark.parametrize("kind", ["anonymous", "viewer"])
+def test_mapping_removal_preview_and_confirmation_authorize_before_observation(
+    client, viewer_access_token, monkeypatch, kind
+):
+    from endpoints import storage as endpoint
+
+    monkeypatch.setattr(
+        endpoint.db_storage_handler,
+        "preview_mapping_removal",
+        lambda *_args, **_kwargs: pytest.fail("unauthorized removal observation"),
+        raising=False,
+    )
+    headers = _auth(viewer_access_token) if kind == "viewer" else {}
+    preview = client.post(
+        "/api/storage/mappings/11/removal-consequences",
+        headers=headers,
+        json={"expected_version": 3},
+    )
+    confirm = client.request(
+        "DELETE",
+        "/api/storage/mappings/11",
+        headers=headers,
+        json={
+            "expected_version": 3,
+            "expected_unreachable_catalog_count": 4,
+            "confirmed": True,
+        },
+    )
+    assert preview.status_code in (401, 403)
+    assert confirm.status_code in (401, 403)
+
+
+def test_mapping_removal_contract_is_explicit_bounded_and_distinct(
+    client, access_token, monkeypatch
+):
+    from endpoints import storage as endpoint
+
+    captured = {}
+    monkeypatch.setattr(
+        endpoint.db_storage_handler,
+        "preview_mapping_removal",
+        lambda mapping_id, expected_version: _removal_consequences(
+            version=expected_version
+        ),
+        raising=False,
+    )
+
+    def remove(mapping_id, **kwargs):
+        captured.update(mapping_id=mapping_id, **kwargs)
+        consequences = _removal_consequences(version=4)
+        consequences.mapping_revision_invalidated = True
+        return SimpleNamespace(
+            mapping=_mapping(active=False, version=4),
+            consequences=consequences,
+        )
+
+    monkeypatch.setattr(
+        endpoint.db_storage_handler, "remove_mapping", remove, raising=False
+    )
+    preview = client.post(
+        "/api/storage/mappings/11/removal-consequences",
+        headers=_auth(access_token),
+        json={"expected_version": 3},
+    )
+    assert preview.status_code == 200
+    assert list(preview.json()) == [
+        "mapping_id",
+        "platform_id",
+        "mapping_version",
+        "retained_visible_unreachable_catalog_count",
+        "preserves_metadata",
+        "preserves_saves",
+        "preserves_states",
+        "preserves_play_history",
+        "source_immutable",
+        "mapping_revision_invalidated",
+        "cancels_mapping_work_at_safe_boundaries",
+    ]
+
+    rejected = client.request(
+        "DELETE",
+        "/api/storage/mappings/11",
+        headers=_auth(access_token),
+        json={
+            "expected_version": 3,
+            "expected_unreachable_catalog_count": 4,
+            "confirmed": False,
+        },
+    )
+    assert rejected.status_code == 422
+    confirmed = client.request(
+        "DELETE",
+        "/api/storage/mappings/11",
+        headers=_auth(access_token),
+        json={
+            "expected_version": 3,
+            "expected_unreachable_catalog_count": 4,
+            "confirmed": True,
+        },
+    )
+    assert confirmed.status_code == 200
+    assert captured["expected_version"] == 3
+    assert captured["expected_unreachable_catalog_count"] == 4
+    assert "platform_name" not in captured
+    serialized = str(confirmed.json())
+    assert "/sentinel/" not in serialized
+    assert "RAW OS ERROR" not in serialized
+
+
+def test_mapping_removal_openapi_exposes_preview_and_confirmation(client):
+    schema = client.get("/openapi.json").json()
+    assert (
+        "post"
+        in schema["paths"]["/api/storage/mappings/{mapping_id}/removal-consequences"]
+    )
+    delete = schema["paths"]["/api/storage/mappings/{mapping_id}"]["delete"]
+    assert delete["requestBody"]["required"] is True
+    serialized = str(delete)
+    assert "StorageMappingRemovalConfirmationSchema" in serialized
+    assert "platform_name" not in serialized
+    assert "delete_from_fs" not in serialized
