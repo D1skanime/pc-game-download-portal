@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 from anyio import Path as AnyioPath
 
-from config import LIBRARY_BASE_PATH
 from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
@@ -178,7 +177,7 @@ class FSRomsHandler(ExternalFSHandler):
             from handler.filesystem import legacy_external_storage
 
             storage = legacy_external_storage
-        super().__init__(base_path=storage._root_path, storage=storage)
+        super().__init__(base_path=Path(storage._root_path), storage=storage)
 
     def open_rom_read(self, relative_path: str):
         return self.open_access(StorageOperation.READ, relative_path)

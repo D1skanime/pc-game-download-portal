@@ -8,3 +8,4 @@ export type StorageMappingTestSchema = {
     relative_path: string;
     valid?: boolean;
 };
+

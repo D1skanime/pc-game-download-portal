@@ -7,3 +7,4 @@ export type StorageDirectoryPageSchema = {
     entries: Array<StorageDirectoryEntrySchema>;
     next_cursor?: (string | null);
 };
+

@@ -7,3 +7,4 @@ export type StorageErrorDetail = {
     code: StorageReadErrorCode;
     message: string;
 };
+

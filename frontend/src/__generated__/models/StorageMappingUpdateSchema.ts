@@ -7,3 +7,4 @@ export type StorageMappingUpdateSchema = {
     relative_path: string;
     expected_version: number;
 };
+

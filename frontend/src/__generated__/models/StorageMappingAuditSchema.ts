@@ -15,3 +15,4 @@ export type StorageMappingAuditSchema = {
     new: (StorageMappingSnapshotSchema | null);
     created_at: string;
 };
+

@@ -10,3 +10,4 @@ export type StorageConflictDetail = {
     mapping_id?: (number | null);
     current_version?: (number | null);
 };
+

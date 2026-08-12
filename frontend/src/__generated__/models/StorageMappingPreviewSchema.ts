@@ -14,3 +14,4 @@ export type StorageMappingPreviewSchema = {
     truncated: boolean;
     next_cursor?: (string | null);
 };
+

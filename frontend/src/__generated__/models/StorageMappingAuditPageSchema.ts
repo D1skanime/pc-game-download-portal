@@ -7,3 +7,4 @@ export type StorageMappingAuditPageSchema = {
     entries: Array<StorageMappingAuditSchema>;
     next_cursor?: (string | null);
 };
+

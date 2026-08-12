@@ -5,3 +5,4 @@
 export type StorageMappingVersionSchema = {
     expected_version: number;
 };
+

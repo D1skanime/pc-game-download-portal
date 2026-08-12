@@ -1,15 +1,15 @@
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from config.config_manager import MetadataMediaType
 import endpoints.roms as roms_endpoint
+from config.config_manager import MetadataMediaType
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem.resources_handler import FSResourcesHandler
@@ -77,7 +77,9 @@ def mapped_rom_storage(
     )
     monkeypatch.setattr(
         "handler.storage.read_context.get_storage_root_health_snapshot",
-        lambda _root: StorageRootHealthSnapshot(True, True, True, None, None),
+        lambda _root: StorageRootHealthSnapshot(
+            True, True, True, datetime.now(timezone.utc), None
+        ),
     )
     owned = {kind: tmp_path / kind.value for kind in OwnedStorageKind}
     for path in owned.values():
@@ -95,7 +97,6 @@ def _materialize_files(root: Path, files: list[RomFile]) -> None:
         source = root.joinpath(*Path(file.full_path).parts)
         source.parent.mkdir(parents=True, exist_ok=True)
         source.write_bytes(file.file_name.encode() or b"x")
-
 
 
 def test_get_rom(client: TestClient, access_token: str, rom: Rom):

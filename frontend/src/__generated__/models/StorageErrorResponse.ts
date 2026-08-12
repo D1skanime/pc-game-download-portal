@@ -6,3 +6,4 @@ import type { StorageErrorDetail } from './StorageErrorDetail';
 export type StorageErrorResponse = {
     detail: StorageErrorDetail;
 };
+

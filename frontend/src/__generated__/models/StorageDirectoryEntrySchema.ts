@@ -7,3 +7,4 @@ export type StorageDirectoryEntrySchema = {
     relative_path: string;
     navigable: boolean;
 };
+

@@ -7,3 +7,4 @@ export type StorageMappingCreateSchema = {
     storage_root_id: number;
     relative_path: string;
 };
+

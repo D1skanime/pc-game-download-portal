@@ -3,9 +3,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 import hashlib
-import os
 import shutil
-import tempfile
 import time
 import zipfile
 from pathlib import Path, PurePath
@@ -16,7 +14,6 @@ import anyio
 from config import ZIP_CACHE_PATH
 from exceptions.storage_read import MappedReadError
 from handler.filesystem.storage_access import DownloadCapability, OwnedReplace
-from logger.formatter import highlight as hl
 from logger.logger import log
 
 if TYPE_CHECKING:
@@ -49,7 +46,6 @@ class ZipFileEntry:
             path = PurePath(value)
             if path.is_absolute() or ".." in path.parts:
                 raise ValueError("ZIP entries require bounded logical paths")
-
 
 
 @dataclasses.dataclass(frozen=True)

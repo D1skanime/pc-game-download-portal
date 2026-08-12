@@ -8,3 +8,4 @@ export type StorageMappingSnapshotSchema = {
     version: number;
     active: boolean;
 };
+

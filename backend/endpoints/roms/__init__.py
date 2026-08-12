@@ -1,13 +1,11 @@
 import binascii
 import json
 import os
-from base64 import b64encode
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import PurePath
 from typing import Annotated, Any, Sequence, cast
-from urllib.parse import quote
 
 import pydash
 from fastapi import (
@@ -24,7 +22,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 from fastapi_pagination import resolve_params
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from fastapi_pagination.types import GreaterEqualZero
@@ -45,7 +43,6 @@ from endpoints.responses.rom import (
 from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from exceptions.storage_exceptions import MissingStorageTargetError
 from exceptions.storage_read import MappedReadError
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
@@ -64,7 +61,6 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
     legacy_external_storage,
-    open_storage_access,
     storage_composition,
 )
 from handler.filesystem.assets_handler import validate_image_upload
@@ -77,7 +73,6 @@ from handler.filesystem.storage_access import (
 from handler.filesystem.storage_policy import (
     OwnedStorageKind,
     StorageOperation,
-    StoragePolicy,
 )
 from handler.metadata import (
     meta_flashpoint_handler,
@@ -1378,9 +1373,7 @@ async def _deliver_rom_content(
             headers=headers,
         )
 
-    items = [
-        (rom, file, file.file_name_for_download(hidden_folder)) for file in files
-    ]
+    items = [(rom, file, file.file_name_for_download(hidden_folder)) for file in files]
     try:
         sources = preflight_mapped_downloads(items)
     except MappedReadError as error:
@@ -1447,9 +1440,7 @@ async def head_rom_content(
         )
 
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
-    return await _deliver_rom_content(
-        request, rom, files, file_name, hidden_folder
-    )
+    return await _deliver_rom_content(request, rom, files, file_name, hidden_folder)
 
 
 @protected_route(
@@ -1504,9 +1495,7 @@ async def get_rom_content(
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
-    return await _deliver_rom_content(
-        request, rom, files, file_name, hidden_folder
-    )
+    return await _deliver_rom_content(request, rom, files, file_name, hidden_folder)
 
 
 @protected_route(

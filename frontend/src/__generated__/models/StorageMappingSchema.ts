@@ -10,3 +10,4 @@ export type StorageMappingSchema = {
     active: boolean;
     version: number;
 };
+
