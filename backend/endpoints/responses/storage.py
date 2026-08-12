@@ -125,6 +125,20 @@ class LegacyImpactConfirmationSchema(BaseModel):
     expires_at: UTCDatetime
 
 
+class LegacyMigrationResultSchema(BaseModel):
+    state: Literal["completed"]
+    migration_id: int = Field(gt=0)
+    migration_version: int = Field(gt=0)
+    mapping_id: int = Field(gt=0)
+    mapping_version: int = Field(gt=0)
+    platform_id: int = Field(gt=0)
+    storage_root_id: int = Field(gt=0)
+    reconnected_catalog_count: int = Field(ge=0)
+    unmatched_catalog_count: int = Field(ge=0)
+    source_immutable: Literal[True] = True
+    legacy_fallback_enabled: Literal[False] = False
+
+
 class LegacyImpactPreviewSchema(BaseModel):
     state: Literal["ready", "manual_mapping_required"]
     proposed_mapping: LegacyImpactProposedMappingSchema | None

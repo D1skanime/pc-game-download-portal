@@ -249,9 +249,31 @@ def test_atomic_migrate_rolls_back_every_flushed_stage_and_retries_safely(
         )
 
     with sync_session() as session:
-        assert session.scalar(select(func.count(PlatformStorageMapping.id))) == 0
-        assert session.scalar(select(func.count(StorageMappingAudit.id))) == 0
-        assert session.scalar(select(func.count(LegacyMigration.id))) == 0
+        assert (
+            session.scalar(
+                select(func.count(PlatformStorageMapping.id)).where(
+                    PlatformStorageMapping.platform_id == confirmation.platform_id
+                )
+            )
+            == 0
+        )
+        assert (
+            session.scalar(
+                select(func.count(StorageMappingAudit.id)).where(
+                    StorageMappingAudit.platform_id == confirmation.platform_id
+                )
+            )
+            == 0
+        )
+        assert (
+            session.scalar(
+                select(func.count(LegacyMigration.id)).where(
+                    LegacyMigration.detection_result_id
+                    == confirmation.detection_result_id
+                )
+            )
+            == 0
+        )
         detection = session.get(LegacyDetectionResult, confirmation.detection_result_id)
         assert detection is not None and detection.version == 1
         assert all(
@@ -301,9 +323,161 @@ def test_migrate_race_has_one_atomic_winner(tmp_path: Path):
     )
     assert loser.code in {"legacy_detection_stale", "legacy_migration_conflict"}
     with sync_session() as session:
-        assert session.scalar(select(func.count(PlatformStorageMapping.id))) == 1
-        assert session.scalar(select(func.count(StorageMappingAudit.id))) == 1
-        assert session.scalar(select(func.count(LegacyMigration.id))) == 1
+        assert (
+            session.scalar(
+                select(func.count(PlatformStorageMapping.id)).where(
+                    PlatformStorageMapping.platform_id == confirmation.platform_id
+                )
+            )
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count(StorageMappingAudit.id)).where(
+                    StorageMappingAudit.platform_id == confirmation.platform_id
+                )
+            )
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count(LegacyMigration.id)).where(
+                    LegacyMigration.detection_result_id
+                    == confirmation.detection_result_id
+                )
+            )
+            == 1
+        )
+
+
+def test_failed_platform_migration_preserves_prior_platform_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    first_handler, first_confirmation, now, _, _ = _seed_atomic_migration(
+        tmp_path, suffix="independent-first"
+    )
+    second_handler, second_confirmation, _, _, _ = _seed_atomic_migration(
+        tmp_path, suffix="independent-second"
+    )
+
+    first = first_handler.migrate_platform(
+        first_confirmation,
+        actor_user_id=7,
+        actor_display_name="Admin",
+        now=now,
+    )
+
+    def fail_second(stage: str) -> None:
+        if stage == "audit":
+            raise RuntimeError("injected second-platform failure")
+
+    monkeypatch.setattr(
+        second_handler, "_after_migration_flush", fail_second, raising=False
+    )
+    with pytest.raises(RuntimeError, match="injected second-platform failure"):
+        second_handler.migrate_platform(
+            second_confirmation,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=now,
+        )
+
+    with sync_session() as session:
+        assert session.get(PlatformStorageMapping, first.mapping_id) is not None
+        assert session.get(LegacyMigration, first.migration_id) is not None
+        assert (
+            session.scalar(
+                select(func.count(PlatformStorageMapping.id)).where(
+                    PlatformStorageMapping.platform_id
+                    == second_confirmation.platform_id
+                )
+            )
+            == 0
+        )
+        assert (
+            session.scalar(
+                select(func.count(LegacyMigration.id)).where(
+                    LegacyMigration.detection_result_id
+                    == second_confirmation.detection_result_id
+                )
+            )
+            == 0
+        )
+
+
+def test_migrate_create_race_has_one_lifecycle_winner(tmp_path: Path):
+    from exceptions.storage_exceptions import DuplicateStorageMappingError
+    from handler.database.legacy_migration_handler import (
+        DBLegacyMigrationHandler,
+        LegacyDetectionResultError,
+    )
+
+    _, confirmation, now, _, _ = _seed_atomic_migration(tmp_path, suffix="create-race")
+    barrier = threading.Barrier(2)
+
+    def migrate():
+        barrier.wait(timeout=5)
+        try:
+            DBLegacyMigrationHandler().migrate_platform(
+                confirmation,
+                actor_user_id=7,
+                actor_display_name="Admin",
+                now=now,
+            )
+            return "migration"
+        except LegacyDetectionResultError:
+            return "migration-conflict"
+
+    def create():
+        barrier.wait(timeout=5)
+        try:
+            with patch(
+                "handler.filesystem.storage_resolver.os.access",
+                side_effect=lambda _path, mode: mode != os.W_OK,
+            ):
+                db_storage_handler.create_mapping(
+                    confirmation.platform_id,
+                    confirmation.storage_root_id,
+                    confirmation.relative_path,
+                    actor_user_id=8,
+                    actor_display_name="Other Admin",
+                )
+            return "lifecycle"
+        except DuplicateStorageMappingError:
+            return "lifecycle-conflict"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        migration = executor.submit(migrate)
+        lifecycle = executor.submit(create)
+        outcomes = {migration.result(), lifecycle.result()}
+
+    assert outcomes in (
+        {"migration", "lifecycle-conflict"},
+        {"migration-conflict", "lifecycle"},
+    )
+    with sync_session() as session:
+        assert (
+            session.scalar(
+                select(func.count(PlatformStorageMapping.id)).where(
+                    PlatformStorageMapping.platform_id == confirmation.platform_id
+                )
+            )
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count(StorageMappingAudit.id)).where(
+                    StorageMappingAudit.platform_id == confirmation.platform_id
+                )
+            )
+            == 1
+        )
+        migration_count = session.scalar(
+            select(func.count(LegacyMigration.id)).where(
+                LegacyMigration.detection_result_id == confirmation.detection_result_id
+            )
+        )
+        assert migration_count == (1 if "migration" in outcomes else 0)
 
 
 def test_confirmed_mapping_removal_retains_catalog_and_marks_it_unreachable(

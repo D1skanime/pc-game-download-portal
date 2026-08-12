@@ -6,6 +6,7 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
@@ -20,7 +21,10 @@ from models.rom import Rom
 from models.storage import (
     LegacyDetectionResult,
     LegacyDetectionState,
+    LegacyMigration,
+    LegacyMigrationState,
     PlatformStorageMapping,
+    StorageMappingAuditAction,
     StorageRoot,
 )
 
@@ -55,6 +59,21 @@ _IMPACT_CODES = {
 
 
 @dataclass(frozen=True, slots=True)
+class LegacyMigrationOutcome:
+    state: str
+    migration_id: int
+    migration_version: int
+    mapping_id: int
+    mapping_version: int
+    platform_id: int
+    storage_root_id: int
+    reconnected_catalog_count: int
+    unmatched_catalog_count: int
+    source_immutable: bool = True
+    legacy_fallback_enabled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class LegacyDetectionContext:
     platform_id: int
     storage_root_id: int
@@ -82,6 +101,10 @@ class LegacyDetectionResultError(Exception):
 
 
 class DBLegacyMigrationHandler(DBBaseHandler):
+    @staticmethod
+    def _after_migration_flush(_stage: str) -> None:
+        pass
+
     @staticmethod
     def _lock_context(
         session: Session, platform_id: int, storage_root_id: int
@@ -464,6 +487,149 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 current_version=confirmation.result_version,
             )
         return impact
+
+    @begin_session
+    def migrate_platform(
+        self,
+        confirmation: LegacyImpactConfirmation,
+        *,
+        actor_user_id: int,
+        actor_display_name: str,
+        now: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> LegacyMigrationOutcome:
+        from exceptions.storage_exceptions import (
+            DuplicateStorageMappingError,
+            StoragePersistenceError,
+        )
+        from handler.database.roms_handler import DBRomsHandler
+        from handler.database.storage_handler import DBStorageHandler
+
+        impact = self._preview_impact(
+            session,
+            confirmation.detection_result_id,
+            platform_id=confirmation.platform_id,
+            expected_result_version=confirmation.result_version,
+            now=now,
+        )
+        if impact.state != "ready" or impact.confirmation != confirmation:
+            raise LegacyDetectionResultError(
+                "legacy_impact_stale",
+                result_id=confirmation.detection_result_id,
+                platform_id=confirmation.platform_id,
+                current_version=confirmation.result_version,
+            )
+
+        existing = session.scalar(
+            select(LegacyMigration)
+            .where(
+                LegacyMigration.detection_result_id == confirmation.detection_result_id
+            )
+            .with_for_update(of=LegacyMigration)
+        )
+        if existing is not None:
+            raise LegacyDetectionResultError(
+                "legacy_migration_conflict",
+                result_id=confirmation.detection_result_id,
+                platform_id=confirmation.platform_id,
+                current_version=confirmation.result_version,
+            )
+
+        try:
+            mapping = DBStorageHandler._create_mapping_record(
+                session,
+                confirmation.platform_id,
+                confirmation.storage_root_id,
+                confirmation.relative_path,
+            )
+        except (DuplicateStorageMappingError, StoragePersistenceError):
+            raise LegacyDetectionResultError(
+                "legacy_impact_stale",
+                result_id=confirmation.detection_result_id,
+                platform_id=confirmation.platform_id,
+                current_version=confirmation.result_version,
+            ) from None
+        self._after_migration_flush("mapping")
+
+        reconnected, unmatched = DBRomsHandler().reconnect_legacy_catalog(
+            confirmation.platform_id, session=session
+        )
+        if (
+            reconnected != confirmation.reconnectable_catalog_count
+            or unmatched != confirmation.unmatched_catalog_count
+        ):
+            raise LegacyDetectionResultError(
+                "legacy_impact_stale",
+                result_id=confirmation.detection_result_id,
+                platform_id=confirmation.platform_id,
+                current_version=confirmation.result_version,
+            )
+        session.flush()
+        self._after_migration_flush("catalog")
+
+        DBStorageHandler._append_audit(
+            session,
+            mapping,
+            StorageMappingAuditAction.CREATE,
+            None,
+            DBStorageHandler._snapshot(mapping),
+            actor_user_id,
+            actor_display_name,
+        )
+        self._after_migration_flush("audit")
+
+        completed_at = now or datetime.now(timezone.utc)
+        if completed_at.tzinfo is None:
+            completed_at = completed_at.replace(tzinfo=timezone.utc)
+        migration = LegacyMigration(
+            detection_result_id=confirmation.detection_result_id,
+            platform_id=confirmation.platform_id,
+            storage_root_id=confirmation.storage_root_id,
+            mapping_id=mapping.id,
+            relative_path=confirmation.relative_path,
+            state=LegacyMigrationState.COMPLETED,
+            version=1,
+            actor_user_id=actor_user_id,
+            prior_mapping_id=confirmation.observed_mapping_id,
+            prior_mapping_version=confirmation.observed_mapping_version,
+            prior_mapping_active=(confirmation.observed_mapping_id is not None),
+            reconnected_catalog_count=reconnected,
+            unmatched_catalog_count=unmatched,
+            expires_at=confirmation.expires_at,
+            completed_at=completed_at,
+        )
+        result = session.get(LegacyDetectionResult, confirmation.detection_result_id)
+        if result is None or result.version != confirmation.result_version:
+            raise LegacyDetectionResultError(
+                "legacy_detection_stale",
+                result_id=confirmation.detection_result_id,
+                platform_id=confirmation.platform_id,
+                current_version=(result.version if result is not None else None),
+            )
+        result.version += 1
+        session.add(migration)
+        try:
+            session.flush()
+        except IntegrityError:
+            raise LegacyDetectionResultError(
+                "legacy_migration_conflict",
+                result_id=confirmation.detection_result_id,
+                platform_id=confirmation.platform_id,
+                current_version=confirmation.result_version,
+            ) from None
+        self._after_migration_flush("rollback")
+
+        return LegacyMigrationOutcome(
+            state=LegacyMigrationState.COMPLETED.value,
+            migration_id=migration.id,
+            migration_version=migration.version,
+            mapping_id=mapping.id,
+            mapping_version=mapping.version,
+            platform_id=mapping.platform_id,
+            storage_root_id=mapping.storage_root_id,
+            reconnected_catalog_count=reconnected,
+            unmatched_catalog_count=unmatched,
+        )
 
     @begin_session
     def get_detection_result(

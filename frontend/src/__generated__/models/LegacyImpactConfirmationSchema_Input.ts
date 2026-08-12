@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type LegacyImpactConfirmationSchema = {
+export type LegacyImpactConfirmationSchema_Input = {
     detection_result_id: number;
     result_version: number;
     platform_id: number;
@@ -14,4 +14,3 @@ export type LegacyImpactConfirmationSchema = {
     unmatched_catalog_count: number;
     expires_at: string;
 };
-

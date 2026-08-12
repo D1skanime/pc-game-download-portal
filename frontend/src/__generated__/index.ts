@@ -104,12 +104,14 @@ export type { LegacyDetectionErrorResponse } from './models/LegacyDetectionError
 export type { LegacyDetectionJobSchema } from './models/LegacyDetectionJobSchema';
 export type { LegacyDetectionRequestSchema } from './models/LegacyDetectionRequestSchema';
 export type { LegacyDetectionResultSchema } from './models/LegacyDetectionResultSchema';
-export type { LegacyImpactConfirmationSchema } from './models/LegacyImpactConfirmationSchema';
+export type { LegacyImpactConfirmationSchema_Input } from './models/LegacyImpactConfirmationSchema_Input';
+export type { LegacyImpactConfirmationSchema_Output } from './models/LegacyImpactConfirmationSchema_Output';
 export type { LegacyImpactPlannedEffectsSchema } from './models/LegacyImpactPlannedEffectsSchema';
 export type { LegacyImpactPreviewRequestSchema } from './models/LegacyImpactPreviewRequestSchema';
 export type { LegacyImpactPreviewSchema } from './models/LegacyImpactPreviewSchema';
 export type { LegacyImpactProblemSchema } from './models/LegacyImpactProblemSchema';
 export type { LegacyImpactProposedMappingSchema } from './models/LegacyImpactProposedMappingSchema';
+export type { LegacyMigrationResultSchema } from './models/LegacyMigrationResultSchema';
 export type { LoadStateRequest } from './models/LoadStateRequest';
 export type { LogEntrySchema } from './models/LogEntrySchema';
 export type { ManualMetadata } from './models/ManualMetadata';

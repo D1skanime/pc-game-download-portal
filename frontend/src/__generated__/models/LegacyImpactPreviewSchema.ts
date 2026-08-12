@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { LegacyImpactConfirmationSchema } from './LegacyImpactConfirmationSchema';
+import type { LegacyImpactConfirmationSchema_Output } from './LegacyImpactConfirmationSchema_Output';
 import type { LegacyImpactPlannedEffectsSchema } from './LegacyImpactPlannedEffectsSchema';
 import type { LegacyImpactProblemSchema } from './LegacyImpactProblemSchema';
 import type { LegacyImpactProposedMappingSchema } from './LegacyImpactProposedMappingSchema';
@@ -13,7 +13,7 @@ export type LegacyImpactPreviewSchema = {
     unmatched_catalog_count: number;
     problems: Array<LegacyImpactProblemSchema>;
     planned_owned_effects: LegacyImpactPlannedEffectsSchema;
-    confirmation: (LegacyImpactConfirmationSchema | null);
+    confirmation: (LegacyImpactConfirmationSchema_Output | null);
     source_immutable?: boolean;
     legacy_fallback_enabled?: boolean;
 };

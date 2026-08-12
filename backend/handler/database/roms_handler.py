@@ -2640,6 +2640,59 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(query.outerjoin(Rom.files).filter(or_(*filters)).limit(1))
 
     @begin_session
+    def reconnect_legacy_catalog(
+        self,
+        platform_id: int,
+        *,
+        session: Session = None,  # type: ignore
+    ) -> tuple[int, int]:
+        from exceptions.storage_exceptions import StorageResolutionError
+        from handler.filesystem.storage_resolver import normalize_relative_path
+
+        roms = list(
+            session.scalars(
+                select(Rom)
+                .where(Rom.platform_id == platform_id)
+                .order_by(Rom.id)
+                .with_for_update(of=Rom)
+            ).all()
+        )
+        rom_ids = [rom.id for rom in roms]
+        if rom_ids:
+            session.scalars(
+                select(RomFile)
+                .where(RomFile.rom_id.in_(rom_ids))
+                .order_by(RomFile.id)
+                .with_for_update(of=RomFile)
+            ).all()
+        identities: dict[str, list[Rom]] = {}
+        for rom in roms:
+            logical = "/".join(part for part in (rom.fs_path, rom.fs_name) if part)
+            try:
+                logical = normalize_relative_path(logical)
+            except StorageResolutionError:
+                continue
+            identities.setdefault(logical, []).append(rom)
+
+        reconnected_ids = {
+            matches[0].id for matches in identities.values() if len(matches) == 1
+        }
+        if reconnected_ids:
+            session.execute(
+                update(Rom)
+                .where(Rom.id.in_(reconnected_ids))
+                .values(missing_from_fs=False)
+                .execution_options(synchronize_session=False)
+            )
+            session.execute(
+                update(RomFile)
+                .where(RomFile.rom_id.in_(reconnected_ids))
+                .values(missing_from_fs=False)
+                .execution_options(synchronize_session=False)
+            )
+        return len(reconnected_ids), len(roms) - len(reconnected_ids)
+
+    @begin_session
     def get_matching_missing_rom(
         self,
         platform_id: int,

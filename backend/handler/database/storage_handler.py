@@ -340,6 +340,32 @@ class DBStorageHandler(DBBaseHandler):
             version=1,
         )
 
+    @classmethod
+    def _create_mapping_record(
+        cls,
+        session: Session,
+        platform_id: int,
+        storage_root_id: int,
+        relative_path: str,
+    ) -> PlatformStorageMapping:
+        mapping = PlatformStorageMapping(
+            platform_id=platform_id,
+            storage_root_id=storage_root_id,
+            relative_path=relative_path,
+            active=True,
+            version=1,
+        )
+        session.add(mapping)
+        try:
+            session.flush()
+        except IntegrityError as error:
+            if cls._is_mapping_unique_violation(error):
+                raise DuplicateStorageMappingError(
+                    platform_id, storage_root_id
+                ) from error
+            raise StoragePersistenceError from error
+        return mapping
+
     @begin_session
     def create_mapping(
         self,
@@ -365,22 +391,9 @@ class DBStorageHandler(DBBaseHandler):
         )
         if active_mapping_id is not None:
             raise DuplicateStorageMappingError(platform_id, storage_root_id)
-        mapping = PlatformStorageMapping(
-            platform_id=platform_id,
-            storage_root_id=storage_root_id,
-            relative_path=relative_path,
-            active=True,
-            version=1,
+        mapping = self._create_mapping_record(
+            session, platform_id, storage_root_id, relative_path
         )
-        session.add(mapping)
-        try:
-            session.flush()
-        except IntegrityError as error:
-            if self._is_mapping_unique_violation(error):
-                raise DuplicateStorageMappingError(
-                    platform_id, storage_root_id
-                ) from error
-            raise StoragePersistenceError from error
         self._append_audit(
             session,
             mapping,

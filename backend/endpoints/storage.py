@@ -24,6 +24,7 @@ from endpoints.responses.storage import (
     LegacyImpactPreviewSchema,
     LegacyImpactProblemSchema,
     LegacyImpactProposedMappingSchema,
+    LegacyMigrationResultSchema,
     StorageConflictDetail,
     StorageConflictErrorCode,
     StorageConflictResponse,
@@ -79,6 +80,7 @@ from handler.filesystem.storage_resolver import (
     resolve_directory,
 )
 from handler.redis_handler import low_prio_queue
+from handler.storage.legacy_migration import LegacyImpactConfirmation
 from models.storage import (
     STORAGE_MAPPING_PATH_MAX_LENGTH,
     LegacyDetectionResult,
@@ -541,6 +543,61 @@ def preview_legacy_migration_impact(
     except LegacyDetectionResultError as error:
         _raise_legacy_detection_error(error)
     return _legacy_impact_schema(impact)
+
+
+@protected_route(
+    router.post,
+    "/legacy-detections/{result_id}/migrate",
+    [Scope.USERS_WRITE],
+    response_model=LegacyMigrationResultSchema,
+    responses=_LEGACY_RESPONSES,
+)
+def migrate_legacy_platform(
+    request: Request,
+    result_id: int,
+    body: LegacyImpactConfirmationSchema,
+) -> LegacyMigrationResultSchema:
+    assert_admin(request)
+    if result_id != body.detection_result_id:
+        _raise_legacy_detection_error(
+            LegacyDetectionResultError(
+                "legacy_detection_stale",
+                result_id=result_id,
+                platform_id=body.platform_id,
+                current_version=body.result_version,
+            )
+        )
+    confirmation = LegacyImpactConfirmation(
+        detection_result_id=body.detection_result_id,
+        result_version=body.result_version,
+        platform_id=body.platform_id,
+        storage_root_id=body.storage_root_id,
+        relative_path=body.relative_path,
+        observed_mapping_id=body.observed_mapping_id,
+        observed_mapping_version=body.observed_mapping_version,
+        reconnectable_catalog_count=body.reconnectable_catalog_count,
+        unmatched_catalog_count=body.unmatched_catalog_count,
+        expires_at=body.expires_at,
+    )
+    try:
+        outcome = db_legacy_migration_handler.migrate_platform(
+            confirmation, **_actor(request)
+        )
+    except LegacyDetectionResultError as error:
+        _raise_legacy_detection_error(error)
+    return LegacyMigrationResultSchema(
+        state=outcome.state,
+        migration_id=outcome.migration_id,
+        migration_version=outcome.migration_version,
+        mapping_id=outcome.mapping_id,
+        mapping_version=outcome.mapping_version,
+        platform_id=outcome.platform_id,
+        storage_root_id=outcome.storage_root_id,
+        reconnected_catalog_count=outcome.reconnected_catalog_count,
+        unmatched_catalog_count=outcome.unmatched_catalog_count,
+        source_immutable=outcome.source_immutable,
+        legacy_fallback_enabled=outcome.legacy_fallback_enabled,
+    )
 
 
 @protected_route(
