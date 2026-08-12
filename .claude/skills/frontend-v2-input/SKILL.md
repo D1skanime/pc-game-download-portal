@@ -1,13 +1,15 @@
 ---
 name: frontend-v2-input
-description: Universal input (mouse, touch, keyboard, gamepad) and responsive/universal-viewport layout in the RomM v2 frontend. Use when adding interactive v2 components, focus management, spatial navigation, gamepad/keyboard handling, modality-gated focus rings, breakpoints, or responsive layout. Covers useInput, focus geometry primitives, the overlay scope stack, useBreakpoint, and the data-bp/data-input attributes. Trigger on interactive or responsive work under frontend/src/v2/.
+description: Universal input (mouse, touch, keyboard, gamepad) and responsive/universal-viewport layout in the RomM v2 frontend. Use when adding interactive v2 components, focus management, grid navigation, gamepad/keyboard handling, modality-gated focus rings, breakpoints, or responsive layout. Covers useGamepad, useGridNav, useWrapGridNav, useInputModality, native DOM order, overlay scope, useBreakpoint, and the data-bp/data-input attributes. Trigger on interactive or responsive work under frontend/src/v2/.
 ---
 
 # RomM v2 — Universal Input & Universal Viewport
 
 **Premise:** all v2 UI works with mouse, touch, keyboard, **and** gamepad; and every surface reads cleanly from a 320px phone to a 4K display. Both mechanisms are fixed — don't invent a parallel one.
 
-The input system lives in `src/v2/composables/useInput/` (bus, keyboard, gamepad, actions, scope). It generalises the original gamepad-only `src/console/` system. There are **no `/console/*` routes in v2**.
+The live input architecture is split across focused composables. `useGamepad` translates controller directions to keyboard events and handles activation, cancellation, and global actions. `useGridNav` handles explicit DOM rows, `useWrapGridNav` handles wrapping CSS grids, and `useInputModality` tracks the active modality. Linear lists, forms, and breadcrumbs use native DOM order. `RDialog` and `RMenu` manage overlay scope. There are **no `/console/*` routes in v2**.
+
+Do not assume a unified input bus or focus-component layer. If one is needed later, it requires an explicit runtime contract. Current features must compose the live mechanisms named above.
 
 ---
 
@@ -23,14 +25,14 @@ The input system lives in `src/v2/composables/useInput/` (bus, keyboard, gamepad
 Buttons, list items, tabs, menu items, focusable cards, toggleable chips — all participate in spatial navigation (not optional). A new interactive primitive must:
 
 - be focusable (proper `tabindex`, or already so via a wrapped Vuetify component);
-- react to logical actions (confirm/cancel) from `useInput`, in addition to native click;
+- remain activatable through native click and keyboard behavior so `useGamepad` can invoke the focused control;
 - show a modality-gated focus state.
 
 Storybook `play()` covering gamepad input is required **only when applicable** (the primitive is interactive enough that gamepad navigation matters).
 
-## Focus geometry
+## Focus navigation
 
-Each view declares its layout with focus primitives: `RFocusZone`, `RFocusGrid`, `RFocusRow`, `RFocusColumn`. Multiple regions = multiple zones. Predictable up/down/left/right movement is the view's responsibility.
+Use native DOM order for linear lists, forms, breadcrumbs, and actions. Use `useGridNav(rootRef, options?)` when the DOM has explicit row containers. Use `useWrapGridNav(rootRef, options)` when CSS creates wrapping visual rows. Both grid composables handle arrow navigation and focus restoration, while `useGamepad` feeds controller direction through the same keyboard paths. Do not add ad hoc key handlers or invent a parallel navigation abstraction.
 
 ## Element-level global shortcuts
 

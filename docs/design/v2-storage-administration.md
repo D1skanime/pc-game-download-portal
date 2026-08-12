@@ -159,7 +159,7 @@ Typography uses repository type and weight tokens for titles, headings, body, me
 
 ## 11. Universal Input and Focus Geometry
 
-Mouse, touch, keyboard, and gamepad provide equivalent outcomes through the existing `useInput` system. Declare `RFocusZone` regions for route navigation, overview actions, guided steps, breadcrumbs and folder rows, and dialog actions. Do not create ad hoc key handlers or a parallel focus system.
+Mouse, touch, keyboard, and gamepad provide equivalent outcomes through the live v2 mechanisms. `useGamepad` translates controller direction into keyboard events and handles activation, cancellation, and global actions. `useGridNav` provides arrow navigation for explicit DOM rows, while `useWrapGridNav` reconstructs visual rows for wrapping grids. `useInputModality` owns `data-input`. Native DOM order covers linear lists, forms, and breadcrumbs, and `RDialog` and `RMenu` provide overlay scope and cancellation. Phase 7 must compose these mechanisms without ad hoc key handlers or a parallel focus system. Any future unified input or focus layer requires an explicit later runtime contract and is not assumed by this specification.
 
 | Context | Mouse and touch | Keyboard | Gamepad | Focus continuity |
 |---|---|---|---|---|
@@ -170,7 +170,7 @@ Mouse, touch, keyboard, and gamepad provide equivalent outcomes through the exis
 | Conflict recovery | Adjacent recovery control | Announcement precedes recovery | Recovery is next spatial target | Reload preserves draft and focuses changed summary |
 | Preview update | Overview remains usable | Live announcement never steals focus | Geometry does not change under focus | pending, partial, complete, stale, and problems stay local |
 
-Focus rings use repository focus tokens only for `data-input="key"` and `data-input="pad"`. Touch and gamepad targets meet 44px. Hidden controls are unmounted and excluded from tab and spatial navigation.
+Focus rings use repository focus tokens only for `data-input="key"` and `data-input="pad"`, as maintained by `useInputModality`. Touch and gamepad targets meet 44px. Hidden controls are unmounted and excluded from tab and arrow navigation. Explicit-row layouts use `useGridNav`; wrapping tile layouts use `useWrapGridNav`; linear controls retain native DOM order. `useGamepad` makes those keyboard paths available to controllers and invokes the focused control for confirmation.
 
 ## 12. Responsive Composition
 
