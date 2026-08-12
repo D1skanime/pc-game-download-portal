@@ -75,3 +75,73 @@ def test_verify_dialect_exercises_pristine_and_history_paths(monkeypatch):
     assert any(
         isinstance(call, tuple) and call and call[0] == "mariadb" for call in calls
     )
+
+
+def test_0111_migration_guards_lifecycle_state_before_downgrade_ddl():
+    migration = Path(
+        "alembic/versions/0111_safe_lifecycle_legacy_migration.py"
+    ).read_text()
+    preflight = migration.index("_ensure_safe_lifecycle_downgrade")
+    ddl_positions = [
+        migration.index(token)
+        for token in (
+            "op.drop_table",
+            "batch_op.drop_column",
+            "batch_op.alter_column",
+        )
+    ]
+    assert preflight < min(ddl_positions)
+    assert "retained_catalog_identities" in migration
+    assert "owned_cleanup_intents" in migration
+    assert "legacy_detection_results" in migration
+    assert "legacy_migrations" in migration
+
+
+def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
+    events = []
+    monkeypatch.setattr(verifier.subprocess, "run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        verifier, "_run", lambda *args, **kwargs: events.append(args[0]) or ""
+    )
+    monkeypatch.setattr(verifier, "_wait_until_ready", lambda *args: None)
+    monkeypatch.setattr(verifier, "_runner_gateway", lambda runner: "172.17.0.1")
+    monkeypatch.setattr(verifier, "_mapped_port", lambda *args: "33060")
+    monkeypatch.setattr(verifier, "_bootstrap_mysql_0107", lambda *args: None)
+    monkeypatch.setattr(
+        verifier, "_alembic", lambda *args: events.append(("alembic", *args))
+    )
+    monkeypatch.setattr(
+        verifier, "_verify_lifecycle_downgrade_rejected", lambda *args: None
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_seed_0110_state",
+        lambda *args: events.append(("seed-0110", *args)),
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_verify_seeded_0110_state",
+        lambda *args: events.append(("verify-0110", *args)),
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_verify_restart_persistence",
+        lambda *args: events.append(("restart", *args)),
+    )
+    monkeypatch.setattr(
+        verifier, "_clear_0111_state", lambda *args: events.append(("clear", *args))
+    )
+
+    verifier.verify_dialect("postgresql", "romm-dev")
+
+    assert any(event[0] == "seed-0110" for event in events if isinstance(event, tuple))
+    assert any(
+        event[0] == "verify-0110" for event in events if isinstance(event, tuple)
+    )
+    assert any(event[0] == "restart" for event in events if isinstance(event, tuple))
+    assert any(
+        event[:2] == ("alembic", "romm-dev")
+        and event[-2:] == ("downgrade", "0110_mapping_preview_results")
+        for event in events
+        if isinstance(event, tuple)
+    )
