@@ -544,3 +544,51 @@ def test_impact_confirmation_revalidates_catalog_and_conflicts(
     assert [problem.code for problem in conflict.problems] == [
         "active_mapping_conflict"
     ]
+
+
+def test_admin_migrate_endpoint_returns_only_bounded_atomic_outcome(
+    client, access_token, tmp_path: Path, platform, admin_user
+):
+    handler, result, now = _seed_impact_preview(tmp_path, platform, admin_user)
+    impact = handler.preview_migration_impact(
+        result.id, platform_id=platform.id, expected_result_version=1, now=now
+    )
+    confirmation = asdict(impact.confirmation)
+    confirmation["expires_at"] = confirmation["expires_at"].isoformat()
+
+    unauthorized = client.post(
+        f"/api/storage/legacy-detections/{result.id}/migrate",
+        json=confirmation,
+    )
+    assert unauthorized.status_code == 401
+
+    response = client.post(
+        f"/api/storage/legacy-detections/{result.id}/migrate",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json=confirmation,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {
+        "state",
+        "migration_id",
+        "migration_version",
+        "mapping_id",
+        "mapping_version",
+        "platform_id",
+        "storage_root_id",
+        "reconnected_catalog_count",
+        "unmatched_catalog_count",
+        "source_immutable",
+        "legacy_fallback_enabled",
+    }
+    assert payload["state"] == "completed"
+    assert payload["reconnected_catalog_count"] == 2
+    assert payload["unmatched_catalog_count"] == 0
+    assert payload["source_immutable"] is True
+    assert payload["legacy_fallback_enabled"] is False
+    serialized = str(payload).lower()
+    assert str(tmp_path).lower() not in serialized
+    assert "relative_path" not in serialized
+    assert "raw" not in serialized

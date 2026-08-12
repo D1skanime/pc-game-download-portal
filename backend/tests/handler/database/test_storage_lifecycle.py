@@ -1,11 +1,14 @@
 import hashlib
 import os
 import stat
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from exceptions.storage_exceptions import StaleStorageMappingVersionError
 from exceptions.storage_read import StaleMappedReadError
@@ -15,6 +18,8 @@ from handler.storage.read_context import MappingReadContext
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.storage import (
+    LegacyDetectionResult,
+    LegacyMigration,
     PlatformStorageMapping,
     StorageMappingAudit,
     StorageMappingAuditAction,
@@ -94,6 +99,211 @@ def _seed_mapping(tmp_path: Path, *, rom_count: int = 2):
             roms.append(rom)
         session.flush()
         return mapping.id, platform.id, [rom.id for rom in roms], source
+
+
+def _seed_atomic_migration(tmp_path: Path, *, suffix: str = "one"):
+    from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
+
+    source = tmp_path / suffix / "library"
+    canonical = source / "roms" / f"pc-{suffix}"
+    canonical.mkdir(parents=True)
+    (canonical / "unique.bin").write_bytes(b"unique")
+    (canonical / "duplicate.bin").write_bytes(b"duplicate")
+    now = datetime(2026, 8, 12, 15, tzinfo=timezone.utc)
+    with sync_session.begin() as session:
+        platform = Platform(
+            name=f"PC {suffix}", slug=f"pc-{suffix}", fs_slug=f"pc-{suffix}"
+        )
+        root = StorageRoot(name=f"Archive {suffix}", container_path=str(source))
+        session.add_all([platform, root])
+        session.flush()
+        roms = []
+        for index, (name, fs_path) in enumerate(
+            (
+                ("unique.bin", platform.fs_slug),
+                ("duplicate.bin", platform.fs_slug),
+                ("", f"{platform.fs_slug}/duplicate.bin"),
+            )
+        ):
+            rom = Rom(
+                platform_id=platform.id,
+                fs_name=name,
+                fs_name_no_tags=name.removesuffix(".bin"),
+                fs_name_no_ext=name.removesuffix(".bin"),
+                fs_extension="bin",
+                fs_path=fs_path,
+                fs_size_bytes=index + 1,
+                name=f"Catalog {suffix} {index}",
+                missing_from_fs=True,
+            )
+            session.add(rom)
+            session.flush()
+            session.add(
+                RomFile(
+                    rom_id=rom.id,
+                    file_name=name,
+                    file_path=fs_path,
+                    file_size_bytes=index + 1,
+                    missing_from_fs=True,
+                )
+            )
+            roms.append(rom)
+        result = LegacyDetectionResult(
+            platform_id=platform.id,
+            storage_root_id=root.id,
+            state="detected",
+            proposed_relative_path=f"roms/{platform.fs_slug}",
+            observed_files=2,
+            observed_bytes=15,
+            lower_bound=False,
+            selectable=True,
+            safe_problem_code=None,
+            observed_mapping_id=None,
+            observed_mapping_version=None,
+            version=1,
+            actor_user_id=7,
+            completed_at=now,
+            expires_at=now + timedelta(hours=24),
+        )
+        session.add(result)
+        session.flush()
+        platform_id = platform.id
+        result_id = result.id
+        rom_ids = [rom.id for rom in roms]
+    handler = DBLegacyMigrationHandler()
+    impact = handler.preview_migration_impact(
+        result_id,
+        platform_id=platform_id,
+        expected_result_version=1,
+        now=now,
+    )
+    assert impact.confirmation is not None
+    return handler, impact.confirmation, now, rom_ids, source
+
+
+def test_atomic_migrate_commits_mapping_catalog_audit_and_rollback_metadata(
+    tmp_path: Path,
+):
+    handler, confirmation, now, rom_ids, source = _seed_atomic_migration(tmp_path)
+    before = _manifest(source)
+
+    outcome = handler.migrate_platform(
+        confirmation,
+        actor_user_id=7,
+        actor_display_name="Admin",
+        now=now,
+    )
+
+    assert outcome.state == "completed"
+    assert outcome.reconnected_catalog_count == 1
+    assert outcome.unmatched_catalog_count == 2
+    assert outcome.source_immutable is True
+    assert outcome.legacy_fallback_enabled is False
+    with sync_session() as session:
+        mapping = session.get(PlatformStorageMapping, outcome.mapping_id)
+        migration = session.get(LegacyMigration, outcome.migration_id)
+        roms = list(session.scalars(select(Rom).where(Rom.id.in_(rom_ids))))
+        files = list(
+            session.scalars(select(RomFile).where(RomFile.rom_id.in_(rom_ids)))
+        )
+        audits = session.scalar(
+            select(func.count(StorageMappingAudit.id)).where(
+                StorageMappingAudit.mapping_id == outcome.mapping_id
+            )
+        )
+        detection = session.get(LegacyDetectionResult, confirmation.detection_result_id)
+        assert mapping is not None and mapping.active and mapping.version == 1
+        assert migration is not None and migration.state == "completed"
+        assert migration.mapping_id == mapping.id
+        assert migration.reconnected_catalog_count == 1
+        assert migration.unmatched_catalog_count == 2
+        assert audits == 1
+        assert detection is not None and detection.version == 2
+        assert [rom.missing_from_fs for rom in roms] == [False, True, True]
+        assert [item.missing_from_fs for item in files] == [False, True, True]
+    assert _manifest(source) == before
+
+
+@pytest.mark.parametrize("failure_stage", ["mapping", "catalog", "audit", "rollback"])
+def test_atomic_migrate_rolls_back_every_flushed_stage_and_retries_safely(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure_stage: str
+):
+    handler, confirmation, now, rom_ids, source = _seed_atomic_migration(
+        tmp_path, suffix=failure_stage
+    )
+    before = _manifest(source)
+
+    def fail_after_flush(stage: str) -> None:
+        if stage == failure_stage:
+            raise RuntimeError(f"injected {stage} failure")
+
+    monkeypatch.setattr(
+        handler, "_after_migration_flush", fail_after_flush, raising=False
+    )
+    with pytest.raises(RuntimeError, match=f"injected {failure_stage} failure"):
+        handler.migrate_platform(
+            confirmation,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=now,
+        )
+
+    with sync_session() as session:
+        assert session.scalar(select(func.count(PlatformStorageMapping.id))) == 0
+        assert session.scalar(select(func.count(StorageMappingAudit.id))) == 0
+        assert session.scalar(select(func.count(LegacyMigration.id))) == 0
+        detection = session.get(LegacyDetectionResult, confirmation.detection_result_id)
+        assert detection is not None and detection.version == 1
+        assert all(
+            row.missing_from_fs
+            for row in session.scalars(select(Rom).where(Rom.id.in_(rom_ids)))
+        )
+    assert _manifest(source) == before
+
+    monkeypatch.setattr(handler, "_after_migration_flush", lambda _stage: None)
+    retry = handler.migrate_platform(
+        confirmation,
+        actor_user_id=7,
+        actor_display_name="Admin",
+        now=now,
+    )
+    assert retry.state == "completed"
+    assert _manifest(source) == before
+
+
+def test_migrate_race_has_one_atomic_winner(tmp_path: Path):
+    from handler.database.legacy_migration_handler import (
+        DBLegacyMigrationHandler,
+        LegacyDetectionResultError,
+    )
+
+    _, confirmation, now, _, _ = _seed_atomic_migration(tmp_path, suffix="race")
+    barrier = threading.Barrier(2)
+
+    def attempt():
+        barrier.wait(timeout=5)
+        try:
+            return DBLegacyMigrationHandler().migrate_platform(
+                confirmation,
+                actor_user_id=7,
+                actor_display_name="Admin",
+                now=now,
+            )
+        except LegacyDetectionResultError as error:
+            return error
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = list(executor.map(lambda _index: attempt(), range(2)))
+
+    assert sum(getattr(item, "state", None) == "completed" for item in outcomes) == 1
+    loser = next(
+        item for item in outcomes if isinstance(item, LegacyDetectionResultError)
+    )
+    assert loser.code in {"legacy_detection_stale", "legacy_migration_conflict"}
+    with sync_session() as session:
+        assert session.scalar(select(func.count(PlatformStorageMapping.id))) == 1
+        assert session.scalar(select(func.count(StorageMappingAudit.id))) == 1
+        assert session.scalar(select(func.count(LegacyMigration.id))) == 1
 
 
 def test_confirmed_mapping_removal_retains_catalog_and_marks_it_unreachable(
