@@ -788,3 +788,113 @@ def test_mapping_removal_openapi_exposes_preview_and_confirmation(client):
     assert "StorageMappingRemovalConfirmationSchema" in serialized
     assert "platform_name" not in serialized
     assert "delete_from_fs" not in serialized
+
+
+@pytest.mark.parametrize("kind", ["anonymous", "viewer"])
+def test_legacy_impact_authorizes_before_observation(
+    client, viewer_access_token, monkeypatch, kind
+):
+    from endpoints import storage as endpoint
+
+    monkeypatch.setattr(
+        endpoint.db_legacy_migration_handler,
+        "preview_migration_impact",
+        lambda *_args, **_kwargs: pytest.fail("impact observed before admin auth"),
+        raising=False,
+    )
+    headers = {} if kind == "anonymous" else _auth(viewer_access_token)
+    response = client.post(
+        "/api/storage/legacy-detections/41/impact",
+        headers=headers,
+        json={"platform_id": 5, "expected_result_version": 3},
+    )
+    assert response.status_code == (401 if kind == "anonymous" else 403)
+
+
+def test_legacy_impact_returns_allowlisted_confirmation(
+    client, access_token, monkeypatch
+):
+    from endpoints import storage as endpoint
+
+    impact = SimpleNamespace(
+        state="ready",
+        proposed_mapping=SimpleNamespace(
+            platform_id=5, storage_root_id=7, relative_path="roms/gb"
+        ),
+        reconnectable_catalog_count=4,
+        unmatched_catalog_count=1,
+        problems=(),
+        planned_owned_effects=SimpleNamespace(
+            mapping_create_count=1,
+            catalog_reconnect_count=4,
+            catalog_preserve_unmatched_count=1,
+            audit_record_count=1,
+            rollback_record_count=1,
+            source_mutation_count=0,
+        ),
+        confirmation=SimpleNamespace(
+            detection_result_id=41,
+            result_version=3,
+            platform_id=5,
+            storage_root_id=7,
+            relative_path="roms/gb",
+            observed_mapping_id=None,
+            observed_mapping_version=None,
+            reconnectable_catalog_count=4,
+            unmatched_catalog_count=1,
+            expires_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+        ),
+        source_immutable=True,
+        legacy_fallback_enabled=False,
+    )
+    captured = {}
+    monkeypatch.setattr(
+        endpoint.db_legacy_migration_handler,
+        "preview_migration_impact",
+        lambda result_id, **kwargs: captured.update(result_id=result_id, **kwargs)
+        or impact,
+        raising=False,
+    )
+    response = client.post(
+        "/api/storage/legacy-detections/41/impact",
+        headers=_auth(access_token),
+        json={"platform_id": 5, "expected_result_version": 3},
+    )
+    assert response.status_code == 200
+    assert captured == {"result_id": 41, "platform_id": 5, "expected_result_version": 3}
+    body = response.json()
+    assert body["state"] == "ready"
+    assert body["proposed_mapping"] == {
+        "platform_id": 5,
+        "storage_root_id": 7,
+        "relative_path": "roms/gb",
+    }
+    assert body["reconnectable_catalog_count"] == 4
+    assert body["unmatched_catalog_count"] == 1
+    assert body["planned_owned_effects"]["source_mutation_count"] == 0
+    assert body["confirmation"]["detection_result_id"] == 41
+    assert body["confirmation"]["expires_at"] == "2026-08-13T00:00:00Z"
+    assert body["source_immutable"] is True
+    assert body["legacy_fallback_enabled"] is False
+    assert "/sentinel/" not in response.text
+
+
+def test_legacy_impact_openapi_is_bounded_and_has_no_fallback(client):
+    schema = client.get("/openapi.json").json()
+    operation = schema["paths"]["/api/storage/legacy-detections/{result_id}/impact"][
+        "post"
+    ]
+    serialized = str(operation).lower()
+    assert "legacyimpactpreviewrequestschema" in serialized
+    assert "legacyimpactpreviewschema" in serialized
+    assert not any(
+        field in serialized
+        for field in (
+            "container_path",
+            "absolute_path",
+            "raw_row",
+            "raw_error",
+            "file_list",
+            "legacy_fallback_path",
+        )
+    )

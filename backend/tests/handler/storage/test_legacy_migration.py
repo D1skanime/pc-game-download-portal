@@ -399,3 +399,148 @@ def test_legacy_detection_openapi_is_bounded_and_has_no_fallback(client):
     assert "raw" not in serialized
     assert "fallback" not in serialized
     assert "file_list" not in serialized
+
+
+def _seed_impact_preview(tmp_path: Path, platform, admin_user):
+    from datetime import datetime, timezone
+
+    from handler.database.base_handler import sync_session
+    from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
+    from handler.storage.legacy_migration import LegacyDetectionOutcome
+    from models.rom import Rom
+    from models.storage import StorageRoot
+
+    canonical = tmp_path / "roms" / platform.fs_slug
+    canonical.mkdir(parents=True)
+    (canonical / "one.gb").write_bytes(b"one")
+    (canonical / "two.gb").write_bytes(b"two")
+    with sync_session.begin() as database:
+        root = StorageRoot(name="legacy-impact", container_path=str(tmp_path))
+        database.add(root)
+        database.flush()
+        root_id = root.id
+        for name in ("one.gb", "two.gb"):
+            database.add(
+                Rom(
+                    platform_id=platform.id,
+                    fs_name=name,
+                    fs_name_no_tags=name[:-3],
+                    fs_name_no_ext=name[:-3],
+                    fs_extension="gb",
+                    fs_path=platform.fs_slug,
+                    fs_size_bytes=3,
+                    name=name,
+                    missing_from_fs=True,
+                )
+            )
+    handler = DBLegacyMigrationHandler()
+    context = handler.get_detection_context(platform.id, root_id)
+    now = datetime(2026, 8, 12, 12, tzinfo=timezone.utc)
+    result = handler.save_detection_result(
+        context,
+        LegacyDetectionOutcome(
+            platform_id=platform.id,
+            storage_root_id=root_id,
+            state="detected",
+            proposed_relative_path=f"roms/{platform.fs_slug}",
+            observed_files=2,
+            observed_bytes=6,
+            lower_bound=False,
+            selectable=True,
+            safe_problem_code=None,
+        ),
+        actor_user_id=admin_user.id,
+        now=now,
+    )
+    return handler, result, now
+
+
+def test_impact_preview_binds_confirmation_and_changes_no_state(
+    tmp_path: Path, platform, admin_user
+):
+    from sqlalchemy import func, select
+
+    from handler.database.base_handler import sync_session
+    from models.storage import LegacyMigration, PlatformStorageMapping
+
+    handler, result, now = _seed_impact_preview(tmp_path, platform, admin_user)
+    before = _source_manifest(tmp_path)
+    impact = handler.preview_migration_impact(
+        result.id, platform_id=platform.id, expected_result_version=1, now=now
+    )
+    assert impact.state == "ready"
+    assert impact.proposed_mapping.relative_path == f"roms/{platform.fs_slug}"
+    assert impact.reconnectable_catalog_count == 2
+    assert impact.unmatched_catalog_count == 0
+    assert impact.problems == ()
+    assert impact.planned_owned_effects.mapping_create_count == 1
+    assert impact.planned_owned_effects.catalog_reconnect_count == 2
+    assert impact.planned_owned_effects.audit_record_count == 1
+    assert impact.planned_owned_effects.rollback_record_count == 1
+    assert impact.planned_owned_effects.source_mutation_count == 0
+    assert impact.confirmation.detection_result_id == result.id
+    assert impact.confirmation.result_version == 1
+    assert impact.confirmation.platform_id == platform.id
+    assert impact.confirmation.storage_root_id == result.storage_root_id
+    assert impact.confirmation.relative_path == f"roms/{platform.fs_slug}"
+    assert impact.confirmation.expires_at == result.expires_at
+    assert impact.source_immutable is True
+    assert impact.legacy_fallback_enabled is False
+    assert _source_manifest(tmp_path) == before
+    with sync_session() as database:
+        assert database.scalar(select(func.count(PlatformStorageMapping.id))) == 0
+        assert database.scalar(select(func.count(LegacyMigration.id))) == 0
+        assert database.get(type(result), result.id).version == 1
+
+
+def test_impact_confirmation_revalidates_catalog_and_conflicts(
+    tmp_path: Path, platform, admin_user
+):
+    from handler.database.base_handler import sync_session
+    from handler.database.legacy_migration_handler import LegacyDetectionResultError
+    from models.rom import Rom
+    from models.storage import PlatformStorageMapping
+
+    handler, result, now = _seed_impact_preview(tmp_path, platform, admin_user)
+    impact = handler.preview_migration_impact(
+        result.id, platform_id=platform.id, expected_result_version=1, now=now
+    )
+    assert (
+        type(handler)()
+        .validate_impact_confirmation(impact.confirmation, now=now)
+        .confirmation
+        == impact.confirmation
+    )
+    with sync_session.begin() as database:
+        database.add(
+            Rom(
+                platform_id=platform.id,
+                fs_name="late.gb",
+                fs_name_no_tags="late",
+                fs_name_no_ext="late",
+                fs_extension="gb",
+                fs_path=platform.fs_slug,
+                fs_size_bytes=4,
+                name="Late",
+                missing_from_fs=True,
+            )
+        )
+    with pytest.raises(LegacyDetectionResultError) as stale:
+        handler.validate_impact_confirmation(impact.confirmation, now=now)
+    assert stale.value.code == "legacy_impact_stale"
+    with sync_session.begin() as database:
+        database.add(
+            PlatformStorageMapping(
+                platform_id=platform.id,
+                storage_root_id=result.storage_root_id,
+                relative_path=f"roms/{platform.fs_slug}",
+            )
+        )
+    conflict = handler.preview_migration_impact(
+        result.id, platform_id=platform.id, expected_result_version=1, now=now
+    )
+    assert conflict.state == "manual_mapping_required"
+    assert conflict.confirmation is None
+    assert [problem.code for problem in conflict.problems] == [
+        "active_mapping_conflict"
+    ]
