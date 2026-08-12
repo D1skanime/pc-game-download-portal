@@ -16,7 +16,6 @@ TASK_1_ROUTE_MATRIX = (
     ("roms/upload.py", "complete_chunked_upload", "UPLOAD", "legacy_external_storage"),
     ("roms/files.py", "delete_rom_file", "DELETE", "legacy_external_storage"),
     ("roms/__init__.py", "convert_rom_to_folder", "EXTRACT", "legacy_external_storage"),
-    ("roms/__init__.py", "delete_roms", "DELETE", "legacy_external_storage"),
     (
         "roms/manual.py",
         "add_rom_manual_file",

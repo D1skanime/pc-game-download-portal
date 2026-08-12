@@ -859,11 +859,11 @@ def test_update_rom_artwork_uses_detected_extension(
     assert file_ext == "png"
 
 
-def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
+def test_remove_roms_from_catalog(client: TestClient, access_token: str, rom: Rom):
     response = client.post(
-        "/api/roms/delete",
+        "/api/roms/remove-from-catalog",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"roms": [rom.id], "delete_from_fs": []},
+        json={"rom_ids": [rom.id]},
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -871,7 +871,7 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     assert body["successful_items"] == 1
 
 
-def test_delete_roms_reports_results_when_the_refresh_fails(
+def test_remove_roms_reports_results_when_the_refresh_fails(
     client: TestClient, access_token: str, rom: Rom, mocker
 ):
     # The deletes are already committed by this point, so a failure updating
@@ -883,9 +883,9 @@ def test_delete_roms_reports_results_when_the_refresh_fails(
     )
 
     response = client.post(
-        "/api/roms/delete",
+        "/api/roms/remove-from-catalog",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"roms": [rom.id], "delete_from_fs": []},
+        json={"rom_ids": [rom.id]},
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -893,14 +893,14 @@ def test_delete_roms_reports_results_when_the_refresh_fails(
     assert db_rom_handler.get_rom(rom.id) is None
 
 
-def test_delete_roms_reports_failed_ids(
+def test_remove_roms_reports_failed_ids(
     client: TestClient, access_token: str, rom: Rom
 ):
     missing_id = rom.id + 999999
     response = client.post(
-        "/api/roms/delete",
+        "/api/roms/remove-from-catalog",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"roms": [rom.id, missing_id], "delete_from_fs": []},
+        json={"rom_ids": [rom.id, missing_id]},
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -943,8 +943,7 @@ def test_delete_roms_from_fs_flat(
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": [rom.id]},
     )
-    assert response.status_code == status.HTTP_403_FORBIDDEN
-    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
     mock_validate_path.assert_not_called()
     mock_remove_file.assert_not_called()
     mock_remove_directory.assert_not_called()
@@ -985,8 +984,7 @@ def test_delete_roms_from_fs_flat_cleans_empty_parent(
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": [rom.id]},
     )
-    assert response.status_code == status.HTTP_403_FORBIDDEN
-    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
     mock_validate_path.assert_not_called()
     mock_remove_file.assert_not_called()
     mock_remove_directory.assert_not_called()
@@ -1034,8 +1032,7 @@ def test_delete_roms_from_fs_nested(
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [nested_rom.id], "delete_from_fs": [nested_rom.id]},
     )
-    assert response.status_code == status.HTTP_403_FORBIDDEN
-    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
     mock_validate_path.assert_not_called()
     mock_remove_directory.assert_not_called()
 
@@ -1057,8 +1054,7 @@ def test_delete_roms_from_fs_missing_file_still_deletes_db_entry(
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": [rom.id]},
     )
-    assert response.status_code == status.HTTP_403_FORBIDDEN
-    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
     mock_validate_path.assert_not_called()
     assert db_rom_handler.get_rom(rom.id) is not None
 

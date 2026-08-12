@@ -33,6 +33,45 @@ from .base import BaseModel, UTCDatetime
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 
+class CatalogRemovalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rom_ids: list[int] = Field(min_length=1, max_length=100)
+
+    @field_validator("rom_ids")
+    @classmethod
+    def validate_rom_ids(cls, value: list[int]) -> list[int]:
+        if any(rom_id < 1 for rom_id in value):
+            raise ValueError("rom ids must be positive")
+        if len(value) != len(set(value)):
+            raise ValueError("rom ids must be unique")
+        return value
+
+
+class CatalogRemovalItemSchema(BaseModel):
+    rom_id: int
+    retained_catalog_id: int
+    retained_saves: int
+    retained_states: int
+    retained_play_sessions: int
+    cleanup_pending: int
+
+
+class CatalogRemovalErrorSchema(BaseModel):
+    rom_id: int
+    code: str
+    message: str
+
+
+class CatalogRemovalResponse(BaseModel):
+    successful_items: int
+    failed_ids: list[int]
+    errors: list[CatalogRemovalErrorSchema]
+    items: list[CatalogRemovalItemSchema]
+    source_files_preserved: bool = True
+    retained_user_data: bool = True
+
+
 class UserNoteSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

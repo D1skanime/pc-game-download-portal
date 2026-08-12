@@ -178,7 +178,6 @@ def _discovered_mutations() -> set[tuple[str, str]]:
 
 
 BOUNDARY_ONLY_MUTATIONS = {
-    ("endpoints.roms", "delete_roms"),
     ("endpoints.roms.upload", "upload_rom"),
     (
         "handler.filesystem.platforms_handler",

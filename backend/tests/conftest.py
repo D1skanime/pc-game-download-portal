@@ -23,6 +23,7 @@ from handler.database import (
     db_user_handler,
 )
 from models.assets import Save, Screenshot, State
+from models.catalog_lifecycle import OwnedCleanupIntent, RetainedCatalogIdentity
 from models.client_token import ClientToken
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
@@ -100,6 +101,8 @@ def clear_database():
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
         s.query(RomFile).delete(synchronize_session="evaluate")
+        s.query(OwnedCleanupIntent).delete(synchronize_session="evaluate")
+        s.query(RetainedCatalogIdentity).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
         s.query(PlatformStorageMapping).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")

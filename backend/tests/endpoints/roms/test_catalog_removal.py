@@ -101,14 +101,6 @@ def _seed_dependencies(rom: Rom, user: User) -> dict[str, int]:
         }
 
 
-@pytest.fixture(autouse=True)
-def clear_catalog_lifecycle_rows():
-    yield
-    with sync_session.begin() as session:
-        session.query(OwnedCleanupIntent).delete(synchronize_session=False)
-        session.query(RetainedCatalogIdentity).delete(synchronize_session=False)
-
-
 def test_openapi_exposes_ids_only_catalog_removal(client: TestClient) -> None:
     schema = client.get("/openapi.json").json()
     paths = schema["paths"]
@@ -117,10 +109,18 @@ def test_openapi_exposes_ids_only_catalog_removal(client: TestClient) -> None:
     assert "/api/roms/delete" not in paths
 
     operation = paths["/api/roms/remove-from-catalog"]["post"]
-    serialized = str(operation)
-    assert "rom_ids" in serialized
-    assert "delete_from_fs" not in serialized
-    assert "source_files_preserved" in serialized
+    request_ref = operation["requestBody"]["content"]["application/json"]["schema"][
+        "$ref"
+    ]
+    request_name = request_ref.rsplit("/", 1)[-1]
+    response_ref = operation["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]["$ref"]
+    response_name = response_ref.rsplit("/", 1)[-1]
+    request_schema = schema["components"]["schemas"][request_name]
+    response_schema = schema["components"]["schemas"][response_name]
+    assert set(request_schema["properties"]) == {"rom_ids"}
+    assert "source_files_preserved" in response_schema["properties"]
 
 
 def test_remove_from_catalog_retains_user_value_and_source_manifest(
@@ -197,7 +197,10 @@ def test_source_delete_inputs_and_duplicate_ids_are_rejected(
         headers=_headers(access_token),
         json={"roms": [rom.id], "delete_from_fs": [rom.id]},
     )
-    assert old_response.status_code == status.HTTP_404_NOT_FOUND
+    assert old_response.status_code in {
+        status.HTTP_404_NOT_FOUND,
+        status.HTTP_405_METHOD_NOT_ALLOWED,
+    }
 
     for payload in (
         {"rom_ids": [rom.id], "delete_from_fs": [rom.id]},

@@ -33,8 +33,11 @@ from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
 )
 from decorators.auth import protected_route
-from endpoints.responses import BulkOperationResponse
 from endpoints.responses.rom import (
+    CatalogRemovalErrorSchema,
+    CatalogRemovalItemSchema,
+    CatalogRemovalRequest,
+    CatalogRemovalResponse,
     DetailedRomSchema,
     RomFiltersDict,
     RomUserSchema,
@@ -57,6 +60,7 @@ from handler.database import (
     db_storage_handler,
 )
 from handler.database.base_handler import sync_session
+from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
 from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
@@ -1994,109 +1998,86 @@ async def convert_rom_to_folder(
 
 @protected_route(
     router.post,
-    "/delete",
+    "/remove-from-catalog",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
 )
-async def delete_roms(
+async def remove_roms_from_catalog(
     request: Request,
-    roms: Annotated[
-        list[int],
-        Body(
-            description="List of rom ids to delete from database.",
-            embed=True,
-        ),
-    ],
-    delete_from_fs: Annotated[
-        list[int],
-        Body(
-            description="List of rom ids to delete from filesystem.",
-            default_factory=list,
-            embed=True,
-        ),
-    ],
-) -> BulkOperationResponse:
-    """Delete roms."""
-
-    if delete_from_fs:
-        authorize_api_storage_operation(
-            StorageOperation.DELETE, legacy_external_storage
-        )
+    payload: CatalogRemovalRequest,
+) -> CatalogRemovalResponse:
+    """Remove active catalog visibility while retaining durable user value."""
 
     perms = get_permissions(request)
     assert_can(perms, PermEntity.ROMS, PermAction.DELETE)
 
-    deleted_ids: list[int] = []
-    failed_ids = []
-    errors = []
+    removed_ids: list[int] = []
+    failed_ids: list[int] = []
+    errors: list[CatalogRemovalErrorSchema] = []
+    items: list[CatalogRemovalItemSchema] = []
+    lifecycle = CatalogLifecycleHandler()
 
-    for id in roms:
-        rom = db_rom_handler.get_rom(id)
-
-        # Hidden roms are masked as not-found rather than reported deletable.
+    for rom_id in payload.rom_ids:
+        rom = db_rom_handler.get_rom(rom_id)
         if not rom or not perms.can_see_rom(rom.id, rom.platform_id):
-            failed_ids.append(id)
-            errors.append(f"ROM with ID {id} not found")
+            failed_ids.append(rom_id)
+            errors.append(
+                CatalogRemovalErrorSchema(
+                    rom_id=rom_id,
+                    code="catalog_item_not_found",
+                    message="Catalog item not found",
+                )
+            )
             continue
 
         try:
-            if id in delete_from_fs:
-                log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
-                try:
-                    rom_path = f"{rom.fs_path}/{rom.fs_name}"
-                    full_path = fs_rom_handler.validate_path(rom_path)
-                    if full_path.is_dir():
-                        await fs_rom_handler.remove_directory(rom_path)
-                    else:
-                        await fs_rom_handler.remove_file(rom_path)
-                        # Clean up empty parent directory if it becomes empty
-                        parent = full_path.parent
-                        if (
-                            parent != fs_rom_handler.base_path
-                            and parent.is_dir()
-                            and not any(parent.iterdir())
-                        ):
-                            try:
-                                await fs_rom_handler.remove_directory(
-                                    str(parent.relative_to(fs_rom_handler.base_path))
-                                )
-                            except OSError as dir_err:
-                                log.warning(
-                                    f"Couldn't clean up empty parent directory for {hl(rom.fs_name)}: {dir_err}"
-                                )
-                except FileNotFoundError:
-                    log.warning(
-                        f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}], deleting database entry only"
-                    )
-
-            log.info(
-                f"Deleting {hl(str(rom.name or 'ROM'), color=BLUE)} [{hl(rom.fs_name)}] from database"
+            outcome = lifecycle.remove_from_catalog(
+                rom_id, actor_user_id=request.user.id
             )
-            db_rom_handler.delete_rom(id)
-
-            try:
-                await fs_resource_handler.remove_directory(rom.fs_resources_path)
-            except FileNotFoundError:
-                log.warning(
-                    f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
+        except Exception:
+            log.exception(f"Catalog removal failed for ROM {rom_id}")
+            failed_ids.append(rom_id)
+            errors.append(
+                CatalogRemovalErrorSchema(
+                    rom_id=rom_id,
+                    code="catalog_removal_failed",
+                    message="Catalog removal failed",
                 )
+            )
+            continue
 
-            deleted_ids.append(id)
-        except Exception as e:
-            failed_ids.append(id)
-            errors.append(f"Failed to delete ROM {id}: {str(e)}")
+        if outcome is None:
+            failed_ids.append(rom_id)
+            errors.append(
+                CatalogRemovalErrorSchema(
+                    rom_id=rom_id,
+                    code="catalog_item_not_found",
+                    message="Catalog item not found",
+                )
+            )
+            continue
 
-    if deleted_ids:
+        removed_ids.append(rom_id)
+        items.append(
+            CatalogRemovalItemSchema(
+                rom_id=outcome.rom_id,
+                retained_catalog_id=outcome.retained_catalog_id,
+                retained_saves=outcome.retained_saves,
+                retained_states=outcome.retained_states,
+                retained_play_sessions=outcome.retained_play_sessions,
+                cleanup_pending=outcome.cleanup_pending,
+            )
+        )
+
+    if removed_ids:
         db_rom_handler.invalidate_filter_values_cache()
-        # Deleted ROMs would otherwise linger in the cached smart collection
-        # membership until the next scan.
-        refresh_affected_smart_collections(deleted_ids)
+        refresh_affected_smart_collections(removed_ids)
 
-    return {
-        "successful_items": len(deleted_ids),
-        "failed_ids": failed_ids,
-        "errors": errors,
-    }
+    return CatalogRemovalResponse(
+        successful_items=len(removed_ids),
+        failed_ids=failed_ids,
+        errors=errors,
+        items=items,
+    )
 
 
 @protected_route(
