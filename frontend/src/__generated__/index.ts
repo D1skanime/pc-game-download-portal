@@ -17,7 +17,6 @@ export type { Body_add_user_api_users_post } from './models/Body_add_user_api_us
 export type { Body_confirm_download_api_saves__id__downloaded_post } from './models/Body_confirm_download_api_saves__id__downloaded_post';
 export type { Body_create_user_from_invite_api_users_register_post } from './models/Body_create_user_from_invite_api_users_register_post';
 export type { Body_delete_firmware_api_firmware_delete_post } from './models/Body_delete_firmware_api_firmware_delete_post';
-export type { Body_delete_roms_api_roms_delete_post } from './models/Body_delete_roms_api_roms_delete_post';
 export type { Body_delete_saves_api_saves_delete_post } from './models/Body_delete_saves_api_saves_delete_post';
 export type { Body_delete_states_api_states_delete_post } from './models/Body_delete_states_api_states_delete_post';
 export type { Body_patch_rom_api_roms__id__patch_post } from './models/Body_patch_rom_api_roms__id__patch_post';
@@ -38,6 +37,10 @@ export type { Body_update_smart_collection_api_collections_smart__id__put } from
 export type { Body_update_state_api_states__id__put } from './models/Body_update_state_api_states__id__put';
 export type { Body_update_state_visibility_api_states__id__visibility_put } from './models/Body_update_state_visibility_api_states__id__visibility_put';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
+export type { CatalogRemovalErrorSchema } from './models/CatalogRemovalErrorSchema';
+export type { CatalogRemovalItemSchema } from './models/CatalogRemovalItemSchema';
+export type { CatalogRemovalRequest } from './models/CatalogRemovalRequest';
+export type { CatalogRemovalResponse } from './models/CatalogRemovalResponse';
 export type { ClaimSessionRequest } from './models/ClaimSessionRequest';
 export type { CleanupTaskMeta } from './models/CleanupTaskMeta';
 export type { CleanupTaskStatusResponse } from './models/CleanupTaskStatusResponse';

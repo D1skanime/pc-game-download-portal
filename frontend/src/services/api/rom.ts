@@ -1,7 +1,8 @@
 import type { AxiosProgressEvent } from "axios";
 import Bowser from "bowser";
 import type {
-  Body_delete_roms_api_roms_delete_post as DeleteRomsInput,
+  CatalogRemovalRequest,
+  CatalogRemovalResponse,
   Body_update_rom_api_roms__id__put as UpdateRomInput,
   BulkOperationResponse,
   DetailedRomSchema,
@@ -838,16 +839,15 @@ async function updateUserRomProps({
 
 async function deleteRoms({
   roms,
-  deleteFromFs = [],
+  deleteFromFs: _deleteFromFs = [],
 }: {
   roms: SimpleRom[];
   deleteFromFs: number[];
 }) {
-  const payload: DeleteRomsInput = {
-    roms: roms.map((r) => r.id),
-    delete_from_fs: deleteFromFs,
+  const payload: CatalogRemovalRequest = {
+    rom_ids: roms.map((rom) => rom.id),
   };
-  return api.post<BulkOperationResponse>("/roms/delete", payload);
+  return api.post<CatalogRemovalResponse>("/roms/remove-from-catalog", payload);
 }
 
 // Multi-note management functions
