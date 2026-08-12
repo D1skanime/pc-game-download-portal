@@ -13,7 +13,9 @@ from adapters.services.screenscraper import (
     SS_DEFAULT_MEDIA_TIMEOUT,
 )
 from config import RESOURCES_BASE_PATH
+from handler.filesystem import storage_composition
 from handler.filesystem.base_handler import CoverSize
+from handler.filesystem.storage_policy import OwnedStorageKind
 from handler.filesystem.resources_handler import (
     FSResourcesHandler,
     _check_content_type,
@@ -161,7 +163,7 @@ class TestFSResourcesHandler:
 
     @pytest.fixture
     def handler(self):
-        return FSResourcesHandler()
+        return FSResourcesHandler(storage_composition.owned[OwnedStorageKind.RESOURCES])
 
     @pytest.fixture
     def rom(self):
@@ -678,7 +680,7 @@ class TestChromaKeyDetection:
 
     @pytest.fixture
     def handler(self):
-        return FSResourcesHandler()
+        return FSResourcesHandler(storage_composition.owned[OwnedStorageKind.RESOURCES])
 
     def _write_image(self, path: Path, color: tuple[int, int, int]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -841,7 +843,7 @@ class TestDiskFullHandling:
 
     @pytest.fixture
     def handler(self):
-        return FSResourcesHandler()
+        return FSResourcesHandler(storage_composition.owned[OwnedStorageKind.RESOURCES])
 
     @pytest.fixture
     def rom(self):
@@ -986,7 +988,7 @@ class TestScreenScraperMediaThrottling:
 
     @pytest.fixture
     def handler(self):
-        return FSResourcesHandler()
+        return FSResourcesHandler(storage_composition.owned[OwnedStorageKind.RESOURCES])
 
     @pytest.fixture
     def rom(self):

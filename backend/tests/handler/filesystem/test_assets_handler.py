@@ -9,7 +9,9 @@ from unittest.mock import Mock
 import pytest
 from tests._zipfile_shim import reload_zipfile
 
+from handler.filesystem import storage_composition
 from handler.filesystem.assets_handler import ASSETS_BASE_PATH, FSAssetsHandler
+from handler.filesystem.storage_policy import OwnedStorageKind
 from models.user import User
 
 
@@ -18,7 +20,7 @@ class TestFSAssetsHandler:
 
     @pytest.fixture
     def handler(self):
-        return FSAssetsHandler()
+        return FSAssetsHandler(storage_composition.owned[OwnedStorageKind.ASSETS])
 
     def test_init_uses_assets_base_path(self, handler: FSAssetsHandler):
         """Test that FSAssetsHandler initializes with ASSETS_BASE_PATH"""
@@ -344,7 +346,7 @@ class TestComputeContentHash:
 
     @pytest.fixture
     def handler(self, temp_base: str):
-        handler = FSAssetsHandler()
+        handler = FSAssetsHandler(storage_composition.owned[OwnedStorageKind.ASSETS])
         handler.base_path = Path(temp_base).resolve()
         return handler
 
