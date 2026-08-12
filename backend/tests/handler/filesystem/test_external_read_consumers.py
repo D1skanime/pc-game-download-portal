@@ -74,7 +74,6 @@ def test_enumeration_and_scan_modules_declare_exact_capabilities() -> None:
     expected = {
         "backend/handler/scan_handler.py": "SCAN",
         "backend/endpoints/sockets/scan.py": "SCAN",
-        "backend/watcher.py": "LIST",
         "backend/endpoints/heartbeat.py": "LIST",
         "backend/config/config_manager.py": "LIST",
     }
@@ -85,7 +84,11 @@ def test_enumeration_and_scan_modules_declare_exact_capabilities() -> None:
             node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
         }
         assert operation in attributes, f"{relative} lacks {operation} capability"
-        assert "legacy_external_storage" in (repo / relative).read_text()
+
+    watcher_source = (repo / "backend/watcher.py").read_text()
+    assert "MappedScanCommand" in watcher_source
+    assert "mapping_id" in watcher_source
+    assert "expected_revision" in watcher_source
 
 
 @pytest.mark.parametrize(
@@ -107,11 +110,11 @@ def test_rom_consumers_declare_exact_capabilities(
         node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
     }
     assert operation in attributes
-    assert "legacy_external_storage" in source
+    assert "MappingReadContext" in source
 
 
 def test_external_downloads_do_not_construct_path_responses() -> None:
     repo = Path(__file__).parents[4]
     files_source = (repo / "backend/endpoints/roms/files.py").read_text()
-    assert "StreamingResponse" in files_source
-    assert "open_storage_access" in files_source
+    assert "MappedContentResponse" in files_source
+    assert "preflight_mapped_download" in files_source

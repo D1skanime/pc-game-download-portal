@@ -254,6 +254,7 @@ AUTHORITY_PROVIDER = EXTERNAL_AUTHORITY_PROVIDER
 NON_AUTHORITY_RAW_ROOTS = {
     ("handler.filesystem.storage_resolver", "check_storage_root_health"),
     ("handler.filesystem.storage_resolver", "resolve_storage_root"),
+    ("handler.filesystem.storage_resolver", "get_storage_root_health_snapshot"),
 }
 
 
@@ -400,7 +401,10 @@ def _authority_seams(root: Path) -> set[tuple[str, str, str]]:
 
 
 def test_runtime_authority_seams_are_closed_and_composition_only() -> None:
-    assert _authority_seams(BACKEND) == {(*AUTHORITY_PROVIDER, "descriptor_factory")}
+    assert _authority_seams(BACKEND) == {
+        (*AUTHORITY_PROVIDER, "descriptor_factory"),
+        ("handler.storage.read_context", "open", "descriptor_factory"),
+    }
 
 
 def test_authority_discovery_rejects_unused_factory_import(tmp_path: Path) -> None:
