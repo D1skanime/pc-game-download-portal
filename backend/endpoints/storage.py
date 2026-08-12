@@ -4,6 +4,7 @@ import heapq
 import json
 import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import HTTPException, Query, Request, status
@@ -11,6 +12,12 @@ from fastapi import HTTPException, Query, Request, status
 from config import TASK_RESULT_TTL
 from decorators.auth import protected_route
 from endpoints.responses.storage import (
+    LegacyDetectionErrorCode,
+    LegacyDetectionErrorDetail,
+    LegacyDetectionErrorResponse,
+    LegacyDetectionJobSchema,
+    LegacyDetectionRequestSchema,
+    LegacyDetectionResultSchema,
     StorageConflictDetail,
     StorageConflictErrorCode,
     StorageConflictResponse,
@@ -51,7 +58,12 @@ from exceptions.storage_exceptions import (
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_admin
-from handler.database import db_mapping_previews_handler, db_storage_handler
+from handler.database import (
+    db_legacy_migration_handler,
+    db_mapping_previews_handler,
+    db_storage_handler,
+)
+from handler.database.legacy_migration_handler import LegacyDetectionResultError
 from handler.filesystem.storage_resolver import (
     MAX_DIRECTORY_PAGE_SIZE,
     MAX_DIRECTORY_SCAN_ENTRIES,
@@ -63,11 +75,13 @@ from handler.filesystem.storage_resolver import (
 from handler.redis_handler import low_prio_queue
 from models.storage import (
     STORAGE_MAPPING_PATH_MAX_LENGTH,
+    LegacyDetectionResult,
     PlatformStorageMapping,
     StorageMappingAudit,
     StorageMappingAuditAction,
     StorageRoot,
 )
+from tasks.manual.detect_legacy_storage import detect_legacy_storage_task
 from tasks.manual.preview_mapping import preview_mapping_task
 from utils.router import APIRouter
 
@@ -198,6 +212,24 @@ _MAPPING_RESPONSES = {
     **_ERROR_RESPONSES,
     409: {"model": StorageConflictResponse},
 }
+_LEGACY_ERROR_MESSAGES = {
+    "legacy_detection_missing": "Legacy detection result was not found",
+    "legacy_detection_stale": "Legacy detection result is stale",
+    "legacy_detection_expired": "Legacy detection result has expired",
+    "legacy_detection_cross_platform": "Legacy detection result belongs to another platform",
+    "legacy_detection_unselectable": "Legacy detection result cannot be selected",
+    "legacy_detection_invalid_state": "Legacy detection result state is invalid",
+}
+_LEGACY_ERROR_STATUS = {
+    "legacy_detection_missing": status.HTTP_404_NOT_FOUND,
+    "legacy_detection_expired": status.HTTP_410_GONE,
+}
+_LEGACY_RESPONSES = {
+    404: {"model": LegacyDetectionErrorResponse},
+    409: {"model": LegacyDetectionErrorResponse},
+    410: {"model": LegacyDetectionErrorResponse},
+}
+
 _CONFLICT_MESSAGES = {
     "platform_mapping_missing": "Platform has no active storage mapping",
     "duplicate_storage_mapping": "Platform already has an active storage mapping",
@@ -324,6 +356,112 @@ def _raise_mapping_conflict(error: StorageResolutionError) -> None:
         status_code=status.HTTP_409_CONFLICT,
         detail=detail.model_dump(mode="json", exclude_none=True),
     ) from None
+
+
+def _legacy_result_expired(result: LegacyDetectionResult) -> bool:
+    expires_at = result.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    return expires_at <= datetime.now(timezone.utc)
+
+
+def _legacy_detection_result_schema(
+    result: LegacyDetectionResult,
+) -> LegacyDetectionResultSchema:
+    return LegacyDetectionResultSchema(
+        id=result.id,
+        platform_id=result.platform_id,
+        storage_root_id=result.storage_root_id,
+        state=result.state,
+        proposed_relative_path=result.proposed_relative_path,
+        observed_files=result.observed_files,
+        observed_bytes=result.observed_bytes,
+        lower_bound=result.lower_bound,
+        selectable=result.selectable,
+        safe_problem_code=result.safe_problem_code,
+        observed_mapping_id=result.observed_mapping_id,
+        observed_mapping_version=result.observed_mapping_version,
+        version=result.version,
+        created_at=result.created_at,
+        completed_at=result.completed_at,
+        expires_at=result.expires_at,
+        expired=_legacy_result_expired(result),
+    )
+
+
+def _raise_legacy_detection_error(error: LegacyDetectionResultError) -> None:
+    code = (
+        error.code if error.code in _LEGACY_ERROR_MESSAGES else "legacy_detection_stale"
+    )
+    detail = LegacyDetectionErrorDetail(
+        code=LegacyDetectionErrorCode(code),
+        message=_LEGACY_ERROR_MESSAGES[code],
+        result_id=error.result_id,
+        platform_id=error.platform_id,
+        current_version=error.current_version,
+    )
+    raise HTTPException(
+        status_code=_LEGACY_ERROR_STATUS.get(code, status.HTTP_409_CONFLICT),
+        detail=detail.model_dump(mode="json", exclude_none=True),
+    ) from None
+
+
+@protected_route(
+    router.post,
+    "/legacy-detections",
+    [Scope.USERS_WRITE],
+    response_model=LegacyDetectionJobSchema,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={**_ERROR_RESPONSES, **_LEGACY_RESPONSES},
+)
+def start_legacy_storage_detection(
+    request: Request, body: LegacyDetectionRequestSchema
+) -> LegacyDetectionJobSchema:
+    assert_admin(request)
+    try:
+        db_legacy_migration_handler.validate_detection_request(
+            body.platform_id, body.storage_root_id
+        )
+    except StorageResolutionError as error:
+        _raise_safe_storage_error(error)
+    job = low_prio_queue.enqueue(
+        detect_legacy_storage_task.run,
+        kwargs={
+            "platform_id": body.platform_id,
+            "storage_root_id": body.storage_root_id,
+            "actor_user_id": int(request.user.id),
+        },
+        job_timeout=detect_legacy_storage_task.timeout,
+        result_ttl=TASK_RESULT_TTL,
+        meta={
+            "task_name": detect_legacy_storage_task.title,
+            "task_type": detect_legacy_storage_task.task_type.value,
+        },
+    )
+    return LegacyDetectionJobSchema(
+        job_id=job.id,
+        platform_id=body.platform_id,
+        storage_root_id=body.storage_root_id,
+        state="pending",
+    )
+
+
+@protected_route(
+    router.get,
+    "/legacy-detections/{result_id}",
+    [Scope.USERS_READ],
+    response_model=LegacyDetectionResultSchema,
+    responses=_LEGACY_RESPONSES,
+)
+def get_legacy_storage_detection(
+    request: Request, result_id: int
+) -> LegacyDetectionResultSchema:
+    assert_admin(request)
+    try:
+        result = db_legacy_migration_handler.get_detection_result(result_id)
+    except LegacyDetectionResultError as error:
+        _raise_legacy_detection_error(error)
+    return _legacy_detection_result_schema(result)
 
 
 @protected_route(

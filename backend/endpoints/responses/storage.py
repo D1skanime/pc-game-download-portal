@@ -9,6 +9,7 @@ from handler.filesystem.storage_resolver import (
     MAX_STORAGE_CURSOR_LENGTH,
 )
 from models.storage import (
+    LEGACY_PROBLEM_CODE_MAX_LENGTH,
     STORAGE_AUDIT_ACTOR_MAX_LENGTH,
     STORAGE_MAPPING_PATH_MAX_LENGTH,
     STORAGE_ROOT_MODE_MAX_LENGTH,
@@ -16,6 +17,73 @@ from models.storage import (
     STORAGE_ROOT_PATH_MAX_LENGTH,
     StorageMappingAuditAction,
 )
+
+
+class LegacyDetectionErrorCode(enum.StrEnum):
+    MISSING = "legacy_detection_missing"
+    STALE = "legacy_detection_stale"
+    EXPIRED = "legacy_detection_expired"
+    CROSS_PLATFORM = "legacy_detection_cross_platform"
+    UNSELECTABLE = "legacy_detection_unselectable"
+    INVALID_STATE = "legacy_detection_invalid_state"
+
+
+class LegacyDetectionErrorDetail(BaseModel):
+    code: LegacyDetectionErrorCode
+    message: str = Field(min_length=1, max_length=160)
+    result_id: int | None = Field(default=None, gt=0)
+    platform_id: int | None = Field(default=None, gt=0)
+    current_version: int | None = Field(default=None, gt=0)
+
+
+class LegacyDetectionErrorResponse(BaseModel):
+    detail: LegacyDetectionErrorDetail
+
+
+class LegacyDetectionRequestSchema(BaseModel):
+    platform_id: int = Field(gt=0)
+    storage_root_id: int = Field(gt=0)
+
+
+class LegacyDetectionJobSchema(BaseModel):
+    job_id: str = Field(min_length=1, max_length=255)
+    platform_id: int = Field(gt=0)
+    storage_root_id: int = Field(gt=0)
+    state: Literal["pending"]
+
+
+class LegacyDetectionResultSchema(BaseModel):
+    id: int = Field(gt=0)
+    platform_id: int = Field(gt=0)
+    storage_root_id: int = Field(gt=0)
+    state: Literal[
+        "detected",
+        "manual_mapping_required",
+        "empty",
+        "unreadable",
+        "unreachable",
+        "unsafe",
+        "conflict",
+    ]
+    proposed_relative_path: str | None = Field(
+        default=None, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH
+    )
+    observed_files: int = Field(ge=0)
+    observed_bytes: int = Field(ge=0)
+    lower_bound: bool
+    selectable: bool
+    safe_problem_code: str | None = Field(
+        default=None, max_length=LEGACY_PROBLEM_CODE_MAX_LENGTH
+    )
+    observed_mapping_id: int | None = Field(default=None, gt=0)
+    observed_mapping_version: int | None = Field(default=None, gt=0)
+    version: int = Field(gt=0)
+    created_at: UTCDatetime
+    completed_at: UTCDatetime | None
+    expires_at: UTCDatetime
+    expired: bool
+    source_immutable: Literal[True] = True
+    authorizes_legacy_reads: Literal[False] = False
 
 
 class StorageReadErrorCode(enum.StrEnum):

@@ -64,6 +64,10 @@ _TASK_EVIDENCE = Evidence(
     "tests/tasks/test_storage_policy.py",
     "test_cleanup_denial_is_terminal_before_io",
 )
+_LEGACY_DETECTION_EVIDENCE = Evidence(
+    "tests/handler/storage/test_legacy_migration.py",
+    "test_detection_uses_only_list_and_stat_capabilities",
+)
 
 
 def _read(
@@ -113,6 +117,13 @@ def _mutation(
 
 
 INVENTORY: tuple[InventoryRow, ...] = (
+    _read(
+        "legacy-detection",
+        "tasks.manual.detect_legacy_storage",
+        "DetectLegacyStorageTask.run",
+        ("LIST", "STAT"),
+        _LEGACY_DETECTION_EVIDENCE,
+    ),
     _read(
         "composition",
         "handler.filesystem.storage_composition",

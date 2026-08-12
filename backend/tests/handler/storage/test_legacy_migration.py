@@ -6,9 +6,15 @@ import importlib.util
 import os
 import stat
 from dataclasses import asdict
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+from main import app
+
+from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from handler.auth import oauth_handler
 
 
 def _subject():
@@ -181,6 +187,130 @@ def test_detection_uses_only_list_and_stat_capabilities(tmp_path: Path, monkeypa
     assert result.state == "detected"
     assert operations
     assert set(operations) <= {"list", "stat"}
+
+
+def test_detection_results_expire_bind_and_reject_reuse(
+    tmp_path: Path, platform, admin_user
+):
+    from datetime import datetime, timezone
+
+    from handler.database.base_handler import sync_session
+    from handler.database.legacy_migration_handler import (
+        DBLegacyMigrationHandler,
+        LegacyDetectionResultError,
+    )
+    from handler.storage.legacy_migration import LegacyDetectionOutcome
+    from models.storage import PlatformStorageMapping, StorageRoot
+
+    handler = DBLegacyMigrationHandler()
+    with sync_session.begin() as database:
+        root = StorageRoot(name="legacy", container_path=str(tmp_path))
+        database.add(root)
+        database.flush()
+        root_id = root.id
+
+    context = handler.get_detection_context(platform.id, root_id)
+    outcome = LegacyDetectionOutcome(
+        platform_id=platform.id,
+        storage_root_id=root_id,
+        state="detected",
+        proposed_relative_path="roms/gb",
+        observed_files=1,
+        observed_bytes=4,
+        lower_bound=False,
+        selectable=True,
+        safe_problem_code=None,
+    )
+    completed_at = datetime(2026, 8, 12, tzinfo=timezone.utc)
+    result = handler.save_detection_result(
+        context,
+        outcome,
+        actor_user_id=admin_user.id,
+        now=completed_at,
+    )
+
+    assert result.expires_at - result.completed_at == timedelta(hours=24)
+    handler.require_detection_result(
+        result.id,
+        platform_id=platform.id,
+        expected_version=1,
+        consume=True,
+        now=completed_at,
+    )
+    with pytest.raises(LegacyDetectionResultError, match="legacy_detection_stale"):
+        handler.require_detection_result(
+            result.id,
+            platform_id=platform.id,
+            expected_version=1,
+            now=completed_at,
+        )
+    with pytest.raises(
+        LegacyDetectionResultError, match="legacy_detection_cross_platform"
+    ):
+        handler.require_detection_result(
+            result.id,
+            platform_id=platform.id + 1,
+            expected_version=2,
+            now=completed_at,
+        )
+
+    expiring = handler.save_detection_result(
+        context,
+        outcome,
+        actor_user_id=admin_user.id,
+        now=completed_at,
+    )
+    with pytest.raises(LegacyDetectionResultError, match="legacy_detection_expired"):
+        handler.require_detection_result(
+            expiring.id,
+            platform_id=platform.id,
+            expected_version=1,
+            now=completed_at + timedelta(hours=25),
+        )
+
+    stale_context = handler.get_detection_context(platform.id, root_id)
+    with sync_session.begin() as database:
+        database.add(
+            PlatformStorageMapping(
+                platform_id=platform.id,
+                storage_root_id=root_id,
+                relative_path="roms/gb",
+            )
+        )
+    with pytest.raises(LegacyDetectionResultError, match="legacy_detection_stale"):
+        handler.save_detection_result(
+            stale_context,
+            outcome,
+            actor_user_id=admin_user.id,
+            now=completed_at,
+        )
+
+
+@pytest.fixture
+def client():
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def _access_token(user) -> str:
+    return oauth_handler.create_access_token(
+        data={
+            "sub": user.username,
+            "iss": "romm:oauth",
+            "scopes": " ".join(user.oauth_scopes),
+        },
+        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
+    )
+
+
+@pytest.fixture
+def access_token(admin_user):
+    return _access_token(admin_user)
+
+
+@pytest.fixture
+def viewer_access_token(viewer_user):
+    return _access_token(viewer_user)
 
 
 @pytest.mark.parametrize(

@@ -15,6 +15,7 @@ from handler.filesystem.storage_inventory import (
 BACKEND = Path(__file__).parents[3]
 REQUIRED_FAMILIES = {
     "composition",
+    "legacy-detection",
     "firmware",
     "platform",
     "heartbeat",
@@ -403,6 +404,11 @@ def test_runtime_authority_seams_are_closed_and_composition_only() -> None:
     assert _authority_seams(BACKEND) == {
         (*AUTHORITY_PROVIDER, "descriptor_factory"),
         ("handler.storage.read_context", "open", "descriptor_factory"),
+        (
+            "tasks.manual.detect_legacy_storage",
+            "run",
+            "descriptor_factory",
+        ),
     }
 
 
