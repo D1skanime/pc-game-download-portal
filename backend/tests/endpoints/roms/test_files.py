@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -7,18 +8,62 @@ from fastapi.testclient import TestClient
 
 from endpoints.roms import files as files_endpoint
 from handler.database import db_permission_handler, db_rom_handler
+from handler.database.base_handler import sync_session
+from handler.filesystem.storage_resolver import StorageRootHealthSnapshot
 from models.permission import PermAction, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
+from models.storage import PlatformStorageMapping, StorageRoot
 from models.user import User
 
+
+_MAPPED_ROOT: Path | None = None
+
+
+@pytest.fixture(autouse=True)
+def mapped_file_storage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: Platform
+):
+    global _MAPPED_ROOT
+    _MAPPED_ROOT = tmp_path / "external"
+    mapped_path = _MAPPED_ROOT / platform.slug
+    mapped_path.mkdir(parents=True)
+    root = StorageRoot(
+        name="Endpoint mapped archive",
+        container_path=str(_MAPPED_ROOT),
+        mode="external_read_only",
+        active=True,
+    )
+    with sync_session.begin() as session:
+        session.add(root)
+        session.flush()
+        session.add(
+            PlatformStorageMapping(
+                platform_id=platform.id,
+                storage_root_id=root.id,
+                relative_path=platform.slug,
+                active=True,
+                version=1,
+            )
+        )
+    real_access = os.access
+    monkeypatch.setattr(
+        "handler.filesystem.storage_resolver.os.access",
+        lambda path, mode: False if mode & os.W_OK else real_access(path, mode),
+    )
+    monkeypatch.setattr(
+        "handler.storage.read_context.get_storage_root_health_snapshot",
+        lambda _root: StorageRootHealthSnapshot(True, True, True, None, None),
+    )
+    yield
+    _MAPPED_ROOT = None
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
 def _add_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
-    return db_rom_handler.add_rom_file(
+    file = db_rom_handler.add_rom_file(
         RomFile(
             rom_id=rom.id,
             file_name=name,
@@ -27,6 +72,11 @@ def _add_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
             category=category,
         )
     )
+    assert _MAPPED_ROOT is not None
+    source = _MAPPED_ROOT.joinpath(*Path(file.full_path).parts)
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_bytes(b"mapped-data")
+    return file
 
 
 def _make_rom(admin_user: User, platform: Platform) -> Rom:

@@ -1,24 +1,82 @@
 import asyncio
+import os
 import logging
 from contextlib import contextmanager
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
+from pathlib import Path
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 from main import app
 
-from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache
+from handler.filesystem.storage_resolver import StorageRootHealthSnapshot
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
+from models.storage import PlatformStorageMapping, StorageRoot
 from models.user import User
 
+
+_STREAM_ROOT: Path | None = None
+
+
+def _create_mapped_source(platform: Platform, rom: Rom) -> None:
+    assert _STREAM_ROOT is not None
+    root_path = _STREAM_ROOT / f"root-{platform.id}"
+    mapped_path = root_path / platform.slug
+    mapped_path.mkdir(parents=True, exist_ok=True)
+    root = StorageRoot(
+        name=f"Streaming archive {platform.id}",
+        container_path=str(root_path),
+        mode="external_read_only",
+        active=True,
+    )
+    with sync_session.begin() as session:
+        session.add(root)
+        session.flush()
+        session.add(
+            PlatformStorageMapping(
+                platform_id=platform.id,
+                storage_root_id=root.id,
+                relative_path=platform.slug,
+                active=True,
+                version=1,
+            )
+        )
+    source = root_path.joinpath(*Path(rom.full_path).parts)
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_bytes(b"mapped-stream")
+
+
+@pytest.fixture(autouse=True)
+def mapped_stream_storage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    platform: Platform,
+    rom: Rom,
+):
+    global _STREAM_ROOT
+    _STREAM_ROOT = tmp_path / "external"
+    _STREAM_ROOT.mkdir()
+    real_access = os.access
+    monkeypatch.setattr(
+        "handler.filesystem.storage_resolver.os.access",
+        lambda path, mode: False if mode & os.W_OK else real_access(path, mode),
+    )
+    _create_mapped_source(platform, rom)
+    monkeypatch.setattr(
+        "handler.storage.read_context.get_storage_root_health_snapshot",
+        lambda _root: StorageRootHealthSnapshot(True, True, True, None, None),
+    )
+    yield
+    _STREAM_ROOT = None
 
 def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
     with sync_session.begin() as s:
@@ -86,11 +144,11 @@ def _container_for(rom: Rom, broker_host="http://192.168.1.10:8000"):
 
 
 def _rom_on(slug: str) -> Rom:
-    """Create a platform with the given slug and a ROM on it."""
+    """Create a mapped platform and ROM with one authorized source file."""
     platform = db_platform_handler.add_platform(
         Platform(name=slug, slug=slug, fs_slug=slug)
     )
-    return db_rom_handler.add_rom(
+    rom = db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
             name=f"{slug}-rom",
@@ -102,6 +160,8 @@ def _rom_on(slug: str) -> Rom:
             fs_path=f"{slug}/roms",
         )
     )
+    _create_mapped_source(platform, rom)
+    return rom
 
 
 def _auth(token):
@@ -171,7 +231,11 @@ def test_claim_derives_rom_path_server_side(client, access_token, rom: Rom):
     assert r.status_code == 200
     assert r.json()["rom_name"] == rom.name
     _, rom_path, _ = call_broker.call_args[0]
-    assert rom_path == f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+    assert rom_path == str(
+        (_STREAM_ROOT / f"root-{rom.platform_id}").joinpath(
+            *Path(rom.full_path).parts
+        )
+    )
 
 
 def test_claim_unknown_rom_returns_404(client, access_token):
@@ -275,6 +339,7 @@ def test_claim_session_same_container_two_platforms_rejected(
             fs_path=f"{platform2.slug}/roms",
         )
     )
+    _create_mapped_source(platform2, rom2)
     shared_broker = "http://192.168.1.10:8000"
     with _streaming(
         _container_for(rom, broker_host=shared_broker),
