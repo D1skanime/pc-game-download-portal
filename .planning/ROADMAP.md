@@ -9,7 +9,7 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 - [x] **Phase 1: Immutable Storage Foundation** - Establish portable root and mapping identity plus canonical, adversarially tested path resolution. (completed 2026-08-05)
 - [x] **Phase 2: Read-only Policy Boundary** - Enforce one server-side operation policy and separate source storage from every writable RomM location. (completed 2026-08-10)
 - [x] **Phase 3: Mapping Administration Contracts** - Provide authorized, audited APIs for roots, safe browsing, and mapping lifecycle operations. (completed 2026-08-11)
-- [ ] **Phase 4: V2 Storage Design Specification** - Derive a RomM-native design contract for the new storage surfaces from read-only Team4s principles.
+- [x] **Phase 4: V2 Storage Design Specification** - Derive a RomM-native design contract for the new storage surfaces from read-only Team4s principles. (completed 2026-08-12)
 - [ ] **Phase 5: Preview and Read-path Cutover** - Make preview, scanning, watching, hashing, streaming, and downloading mapping-aware and non-mutating.
 - [ ] **Phase 6: Safe Lifecycle and Legacy Migration** - Make catalog removal and legacy-layout migration explicit, reversible, and source-safe.
 - [ ] **Phase 7: V2 Storage Administration Experience** - Deliver accessible root, browser, mapping, and preview workflows in the sole active UI.
@@ -139,8 +139,14 @@ Plans:
 2. The specification maps every proposed pattern to RomM's Vue v2 tokens, primitives, responsive system, and universal input conventions.
 3. Reviewers can verify that Team4s was inspected read-only and that no React component, source file, asset, branding, or runtime dependency was copied or modified.
 
-**Plans**: TBD
+**Plans:** 3/3 plans complete
 **UI hint**: yes
+
+Plans:
+
+- [x] 04-01-PLAN.md - Backend, route, workflow, deep folder selection, and scalability contract
+- [x] 04-02-PLAN.md - Accessible states, v2 system mapping, provenance, traceability, and validation
+- [x] 04-03-PLAN.md - Universal input fidelity gap closure and objective live-architecture gates
 
 ### Phase 5: Preview and Read-path Cutover
 
@@ -223,7 +229,7 @@ Plans:
 | 1. Immutable Storage Foundation         | 7/7            | Complete    | 2026-08-05 |
 | 2. Read-only Policy Boundary            | 11/11          | Complete    | 2026-08-10 |
 | 3. Mapping Administration Contracts     | 6/6            | Complete    | 2026-08-11 |
-| 4. V2 Storage Design Specification      | 0/TBD          | Not started | -          |
+| 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
 | 5. Preview and Read-path Cutover        | 0/TBD          | Not started | -          |
 | 6. Safe Lifecycle and Legacy Migration  | 0/TBD          | Not started | -          |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
