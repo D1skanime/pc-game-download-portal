@@ -60,9 +60,17 @@
 
 **Notes:** The user requested concrete Game Boy/PlayStation examples before confirming the conflict rules. RomM never merges or automatically rewrites sources.
 
+## Follow-up Resolutions
+
+| Decision                   | Selected                                                                                                                                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Game-level catalog removal | Preserve RomM-owned saves, states, and play history for later reconnection; remove active catalog visibility/association only; delete only explicitly disposable catalog records/assets; never touch source |
+| Automatic legacy grammars  | Accept only `roms/{Platform.fs_slug}` and `{Platform.fs_slug}/roms`; configured/custom names such as `games` always require manual mapping                                                                  |
+
+**Notes:** These resolutions close the two open research questions. The planner still owns the exact retained ownership and identity representation, but it cannot delete retained user history or expand automatic detection.
+
 ## the agent's Discretion
 
-- Exact canonical legacy-path table based on verified historical RomM behavior.
 - Bounded preview budgets and background execution mechanism.
 - Unambiguous catalog matching algorithm and internal rollback representation.
 

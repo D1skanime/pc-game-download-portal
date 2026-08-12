@@ -41,10 +41,11 @@
 - **D-19:** Unambiguous catalog matches reconnect. Missing or ambiguous catalog entries remain preserved and visible as unreachable rather than blocking the whole migration or being deleted.
 - **D-20:** A crash, database error, stale version, or other failure during one platform migration causes a complete transaction rollback. The administrator can safely retry afterward.
 - **D-21:** Unsafe or ambiguous layouts produce a clear manual-mapping requirement. The system never guesses and never enables a hidden legacy fallback.
+- **D-22:** Game-level Remove from catalog preserves RomM-owned saves, states, and play history for later reconnection. It removes active catalog visibility and association only. The planner must define the exact retained ownership and identity contract and may delete only explicitly disposable catalog records and RomM-owned assets. Source content remains untouched.
+- **D-23:** Automatic legacy detection accepts only the two historically verified canonical grammars `roms/{Platform.fs_slug}` and `{Platform.fs_slug}/roms`. Configured or custom folder names such as `games` require manual mapping and are never auto-detected.
 
 ### the agent's Discretion
 
-- Exact canonical legacy platform-name table, provided it is derived from verified historical RomM behavior and follows D-07/D-08.
 - Exact bounded count/size budgets and asynchronous execution mechanism for detection and impact previews.
 - Matching algorithm for reconnecting catalog identities, provided only unambiguous matches reconnect and source content is never mutated.
 - Internal rollback token/state representation and audit schema, provided D-14 through D-16 remain enforceable across supported databases.
@@ -91,7 +92,7 @@ Historical RomM recognizes exactly two layouts relative to the library root: `ro
 | 1        | `roms/{Platform.fs_slug}`  | persisted canonical platform row |
 | 2        | `{Platform.fs_slug}/roms`  | persisted canonical platform row |
 
-These are grammars, not an alias table. [VERIFIED: platforms_handler.py] If both exist for one platform, return `manual_mapping_required`; historical priority cannot override D-21. A configured alternate `ROMS_FOLDER_NAME` is not automatically canonical under D-07/D-08. Supporting one requires a new locked compatibility decision. [ASSUMED]
+These are grammars, not an alias table. [VERIFIED: platforms_handler.py] If both exist for one platform, return `manual_mapping_required`; historical priority cannot override D-21. Configured or custom folder names, including `games`, require manual mapping and are never automatically detected. [VERIFIED: locked D-23]
 
 ## Standard Stack
 
@@ -143,13 +144,13 @@ Reuse the existing 10,000-entry and 2-second budget per exact candidate, observe
 
 Current `POST /api/roms/delete` mixes DB deletion, optional source deletion and owned resource cleanup. [VERIFIED: endpoints/roms/**init**.py] Replace the external contract with catalog removal that has no `delete_from_fs`.
 
-| Item                                                                      | Action                                                                    |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Rom/RomFile, metadata/facets, notes, user props, collection/sibling links | explicit catalog-owned delete [VERIFIED: model FKs]                       |
-| owned cover/manual/screenshot/soundtrack/resources                        | owned RESOURCES/ASSETS capability only [VERIFIED: filesystem composition] |
-| saves/states/play history                                                 | preserve pending locked decision; never incidental cascade [ASSUMED]      |
-| external source                                                           | never mutate [VERIFIED: policy and D-05/D-11]                             |
-| shared caches                                                             | scoped invalidation only [VERIFIED: current delete route]                 |
+| Item                                                                      | Action                                                                                                                 |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Rom/RomFile, metadata/facets, notes, user props, collection/sibling links | explicit catalog-owned delete [VERIFIED: model FKs]                                                                    |
+| owned cover/manual/screenshot/soundtrack/resources                        | owned RESOURCES/ASSETS capability only [VERIFIED: filesystem composition]                                              |
+| saves/states/play history                                                 | preserve for later reconnection under the planner-defined retained ownership/identity contract [VERIFIED: locked D-22] |
+| external source                                                           | never mutate [VERIFIED: policy and D-05/D-11]                                                                          |
+| shared caches                                                             | scoped invalidation only [VERIFIED: current delete route]                                                              |
 
 DB commit and filesystem cleanup are not one ACID transaction. Write an idempotent owned-cleanup intent with catalog deletion, commit, then process only allowlisted owned paths and retry failures. [ASSUMED]
 
@@ -188,3 +189,16 @@ Pitfalls: outer-only scan validation can write after removal; marking use after 
 | CAT-04       | existing policy denial/inventory tests                                     |
 | MIG-01/03/05 | `backend/tests/handler/storage/test_legacy_migration.py`                   |
 | MIG-02/04    | `backend/tests/integration/test_legacy_migration.py` plus dialect verifier |
+
+## Resolved Research Questions
+
+1. **Game-level catalog removal retention, RESOLVED by D-22.**
+   - Preserve RomM-owned saves, states, and play history for later reconnection.
+   - Remove active catalog visibility and association.
+   - The planner must define exact retained ownership and identity and every explicitly disposable catalog record and RomM-owned asset.
+   - External source content remains untouched.
+
+2. **Automatic legacy grammar scope, RESOLVED by D-23.**
+   - Auto-detect only `roms/{Platform.fs_slug}` and `{Platform.fs_slug}/roms`.
+   - Configured/custom names, including `games`, require manual mapping.
+   - No alias, configured-name, or fuzzy fallback is permitted.

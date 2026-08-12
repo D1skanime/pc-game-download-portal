@@ -45,10 +45,11 @@ Deliver source-safe catalog and mapping lifecycle behavior plus an explicit, adm
 - **D-19:** Unambiguous catalog matches reconnect. Missing or ambiguous catalog entries remain preserved and visible as unreachable rather than blocking the whole migration or being deleted.
 - **D-20:** A crash, database error, stale version, or other failure during one platform migration causes a complete transaction rollback. The administrator can safely retry afterward.
 - **D-21:** Unsafe or ambiguous layouts produce a clear manual-mapping requirement. The system never guesses and never enables a hidden legacy fallback.
+- **D-22:** Game-level Remove from catalog preserves RomM-owned saves, states, and play history for later reconnection. It removes active catalog visibility and association only. The planner must define the exact retained ownership and identity contract and may delete only explicitly disposable catalog records and RomM-owned assets. Source content remains untouched.
+- **D-23:** Automatic legacy detection accepts only the two historically verified canonical grammars `roms/{Platform.fs_slug}` and `{Platform.fs_slug}/roms`. Configured or custom folder names such as `games` require manual mapping and are never auto-detected.
 
 ### the agent's Discretion
 
-- Exact canonical legacy platform-name table, provided it is derived from verified historical RomM behavior and follows D-07/D-08.
 - Exact bounded count/size budgets and asynchronous execution mechanism for detection and impact previews.
 - Matching algorithm for reconnecting catalog identities, provided only unambiguous matches reconnect and source content is never mutated.
 - Internal rollback token/state representation and audit schema, provided D-14 through D-16 remain enforceable across supported databases.
