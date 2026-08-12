@@ -839,11 +839,14 @@ async function updateUserRomProps({
 
 async function deleteRoms({
   roms,
-  deleteFromFs: _deleteFromFs = [],
+  deleteFromFs = [],
 }: {
   roms: SimpleRom[];
   deleteFromFs: number[];
 }) {
+  if (deleteFromFs.length > 0) {
+    throw new Error("Source-file deletion is unavailable");
+  }
   const payload: CatalogRemovalRequest = {
     rom_ids: roms.map((rom) => rom.id),
   };
