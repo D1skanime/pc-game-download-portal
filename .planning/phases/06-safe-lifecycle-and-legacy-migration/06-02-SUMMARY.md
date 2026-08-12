@@ -41,7 +41,7 @@ patterns-established:
   - "Catalog detach: retain durable ownership and enqueue cleanup atomically, then process owned files idempotently."
   - "Bounded bulk result: expose stable codes, IDs, retention facts, and counts only."
 requirements-completed: [CAT-01, CAT-02, CAT-04]
-duration: 25min
+duration: 32min
 completed: 2026-08-12
 ---
 
@@ -51,9 +51,9 @@ completed: 2026-08-12
 
 ## Performance
 
-- **Duration:** 25 min
+- **Duration:** 32 min
 - **Started:** 2026-08-12T20:21:23Z
-- **Completed:** 2026-08-12T20:46:42Z
+- **Completed:** 2026-08-12T20:52:51Z
 - **Tasks:** 2
 - **Files modified:** 17
 
@@ -63,6 +63,7 @@ completed: 2026-08-12
 - Preserved saves, states, and play sessions under a stable retained catalog identity while explicitly removing disposable catalog rows.
 - Persisted idempotent cleanup intents in the detach transaction and added bounded retry processing for RomM-owned resources and screenshots only.
 - Regenerated the OpenAPI client, removed the legacy source-delete input type, and kept the shared frontend client type-safe.
+- Rejected legacy source-delete client intent before any request so transitional callers cannot report catalog-only removal as filesystem deletion.
 - Proved source manifest equality, rollback, retry, authorization-before-observation, concurrency, and policy inventory closure.
 
 ## Task Commits
@@ -71,6 +72,7 @@ completed: 2026-08-12
 2. **Task 2: Implement Catalog-only game removal (GREEN)** - 0c41fee85 (feat)
 3. **Task 2 verification: Align generated API client** - 89f601e76 (fix)
 4. **Task 2 verification: Close removed mutation inventory seam** - d565d23ea (fix)
+5. **Task 2 verification: Reject legacy source-delete client intent** - f305f8f9d (fix)
 
 ## Files Created/Modified
 
@@ -89,6 +91,7 @@ completed: 2026-08-12
 - A retained identity is populated from bounded logical identity and complete hashes; no host or absolute path is stored.
 - Resource directories and disposable screenshots become cleanup intents. Save and state files are retained and never scheduled for cleanup.
 - Missing owned cleanup targets count as idempotent success; other bounded failures persist for retry without raw error text.
+- Transitional shared-client callers that still request source deletion fail closed before any catalog-removal request is sent.
 
 ## TDD Gate Compliance
 
@@ -127,9 +130,18 @@ completed: 2026-08-12
 - **Verification:** Storage inventory suite passed, 11 tests.
 - **Committed in:** d565d23ea
 
+**4. [Rule 2 - Missing Critical] Rejected legacy source-delete client intent**
+
+- **Found during:** Pre-PR verification after the API client cutover
+- **Issue:** Transitional callers could still pass source-delete intent and then misreport catalog-only removal as filesystem deletion.
+- **Fix:** Reject any non-empty legacy source-delete selection before sending the catalog-removal request.
+- **Files modified:** frontend/src/services/api/rom.ts
+- **Verification:** Frontend typecheck passed with a 6144 MB Node heap.
+- **Committed in:** f305f8f9d
+
 ---
 
-**Total deviations:** 3 auto-fixed (3 blocking)
+**Total deviations:** 4 auto-fixed (3 blocking, 1 missing critical)
 **Impact on plan:** Necessary consequences of the API cutover and test isolation. No Phase 7 UI, deployment, migration, or source mutation was added.
 
 ## Issues Encountered
@@ -144,6 +156,7 @@ completed: 2026-08-12
 - Combined catalog and existing ROM endpoint regression gate: 110 passed.
 - Closed storage inventory: 11 passed.
 - Frontend generated-contract typecheck: passed.
+- Legacy source-delete client intent fails closed before any request; final frontend typecheck passed.
 - Commit hooks formatted and checked all committed files with no issues.
 - Source manifest evidence covers relative path, type/mode, size, SHA-256, and symlink target; atime is excluded.
 - Stub scan found no implementation-blocking stubs.
@@ -161,7 +174,7 @@ None - no external service configuration required.
 ## Self-Check: PASSED
 
 - All created key files exist in the canonical Linux checkout.
-- RED, GREEN, generated-contract, and inventory commits exist in git history.
+- RED, GREEN, generated-contract, inventory, and fail-closed client commits exist in git history.
 - Requirements, tests, source-safety evidence, and deviations are represented above.
 
 ---
