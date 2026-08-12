@@ -626,6 +626,7 @@ class TestIdentifyRomReassociation:
 
         db.get_matching_missing_rom.assert_called_once_with(
             platform_id=1,
+            logical_path="test/roms/New Name.zip",
             crc_hash="crc",
             md5_hash="md5",
             sha1_hash="sha1",

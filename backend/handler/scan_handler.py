@@ -93,10 +93,12 @@ async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
     context = MappingReadContext(command.mapping_id, command.expected_revision)
     with context.open(StorageOperation.SCAN) as capability:
         entries = capability.scan()
+        context.boundary()
         result = scan_batch(command, entries, context)
         if asyncio.iscoroutine(result):
             result = await result
-    context.boundary()
+    context.before_owned_write()
+    context.before_response_commit()
     return result
 
 

@@ -190,6 +190,8 @@ export type { StorageMappingAuditSchema } from './models/StorageMappingAuditSche
 export type { StorageMappingCreateSchema } from './models/StorageMappingCreateSchema';
 export type { StorageMappingPreviewSchema } from './models/StorageMappingPreviewSchema';
 export type { StorageMappingPreviewStateSchema } from './models/StorageMappingPreviewStateSchema';
+export type { StorageMappingRemovalConfirmationSchema } from './models/StorageMappingRemovalConfirmationSchema';
+export type { StorageMappingRemovalConsequencesSchema } from './models/StorageMappingRemovalConsequencesSchema';
 export type { StorageMappingSchema } from './models/StorageMappingSchema';
 export type { StorageMappingSnapshotSchema } from './models/StorageMappingSnapshotSchema';
 export type { StorageMappingTestSchema } from './models/StorageMappingTestSchema';

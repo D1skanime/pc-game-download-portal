@@ -383,6 +383,7 @@ async def _identify_rom(
 
         missing_match = db_rom_handler.get_matching_missing_rom(
             platform_id=platform.id,
+            logical_path=f"{roms_path}/{fs_rom['fs_name']}",
             crc_hash=parsed_rom_files.crc_hash,
             md5_hash=parsed_rom_files.md5_hash,
             sha1_hash=parsed_rom_files.sha1_hash,

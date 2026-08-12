@@ -2646,35 +2646,46 @@ class DBRomsHandler(DBBaseHandler):
         crc_hash: str | None = None,
         md5_hash: str | None = None,
         sha1_hash: str | None = None,
+        *,
+        logical_path: str | None = None,
         session: Session = None,  # type: ignore
     ) -> Rom | None:
-        """Find a ROM marked missing on a platform whose hashes match the file.
-
-        Used during scanning to reassociate a renamed or moved file with its
-        existing entry (preserving collections, notes, and assets) instead of
-        creating a duplicate. Requires the CRC, MD5, and SHA1 hashes to all
-        match. Any missing hash yields no match, so non-hashable platforms and
-        pre-hash entries safely fall back to creating a new entry.
-        """
-        if not (crc_hash and md5_hash and sha1_hash):
-            return None
-
-        matches = session.scalars(
-            select(Rom)
-            .where(
-                and_(
+        """Return one exact logical or complete-hash match, never a first match."""
+        missing = list(
+            session.scalars(
+                select(Rom)
+                .where(
                     Rom.platform_id == platform_id,
                     Rom.missing_from_fs.is_(True),
-                    Rom.crc_hash == crc_hash,
-                    Rom.md5_hash == md5_hash,
-                    Rom.sha1_hash == sha1_hash,
                 )
-            )
-            .limit(2)
-        ).all()
+                .order_by(Rom.id)
+            ).all()
+        )
+        if logical_path is not None:
+            normalized = logical_path.replace("\\", "/").strip("/")
+            logical_matches = [
+                row
+                for row in missing
+                if f"{row.fs_path}/{row.fs_name}".replace("\\", "/").strip("/")
+                == normalized
+            ]
+            if len(logical_matches) == 1:
+                return logical_matches[0]
+            if logical_matches:
+                return None
 
-        # Return None when more than one match to avoid ambiguity.
-        return matches[0] if len(matches) == 1 else None
+        if not (crc_hash and md5_hash and sha1_hash):
+            return None
+        hash_matches = [
+            row
+            for row in missing
+            if (
+                row.crc_hash == crc_hash
+                and row.md5_hash == md5_hash
+                and row.sha1_hash == sha1_hash
+            )
+        ]
+        return hash_matches[0] if len(hash_matches) == 1 else None
 
     def _collect_filter_values(
         self,

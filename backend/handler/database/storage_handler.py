@@ -1,10 +1,11 @@
 import base64
 import binascii
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -17,6 +18,7 @@ from exceptions.storage_exceptions import (
     MissingStoragePlatformError,
     MissingStorageRootError,
     StaleStorageMappingVersionError,
+    StorageMappingConsequencesChangedError,
     StorageMappingOverlapError,
     StoragePersistenceError,
     StorageResolutionError,
@@ -29,6 +31,7 @@ from handler.filesystem.storage_resolver import (
     resolve_directory,
 )
 from models.platform import Platform
+from models.rom import Rom, RomFile
 from models.storage import (
     EXTERNAL_READ_ONLY_MODE,
     PlatformStorageMapping,
@@ -38,6 +41,35 @@ from models.storage import (
 )
 
 from .base_handler import DBBaseHandler
+
+
+@dataclass(frozen=True, slots=True)
+class MappingRemovalConsequences:
+    mapping_id: int
+    platform_id: int
+    mapping_version: int
+    retained_visible_unreachable_catalog_count: int
+    preserves_metadata: bool = True
+    preserves_saves: bool = True
+    preserves_states: bool = True
+    preserves_play_history: bool = True
+    source_immutable: bool = True
+    mapping_revision_invalidated: bool = False
+    cancels_mapping_work_at_safe_boundaries: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class MappingRemovalResult:
+    mapping: PlatformStorageMapping
+    consequences: MappingRemovalConsequences
+
+    @property
+    def active(self) -> bool:
+        return self.mapping.active
+
+    @property
+    def version(self) -> int:
+        return self.mapping.version
 
 
 class DBStorageHandler(DBBaseHandler):
@@ -278,8 +310,8 @@ class DBStorageHandler(DBBaseHandler):
         if mapping is None:
             raise MissingPlatformStorageMappingError(0)
         return mapping
-    @begin_session
 
+    @begin_session
     def test_mapping(
         self,
         platform_id: int,
@@ -481,6 +513,38 @@ class DBStorageHandler(DBBaseHandler):
             StorageMappingAuditAction.DEACTIVATE,
         )
 
+    @staticmethod
+    def _mapping_removal_consequences(
+        session: Session,
+        mapping: PlatformStorageMapping,
+        *,
+        mapping_revision_invalidated: bool = False,
+    ) -> MappingRemovalConsequences:
+        count = session.scalar(
+            select(func.count(Rom.id)).where(Rom.platform_id == mapping.platform_id)
+        )
+        return MappingRemovalConsequences(
+            mapping_id=mapping.id,
+            platform_id=mapping.platform_id,
+            mapping_version=mapping.version,
+            retained_visible_unreachable_catalog_count=count or 0,
+            mapping_revision_invalidated=mapping_revision_invalidated,
+        )
+
+    @begin_session
+    def preview_mapping_removal(
+        self,
+        mapping_id: int,
+        *,
+        expected_version: int,
+        session: Session = None,  # type: ignore
+    ) -> MappingRemovalConsequences:
+        mapping = self._load_mapping_for_change(session, mapping_id)
+        self._check_version(mapping, expected_version)
+        if not mapping.active:
+            raise MissingPlatformStorageMappingError(mapping.platform_id)
+        return self._mapping_removal_consequences(session, mapping)
+
     @begin_session
     def remove_mapping(
         self,
@@ -489,16 +553,62 @@ class DBStorageHandler(DBBaseHandler):
         expected_version: int,
         actor_user_id: int,
         actor_display_name: str,
+        expected_unreachable_catalog_count: int | None = None,
         session: Session = None,  # type: ignore
-    ) -> PlatformStorageMapping:
-        return self._set_inactive(
+    ) -> MappingRemovalResult:
+        mapping = self._load_mapping_for_change(session, mapping_id)
+        self._check_version(mapping, expected_version)
+        if not mapping.active:
+            raise MissingPlatformStorageMappingError(mapping.platform_id)
+        roms = list(
+            session.scalars(
+                select(Rom)
+                .where(Rom.platform_id == mapping.platform_id)
+                .order_by(Rom.id)
+                .with_for_update(of=Rom)
+            ).all()
+        )
+        rom_ids = [rom.id for rom in roms]
+        if rom_ids:
+            session.scalars(
+                select(RomFile)
+                .where(RomFile.rom_id.in_(rom_ids))
+                .order_by(RomFile.id)
+                .with_for_update(of=RomFile)
+            ).all()
+        current_count = len(rom_ids)
+        if (
+            expected_unreachable_catalog_count is not None
+            and current_count != expected_unreachable_catalog_count
+        ):
+            raise StorageMappingConsequencesChangedError(mapping.id, current_count)
+
+        old = self._snapshot(mapping)
+        mapping.active = False
+        mapping.version += 1
+        if rom_ids:
+            session.execute(
+                update(Rom).where(Rom.id.in_(rom_ids)).values(missing_from_fs=True)
+            )
+            session.execute(
+                update(RomFile)
+                .where(RomFile.rom_id.in_(rom_ids))
+                .values(missing_from_fs=True)
+            )
+        session.flush()
+        self._append_audit(
             session,
-            mapping_id,
-            expected_version,
+            mapping,
+            StorageMappingAuditAction.REMOVE,
+            old,
+            self._snapshot(mapping),
             actor_user_id,
             actor_display_name,
-            StorageMappingAuditAction.REMOVE,
         )
+        consequences = self._mapping_removal_consequences(
+            session, mapping, mapping_revision_invalidated=True
+        )
+        return MappingRemovalResult(mapping=mapping, consequences=consequences)
 
     @begin_session
     def reactivate_mapping(

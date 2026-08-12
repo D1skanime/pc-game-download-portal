@@ -23,6 +23,8 @@ from endpoints.responses.storage import (
     StorageMappingCreateSchema,
     StorageMappingPreviewSchema,
     StorageMappingPreviewStateSchema,
+    StorageMappingRemovalConfirmationSchema,
+    StorageMappingRemovalConsequencesSchema,
     StorageMappingSchema,
     StorageMappingSnapshotSchema,
     StorageMappingTestSchema,
@@ -41,6 +43,7 @@ from exceptions.storage_exceptions import (
     MissingStorageTargetError,
     SafeStorageFilesystemError,
     StaleStorageMappingVersionError,
+    StorageMappingConsequencesChangedError,
     StorageMappingOverlapError,
     StorageResolutionError,
     StorageScanLimitError,
@@ -200,6 +203,9 @@ _CONFLICT_MESSAGES = {
     "duplicate_storage_mapping": "Platform already has an active storage mapping",
     "storage_mapping_overlap": "Storage mapping overlaps an active mapping",
     "storage_mapping_stale_version": "Storage mapping changed; reload before retrying",
+    "storage_mapping_consequences_changed": (
+        "Storage mapping removal consequences changed; preview again"
+    ),
 }
 
 
@@ -243,6 +249,28 @@ def _mapping_schema(mapping: PlatformStorageMapping) -> StorageMappingSchema:
         relative_path=mapping.relative_path,
         active=mapping.active,
         version=mapping.version,
+    )
+
+
+def _removal_consequences_schema(
+    consequences,
+) -> StorageMappingRemovalConsequencesSchema:
+    return StorageMappingRemovalConsequencesSchema(
+        mapping_id=consequences.mapping_id,
+        platform_id=consequences.platform_id,
+        mapping_version=consequences.mapping_version,
+        retained_visible_unreachable_catalog_count=(
+            consequences.retained_visible_unreachable_catalog_count
+        ),
+        preserves_metadata=consequences.preserves_metadata,
+        preserves_saves=consequences.preserves_saves,
+        preserves_states=consequences.preserves_states,
+        preserves_play_history=consequences.preserves_play_history,
+        source_immutable=consequences.source_immutable,
+        mapping_revision_invalidated=consequences.mapping_revision_invalidated,
+        cancels_mapping_work_at_safe_boundaries=(
+            consequences.cancels_mapping_work_at_safe_boundaries
+        ),
     )
 
 
@@ -618,17 +646,67 @@ def deactivate_storage_mapping(
 
 
 @protected_route(
+    router.post,
+    "/mappings/{mapping_id}/removal-consequences",
+    [Scope.USERS_WRITE],
+    response_model=StorageMappingRemovalConsequencesSchema,
+    responses=_MAPPING_RESPONSES,
+)
+def preview_storage_mapping_removal(
+    request: Request, mapping_id: int, body: StorageMappingVersionSchema
+) -> StorageMappingRemovalConsequencesSchema:
+    assert_admin(request)
+    try:
+        consequences = db_storage_handler.preview_mapping_removal(
+            mapping_id, expected_version=body.expected_version
+        )
+    except StorageResolutionError as error:
+        if isinstance(
+            error,
+            (
+                StaleStorageMappingVersionError,
+                MissingPlatformStorageMappingError,
+            ),
+        ):
+            _raise_mapping_conflict(error)
+        _raise_safe_storage_error(error)
+    return _removal_consequences_schema(consequences)
+
+
+@protected_route(
     router.delete,
     "/mappings/{mapping_id}",
     [Scope.USERS_WRITE],
-    response_model=StorageMappingSchema,
+    response_model=StorageMappingRemovalConsequencesSchema,
     responses=_MAPPING_RESPONSES,
 )
 def remove_storage_mapping(
-    request: Request, mapping_id: int, body: StorageMappingVersionSchema
-) -> StorageMappingSchema:
+    request: Request,
+    mapping_id: int,
+    body: StorageMappingRemovalConfirmationSchema,
+) -> StorageMappingRemovalConsequencesSchema:
     assert_admin(request)
-    return _change_mapping_state(request, mapping_id, body, "remove_mapping")
+    try:
+        result = db_storage_handler.remove_mapping(
+            mapping_id,
+            expected_version=body.expected_version,
+            expected_unreachable_catalog_count=(
+                body.expected_unreachable_catalog_count
+            ),
+            **_actor(request),
+        )
+    except StorageResolutionError as error:
+        if isinstance(
+            error,
+            (
+                StaleStorageMappingVersionError,
+                StorageMappingConsequencesChangedError,
+                MissingPlatformStorageMappingError,
+            ),
+        ):
+            _raise_mapping_conflict(error)
+        _raise_safe_storage_error(error)
+    return _removal_consequences_schema(result.consequences)
 
 
 @protected_route(

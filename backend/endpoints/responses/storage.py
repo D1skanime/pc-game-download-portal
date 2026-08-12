@@ -90,6 +90,26 @@ class StorageMappingVersionSchema(BaseModel):
     expected_version: int = Field(gt=0)
 
 
+class StorageMappingRemovalConfirmationSchema(BaseModel):
+    expected_version: int = Field(gt=0)
+    expected_unreachable_catalog_count: int = Field(ge=0)
+    confirmed: Literal[True]
+
+
+class StorageMappingRemovalConsequencesSchema(BaseModel):
+    mapping_id: int
+    platform_id: int
+    mapping_version: int = Field(gt=0)
+    retained_visible_unreachable_catalog_count: int = Field(ge=0)
+    preserves_metadata: Literal[True] = True
+    preserves_saves: Literal[True] = True
+    preserves_states: Literal[True] = True
+    preserves_play_history: Literal[True] = True
+    source_immutable: Literal[True] = True
+    mapping_revision_invalidated: bool
+    cancels_mapping_work_at_safe_boundaries: Literal[True] = True
+
+
 class StorageMappingSchema(BaseModel):
     id: int
     platform_id: int
@@ -140,6 +160,7 @@ class StorageConflictErrorCode(enum.StrEnum):
     DUPLICATE_STORAGE_MAPPING = "duplicate_storage_mapping"
     STORAGE_MAPPING_OVERLAP = "storage_mapping_overlap"
     STORAGE_MAPPING_STALE_VERSION = "storage_mapping_stale_version"
+    STORAGE_MAPPING_CONSEQUENCES_CHANGED = "storage_mapping_consequences_changed"
 
 
 class StorageConflictDetail(BaseModel):

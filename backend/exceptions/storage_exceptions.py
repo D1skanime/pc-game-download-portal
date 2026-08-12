@@ -143,6 +143,15 @@ class StaleStorageMappingVersionError(StorageResolutionError):
         super().__init__(f"Storage mapping {mapping_id} has version {current_version}")
 
 
+class StorageMappingConsequencesChangedError(StorageResolutionError):
+    code = "storage_mapping_consequences_changed"
+
+    def __init__(self, mapping_id: int, current_count: int):
+        self.mapping_id = mapping_id
+        self.current_count = current_count
+        super().__init__("Storage mapping removal consequences changed")
+
+
 class InvalidStorageCursorError(StorageResolutionError):
     code = "invalid_storage_cursor"
 

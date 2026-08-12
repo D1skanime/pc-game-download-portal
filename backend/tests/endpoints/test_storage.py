@@ -323,7 +323,15 @@ def test_storage_openapi_excludes_sensitive_fields(client):
             },
         ),
         ("post", "/api/storage/mappings/11/deactivate", {"expected_version": 3}),
-        ("delete", "/api/storage/mappings/11", {"expected_version": 3}),
+        (
+            "delete",
+            "/api/storage/mappings/11",
+            {
+                "expected_version": 3,
+                "expected_unreachable_catalog_count": 0,
+                "confirmed": True,
+            },
+        ),
         ("post", "/api/storage/mappings/11/activate", {"expected_version": 3}),
         ("get", "/api/storage/mapping-audits?platform_id=5&limit=2", None),
     ],

@@ -212,16 +212,20 @@ def test_mapping_removal_rolls_back_mapping_catalog_and_audit_on_failure(
 def test_removed_revision_cancels_old_work_at_next_boundary(tmp_path: Path):
     mapping_id, _, _, _ = _seed_mapping(tmp_path, rom_count=1)
     context = MappingReadContext(mapping_id, 1)
-    context.boundary()
-    db_storage_handler.remove_mapping(
-        mapping_id,
-        expected_version=1,
-        expected_unreachable_catalog_count=1,
-        actor_user_id=7,
-        actor_display_name="Admin",
-    )
-    with pytest.raises(StaleMappedReadError):
+    with patch(
+        "handler.filesystem.storage_resolver.os.access",
+        side_effect=lambda _path, mode: mode != os.W_OK,
+    ):
         context.boundary()
+        db_storage_handler.remove_mapping(
+            mapping_id,
+            expected_version=1,
+            expected_unreachable_catalog_count=1,
+            actor_user_id=7,
+            actor_display_name="Admin",
+        )
+        with pytest.raises(StaleMappedReadError):
+            context.boundary()
 
 
 def test_reconnect_requires_exact_logical_identity_or_unique_complete_hashes(

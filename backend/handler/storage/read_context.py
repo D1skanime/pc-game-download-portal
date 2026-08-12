@@ -79,6 +79,12 @@ class MappingReadContext:
     def boundary(self) -> None:
         self.validate()
 
+    def before_owned_write(self) -> None:
+        self.boundary()
+
+    def before_response_commit(self) -> None:
+        self.boundary()
+
     def open(self, operation: StorageOperation, relative_path: str = ""):
         mapping = self.validate()
         try:
