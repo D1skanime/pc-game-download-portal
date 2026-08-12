@@ -18,6 +18,13 @@ def test_0109_migration_declares_lifecycle_preflight_before_ddl():
     assert "version != 1" in migration
 
 
+def test_0110_downgrade_drops_fk_backed_index_with_the_table():
+    migration = Path("alembic/versions/0110_mapping_preview_results.py").read_text()
+    downgrade = migration.split("def downgrade() -> None:", 1)[1]
+    assert 'op.drop_table("mapping_previews")' in downgrade
+    assert "op.drop_index" not in downgrade
+
+
 def test_handler_test_repetitions_must_be_positive():
     parser = verifier.build_parser()
     assert (
@@ -52,10 +59,13 @@ def test_handler_test_repetitions_must_be_positive():
 
 def test_verify_dialect_exercises_pristine_and_history_paths(monkeypatch):
     calls = []
+
+    def record_run(*args, **kwargs):
+        calls.append(args[0])
+        return ""
+
     monkeypatch.setattr(verifier.subprocess, "run", lambda *args, **kwargs: None)
-    monkeypatch.setattr(
-        verifier, "_run", lambda *args, **kwargs: calls.append(args[0]) or ""
-    )
+    monkeypatch.setattr(verifier, "_run", record_run)
     monkeypatch.setattr(verifier, "_wait_until_ready", lambda *args: None)
     monkeypatch.setattr(verifier, "_runner_gateway", lambda runner: "172.17.0.1")
     monkeypatch.setattr(verifier, "_mapped_port", lambda *args: "33060")
@@ -66,6 +76,14 @@ def test_verify_dialect_exercises_pristine_and_history_paths(monkeypatch):
         "_verify_lifecycle_downgrade_rejected",
         lambda *args: calls.append(args),
     )
+    for helper_name in (
+        "_seed_0110_state",
+        "_verify_seeded_0110_state",
+        "_verify_restart_persistence",
+        "_verify_safe_lifecycle_downgrade_rejected",
+        "_clear_0111_state",
+    ):
+        monkeypatch.setattr(verifier, helper_name, lambda *args: calls.append(args))
     verifier.verify_dialect("mariadb", "romm-dev")
     assert any(
         isinstance(call, tuple)
@@ -99,10 +117,13 @@ def test_0111_migration_guards_lifecycle_state_before_downgrade_ddl():
 
 def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
     events = []
+
+    def record_run(*args, **kwargs):
+        events.append(args[0])
+        return ""
+
     monkeypatch.setattr(verifier.subprocess, "run", lambda *args, **kwargs: None)
-    monkeypatch.setattr(
-        verifier, "_run", lambda *args, **kwargs: events.append(args[0]) or ""
-    )
+    monkeypatch.setattr(verifier, "_run", record_run)
     monkeypatch.setattr(verifier, "_wait_until_ready", lambda *args: None)
     monkeypatch.setattr(verifier, "_runner_gateway", lambda runner: "172.17.0.1")
     monkeypatch.setattr(verifier, "_mapped_port", lambda *args: "33060")
@@ -112,6 +133,9 @@ def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
     )
     monkeypatch.setattr(
         verifier, "_verify_lifecycle_downgrade_rejected", lambda *args: None
+    )
+    monkeypatch.setattr(
+        verifier, "_verify_safe_lifecycle_downgrade_rejected", lambda *args: None
     )
     monkeypatch.setattr(
         verifier,

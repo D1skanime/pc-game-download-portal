@@ -1,6 +1,6 @@
-"""Exercise revision 0108 on isolated supported database containers."""
+"""Verify storage migrations on isolated supported database containers."""
 
-# trunk-ignore-all(bandit/B404,bandit/B105,bandit/B108,bandit/B603,bandit/B607)
+# trunk-ignore-all(bandit/B404,bandit/B105,bandit/B108,bandit/B603,bandit/B607,bandit/B608)
 
 import argparse
 import json
@@ -90,125 +90,422 @@ def _mapped_port(name: str, container_port: str) -> str:
     return output.splitlines()[0].rsplit(":", 1)[1]
 
 
-def _alembic(runner: str, dialect: str, host: str, port: str, *args: str) -> None:
-    environment = {
-        "ROMM_DB_DRIVER": dialect,
-        "DB_HOST": host,
-        "DB_PORT": port,
-        "DB_USER": "romm",
-        "DB_PASSWD": "romm",
-        "DB_NAME": "romm_migration",
-        "ROMM_AUTH_SECRET_KEY": "storage-migration-verifier-only",
-        "ROMM_BASE_PATH": "/tmp/romm-storage-migration-verifier",
-    }
-    command = ["docker", "exec"]
-    for key, value in environment.items():
-        command.extend(["-e", f"{key}={value}"])
-    command.extend(
-        [runner, "sh", "-lc", f"cd /app/backend && uv run alembic {' '.join(args)}"]
-    )
-    _run(command)
-
-
-def _bootstrap_mysql_0107(name: str) -> None:
-    statement = (
-        "CREATE DATABASE IF NOT EXISTS romm_migration;"
-        "USE romm_migration;"
-        "CREATE TABLE platforms (id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY);"
-        "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY);"
-        "INSERT INTO alembic_version (version_num) VALUES ('0107_roms_dedup_cover_index');"
-    )
-    _run(["docker", "exec", name, "mysql", "-uroot", "-proot", "-e", statement])
-
-
-def _handler_tests(
-    runner: str, dialect: str, host: str, port: str, repetitions: int = 1
-) -> None:
-    environment = {
-        "ROMM_DB_DRIVER": dialect,
-        "DB_HOST": host,
-        "DB_PORT": port,
-        "DB_USER": "romm",
-        "DB_PASSWD": "romm",
-        "DB_NAME": "romm_migration",
-        "ROMM_AUTH_SECRET_KEY": "storage-handler-verifier-only",
-        "ROMM_BASE_PATH": "/tmp/romm-storage-handler-verifier",
-    }
-    command = ["docker", "exec"]
-    for key, value in environment.items():
-        command.extend(["-e", f"{key}={value}"])
-    command.extend(
-        [
-            runner,
-            "sh",
-            "-lc",
-            "cd /app/backend && uv run pytest -c /dev/null tests/models/test_storage.py tests/handler/database/test_storage_handler.py -x",
-        ]
-    )
-    for _ in range(repetitions):
-        _run(command)
-
-
-def _database_environment(dialect: str, host: str, port: str) -> dict[str, str]:
+def _database_environment(
+    dialect: str, host: str, port: str, database: str
+) -> dict[str, str]:
     return {
         "ROMM_DB_DRIVER": dialect,
         "DB_HOST": host,
         "DB_PORT": port,
         "DB_USER": "romm",
         "DB_PASSWD": "romm",
-        "DB_NAME": "romm_migration",
+        "DB_NAME": database,
         "ROMM_AUTH_SECRET_KEY": "storage-migration-verifier-only",
         "ROMM_BASE_PATH": "/tmp/romm-storage-migration-verifier",
     }
 
 
-def _execute_sql(runner: str, dialect: str, host: str, port: str, sql: str) -> None:
-    command = ["docker", "exec"]
-    for key, value in _database_environment(dialect, host, port).items():
-        command.extend(["-e", f"{key}={value}"])
+def _runner_command(
+    runner: str,
+    dialect: str,
+    host: str,
+    port: str,
+    database: str,
+    command: list[str],
+) -> list[str]:
+    result = ["docker", "exec"]
+    for key, value in _database_environment(dialect, host, port, database).items():
+        result.extend(["-e", f"{key}={value}"])
+    result.extend(["--workdir", "/app/backend", runner, *command])
+    return result
+
+
+def _alembic(
+    runner: str,
+    dialect: str,
+    host: str,
+    port: str,
+    database: str,
+    *args: str,
+) -> None:
+    _run(
+        _runner_command(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            ["/app/.venv/bin/alembic", *args],
+        )
+    )
+
+
+def _bootstrap_mysql_0107(name: str) -> None:
+    statement = (
+        "CREATE TABLE platforms (id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY);"
+        "CREATE TABLE users (id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY);"
+        "CREATE TABLE roms ("
+        "id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+        "platform_id INTEGER NOT NULL,"
+        "CONSTRAINT fk_verifier_rom_platform FOREIGN KEY (platform_id) "
+        "REFERENCES platforms(id) ON DELETE CASCADE);"
+        "CREATE TABLE saves ("
+        "id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+        "rom_id INTEGER NOT NULL,"
+        "user_id INTEGER NOT NULL,"
+        "CONSTRAINT fk_verifier_save_rom FOREIGN KEY (rom_id) "
+        "REFERENCES roms(id) ON DELETE CASCADE);"
+        "CREATE TABLE states ("
+        "id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+        "rom_id INTEGER NOT NULL,"
+        "user_id INTEGER NOT NULL,"
+        "CONSTRAINT fk_verifier_state_rom FOREIGN KEY (rom_id) "
+        "REFERENCES roms(id) ON DELETE CASCADE);"
+        "CREATE TABLE play_sessions ("
+        "id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+        "rom_id INTEGER NULL,"
+        "CONSTRAINT fk_verifier_session_rom FOREIGN KEY (rom_id) "
+        "REFERENCES roms(id) ON DELETE SET NULL);"
+        "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY);"
+        "INSERT INTO alembic_version (version_num) "
+        "VALUES ('0107_roms_dedup_cover_index');"
+    )
+    _run(
+        [
+            "docker",
+            "exec",
+            name,
+            "sh",
+            "-lc",
+            f'mysql -uroot -proot "$MYSQL_DATABASE" -e {statement!r}',
+        ]
+    )
+
+
+def _execute_sql(
+    runner: str,
+    dialect: str,
+    host: str,
+    port: str,
+    database: str,
+    sql: str,
+) -> None:
     program = (
         "from config.config_manager import ConfigManager; "
         "from sqlalchemy import create_engine, text; "
         "engine=create_engine(ConfigManager.get_db_engine()); "
         f"sql={sql!r}; "
         "connection=engine.connect(); transaction=connection.begin(); "
-        "connection.execute(text(sql)); transaction.commit(); connection.close()"
+        "connection.execute(text(sql)); transaction.commit(); connection.close(); "
+        "engine.dispose()"
     )
-    command.extend(
-        ["--workdir", "/app/backend", runner, "/app/.venv/bin/python", "-c", program]
+    _run(
+        _runner_command(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            ["/app/.venv/bin/python", "-c", program],
+        )
     )
-    _run(command)
+
+
+def _query_scalar(
+    runner: str,
+    dialect: str,
+    host: str,
+    port: str,
+    database: str,
+    sql: str,
+) -> str:
+    program = (
+        "from config.config_manager import ConfigManager; "
+        "from sqlalchemy import create_engine, text; "
+        "engine=create_engine(ConfigManager.get_db_engine()); "
+        f"sql={sql!r}; "
+        "connection=engine.connect(); value=connection.scalar(text(sql)); "
+        "print(value); connection.close(); engine.dispose()"
+    )
+    return _run(
+        _runner_command(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            ["/app/.venv/bin/python", "-c", program],
+        ),
+        capture=True,
+    )
+
+
+def _wait_until_queryable(
+    runner: str,
+    dialect: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        try:
+            _query_scalar(
+                runner,
+                dialect,
+                host,
+                port,
+                database,
+                "SELECT 1",
+            )
+            return
+        except subprocess.CalledProcessError:
+            time.sleep(1)
+    raise RuntimeError(f"{dialect}: database did not become queryable after restart")
+
+
+def _platform_statements(dialect: str, platform_id: int) -> list[str]:
+    if dialect == "mysql":
+        return [f"INSERT INTO platforms (id) VALUES ({platform_id})"]
+    return [
+        "INSERT INTO platforms "
+        "(id, name, slug, fs_slug, missing_from_fs) "
+        f"VALUES ({platform_id}, 'Verifier {platform_id}', "
+        f"'verifier-{platform_id}', 'verifier-{platform_id}', FALSE)"
+    ]
 
 
 def _verify_lifecycle_downgrade_rejected(
-    dialect: str, runner: str, host: str, port: str
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
 ) -> None:
-    platform_statements = (
-        [
-            "INSERT INTO platforms (id) VALUES (900001)",
-            "INSERT INTO platforms (id) VALUES (900002)",
-        ]
-        if dialect == "mysql"
-        else [
-            "INSERT INTO platforms (id, name, slug, fs_slug, missing_from_fs) VALUES (900001, 'Verifier One', 'verifier-one', 'verifier-one', FALSE)",
-            "INSERT INTO platforms (id, name, slug, fs_slug, missing_from_fs) VALUES (900002, 'Verifier Two', 'verifier-two', 'verifier-two', FALSE)",
-        ]
-    )
     statements = [
-        *platform_statements,
-        "INSERT INTO storage_roots (id, name, container_path, mode, active) VALUES (900001, 'Verifier', '/verifier', 'external_read_only', TRUE)",
-        "INSERT INTO platform_storage_mappings (id, platform_id, storage_root_id, relative_path, active, version) VALUES (900001, 900001, 900001, 'History', FALSE, 2)",
-        "INSERT INTO platform_storage_mappings (id, platform_id, storage_root_id, relative_path, active, version) VALUES (900002, 900001, 900001, 'Replacement', TRUE, 1)",
-        "INSERT INTO platform_storage_mappings (id, platform_id, storage_root_id, relative_path, active, version) VALUES (900003, 900002, 900001, 'History', TRUE, 1)",
-        "INSERT INTO storage_mapping_audits (actor_user_id, actor_display_name, platform_id, mapping_id, action, old_storage_root_id, old_relative_path, old_version, old_active, new_storage_root_id, new_relative_path, new_version, new_active) VALUES (1, 'Verifier', 900001, 900001, 'deactivate', 900001, 'History', 1, TRUE, 900001, 'History', 2, FALSE)",
+        *_platform_statements(dialect, 900001),
+        *_platform_statements(dialect, 900002),
+        "INSERT INTO storage_roots "
+        "(id, name, container_path, mode, active) "
+        "VALUES (900001, 'Verifier', '/verifier', 'external_read_only', TRUE)",
+        "INSERT INTO platform_storage_mappings "
+        "(id, platform_id, storage_root_id, relative_path, active, version) "
+        "VALUES (900001, 900001, 900001, 'History', FALSE, 2)",
+        "INSERT INTO platform_storage_mappings "
+        "(id, platform_id, storage_root_id, relative_path, active, version) "
+        "VALUES (900002, 900001, 900001, 'Replacement', TRUE, 1)",
+        "INSERT INTO platform_storage_mappings "
+        "(id, platform_id, storage_root_id, relative_path, active, version) "
+        "VALUES (900003, 900002, 900001, 'History', TRUE, 1)",
+        "INSERT INTO storage_mapping_audits "
+        "(actor_user_id, actor_display_name, platform_id, mapping_id, action, "
+        "old_storage_root_id, old_relative_path, old_version, old_active, "
+        "new_storage_root_id, new_relative_path, new_version, new_active) "
+        "VALUES (1, 'Verifier', 900001, 900001, 'deactivate', 900001, "
+        "'History', 1, TRUE, 900001, 'History', 2, FALSE)",
     ]
     for statement in statements:
-        _execute_sql(runner, dialect, host, port, statement)
+        _execute_sql(runner, dialect, host, port, database, statement)
     try:
-        _alembic(runner, dialect, host, port, "downgrade", "0108_storage_foundation")
+        _alembic(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            "downgrade",
+            "0108_storage_foundation",
+        )
     except subprocess.CalledProcessError:
         return
     raise RuntimeError(f"{dialect}: lifecycle downgrade unexpectedly succeeded")
+
+
+def _seed_0110_state(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    statements = [
+        *_platform_statements(dialect, 910001),
+        "INSERT INTO storage_roots "
+        "(id, name, container_path, mode, active) "
+        "VALUES (910001, 'Seeded 0110', '/seeded-0110', "
+        "'external_read_only', TRUE)",
+        "INSERT INTO platform_storage_mappings "
+        "(id, platform_id, storage_root_id, relative_path, active, version) "
+        "VALUES (910001, 910001, 910001, 'roms/verifier-910001', TRUE, 4)",
+        "INSERT INTO mapping_previews "
+        "(id, mapping_id, state, observed_files, observed_directories, "
+        "observed_bytes, lower_bound, budget_reason, problems, "
+        "observed_revision, stale, completed_at) "
+        "VALUES (910001, 910001, 'complete', 2, 1, 4096, FALSE, NULL, "
+        "'[]', 4, FALSE, CURRENT_TIMESTAMP)",
+    ]
+    for statement in statements:
+        _execute_sql(runner, dialect, host, port, database, statement)
+
+
+def _verify_seeded_0110_state(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    mapping_version = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT version FROM platform_storage_mappings WHERE id = 910001",
+    )
+    preview_revision = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT observed_revision FROM mapping_previews WHERE id = 910001",
+    )
+    if mapping_version != "4" or preview_revision != "4":
+        raise RuntimeError(f"{dialect}: seeded 0110 state did not survive")
+
+
+def _seed_0111_state(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    statements = [
+        "INSERT INTO legacy_detection_results "
+        "(id, platform_id, storage_root_id, state, proposed_relative_path, "
+        "observed_files, observed_bytes, lower_bound, selectable, "
+        "observed_mapping_id, observed_mapping_version, version, actor_user_id, "
+        "expires_at) "
+        "VALUES (920001, 910001, 910001, 'detected', "
+        "'roms/verifier-910001', 2, 4096, FALSE, TRUE, 910001, 4, 1, 1, "
+        "'2037-01-01 00:00:00')",
+        "INSERT INTO legacy_migrations "
+        "(id, detection_result_id, platform_id, storage_root_id, mapping_id, "
+        "relative_path, state, version, actor_user_id, "
+        "reconnected_catalog_count, unmatched_catalog_count, expires_at) "
+        "VALUES (920001, 920001, 910001, 910001, 910001, "
+        "'roms/verifier-910001', 'completed', 1, 1, 0, 0, "
+        "'2037-01-01 00:00:00')",
+    ]
+    for statement in statements:
+        _execute_sql(runner, dialect, host, port, database, statement)
+
+
+def _verify_restart_persistence(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+    database_container: str,
+    health: list[str],
+) -> str:
+    _seed_0111_state(dialect, runner, host, port, database)
+    _run(["docker", "restart", database_container])
+    _wait_until_ready(database_container, health)
+    port = _mapped_port(database_container, DIALECTS[dialect]["port"])
+    _wait_until_queryable(runner, dialect, host, port, database)
+    first_use = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT first_used_at FROM legacy_migrations WHERE id = 920001",
+    )
+    migration_version = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT version FROM legacy_migrations WHERE id = 920001",
+    )
+    if first_use != "None" or migration_version != "1":
+        raise RuntimeError(f"{dialect}: lifecycle state did not survive restart")
+    return port
+
+
+def _verify_safe_lifecycle_downgrade_rejected(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    try:
+        _alembic(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            "downgrade",
+            "0110_mapping_preview_results",
+        )
+    except subprocess.CalledProcessError:
+        return
+    raise RuntimeError(f"{dialect}: safe lifecycle downgrade unexpectedly succeeded")
+
+
+def _clear_0111_state(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    for statement in (
+        "DELETE FROM legacy_migrations",
+        "DELETE FROM legacy_detection_results",
+        "DELETE FROM owned_cleanup_intents",
+        "UPDATE saves SET retained_catalog_id = NULL WHERE retained_catalog_id IS NOT NULL",
+        "UPDATE states SET retained_catalog_id = NULL WHERE retained_catalog_id IS NOT NULL",
+        "UPDATE play_sessions SET retained_catalog_id = NULL "
+        "WHERE retained_catalog_id IS NOT NULL",
+        "DELETE FROM retained_catalog_identities",
+    ):
+        _execute_sql(runner, dialect, host, port, database, statement)
+
+
+def _handler_tests(
+    runner: str,
+    dialect: str,
+    host: str,
+    port: str,
+    database: str,
+    repetitions: int = 1,
+) -> None:
+    command = _runner_command(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        [
+            "/app/.venv/bin/pytest",
+            "-c",
+            "/dev/null",
+            "tests/models/test_storage.py",
+            "tests/models/test_safe_lifecycle.py",
+            "tests/handler/database/test_storage_handler.py",
+            "-x",
+        ],
+    )
+    for _ in range(repetitions):
+        _run(command)
 
 
 def verify_dialect(
@@ -219,7 +516,20 @@ def verify_dialect(
     handler_test_repetitions: int = 1,
 ) -> None:
     config = DIALECTS[dialect]
-    name = f"romm-storage-migration-{dialect}-{uuid.uuid4().hex[:10]}"
+    suffix = uuid.uuid4().hex[:10]
+    name = f"romm-storage-migration-{dialect}-{suffix}"
+    database = f"romm_migration_{suffix}"
+    environment = dict(config["env"])
+    database_key = {
+        "mariadb": "MARIADB_DATABASE",
+        "mysql": "MYSQL_DATABASE",
+        "postgresql": "POSTGRES_DB",
+    }[dialect]
+    environment[database_key] = database
+    health = list(config["health"])
+    if dialect == "postgresql":
+        health[-1] = database
+
     command = [
         "docker",
         "run",
@@ -229,26 +539,80 @@ def verify_dialect(
         "--publish",
         f"0:{config['port']}",
     ]
-    for key, value in config["env"].items():
+    for key, value in environment.items():
         command.extend(["--env", f"{key}={value}"])
     command.append(config["image"])
 
     try:
         _run(command)
-        _wait_until_ready(name, config["health"])
+        _wait_until_ready(name, health)
         host = _runner_gateway(runner)
         port = _mapped_port(name, config["port"])
         if dialect == "mysql":
             _bootstrap_mysql_0107(name)
-        _alembic(runner, dialect, host, port, "upgrade", "head")
-        _alembic(runner, dialect, host, port, "downgrade", "0108_storage_foundation")
-        _alembic(runner, dialect, host, port, "upgrade", "head")
-        _verify_lifecycle_downgrade_rejected(dialect, runner, host, port)
+
+        _alembic(runner, dialect, host, port, database, "upgrade", "head")
+        _alembic(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            "downgrade",
+            "0108_storage_foundation",
+        )
+        _alembic(runner, dialect, host, port, database, "upgrade", "head")
+        _verify_lifecycle_downgrade_rejected(dialect, runner, host, port, database)
+        _alembic(runner, dialect, host, port, database, "upgrade", "head")
+
+        _alembic(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            "downgrade",
+            "0110_mapping_preview_results",
+        )
+        _seed_0110_state(dialect, runner, host, port, database)
+        _alembic(runner, dialect, host, port, database, "upgrade", "head")
+        _verify_seeded_0110_state(dialect, runner, host, port, database)
+        port = _verify_restart_persistence(
+            dialect,
+            runner,
+            host,
+            port,
+            database,
+            name,
+            health,
+        )
+        _verify_safe_lifecycle_downgrade_rejected(dialect, runner, host, port, database)
+        _clear_0111_state(dialect, runner, host, port, database)
+        _alembic(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            "downgrade",
+            "0110_mapping_preview_results",
+        )
+        _verify_seeded_0110_state(dialect, runner, host, port, database)
+        _alembic(runner, dialect, host, port, database, "upgrade", "head")
+        _verify_seeded_0110_state(dialect, runner, host, port, database)
+
         if handler_tests and dialect != "mysql":
-            _handler_tests(runner, dialect, host, port, handler_test_repetitions)
+            _handler_tests(
+                runner,
+                dialect,
+                host,
+                port,
+                database,
+                handler_test_repetitions,
+            )
         elif handler_tests:
             print("mysql: handler tests skipped on the minimal 0107 baseline")
-        print(f"{dialect}: upgrade/downgrade/re-upgrade passed")
+        print(f"{dialect}: pristine and seeded-0110 round-trips passed")
     finally:
         subprocess.run(
             ["docker", "rm", "--force", name],

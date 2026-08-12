@@ -15,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
+from models.catalog_lifecycle import RetainedCatalogIdentity
 
 if TYPE_CHECKING:
     from models.device import Device
@@ -34,6 +35,7 @@ class PlaySession(BaseModel):
             name="uq_play_session_identity",
         ),
         Index("ix_play_sessions_user_rom", "user_id", "rom_id"),
+        Index("ix_play_sessions_retained_catalog", "retained_catalog_id"),
         Index("ix_play_sessions_user_time", "user_id", "start_time"),
         {"extend_existing": True},
     )
@@ -46,6 +48,10 @@ class PlaySession(BaseModel):
     rom_id: Mapped[int | None] = mapped_column(
         ForeignKey("roms.id", ondelete="SET NULL")
     )
+    retained_catalog_id: Mapped[int | None] = mapped_column(
+        ForeignKey("retained_catalog_identities.id", ondelete="RESTRICT"),
+        default=None,
+    )
     sync_session_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("sync_sessions.id", ondelete="SET NULL"), default=None
     )
@@ -57,4 +63,7 @@ class PlaySession(BaseModel):
     user: Mapped[User] = relationship(lazy="raise", back_populates="play_sessions")
     device: Mapped[Device | None] = relationship(lazy="raise")
     rom: Mapped[Rom | None] = relationship(lazy="raise")
+    retained_catalog: Mapped[RetainedCatalogIdentity | None] = relationship(
+        lazy="raise", back_populates="play_sessions"
+    )
     sync_session: Mapped[SyncSession | None] = relationship(lazy="raise")

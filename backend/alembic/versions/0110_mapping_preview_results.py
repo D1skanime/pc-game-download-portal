@@ -50,5 +50,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_mapping_previews_mapping_id", table_name="mapping_previews")
     op.drop_table("mapping_previews")

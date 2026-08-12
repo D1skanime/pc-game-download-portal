@@ -13,6 +13,7 @@ from models.base import (
     BaseModel,
     compute_file_name_parts,
 )
+from models.catalog_lifecycle import RetainedCatalogIdentity
 
 if TYPE_CHECKING:
     from models.device_save_sync import DeviceSaveSync
@@ -87,6 +88,15 @@ class Save(RomAsset):
     __tablename__ = "saves"
     __table_args__ = {"extend_existing": True}
 
+    rom_id: Mapped[int | None] = mapped_column(
+        ForeignKey("roms.id", ondelete="SET NULL"), nullable=True
+    )
+    retained_catalog_id: Mapped[int | None] = mapped_column(
+        ForeignKey("retained_catalog_identities.id", ondelete="RESTRICT"),
+        default=None,
+        index=True,
+    )
+
     emulator: Mapped[str | None] = mapped_column(String(length=50))
     slot: Mapped[str | None] = mapped_column(String(length=255))
     content_hash: Mapped[str | None] = mapped_column(String(length=32))
@@ -99,8 +109,11 @@ class Save(RomAsset):
     # download a user's public saves (community). Defaults false (private).
     is_public: Mapped[bool] = mapped_column(default=False)
 
-    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
+    rom: Mapped[Rom | None] = relationship(lazy="joined", back_populates="saves")
     user: Mapped[User] = relationship(lazy="joined", back_populates="saves")
+    retained_catalog: Mapped[RetainedCatalogIdentity | None] = relationship(
+        lazy="raise", back_populates="saves"
+    )
     device_syncs: Mapped[list[DeviceSaveSync]] = relationship(
         back_populates="save",
         cascade="all, delete-orphan",
@@ -123,13 +136,25 @@ class State(RomAsset):
     __tablename__ = "states"
     __table_args__ = {"extend_existing": True}
 
+    rom_id: Mapped[int | None] = mapped_column(
+        ForeignKey("roms.id", ondelete="SET NULL"), nullable=True
+    )
+    retained_catalog_id: Mapped[int | None] = mapped_column(
+        ForeignKey("retained_catalog_identities.id", ondelete="RESTRICT"),
+        default=None,
+        index=True,
+    )
+
     emulator: Mapped[str | None] = mapped_column(String(length=50))
     # `is_public` mirrors Screenshot/RomNote — lets other users browse and
     # download a user's public states (community). Defaults false (private).
     is_public: Mapped[bool] = mapped_column(default=False)
 
-    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")
+    rom: Mapped[Rom | None] = relationship(lazy="joined", back_populates="states")
     user: Mapped[User] = relationship(lazy="joined", back_populates="states")
+    retained_catalog: Mapped[RetainedCatalogIdentity | None] = relationship(
+        lazy="raise", back_populates="states"
+    )
 
     @cached_property
     def screenshot(self) -> Screenshot | None:
