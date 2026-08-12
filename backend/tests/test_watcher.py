@@ -3,7 +3,7 @@ from pathlib import Path
 
 def test_phase5_watcher_coalescer_contract_exists():
     assert Path(
-        "handler/storage/watcher.py"
+        "watcher.py"
     ).exists(), "Phase 5 RED: per-mapping debounce and one pending follow-up are not implemented"
 
 

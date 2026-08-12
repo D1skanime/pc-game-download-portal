@@ -14,6 +14,7 @@ from handler.metadata.ra_handler import RAHandler
 from handler.metadata.sgdb_handler import SGDBBaseHandler
 from handler.metadata.ss_handler import SSHandler
 from handler.metadata.tgdb_handler import TGDBHandler
+from handler.scan_command import ScanScope, ScanTrigger
 from handler.scan_handler import MetadataSource, ScanType
 from tasks.scheduled.scan_library import ScanLibraryTask, scan_library_task
 
@@ -24,12 +25,10 @@ class TestScanLibraryTask:
         return ScanLibraryTask()
 
     def test_init(self, task):
-        """Test task initialization"""
         assert task.func == "tasks.scheduled.scan_library.scan_library_task.run"
         assert task.description == "Rescans the entire library"
 
     async def test_run_enabled(self, task, mocker):
-        """Test run when scheduled rescan is enabled"""
         mocker.patch.object(HasheousHandler, "is_enabled", return_value=False)
         mocker.patch.object(IGDBHandler, "is_enabled", return_value=False)
         mocker.patch.object(LaunchboxHandler, "is_enabled", return_value=True)
@@ -43,29 +42,38 @@ class TestScanLibraryTask:
         mocker.patch.object(TGDBHandler, "is_enabled", return_value=False)
         mocker.patch.object(LibretroHandler, "is_enabled", return_value=False)
         mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", True)
-
+        commands = [MagicMock()]
+        mock_commands = mocker.patch(
+            "tasks.scheduled.scan_library.mapping_scan_commands",
+            return_value=commands,
+        )
         scan_result = MagicMock()
-        mock_scan_platforms = mocker.patch(
-            "tasks.scheduled.scan_library.scan_platforms",
-            side_effect=AsyncMock(return_value=scan_result),
+        scan_result.to_dict.return_value = {}
+        mock_execute = mocker.patch(
+            "tasks.scheduled.scan_library.execute_mapping_scans",
+            new=AsyncMock(return_value=scan_result),
         )
         mock_log = mocker.patch("tasks.scheduled.scan_library.log")
 
         await task.run()
 
         mock_log.info.assert_any_call("Scheduled library scan started...")
-        mock_scan_platforms.assert_called_once_with(
-            platform_ids=[],
-            metadata_sources=[MetadataSource.RA, MetadataSource.LAUNCHBOX],
+        mock_commands.assert_called_once_with(
+            [],
+            trigger=ScanTrigger.SCHEDULED,
+            scope=ScanScope.LIBRARY,
             scan_type=ScanType.QUICK,
+        )
+        mock_execute.assert_awaited_once_with(
+            commands,
+            metadata_sources=[MetadataSource.RA, MetadataSource.LAUNCHBOX],
         )
         mock_log.info.assert_any_call("Scheduled library scan done")
 
     async def test_run_disabled(self, task, mocker):
-        """Test run when scheduled rescan is disabled"""
         mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", False)
-        mock_scan_platforms = mocker.patch(
-            "tasks.scheduled.scan_library.scan_platforms"
+        mock_execute = mocker.patch(
+            "tasks.scheduled.scan_library.execute_mapping_scans"
         )
         mock_log = mocker.patch("tasks.scheduled.scan_library.log")
         task.unschedule = MagicMock()
@@ -76,10 +84,9 @@ class TestScanLibraryTask:
             "Scheduled library scan not enabled, unscheduling..."
         )
         task.unschedule.assert_called_once()
-        mock_scan_platforms.assert_not_called()
+        mock_execute.assert_not_called()
 
     def test_task_instance(self):
-        """Test that the module-level task instance is created correctly"""
         assert isinstance(scan_library_task, ScanLibraryTask)
         assert (
             scan_library_task.func
