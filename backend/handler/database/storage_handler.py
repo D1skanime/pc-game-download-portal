@@ -267,7 +267,6 @@ class DBStorageHandler(DBBaseHandler):
         return mapping
 
     @begin_session
-    @begin_session
     def get_mapping(
         self, mapping_id: int, *, session: Session = None  # type: ignore
     ) -> PlatformStorageMapping:
@@ -279,6 +278,7 @@ class DBStorageHandler(DBBaseHandler):
         if mapping is None:
             raise MissingPlatformStorageMappingError(0)
         return mapping
+    @begin_session
 
     def test_mapping(
         self,
