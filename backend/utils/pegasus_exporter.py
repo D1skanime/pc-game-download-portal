@@ -5,6 +5,11 @@ from fastapi import Request
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem.storage_access import OwnedReplace
+from handler.filesystem.storage_policy import (
+    ExternalStorageDescriptor,
+    StorageOperation,
+    StoragePolicy,
+)
 from handler.filesystem.storage_resolver import normalize_relative_path
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
@@ -346,6 +351,10 @@ class PegasusExporter:
         Returns:
             True if successful, False otherwise
         """
+        if not isinstance(destination, OwnedReplace):
+            if isinstance(destination, ExternalStorageDescriptor):
+                StoragePolicy.authorize(StorageOperation.OVERWRITE, destination)
+            raise TypeError('Pegasus export requires an owned replacement')
         try:
             platform = db_platform_handler.get_platform(platform_id)
             if not platform:
@@ -380,8 +389,6 @@ class PegasusExporter:
                 game_count += 1
 
             content = "\n".join(lines) + "\n"
-            if not isinstance(destination, OwnedReplace):
-                raise TypeError("Pegasus export requires an owned replacement")
             destination.replace(content.encode("utf-8"))
 
             log.info(
