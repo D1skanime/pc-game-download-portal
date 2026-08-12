@@ -83,11 +83,11 @@
 
 ### Legacy Migration and Compatibility
 
-- [ ] **MIG-01**: A migration can represent existing RomM platform layouts as storage roots and relative mappings without moving, renaming, copying, or creating library content.
+- [x] **MIG-01**: A migration can represent existing RomM platform layouts as storage roots and relative mappings without moving, renaming, copying, or creating library content.
 - [x] **MIG-02**: Migration behavior is portable across MariaDB, MySQL, and PostgreSQL and is reversible at the database-schema level where practical.
-- [ ] **MIG-03**: If an existing layout cannot be migrated safely, startup or administration reports a clear manual mapping requirement instead of guessing.
+- [x] **MIG-03**: If an existing layout cannot be migrated safely, startup or administration reports a clear manual mapping requirement instead of guessing.
 - [x] **MIG-04**: Existing mapped platforms remain scanable after restart and mapping records survive normal deployment lifecycle operations.
-- [ ] **MIG-05**: Any legacy fallback is explicit, observable, time-bounded, and unable to bypass the external-root policy.
+- [x] **MIG-05**: Any legacy fallback is explicit, observable, time-bounded, and unable to bypass the external-root policy.
 
 ### Verification and Documentation
 
@@ -191,11 +191,11 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | V2-03       | Phase 8 | Pending  |
 | V2-04       | Phase 8 | Pending  |
 | V2-05       | Phase 8 | Pending  |
-| MIG-01      | Phase 6 | Pending  |
+| MIG-01      | Phase 6 | Complete |
 | MIG-02      | Phase 6 | Complete |
-| MIG-03      | Phase 6 | Pending  |
+| MIG-03      | Phase 6 | Complete |
 | MIG-04      | Phase 6 | Complete |
-| MIG-05      | Phase 6 | Pending  |
+| MIG-05      | Phase 6 | Complete |
 | TEST-01     | Phase 1 | Complete |
 | TEST-02     | Phase 3 | Complete |
 | TEST-03     | Phase 2 | Complete |
