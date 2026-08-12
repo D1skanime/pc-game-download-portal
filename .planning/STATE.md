@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_execute
-stopped_at: Phase 6 planned, ready to execute 06-01
-last_updated: "2026-08-12T00:00:00Z"
+status: executing
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-08-12T20:09:21.826Z"
 last_activity: 2026-08-12
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 44
-  completed_plans: 35
-  percent: 56
+  completed_plans: 36
+  percent: 82
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 6 - Safe Lifecycle and Legacy Migration
+**Current focus:** Phase 06 — safe-lifecycle-and-legacy-migration
 
 ## Current Position
 
-Phase: 6
-Plan: 0 of 9
-Status: Planned - ready to execute 06-01
+Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
+Plan: 2 of 9
+Status: Ready to execute
 Last activity: 2026-08-12
 
-Progress: [██████░░░░] 56%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ _Updated after each plan completion_
 | Phase 03 P05 | 10min | 2 tasks | 3 files |
 | Phase 05 P08 | 8min | 2 tasks | 4 files |
 | Phase 05 P07 | 5h | 3 tasks | 24 files |
+| Phase 06 P01 | 31min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -128,6 +129,8 @@ Recent decisions affecting current work:
 - [Phase 05]: External mapped downloads use application-held descriptors; Nginx receives only completed RomM-owned cache paths.
 - [Phase 05]: ZIP cache identity binds mapping ID, revision, logical path, member name, size, and timestamp without host paths.
 - [Phase 05]: Independent verification passed all 26 requirements and decision checks with no product gaps or human verification items.
+- [Phase 06]: Detached saves, states, and play sessions retain ownership through a stable catalog identity. — Preserves durable user history without keeping mutable ROM rows alive.
+- [Phase 06]: Legacy migration state stores bounded logical identifiers and guarded downgrade state. — Supports restart-safe recovery without persisting host paths or raw snapshots.
 
 ### Blockers/Concerns
 
@@ -145,6 +148,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-12T14:51:04.122Z
-Stopped at: Phase 6 planned in 9 dependency-ordered plans; ready to execute 06-01
+Last session: 2026-08-12T20:08:16.350Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
