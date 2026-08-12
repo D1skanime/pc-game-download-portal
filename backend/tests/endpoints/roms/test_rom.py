@@ -1,14 +1,25 @@
 import json
+import os
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from fastapi import status
 from fastapi.testclient import TestClient
 
 from config.config_manager import MetadataMediaType
+import endpoints.roms as roms_endpoint
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
+from handler.filesystem.storage_composition import (
+    StorageCompositionConfig,
+    build_storage_composition,
+)
+from handler.filesystem.storage_policy import OwnedStorageKind
+from handler.filesystem.storage_resolver import StorageRootHealthSnapshot
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
@@ -20,6 +31,7 @@ from models.collection import Collection, SmartCollection
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, compute_name_sort_key
+from models.storage import PlatformStorageMapping, StorageRoot
 from models.user import User
 
 MOCK_IGDB_ID = 11111
@@ -31,6 +43,59 @@ MOCK_FLASHPOINT_ID = 66666
 MOCK_HLTB_ID = 77777
 MOCK_SGDB_ID = 88888
 MOCK_HASHEOUS_ID = 99999
+
+
+@pytest.fixture
+def mapped_rom_storage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: Platform
+) -> Path:
+    root_path = tmp_path / "external"
+    mapped_path = root_path / platform.slug
+    mapped_path.mkdir(parents=True)
+    root = StorageRoot(
+        name="ROM endpoint mapped archive",
+        container_path=str(root_path),
+        mode="external_read_only",
+        active=True,
+    )
+    with sync_session.begin() as session:
+        session.add(root)
+        session.flush()
+        session.add(
+            PlatformStorageMapping(
+                platform_id=platform.id,
+                storage_root_id=root.id,
+                relative_path=platform.slug,
+                active=True,
+                version=1,
+            )
+        )
+    real_access = os.access
+    monkeypatch.setattr(
+        "handler.filesystem.storage_resolver.os.access",
+        lambda path, mode: False if mode & os.W_OK else real_access(path, mode),
+    )
+    monkeypatch.setattr(
+        "handler.storage.read_context.get_storage_root_health_snapshot",
+        lambda _root: StorageRootHealthSnapshot(True, True, True, None, None),
+    )
+    owned = {kind: tmp_path / kind.value for kind in OwnedStorageKind}
+    for path in owned.values():
+        path.mkdir()
+    monkeypatch.setattr(
+        roms_endpoint,
+        "storage_composition",
+        build_storage_composition(StorageCompositionConfig(root_path, owned)),
+    )
+    return root_path
+
+
+def _materialize_files(root: Path, files: list[RomFile]) -> None:
+    for file in files:
+        source = root.joinpath(*Path(file.full_path).parts)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(file.file_name.encode() or b"x")
+
 
 
 def test_get_rom(client: TestClient, access_token: str, rom: Rom):
@@ -185,7 +250,7 @@ def test_get_rom_lists_public_smart_collection_from_other_user(
 
 
 def test_download_multi_file_rom_content(
-    client: TestClient, access_token: str, multi_file_rom: Rom
+    client: TestClient, access_token: str, multi_file_rom: Rom, mapped_rom_storage: Path
 ):
     """Downloading a multi-file (game folder) ROM must not 500.
 
@@ -193,18 +258,14 @@ def test_download_multi_file_rom_content(
     `file.rom.full_path` after the handler session has closed; a missing
     `RomFile.rom` back-reference previously raised `DetachedInstanceError`.
     """
+    _materialize_files(mapped_rom_storage, multi_file_rom.files)
     response = client.get(
         f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == status.HTTP_200_OK
-    # mod_zip manifest: one line per file, plus a generated .m3u playlist.
-    assert response.headers["X-Archive-Files"] == "zip"
-    body = response.text
-    assert "disc1.bin" in body
-    assert "disc2.bin" in body
-    assert f"{multi_file_rom.fs_name}.m3u" in body
+    assert response.headers["X-Accel-Redirect"].startswith("/cache/zips/")
 
 
 def test_download_roms_by_platform(
@@ -212,17 +273,18 @@ def test_download_roms_by_platform(
     access_token: str,
     platform: Platform,
     rom_file: RomFile,
+    mapped_rom_storage: Path,
 ):
     """The `platform_id` selector expands server-side to every ROM in the
     platform, so no ID list rides in the URL."""
+    _materialize_files(mapped_rom_storage, [rom_file])
     response = client.get(
         f"/api/roms/download?platform_id={platform.id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.headers["X-Archive-Files"] == "zip"
-    assert rom_file.file_name in response.text
+    assert response.headers["X-Accel-Redirect"].startswith("/cache/zips/")
 
 
 def test_download_roms_by_collection(
@@ -230,6 +292,7 @@ def test_download_roms_by_collection(
     access_token: str,
     admin_user: User,
     rom_file: RomFile,
+    mapped_rom_storage: Path,
 ):
     """The `collection_id` selector expands to the collection's ROMs."""
     collection = db_collection_handler.add_collection(
@@ -242,6 +305,7 @@ def test_download_roms_by_collection(
         )
     )
     db_collection_handler.add_roms_to_collection(collection.id, [rom_file.rom_id])
+    _materialize_files(mapped_rom_storage, [rom_file])
 
     response = client.get(
         f"/api/roms/download?collection_id={collection.id}",
@@ -249,8 +313,7 @@ def test_download_roms_by_collection(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.headers["X-Archive-Files"] == "zip"
-    assert rom_file.file_name in response.text
+    assert response.headers["X-Accel-Redirect"].startswith("/cache/zips/")
 
 
 def test_download_roms_without_selector_is_bad_request(
@@ -492,8 +555,13 @@ def test_get_rom_content_requires_auth(client: TestClient, rom: Rom, rom_file):
 
 
 def test_get_rom_content_single_file(
-    client: TestClient, access_token: str, rom: Rom, rom_file
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    rom_file,
+    mapped_rom_storage: Path,
 ):
+    _materialize_files(mapped_rom_storage, [rom_file])
     response = client.get(
         f"/api/roms/{rom.id}/content/test_rom.zip",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -505,25 +573,30 @@ def test_get_rom_content_single_file(
     assert response.headers["content-disposition"].startswith("attachment")
 
 
-def test_get_rom_content_single_file_missing_on_disk_returns_404(
-    client: TestClient, access_token: str, rom: Rom, rom_file, mocker
+def test_get_rom_content_single_file_missing_on_disk_is_redacted(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    rom_file,
+    mapped_rom_storage: Path,
 ):
-    # In DEV_MODE the endpoint serves the file directly. If the file is gone
-    # from disk (e.g. a renamed/moved ROM whose old entry is now missing), it
-    # must return a clean 404 instead of raising a RuntimeError from
-    # FileResponse when starlette fails to stat the path.
-    mocker.patch("endpoints.roms.DEV_MODE", True)
     response = client.get(
         f"/api/roms/{rom.id}/content/test_rom.zip",
         headers={"Authorization": f"Bearer {access_token}"},
         follow_redirects=False,
     )
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["detail"]["code"] == "missing_storage_content"
 
 
 def test_get_rom_content_valid_file_id(
-    client: TestClient, access_token: str, rom: Rom, rom_file
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    rom_file,
+    mapped_rom_storage: Path,
 ):
+    _materialize_files(mapped_rom_storage, [rom_file])
     response = client.get(
         f"/api/roms/{rom.id}/content/test_rom.zip",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -565,9 +638,14 @@ def _hide_rom_for_user(rom_id: int, user_id: int) -> None:
 
 
 def test_get_romfile_content_visible_rom(
-    client: TestClient, viewer_access_token: str, rom: Rom, rom_file
+    client: TestClient,
+    viewer_access_token: str,
+    rom: Rom,
+    rom_file,
+    mapped_rom_storage: Path,
 ):
     # Baseline: a rom the viewer can see is downloadable by direct RomFile.id.
+    _materialize_files(mapped_rom_storage, [rom_file])
     response = client.get(
         f"/api/roms/{rom_file.id}/files/content/whatever.bin",
         headers={"Authorization": f"Bearer {viewer_access_token}"},
@@ -1910,12 +1988,25 @@ def test_phase5_mapping_replacement_aborts_without_reopen():
 def test_phase5_rom_downloads_never_hand_external_paths_to_nginx():
     import inspect
 
-    from endpoints.roms import download_roms, get_rom_content, head_rom_content
+    from endpoints.roms import (
+        _deliver_rom_content,
+        download_roms,
+        get_rom_content,
+        head_rom_content,
+    )
 
-    for endpoint in (download_roms, get_rom_content, head_rom_content):
-        source = inspect.getsource(endpoint)
-        assert "preflight_mapped_downloads" in source
-        assert "LIBRARY_BASE_PATH" not in source
-        assert "ZipContentLine" not in source
-        assert "ZipResponse" not in source
-        assert "legacy_external_storage" not in source
+    assert "preflight_mapped_downloads" in inspect.getsource(download_roms)
+    assert "preflight_mapped_downloads" in inspect.getsource(_deliver_rom_content)
+    combined = chr(10).join(
+        inspect.getsource(endpoint)
+        for endpoint in (
+            download_roms,
+            _deliver_rom_content,
+            get_rom_content,
+            head_rom_content,
+        )
+    )
+    assert "LIBRARY_BASE_PATH" not in combined
+    assert "ZipContentLine" not in combined
+    assert "ZipResponse" not in combined
+    assert "legacy_external_storage" not in combined

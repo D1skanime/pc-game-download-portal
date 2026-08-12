@@ -1,16 +1,15 @@
 import binascii
 import json
+import os
 from base64 import b64encode
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from io import BytesIO
-from stat import S_IFREG
+from pathlib import PurePath
 from typing import Annotated, Any, Sequence, cast
 from urllib.parse import quote
-from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 import pydash
-from anyio import Path, open_file
 from fastapi import (
     Body,
     Depends,
@@ -31,12 +30,9 @@ from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from fastapi_pagination.types import GreaterEqualZero
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
-from starlette.responses import FileResponse
 
 from config import (
-    DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
-    LIBRARY_BASE_PATH,
 )
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
@@ -50,13 +46,19 @@ from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from exceptions.storage_exceptions import MissingStorageTargetError
+from exceptions.storage_read import MappedReadError
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
     assert_rom_visible,
     get_permissions,
 )
-from handler.database import db_collection_handler, db_rom_handler, db_save_handler
+from handler.database import (
+    db_collection_handler,
+    db_rom_handler,
+    db_save_handler,
+    db_storage_handler,
+)
 from handler.database.base_handler import sync_session
 from handler.filesystem import (
     fs_resource_handler,
@@ -99,19 +101,27 @@ from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.m3u import generate_m3u_content
-from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
+from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 from utils.screenshots import continue_playing_screenshot
 from utils.validation import ValidationError
 from utils.zip_cache import (
-    BULK_CACHE_MAX_ROMS,
+    AuthorizedZipSource,
     ZipFileEntry,
     get_bulk_namespace,
     get_cache_key,
     get_cached_zip,
+    get_zip_redirect_path,
     resolve_cached_zip,
 )
 
+from .files import (
+    MappedContentResponse,
+    _mapped_chunks,
+    _mapped_http_error,
+    _range_bounds,
+    preflight_mapped_download,
+)
 from .files import router as files_router
 from .manual import router as manual_router
 from .notes import router as notes_router
@@ -123,13 +133,14 @@ from .upload import router as upload_router
 
 async def _resolve_capability_cached_zip(
     namespace: str,
-    entries: list[ZipFileEntry],
+    sources: list[AuthorizedZipSource],
     *,
     hidden_folder: bool = False,
     m3u_content: bytes | None = None,
     m3u_filename: str | None = None,
     log_label: str,
 ):
+    entries = [source.entry for source in sources]
     cache = storage_composition.owned[OwnedStorageKind.CACHE]
     try:
         with cast(
@@ -140,20 +151,9 @@ async def _resolve_capability_cached_zip(
     except Exception:  # nosec B110
         pass
     cache_key = get_cache_key(namespace, entries, hidden_folder)
+    if get_cached_zip(namespace, cache_key) is not None:
+        return get_zip_redirect_path(namespace, cache_key)
     with ExitStack() as stack:
-        sources = [
-            cast(
-                DownloadCapability,
-                stack.enter_context(
-                    open_storage_access(
-                        legacy_external_storage,
-                        StorageOperation.DOWNLOAD,
-                        entry.full_path,
-                    )
-                ),
-            )
-            for entry in entries
-        ]
         destination = cast(
             OwnedReplace,
             stack.enter_context(
@@ -166,7 +166,6 @@ async def _resolve_capability_cached_zip(
         )
         return await resolve_cached_zip(
             namespace,
-            entries,
             sources,
             destination,
             hidden_folder=hidden_folder,
@@ -174,6 +173,60 @@ async def _resolve_capability_cached_zip(
             m3u_filename=m3u_filename,
             log_label=log_label,
         )
+
+
+def _mapped_relative_path(full_path: str) -> str:
+    parts = PurePath(full_path).parts
+    if len(parts) < 2:
+        return parts[0] if parts else ""
+    return PurePath(*parts[1:]).as_posix()
+
+
+def preflight_mapped_downloads(items) -> list[AuthorizedZipSource]:
+    """Open every required source before response construction."""
+    from handler.storage.read_context import MappingReadContext
+
+    sources: list[AuthorizedZipSource] = []
+    try:
+        for rom, file, download_name in items:
+            mapping = db_storage_handler.get_active_mapping(rom.platform_id)
+            context = MappingReadContext(mapping.id, mapping.version)
+            access = cast(
+                DownloadCapability,
+                context.open(
+                    StorageOperation.DOWNLOAD,
+                    _mapped_relative_path(file.full_path),
+                ),
+            )
+            try:
+                stat = os.fstat(access.fileno())
+                context.boundary()
+            except Exception:
+                access.close()
+                raise
+            sources.append(
+                AuthorizedZipSource(
+                    entry=ZipFileEntry(
+                        download_name=download_name,
+                        mapping_id=mapping.id,
+                        expected_mapping_revision=mapping.version,
+                        logical_path=_mapped_relative_path(file.full_path),
+                        file_size_bytes=stat.st_size,
+                        updated_at_epoch=file.updated_at.timestamp(),
+                    ),
+                    context=context,
+                    access=access,
+                )
+            )
+    except Exception:
+        _close_zip_sources(sources)
+        raise
+    return sources
+
+
+def _close_zip_sources(sources: list[AuthorizedZipSource]) -> None:
+    for source in sources:
+        source.access.close()
 
 
 router = APIRouter(
@@ -191,22 +244,6 @@ router.include_router(patch_router)
 
 # RomUser fields the statuses filter branches on.
 STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hidden"})
-
-
-def _download_chunks(relative_path: str):
-    try:
-        access = cast(
-            DownloadCapability,
-            open_storage_access(
-                legacy_external_storage, StorageOperation.DOWNLOAD, relative_path
-            ),
-        )
-    except MissingStorageTargetError:
-        return
-    try:
-        yield from access.download()
-    finally:
-        access.close()
 
 
 def safe_int_or_none(value: Any) -> int | None:
@@ -1095,18 +1132,16 @@ async def download_roms(
         f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
     )
 
-    all_entries = []
-    for rom in rom_objects:
-        rom_files = sorted(rom.files, key=lambda x: x.file_name)
-        for file in rom_files:
-            all_entries.append(
-                ZipFileEntry(
-                    download_name=file.full_path,
-                    full_path=file.full_path,
-                    file_size_bytes=file.file_size_bytes,
-                    updated_at_epoch=file.updated_at.timestamp(),
-                )
-            )
+    items = [
+        (rom, file, file.full_path)
+        for rom in rom_objects
+        for file in sorted(rom.files, key=lambda item: item.file_name)
+    ]
+    try:
+        sources = preflight_mapped_downloads(items)
+    except MappedReadError as error:
+        raise _mapped_http_error(error) from None
+    all_entries = [source.entry for source in sources]
 
     if filename:
         file_name = sanitize_filename(filename)
@@ -1116,39 +1151,20 @@ async def download_roms(
         ).encode()
         file_name = f"{len(rom_objects)} ROMs ({crc32_to_hex(binascii.crc32(content_summary))}).zip"
 
-    StoragePolicy.authorize(
-        StorageOperation.WRITE,
-        storage_composition.owned[OwnedStorageKind.CACHE],
-    )
-    StoragePolicy.authorize(StorageOperation.DOWNLOAD, legacy_external_storage)
-
-    range_header = request.headers.get("range")
-    if range_header and len(rom_objects) <= BULK_CACHE_MAX_ROMS:
+    try:
         redirect_path = await _resolve_capability_cached_zip(
             get_bulk_namespace([r.id for r in rom_objects]),
-            all_entries,
+            sources,
             log_label=f"bulk download ({len(rom_objects)} ROMs)",
         )
-        if redirect_path:
-            return FileRedirectResponse(
-                download_path=redirect_path,
-                filename=file_name,
-            )
-
-    content_lines = [
-        ZipContentLine(
-            crc32=None,
-            size_bytes=e.file_size_bytes,
-            encoded_location=quote(f"/library/{e.full_path}"),
-            filename=e.download_name,
+    finally:
+        _close_zip_sources(sources)
+    if redirect_path is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "zip_generation_failed"},
         )
-        for e in all_entries
-    ]
-
-    return ZipResponse(
-        content_lines=content_lines,
-        filename=quote(file_name),
-    )
+    return FileRedirectResponse(download_path=redirect_path, filename=file_name)
 
 
 @protected_route(
@@ -1320,6 +1336,78 @@ def get_rom(
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
+async def _deliver_rom_content(
+    request: Request,
+    rom: Rom,
+    files,
+    file_name: str,
+    hidden_folder: bool,
+):
+    if len(files) == 1:
+        try:
+            context, access, size = preflight_mapped_download(rom, files[0])
+        except MappedReadError as error:
+            raise _mapped_http_error(error) from None
+        try:
+            bounds = _range_bounds(request.headers.get("range"), size)
+        except HTTPException:
+            access.close()
+            raise
+        start, end = bounds if bounds is not None else (0, max(size - 1, 0))
+        content_length = end - start + 1 if size else 0
+        headers = {
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(content_length),
+            "Content-Disposition": f'attachment; filename="{files[0].file_name}"',
+        }
+        response_status = status.HTTP_200_OK
+        if bounds is not None:
+            response_status = status.HTTP_206_PARTIAL_CONTENT
+            headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+        if request.method == "HEAD":
+            access.close()
+            return Response(
+                status_code=response_status,
+                media_type="application/octet-stream",
+                headers=headers,
+            )
+        return MappedContentResponse(
+            _mapped_chunks(context, access, start, content_length),
+            status_code=response_status,
+            media_type="application/octet-stream",
+            headers=headers,
+        )
+
+    items = [
+        (rom, file, file.file_name_for_download(hidden_folder)) for file in files
+    ]
+    try:
+        sources = preflight_mapped_downloads(items)
+    except MappedReadError as error:
+        raise _mapped_http_error(error) from None
+    has_m3u = rom.has_m3u_file()
+    try:
+        redirect_path = await _resolve_capability_cached_zip(
+            str(rom.id),
+            sources,
+            hidden_folder=hidden_folder,
+            m3u_content=None if has_m3u else generate_m3u_content(files, hidden_folder),
+            m3u_filename=None if has_m3u else f"{file_name}.m3u",
+            log_label=f"ROM {rom.id}",
+        )
+    finally:
+        _close_zip_sources(sources)
+    if redirect_path is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "zip_generation_failed"},
+        )
+    return FileRedirectResponse(
+        download_path=redirect_path,
+        filename=f"{file_name}.zip",
+    )
+
+
 @protected_route(
     router.head,
     "/{id}/content/{file_name}",
@@ -1358,64 +1446,9 @@ async def head_rom_content(
             detail=f"No files found for ROM {id}",
         )
 
-    StoragePolicy.authorize(StorageOperation.DOWNLOAD, legacy_external_storage)
-
-    # Serve the file directly in development mode for emulatorjs
-    if DEV_MODE:
-        if len(files) == 1:
-            file = files[0]
-            rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
-            if not await Path(rom_path).is_file():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"File {file.file_name} not found on disk for ROM {id}",
-                )
-            return FileResponse(
-                path=rom_path,
-                filename=file.file_name,
-                headers={
-                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
-                    "Content-Type": "application/octet-stream",
-                    "Content-Length": str(file.file_size_bytes),
-                },
-            )
-
-        return Response(
-            headers={
-                "Content-Type": "application/zip",
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
-            },
-        )
-
-    if len(files) == 1:
-        return Response(
-            headers={
-                "Content-Type": "application/octet-stream",
-                "Content-Length": str(files[0].file_size_bytes),
-                "Content-Disposition": f'attachment; filename="{files[0].file_name}"',
-            }
-        )
-
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
-    entries = [ZipFileEntry.from_rom_file(f, hidden_folder) for f in files]
-    namespace = str(rom.id)
-    cache_key = get_cache_key(namespace, entries, hidden_folder)
-    zip_path = get_cached_zip(namespace, cache_key)
-    if zip_path:
-        return Response(
-            headers={
-                "Content-Type": "application/zip",
-                "Content-Length": str(zip_path.stat().st_size),
-                "Accept-Ranges": "bytes",
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
-            },
-        )
-
-    return Response(
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
-        },
+    return await _deliver_rom_content(
+        request, rom, files, file_name, hidden_folder
     )
 
 
@@ -1471,149 +1504,8 @@ async def get_rom_content(
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
-
-    # If .cue files are present, only list those in the M3U
-    # (avoids invalid entries like raw .bin tracks)
-    cue_files = [f for f in files if f.file_extension.lower() == "cue"]
-    m3u_files = cue_files if cue_files else files
-
-    StoragePolicy.authorize(
-        StorageOperation.WRITE,
-        storage_composition.owned[OwnedStorageKind.CACHE],
-    )
-    StoragePolicy.authorize(StorageOperation.DOWNLOAD, legacy_external_storage)
-
-    # Serve the file directly in development mode for emulatorjs
-    if DEV_MODE:
-        if len(files) == 1:
-            file = files[0]
-            rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
-            if not await Path(rom_path).is_file():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"File {file.file_name} not found on disk for ROM {id}",
-                )
-            return FileResponse(
-                path=rom_path,
-                filename=file.file_name,
-                headers={
-                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
-                    "Content-Type": "application/octet-stream",
-                    "Content-Length": str(file.file_size_bytes),
-                },
-            )
-
-        async def build_zip_in_memory() -> bytes:
-            # Initialize in-memory buffer
-            zip_buffer = BytesIO()
-            now = datetime.now()
-
-            with ZipFile(zip_buffer, "w") as zip_file:
-                # Add content files
-                for file in files:
-                    file_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
-                    try:
-                        # Read entire file into memory
-                        async with await open_file(file_path, "rb") as f:
-                            content = await f.read()
-
-                        # Create ZIP info with compression
-                        zip_info = ZipInfo(
-                            filename=file.file_name_for_download(hidden_folder),
-                            date_time=now.timetuple()[:6],
-                        )
-                        zip_info.external_attr = S_IFREG | 0o600
-                        zip_info.compress_type = (
-                            ZIP_DEFLATED if file.file_size_bytes > 0 else ZIP_STORED
-                        )
-
-                        # Write file to ZIP
-                        zip_file.writestr(zip_info, content)
-
-                    except FileNotFoundError:
-                        log.error(f"File {hl(file_path)} not found!")
-                        raise
-
-                # Add M3U file if not already present
-                if not rom.has_m3u_file():
-                    m3u_encoded_content = "\n".join(
-                        [f.file_name_for_download(hidden_folder) for f in m3u_files]
-                    ).encode()
-                    m3u_filename = f"{rom.fs_name}.m3u"
-                    m3u_info = ZipInfo(
-                        filename=m3u_filename, date_time=now.timetuple()[:6]
-                    )
-                    m3u_info.external_attr = S_IFREG | 0o600
-                    m3u_info.compress_type = ZIP_STORED
-                    zip_file.writestr(m3u_info, m3u_encoded_content)
-
-            # Get the completed ZIP file bytes
-            zip_buffer.seek(0)
-            return zip_buffer.getvalue()
-
-        zip_data = await build_zip_in_memory()
-
-        # Streams the zip file to the client
-        return Response(
-            content=zip_data,
-            media_type="application/zip",
-            headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
-            },
-        )
-
-    if len(files) == 1:
-        return StreamingResponse(
-            _download_chunks(files[0].full_path),
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{files[0].file_name}"'
-            },
-        )
-
-    # Multi-file path: serve cached ZIP for Range requests (resumable),
-    # fall through to mod_zip streaming for non-Range requests.
-    range_header = request.headers.get("range")
-    if range_header:
-        has_m3u = rom.has_m3u_file()
-        redirect_path = await _resolve_capability_cached_zip(
-            str(rom.id),
-            [ZipFileEntry.from_rom_file(f, hidden_folder) for f in files],
-            hidden_folder=hidden_folder,
-            m3u_content=None if has_m3u else generate_m3u_content(files, hidden_folder),
-            m3u_filename=None if has_m3u else f"{file_name}.m3u",
-            log_label=f"ROM {rom.id}",
-        )
-        if redirect_path:
-            return FileRedirectResponse(
-                download_path=redirect_path,
-                filename=f"{file_name}.zip",
-            )
-
-    content_lines = [
-        ZipContentLine(
-            crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
-            size_bytes=f.file_size_bytes,
-            encoded_location=quote(f"/library/{f.full_path}"),
-            filename=f.file_name_for_download(hidden_folder),
-        )
-        for f in files
-    ]
-
-    if not rom.has_m3u_file():
-        m3u_encoded_content = generate_m3u_content(files, hidden_folder)
-        m3u_base64_content = b64encode(m3u_encoded_content).decode()
-        m3u_line = ZipContentLine(
-            crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
-            size_bytes=len(m3u_encoded_content),
-            encoded_location=f"/decode?value={m3u_base64_content}",
-            filename=f"{file_name}.m3u",
-        )
-        content_lines.append(m3u_line)
-
-    return ZipResponse(
-        content_lines=content_lines,
-        filename=f"{quote(file_name)}.zip",
+    return await _deliver_rom_content(
+        request, rom, files, file_name, hidden_folder
     )
 
 

@@ -14,11 +14,13 @@ from typing import TYPE_CHECKING
 import anyio
 
 from config import ZIP_CACHE_PATH
+from exceptions.storage_read import MappedReadError
 from handler.filesystem.storage_access import DownloadCapability, OwnedReplace
 from logger.formatter import highlight as hl
 from logger.logger import log
 
 if TYPE_CHECKING:
+    from handler.storage.read_context import MappingReadContext
     from models.rom import RomFile
 
 CACHE_KEY_LENGTH = 16
@@ -35,7 +37,9 @@ class ZipFileEntry:
     """Thread-safe snapshot of a RomFile's download-relevant data."""
 
     download_name: str
-    full_path: str
+    mapping_id: int
+    expected_mapping_revision: int
+    logical_path: str
     file_size_bytes: int
     updated_at_epoch: float
 
@@ -43,10 +47,21 @@ class ZipFileEntry:
     def from_rom_file(cls, file: RomFile, hidden_folder: bool) -> ZipFileEntry:
         return cls(
             download_name=file.file_name_for_download(hidden_folder),
-            full_path=file.full_path,
+            mapping_id=0,
+            expected_mapping_revision=0,
+            logical_path=file.full_path,
             file_size_bytes=file.file_size_bytes,
             updated_at_epoch=file.updated_at.timestamp(),
         )
+
+
+@dataclasses.dataclass(frozen=True)
+class AuthorizedZipSource:
+    """One logical ZIP member bound to its authorized open descriptor."""
+
+    entry: ZipFileEntry
+    context: MappingReadContext
+    access: DownloadCapability
 
 
 def get_cache_key(
@@ -61,7 +76,17 @@ def get_cache_key(
         str(max((e.updated_at_epoch for e in entries), default=0.0)),
     ]
     for e in sorted(entries, key=lambda x: x.download_name):
-        parts.append(f"{e.download_name}:{e.file_size_bytes}")
+        parts.append(
+            ":".join(
+                (
+                    str(e.mapping_id),
+                    str(e.expected_mapping_revision),
+                    e.logical_path,
+                    e.download_name,
+                    str(e.file_size_bytes),
+                )
+            )
+        )
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:CACHE_KEY_LENGTH]
 
 
@@ -117,28 +142,26 @@ def _ensure_zipfile_writable() -> None:
 
 
 def build_cached_zip(
-    entries: list[ZipFileEntry],
-    sources: list[DownloadCapability],
+    sources: list[AuthorizedZipSource],
     m3u_content: bytes | None,
     m3u_filename: str | None,
     destination: OwnedReplace,
 ) -> None:
-    """Build a ZIP from DOWNLOAD capabilities into an owned replacement."""
-    if len(entries) != len(sources):
-        raise ValueError("each ZIP entry requires one download capability")
+    """Build a ZIP from authorized descriptors into an owned replacement."""
     if not isinstance(destination, OwnedReplace) or not all(
-        isinstance(source, DownloadCapability) for source in sources
+        isinstance(source.access, DownloadCapability) for source in sources
     ):
         raise TypeError("ZIP building requires download inputs and owned output")
     with destination.binary_file() as output:
         _ensure_zipfile_writable()
         with zipfile.ZipFile(output, "w") as zf:
-            for entry, source in zip(entries, sources, strict=True):
-                with source.binary_file() as input_file, zf.open(
-                    entry.download_name, "w"
+            for source in sources:
+                source.context.boundary()
+                with source.access.binary_file() as input_file, zf.open(
+                    source.entry.download_name, "w"
                 ) as member:
                     shutil.copyfileobj(input_file, member)
-
+                source.context.boundary()
             if m3u_content is not None and m3u_filename is not None:
                 zf.writestr(m3u_filename, m3u_content)
 
@@ -150,8 +173,7 @@ def get_zip_redirect_path(namespace: str, cache_key: str) -> Path:
 
 async def resolve_cached_zip(
     namespace: str,
-    entries: list[ZipFileEntry],
-    sources: list[DownloadCapability],
+    sources: list[AuthorizedZipSource],
     destination: OwnedReplace,
     *,
     hidden_folder: bool = False,
@@ -161,30 +183,29 @@ async def resolve_cached_zip(
 ) -> Path | None:
     """Return the nginx redirect path for a cached ZIP, building it on demand.
 
-    Returns ``None`` when there is nothing to cache or the build fails, letting
-    the caller fall back to mod_zip streaming. A full disk simply surfaces as a
-    build failure here, so no separate space check is needed.
+    Returns ``None`` when there is nothing to cache or generation fails.
+    Mapping invalidation is never converted into a generation fallback.
     """
-    if not entries:
+    if not sources:
         return None
 
+    entries = [source.entry for source in sources]
     cache_key = get_cache_key(namespace, entries, hidden_folder)
 
     try:
         await anyio.to_thread.run_sync(
             functools.partial(
                 build_cached_zip,
-                entries=entries,
                 sources=sources,
                 m3u_content=m3u_content,
                 m3u_filename=m3u_filename,
                 destination=destination,
             )
         )
+    except MappedReadError:
+        raise
     except Exception as e:
-        log.warning(
-            f"Failed to build cached ZIP for {log_label}, falling back to streaming: {e}"
-        )
+        log.warning(f"Failed to build cached ZIP for {log_label}: {e}")
         return None
 
     return get_zip_redirect_path(namespace, cache_key)
