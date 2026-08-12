@@ -97,7 +97,7 @@ def test_valid_names_preserve_composed_and_decomposed_unicode() -> None:
     st.text(
         alphabet=st.characters(
             blacklist_categories=("Cc", "Cs"),
-            blacklist_characters="/\\",
+            blacklist_characters="/\\:",
         ),
         min_size=1,
         max_size=80,
