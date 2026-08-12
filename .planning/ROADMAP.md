@@ -160,7 +160,18 @@ Plans:
 3. Hashing, streaming, playing, downloading, worker, and redirect paths read the mapped source without writing beside it or using the legacy fixed layout.
 4. Queued work detects a changed or missing mapping identity and fails clearly instead of being silently redirected.
 
-**Plans**: TBD
+**Plans**: 8/8 plans complete
+
+Plans:
+
+- [x] `05-01-PLAN.md` - Integration contract and executable storage inventory
+- [x] `05-02-PLAN.md` - Mapping-bound scan context and pipeline cutover
+- [x] `05-03-PLAN.md` - Manual, scheduled, and watcher scan orchestration
+- [x] `05-04-PLAN.md` - Bounded durable scan preview
+- [x] `05-05-PLAN.md` - Hashing and single-file delivery cutover
+- [x] `05-06-PLAN.md` - Multi-file download preflight and immutable delivery
+- [x] `05-07-PLAN.md` - Complete mapped read cutover gates
+- [x] `05-08-PLAN.md` - Metadata export destination hardening
 
 ### Phase 6: Safe Lifecycle and Legacy Migration
 

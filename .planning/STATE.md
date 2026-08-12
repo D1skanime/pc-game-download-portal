@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 05-08-PLAN.md
-last_updated: "2026-08-12T14:51:43.473Z"
+status: ready
+stopped_at: Phase 5 verified and complete; ready for Phase 6
+last_updated: "2026-08-12T00:00:00Z"
 last_activity: 2026-08-12
 progress:
   total_phases: 9
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 5 - Preview and Read-path Cutover
+**Current focus:** Phase 6 - Safe Lifecycle and Legacy Migration
 
 ## Current Position
 
-Phase: 5
-Plan: 8 of 8
-Status: Ready to execute
+Phase: 6
+Plan: 0 of TBD
+Status: Not started
 Last activity: 2026-08-12
 
-Progress: [██████████] 97%
+Progress: [██████░░░░] 56%
 
 ## Performance Metrics
 
@@ -127,6 +127,7 @@ Recent decisions affecting current work:
 - [Phase 05]: Exporter immutability evidence covers manual, scheduled, and watcher commands with byte-exact source manifests.
 - [Phase 05]: External mapped downloads use application-held descriptors; Nginx receives only completed RomM-owned cache paths.
 - [Phase 05]: ZIP cache identity binds mapping ID, revision, logical path, member name, size, and timestamp without host paths.
+- [Phase 05]: Independent verification passed all 26 requirements and decision checks with no product gaps or human verification items.
 
 ### Blockers/Concerns
 
@@ -145,5 +146,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-08-12T14:51:04.122Z
-Stopped at: Completed 05-08-PLAN.md
+Stopped at: Phase 5 verified and complete; ready for Phase 6
 Resume file: None
