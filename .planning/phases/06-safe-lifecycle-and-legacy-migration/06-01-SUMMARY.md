@@ -121,3 +121,44 @@ Each task was committed atomically:
 - **Issue:** MariaDB rejects explicitly dropping an index that still backs a foreign key before the table is dropped.
 - **Fix:** Removed the redundant explicit index drop; dropping `mapping_previews` removes its index and constraint atomically on every supported dialect.
 - **Files modified:** `backend/alembic/versions/0110_mapping_preview_results.py`
+- **Verification:** The full three-dialect 0110 ? head ? 0110 ? head seeded round trip passes.
+- **Committed in:** `d6a900e37`
+
+---
+
+**Total deviations:** 2 auto-fixed (2 blocking)
+**Impact on plan:** Both fixes were required for portable migration correctness; no feature scope was added.
+
+## Issues Encountered
+
+- The long-running development container exposes only `/app/backend`, so verification used a short-lived runner with the canonical repository mounted at `/app` and the existing Docker socket.
+- The development image entrypoint exits after startup; the disposable runner therefore used an explicit `sleep` entrypoint. Two interrupted verifier database containers and their generated empty config directory were removed before the successful matrix run.
+- The expected downgrade-rejection checks emit Alembic tracebacks; the verifier catches their nonzero exits and confirms the guarded behavior.
+
+## Verification
+
+- `pytest -c /dev/null tests/models/test_safe_lifecycle.py tests/tools/test_verify_storage_migrations.py -q`: 13 passed.
+- `trunk fmt` and `trunk check` on all nine touched Python files: clean.
+- Disposable MariaDB 10.11, MySQL 8.4, and PostgreSQL 15 migration matrix: passed.
+- Stub scan: no TODO, FIXME, placeholder, coming-soon, or unavailable implementation stubs.
+- Threat-surface scan: all schema and file-ownership surfaces are covered by the plan threat model; no additional flags.
+
+## User Setup Required
+
+None - no external service configuration required.
+
+## Next Phase Readiness
+
+- Plans 06-02 onward can implement transactional delete, cleanup execution, reconnect, detection, migration, rollback, and first-use logic on these durable contracts.
+- No blockers remain.
+
+## Self-Check: PASSED
+
+- Created files exist in the canonical Linux checkout.
+- RED and GREEN task commits exist in git history.
+- All plan requirements and verification claims are represented above.
+
+---
+
+_Phase: 06-safe-lifecycle-and-legacy-migration_
+_Completed: 2026-08-12_
