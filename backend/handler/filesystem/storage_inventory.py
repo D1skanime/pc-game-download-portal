@@ -192,17 +192,6 @@ INVENTORY: tuple[InventoryRow, ...] = (
         _ENDPOINT_EVIDENCE,
     ),
     _mutation(
-        "endpoint-mutation",
-        "endpoints.roms",
-        "delete_roms",
-        _EXTERNAL,
-        _EXTERNAL,
-        ("DELETE",),
-        InventoryDisposition.POLICY_GOVERNED,
-        "endpoints.storage_policy:authorize_api_storage_operation",
-        _ENDPOINT_EVIDENCE,
-    ),
-    _mutation(
         "archive",
         "utils.archives",
         "extract_file",
