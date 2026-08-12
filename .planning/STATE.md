@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-05-PLAN.md
-last_updated: "2026-08-12T22:34:10.211Z"
+stopped_at: Completed 06-06-PLAN.md
+last_updated: "2026-08-12T23:07:57.151Z"
 last_activity: 2026-08-12
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 44
-  completed_plans: 40
-  percent: 91
+  completed_plans: 41
+  percent: 93
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 6 of 9
+Plan: 7 of 9
 Status: Ready to execute
 Last activity: 2026-08-12
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ _Updated after each plan completion_
 | Phase 06 P03 | 26min | 2 tasks | 15 files |
 | Phase 06 P04 | 33min | 2 tasks | 18 files |
 | Phase 06 P05 | 18min | 2 tasks | 14 files |
+| Phase 06 P06 | 27min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -144,6 +145,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Legacy detection results expire after 24 hours and bind observed mapping identity and version. — Stale, replayed, and cross-platform results cannot become migration or read authority.
 - [Phase 06]: Impact preview counts only normalized unique catalog identities and never opens source storage. — Keeps preview read-only and prevents guessed source matches.
 - [Phase 06]: Legacy migration confirmation binds durable result identity, live authority, catalog counts, and expiry. — Exact recomputation rejects stale or replayed impact before mutation.
+- [Phase 06]: Atomic migration revalidates confirmation and commits mapping, catalog, audit, detection version, and rollback metadata together. — One platform transaction prevents partial durable authority.
+- [Phase 06]: Only unique normalized logical catalog identities reconnect. — Invalid and ambiguous rows remain visible and unreachable rather than being guessed.
+- [Phase 06]: Migration results expose only durable IDs, versions, counts, and authority booleans. — Paths, raw rows, filesystem observations, and legacy fallback stay outside the public contract.
 
 ### Blockers/Concerns
 
@@ -161,6 +165,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-12T22:33:53.626Z
-Stopped at: Completed 06-05-PLAN.md
+Last session: 2026-08-12T23:07:40.754Z
+Stopped at: Completed 06-06-PLAN.md
 Resume file: None
