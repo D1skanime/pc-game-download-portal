@@ -12,9 +12,11 @@ from decorators.database import begin_session
 from exceptions.storage_exceptions import (
     MissingStoragePlatformError,
     MissingStorageRootError,
+    StorageResolutionError,
 )
 from handler.database.base_handler import DBBaseHandler
 from models.platform import Platform
+from models.rom import Rom
 from models.storage import (
     LegacyDetectionResult,
     LegacyDetectionState,
@@ -23,9 +25,33 @@ from models.storage import (
 )
 
 if TYPE_CHECKING:
-    from handler.storage.legacy_migration import LegacyDetectionOutcome
+    from handler.storage.legacy_migration import (
+        LegacyDetectionOutcome,
+        LegacyImpactConfirmation,
+        LegacyImpactPlannedEffects,
+        LegacyImpactProblem,
+        LegacyMigrationImpact,
+    )
 
 LEGACY_DETECTION_TTL_HOURS = 24
+_IMPACT_CODES = {
+    "active_mapping_conflict",
+    "canonical_layout_empty",
+    "canonical_layout_missing",
+    "entry_budget",
+    "inactive_storage_root",
+    "mapping_overlap",
+    "multiple_canonical_layouts",
+    "storage_root_unreachable",
+    "time_budget",
+    "unreadable_directory",
+    "unreadable_entry",
+    "unsafe_catalog_identity",
+    "unsafe_entry",
+    "unsafe_platform_identity",
+    "unsupported_entry",
+    "ambiguous_catalog_identity",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,6 +243,227 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         session.add(result)
         session.flush()
         return result
+
+    @staticmethod
+    def _impact_problem(code: str | None, count: int = 1) -> LegacyImpactProblem:
+        from handler.storage.legacy_migration import LegacyImpactProblem
+
+        return LegacyImpactProblem(
+            code if code in _IMPACT_CODES else "canonical_layout_missing", count
+        )
+
+    @staticmethod
+    def _zero_effects() -> LegacyImpactPlannedEffects:
+        from handler.storage.legacy_migration import LegacyImpactPlannedEffects
+
+        return LegacyImpactPlannedEffects(0, 0, 0, 0, 0)
+
+    @classmethod
+    def _manual_impact(cls, result, code: str | None) -> LegacyMigrationImpact:
+        from handler.storage.legacy_migration import (
+            LegacyImpactProposedMapping,
+            LegacyMigrationImpact,
+        )
+
+        proposed = (
+            LegacyImpactProposedMapping(
+                result.platform_id,
+                result.storage_root_id,
+                result.proposed_relative_path,
+            )
+            if result.proposed_relative_path is not None
+            else None
+        )
+        return LegacyMigrationImpact(
+            "manual_mapping_required",
+            proposed,
+            0,
+            0,
+            (cls._impact_problem(code),),
+            cls._zero_effects(),
+            None,
+        )
+
+    @staticmethod
+    def _catalog_impact(session: Session, platform_id: int):
+        from handler.filesystem.storage_resolver import normalize_relative_path
+        from handler.storage.legacy_migration import LegacyImpactProblem
+
+        rows = session.execute(
+            select(Rom.id, Rom.fs_path, Rom.fs_name)
+            .where(Rom.platform_id == platform_id)
+            .order_by(Rom.id)
+        ).all()
+        identities: dict[str, int] = {}
+        unsafe = 0
+        for row in rows:
+            logical = "/".join(part for part in (row.fs_path, row.fs_name) if part)
+            try:
+                logical = normalize_relative_path(logical)
+            except StorageResolutionError:
+                unsafe += 1
+                continue
+            identities[logical] = identities.get(logical, 0) + 1
+        ambiguous = sum(count for count in identities.values() if count > 1)
+        reconnectable = sum(1 for count in identities.values() if count == 1)
+        problems = []
+        if unsafe:
+            problems.append(LegacyImpactProblem("unsafe_catalog_identity", unsafe))
+        if ambiguous:
+            problems.append(
+                LegacyImpactProblem("ambiguous_catalog_identity", ambiguous)
+            )
+        return reconnectable, unsafe + ambiguous, tuple(problems)
+
+    def _preview_impact(
+        self,
+        session: Session,
+        result_id: int,
+        *,
+        platform_id: int,
+        expected_result_version: int,
+        now: datetime | None,
+    ) -> LegacyMigrationImpact:
+        from handler.filesystem.storage_resolver import normalize_relative_path
+        from handler.storage.legacy_migration import (
+            LegacyImpactConfirmation,
+            LegacyImpactPlannedEffects,
+            LegacyImpactProposedMapping,
+            LegacyMigrationImpact,
+        )
+
+        identity = session.execute(
+            select(
+                LegacyDetectionResult.platform_id, LegacyDetectionResult.storage_root_id
+            ).where(LegacyDetectionResult.id == result_id)
+        ).one_or_none()
+        if identity is None:
+            raise LegacyDetectionResultError(
+                "legacy_detection_missing", result_id=result_id
+            )
+        if identity.platform_id != platform_id:
+            raise LegacyDetectionResultError(
+                "legacy_detection_cross_platform",
+                result_id=result_id,
+                platform_id=platform_id,
+            )
+        _, root, mappings = self._lock_context(
+            session, identity.platform_id, identity.storage_root_id
+        )
+        result = session.scalar(
+            select(LegacyDetectionResult)
+            .where(LegacyDetectionResult.id == result_id)
+            .with_for_update(of=LegacyDetectionResult)
+        )
+        if result is None:
+            raise LegacyDetectionResultError(
+                "legacy_detection_missing", result_id=result_id
+            )
+        if result.version != expected_result_version:
+            raise LegacyDetectionResultError(
+                "legacy_detection_stale",
+                result_id=result_id,
+                platform_id=platform_id,
+                current_version=result.version,
+            )
+        current = now or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        expiry = result.expires_at
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if expiry <= current:
+            raise LegacyDetectionResultError(
+                "legacy_detection_expired",
+                result_id=result_id,
+                platform_id=platform_id,
+                current_version=result.version,
+            )
+        if any(mapping.platform_id == platform_id for mapping in mappings):
+            return self._manual_impact(result, "active_mapping_conflict")
+        if not root.active:
+            return self._manual_impact(result, "inactive_storage_root")
+        if not result.selectable or result.proposed_relative_path is None:
+            return self._manual_impact(result, result.safe_problem_code)
+        try:
+            relative_path = normalize_relative_path(result.proposed_relative_path)
+        except StorageResolutionError:
+            return self._manual_impact(result, "unsafe_platform_identity")
+        if any(
+            mapping.storage_root_id == result.storage_root_id
+            and self._paths_overlap(relative_path, mapping.relative_path)
+            for mapping in mappings
+        ):
+            return self._manual_impact(result, "mapping_overlap")
+        reconnectable, unmatched, problems = self._catalog_impact(session, platform_id)
+        if result.safe_problem_code is not None:
+            problems = (self._impact_problem(result.safe_problem_code),) + problems
+        proposed = LegacyImpactProposedMapping(
+            platform_id, result.storage_root_id, relative_path
+        )
+        confirmation = LegacyImpactConfirmation(
+            result.id,
+            result.version,
+            platform_id,
+            result.storage_root_id,
+            relative_path,
+            result.observed_mapping_id,
+            result.observed_mapping_version,
+            reconnectable,
+            unmatched,
+            expiry,
+        )
+        return LegacyMigrationImpact(
+            "ready",
+            proposed,
+            reconnectable,
+            unmatched,
+            problems[:10],
+            LegacyImpactPlannedEffects(1, reconnectable, unmatched, 1, 1),
+            confirmation,
+        )
+
+    @begin_session
+    def preview_migration_impact(
+        self,
+        result_id: int,
+        *,
+        platform_id: int,
+        expected_result_version: int,
+        now: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> LegacyMigrationImpact:
+        return self._preview_impact(
+            session,
+            result_id,
+            platform_id=platform_id,
+            expected_result_version=expected_result_version,
+            now=now,
+        )
+
+    @begin_session
+    def validate_impact_confirmation(
+        self,
+        confirmation: LegacyImpactConfirmation,
+        *,
+        now: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> LegacyMigrationImpact:
+        impact = self._preview_impact(
+            session,
+            confirmation.detection_result_id,
+            platform_id=confirmation.platform_id,
+            expected_result_version=confirmation.result_version,
+            now=now,
+        )
+        if impact.confirmation != confirmation:
+            raise LegacyDetectionResultError(
+                "legacy_impact_stale",
+                result_id=confirmation.detection_result_id,
+                platform_id=confirmation.platform_id,
+                current_version=confirmation.result_version,
+            )
+        return impact
 
     @begin_session
     def get_detection_result(

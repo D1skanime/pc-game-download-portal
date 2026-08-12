@@ -873,7 +873,7 @@ def test_legacy_impact_returns_allowlisted_confirmation(
     assert body["unmatched_catalog_count"] == 1
     assert body["planned_owned_effects"]["source_mutation_count"] == 0
     assert body["confirmation"]["detection_result_id"] == 41
-    assert body["confirmation"]["expires_at"] == "2026-08-13T00:00:00Z"
+    assert body["confirmation"]["expires_at"] == "2026-08-13T00:00:00+00:00"
     assert body["source_immutable"] is True
     assert body["legacy_fallback_enabled"] is False
     assert "/sentinel/" not in response.text

@@ -3,6 +3,7 @@ from __future__ import annotations
 import stat
 import time
 from dataclasses import dataclass
+from datetime import datetime
 
 from exceptions.storage_exceptions import (
     MissingStorageRootError,
@@ -36,6 +37,56 @@ class LegacyDetectionOutcome:
     lower_bound: bool
     selectable: bool
     safe_problem_code: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyImpactProblem:
+    code: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyImpactProposedMapping:
+    platform_id: int
+    storage_root_id: int
+    relative_path: str
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyImpactPlannedEffects:
+    mapping_create_count: int
+    catalog_reconnect_count: int
+    catalog_preserve_unmatched_count: int
+    audit_record_count: int
+    rollback_record_count: int
+    source_mutation_count: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyImpactConfirmation:
+    detection_result_id: int
+    result_version: int
+    platform_id: int
+    storage_root_id: int
+    relative_path: str
+    observed_mapping_id: int | None
+    observed_mapping_version: int | None
+    reconnectable_catalog_count: int
+    unmatched_catalog_count: int
+    expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyMigrationImpact:
+    state: str
+    proposed_mapping: LegacyImpactProposedMapping | None
+    reconnectable_catalog_count: int
+    unmatched_catalog_count: int
+    problems: tuple[LegacyImpactProblem, ...]
+    planned_owned_effects: LegacyImpactPlannedEffects
+    confirmation: LegacyImpactConfirmation | None
+    source_immutable: bool = True
+    legacy_fallback_enabled: bool = False
 
 
 @dataclass(frozen=True, slots=True)

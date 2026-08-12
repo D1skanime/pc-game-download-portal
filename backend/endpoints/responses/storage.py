@@ -26,6 +26,7 @@ class LegacyDetectionErrorCode(enum.StrEnum):
     CROSS_PLATFORM = "legacy_detection_cross_platform"
     UNSELECTABLE = "legacy_detection_unselectable"
     INVALID_STATE = "legacy_detection_invalid_state"
+    IMPACT_STALE = "legacy_impact_stale"
 
 
 class LegacyDetectionErrorDetail(BaseModel):
@@ -84,6 +85,56 @@ class LegacyDetectionResultSchema(BaseModel):
     expired: bool
     source_immutable: Literal[True] = True
     authorizes_legacy_reads: Literal[False] = False
+
+
+class LegacyImpactPreviewRequestSchema(BaseModel):
+    platform_id: int = Field(gt=0)
+    expected_result_version: int = Field(gt=0)
+
+
+class LegacyImpactProblemSchema(BaseModel):
+    code: str = Field(min_length=1, max_length=LEGACY_PROBLEM_CODE_MAX_LENGTH)
+    count: int = Field(gt=0)
+
+
+class LegacyImpactProposedMappingSchema(BaseModel):
+    platform_id: int = Field(gt=0)
+    storage_root_id: int = Field(gt=0)
+    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+
+
+class LegacyImpactPlannedEffectsSchema(BaseModel):
+    mapping_create_count: int = Field(ge=0, le=1)
+    catalog_reconnect_count: int = Field(ge=0)
+    catalog_preserve_unmatched_count: int = Field(ge=0)
+    audit_record_count: int = Field(ge=0, le=1)
+    rollback_record_count: int = Field(ge=0, le=1)
+    source_mutation_count: Literal[0] = 0
+
+
+class LegacyImpactConfirmationSchema(BaseModel):
+    detection_result_id: int = Field(gt=0)
+    result_version: int = Field(gt=0)
+    platform_id: int = Field(gt=0)
+    storage_root_id: int = Field(gt=0)
+    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    observed_mapping_id: int | None = Field(default=None, gt=0)
+    observed_mapping_version: int | None = Field(default=None, gt=0)
+    reconnectable_catalog_count: int = Field(ge=0)
+    unmatched_catalog_count: int = Field(ge=0)
+    expires_at: UTCDatetime
+
+
+class LegacyImpactPreviewSchema(BaseModel):
+    state: Literal["ready", "manual_mapping_required"]
+    proposed_mapping: LegacyImpactProposedMappingSchema | None
+    reconnectable_catalog_count: int = Field(ge=0)
+    unmatched_catalog_count: int = Field(ge=0)
+    problems: list[LegacyImpactProblemSchema] = Field(max_length=10)
+    planned_owned_effects: LegacyImpactPlannedEffectsSchema
+    confirmation: LegacyImpactConfirmationSchema | None
+    source_immutable: Literal[True] = True
+    legacy_fallback_enabled: Literal[False] = False
 
 
 class StorageReadErrorCode(enum.StrEnum):

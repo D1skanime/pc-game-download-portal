@@ -18,6 +18,12 @@ from endpoints.responses.storage import (
     LegacyDetectionJobSchema,
     LegacyDetectionRequestSchema,
     LegacyDetectionResultSchema,
+    LegacyImpactConfirmationSchema,
+    LegacyImpactPlannedEffectsSchema,
+    LegacyImpactPreviewRequestSchema,
+    LegacyImpactPreviewSchema,
+    LegacyImpactProblemSchema,
+    LegacyImpactProposedMappingSchema,
     StorageConflictDetail,
     StorageConflictErrorCode,
     StorageConflictResponse,
@@ -219,6 +225,7 @@ _LEGACY_ERROR_MESSAGES = {
     "legacy_detection_cross_platform": "Legacy detection result belongs to another platform",
     "legacy_detection_unselectable": "Legacy detection result cannot be selected",
     "legacy_detection_invalid_state": "Legacy detection result state is invalid",
+    "legacy_impact_stale": "Legacy migration impact changed; preview again",
 }
 _LEGACY_ERROR_STATUS = {
     "legacy_detection_missing": status.HTTP_404_NOT_FOUND,
@@ -462,6 +469,78 @@ def get_legacy_storage_detection(
     except LegacyDetectionResultError as error:
         _raise_legacy_detection_error(error)
     return _legacy_detection_result_schema(result)
+
+
+def _legacy_impact_schema(impact) -> LegacyImpactPreviewSchema:
+    proposed = impact.proposed_mapping
+    effects = impact.planned_owned_effects
+    confirmation = impact.confirmation
+    return LegacyImpactPreviewSchema(
+        state=impact.state,
+        proposed_mapping=(
+            LegacyImpactProposedMappingSchema(
+                platform_id=proposed.platform_id,
+                storage_root_id=proposed.storage_root_id,
+                relative_path=proposed.relative_path,
+            )
+            if proposed is not None
+            else None
+        ),
+        reconnectable_catalog_count=impact.reconnectable_catalog_count,
+        unmatched_catalog_count=impact.unmatched_catalog_count,
+        problems=[
+            LegacyImpactProblemSchema(code=item.code, count=item.count)
+            for item in impact.problems
+        ],
+        planned_owned_effects=LegacyImpactPlannedEffectsSchema(
+            mapping_create_count=effects.mapping_create_count,
+            catalog_reconnect_count=effects.catalog_reconnect_count,
+            catalog_preserve_unmatched_count=effects.catalog_preserve_unmatched_count,
+            audit_record_count=effects.audit_record_count,
+            rollback_record_count=effects.rollback_record_count,
+            source_mutation_count=effects.source_mutation_count,
+        ),
+        confirmation=(
+            LegacyImpactConfirmationSchema(
+                detection_result_id=confirmation.detection_result_id,
+                result_version=confirmation.result_version,
+                platform_id=confirmation.platform_id,
+                storage_root_id=confirmation.storage_root_id,
+                relative_path=confirmation.relative_path,
+                observed_mapping_id=confirmation.observed_mapping_id,
+                observed_mapping_version=confirmation.observed_mapping_version,
+                reconnectable_catalog_count=confirmation.reconnectable_catalog_count,
+                unmatched_catalog_count=confirmation.unmatched_catalog_count,
+                expires_at=confirmation.expires_at,
+            )
+            if confirmation is not None
+            else None
+        ),
+        source_immutable=impact.source_immutable,
+        legacy_fallback_enabled=impact.legacy_fallback_enabled,
+    )
+
+
+@protected_route(
+    router.post,
+    "/legacy-detections/{result_id}/impact",
+    [Scope.USERS_WRITE],
+    response_model=LegacyImpactPreviewSchema,
+    responses=_LEGACY_RESPONSES,
+)
+def preview_legacy_migration_impact(
+    request: Request, result_id: int, body: LegacyImpactPreviewRequestSchema
+) -> LegacyImpactPreviewSchema:
+    assert_admin(request)
+    try:
+        impact = db_legacy_migration_handler.preview_migration_impact(
+            result_id,
+            platform_id=body.platform_id,
+            expected_result_version=body.expected_result_version,
+        )
+    except LegacyDetectionResultError as error:
+        _raise_legacy_detection_error(error)
+    return _legacy_impact_schema(impact)
 
 
 @protected_route(
