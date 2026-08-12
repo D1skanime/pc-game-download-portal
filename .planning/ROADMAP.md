@@ -186,7 +186,19 @@ Plans:
 4. Ambiguous legacy layouts require an explicit manual mapping rather than a guess, and any compatibility fallback is visible and time-bounded.
 5. Mappings survive restarts and normal deployment operations, with portable and practically reversible database migration behavior.
 
-**Plans**: TBD
+**Plans**: 0/9 plans complete
+
+Plans:
+
+- [ ] `06-01-PLAN.md` - Durable ownership and lifecycle schema
+- [ ] `06-02-PLAN.md` - Catalog-only game removal
+- [ ] `06-03-PLAN.md` - Mapping removal, cancellation, and reconnection
+- [ ] `06-04-PLAN.md` - Exact bounded legacy detection
+- [ ] `06-05-PLAN.md` - Typed impact preview and manual outcomes
+- [ ] `06-06-PLAN.md` - Atomic per-platform migration
+- [ ] `06-07-PLAN.md` - Productive first-use CAS integration
+- [ ] `06-08-PLAN.md` - Typed rollback API and durable persistence
+- [ ] `06-09-PLAN.md` - Integration immutability and contract closure
 
 ### Phase 7: V2 Storage Administration Experience
 
@@ -242,7 +254,7 @@ Plans:
 | 3. Mapping Administration Contracts     | 6/6            | Complete    | 2026-08-11 |
 | 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
 | 5. Preview and Read-path Cutover        | 8/8            | Complete    | 2026-08-12 |
-| 6. Safe Lifecycle and Legacy Migration  | 0/TBD          | Not started | -          |
+| 6. Safe Lifecycle and Legacy Migration  | 0/9            | Not started | -          |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
 | 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |

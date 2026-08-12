@@ -69,3 +69,14 @@ Use barriers, not sleeps, for migrate/migrate, migrate/create, remove/read, roll
 - [ ] `backend/tests/endpoints/roms/test_catalog_removal.py`
 - [ ] `backend/tests/handler/database/test_storage_lifecycle.py`
 - [ ] `backend/tests/handler/storage/test_legacy_migration.py`
+
+## Plan Assignment and Executable Gates
+
+- Plans 01 and 08 extend backend/tools/verify_storage_migrations.py and run pristine plus seeded-0110 upgrade/downgrade/re-upgrade in uniquely named disposable MariaDB, MySQL and PostgreSQL containers after verifying the runner bind mount is this checkout.
+- Plan 03 owns the D-04 typed mapping-removal consequence and ordinary confirmation contract plus endpoint/OpenAPI tests.
+- Plan 07 owns only productive first-use CAS consumer wiring. Plan 08 exclusively owns D-15/D-16 rollback eligibility, rollback mutation, restart persistence, endpoint/OpenAPI tests, and dialect verification.
+- Plan 09 first creates RED unit expectations for the absent controlled-generation harness, then implements the harness, runs final characterization and the real three-dialect verifier, regenerates OpenAPI types, and typechecks the frontend.
+
+## Revision 2 Wave Assignment
+
+Wave 1: 01. Wave 2: 02 and 03. Wave 3: 04 (depends 01,03). Wave 4: 05. Wave 5: 06. Wave 6: 07. Wave 7: 08. Wave 8: 09. Same-wave plans have no file overlap.
