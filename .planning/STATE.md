@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-04-PLAN.md
-last_updated: "2026-08-12T22:09:30.886Z"
+stopped_at: Completed 06-05-PLAN.md
+last_updated: "2026-08-12T22:34:10.211Z"
 last_activity: 2026-08-12
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 44
-  completed_plans: 39
-  percent: 89
+  completed_plans: 40
+  percent: 91
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 5 of 9
+Plan: 6 of 9
 Status: Ready to execute
 Last activity: 2026-08-12
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -77,6 +77,7 @@ _Updated after each plan completion_
 | Phase 06 P02 | 32min | 2 tasks | 17 files |
 | Phase 06 P03 | 26min | 2 tasks | 15 files |
 | Phase 06 P04 | 33min | 2 tasks | 18 files |
+| Phase 06 P05 | 18min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -141,6 +142,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Reconnection accepts one exact normalized logical identity or one unique complete CRC32, MD5, and SHA1 identity.
 - [Phase 06]: Legacy detection uses only the two persisted fs_slug grammars through bounded LIST and STAT. — Exact identity and capability bounds prevent alias fallback and source mutation.
 - [Phase 06]: Legacy detection results expire after 24 hours and bind observed mapping identity and version. — Stale, replayed, and cross-platform results cannot become migration or read authority.
+- [Phase 06]: Impact preview counts only normalized unique catalog identities and never opens source storage. — Keeps preview read-only and prevents guessed source matches.
+- [Phase 06]: Legacy migration confirmation binds durable result identity, live authority, catalog counts, and expiry. — Exact recomputation rejects stale or replayed impact before mutation.
 
 ### Blockers/Concerns
 
@@ -158,6 +161,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-12T22:09:30.883Z
-Stopped at: Completed 06-04-PLAN.md
+Last session: 2026-08-12T22:33:53.626Z
+Stopped at: Completed 06-05-PLAN.md
 Resume file: None
