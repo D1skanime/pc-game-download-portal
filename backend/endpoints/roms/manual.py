@@ -205,9 +205,6 @@ async def add_rom_manual_file(
         ),
     ],
 ) -> Response:
-    authorize_api_storage_operation(
-        StorageOperation.SIDECAR_WRITE, legacy_external_storage
-    )
 
     """Upload a manual PDF into the ROM's own manual/ subfolder."""
 
@@ -216,6 +213,9 @@ async def add_rom_manual_file(
         raise RomNotFoundInDatabaseException(id)
 
     assert_rom_visible(request, rom)
+    authorize_api_storage_operation(
+        StorageOperation.SIDECAR_WRITE, legacy_external_storage
+    )
 
     if rom.has_simple_single_file:
         try:
@@ -318,7 +318,6 @@ async def delete_rom_manual_file(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
-    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
 
     """Delete a single manual file from a ROM's manual/ subfolder."""
 
@@ -327,6 +326,7 @@ async def delete_rom_manual_file(
         raise RomNotFoundInDatabaseException(id)
 
     assert_rom_visible(request, rom)
+    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (

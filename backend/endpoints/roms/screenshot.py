@@ -52,9 +52,6 @@ async def add_rom_screenshots(
         ),
     ],
 ) -> Response:
-    authorize_api_storage_operation(
-        StorageOperation.COVER_WRITE, legacy_external_storage
-    )
 
     """Upload a screenshot image for a multi-file ROM."""
 
@@ -63,6 +60,9 @@ async def add_rom_screenshots(
         raise RomNotFoundInDatabaseException(id)
 
     assert_rom_visible(request, rom)
+    authorize_api_storage_operation(
+        StorageOperation.COVER_WRITE, legacy_external_storage
+    )
 
     if rom.has_simple_single_file:
         try:
@@ -167,7 +167,6 @@ async def delete_rom_screenshot(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
-    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
 
     """Delete a single screenshot file from a ROM."""
 
@@ -176,6 +175,7 @@ async def delete_rom_screenshot(
         raise RomNotFoundInDatabaseException(id)
 
     assert_rom_visible(request, rom)
+    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (
