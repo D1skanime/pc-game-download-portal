@@ -88,3 +88,103 @@ The changed-path gate must show documentation only and must reject runtime UI, b
 - [x] `nyquist_compliant: true` and `wave_0_complete: true`.
 
 **Approval:** passed
+
+
+## Plan 04-03 Objective Architecture and Scope Gate
+
+The universal-input sign-off is based on live Linux files and named exports, not prose alone. The execution-start tree includes pre-existing dirty and untracked work, so the alternate-index comparison isolates only paths introduced by Plan 04-03.
+
+```bash
+set -e
+b=.planning/phases/04-v2-storage-design-specification/04-03-BASELINE.txt
+base=$(cat "$b")
+git cat-file -e "$base^{tree}"
+tmp=$(mktemp)
+rm -f "$tmp"
+trap 'rm -f "$tmp"' EXIT
+GIT_INDEX_FILE="$tmp" git read-tree HEAD
+GIT_INDEX_FILE="$tmp" git add -A
+after=$(GIT_INDEX_FILE="$tmp" git write-tree)
+changed=$(git diff --name-only --no-renames "$base" "$after")
+bad=$(printf '%s\n' "$changed" | grep -Ev '^(docs/design/v2-storage-administration\.md|\.claude/skills/frontend-v2-input/SKILL\.md|\.planning/phases/04-v2-storage-design-specification/(04-VALIDATION\.md|04-03-(PLAN|SUMMARY)\.md|04-03-BASELINE\.txt))$' || true)
+test -z "$bad"
+for p in frontend/src/v2/composables/useGamepad/index.ts:useGamepad frontend/src/v2/composables/useGridNav/index.ts:useGridNav frontend/src/v2/composables/useWrapGridNav/index.ts:useWrapGridNav frontend/src/v2/composables/useInputModality/index.ts:useInputModality; do
+  source_file=$(printf '%s' "$p" | cut -d: -f1)
+  export_name=$(printf '%s' "$p" | cut -d: -f2)
+  test -f "$source_file"
+  grep -Eq "export function $export_name\b" "$source_file"
+done
+test ! -e frontend/src/v2/composables/useInput
+! grep -Eq 'RFocus(Zone|Grid|Row|Column)' frontend/src/v2/lib/index.ts
+d=docs/design/v2-storage-administration.md
+k=.claude/skills/frontend-v2-input/SKILL.md
+for f in "$d" "$k"; do
+  for n in useGamepad useGridNav useWrapGridNav useInputModality; do grep -Eq "\b$n\b" "$f"; done
+  ! grep -Eq '\buseInput\b|composables/useInput(/|\b)|RFocus(Zone|Grid|Row|Column)\b' "$f"
+done
+for s in "Scope" "Backend Contract" "Guided Mapping Flow" "Folder Browser" "State Matrix" "Universal Input" "Responsive" "Principles Provenance Matrix" "Acceptance Checklist"; do grep -q "$s" "$d"; done
+for n in $(seq -w 1 21); do grep -q "D-$n" "$d"; done
+grep -q "UI-05" "$d"
+grep -q "expected_version" "$d"
+grep -q "pending.*partial.*complete" "$d"
+grep -qi "at least" "$d"
+grep -qi "no-copy" "$d"
+! grep -nE '/home/|/volume[0-9]*/|/romm/library|container_path' "$d"
+! LC_ALL=C grep -n $'\xE2\x80\x94' "$d"
+git diff --check -- "$d" "$k" .planning/phases/04-v2-storage-design-specification/04-VALIDATION.md "$b"
+```
+
+- [x] Live `useGamepad`, `useGridNav`, `useWrapGridNav`, and `useInputModality` files and named exports are proven.
+- [x] Absent unified-input and focus-component mechanisms are rejected.
+- [x] UI-05, D-01 through D-21, ordering, preview states, lower-bound language, redaction, provenance, and no-copy rules remain gated.
+- [x] Runtime frontend, backend, generated, dependency, deployment, Phase 5, and unrelated paths are excluded by the deterministic allowlist.
+
+
+## Plan 04-03 Objective Architecture and Scope Gate
+
+The universal-input sign-off is based on live Linux files and named exports, not prose alone. The execution-start tree includes pre-existing dirty and untracked work, so the alternate-index comparison isolates only paths introduced by Plan 04-03.
+
+```bash
+set -e
+b=.planning/phases/04-v2-storage-design-specification/04-03-BASELINE.txt
+base=$(cat "$b")
+git cat-file -e "$base^{tree}"
+tmp=$(mktemp)
+rm -f "$tmp"
+trap 'rm -f "$tmp"' EXIT
+GIT_INDEX_FILE="$tmp" git read-tree HEAD
+GIT_INDEX_FILE="$tmp" git add -A
+after=$(GIT_INDEX_FILE="$tmp" git write-tree)
+changed=$(git diff --name-only --no-renames "$base" "$after")
+bad=$(printf '%s\n' "$changed" | grep -Ev '^(docs/design/v2-storage-administration\.md|\.claude/skills/frontend-v2-input/SKILL\.md|\.planning/phases/04-v2-storage-design-specification/(04-VALIDATION\.md|04-03-(PLAN|SUMMARY)\.md|04-03-BASELINE\.txt))$' || true)
+test -z "$bad"
+for p in frontend/src/v2/composables/useGamepad/index.ts:useGamepad frontend/src/v2/composables/useGridNav/index.ts:useGridNav frontend/src/v2/composables/useWrapGridNav/index.ts:useWrapGridNav frontend/src/v2/composables/useInputModality/index.ts:useInputModality; do
+  source_file=$(printf '%s' "$p" | cut -d: -f1)
+  export_name=$(printf '%s' "$p" | cut -d: -f2)
+  test -f "$source_file"
+  grep -Eq "export function $export_name\b" "$source_file"
+done
+test ! -e frontend/src/v2/composables/useInput
+! grep -Eq 'RFocus(Zone|Grid|Row|Column)' frontend/src/v2/lib/index.ts
+d=docs/design/v2-storage-administration.md
+k=.claude/skills/frontend-v2-input/SKILL.md
+for f in "$d" "$k"; do
+  for n in useGamepad useGridNav useWrapGridNav useInputModality; do grep -Eq "\b$n\b" "$f"; done
+  ! grep -Eq '\buseInput\b|composables/useInput(/|\b)|RFocus(Zone|Grid|Row|Column)\b' "$f"
+done
+for s in "Scope" "Backend Contract" "Guided Mapping Flow" "Folder Browser" "State Matrix" "Universal Input" "Responsive" "Principles Provenance Matrix" "Acceptance Checklist"; do grep -q "$s" "$d"; done
+for n in $(seq -w 1 21); do grep -q "D-$n" "$d"; done
+grep -q "UI-05" "$d"
+grep -q "expected_version" "$d"
+grep -q "pending.*partial.*complete" "$d"
+grep -qi "at least" "$d"
+grep -qi "no-copy" "$d"
+! grep -nE '/home/|/volume[0-9]*/|/romm/library|container_path' "$d"
+! LC_ALL=C grep -n $'\xE2\x80\x94' "$d"
+git diff --check -- "$d" "$k" .planning/phases/04-v2-storage-design-specification/04-VALIDATION.md "$b"
+```
+
+- [x] Live `useGamepad`, `useGridNav`, `useWrapGridNav`, and `useInputModality` files and named exports are proven.
+- [x] Absent unified-input and focus-component mechanisms are rejected.
+- [x] UI-05, D-01 through D-21, ordering, preview states, lower-bound language, redaction, provenance, and no-copy rules remain gated.
+- [x] Runtime frontend, backend, generated, dependency, deployment, Phase 5, and unrelated paths are excluded by the deterministic allowlist.
