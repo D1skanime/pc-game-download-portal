@@ -47,6 +47,9 @@ def corrupt_zip_content() -> bytes:
 
 
 class TestUpdateLaunchboxMetadataTask:
+    @pytest.fixture(autouse=True)
+    def cloud_enabled(self, mocker):
+        mocker.patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True)
     """Test suite for UpdateLaunchboxMetadataTask"""
 
     def test_task_initialization(self, task):
@@ -279,6 +282,9 @@ class TestUpdateLaunchboxMetadataTask:
 
 
 class TestUpdateLaunchboxMetadataTaskIntegration:
+    @pytest.fixture(autouse=True)
+    def cloud_enabled(self, mocker):
+        mocker.patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True)
     """Integration tests for UpdateLaunchboxMetadataTask"""
 
     @pytest.fixture
@@ -395,6 +401,9 @@ class TestBatchedCacheWriter:
 
 
 class TestInitialImportFlag:
+    @pytest.fixture(autouse=True)
+    def cloud_enabled(self, mocker):
+        mocker.patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True)
     """The store is written in batches, so a half-filled one must not read as
     ready to the provider heartbeat."""
 
