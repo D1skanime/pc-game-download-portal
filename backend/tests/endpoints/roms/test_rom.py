@@ -1907,4 +1907,15 @@ def test_phase5_mapping_replacement_aborts_without_reopen():
     ), "Phase 5 RED: delivery handoff lacks final mapping revision validation"
 
 
-nfrom
+def test_phase5_rom_downloads_never_hand_external_paths_to_nginx():
+    import inspect
+
+    from endpoints.roms import download_roms, get_rom_content, head_rom_content
+
+    for endpoint in (download_roms, get_rom_content, head_rom_content):
+        source = inspect.getsource(endpoint)
+        assert "preflight_mapped_downloads" in source
+        assert "LIBRARY_BASE_PATH" not in source
+        assert "ZipContentLine" not in source
+        assert "ZipResponse" not in source
+        assert "legacy_external_storage" not in source
