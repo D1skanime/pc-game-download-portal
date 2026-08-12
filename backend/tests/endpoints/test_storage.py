@@ -898,3 +898,135 @@ def test_legacy_impact_openapi_is_bounded_and_has_no_fallback(client):
             "legacy_fallback_path",
         )
     )
+
+
+def _rollback_status(*, eligible=True, version=1, state="completed"):
+    return SimpleNamespace(
+        migration_id=51,
+        migration_version=version,
+        platform_id=5,
+        mapping_id=11,
+        mapping_version=3,
+        state=state,
+        rollback_eligible=eligible,
+        first_used=not eligible,
+        first_use_operation="download" if not eligible else None,
+        expires_at=datetime(2026, 8, 14, tzinfo=timezone.utc),
+        expired=False,
+        source_immutable=True,
+        legacy_fallback_enabled=False,
+    )
+
+
+@pytest.mark.parametrize("kind", ["anonymous", "viewer"])
+def test_legacy_rollback_authorizes_before_observation(
+    client, viewer_access_token, monkeypatch, kind
+):
+    from endpoints import storage as endpoint
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("rollback state observed before admin authorization")
+
+    monkeypatch.setattr(
+        endpoint.db_legacy_migration_handler,
+        "get_rollback_status",
+        forbidden,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        endpoint.db_legacy_migration_handler,
+        "rollback_migration",
+        forbidden,
+        raising=False,
+    )
+    headers = {} if kind == "anonymous" else _auth(viewer_access_token)
+    status_response = client.get(
+        "/api/storage/legacy-migrations/51/rollback-status?platform_id=5",
+        headers=headers,
+    )
+    rollback_response = client.post(
+        "/api/storage/legacy-migrations/51/rollback",
+        headers=headers,
+        json={"platform_id": 5, "expected_version": 1},
+    )
+    expected = 401 if kind == "anonymous" else 403
+    assert status_response.status_code == expected
+    assert rollback_response.status_code == expected
+
+
+def test_legacy_rollback_contract_is_typed_and_bounded(
+    client, access_token, monkeypatch
+):
+    from endpoints import storage as endpoint
+
+    captured = []
+    monkeypatch.setattr(
+        endpoint.db_legacy_migration_handler,
+        "get_rollback_status",
+        lambda migration_id, **kwargs: captured.append(("status", migration_id, kwargs))
+        or _rollback_status(),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        endpoint.db_legacy_migration_handler,
+        "rollback_migration",
+        lambda migration_id, **kwargs: captured.append(
+            ("rollback", migration_id, kwargs)
+        )
+        or _rollback_status(eligible=False, version=2, state="rolled_back"),
+        raising=False,
+    )
+    status_response = client.get(
+        "/api/storage/legacy-migrations/51/rollback-status?platform_id=5",
+        headers=_auth(access_token),
+    )
+    rollback_response = client.post(
+        "/api/storage/legacy-migrations/51/rollback",
+        headers=_auth(access_token),
+        json={"platform_id": 5, "expected_version": 1},
+    )
+    assert status_response.status_code == 200
+    assert rollback_response.status_code == 200
+    assert captured[0] == ("status", 51, {"platform_id": 5})
+    assert captured[1][0:2] == ("rollback", 51)
+    assert captured[1][2]["platform_id"] == 5
+    assert captured[1][2]["expected_version"] == 1
+    assert set(status_response.json()) == {
+        "migration_id",
+        "migration_version",
+        "platform_id",
+        "mapping_id",
+        "mapping_version",
+        "state",
+        "rollback_eligible",
+        "first_used",
+        "first_use_operation",
+        "expires_at",
+        "expired",
+        "source_immutable",
+        "legacy_fallback_enabled",
+    }
+    serialized = status_response.text + rollback_response.text
+    assert not any(
+        token in serialized
+        for token in ("relative_path", "container_path", "prior_mapping", "snapshot")
+    )
+
+
+def test_legacy_rollback_openapi_requires_platform_and_expected_version(client):
+    schema = client.get("/openapi.json").json()
+    status_operation = schema["paths"][
+        "/api/storage/legacy-migrations/{migration_id}/rollback-status"
+    ]["get"]
+    rollback_operation = schema["paths"][
+        "/api/storage/legacy-migrations/{migration_id}/rollback"
+    ]["post"]
+    serialized = (str(status_operation) + str(rollback_operation)).lower()
+    assert "legacyrollbackrequestschema" in serialized
+    assert "legacyrollbackstatusschema" in serialized
+    assert "expected_version" in serialized
+    assert "platform_id" in serialized
+    assert not any(
+        token in serialized
+        for token in ("relative_path", "container_path", "prior_mapping", "raw_row")
+    )

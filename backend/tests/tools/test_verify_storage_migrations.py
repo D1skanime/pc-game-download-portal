@@ -169,3 +169,10 @@ def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
         for event in events
         if isinstance(event, tuple)
     )
+
+
+def test_restart_verifier_proves_rollback_state_and_mapping_revision():
+    verifier_source = Path("tools/verify_storage_migrations.py").read_text()
+    assert "rolled_back_at" in verifier_source
+    assert "legacy rollback state did not survive restart" in verifier_source
+    assert "mapping rollback revision did not survive restart" in verifier_source

@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import select
 
 from exceptions.storage_read import StaleMappedReadError
 from handler.database.base_handler import sync_session
@@ -20,6 +21,8 @@ from models.storage import (
     LegacyDetectionResult,
     LegacyMigration,
     PlatformStorageMapping,
+    StorageMappingAudit,
+    StorageMappingAuditAction,
     StorageRoot,
 )
 
@@ -293,3 +296,127 @@ def test_productive_consumer_cas_inventory_uses_the_shared_open_boundary():
     assert "first_use_operation=first_use_operation" in files
     assert "for rom, file, download_name in items" in roms
     assert "context.open(" in roms
+
+
+def test_unused_migration_rollback_is_atomic_and_source_neutral(tmp_path: Path):
+    source = tmp_path / "external"
+    mapping_id, migration_id = _seed_migrated_mapping(source, suffix="rollback")
+    before = _manifest(source)
+    handler = DBLegacyMigrationHandler()
+    with sync_session() as session:
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        assert mapping is not None
+        platform_id = mapping.platform_id
+
+    status = handler.get_rollback_status(migration_id, platform_id=platform_id)
+    assert status.rollback_eligible
+    assert not status.first_used
+    outcome = handler.rollback_migration(
+        migration_id,
+        platform_id=platform_id,
+        expected_version=1,
+        actor_user_id=7,
+        actor_display_name="Admin",
+        now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+    )
+    assert outcome.state == "rolled_back"
+    assert outcome.migration_version == 2
+    assert not outcome.rollback_eligible
+    with sync_session() as session:
+        migration = session.get(LegacyMigration, migration_id)
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        audit = session.scalar(
+            select(StorageMappingAudit)
+            .where(StorageMappingAudit.mapping_id == mapping_id)
+            .order_by(StorageMappingAudit.id.desc())
+        )
+        assert migration is not None and migration.rolled_back_at is not None
+        assert mapping is not None and not mapping.active and mapping.version == 2
+        assert audit is not None
+        assert audit.action == StorageMappingAuditAction.REMOVE
+    assert _manifest(source) == before
+
+    persisted = DBLegacyMigrationHandler().get_rollback_status(
+        migration_id, platform_id=platform_id
+    )
+    assert persisted.state == "rolled_back"
+    assert persisted.migration_version == 2
+    assert not persisted.rollback_eligible
+
+
+def test_first_use_makes_rollback_ineligible_with_stable_error(tmp_path: Path):
+    source = tmp_path / "external"
+    mapping_id, migration_id = _seed_migrated_mapping(source, suffix="used")
+    handler = DBLegacyMigrationHandler()
+    with sync_session() as session:
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        assert mapping is not None
+        platform_id = mapping.platform_id
+    handler.mark_first_use(
+        mapping_id,
+        expected_revision=1,
+        operation="download",
+        now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+    )
+    with pytest.raises(Exception) as captured:
+        handler.rollback_migration(
+            migration_id,
+            platform_id=platform_id,
+            expected_version=2,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=datetime(2026, 8, 12, 22, tzinfo=timezone.utc),
+        )
+    assert getattr(captured.value, "code", None) == "legacy_rollback_ineligible"
+    status = handler.get_rollback_status(migration_id, platform_id=platform_id)
+    assert status.first_used
+    assert status.first_use_operation == "download"
+    assert not status.rollback_eligible
+
+
+def test_rollback_first_use_race_has_one_ordered_winner(tmp_path: Path):
+    source = tmp_path / "external"
+    mapping_id, migration_id = _seed_migrated_mapping(source, suffix="race")
+    with sync_session() as session:
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        assert mapping is not None
+        platform_id = mapping.platform_id
+    barrier = threading.Barrier(2)
+
+    def rollback():
+        barrier.wait(timeout=5)
+        try:
+            DBLegacyMigrationHandler().rollback_migration(
+                migration_id,
+                platform_id=platform_id,
+                expected_version=1,
+                actor_user_id=7,
+                actor_display_name="Admin",
+                now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+            )
+            return "rollback"
+        except Exception as error:
+            return getattr(error, "code", "rollback-error")
+
+    def first_use():
+        barrier.wait(timeout=5)
+        try:
+            DBLegacyMigrationHandler().mark_first_use(
+                mapping_id,
+                expected_revision=1,
+                operation="download",
+                now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+            )
+            return "use"
+        except StaleMappedReadError:
+            return "stale-read"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        rollback_future = executor.submit(rollback)
+        use_future = executor.submit(first_use)
+        outcomes = {rollback_future.result(), use_future.result()}
+    assert outcomes in (
+        {"rollback", "stale-read"},
+        {"use", "legacy_rollback_stale"},
+        {"use", "legacy_rollback_ineligible"},
+    )
