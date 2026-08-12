@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready
-stopped_at: Phase 4 verified and complete; ready for Phase 5
-last_updated: "2026-08-12T06:00:00Z"
+status: in_progress
+stopped_at: Completed 05-08-PLAN.md
+last_updated: "2026-08-12T08:44:00.806Z"
 last_activity: 2026-08-12
 progress:
   total_phases: 9
   completed_phases: 4
-  total_plans: 27
-  completed_plans: 27
-  percent: 44
+  total_plans: 35
+  completed_plans: 34
+  percent: 97
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 5
-Plan: 0 of TBD
-Status: Phase 4 complete - ready for Phase 5
+Plan: 7 of 8
+Status: Phase 5 in progress
 Last activity: 2026-08-12
 
-Progress: [####------] 44%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ _Updated after each plan completion_
 | Phase 03 P03 | 22min | 2 tasks | 2 files |
 | Phase 03 P04 | 6min | 2 tasks | 5 files |
 | Phase 03 P05 | 10min | 2 tasks | 3 files |
+| Phase 05 P08 | 8min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,8 @@ Recent decisions affecting current work:
 - [Phase 03]: Mapping mutations derive immutable actor attribution from authenticated requests and require explicit optimistic versions.
 - [Phase 03]: Mapping conflicts expose only stable codes, allowlisted identifiers, and current versions where applicable.
 - [Phase 03]: Preview is a bounded non-mutating directory summary whose cursor binds mapping identity, version, path, and final binary name key.
+- [Phase 05]: External exporter destinations are classified with StoragePolicy OVERWRITE before database lookup, serialization, or filesystem work.
+- [Phase 05]: Exporter immutability evidence covers manual, scheduled, and watcher commands with byte-exact source manifests.
 
 ### Blockers/Concerns
 
@@ -138,6 +141,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-12T06:00:00Z
-Stopped at: Phase 4 verified and complete; ready for Phase 5
+Last session: 2026-08-12T08:44:00.803Z
+Stopped at: Completed 05-08-PLAN.md
 Resume file: None

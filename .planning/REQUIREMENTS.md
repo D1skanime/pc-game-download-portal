@@ -42,7 +42,7 @@
 ### Scanner, Watcher, and Preview
 
 - [ ] **SCAN-01**: Scanner jobs resolve a platform through its active storage mapping instead of deriving `library/roms/<platform>`.
-- [ ] **SCAN-02**: The scanner only reads source metadata and bytes and persists discoveries to RomM-owned database and storage locations.
+- [x] **SCAN-02**: The scanner only reads source metadata and bytes and persists discoveries to RomM-owned database and storage locations.
 - [ ] **SCAN-03**: Watcher events resolve safely through storage mappings and cannot escape or mutate an external root.
 - [ ] **SCAN-04**: An administrator can preview a mapping's reachability, readability, non-writability, bounded file and directory counts, and estimated size without creating catalog records.
 - [ ] **SCAN-05**: Large-directory preview work is bounded or asynchronous and communicates partial or pending results clearly.
@@ -165,7 +165,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | SAFE-05     | Phase 2 | Complete |
 | SAFE-06     | Phase 2 | Complete |
 | SCAN-01     | Phase 5 | Pending  |
-| SCAN-02     | Phase 5 | Pending  |
+| SCAN-02     | Phase 5 | Complete |
 | SCAN-03     | Phase 5 | Pending  |
 | SCAN-04     | Phase 5 | Pending  |
 | SCAN-05     | Phase 5 | Pending  |

@@ -230,7 +230,7 @@ Plans:
 | 2. Read-only Policy Boundary            | 11/11          | Complete    | 2026-08-10 |
 | 3. Mapping Administration Contracts     | 6/6            | Complete    | 2026-08-11 |
 | 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
-| 5. Preview and Read-path Cutover        | 0/TBD          | Not started | -          |
+| 5. Preview and Read-path Cutover        | 7/8 | In Progress|  |
 | 6. Safe Lifecycle and Legacy Migration  | 0/TBD          | Not started | -          |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
