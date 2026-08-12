@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
+status: executing
 stopped_at: Completed 05-08-PLAN.md
-last_updated: "2026-08-12T08:44:00.806Z"
+last_updated: "2026-08-12T14:51:43.473Z"
 last_activity: 2026-08-12
 progress:
   total_phases: 9
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 35
-  completed_plans: 34
-  percent: 97
+  completed_plans: 35
+  percent: 56
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 5
-Plan: 7 of 8
-Status: Phase 5 in progress
+Plan: 8 of 8
+Status: Ready to execute
 Last activity: 2026-08-12
 
 Progress: [██████████] 97%
@@ -72,6 +72,7 @@ _Updated after each plan completion_
 | Phase 03 P04 | 6min | 2 tasks | 5 files |
 | Phase 03 P05 | 10min | 2 tasks | 3 files |
 | Phase 05 P08 | 8min | 2 tasks | 4 files |
+| Phase 05 P07 | 5h | 3 tasks | 24 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,8 @@ Recent decisions affecting current work:
 - [Phase 03]: Preview is a bounded non-mutating directory summary whose cursor binds mapping identity, version, path, and final binary name key.
 - [Phase 05]: External exporter destinations are classified with StoragePolicy OVERWRITE before database lookup, serialization, or filesystem work.
 - [Phase 05]: Exporter immutability evidence covers manual, scheduled, and watcher commands with byte-exact source manifests.
+- [Phase 05]: External mapped downloads use application-held descriptors; Nginx receives only completed RomM-owned cache paths.
+- [Phase 05]: ZIP cache identity binds mapping ID, revision, logical path, member name, size, and timestamp without host paths.
 
 ### Blockers/Concerns
 
@@ -141,6 +144,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-12T08:44:00.803Z
+Last session: 2026-08-12T14:51:04.122Z
 Stopped at: Completed 05-08-PLAN.md
 Resume file: None
