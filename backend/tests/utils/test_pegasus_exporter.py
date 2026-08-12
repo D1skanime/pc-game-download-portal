@@ -1,8 +1,10 @@
+import hashlib
 from pathlib import Path
 from typing import TypedDict
 from unittest.mock import MagicMock
 
 import pytest
+from exceptions.storage_exceptions import StoragePolicyDenied
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
@@ -12,6 +14,7 @@ from handler.filesystem.storage_composition import (
     build_storage_composition,
 )
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
+from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -432,3 +435,85 @@ class TestCopyAndEntry:
         )
         for key, path in exported_assets.items():
             assert f"assets.{key}: {path}" in entry
+
+
+def _source_manifest(root):
+    entries = []
+    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix().encode()):
+        relative = path.relative_to(root).as_posix()
+        if path.is_dir():
+            entries.append((relative, "directory", 0, ""))
+        else:
+            content = path.read_bytes()
+            entries.append(
+                (relative, "file", len(content), hashlib.sha256(content).hexdigest())
+            )
+    return tuple(entries)
+
+
+@pytest.mark.asyncio
+async def test_pegasus_export_rejects_external_destination_before_io(
+    admin_user: User, tmp_path, monkeypatch
+):
+    platform = db_platform_handler.add_platform(
+        Platform(name="NES", slug="nes", fs_slug="nes")
+    )
+    library = tmp_path / "library"
+    library.mkdir()
+    owned = {kind: tmp_path / kind.value for kind in OwnedStorageKind}
+    for path in owned.values():
+        path.mkdir()
+    composition = build_storage_composition(StorageCompositionConfig(library, owned))
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("filesystem access before destination denial")
+
+    monkeypatch.setattr(db_rom_handler, "get_roms_scalar", forbidden)
+    with pytest.raises(StoragePolicyDenied) as error:
+        await PegasusExporter(local_export=True).export_platform_to_file(
+            platform.id,
+            request=None,
+            destination=composition.legacy_external,  # type: ignore[arg-type]
+        )
+    assert error.value.code == "external_storage_operation_denied"
+    assert error.value.operation == "overwrite"
+    assert not tuple(library.iterdir())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("trigger", list(ScanTrigger))
+async def test_pegasus_export_scan_triggers_preserve_mapped_source(
+    admin_user: User, tmp_path, trigger
+):
+    platform = db_platform_handler.add_platform(
+        Platform(name="NES", slug="nes", fs_slug="nes")
+    )
+    library = tmp_path / "library"
+    (library / "Mapped" / "Nested").mkdir(parents=True)
+    (library / "Mapped" / "Game.iso").write_bytes(b"immutable game")
+    (library / "Mapped" / "Nested" / "Disc 2.bin").write_bytes(b"disc two")
+    before = _source_manifest(library)
+    owned = {kind: tmp_path / kind.value for kind in OwnedStorageKind}
+    for path in owned.values():
+        path.mkdir()
+    composition = build_storage_composition(StorageCompositionConfig(library, owned))
+    command = MappedScanCommand(
+        mapping_id=platform.id,
+        expected_revision=1,
+        trigger=trigger,
+        scope=ScanScope.PLATFORM,
+        scan_type="quick",
+        options=(("export_pegasus", "true"),),
+    )
+    assert command.trigger is trigger
+
+    with open_owned_access(
+        composition.owned[OwnedStorageKind.RESOURCES],
+        StorageOperation.OVERWRITE,
+        f"{trigger.value}-metadata.txt",
+    ) as destination:
+        assert await PegasusExporter(local_export=True).export_platform_to_file(
+            platform.id, request=None, destination=destination
+        )
+
+    assert _source_manifest(library) == before
