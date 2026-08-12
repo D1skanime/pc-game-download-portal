@@ -66,160 +66,68 @@ def _single_file_rom(
     return db_rom_handler.get_rom(rom.id)
 
 
-# ---------- POST /api/roms/{id}/convert-to-folder ----------
+def _source_manifest(root: Path) -> dict[str, bytes | None]:
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes() if path.is_file() else None
+        for path in sorted(root.rglob("*"))
+    }
 
 
-def test_convert_single_file_promotes_in_place(
+@pytest.mark.parametrize(
+    ("fs_name", "fs_name_no_ext", "fs_extension", "existing_target"),
+    [
+        ("test_rom.zip", "test_rom", "zip", False),
+        ("test_rom.zip", "test_rom", "zip", False),
+        ("test_rom.zip", "test_rom", "zip", True),
+        ("test_rom", "test_rom", "", False),
+        ("test_rom", "test_rom", "", True),
+    ],
+    ids=[
+        "single-file",
+        "already-folder-request",
+        "folder-collision",
+        "extensionless",
+        "extensionless-collision",
+    ],
+)
+def test_convert_to_folder_denied_without_source_mutation(
     client: TestClient,
     access_token: str,
     platform: Platform,
     admin_user: User,
     real_library: Path,
+    fs_name: str,
+    fs_name_no_ext: str,
+    fs_extension: str,
+    existing_target: bool,
 ):
     rom = _single_file_rom(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
-        fs_extension="zip",
+        fs_name=fs_name,
+        fs_name_no_ext=fs_name_no_ext,
+        fs_extension=fs_extension,
     )
-    assert rom.has_simple_single_file
-    rom_id = rom.id
+    source = real_library / rom.fs_path / fs_name
+    if existing_target:
+        if source.name == fs_name_no_ext:
+            source.unlink()
+        target = real_library / rom.fs_path / fs_name_no_ext
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "already_here.txt").write_text("keep me")
 
-    response = client.post(
-        f"/api/roms/{rom_id}/convert-to-folder", headers=_auth(access_token)
-    )
-    assert response.status_code == status.HTTP_200_OK
-
-    after = db_rom_handler.get_rom(rom_id)
-    assert after.id == rom_id  # same id, no dead reference
-    assert after.fs_name == "test_rom"
-    game_file = after.files[0]
-    assert game_file.file_name == "test_rom.zip"
-    assert game_file.file_path == f"{platform.slug}/roms/test_rom"
-    assert game_file.file_path != after.fs_path
-
-    moved = real_library / f"{platform.slug}/roms/test_rom/test_rom.zip"
-    assert moved.exists() and moved.read_bytes() == b"romdata"
-    assert not (real_library / f"{platform.slug}/roms/test_rom.zip").exists()
-
-
-def test_convert_already_folder_is_clean_noop(
-    client: TestClient,
-    access_token: str,
-    platform: Platform,
-    admin_user: User,
-    real_library: Path,
-):
-    rom = _single_file_rom(
-        platform,
-        admin_user,
-        real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
-        fs_extension="zip",
-    )
-    # First call converts; second call is a clean no-op on the now-folder ROM.
-    first = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
-    )
-    assert first.status_code == status.HTTP_200_OK
-
-    second = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
-    )
-    assert second.status_code == status.HTTP_200_OK
-    after = db_rom_handler.get_rom(rom.id)
-    assert after.fs_name == "test_rom"  # unchanged by the second call
-
-
-def test_convert_folder_collision_returns_409(
-    client: TestClient,
-    access_token: str,
-    platform: Platform,
-    admin_user: User,
-    real_library: Path,
-):
-    rom = _single_file_rom(
-        platform,
-        admin_user,
-        real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
-        fs_extension="zip",
-    )
-    # A folder already occupies the target name.
-    (real_library / f"{platform.slug}/roms/test_rom").mkdir(parents=True)
-
+    before = _source_manifest(real_library)
     response = client.post(
         f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
     )
-    assert response.status_code == status.HTTP_409_CONFLICT
 
-    after = db_rom_handler.get_rom(rom.id)
-    assert after.fs_name == "test_rom.zip"  # untouched
-
-
-def test_convert_extensionless_uses_staging(
-    client: TestClient,
-    access_token: str,
-    platform: Platform,
-    admin_user: User,
-    real_library: Path,
-):
-    rom = _single_file_rom(
-        platform,
-        admin_user,
-        real_library,
-        fs_name="test_rom",
-        fs_name_no_ext="test_rom",
-        fs_extension="",
-    )
-
-    response = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
-    )
-    assert response.status_code == status.HTTP_200_OK
-
-    moved = real_library / f"{platform.slug}/roms/test_rom/test_rom"
-    assert moved.is_file() and moved.read_bytes() == b"romdata"
-    after = db_rom_handler.get_rom(rom.id)
-    assert after.files[0].file_path == f"{platform.slug}/roms/test_rom"
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    assert _source_manifest(real_library) == before
 
 
-def test_convert_extensionless_dir_collision_returns_409(
-    client: TestClient,
-    access_token: str,
-    platform: Platform,
-    admin_user: User,
-    real_library: Path,
-):
-    rom = _single_file_rom(
-        platform,
-        admin_user,
-        real_library,
-        fs_name="test_rom",
-        fs_name_no_ext="test_rom",
-        fs_extension="",
-    )
-    # Stale row over a folder the user already created on disk (no rescan).
-    lone = real_library / f"{platform.slug}/roms/test_rom"
-    lone.unlink()
-    lone.mkdir()
-    (lone / "already_here.txt").write_text("keep me")
-
-    response = client.post(
-        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
-    )
-    assert response.status_code == status.HTTP_409_CONFLICT
-
-    after = db_rom_handler.get_rom(rom.id)
-    assert after.fs_name == "test_rom"  # untouched
-    assert (lone / "already_here.txt").read_text() == "keep me"  # user's dir intact
-
-
-def test_convert_rolls_back_fs_on_db_failure(
+def test_convert_to_folder_denial_precedes_database_work(
     client: TestClient,
     access_token: str,
     platform: Platform,
@@ -240,30 +148,34 @@ def test_convert_rolls_back_fs_on_db_failure(
         raise RuntimeError("db down")
 
     monkeypatch.setattr(db_rom_handler, "convert_rom_to_folder", boom)
+    before = _source_manifest(real_library)
+    response = client.post(
+        f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
+    )
 
-    with pytest.raises(RuntimeError, match="db down"):
-        client.post(
-            f"/api/roms/{rom.id}/convert-to-folder", headers=_auth(access_token)
-        )
-
-    base = real_library / f"{platform.slug}/roms"
-    assert (base / "test_rom").is_file()
-    assert (base / "test_rom").read_bytes() == b"romdata"
-    assert not (base / ".romm_tmp_test_rom").exists()
-    after = db_rom_handler.get_rom(rom.id)
-    assert after.fs_name == "test_rom"
-    assert after.has_simple_single_file
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    assert _source_manifest(real_library) == before
 
 
-# ---------- auto-convert on upload (all three asset types) ----------
-
-
-def test_soundtrack_upload_auto_converts_single_file_rom(
+@pytest.mark.parametrize(
+    ("route", "filename", "payload", "media_type"),
+    [
+        ("soundtracks", "track1.mp3", MP3_BYTES, "audio/mpeg"),
+        ("manuals/files", "manual.pdf", PDF_BYTES, "application/pdf"),
+        ("screenshots", "shot1.png", PNG_BYTES, "image/png"),
+    ],
+)
+def test_child_upload_denied_without_source_mutation(
     client: TestClient,
     access_token: str,
     platform: Platform,
     admin_user: User,
     real_library: Path,
+    route: str,
+    filename: str,
+    payload: bytes,
+    media_type: str,
 ):
     rom = _single_file_rom(
         platform,
@@ -273,71 +185,13 @@ def test_soundtrack_upload_auto_converts_single_file_rom(
         fs_name_no_ext="test_rom",
         fs_extension="zip",
     )
+    before = _source_manifest(real_library)
     response = client.post(
-        f"/api/roms/{rom.id}/soundtracks",
-        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
-        files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
+        f"/api/roms/{rom.id}/{route}",
+        headers={**_auth(access_token), "x-upload-filename": filename},
+        files={filename: (filename, payload, media_type)},
     )
-    assert response.status_code == status.HTTP_201_CREATED
 
-    after = db_rom_handler.get_rom(rom.id)
-    assert after.fs_name == "test_rom"  # converted
-    soundtracks = [f for f in after.files if f.category == RomFileCategory.SOUNDTRACK]
-    assert len(soundtracks) == 1
-    assert (
-        real_library / f"{platform.slug}/roms/test_rom/soundtrack/track1.mp3"
-    ).exists()
-
-
-def test_manual_upload_auto_converts_single_file_rom(
-    client: TestClient,
-    access_token: str,
-    platform: Platform,
-    admin_user: User,
-    real_library: Path,
-):
-    rom = _single_file_rom(
-        platform,
-        admin_user,
-        real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
-        fs_extension="zip",
-    )
-    response = client.post(
-        f"/api/roms/{rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": "manual.pdf"},
-        files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
-    )
-    assert response.status_code == status.HTTP_201_CREATED
-
-    after = db_rom_handler.get_rom(rom.id)
-    assert after.fs_name == "test_rom"
-    assert any(f.category == RomFileCategory.MANUAL for f in after.files)
-
-
-def test_screenshot_upload_auto_converts_single_file_rom(
-    client: TestClient,
-    access_token: str,
-    platform: Platform,
-    admin_user: User,
-    real_library: Path,
-):
-    rom = _single_file_rom(
-        platform,
-        admin_user,
-        real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
-        fs_extension="zip",
-    )
-    response = client.post(
-        f"/api/roms/{rom.id}/screenshots",
-        headers={**_auth(access_token), "x-upload-filename": "shot1.png"},
-        files={"shot1.png": ("shot1.png", PNG_BYTES, "image/png")},
-    )
-    assert response.status_code == status.HTTP_201_CREATED
-
-    after = db_rom_handler.get_rom(rom.id)
-    assert after.fs_name == "test_rom"
-    assert any(f.category == RomFileCategory.SCREENSHOT for f in after.files)
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"]["code"] == "external_storage_operation_denied"
+    assert _source_manifest(real_library) == before
