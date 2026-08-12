@@ -14,6 +14,11 @@ from config import FRONTEND_RESOURCES_PATH, YOUTUBE_BASE_URL
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem.storage_access import OwnedReplace
+from handler.filesystem.storage_policy import (
+    ExternalStorageDescriptor,
+    StorageOperation,
+    StoragePolicy,
+)
 from handler.filesystem.storage_resolver import normalize_relative_path
 from logger.logger import log
 from models.rom import Rom
@@ -320,6 +325,10 @@ class GamelistExporter:
         Returns:
             True if successful, False otherwise
         """
+        if not isinstance(destination, OwnedReplace):
+            if isinstance(destination, ExternalStorageDescriptor):
+                StoragePolicy.authorize(StorageOperation.OVERWRITE, destination)
+            raise TypeError('gamelist export requires an owned replacement')
         try:
             platform = db_platform_handler.get_platform(platform_id)
             if not platform:
@@ -329,8 +338,6 @@ class GamelistExporter:
             xml_content, _ = self._build_gamelist_xml(
                 platform_id, request=request, platform_dir=None
             )
-            if not isinstance(destination, OwnedReplace):
-                raise TypeError("gamelist export requires an owned replacement")
             destination.replace(xml_content.encode("utf-8"))
 
             log.info(f"Exported gamelist.xml for platform {platform.fs_slug}")

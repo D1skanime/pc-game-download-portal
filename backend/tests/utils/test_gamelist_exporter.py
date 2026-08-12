@@ -373,7 +373,7 @@ async def test_gamelist_export_rejects_external_destination_before_io(
         await GamelistExporter(local_export=True).export_platform_to_file(
             platform.id,
             request=None,
-            destination=composition.legacy_external,
+            destination=composition.legacy_external, # type: ignore[arg-type]
         )
     assert error.value.code == "external_storage_operation_denied"
     assert error.value.operation == "overwrite"
