@@ -27,6 +27,7 @@ from config import (
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from exceptions.storage_exceptions import StoragePolicyDenied
 from handler.auth.constants import Scope
@@ -319,6 +320,10 @@ async def create_setup_platforms(request: Request, platform_slugs: list[str]):
         }
 
     try:
+        authorize_api_storage_operation(
+            StorageOperation.CREATE, legacy_external_storage
+        )
+        authorize_api_storage_operation(StorageOperation.MKDIR, legacy_external_storage)
         # Detect structure type to determine if we need to create the roms folder
         detected_structure = fs_platform_handler.detect_library_structure()
 
