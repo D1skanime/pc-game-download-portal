@@ -1,17 +1,12 @@
 <script setup lang="ts">
-// ScreenshotsSubtab — the Media tab's Screenshots panel. Three sections:
+// The Media tab presents three screenshot sections:
 //
-//   * ROM        — shared library screenshots stored in the ROM's
-//                  `screenshots/` folder (RomFile, category SCREENSHOT). Only
-//                  folder-based multi-file ROMs can host them. Public to every
-//                  user who can see the ROM. Upload → `romApi.uploadScreenshots`.
-//   * Mine       — per-user screenshots stored under the user's asset folder.
+//   * ROM        is the read-only shared library view.
+//   * Mine       is per-user storage under the user's asset folder.
 //                  Private by default, with a per-item public/private toggle.
-//                  Any ROM. Upload → `screenshotApi.uploadGalleryScreenshots`.
-//   * Community  — other users' public per-user screenshots (read-only).
+//   * Community  contains other users' public screenshots and is read-only.
 //
-// Both uploadable sections use RDropzone (CTA when empty, overlay over the
-// grid when filled).
+// Only the RomM-owned personal asset section accepts uploads or deletes.
 import { RBtn, RDropzone } from "@v2/lib";
 import axios from "axios";
 import { storeToRefs } from "pinia";
@@ -23,7 +18,6 @@ import storeAuth from "@/stores/auth";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { ScreenshotItem } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
-import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -61,21 +55,6 @@ const romsStore = storeRoms();
 const uploadStore = storeUpload();
 const authStore = storeAuth();
 const { user } = storeToRefs(authStore);
-
-// The shared ROM section writes to the ROM itself (roms.write); the "Mine"
-// section writes per-user assets and stays available to everyone.
-const canEditRom = useCan("rom.edit");
-
-// Uploading per-ROM screenshots to a single-file ROM promotes it to a folder
-// ROM in place (the backend converts on upload); warn before that happens.
-async function confirmFolderConversionIfNeeded(): Promise<boolean> {
-  if (!props.rom.has_simple_single_file) return true;
-  return confirm({
-    title: t("rom.convert-to-folder-title"),
-    body: t("rom.convert-to-folder-body"),
-    tone: "warning",
-  });
-}
 
 // ---------- ROM (shared) screenshots — RomFile-backed ----------
 const romScreenshots = computed<ScreenshotItem[]>(() => {
@@ -164,20 +143,8 @@ function reportUpload(responses: PromiseSettledResult<unknown>[]) {
   }
 }
 
-// ---------- Upload handlers (wired to RDropzone @files) ----------
-const romDz = ref<InstanceType<typeof RDropzone> | null>(null);
+// ---------- Personal asset upload ----------
 const myDz = ref<InstanceType<typeof RDropzone> | null>(null);
-
-async function handleRomFiles(files: File[]) {
-  if (files.length === 0) return;
-  if (!(await confirmFolderConversionIfNeeded())) return;
-  const responses = await romApi.uploadScreenshots({
-    romId: props.rom.id,
-    filesToUpload: files,
-  });
-  reportUpload(responses);
-  if (responses.some((r) => r.status === "fulfilled")) await refreshRom();
-}
 
 async function handleMyFiles(files: File[]) {
   if (files.length === 0) return;
@@ -189,31 +156,7 @@ async function handleMyFiles(files: File[]) {
   if (responses.some((r) => r.status === "fulfilled")) await refreshRom();
 }
 
-// ---------- Delete ----------
-async function deleteRomScreenshot(fileId: number) {
-  const file = (props.rom.files ?? []).find((f) => f.id === fileId);
-  const name = file?.file_name ?? "";
-  const ok = await confirm({
-    title: t("rom.delete-screenshot-title"),
-    body: name
-      ? t("rom.delete-screenshot-body-named", { name })
-      : t("rom.delete-screenshot-body"),
-    confirmText: t("common.delete"),
-    tone: "danger",
-  });
-  if (!ok) return;
-  try {
-    await romApi.removeScreenshot({ romId: props.rom.id, fileId });
-    await refreshRom();
-    snackbar.success(t("rom.screenshot-removed"), { icon: "mdi-check-bold" });
-  } catch (error: unknown) {
-    snackbar.error(
-      t("rom.screenshot-remove-failed", { error: errorMessage(error) }),
-      { icon: "mdi-close-circle" },
-    );
-  }
-}
-
+// ---------- Personal asset delete ----------
 async function deleteMyScreenshot(id: number) {
   const ok = await confirm({
     title: t("rom.delete-screenshot-title"),
@@ -255,13 +198,8 @@ async function toggleVisibility(id: number, isPublic: boolean) {
 
 <template>
   <div class="r-v2-shots">
-    <!-- ROM (shared) screenshots — the whole section drops away for a
-         read-only user with nothing to show, since there is neither art to
-         look at nor an upload they're allowed to make. -->
-    <section
-      v-if="canEditRom || romScreenshots.length > 0"
-      class="r-v2-shots__section"
-    >
+    <!-- RomM presents shared screenshots read-only. -->
+    <section v-if="romScreenshots.length > 0" class="r-v2-shots__section">
       <header class="r-v2-shots__head">
         <div class="r-v2-shots__head-text">
           <h3 class="r-v2-shots__title">
@@ -271,44 +209,9 @@ async function toggleVisibility(id: number, isPublic: boolean) {
             {{ t("rom.screenshots-section-rom-desc") }}
           </p>
         </div>
-        <RBtn
-          v-if="romScreenshots.length > 0 && canEditRom"
-          variant="outlined"
-          size="small"
-          prepend-icon="mdi-cloud-upload-outline"
-          @click="romDz?.open()"
-        >
-          {{ t("common.upload") }}
-        </RBtn>
       </header>
 
-      <RDropzone
-        v-if="romScreenshots.length === 0"
-        :title="t('rom.screenshots-empty')"
-        :hint="t('common.dropzone-hint')"
-        :active-title="t('common.dropzone-drag-over')"
-        :input-label="t('rom.upload-screenshots')"
-        accept="image/*"
-        multiple
-        @files="handleRomFiles"
-      />
-      <RDropzone
-        v-else
-        ref="romDz"
-        overlay
-        :disabled="!canEditRom"
-        :release-label="t('common.dropzone-drag-over')"
-        :input-label="t('rom.upload-screenshots')"
-        accept="image/*"
-        multiple
-        @files="handleRomFiles"
-      >
-        <ScreenshotsTab
-          :screenshots="romScreenshots"
-          :deletable="canEditRom"
-          @delete="deleteRomScreenshot"
-        />
-      </RDropzone>
+      <ScreenshotsTab :screenshots="romScreenshots" />
     </section>
 
     <!-- My (per-user) screenshots -->

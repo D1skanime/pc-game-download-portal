@@ -7,7 +7,6 @@ import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
-import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 
@@ -34,7 +33,6 @@ const route = useRoute();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const romsStore = storeRoms();
-const uploadStore = storeUpload();
 
 const validSubtabs = ["manual", "soundtrack"] as const;
 type Subtab = (typeof validSubtabs)[number];
@@ -134,18 +132,11 @@ const selectedManual = computed(() =>
   manualEntries.value.find((e) => e.id === selectedManualId.value),
 );
 
-const soundtrackSupported = computed(() => !props.rom.has_simple_single_file);
-
 const manualUploadInput = ref<HTMLInputElement | null>(null);
-const soundtrackUploadInput = ref<HTMLInputElement | null>(null);
 const redownloadingManual = ref(false);
 
 function triggerManualUpload() {
   manualUploadInput.value?.click();
-}
-
-function triggerSoundtrackUpload() {
-  soundtrackUploadInput.value?.click();
 }
 
 async function refreshRom() {
@@ -168,42 +159,6 @@ function onManualUpload(event: Event) {
     rom: props.rom,
     files,
   });
-}
-
-async function onSoundtrackUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const files = input.files ? Array.from(input.files) : [];
-  if (files.length === 0) return;
-
-  const responses = await romApi.uploadSoundtracks({
-    romId: props.rom.id,
-    filesToUpload: files,
-  });
-  input.value = "";
-
-  const successful = responses.filter((r) => r.status === "fulfilled").length;
-  const failed = responses.length - successful;
-
-  if (failed === 0) {
-    uploadStore.reset();
-  }
-
-  if (successful > 0) {
-    emitter?.emit("snackbarShow", {
-      msg: t("rom.soundtracks-upload-success", { count: successful, failed }),
-      icon: "mdi-check-bold",
-      color: "green",
-      timeout: 3000,
-    });
-    await refreshRom();
-  } else {
-    emitter?.emit("snackbarShow", {
-      msg: t("rom.soundtracks-upload-skipped"),
-      icon: "mdi-close-circle",
-      color: "orange",
-      timeout: 5000,
-    });
-  }
 }
 
 async function redownloadManual() {
@@ -230,32 +185,11 @@ async function redownloadManual() {
 
 function requestDeleteManual() {
   const entry = selectedManual.value;
-  if (!entry) return;
+  if (!entry?.isPrimary) return;
   emitter?.emit("showDeleteManualDialog", {
     rom: props.rom,
-    isPrimary: entry.isPrimary,
-    fileId: entry.isPrimary
-      ? undefined
-      : Number(entry.id.replace(/^file-/, "")),
+    isPrimary: true,
   });
-}
-
-async function deleteSoundtrack(fileId: number) {
-  try {
-    await romApi.removeSoundtrack({ romId: props.rom.id, fileId });
-    await refreshRom();
-    emitter?.emit("snackbarShow", {
-      msg: t("rom.soundtrack-removed"),
-      icon: "mdi-check-bold",
-      color: "green",
-    });
-  } catch (error: unknown) {
-    emitter?.emit("snackbarShow", {
-      msg: t("rom.soundtrack-remove-failed", { error: errorMessage(error) }),
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-  }
 }
 </script>
 
@@ -268,15 +202,6 @@ async function deleteSoundtrack(fileId: number) {
     class="d-none"
     :aria-label="t('rom.upload-manual')"
     @change="onManualUpload"
-  />
-  <input
-    ref="soundtrackUploadInput"
-    type="file"
-    accept="audio/*,.flac,.opus"
-    multiple
-    class="d-none"
-    :aria-label="t('rom.upload-soundtrack')"
-    @change="onSoundtrackUpload"
   />
   <v-row no-gutters>
     <v-col cols="12" lg="auto">
@@ -368,7 +293,7 @@ async function deleteSoundtrack(fileId: number) {
                 {{ t("rom.redownload-manual") }}
               </v-btn>
               <v-btn
-                v-if="selectedManual"
+                v-if="selectedManual?.isPrimary"
                 prepend-icon="mdi-delete"
                 variant="tonal"
                 size="small"
@@ -386,35 +311,15 @@ async function deleteSoundtrack(fileId: number) {
           </div>
         </v-tabs-window-item>
         <v-tabs-window-item value="soundtrack">
-          <div v-if="!soundtrackSupported" class="pa-6 text-center">
-            <v-icon size="48" class="mb-2 text-medium-emphasis">
-              mdi-music-off-outline
-            </v-icon>
-            <div class="text-body-2 text-medium-emphasis">
-              {{ t("rom.soundtrack-folder-only") }}
-            </div>
-          </div>
-          <div v-else-if="!rom.has_soundtrack" class="pa-6 text-center">
+          <div v-if="!rom.has_soundtrack" class="pa-6 text-center">
             <v-icon size="48" class="mb-2 text-medium-emphasis">
               mdi-music-note-outline
             </v-icon>
-            <div class="text-body-2 text-medium-emphasis mb-3">
+            <div class="text-body-2 text-medium-emphasis">
               {{ t("rom.no-soundtrack") }}
             </div>
-            <v-btn
-              prepend-icon="mdi-cloud-upload-outline"
-              variant="tonal"
-              @click="triggerSoundtrackUpload"
-            >
-              {{ t("rom.upload-soundtrack") }}
-            </v-btn>
           </div>
-          <SoundtrackPlayer
-            v-else
-            :rom="rom"
-            @upload-tracks="triggerSoundtrackUpload"
-            @delete-track="deleteSoundtrack"
-          />
+          <SoundtrackPlayer v-else :rom="rom" />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

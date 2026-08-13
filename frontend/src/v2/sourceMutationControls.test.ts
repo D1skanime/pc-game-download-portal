@@ -172,9 +172,9 @@ describe("maximum-grant source mutation controls", () => {
   it("keeps shared screenshots and soundtracks read-only while assets remain mutable", async () => {
     const screenshots = mountPanel(ScreenshotsSubtab);
     const screenshotPanels = screenshots.findAll("[data-screenshots]");
-    expect(screenshotPanels[0].attributes("data-deletable")).toBe("false");
-    expect(screenshotPanels[1].attributes("data-deletable")).toBe("true");
-    expect(screenshotPanels[1].attributes("data-togglable")).toBe("true");
+    expect("data-deletable" in screenshotPanels[0].attributes()).toBe(false);
+    expect("data-deletable" in screenshotPanels[1].attributes()).toBe(true);
+    expect("data-togglable" in screenshotPanels[1].attributes()).toBe(true);
     expect(screenshots.findAll("[data-dropzone]")).toHaveLength(1);
 
     const media = mountPanel(MediaTab);

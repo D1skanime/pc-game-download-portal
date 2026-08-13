@@ -1,13 +1,9 @@
 <script setup lang="ts">
-// FilesTab — browse + interact with the individual files that make up
+// FilesTab browses the individual files that make up
 // a (potentially multi-file) ROM.
 //
 // Layout mirrors ScreenshotsSubtab / SaveDataTab / MediaTab: a vertical
-// subtab list on the left (navigation only — no inline action panel),
-// and a content column on the right with a section header that hosts
-// the Upload button plus a Patch button (multi-file ROMs only). Bulk
-// download / copy-link affordances live in the selection toolbar
-// instead — pair them with select-all.
+// subtab list on the left and a read/download content column on the right.
 //
 // Grouping is **folder-based**: every direct subfolder of the ROM
 // becomes its own subtab, plus a "Root" subtab for files sitting
@@ -18,15 +14,7 @@
 // folder name. Per-file `category` metadata is still shown as a chip
 // inside each row.
 //
-// Section header (per active subtab):
-//   * Upload — only enabled for the "manual" and "soundtrack" folders
-//     (the only places the backend supports adding files to an
-//     existing ROM today). Other subtabs render a disabled Upload
-//     button with a tooltip so the affordance is visible but truthful
-//     about its current reach.
-//
 // Content column:
-//   * Section header (Upload + Patch)
 //   * ROM-info card (size, revision, ROM-level hashes — click to copy)
 //   * Selection toolbar (select-all + per-selection Download / Copy-link
 //     — also the path for "download everything in this subtab": select
@@ -34,12 +22,7 @@
 //   * One row per file with checkbox, relative path, category chip,
 //     size, per-file hashes (click to copy), and per-row Download +
 //     Copy-link buttons.
-//
-// Selected files in the Files tab can be deleted by users with the
-// `rom.delete` permission. Each file is removed from disk and the DB
-// row is dropped via `DELETE /roms/{rom_id}/files/{file_id}`.
-import { RBtn, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
-import axios from "axios";
+import { RBtn, RCheckbox, REmptyState, RIcon } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -49,10 +32,7 @@ import type {
   RomFileSchema,
 } from "@/__generated__";
 import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
-import { useCan } from "@/v2/composables/useCan";
-import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import FileRow from "./FileRow.vue";
 import FilesSummary from "./FilesSummary.vue";
@@ -63,24 +43,8 @@ const props = defineProps<{ rom: DetailedRomSchema }>();
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
-const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
-const romsStore = storeRoms();
-
-const canUpload = useCan("rom.upload");
-const hasDeleteGrant = useCan("rom.delete");
-// `DELETE /roms/{id}/files/{file_id}` gates on ROMS_WRITE
-const canDelete = computed(() => hasDeleteGrant.value && canUpload.value);
-
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return String(err);
-}
 
 // ---------- Category metadata ----------
 // Drives per-file category chips (one per `RomFileCategory` enum
@@ -229,20 +193,6 @@ function folderMeta(folder: string): FolderMeta | null {
   return FOLDER_META.value[folder.toLowerCase()] ?? null;
 }
 
-// Backend `RomFileCategory` derived from a folder name — used to
-// pick the right upload endpoint. Plurals collapse to their singular
-// (`cheats/` → `cheat`).
-function folderToCategory(folder: string): RomFileCategory | null {
-  const lower = folder.toLowerCase();
-  const meta = FOLDER_META.value[lower];
-  if (!meta) return null;
-  // Look up the matching enum value by reverse-mapping the label.
-  for (const key of Object.keys(CATEGORY_META.value) as RomFileCategory[]) {
-    if (CATEGORY_META.value[key] === meta) return key;
-  }
-  return null;
-}
-
 function folderLabel(folder: string): string {
   if (folder === ROOT) return t("rom.folder-root");
   return folderMeta(folder)?.label ?? folder;
@@ -298,17 +248,6 @@ const subtabDefs = computed<SubtabDef[]>(() => {
 const validSubtabIds = computed(
   () => new Set(subtabDefs.value.map((s) => s.id)),
 );
-
-// Backend-supported upload destinations. Other subtabs render the
-// upload button disabled with a "coming soon" tooltip — see X.B in
-// the v2 constitution for the pending backend endpoint.
-function uploadSupportsSubtab(id: Subtab): "manual" | "soundtrack" | null {
-  if (id === "all" || id === ROOT) return null;
-  const cat = folderToCategory(id as string);
-  if (cat === "manual") return "manual";
-  if (cat === "soundtrack") return "soundtrack";
-  return null;
-}
 
 // ---------- Subtab state (URL-persisted via `?subtab=`) ----------
 function readSubtabFromRoute(): Subtab {
@@ -490,232 +429,9 @@ async function copySelectedLink() {
     }),
   );
 }
-
-// ---------- Delete ----------
-async function deleteSelectedFiles() {
-  const toDelete = selectedFiles.value;
-  if (toDelete.length === 0) return;
-
-  const ok = await confirm({
-    title: t("rom.delete-files-confirm-title", toDelete.length, {
-      named: { n: toDelete.length },
-    }),
-    body: t("rom.delete-files-confirm-body"),
-    confirmText: t("common.delete"),
-    tone: "danger",
-  });
-  if (!ok) return;
-
-  const results = await Promise.allSettled(
-    toDelete.map((file) =>
-      romApi.deleteRomFile({ romId: props.rom.id, fileId: file.id }),
-    ),
-  );
-
-  const succeeded = results.filter((r) => r.status === "fulfilled").length;
-  const failed = results.length - succeeded;
-
-  if (succeeded > 0) {
-    snackbar.success(
-      t("rom.files-deleted-n", succeeded, { named: { n: succeeded } }),
-      { icon: "mdi-check-bold" },
-    );
-  }
-  if (failed > 0) {
-    const firstError = results.find((r) => r.status === "rejected") as
-      PromiseRejectedResult | undefined;
-    snackbar.error(
-      t("rom.file-delete-failed", {
-        error: firstError ? errorMessage(firstError.reason) : "",
-      }),
-      { icon: "mdi-close-circle" },
-    );
-  }
-
-  clearSelection();
-  await refreshRom();
-
-  // Redirect to the gallery if no files remain after deletion.
-  const platformSlug = route.params["platform"] as string | undefined;
-  if (romsStore.currentRom && romsStore.currentRom.files?.length === 0) {
-    if (platformSlug) {
-      await router.push({
-        name: "platform",
-        params: { platform: platformSlug },
-      });
-    } else {
-      await router.push({ name: "home" });
-    }
-  }
-}
-
-// ---------- Upload ----------
-// One hidden `<input>` per supported target so each subtab's upload
-// button can route through the matching backend endpoint without a
-// dialog. Folder-based ROMs only — `uploadManualFiles` and
-// `uploadSoundtracks` both 400 on single-file ROMs.
-const manualUploadInput = ref<HTMLInputElement | null>(null);
-const soundtrackUploadInput = ref<HTMLInputElement | null>(null);
-const uploadingManual = ref(false);
-const uploadingSoundtrack = ref(false);
-
-const uploadDisabledReason = computed<string | null>(() => {
-  if (props.rom.has_simple_single_file) {
-    return t("rom.upload-needs-folder");
-  }
-  return null;
-});
-
-function triggerUpload() {
-  const target = uploadSupportsSubtab(subTab.value);
-  if (!target) return;
-  if (uploadDisabledReason.value) return;
-  if (target === "manual") manualUploadInput.value?.click();
-  else soundtrackUploadInput.value?.click();
-}
-
-async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    romsStore.update(data);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-async function onManualUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const fileList = input.files ? Array.from(input.files) : [];
-  input.value = "";
-  if (fileList.length === 0 || uploadingManual.value) return;
-
-  uploadingManual.value = true;
-  try {
-    const responses = await romApi.uploadManualFiles({
-      romId: props.rom.id,
-      filesToUpload: fileList,
-    });
-    const successful = responses.filter((r) => r.status === "fulfilled").length;
-    const failed = responses.length - successful;
-    if (successful > 0) {
-      snackbar.success(
-        failed
-          ? t("rom.manual-files-uploaded-with-failed", successful, {
-              named: { n: successful, failed },
-            })
-          : t("rom.manual-files-uploaded-n", successful, {
-              named: { n: successful },
-            }),
-        { icon: "mdi-check-bold" },
-      );
-      await refreshRom();
-    } else {
-      snackbar.warning(t("rom.no-files-uploaded"), {
-        icon: "mdi-close-circle",
-      });
-    }
-  } finally {
-    uploadingManual.value = false;
-  }
-}
-
-async function onSoundtrackUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const fileList = input.files ? Array.from(input.files) : [];
-  input.value = "";
-  if (fileList.length === 0 || uploadingSoundtrack.value) return;
-
-  uploadingSoundtrack.value = true;
-  try {
-    const responses = await romApi.uploadSoundtracks({
-      romId: props.rom.id,
-      filesToUpload: fileList,
-    });
-    const successful = responses.filter((r) => r.status === "fulfilled").length;
-    const failed = responses.length - successful;
-    if (successful > 0) {
-      snackbar.success(
-        failed
-          ? t("rom.tracks-uploaded-with-failed", successful, {
-              named: { n: successful, failed },
-            })
-          : t("rom.tracks-uploaded-n", successful, {
-              named: { n: successful },
-            }),
-        { icon: "mdi-check-bold" },
-      );
-      await refreshRom();
-    } else {
-      snackbar.warning(t("rom.no-tracks-uploaded"), {
-        icon: "mdi-close-circle",
-      });
-    }
-  } finally {
-    uploadingSoundtrack.value = false;
-  }
-}
-
-// Upload affordance for the active subtab — drives the header's
-// Upload button (enabled / loading) plus the tooltip surfaced when the
-// folder isn't a backend-supported upload target.
-interface SubtabUploadState {
-  /** Whether the button should be clickable. */
-  enabled: boolean;
-  /** Tooltip surfaced when disabled, null otherwise. */
-  reason: string | null;
-  /** Show a spinner while an upload is in flight. */
-  loading: boolean;
-}
-
-const currentUploadState = computed<SubtabUploadState>(() => {
-  const target = uploadSupportsSubtab(subTab.value);
-  if (!target) {
-    return {
-      enabled: false,
-      reason: t("rom.upload-not-supported-here"),
-      loading: false,
-    };
-  }
-  if (uploadDisabledReason.value) {
-    return {
-      enabled: false,
-      reason: uploadDisabledReason.value,
-      loading: false,
-    };
-  }
-  return {
-    enabled: true,
-    reason: null,
-    loading:
-      target === "manual" ? uploadingManual.value : uploadingSoundtrack.value,
-  };
-});
 </script>
 
 <template>
-  <!-- Hidden file inputs drive the per-subtab upload buttons. Only the
-       Manual / Soundtrack subtabs have a working backend pathway right
-       now — see `uploadSupportsSubtab` in the script. -->
-  <input
-    ref="manualUploadInput"
-    type="file"
-    accept="application/pdf,.md"
-    multiple
-    class="r-v2-files__file-input"
-    :aria-label="t('rom.upload-manual-files')"
-    @change="onManualUpload"
-  />
-  <input
-    ref="soundtrackUploadInput"
-    type="file"
-    accept="audio/*,.flac,.opus"
-    multiple
-    class="r-v2-files__file-input"
-    :aria-label="t('rom.upload-soundtrack-files')"
-    @change="onSoundtrackUpload"
-  />
-
   <div class="r-v2-files">
     <aside class="r-v2-files__sidebar">
       <ul
@@ -745,36 +461,6 @@ const currentUploadState = computed<SubtabUploadState>(() => {
     </aside>
 
     <div class="r-v2-files__content">
-      <!-- Section header — the sidebar's subtab label already names the
-           section, so the header skips a redundant title and just hosts
-           the Upload button on the right. Download-all / Copy-link are
-           covered by the selection toolbar below (select-all then act). -->
-      <header
-        v-if="filteredFiles.length > 0 && canUpload"
-        class="r-v2-files__section-head"
-      >
-        <div class="r-v2-files__section-actions">
-          <div class="r-v2-files__upload-slot">
-            <RBtn
-              variant="outlined"
-              size="small"
-              prepend-icon="mdi-cloud-upload-outline"
-              :disabled="!currentUploadState.enabled"
-              :loading="currentUploadState.loading"
-              @click="triggerUpload"
-            >
-              {{ t("common.upload") }}
-            </RBtn>
-            <RTooltip
-              v-if="currentUploadState.reason"
-              :text="currentUploadState.reason ?? ''"
-              location="bottom"
-              activator="parent"
-            />
-          </div>
-        </div>
-      </header>
-
       <FilesSummary :rom="rom" />
 
       <!-- Selection toolbar — pinned above the list. Always visible
@@ -825,16 +511,6 @@ const currentUploadState = computed<SubtabUploadState>(() => {
             @click="copySelectedLink"
           >
             {{ t("rom.copy-link-action") }}
-          </RBtn>
-          <RBtn
-            v-if="canDelete"
-            variant="text"
-            color="danger"
-            prepend-icon="mdi-delete-outline"
-            size="small"
-            @click="deleteSelectedFiles"
-          >
-            {{ t("common.delete") }}
           </RBtn>
           <RBtn
             variant="text"
@@ -972,50 +648,17 @@ const currentUploadState = computed<SubtabUploadState>(() => {
   background: color-mix(in srgb, currentColor 18%, transparent);
 }
 
-/* Hidden file inputs sit at the template root so the visible buttons
-   can `.click()` them — display:none works fine since we never need
-   them to be tabbable directly. */
-.r-v2-files__file-input {
-  display: none;
-}
-
-/* Section header — toolbar row at the top of the content column,
-   mirroring ScreenshotsSubtab / MediaTab. The sidebar's subtab label
-   names the section, so the header has no title — only the action
-   cluster pushed to the right. */
-.r-v2-files__section-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-.r-v2-files__section-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-/* Wrapper around the Upload button so RTooltip can attach to a
-   non-disabled positioned ancestor; pointer-events on the disabled
-   button itself swallow the tooltip's hover detection. */
-.r-v2-files__upload-slot {
-  position: relative;
-}
-
 .r-v2-files__content {
   flex: 1;
   min-width: 0;
-  /* Grid (auto / auto / auto / 1fr) instead of flex column: the `1fr`
+  /* Grid (auto / auto / 1fr) instead of flex column: the `1fr`
      row forces the list to clip + scroll internally even with many
      files. Flex `min-height: 0` + `overflow-y: auto` on the list was
      unreliable here — the list's intrinsic min-content kept leaking
      through and pushed `.r-v2-det__panel` into showing its outer
-     scrollbar. Rows: section header, summary, selection toolbar, list. */
+     scrollbar. Rows: summary, selection toolbar, list. */
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto 1fr;
   gap: var(--r-space-3);
   min-height: 0;
   overflow: hidden;

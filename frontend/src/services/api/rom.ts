@@ -646,100 +646,6 @@ async function redownloadManual({ romId }: { romId: number }) {
   return api.post(`/roms/${romId}/manuals/redownload`);
 }
 
-async function uploadSoundtracks({
-  romId,
-  filesToUpload,
-}: {
-  romId: number;
-  filesToUpload: File[];
-}) {
-  const uploadStore = storeUpload();
-
-  const promises = filesToUpload.map((file) => {
-    const formData = new FormData();
-    formData.append(file.name, file);
-
-    uploadStore.start(file.name);
-    return new Promise((resolve, reject) => {
-      api
-        .post(`/roms/${romId}/soundtracks`, formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            "X-Upload-Filename": file.name,
-          },
-          params: {},
-          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-            uploadStore.update(file.name, progressEvent);
-          },
-        })
-        .then(resolve)
-        .catch((error) => {
-          uploadStore.fail(file.name, error.response?.data?.detail);
-          reject(error);
-        });
-    });
-  });
-
-  return Promise.allSettled(promises);
-}
-
-async function removeSoundtrack({
-  romId,
-  fileId,
-}: {
-  romId: number;
-  fileId: number;
-}) {
-  return api.delete(`/roms/${romId}/soundtracks/${fileId}`);
-}
-
-async function uploadScreenshots({
-  romId,
-  filesToUpload,
-}: {
-  romId: number;
-  filesToUpload: File[];
-}) {
-  const uploadStore = storeUpload();
-
-  const promises = filesToUpload.map((file) => {
-    const formData = new FormData();
-    formData.append(file.name, file);
-
-    uploadStore.start(file.name);
-    return new Promise((resolve, reject) => {
-      api
-        .post(`/roms/${romId}/screenshots`, formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            "X-Upload-Filename": file.name,
-          },
-          params: {},
-          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-            uploadStore.update(file.name, progressEvent);
-          },
-        })
-        .then(resolve)
-        .catch((error) => {
-          uploadStore.fail(file.name, error.response?.data?.detail);
-          reject(error);
-        });
-    });
-  });
-
-  return Promise.allSettled(promises);
-}
-
-async function removeScreenshot({
-  romId,
-  fileId,
-}: {
-  romId: number;
-  fileId: number;
-}) {
-  return api.delete(`/roms/${romId}/screenshots/${fileId}`);
-}
-
 async function getSoundtrackMetadata({
   romId,
   signal,
@@ -753,63 +659,6 @@ async function getSoundtrackMetadata({
       signal,
     },
   );
-}
-
-async function uploadManualFiles({
-  romId,
-  filesToUpload,
-}: {
-  romId: number;
-  filesToUpload: File[];
-}) {
-  const uploadStore = storeUpload();
-
-  const promises = filesToUpload.map((file) => {
-    const formData = new FormData();
-    formData.append(file.name, file);
-
-    uploadStore.start(file.name);
-    return new Promise((resolve, reject) => {
-      api
-        .post(`/roms/${romId}/manuals/files`, formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            "X-Upload-Filename": file.name,
-          },
-          params: {},
-          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-            uploadStore.update(file.name, progressEvent);
-          },
-        })
-        .then(resolve)
-        .catch((error) => {
-          uploadStore.fail(file.name, error.response?.data?.detail);
-          reject(error);
-        });
-    });
-  });
-
-  return Promise.allSettled(promises);
-}
-
-async function deleteManualFile({
-  romId,
-  fileId,
-}: {
-  romId: number;
-  fileId: number;
-}) {
-  return api.delete(`/roms/${romId}/manuals/files/${fileId}`);
-}
-
-async function deleteRomFile({
-  romId,
-  fileId,
-}: {
-  romId: number;
-  fileId: number;
-}) {
-  return api.delete(`/roms/${romId}/files/${fileId}`);
 }
 
 async function updateUserRomProps({
@@ -925,14 +774,7 @@ export default {
   uploadManuals,
   removeManual,
   redownloadManual,
-  uploadManualFiles,
-  deleteManualFile,
-  deleteRomFile,
-  uploadSoundtracks,
-  removeSoundtrack,
   getSoundtrackMetadata,
-  uploadScreenshots,
-  removeScreenshot,
   updateUserRomProps,
   deleteRoms,
   createRomNote,

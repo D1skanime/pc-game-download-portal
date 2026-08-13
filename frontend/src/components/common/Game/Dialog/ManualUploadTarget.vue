@@ -22,7 +22,7 @@ const handleShow = (payload: Events["showManualUploadTargetDialog"]) => {
   rom.value = payload.rom;
   files.value = payload.files;
   if (payload.rom.has_simple_single_file) {
-    void chooseTarget("resources");
+    void chooseTarget();
     return;
   }
   show.value = true;
@@ -74,7 +74,7 @@ async function handleUploadResult(
   }
 }
 
-async function chooseTarget(target: "resources" | "folder") {
+async function chooseTarget() {
   if (!rom.value || uploading.value) return;
   const currentRom = rom.value;
   const pending = files.value;
@@ -85,27 +85,15 @@ async function chooseTarget(target: "resources" | "folder") {
 
   uploading.value = true;
   try {
-    if (target === "resources") {
-      const responses = await romApi.uploadManuals({
-        romId: currentRom.id,
-        filesToUpload: pending,
-      });
-      await handleUploadResult(
-        responses,
-        "rom.manuals-upload-success",
-        "rom.manuals-upload-skipped",
-      );
-    } else {
-      const responses = await romApi.uploadManualFiles({
-        romId: currentRom.id,
-        filesToUpload: pending,
-      });
-      await handleUploadResult(
-        responses,
-        "rom.manual-files-upload-success",
-        "rom.manual-files-upload-skipped",
-      );
-    }
+    const responses = await romApi.uploadManuals({
+      romId: currentRom.id,
+      filesToUpload: pending,
+    });
+    await handleUploadResult(
+      responses,
+      "rom.manuals-upload-success",
+      "rom.manuals-upload-skipped",
+    );
     closeDialog();
   } finally {
     uploading.value = false;
@@ -136,7 +124,7 @@ function closeDialog() {
         <v-list-item
           class="bg-toplayer rounded mb-2"
           :disabled="uploading"
-          @click="chooseTarget('resources')"
+          @click="chooseTarget"
         >
           <template #prepend>
             <v-icon class="mr-2">mdi-database-edit-outline</v-icon>
@@ -146,21 +134,6 @@ function closeDialog() {
           </v-list-item-title>
           <v-list-item-subtitle class="text-wrap">
             {{ t("rom.manual-upload-target-resources-desc") }}
-          </v-list-item-subtitle>
-        </v-list-item>
-        <v-list-item
-          class="bg-toplayer rounded"
-          :disabled="uploading"
-          @click="chooseTarget('folder')"
-        >
-          <template #prepend>
-            <v-icon class="mr-2">mdi-folder-plus-outline</v-icon>
-          </template>
-          <v-list-item-title>
-            {{ t("rom.manual-upload-target-folder-title") }}
-          </v-list-item-title>
-          <v-list-item-subtitle class="text-wrap">
-            {{ t("rom.manual-upload-target-folder-desc") }}
           </v-list-item-subtitle>
         </v-list-item>
       </v-list>

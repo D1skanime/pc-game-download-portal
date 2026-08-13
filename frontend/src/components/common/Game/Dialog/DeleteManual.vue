@@ -14,8 +14,6 @@ const romsStore = storeRoms();
 
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
-const isPrimary = ref(false);
-const fileId = ref<number | undefined>(undefined);
 const deleting = ref(false);
 
 function errorMessage(err: unknown): string {
@@ -28,9 +26,8 @@ function errorMessage(err: unknown): string {
 }
 
 const handleShow = (payload: Events["showDeleteManualDialog"]) => {
+  if (!payload.isPrimary) return;
   rom.value = payload.rom;
-  isPrimary.value = payload.isPrimary;
-  fileId.value = payload.fileId;
   show.value = true;
 };
 emitter?.on("showDeleteManualDialog", handleShow);
@@ -54,26 +51,18 @@ async function deleteManual() {
   if (!rom.value || deleting.value) return;
   deleting.value = true;
   const romId = rom.value.id;
-  const primary = isPrimary.value;
   try {
-    if (primary) {
-      await romApi.removeManual({ romId });
-    } else if (fileId.value !== undefined) {
-      await romApi.deleteManualFile({ romId, fileId: fileId.value });
-    }
+    await romApi.removeManual({ romId });
     await refreshRom();
     emitter?.emit("snackbarShow", {
-      msg: t(primary ? "rom.manual-removed" : "rom.manual-file-removed"),
+      msg: t("rom.manual-removed"),
       icon: "mdi-check-bold",
       color: "green",
     });
     closeDialog();
   } catch (error: unknown) {
     emitter?.emit("snackbarShow", {
-      msg: t(
-        primary ? "rom.manual-remove-failed" : "rom.manual-file-remove-failed",
-        { error: errorMessage(error) },
-      ),
+      msg: t("rom.manual-remove-failed", { error: errorMessage(error) }),
       icon: "mdi-close-circle",
       color: "red",
     });
@@ -85,8 +74,6 @@ async function deleteManual() {
 function closeDialog() {
   show.value = false;
   rom.value = null;
-  isPrimary.value = false;
-  fileId.value = undefined;
 }
 </script>
 
