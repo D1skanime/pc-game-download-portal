@@ -842,6 +842,8 @@ def test_legacy_impact_returns_allowlisted_confirmation(
             observed_mapping_version=None,
             reconnectable_catalog_count=4,
             unmatched_catalog_count=1,
+            source_fingerprint="a" * 64,
+            catalog_fingerprint="b" * 64,
             expires_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
         ),
         source_immutable=True,
@@ -873,6 +875,8 @@ def test_legacy_impact_returns_allowlisted_confirmation(
     assert body["unmatched_catalog_count"] == 1
     assert body["planned_owned_effects"]["source_mutation_count"] == 0
     assert body["confirmation"]["detection_result_id"] == 41
+    assert body["confirmation"]["source_fingerprint"] == "a" * 64
+    assert body["confirmation"]["catalog_fingerprint"] == "b" * 64
     assert body["confirmation"]["expires_at"] == "2026-08-13T00:00:00+00:00"
     assert body["source_immutable"] is True
     assert body["legacy_fallback_enabled"] is False

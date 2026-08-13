@@ -4,7 +4,10 @@ import httpx
 import pytest
 from rq.job import Job
 
+from config import TASK_TIMEOUT
 from exceptions.task_exceptions import SchedulerException
+from handler.storage.legacy_migration import LEGACY_OBSERVATION_DEADLINE_SECONDS
+from tasks.manual.detect_legacy_storage import detect_legacy_storage_task
 from tasks.tasks import PeriodicTask, RemoteFilePullTask, TaskType, tasks_scheduler
 
 
@@ -13,6 +16,12 @@ class ConcretePeriodicTask(PeriodicTask):
 
     async def run(self, *args, **kwargs):
         return "test_result"
+
+
+def test_legacy_detection_deadline_is_bounded_below_task_timeout():
+    assert LEGACY_OBSERVATION_DEADLINE_SECONDS == 240
+    assert detect_legacy_storage_task.timeout == TASK_TIMEOUT == 300
+    assert LEGACY_OBSERVATION_DEADLINE_SECONDS < detect_legacy_storage_task.timeout
 
 
 class TestPeriodicTask:
@@ -322,3 +331,49 @@ class TestRemoteFilePullTask:
         result = await disabled_task.run(force=True)
 
         assert result == b"forced content"
+
+
+async def test_legacy_detection_task_passes_exact_240_second_budget(monkeypatch):
+    from types import SimpleNamespace
+
+    from tasks.manual import detect_legacy_storage as subject
+
+    context = SimpleNamespace(
+        platform_id=5,
+        storage_root_id=7,
+        fs_slug="gb",
+        container_path="/private/root",
+        root_active=True,
+    )
+    outcome = SimpleNamespace()
+    captured = {}
+
+    class FakeHandler:
+        def get_detection_context(self, platform_id, storage_root_id):
+            assert (platform_id, storage_root_id) == (5, 7)
+            return context
+
+        def save_detection_result(self, saved_context, saved_outcome, **kwargs):
+            assert saved_context is context
+            assert saved_outcome is outcome
+            assert kwargs == {"actor_user_id": 11}
+            return SimpleNamespace(id=19)
+
+    monkeypatch.setattr(subject, "DBLegacyMigrationHandler", FakeHandler)
+    monkeypatch.setattr(
+        subject,
+        "_create_external_descriptor",
+        lambda root_id, root: SimpleNamespace(root_id=root_id, root=root),
+    )
+
+    def detect(descriptor, **kwargs):
+        captured.update(kwargs)
+        return outcome
+
+    monkeypatch.setattr(subject, "detect_legacy_storage", detect)
+
+    result_id = await subject.detect_legacy_storage_task.run(5, 7, 11)
+
+    assert result_id == 19
+    assert captured["time_budget"] == LEGACY_OBSERVATION_DEADLINE_SECONDS == 240
+    assert detect_legacy_storage_task.timeout == 300

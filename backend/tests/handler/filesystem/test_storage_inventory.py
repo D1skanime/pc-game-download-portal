@@ -58,6 +58,8 @@ def test_inventory_covers_every_required_surface_family() -> None:
         InventoryKind.MUTATION,
         InventoryKind.EXCLUSION,
     }
+    legacy = next(row for row in INVENTORY if row.family == "legacy-detection")
+    assert legacy.operations == ("LIST", "STAT", "HASH")
 
 
 def test_every_inventory_row_has_one_disposition_and_runnable_evidence() -> None:

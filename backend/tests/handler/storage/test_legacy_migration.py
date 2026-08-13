@@ -24,10 +24,10 @@ def _subject():
     return importlib.import_module("handler.storage.legacy_migration")
 
 
-def _external(root: Path):
+def _external(root: Path, root_id: int = 7):
     from handler.filesystem.storage_policy import _create_external_descriptor
 
-    return _create_external_descriptor(7, root)
+    return _create_external_descriptor(root_id, root)
 
 
 def _source_manifest(root: Path) -> tuple[tuple[object, ...], ...]:
@@ -533,6 +533,13 @@ def _seed_impact_preview(tmp_path: Path, platform, admin_user):
     handler = DBLegacyMigrationHandler()
     context = handler.get_detection_context(platform.id, root_id)
     now = datetime(2026, 8, 12, 12, tzinfo=timezone.utc)
+    detected = _subject().detect_legacy_storage(
+        _external(tmp_path, root_id),
+        platform_id=platform.id,
+        storage_root_id=root_id,
+        fs_slug=platform.fs_slug,
+    )
+    assert detected.source_fingerprint is not None
     result = handler.save_detection_result(
         context,
         LegacyDetectionOutcome(
@@ -545,7 +552,7 @@ def _seed_impact_preview(tmp_path: Path, platform, admin_user):
             lower_bound=False,
             selectable=True,
             safe_problem_code=None,
-            source_fingerprint="0" * 64,
+            source_fingerprint=detected.source_fingerprint,
         ),
         actor_user_id=admin_user.id,
         now=now,
@@ -581,6 +588,10 @@ def test_impact_preview_binds_confirmation_and_changes_no_state(
     assert impact.confirmation.platform_id == platform.id
     assert impact.confirmation.storage_root_id == result.storage_root_id
     assert impact.confirmation.relative_path == f"roms/{platform.fs_slug}"
+    assert impact.confirmation.source_fingerprint == result.source_fingerprint
+    assert len(impact.confirmation.catalog_fingerprint) == 64
+    assert impact.confirmation.catalog_fingerprint.isascii()
+    assert impact.confirmation.catalog_fingerprint.islower()
     assert impact.confirmation.expires_at == result.expires_at
     assert impact.source_immutable is True
     assert impact.legacy_fallback_enabled is False
@@ -690,3 +701,74 @@ def test_admin_migrate_endpoint_returns_only_bounded_atomic_outcome(
     assert str(tmp_path).lower() not in serialized
     assert "relative_path" not in serialized
     assert "raw" not in serialized
+
+
+def test_migration_rejects_same_metadata_source_substitution_before_owned_writes(
+    tmp_path: Path, platform, admin_user
+):
+    from sqlalchemy import func, select
+
+    from handler.database.base_handler import sync_session
+    from handler.database.legacy_migration_handler import LegacyDetectionResultError
+    from models.rom import Rom
+    from models.storage import LegacyMigration, PlatformStorageMapping
+
+    handler, result, now = _seed_impact_preview(tmp_path, platform, admin_user)
+    impact = handler.preview_migration_impact(
+        result.id, platform_id=platform.id, expected_result_version=1, now=now
+    )
+    source = tmp_path / "roms" / platform.fs_slug / "one.gb"
+    metadata = source.stat()
+    source.write_bytes(b"ONE")
+    os.utime(source, ns=(metadata.st_atime_ns, metadata.st_mtime_ns))
+
+    with pytest.raises(LegacyDetectionResultError) as stale:
+        handler.migrate_platform(
+            impact.confirmation,
+            actor_user_id=admin_user.id,
+            actor_display_name=admin_user.username,
+            now=now,
+        )
+    assert stale.value.code == "legacy_impact_stale"
+    with sync_session() as database:
+        assert database.scalar(select(func.count(PlatformStorageMapping.id))) == 0
+        assert database.scalar(select(func.count(LegacyMigration.id))) == 0
+        roms = database.scalars(select(Rom).where(Rom.platform_id == platform.id)).all()
+        assert roms
+        assert all(rom.missing_from_fs for rom in roms)
+
+
+def test_migration_rejects_equal_count_catalog_replacement_before_owned_writes(
+    tmp_path: Path, platform, admin_user
+):
+    from sqlalchemy import func, select
+
+    from handler.database.base_handler import sync_session
+    from handler.database.legacy_migration_handler import LegacyDetectionResultError
+    from models.rom import Rom
+    from models.storage import LegacyMigration, PlatformStorageMapping
+
+    handler, result, now = _seed_impact_preview(tmp_path, platform, admin_user)
+    impact = handler.preview_migration_impact(
+        result.id, platform_id=platform.id, expected_result_version=1, now=now
+    )
+    with sync_session.begin() as database:
+        victim = database.scalars(
+            select(Rom).where(Rom.platform_id == platform.id).order_by(Rom.id)
+        ).first()
+        victim.fs_name = "replacement.gb"
+        victim.fs_name_no_tags = "replacement"
+        victim.fs_name_no_ext = "replacement"
+        victim.name = "Replacement"
+
+    with pytest.raises(LegacyDetectionResultError) as stale:
+        handler.migrate_platform(
+            impact.confirmation,
+            actor_user_id=admin_user.id,
+            actor_display_name=admin_user.username,
+            now=now,
+        )
+    assert stale.value.code == "legacy_impact_stale"
+    with sync_session() as database:
+        assert database.scalar(select(func.count(PlatformStorageMapping.id))) == 0
+        assert database.scalar(select(func.count(LegacyMigration.id))) == 0
