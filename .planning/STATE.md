@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-18-PLAN.md
-last_updated: "2026-08-13T19:24:36.744Z"
+stopped_at: Completed 06-21-PLAN.md
+last_updated: "2026-08-13T19:57:12.440Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 61
-  completed_plans: 57
+  completed_plans: 58
   percent: 56
 ---
 
@@ -95,6 +95,7 @@ _Updated after each plan completion_
 | Phase 06 P22 | 18m | 2 tasks | 12 files |
 | Phase 06 P24 | 33m | 1 tasks | 11 files |
 | Phase 06 P18 | 37m | 1 tasks | 13 files |
+| Phase 06 P21 | 24m11s | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -201,6 +202,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Authorize personal screenshot and primary manual deletion with exact typed ASSETS and RESOURCES descriptors immediately before owned I/O. — Keep owned lifecycle useful while external storage remains fail-closed.
 - [Phase 06]: Keep primary manuals in RESOURCES and personal screenshots in ASSETS mutable while shared source files stay read-only. - Typed RomM-owned operations remain authorized without widening external source-tree authority.
 - [Phase 06]: Keep generic HTTP clients available and reject only semantically classified external mutation pairs. - Concrete operation, route, StorageOperation, and descriptor classification preserves safe generic-client consumers.
+- [Phase 06]: Generate every Rom and RomFile incarnation token immediately before ORM insert, overriding caller input, and reject ORM instance and bulk updates. - Normal creation cannot preserve caller-supplied identity and persisted rows cannot change incarnation.
+- [Phase 06]: Invalidate all pre-0113 completed migration records because their historical entity and parent lineage cannot be reconstructed safely. - Unknown predecessor lineage must never authorize rollback.
 
 ### Blockers/Concerns
 
@@ -218,6 +221,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T19:24:36.740Z
-Stopped at: Completed 06-18-PLAN.md
+Last session: 2026-08-13T19:57:12.436Z
+Stopped at: Completed 06-21-PLAN.md
 Resume file: None
