@@ -105,6 +105,12 @@ def _seed_mapping(tmp_path: Path, *, rom_count: int = 2):
 
 def _seed_atomic_migration(tmp_path: Path, *, suffix: str = "one"):
     from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
+    from handler.filesystem.storage_composition import (
+        OWNED_STORAGE_PATHS,
+        StorageCompositionConfig,
+        build_storage_composition,
+    )
+    from handler.storage.legacy_migration import detect_legacy_storage
 
     source = tmp_path / suffix / "library"
     canonical = source / "roms" / f"pc-{suffix}"
@@ -150,6 +156,19 @@ def _seed_atomic_migration(tmp_path: Path, *, suffix: str = "one"):
                 )
             )
             roms.append(rom)
+        composition = build_storage_composition(
+            StorageCompositionConfig(
+                source,
+                OWNED_STORAGE_PATHS,
+                legacy_external_root_id=root.id,
+            )
+        )
+        detected = detect_legacy_storage(
+            composition.legacy_external,
+            platform_id=platform.id,
+            storage_root_id=root.id,
+            fs_slug=platform.fs_slug,
+        )
         result = LegacyDetectionResult(
             platform_id=platform.id,
             storage_root_id=root.id,
@@ -160,6 +179,7 @@ def _seed_atomic_migration(tmp_path: Path, *, suffix: str = "one"):
             lower_bound=False,
             selectable=True,
             safe_problem_code=None,
+            source_fingerprint=detected.source_fingerprint,
             observed_mapping_id=None,
             observed_mapping_version=None,
             version=1,

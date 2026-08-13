@@ -750,6 +750,73 @@ def test_rollback_first_use_race_has_one_ordered_winner(tmp_path: Path):
     )
 
 
+def test_rollback_catalog_change_race_has_one_ordered_winner(tmp_path: Path):
+    source = tmp_path / "external"
+    _mapping_id, migration_id, platform_id, ids = _seed_exact_rollback(
+        source,
+        suffix="catalog-race",
+    )
+    barrier = threading.Barrier(2)
+
+    def rollback():
+        barrier.wait(timeout=5)
+        try:
+            DBLegacyMigrationHandler().rollback_migration(
+                migration_id,
+                platform_id=platform_id,
+                expected_version=1,
+                actor_user_id=7,
+                actor_display_name="Admin",
+                now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+            )
+            return "rollback"
+        except LegacyRollbackError as error:
+            return getattr(error, "code", "rollback-error")
+
+    def catalog_change():
+        barrier.wait(timeout=5)
+        with sync_session.begin() as session:
+            migration = session.scalar(
+                select(LegacyMigration)
+                .where(LegacyMigration.id == migration_id)
+                .with_for_update(of=LegacyMigration)
+            )
+            assert migration is not None
+            if migration.state != "completed" or migration.version != 1:
+                return "catalog-stale"
+            rom = session.scalar(
+                select(Rom).where(Rom.id == ids["changed_rom"]).with_for_update(of=Rom)
+            )
+            assert rom is not None
+            rom.missing_from_fs = True
+            session.flush()
+            return "catalog-change"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        rollback_future = executor.submit(rollback)
+        change_future = executor.submit(catalog_change)
+        outcomes = {rollback_future.result(), change_future.result()}
+    assert outcomes in (
+        {"rollback", "catalog-stale"},
+        {"catalog-change", "legacy_rollback_stale"},
+    )
+
+    with sync_session() as session:
+        migration = session.get(LegacyMigration, migration_id)
+        assert migration is not None
+        if "rollback" in outcomes:
+            assert migration.state == "rolled_back"
+            assert migration.version == 2
+        else:
+            assert migration.state == "completed"
+            assert migration.version == 1
+        changed_rom = session.get(Rom, ids["changed_rom"])
+        changed_file = session.get(RomFile, ids["changed_file"])
+        assert changed_rom is not None and changed_file is not None
+        assert changed_rom.missing_from_fs is True
+        assert changed_file.missing_from_fs is ("rollback" in outcomes)
+
+
 @pytest.mark.parametrize(
     "failure_stage",
     ["rollback_mapping", "rollback_catalog", "rollback_audit", "rollback_state"],

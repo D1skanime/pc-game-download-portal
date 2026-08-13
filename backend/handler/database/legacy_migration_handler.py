@@ -928,6 +928,116 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         )
         return mapping, prior
 
+    @staticmethod
+    def _rollback_stale(migration: LegacyMigration) -> None:
+        raise LegacyRollbackError(
+            "legacy_rollback_stale",
+            migration_id=migration.id,
+            platform_id=migration.platform_id,
+            current_version=migration.version,
+        )
+
+    @classmethod
+    def _lock_rollback_catalog_changes(
+        cls,
+        session: Session,
+        migration: LegacyMigration,
+    ) -> tuple[
+        list[LegacyMigrationCatalogChange],
+        dict[int, Rom],
+        dict[int, RomFile],
+    ]:
+        changes = list(
+            session.scalars(
+                select(LegacyMigrationCatalogChange)
+                .where(LegacyMigrationCatalogChange.migration_id == migration.id)
+                .order_by(
+                    LegacyMigrationCatalogChange.entity_kind,
+                    LegacyMigrationCatalogChange.entity_id,
+                )
+                .with_for_update(of=LegacyMigrationCatalogChange)
+            ).all()
+        )
+        keys = [(change.entity_kind, change.entity_id) for change in changes]
+        if len(keys) != len(set(keys)) or any(
+            change.entity_kind
+            not in {
+                LegacyCatalogEntityKind.ROM.value,
+                LegacyCatalogEntityKind.ROM_FILE.value,
+            }
+            or change.entity_id <= 0
+            or not change.prior_missing_from_fs
+            for change in changes
+        ):
+            cls._rollback_stale(migration)
+
+        rom_ids = [
+            change.entity_id
+            for change in changes
+            if change.entity_kind == LegacyCatalogEntityKind.ROM.value
+        ]
+        file_ids = [
+            change.entity_id
+            for change in changes
+            if change.entity_kind == LegacyCatalogEntityKind.ROM_FILE.value
+        ]
+        file_lineage = (
+            list(
+                session.execute(
+                    select(RomFile.id, RomFile.rom_id)
+                    .where(RomFile.id.in_(file_ids))
+                    .order_by(RomFile.id)
+                ).all()
+            )
+            if file_ids
+            else []
+        )
+        if len(file_lineage) != len(file_ids):
+            cls._rollback_stale(migration)
+        file_parent_ids = {rom_id for _, rom_id in file_lineage}
+        locked_rom_ids = sorted(set(rom_ids) | file_parent_ids)
+        roms = (
+            list(
+                session.scalars(
+                    select(Rom)
+                    .where(Rom.id.in_(locked_rom_ids))
+                    .order_by(Rom.id)
+                    .with_for_update(of=Rom)
+                ).all()
+            )
+            if locked_rom_ids
+            else []
+        )
+        files = (
+            list(
+                session.scalars(
+                    select(RomFile)
+                    .where(RomFile.id.in_(file_ids))
+                    .order_by(RomFile.id)
+                    .with_for_update(of=RomFile)
+                ).all()
+            )
+            if file_ids
+            else []
+        )
+        roms_by_id = {rom.id: rom for rom in roms}
+        files_by_id = {rom_file.id: rom_file for rom_file in files}
+        lineage_by_file_id = dict(file_lineage)
+        if len(roms_by_id) != len(locked_rom_ids) or len(files_by_id) != len(file_ids):
+            cls._rollback_stale(migration)
+        if any(
+            rom.platform_id != migration.platform_id or rom.missing_from_fs
+            for rom_id, rom in roms_by_id.items()
+            if rom_id in rom_ids
+        ) or any(
+            rom_file.missing_from_fs
+            or rom_file.rom_id != lineage_by_file_id[rom_file.id]
+            or roms_by_id[rom_file.rom_id].platform_id != migration.platform_id
+            for rom_file in files
+        ):
+            cls._rollback_stale(migration)
+        return changes, roms_by_id, files_by_id
+
     @begin_session
     def get_rollback_status(
         self,
@@ -1026,22 +1136,9 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 current_version=migration.version,
             )
 
-        roms = list(
-            session.scalars(
-                select(Rom)
-                .where(Rom.platform_id == platform_id)
-                .order_by(Rom.id)
-                .with_for_update(of=Rom)
-            ).all()
+        changes, roms_by_id, files_by_id = self._lock_rollback_catalog_changes(
+            session, migration
         )
-        rom_ids = [rom.id for rom in roms]
-        if rom_ids:
-            session.scalars(
-                select(RomFile)
-                .where(RomFile.rom_id.in_(rom_ids))
-                .order_by(RomFile.id)
-                .with_for_update(of=RomFile)
-            ).all()
 
         old = DBStorageHandler._snapshot(mapping)
         mapping.active = False
@@ -1074,19 +1171,13 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             )
         self._after_migration_flush("rollback_mapping")
 
-        if rom_ids:
-            session.execute(
-                update(Rom)
-                .where(Rom.id.in_(rom_ids))
-                .values(missing_from_fs=True)
-                .execution_options(synchronize_session=False)
+        for change in changes:
+            row = (
+                roms_by_id[change.entity_id]
+                if change.entity_kind == LegacyCatalogEntityKind.ROM.value
+                else files_by_id[change.entity_id]
             )
-            session.execute(
-                update(RomFile)
-                .where(RomFile.rom_id.in_(rom_ids))
-                .values(missing_from_fs=True)
-                .execution_options(synchronize_session=False)
-            )
+            row.missing_from_fs = change.prior_missing_from_fs
         session.flush()
         self._after_migration_flush("rollback_catalog")
 
