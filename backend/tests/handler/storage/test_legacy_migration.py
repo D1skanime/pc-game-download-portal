@@ -596,7 +596,7 @@ def _seed_impact_preview(tmp_path: Path, platform, admin_user):
             )
     handler = DBLegacyMigrationHandler()
     context = handler.get_detection_context(platform.id, root_id)
-    now = datetime(2026, 8, 12, 12, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     detected = _subject().detect_legacy_storage(
         _external(tmp_path, root_id),
         platform_id=platform.id,

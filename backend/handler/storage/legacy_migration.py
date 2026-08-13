@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import cast
 
 from exceptions.storage_exceptions import (
+    DescriptorHashBudgetError,
     DescriptorHashError,
     MissingStorageRootError,
     MissingStorageTargetError,
@@ -283,13 +284,39 @@ def _inspect_candidate(
                         False,
                         "aggregate_byte_budget",
                     )
+                remaining = aggregate_byte_budget - size
+                if remaining <= 0:
+                    return _CandidateObservation(
+                        relative_path,
+                        True,
+                        LegacyDetectionState.DETECTED.value,
+                        files,
+                        size,
+                        False,
+                        "aggregate_byte_budget",
+                    )
+                hash_cap = min(per_file_byte_budget, remaining)
                 try:
                     hashed = hash_descriptor_file(
                         storage,
                         logical_path,
-                        max_bytes=per_file_byte_budget,
+                        max_bytes=hash_cap,
                         deadline_monotonic=deadline_monotonic,
                         monotonic=monotonic,
+                    )
+                except DescriptorHashBudgetError:
+                    return _CandidateObservation(
+                        relative_path,
+                        True,
+                        LegacyDetectionState.DETECTED.value,
+                        files,
+                        size,
+                        False,
+                        (
+                            "aggregate_byte_budget"
+                            if hash_cap == remaining
+                            else "file_byte_budget"
+                        ),
                     )
                 except (DescriptorHashError, StorageResolutionError):
                     return _CandidateObservation(
@@ -300,6 +327,26 @@ def _inspect_candidate(
                         size,
                         False,
                         "hash_incomplete",
+                    )
+                if hashed.bytes_read > remaining:
+                    return _CandidateObservation(
+                        relative_path,
+                        True,
+                        LegacyDetectionState.DETECTED.value,
+                        files,
+                        size,
+                        False,
+                        "aggregate_byte_budget",
+                    )
+                if hashed.bytes_read > hash_cap:
+                    return _CandidateObservation(
+                        relative_path,
+                        True,
+                        LegacyDetectionState.DETECTED.value,
+                        files,
+                        size,
+                        False,
+                        "file_byte_budget",
                     )
                 files += 1
                 size += hashed.bytes_read

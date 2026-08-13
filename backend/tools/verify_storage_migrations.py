@@ -960,7 +960,7 @@ def verify_dialect(
             )
         elif handler_tests:
             print("mysql: handler tests skipped on the minimal 0107 baseline")
-        print(f"{dialect}: pristine and seeded-0110 round-trips passed")
+        print(f"{dialect}: pristine, seeded-0110, and seeded-0111 round-trips passed")
     finally:
         subprocess.run(
             ["docker", "rm", "--force", name],

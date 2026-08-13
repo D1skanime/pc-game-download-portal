@@ -118,6 +118,19 @@ def test_0111_migration_guards_lifecycle_state_before_downgrade_ddl():
     assert "legacy_migrations" in migration
 
 
+def test_0112_downgrade_removes_selectable_constraint_before_marker_restore():
+    migration = Path("alembic/versions/0112_phase6_gap_closure.py").read_text()
+    downgrade = migration.split("def downgrade() -> None:", 1)[1]
+
+    selectable_drop = downgrade.index(
+        "ck_legacy_detection_results_source_fingerprint_selectable"
+    )
+    marker_restore = downgrade.index("_restore_fingerprint_refresh_markers()")
+    column_drop = downgrade.index('batch_op.drop_column("source_fingerprint")')
+
+    assert selectable_drop < marker_restore < column_drop
+
+
 def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
     events = []
 

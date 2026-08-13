@@ -54,9 +54,40 @@ def _ensure_gap_closure_downgrade() -> None:
         )
 
 
+def _invalidate_fingerprintless_selectable_results() -> None:
+    op.execute(
+        sa.text(
+            "UPDATE legacy_detection_results "
+            "SET selectable = FALSE, lower_bound = TRUE, "
+            "state = 'manual_mapping_required', "
+            "safe_problem_code = 'fingerprint_refresh_required', "
+            "version = version + 1 "
+            "WHERE selectable = TRUE"
+        )
+    )
+
+
+def _restore_fingerprint_refresh_markers() -> None:
+    op.execute(
+        sa.text(
+            "UPDATE legacy_detection_results "
+            "SET selectable = TRUE, lower_bound = FALSE, state = 'detected', "
+            "safe_problem_code = NULL, version = version - 1 "
+            "WHERE selectable = FALSE AND lower_bound = TRUE "
+            "AND state = 'manual_mapping_required' "
+            "AND safe_problem_code = 'fingerprint_refresh_required' "
+            "AND source_fingerprint IS NULL AND version > 1"
+        )
+    )
+
+
 def upgrade() -> None:
     with op.batch_alter_table("legacy_detection_results") as batch_op:
         batch_op.add_column(sa.Column("source_fingerprint", sa.String(64)))
+
+    _invalidate_fingerprintless_selectable_results()
+
+    with op.batch_alter_table("legacy_detection_results") as batch_op:
         batch_op.create_check_constraint(
             "ck_legacy_detection_results_source_fingerprint_format",
             "source_fingerprint IS NULL OR "
@@ -115,6 +146,10 @@ def downgrade() -> None:
             "ck_legacy_detection_results_source_fingerprint_selectable",
             type_="check",
         )
+
+    _restore_fingerprint_refresh_markers()
+
+    with op.batch_alter_table("legacy_detection_results") as batch_op:
         batch_op.drop_constraint(
             "ck_legacy_detection_results_source_fingerprint_format",
             type_="check",
