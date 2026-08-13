@@ -177,6 +177,24 @@ def test_detection_result_is_bounded_expiring_and_path_safe():
     )
 
 
+def test_detection_result_fingerprint_requires_a_complete_safe_observation():
+    model = storage_models.LegacyDetectionResult
+    columns = model.__table__.columns
+
+    assert columns.source_fingerprint.type.length == 64
+    assert columns.source_fingerprint.nullable is True
+    constraint_names = {constraint.name for constraint in model.__table__.constraints}
+    assert "ck_legacy_detection_results_source_fingerprint_format" in constraint_names
+    assert (
+        "ck_legacy_detection_results_source_fingerprint_selectable" in constraint_names
+    )
+    assert not any(
+        token in column.name
+        for column in columns
+        for token in ("host", "container", "absolute", "raw", "snapshot", "content")
+    )
+
+
 def test_migration_state_is_versioned_rollbackable_and_first_use_nullable():
     model = storage_models.LegacyMigration
     columns = model.__table__.columns
@@ -215,6 +233,42 @@ def test_migration_state_is_versioned_rollbackable_and_first_use_nullable():
     assert "ck_legacy_migrations_first_use_pair" in constraint_names
     assert "ck_legacy_migrations_state" in constraint_names
     assert "ck_legacy_migrations_version" in constraint_names
+
+
+def test_migration_owns_ordered_relationship_free_exact_catalog_changes():
+    model = storage_models.LegacyMigrationCatalogChange
+    columns = model.__table__.columns
+
+    assert set(columns.keys()) == {
+        "id",
+        "migration_id",
+        "entity_kind",
+        "entity_id",
+        "prior_missing_from_fs",
+        "created_at",
+        "updated_at",
+    }
+    assert columns.entity_kind.type.length == 16
+    assert columns.entity_id.nullable is False
+    assert columns.prior_missing_from_fs.nullable is False
+    assert _foreign_key(columns.migration_id).target_fullname == "legacy_migrations.id"
+    assert _foreign_key(columns.migration_id).ondelete == "CASCADE"
+    assert len(columns.entity_id.foreign_keys) == 0
+    constraint_names = {constraint.name for constraint in model.__table__.constraints}
+    assert "ck_legacy_migration_catalog_changes_entity_kind" in constraint_names
+    assert "ck_legacy_migration_catalog_changes_entity_id" in constraint_names
+    assert "uq_legacy_migration_catalog_changes_identity" in constraint_names
+    assert "ix_legacy_migration_catalog_changes_order" in {
+        index.name for index in model.__table__.indexes
+    }
+    relationship = inspect(storage_models.LegacyMigration).relationships.catalog_changes
+    assert relationship.back_populates == "migration"
+    assert "delete-orphan" in relationship.cascade
+    assert not any(
+        token in column.name
+        for column in columns
+        for token in ("path", "file", "host", "raw", "snapshot", "content", "row")
+    )
 
 
 def test_lifecycle_models_hold_no_filesystem_mutation_authority(tmp_path):
