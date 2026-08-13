@@ -153,6 +153,7 @@ class FakeCommand:
         elif action == "source_inspect":
             stdout = json.dumps([self._source_inspection()])
         elif action == "create":
+            assert self.env_file is not None
             self.env_file_mode = stat.S_IMODE(self.env_file.stat().st_mode)
             stdout = f"{RUNNER_ID}\n"
         elif action == "runner_inspect":

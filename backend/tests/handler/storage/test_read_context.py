@@ -67,14 +67,26 @@ def test_context_rejects_inactive_or_changed_mapping_before_open(tmp_path: Path)
         assert str(root) not in repr(error.value)
 
 
-def test_context_rejects_symlink_before_issuing_handle(tmp_path: Path):
+def test_context_rejects_symlink_before_issuing_handle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     root = tmp_path / "external"
     root.mkdir()
     outside = tmp_path / "outside"
     outside.mkdir()
     (root / "console").symlink_to(outside, target_is_directory=True)
     context = MappingReadContext(41, 7, repository=MappingRepository(mapping(root)))
-    with pytest.raises(Exception):
+    monkeypatch.setattr(
+        read_context,
+        "get_storage_root_health_snapshot",
+        lambda _root: SimpleNamespace(reachable=True, readable=True, non_writable=True),
+    )
+
+    def reject_symlink(*_args):
+        raise UnsafeSymlinkError()
+
+    monkeypatch.setattr(read_context, "resolve_directory", reject_symlink)
+    with pytest.raises(MissingMappedContentError):
         context.open(StorageOperation.SCAN)
 
 
