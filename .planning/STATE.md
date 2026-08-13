@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 06-08-PLAN.md
-last_updated: "2026-08-13T00:11:33.865Z"
+status: verifying
+stopped_at: Completed 06-09-PLAN.md
+last_updated: "2026-08-13T00:59:57.872Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 44
-  completed_plans: 43
-  percent: 56
+  completed_plans: 44
+  percent: 67
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
 Plan: 9 of 9
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-13
 
-Progress: [██████████] 95%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -81,6 +81,7 @@ _Updated after each plan completion_
 | Phase 06 P06 | 27min | 2 tasks | 12 files |
 | Phase 06 P07 | 17min | 2 tasks | 7 files |
 | Phase 06 P08 | 31min | 2 tasks | 13 files |
+| Phase 06 P09 | 40min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -156,6 +157,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Rollback and productive first use serialize by locking the migration row before the mapping row.
 - [Phase 06]: Rollback restores only exact still-valid prior owned mapping state and never accesses source storage.
 - [Phase 06]: Rollback status exposes bounded IDs, versions, eligibility, expiry, and operation vocabulary only.
+- [Phase 06]: Contract generation requires the exact checkout bound to /app and unused runner loopback port 39006. — Fail-closed runner identity prevents validating stale or arbitrary code.
+- [Phase 06]: The Node generator runs as the checkout owner after initializing only its task-owned node_modules volume. — Generated files must preserve canonical repository ownership while dependency state remains disposable.
+- [Phase 06]: External mutation closure uses an exhaustive operation inventory plus denial before filesystem I/O. — A closed inventory prevents newly added operations from silently inheriting external write authority.
 
 ### Blockers/Concerns
 
@@ -173,6 +177,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T00:11:33.861Z
-Stopped at: Completed 06-08-PLAN.md
+Last session: 2026-08-13T00:59:14.560Z
+Stopped at: Completed 06-09-PLAN.md
 Resume file: None
