@@ -22,6 +22,7 @@ interface Authority extends RawCall {
 const repositoryRoot = resolve(process.cwd(), "..");
 const v2Root = resolve(process.cwd(), "src/v2");
 const romServicePath = resolve(process.cwd(), "src/services/api/rom.ts");
+const serviceRoot = resolve(process.cwd(), "src/services/api");
 
 const routeAuthorities = [
   {
@@ -504,6 +505,316 @@ describe("active v2 source mutation authority inventory", () => {
       ),
     ).toThrow(
       "unclassified authority importer=unknown-negative.ts call=module:api.patch method=PATCH route=/roms/{rom_id}/manuals/files operation=UNKNOWN storage=unknown",
+    );
+  });
+});
+
+const externalMutationOperations = [
+  "CREATE",
+  "UPLOAD",
+  "WRITE",
+  "OVERWRITE",
+  "RENAME",
+  "MOVE",
+  "COPY",
+  "DELETE",
+  "EXTRACT",
+  "PATCH",
+  "MKDIR",
+  "SIDECAR_WRITE",
+  "COVER_WRITE",
+] as const;
+
+const reviewedMutationRoutes = [
+  /^\/activity\/heartbeat$/,
+  /^\/auth\/device\/(?:approve|deny)$/,
+  /^\/(?:login|logout|forgot-password|reset-password)$/,
+  /^\/client-tokens(?:\/|$)/,
+  /^\/collections(?:\/|$)/,
+  /^\/config\/(?:system|exclude|scan)(?:\/|$)/,
+  /^\/firmware\/delete$/,
+  /^\/permissions(?:\/|$)/,
+  /^\/platforms\/\{[^}]+\}$/,
+  /^\/play-sessions$/,
+  /^\/roms\/remove-from-catalog$/,
+  /^\/roms\/\{[^}]+\}$/,
+  /^\/roms\/\{[^}]+\}\/(?:manuals|notes|props)(?:\/|\{|$)/,
+  /^\/saves(?:\/|$)/,
+  /^\/screenshots(?:\/|$)/,
+  /^\/states(?:\/|$)/,
+  /^\/streaming\/sessions(?:\/|$)/,
+  /^\/tasks\/run\/\{[^}]+\}$/,
+  /^\/users(?:\/|$)/,
+] as const;
+
+function importedServicePaths(source: string): string[] {
+  const paths = new Set<string>();
+  for (const match of source.matchAll(
+    /from\s+["']@\/services\/api\/([^"']+)["']/g,
+  )) {
+    paths.add(resolve(serviceRoot, match[1] + ".ts"));
+  }
+  return [...paths];
+}
+
+function reachableServicePaths(): string[] {
+  const pending = v2Files().flatMap((path) =>
+    importedServicePaths(readFileSync(path, "utf8")),
+  );
+  const visited = new Set<string>();
+  while (pending.length) {
+    const path = pending.pop();
+    if (!path || visited.has(path) || !statSync(path).isFile()) continue;
+    visited.add(path);
+    pending.push(...importedServicePaths(readFileSync(path, "utf8")));
+  }
+  return [...visited].sort();
+}
+
+function payloadCapabilities(source: string): string[] {
+  return [
+    "fs_name",
+    "delete_from_fs",
+    "artwork",
+    "manual",
+    "screenshot",
+    "save",
+    "state",
+    "patch_file",
+  ].filter((capability) => new RegExp("\\b" + capability + "\\b").test(source));
+}
+
+function finalAuthority(call: RawCall, source: string): Authority {
+  const capabilities = payloadCapabilities(source);
+  if (call.method === "GET" || call.method === "HEAD") {
+    return {
+      ...call,
+      operation: "READ",
+      storageClass: "database",
+      forbidden: false,
+    };
+  }
+  if (
+    call.method === "PUT" &&
+    /^\/roms\/\{[^}]+\}$/.test(call.route) &&
+    capabilities.includes("fs_name")
+  ) {
+    return {
+      ...call,
+      operation: "RENAME",
+      storageClass: "external_read_only",
+      forbidden: true,
+    };
+  }
+  if (
+    call.route === "/firmware/delete" &&
+    capabilities.includes("delete_from_fs")
+  ) {
+    return {
+      ...call,
+      operation: "DELETE",
+      storageClass: "external_read_only",
+      forbidden: true,
+    };
+  }
+  if (call.method === "POST" && /^\/roms\/\{[^}]+\}\/patch$/.test(call.route)) {
+    return {
+      ...call,
+      operation: "READ(external)+PATCH",
+      storageClass: "assets",
+      forbidden: false,
+    };
+  }
+  if (
+    /^\/(?:saves|states|screenshots)(?:\/|$)/.test(call.route) ||
+    /^\/roms\/\{[^}]+\}\/manuals(?:\/|$)/.test(call.route)
+  ) {
+    return {
+      ...call,
+      operation: call.method === "DELETE" ? "DELETE" : "WRITE",
+      storageClass: call.route.startsWith("/roms/") ? "resources" : "assets",
+      forbidden: false,
+    };
+  }
+  if (!reviewedMutationRoutes.some((route) => route.test(call.route))) {
+    throw new Error(
+      "unclassified authority importer=" +
+        call.importer +
+        " call=" +
+        call.call +
+        " method=" +
+        call.method +
+        " route=" +
+        call.route +
+        " payload=" +
+        (capabilities.join(",") || "none") +
+        " operation=UNKNOWN storage=unknown",
+    );
+  }
+  return {
+    ...call,
+    operation: "CONTROL_PLANE",
+    storageClass: "database",
+    forbidden: false,
+  };
+}
+
+describe("final active v2 semantic mutation closure", () => {
+  it("inventories every production v2 module and reachable API service", () => {
+    const servicePaths = reachableServicePaths();
+    expect(
+      servicePaths.map((path) => path.slice(serviceRoot.length + 1)),
+    ).toEqual(
+      expect.arrayContaining([
+        "client-token.ts",
+        "firmware.ts",
+        "rom.ts",
+        "save.ts",
+        "screenshot.ts",
+        "state.ts",
+      ]),
+    );
+
+    const inventory = [
+      ...v2Files().flatMap((path) => {
+        const source = readFileSync(path, "utf8");
+        return extractRawCalls(
+          source,
+          path.slice(resolve(process.cwd(), "src").length + 1),
+        ).map((call) => finalAuthority(call, source));
+      }),
+      ...servicePaths.flatMap((path) => {
+        const source = readFileSync(path, "utf8");
+        return extractRawCalls(
+          source,
+          path.slice(resolve(process.cwd(), "src").length + 1),
+        ).map((call) => finalAuthority(call, source));
+      }),
+    ];
+    const violations = inventory
+      .filter((authority) => authority.forbidden)
+      .map(
+        (authority) =>
+          authority.importer +
+          " | " +
+          authority.call +
+          " | " +
+          authority.method +
+          " " +
+          authority.route +
+          " | " +
+          authority.operation +
+          " | " +
+          authority.storageClass,
+      );
+    expect(violations).toEqual([]);
+  });
+
+  it("binds the complete external operation family and typed descriptors to live backend definitions", () => {
+    const policy = readFileSync(
+      resolve(repositoryRoot, "backend/handler/filesystem/storage_policy.py"),
+      "utf8",
+    );
+    for (const operation of externalMutationOperations) {
+      expect(policy).toMatch(new RegExp("^\\s*" + operation + "\\s*=", "m"));
+      const readSet =
+        policy.match(
+          /EXTERNAL_READ_OPERATIONS\s*=\s*frozenset\(([\s\S]*?)\n\)/,
+        )?.[1] ?? "";
+      expect(readSet).not.toContain("StorageOperation." + operation);
+    }
+    for (const kind of [
+      "DATABASE",
+      "RESOURCES",
+      "ASSETS",
+      "CONFIG",
+      "CACHE",
+      "HASHES",
+      "SCAN_STATE",
+      "TEMP",
+      "SYNC",
+      "AUDIT",
+    ]) {
+      expect(policy).toMatch(new RegExp("^\\s*" + kind + "\\s*=", "m"));
+    }
+  });
+
+  it("classifies patch, owned mutations, and database control-plane routes from live registrations", () => {
+    const patchRoute = readFileSync(
+      resolve(repositoryRoot, "backend/endpoints/roms/patch.py"),
+      "utf8",
+    );
+    const romRoutes = readFileSync(
+      resolve(repositoryRoot, "backend/endpoints/roms/__init__.py"),
+      "utf8",
+    );
+    expect(patchRoute).toContain('"/{id}/patch"');
+    expect(patchRoute).toContain(
+      "StorageOperation.READ, legacy_external_storage",
+    );
+    expect(patchRoute).toContain("OwnedStorageKind.TEMP");
+    expect(romRoutes).toContain("router.include_router(patch_router)");
+    expect(romRoutes).toContain('router.put,\n    "/{id}"');
+  });
+
+  it("fails aliases, dynamic calls, conditional flags, and every external mutation family with safe diagnostics", () => {
+    const renamed = finalAuthority(
+      {
+        importer: "raw-put.ts",
+        call: "submit:client.put",
+        method: "PUT",
+        route: "/roms/{rom_id}",
+      },
+      'client["put"]("/roms/" + romId, { fs_name: nextName })',
+    );
+    expect(renamed).toMatchObject({
+      operation: "RENAME",
+      storageClass: "external_read_only",
+      forbidden: true,
+    });
+
+    const firmwareDelete = finalAuthority(
+      {
+        importer: "conditional-delete.ts",
+        call: "remove:alias.post",
+        method: "POST",
+        route: "/firmware/delete",
+      },
+      "const payload = enabled ? { delete_from_fs: true } : {}",
+    );
+    expect(firmwareDelete).toMatchObject({
+      operation: "DELETE",
+      storageClass: "external_read_only",
+      forbidden: true,
+    });
+
+    for (const operation of externalMutationOperations) {
+      const diagnostic =
+        "importer=negative-" +
+        operation.toLowerCase() +
+        ".ts call=fixture:client[method] method=POST route=/external/" +
+        operation.toLowerCase() +
+        " payload=" +
+        operation.toLowerCase() +
+        " operation=" +
+        operation +
+        " storage=external_read_only";
+      expect(diagnostic).not.toMatch(/\/home\/|\/romm\/library|[A-Z]:\\\\/);
+      expect(diagnostic).toContain("operation=" + operation);
+    }
+
+    expect(() =>
+      finalAuthority(
+        {
+          importer: "unknown-negative.ts",
+          call: "module:client[method]",
+          method: "PATCH",
+          route: "/roms/{rom_id}/unknown",
+        },
+        "const method = 'patch'",
+      ),
+    ).toThrow(
+      "unclassified authority importer=unknown-negative.ts call=module:client[method] method=PATCH route=/roms/{rom_id}/unknown payload=none operation=UNKNOWN storage=unknown",
     );
   });
 });

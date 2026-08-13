@@ -1,13 +1,18 @@
 import { flushPromises, shallowMount } from "@vue/test-utils";
+import mitt from "mitt";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { computed, ref } from "vue";
+import type { Events } from "@/types/emitter";
 import SetupStepPlatforms from "@/v2/components/Auth/SetupStepPlatforms.vue";
+import EditRomDialog from "@/v2/components/Dialogs/EditRomDialog.vue";
 import FilesTab from "@/v2/components/GameDetails/FilesTab/FilesTab.vue";
 import ManualSubtab from "@/v2/components/GameDetails/ManualSubtab.vue";
 import MediaTab from "@/v2/components/GameDetails/MediaTab.vue";
 import ScreenshotsSubtab from "@/v2/components/GameDetails/ScreenshotsSubtab.vue";
+import MatchRomBodyGrid from "@/v2/components/MatchRom/MatchRomBodyGrid.vue";
+import MatchRomBodyList from "@/v2/components/MatchRom/MatchRomBodyList.vue";
 import SettingsSidebar from "@/v2/components/Settings/SettingsSidebar.vue";
 import Home from "@/v2/views/Home.vue";
 
@@ -63,6 +68,7 @@ vi.mock("@/services/api/rom", () => ({
     redownloadManual: vi.fn(),
     removeManual: vi.fn(),
     uploadManuals: mocks.uploadManuals,
+    updateRom: vi.fn(),
   },
 }));
 vi.mock("@/services/api/screenshot", () => ({
@@ -270,6 +276,70 @@ describe("maximum-grant source mutation controls", () => {
     await flushPromises();
     expect(media.findAll("[data-dropzone]")).toHaveLength(0);
     expect(media.html()).not.toContain("common.upload");
+  });
+
+  it("renders the source filename read-only and omits both match rename controls", async () => {
+    const emitter = mitt<Events>();
+    const edit = shallowMount(EditRomDialog, {
+      global: {
+        provide: { emitter },
+        stubs: {
+          RDialog: {
+            template: '<section><slot name="content" /></section>',
+          },
+          RTextField: {
+            props: ["modelValue", "readonly"],
+            template: '<input :data-value="modelValue" :readonly="readonly" />',
+          },
+        },
+      },
+    });
+    emitter.emit("showEditRomDialog", rom as never);
+    await edit.vm.$nextTick();
+    const sourceName = edit.find('input[data-value="example"]');
+    expect(sourceName.exists()).toBe(true);
+    expect(sourceName.attributes()).toHaveProperty("readonly");
+
+    const result = {
+      name: "Matched game",
+      igdb_id: 44,
+      igdb_url_cover: "https://example.invalid/cover.jpg",
+    };
+    const bodyStubs = {
+      GameCard: {
+        emits: ["click"],
+        template: "<button data-game-card @click=\"$emit('click')\" />",
+      },
+      MatchRomRenameToggle: { template: "<div data-rename-control />" },
+      RBtn: { template: "<button><slot /></button>" },
+      REmptyState: true,
+      RIcon: true,
+      RProgressCircular: true,
+      Transition: false,
+    };
+    const grid = shallowMount(MatchRomBodyGrid, {
+      props: {
+        rom: rom as never,
+        results: [result] as never,
+        searched: true,
+        searching: false,
+      },
+      global: { stubs: bodyStubs },
+    });
+    await grid.find("[data-game-card]").trigger("click");
+    expect(grid.find("[data-rename-control]").exists()).toBe(false);
+
+    const list = shallowMount(MatchRomBodyList, {
+      props: {
+        rom: rom as never,
+        results: [result] as never,
+        searched: true,
+        searching: false,
+      },
+      global: { stubs: bodyStubs },
+    });
+    await list.find(".match-list__row").trigger("click");
+    expect(list.find("[data-rename-control]").exists()).toBe(false);
   });
 });
 
