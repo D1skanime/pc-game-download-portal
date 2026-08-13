@@ -7,12 +7,17 @@ from fastapi.responses import FileResponse, Response
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import ScreenshotSchema
+from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler, db_screenshot_handler
-from handler.filesystem import fs_asset_handler
+from handler.filesystem import fs_asset_handler, storage_composition
 from handler.filesystem.assets_handler import build_asset_file_response
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+)
 from handler.scan_handler import scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -202,6 +207,11 @@ async def delete_screenshot(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Screenshot not found",
         )
+
+    authorize_api_storage_operation(
+        StorageOperation.DELETE,
+        storage_composition.owned[OwnedStorageKind.ASSETS],
+    )
 
     try:
         await fs_asset_handler.remove_file(file_path=screenshot.full_path)

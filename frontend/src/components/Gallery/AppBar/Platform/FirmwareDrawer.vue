@@ -7,7 +7,6 @@ import { useDisplay } from "vuetify";
 import type { FirmwareSchema } from "@/__generated__";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
-import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
 import storeAuth from "@/stores/auth";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
@@ -77,14 +76,6 @@ function deleteSelectedFirmware() {
     >
       <template #header.actions>
         <v-btn-group tabindex="-1" divided density="compact">
-          <v-btn
-            v-if="auth.scopes.includes('platforms.write')"
-            size="small"
-            :tabindex="tabIndex"
-            @click="emitter?.emit('addFirmwareDialog', null)"
-          >
-            <v-icon>mdi-cloud-upload-outline</v-icon>
-          </v-btn>
           <v-btn
             :disabled="!selectedFirmware.length"
             size="small"
@@ -203,6 +194,5 @@ function deleteSelectedFirmware() {
       </template>
     </v-data-table-virtual>
   </v-navigation-drawer>
-  <UploadFirmwareDialog />
   <DeleteFirmwareDialog />
 </template>

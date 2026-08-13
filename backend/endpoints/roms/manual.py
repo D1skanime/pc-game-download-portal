@@ -20,9 +20,13 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
     legacy_external_storage,
+    storage_composition,
 )
 from handler.filesystem.resources_handler import ALLOWED_MANUAL_EXTENSIONS
-from handler.filesystem.storage_policy import StorageOperation
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+)
 from handler.rom_conversion import promote_single_file_to_folder
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -205,7 +209,6 @@ async def add_rom_manual_file(
         ),
     ],
 ) -> Response:
-
     """Upload a manual PDF into the ROM's own manual/ subfolder."""
 
     rom = db_rom_handler.get_rom(id)
@@ -318,7 +321,6 @@ async def delete_rom_manual_file(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
-
     """Delete a single manual file from a ROM's manual/ subfolder."""
 
     rom = db_rom_handler.get_rom(id)
@@ -388,6 +390,11 @@ async def delete_rom_manuals(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No manual found for this ROM",
         )
+
+    authorize_api_storage_operation(
+        StorageOperation.DELETE,
+        storage_composition.owned[OwnedStorageKind.RESOURCES],
+    )
 
     try:
         await fs_resource_handler.remove_manual(rom)

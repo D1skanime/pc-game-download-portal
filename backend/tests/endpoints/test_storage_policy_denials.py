@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import stat
+from inspect import unwrap
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -342,7 +343,7 @@ async def test_firmware_catalog_removal_never_requests_external_delete(
         firmware_endpoints.fs_firmware_handler, "remove_file", fs_delete
     )
 
-    result = await firmware_endpoints.delete_firmware(
+    result = await unwrap(firmware_endpoints.delete_firmware)(
         request=Mock(), firmware=[firmware.id], delete_from_fs=[]
     )
 
@@ -400,7 +401,7 @@ async def test_crafted_firmware_delete_is_replay_safe_and_source_immutable(
 
     for firmware_ids in ([1], [1], [1, 2], [999_999]):
         with pytest.raises(HTTPException) as error:
-            await firmware_endpoints.delete_firmware(
+            await unwrap(firmware_endpoints.delete_firmware)(
                 request=Mock(),
                 firmware=firmware_ids,
                 delete_from_fs=[firmware_ids[0]],

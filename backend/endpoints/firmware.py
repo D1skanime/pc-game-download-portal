@@ -282,7 +282,10 @@ async def delete_firmware(
         ),
     ],
 ) -> BulkOperationResponse:
-    authorize_api_storage_operation(StorageOperation.DELETE, legacy_external_storage)
+    if delete_from_fs:
+        authorize_api_storage_operation(
+            StorageOperation.DELETE, legacy_external_storage
+        )
 
     """Delete firmware."""
 
