@@ -1,10 +1,11 @@
 ---
 phase: 06-safe-lifecycle-and-legacy-migration
-status: draft
+status: passed
 nyquist_validation: enabled
 requirements:
   [CAT-01, CAT-02, CAT-03, CAT-04, MIG-01, MIG-02, MIG-03, MIG-04, MIG-05]
 created: 2026-08-12
+validated: 2026-08-13
 ---
 
 # Phase 6: Safe Lifecycle and Legacy Migration - Validation
@@ -15,17 +16,17 @@ Prove every outcome changes only explicit RomM-owned state, preserves external s
 
 ## Requirement Matrix
 
-| Req    | Evidence                                                                       |
-| ------ | ------------------------------------------------------------------------------ |
-| CAT-01 | API/OpenAPI says catalog removal and accepts no source-delete input.           |
-| CAT-02 | exact owned dependency/asset set changes; source manifest never changes.       |
-| CAT-03 | removal retains catalog/history, marks unreachable, revises/audits atomically. |
-| CAT-04 | all source mutations remain denied before I/O.                                 |
-| MIG-01 | only exact `roms/<fs_slug>` and `<fs_slug>/roms` candidates.                   |
-| MIG-02 | upgrade/downgrade/re-upgrade and transactions pass on all dialects.            |
-| MIG-03 | missing/empty/unreadable/ambiguous/unsafe/conflicting means manual mapping.    |
-| MIG-04 | mapping/migration/use state survives API/worker restart.                       |
-| MIG-05 | no source fallback; result/status expiry observable.                           |
+| Req    | Evidence                                                                                                                                   |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| CAT-01 | API and generated OpenAPI describe catalog removal with no source-delete input.                                                            |
+| CAT-02 | Owned dependency and asset changes pass while writable/read-only source manifests remain equal.                                            |
+| CAT-03 | Removal retention, unreachable state, revision, and audit assertions pass atomically.                                                      |
+| CAT-04 | The closed mutation inventory denies create/upload/write/overwrite/rename/move/copy/delete/extract/patch/mkdir/sidecars/covers before I/O. |
+| MIG-01 | Candidate tests accept only exact `roms/<fs_slug>` and `<fs_slug>/roms` forms.                                                             |
+| MIG-02 | Pristine and seeded-0110 round trips pass on MariaDB, MySQL, and PostgreSQL.                                                               |
+| MIG-03 | Missing, empty, unreadable, ambiguous, unsafe, and conflicting cases remain manual.                                                        |
+| MIG-04 | Integration tests prove mapping, migration, and first-use state survives restarts.                                                         |
+| MIG-05 | API tests prove no source fallback and observable result/status expiry.                                                                    |
 
 ## Test Layers
 
@@ -66,9 +67,9 @@ Use barriers, not sleeps, for migrate/migrate, migrate/create, remove/read, roll
 
 ## Wave 0
 
-- [ ] `backend/tests/endpoints/roms/test_catalog_removal.py`
-- [ ] `backend/tests/handler/database/test_storage_lifecycle.py`
-- [ ] `backend/tests/handler/storage/test_legacy_migration.py`
+- [x] `backend/tests/endpoints/roms/test_catalog_removal.py`
+- [x] `backend/tests/handler/database/test_storage_lifecycle.py`
+- [x] `backend/tests/handler/storage/test_legacy_migration.py`
 
 ## Plan Assignment and Executable Gates
 
@@ -80,3 +81,33 @@ Use barriers, not sleeps, for migrate/migrate, migrate/create, remove/read, roll
 ## Revision 2 Wave Assignment
 
 Wave 1: 01. Wave 2: 02 and 03. Wave 3: 04 (depends 01,03). Wave 4: 05. Wave 5: 06. Wave 6: 07. Wave 7: 08. Wave 8: 09. Same-wave plans have no file overlap.
+
+## Final Execution Evidence
+
+| Gate                                              | Result                        |
+| ------------------------------------------------- | ----------------------------- |
+| Controlled harness unit contract                  | 5 passed                      |
+| Focused Phase 6 closure suite                     | 138 passed                    |
+| Extended lifecycle and migration regression suite | 158 passed                    |
+| MariaDB pristine and seeded-0110 round trips      | passed                        |
+| MySQL pristine and seeded-0110 round trips        | passed                        |
+| PostgreSQL pristine and seeded-0110 round trips   | passed                        |
+| Disposable-dialect handler contract               | 47 passed where supported     |
+| Controlled OpenAPI generation                     | passed on loopback port 39006 |
+| Frontend TypeScript typecheck                     | passed                        |
+
+The focused suite ran in the existing isolated development runner with
+`pytest -p no:env`, complete explicit database/Redis/auth settings, and
+`DB_HOST=romm-db-dev`. Writable and read-only fixture cases compare path, type,
+mode, size, SHA-256, and symlink identity while deliberately excluding atime.
+
+The long-running `romm-dev` service exposes separate backend and frontend bind
+mounts rather than the plan's required exact checkout-to-`/app` bind. The real
+generation and dialect gates therefore used the task-owned
+`romm-phase06-runner-0609` container, bound from this verified checkout to
+`/app` on the existing internal network. The harness used only loopback inside
+that runner, recorded its exact Uvicorn PID, used a uniquely named Node volume,
+and removed only task-owned process files and the volume.
+
+No deployment, Team4s service, v1 route, Phase 7 UI, source mutation, published
+port, host networking, or fallback authority was introduced.

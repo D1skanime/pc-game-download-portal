@@ -301,9 +301,17 @@ def test_productive_consumer_cas_inventory_uses_the_shared_open_boundary():
     assert "context.open(" in roms
 
 
-def test_unused_migration_rollback_is_atomic_and_source_neutral(tmp_path: Path):
+@pytest.mark.parametrize("read_only", [False, True])
+def test_unused_migration_rollback_is_atomic_and_source_neutral(
+    tmp_path: Path, read_only: bool
+):
     source = tmp_path / "external"
-    mapping_id, migration_id = _seed_migrated_mapping(source, suffix="rollback")
+    suffix = "rollback-read-only" if read_only else "rollback-writable"
+    mapping_id, migration_id = _seed_migrated_mapping(source, suffix=suffix)
+    if read_only:
+        (source / "mapped" / "game.bin").chmod(0o444)
+        (source / "mapped").chmod(0o555)
+        source.chmod(0o555)
     before = _manifest(source)
     handler = DBLegacyMigrationHandler()
     with sync_session() as session:

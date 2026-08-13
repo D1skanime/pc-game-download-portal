@@ -1072,3 +1072,46 @@ def test_used_legacy_rollback_returns_stable_bounded_409(
         token in response.text
         for token in ("relative_path", "container_path", "prior_mapping", "snapshot")
     )
+
+
+def test_phase6_openapi_contract_is_complete_and_path_safe(client):
+    schema = client.get("/openapi.json").json()
+    expected_methods = {
+        "/api/storage/mappings/{mapping_id}/removal-consequences": {"post"},
+        "/api/storage/mappings/{mapping_id}": {"delete"},
+        "/api/storage/legacy-detections": {"post"},
+        "/api/storage/legacy-detections/{result_id}": {"get"},
+        "/api/storage/legacy-detections/{result_id}/impact": {"post"},
+        "/api/storage/legacy-detections/{result_id}/migrate": {"post"},
+        "/api/storage/legacy-migrations/{migration_id}/rollback-status": {"get"},
+        "/api/storage/legacy-migrations/{migration_id}/rollback": {"post"},
+    }
+    for path, methods in expected_methods.items():
+        assert methods <= set(schema["paths"][path])
+
+    phase6_schemas = {
+        name: value
+        for name, value in schema["components"]["schemas"].items()
+        if name.startswith(("Legacy", "StorageMappingRemoval"))
+    }
+    assert {
+        "LegacyDetectionResultSchema",
+        "LegacyImpactPreviewSchema",
+        "LegacyMigrationResultSchema",
+        "LegacyRollbackStatusSchema",
+        "StorageMappingRemovalConfirmationSchema",
+        "StorageMappingRemovalConsequencesSchema",
+    } <= set(phase6_schemas)
+    serialized = str(phase6_schemas).lower()
+    assert not any(
+        token in serialized
+        for token in (
+            "container_path",
+            "absolute_path",
+            "host_path",
+            "raw_row",
+            "raw_error",
+            "legacy_fallback_path",
+            "file_list",
+        )
+    )

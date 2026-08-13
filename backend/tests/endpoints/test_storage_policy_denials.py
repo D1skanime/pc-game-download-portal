@@ -99,6 +99,39 @@ def test_external_api_denial_is_bounded_and_precedes_io(monkeypatch) -> None:
     io_tripwire.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "operation",
+    [
+        StorageOperation.CREATE,
+        StorageOperation.UPLOAD,
+        StorageOperation.WRITE,
+        StorageOperation.OVERWRITE,
+        StorageOperation.RENAME,
+        StorageOperation.MOVE,
+        StorageOperation.COPY,
+        StorageOperation.DELETE,
+        StorageOperation.EXTRACT,
+        StorageOperation.PATCH,
+        StorageOperation.MKDIR,
+        StorageOperation.SIDECAR_WRITE,
+        StorageOperation.COVER_WRITE,
+    ],
+)
+def test_phase6_external_mutations_are_denied_before_io(
+    monkeypatch, operation: StorageOperation
+) -> None:
+    io_tripwire = Mock(side_effect=AssertionError("filesystem I/O reached"))
+    monkeypatch.setattr(Path, "stat", io_tripwire)
+    monkeypatch.setattr(Path, "open", io_tripwire)
+
+    with pytest.raises(HTTPException) as error:
+        authorize_api_storage_operation(operation, legacy_external_storage)
+
+    assert error.value.status_code == 403
+    assert error.value.detail["operation"] == operation.value
+    io_tripwire.assert_not_called()
+
+
 def test_caller_text_cannot_replace_provider_identity() -> None:
     caller_values = ("romm_owned", "/romm/resources", "root:999", "../assets")
     for caller_value in caller_values:

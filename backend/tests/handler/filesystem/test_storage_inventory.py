@@ -206,6 +206,34 @@ def test_discovered_mutation_symbols_exactly_match_inventory() -> None:
     assert _discovered_mutations() == registered - BOUNDARY_ONLY_MUTATIONS
 
 
+def test_phase6_external_mutations_remain_absent_or_policy_governed() -> None:
+    forbidden = {
+        "CREATE",
+        "UPLOAD",
+        "WRITE",
+        "OVERWRITE",
+        "RENAME",
+        "MOVE",
+        "COPY",
+        "DELETE",
+        "EXTRACT",
+        "PATCH",
+        "MKDIR",
+    }
+    for row in INVENTORY:
+        if not forbidden.intersection(row.operations):
+            continue
+        if "external_read_only" in {
+            row.source_class,
+            row.destination_class,
+        }:
+            assert row.disposition is InventoryDisposition.POLICY_GOVERNED
+            assert row.enforcement
+        else:
+            assert row.source_class == "romm_owned"
+            assert row.disposition is InventoryDisposition.OWNED_ONLY
+
+
 def test_external_reads_have_no_raw_path_or_response_adapter() -> None:
     for row in INVENTORY:
         if row.kind is not InventoryKind.READ:

@@ -52,7 +52,9 @@ class FakeCommand:
             "/tmp/romm-phase06-openapi-39006.pid",
         ]:
             stdout = "4242\n"
-        elif any("http://127.0.0.1:39006/openapi.json" in part for part in args):
+        elif args[:3] == ["docker", "exec", "romm-dev"] and any(
+            "http://127.0.0.1:39006/openapi.json" in part for part in args
+        ):
             self.readiness_attempts += 1
             returncode = 0 if self.readiness_attempts >= self.ready_after else 1
 
@@ -143,8 +145,23 @@ def test_harness_records_one_pid_and_runs_exact_contract_commands(
     assert harness.uvicorn_pid == 4242
     assert command.readiness_attempts == 2
 
-    node = next(call for call in command.calls if call[:3] == ["docker", "run", "--rm"])
+    node = next(
+        call
+        for call in command.calls
+        if call[:3] == ["docker", "run", "--rm"] and "--network" in call
+    )
     assert ["--network", "container:romm-dev"] == node[3:5]
+    assert [
+        "--user",
+        f"{tmp_path.stat().st_uid}:{tmp_path.stat().st_gid}",
+    ] == node[5:7]
+    volume_init = next(
+        call
+        for call in command.calls
+        if call[:3] == ["docker", "run", "--rm"] and "chown" in call
+    )
+    assert "romm-phase06-openapi-node-modules-test" in volume_init[4]
+    assert f"{tmp_path.stat().st_uid}:{tmp_path.stat().st_gid}" in volume_init
     assert f"type=bind,src={tmp_path / 'frontend'},dst=/app" in node
     assert (
         "type=volume,src=romm-phase06-openapi-node-modules-test,"
