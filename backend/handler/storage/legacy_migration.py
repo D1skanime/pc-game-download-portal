@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import stat
+import struct
 import time
 from dataclasses import dataclass
 from datetime import datetime
 
 from exceptions.storage_exceptions import (
+    DescriptorHashError,
     MissingStorageRootError,
     MissingStorageTargetError,
     NonDirectoryStorageTargetError,
@@ -13,7 +16,10 @@ from exceptions.storage_exceptions import (
     UnreadableStorageTargetError,
     UnsafeSymlinkError,
 )
-from handler.filesystem.storage_access import open_storage_access
+from handler.filesystem.storage_access import (
+    hash_descriptor_file,
+    open_storage_access,
+)
 from handler.filesystem.storage_policy import (
     ExternalStorageDescriptor,
     StorageOperation,
@@ -24,6 +30,9 @@ from models.storage import LegacyDetectionState
 LEGACY_DETECTION_TIME_BUDGET_SECONDS = 5.0
 LEGACY_DETECTION_ENTRY_BUDGET = 10_000
 LEGACY_DETECTION_TTL_HOURS = 24
+LEGACY_DETECTION_FILE_BYTE_BUDGET = 256 * 1024**3
+LEGACY_DETECTION_AGGREGATE_BYTE_BUDGET = 1024**4
+LEGACY_OBSERVATION_DEADLINE_SECONDS = 240.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +46,8 @@ class LegacyDetectionOutcome:
     lower_bound: bool
     selectable: bool
     safe_problem_code: str | None
+
+    source_fingerprint: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +110,8 @@ class _CandidateObservation:
     lower_bound: bool = False
     safe_problem_code: str | None = None
 
+    source_fingerprint: str | None = None
+
 
 def build_legacy_candidate_paths(fs_slug: str) -> tuple[str, str]:
     try:
@@ -110,22 +123,29 @@ def build_legacy_candidate_paths(fs_slug: str) -> tuple[str, str]:
     return f"roms/{fs_slug}", f"{fs_slug}/roms"
 
 
+def _fingerprint_record(*parts: bytes) -> bytes:
+    return b"".join(struct.pack(">Q", len(part)) + part for part in parts)
+
+
 def _inspect_candidate(
     storage: ExternalStorageDescriptor,
     relative_path: str,
     *,
-    time_budget: float,
+    deadline_monotonic: float,
     entry_budget: int,
+    per_file_byte_budget: int,
+    aggregate_byte_budget: int,
     monotonic,
 ) -> _CandidateObservation:
-    started = monotonic()
     inspected = files = size = 0
     pending = [relative_path]
+
+    records: list[tuple[bytes, bytes]] = []
 
     def budget_reason() -> str | None:
         if inspected >= entry_budget:
             return "entry_budget"
-        if monotonic() - started >= time_budget:
+        if monotonic() >= deadline_monotonic:
             return "time_budget"
         return None
 
@@ -138,7 +158,7 @@ def _inspect_candidate(
                 LegacyDetectionState.DETECTED.value,
                 files,
                 size,
-                True,
+                False,
                 reason,
             )
         directory = pending.pop()
@@ -196,11 +216,14 @@ def _inspect_candidate(
                     LegacyDetectionState.DETECTED.value,
                     files,
                     size,
-                    True,
+                    False,
                     reason,
                 )
             inspected += 1
             logical_path = f"{directory}/{name}"
+            relative_name = logical_path[len(relative_path) + 1 :]
+            name_bytes = relative_name.encode("utf-8", errors="surrogateescape")
+
             try:
                 with open_storage_access(
                     storage, StorageOperation.STAT, logical_path
@@ -228,9 +251,64 @@ def _inspect_candidate(
                 )
             if stat.S_ISDIR(item.st_mode):
                 pending.append(logical_path)
+                records.append(
+                    (
+                        name_bytes,
+                        _fingerprint_record(name_bytes, b"directory", b"0", b""),
+                    )
+                )
             elif stat.S_ISREG(item.st_mode):
+                if item.st_size > per_file_byte_budget:
+                    return _CandidateObservation(
+                        relative_path,
+                        True,
+                        LegacyDetectionState.DETECTED.value,
+                        files,
+                        size,
+                        False,
+                        "file_byte_budget",
+                    )
+                if size + item.st_size > aggregate_byte_budget:
+                    return _CandidateObservation(
+                        relative_path,
+                        True,
+                        LegacyDetectionState.DETECTED.value,
+                        files,
+                        size,
+                        False,
+                        "aggregate_byte_budget",
+                    )
+                try:
+                    hashed = hash_descriptor_file(
+                        storage,
+                        logical_path,
+                        max_bytes=per_file_byte_budget,
+                        deadline_monotonic=deadline_monotonic,
+                        monotonic=monotonic,
+                    )
+                except DescriptorHashError:
+                    return _CandidateObservation(
+                        relative_path,
+                        True,
+                        LegacyDetectionState.DETECTED.value,
+                        files,
+                        size,
+                        False,
+                        "hash_incomplete",
+                    )
                 files += 1
-                size += item.st_size
+                size += hashed.bytes_read
+                records.append(
+                    (
+                        name_bytes,
+                        _fingerprint_record(
+                            name_bytes,
+                            b"regular",
+                            str(hashed.bytes_read).encode("ascii"),
+                            bytes.fromhex(hashed.sha256),
+                        ),
+                    )
+                )
             else:
                 return _CandidateObservation(
                     relative_path,
@@ -249,12 +327,18 @@ def _inspect_candidate(
             LegacyDetectionState.EMPTY.value,
             safe_problem_code="canonical_layout_empty",
         )
+    fingerprint = hashlib.sha256(b"romm-legacy-source-v1\0")
+    for _name, record in sorted(records, key=lambda item: item[0]):
+        fingerprint.update(record)
     return _CandidateObservation(
         relative_path,
         True,
         LegacyDetectionState.DETECTED.value,
         files,
         size,
+        False,
+        None,
+        fingerprint.hexdigest(),
     )
 
 
@@ -266,6 +350,8 @@ def detect_legacy_storage(
     fs_slug: str,
     time_budget: float = LEGACY_DETECTION_TIME_BUDGET_SECONDS,
     entry_budget: int = LEGACY_DETECTION_ENTRY_BUDGET,
+    per_file_byte_budget: int = LEGACY_DETECTION_FILE_BYTE_BUDGET,
+    aggregate_byte_budget: int = LEGACY_DETECTION_AGGREGATE_BYTE_BUDGET,
     monotonic=time.monotonic,
 ) -> LegacyDetectionOutcome:
     if type(platform_id) is not int or platform_id <= 0:
@@ -274,9 +360,15 @@ def detect_legacy_storage(
         raise ValueError("storage_root_id must be a positive integer")
     if storage.root_id != storage_root_id or storage.mapping_id is not None:
         raise TypeError("legacy detection requires its selected root descriptor")
-    if time_budget <= 0 or entry_budget <= 0:
+    if (
+        time_budget <= 0
+        or entry_budget <= 0
+        or per_file_byte_budget <= 0
+        or aggregate_byte_budget <= 0
+    ):
         raise ValueError("legacy detection budgets must be positive")
 
+    deadline_monotonic = monotonic() + time_budget
     try:
         candidates = build_legacy_candidate_paths(fs_slug)
     except ValueError:
@@ -297,9 +389,11 @@ def detect_legacy_storage(
         observation = _inspect_candidate(
             storage,
             candidate,
-            time_budget=time_budget,
+            deadline_monotonic=deadline_monotonic,
             entry_budget=entry_budget,
             monotonic=monotonic,
+            per_file_byte_budget=per_file_byte_budget,
+            aggregate_byte_budget=aggregate_byte_budget,
         )
         if observation.state == LegacyDetectionState.UNREACHABLE.value:
             return LegacyDetectionOutcome(
@@ -350,6 +444,7 @@ def detect_legacy_storage(
         selected.observed_files,
         selected.observed_bytes,
         selected.lower_bound,
-        selected.state == LegacyDetectionState.DETECTED.value,
+        selected.source_fingerprint is not None,
         selected.safe_problem_code,
+        selected.source_fingerprint,
     )

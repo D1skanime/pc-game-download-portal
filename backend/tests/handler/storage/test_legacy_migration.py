@@ -178,12 +178,18 @@ def test_detection_uses_only_list_and_stat_capabilities(tmp_path: Path, monkeypa
     (canonical / "game.gb").write_bytes(b"game")
     operations = []
     real_open = subject.open_storage_access
+    real_hash = subject.hash_descriptor_file
 
     def observe(storage, operation, relative_path):
         operations.append(operation.value)
         return real_open(storage, operation, relative_path)
 
+    def observe_hash(*args, **kwargs):
+        operations.append("hash")
+        return real_hash(*args, **kwargs)
+
     monkeypatch.setattr(subject, "open_storage_access", observe)
+    monkeypatch.setattr(subject, "hash_descriptor_file", observe_hash)
     result = _detect(tmp_path)
 
     assert result.state == "detected"
@@ -310,6 +316,7 @@ def test_detection_results_expire_bind_and_reject_reuse(
         lower_bound=False,
         selectable=True,
         safe_problem_code=None,
+        source_fingerprint="0" * 64,
     )
     completed_at = datetime(2026, 8, 12, tzinfo=timezone.utc)
     result = handler.save_detection_result(
@@ -538,6 +545,7 @@ def _seed_impact_preview(tmp_path: Path, platform, admin_user):
             lower_bound=False,
             selectable=True,
             safe_problem_code=None,
+            source_fingerprint="0" * 64,
         ),
         actor_user_id=admin_user.id,
         now=now,

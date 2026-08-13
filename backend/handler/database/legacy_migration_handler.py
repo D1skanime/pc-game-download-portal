@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import struct
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
@@ -276,6 +278,7 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 state=LegacyDetectionState.CONFLICT.value,
                 selectable=False,
                 safe_problem_code=problem_code,
+                source_fingerprint=None,
             )
 
         completed_at = now or datetime.now(timezone.utc)
@@ -290,6 +293,7 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             selectable=final.selectable,
             safe_problem_code=final.safe_problem_code,
             observed_mapping_id=mapping_id,
+            source_fingerprint=final.source_fingerprint,
             observed_mapping_version=mapping_version,
             version=1,
             actor_user_id=actor_user_id,
@@ -370,6 +374,61 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 LegacyImpactProblem("ambiguous_catalog_identity", ambiguous)
             )
         return reconnectable, unsafe + ambiguous, tuple(problems)
+
+    @staticmethod
+    def _catalog_fingerprint(session: Session, platform_id: int) -> str:
+        rom_rows = session.execute(
+            select(Rom.id, Rom.fs_path, Rom.fs_name, Rom.missing_from_fs)
+            .where(Rom.platform_id == platform_id)
+            .order_by(Rom.id)
+        ).all()
+        rom_ids = [row.id for row in rom_rows]
+        file_rows = (
+            session.execute(
+                select(
+                    RomFile.id,
+                    RomFile.rom_id,
+                    RomFile.file_path,
+                    RomFile.file_name,
+                    RomFile.missing_from_fs,
+                )
+                .where(RomFile.rom_id.in_(rom_ids))
+                .order_by(RomFile.id)
+            ).all()
+            if rom_ids
+            else []
+        )
+        records = [
+            (
+                "rom",
+                row.id,
+                row.fs_path,
+                row.fs_name,
+                row.missing_from_fs,
+            )
+            for row in rom_rows
+        ] + [
+            (
+                "rom_file",
+                row.id,
+                str(row.rom_id),
+                "/".join(part for part in (row.file_path, row.file_name) if part),
+                row.missing_from_fs,
+            )
+            for row in file_rows
+        ]
+        digest = hashlib.sha256(b"romm-legacy-catalog-v1\0")
+        for record in sorted(records, key=lambda item: (item[0], item[1])):
+            for value in record:
+                if isinstance(value, bool):
+                    part = b"\1" if value else b"\0"
+                elif isinstance(value, int):
+                    part = struct.pack(">Q", value)
+                else:
+                    part = value.encode("utf-8", errors="surrogateescape")
+                digest.update(struct.pack(">Q", len(part)))
+                digest.update(part)
+        return digest.hexdigest()
 
     def _preview_impact(
         self,

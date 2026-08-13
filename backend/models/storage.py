@@ -151,6 +151,8 @@ LEGACY_RESULT_STATE_MAX_LENGTH = 32
 LEGACY_PROBLEM_CODE_MAX_LENGTH = 64
 LEGACY_MIGRATION_STATE_MAX_LENGTH = 16
 LEGACY_OPERATION_MAX_LENGTH = 32
+LEGACY_FINGERPRINT_LENGTH = 64
+LEGACY_CATALOG_ENTITY_KIND_MAX_LENGTH = 16
 
 
 class LegacyDetectionState(enum.StrEnum):
@@ -186,6 +188,17 @@ class LegacyDetectionResult(BaseModel):
             "observed_bytes >= 0",
             name="ck_legacy_detection_results_observed_bytes",
         ),
+        CheckConstraint(
+            "source_fingerprint IS NULL OR "
+            "(CHAR_LENGTH(source_fingerprint) = 64 AND "
+            "source_fingerprint = LOWER(source_fingerprint))",
+            name="ck_legacy_detection_results_source_fingerprint_format",
+        ),
+        CheckConstraint(
+            "(selectable = false AND source_fingerprint IS NULL) OR "
+            "(selectable = true AND source_fingerprint IS NOT NULL AND lower_bound = false)",
+            name="ck_legacy_detection_results_source_fingerprint_selectable",
+        ),
         CheckConstraint("version >= 1", name="ck_legacy_detection_results_version"),
         Index(
             "ix_legacy_detection_results_platform_created",
@@ -216,6 +229,9 @@ class LegacyDetectionResult(BaseModel):
     selectable: Mapped[bool] = mapped_column(Boolean, default=False)
     safe_problem_code: Mapped[str | None] = mapped_column(
         String(length=LEGACY_PROBLEM_CODE_MAX_LENGTH), default=None
+    )
+    source_fingerprint: Mapped[str | None] = mapped_column(
+        String(length=LEGACY_FINGERPRINT_LENGTH), default=None
     )
     observed_mapping_id: Mapped[int | None] = mapped_column(
         ForeignKey("platform_storage_mappings.id", ondelete="SET NULL"),
@@ -302,3 +318,60 @@ class LegacyMigration(BaseModel):
         String(length=LEGACY_OPERATION_MAX_LENGTH), default=None
     )
     rolled_back_at: Mapped[datetime | None] = mapped_column(default=None)
+
+    catalog_changes: Mapped[list[LegacyMigrationCatalogChange]] = relationship(
+        lazy="raise",
+        back_populates="migration",
+        cascade="all, delete-orphan",
+        single_parent=True,
+        passive_deletes=True,
+        order_by=lambda: (
+            LegacyMigrationCatalogChange.entity_kind,
+            LegacyMigrationCatalogChange.entity_id,
+        ),
+    )
+
+
+class LegacyCatalogEntityKind(enum.StrEnum):
+    ROM = "rom"
+    ROM_FILE = "rom_file"
+
+
+class LegacyMigrationCatalogChange(BaseModel):
+    __tablename__ = "legacy_migration_catalog_changes"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_kind IN ('rom', 'rom_file')",
+            name="ck_legacy_migration_catalog_changes_entity_kind",
+        ),
+        CheckConstraint(
+            "entity_id > 0",
+            name="ck_legacy_migration_catalog_changes_entity_id",
+        ),
+        UniqueConstraint(
+            "migration_id",
+            "entity_kind",
+            "entity_id",
+            name="uq_legacy_migration_catalog_changes_identity",
+        ),
+        Index(
+            "ix_legacy_migration_catalog_changes_order",
+            "migration_id",
+            "entity_kind",
+            "entity_id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    migration_id: Mapped[int] = mapped_column(
+        ForeignKey("legacy_migrations.id", ondelete="CASCADE")
+    )
+    entity_kind: Mapped[str] = mapped_column(
+        String(length=LEGACY_CATALOG_ENTITY_KIND_MAX_LENGTH)
+    )
+    entity_id: Mapped[int] = mapped_column(Integer)
+    prior_missing_from_fs: Mapped[bool] = mapped_column(Boolean)
+
+    migration: Mapped[LegacyMigration] = relationship(
+        lazy="raise", back_populates="catalog_changes"
+    )

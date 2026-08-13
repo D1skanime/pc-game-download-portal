@@ -4,11 +4,17 @@ import errno
 import hashlib
 import os
 import stat as stat_module
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import BinaryIO, Self
 
 from exceptions.storage_exceptions import (
+    DescriptorHashBudgetError,
+    DescriptorHashConcurrentChangeError,
+    DescriptorHashDeadlineError,
+    DescriptorHashShortReadError,
     MissingStorageRootError,
     MissingStorageTargetError,
     NonDirectoryStorageTargetError,
@@ -260,6 +266,98 @@ def open_storage_access(
         ),
     )
     return capability_type(target)
+
+
+@dataclass(frozen=True, slots=True)
+class DescriptorFileMetadata:
+    device: int
+    inode: int
+    mode: int
+    size: int
+    mtime_ns: int
+    ctime_ns: int
+
+
+@dataclass(frozen=True, slots=True)
+class DescriptorHashResult:
+    sha256: str
+    bytes_read: int
+    before: DescriptorFileMetadata
+    after: DescriptorFileMetadata
+
+
+def _descriptor_metadata(metadata: os.stat_result) -> DescriptorFileMetadata:
+    return DescriptorFileMetadata(
+        device=metadata.st_dev,
+        inode=metadata.st_ino,
+        mode=metadata.st_mode,
+        size=metadata.st_size,
+        mtime_ns=metadata.st_mtime_ns,
+        ctime_ns=metadata.st_ctime_ns,
+    )
+
+
+def hash_descriptor_file(
+    descriptor: ExternalStorageDescriptor,
+    relative_path: str,
+    *,
+    max_bytes: int,
+    deadline_monotonic: float,
+    monotonic=time.monotonic,
+) -> DescriptorHashResult:
+    if type(max_bytes) is not int or max_bytes <= 0:
+        raise ValueError("max_bytes must be a positive integer")
+    if not isinstance(deadline_monotonic, (int, float)):
+        raise TypeError("deadline_monotonic must be numeric")
+
+    with open_storage_access(
+        descriptor, StorageOperation.HASH, relative_path
+    ) as capability:
+        file_descriptor = capability.fileno()
+        before = _descriptor_metadata(os.fstat(file_descriptor))
+        if not stat_module.S_ISREG(before.mode):
+            raise DescriptorHashConcurrentChangeError()
+        if before.size > max_bytes:
+            raise DescriptorHashBudgetError()
+
+        digest = hashlib.sha256()
+        bytes_read = 0
+        os.lseek(file_descriptor, 0, os.SEEK_SET)
+        while bytes_read < before.size:
+            if monotonic() >= deadline_monotonic:
+                raise DescriptorHashDeadlineError()
+            requested = min(1024 * 1024, before.size - bytes_read)
+            try:
+                chunk = os.read(file_descriptor, requested)
+            except OSError as error:
+                raise StorageResolutionError(
+                    "Storage hash read could not be completed"
+                ) from error
+            if monotonic() >= deadline_monotonic:
+                raise DescriptorHashDeadlineError()
+            if not chunk:
+                raise DescriptorHashShortReadError()
+            if len(chunk) > requested:
+                raise DescriptorHashConcurrentChangeError()
+            digest.update(chunk)
+            bytes_read += len(chunk)
+
+        if monotonic() >= deadline_monotonic:
+            raise DescriptorHashDeadlineError()
+        try:
+            extra = os.read(file_descriptor, 1)
+        except OSError as error:
+            raise StorageResolutionError(
+                "Storage hash read could not be completed"
+            ) from error
+        if monotonic() >= deadline_monotonic:
+            raise DescriptorHashDeadlineError()
+        if extra:
+            raise DescriptorHashConcurrentChangeError()
+        after = _descriptor_metadata(os.fstat(file_descriptor))
+        if before != after or not stat_module.S_ISREG(after.mode):
+            raise DescriptorHashConcurrentChangeError()
+        return DescriptorHashResult(digest.hexdigest(), bytes_read, before, after)
 
 
 class OwnedRead(ReadCapability):

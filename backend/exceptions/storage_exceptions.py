@@ -11,6 +11,41 @@ class StorageResolutionError(Exception):
         return self.message
 
 
+class DescriptorHashError(StorageResolutionError):
+    code = "descriptor_hash_error"
+
+    def __init__(self, message: str = "Storage hash observation is incomplete"):
+        super().__init__(message)
+
+
+class DescriptorHashBudgetError(DescriptorHashError):
+    code = "descriptor_hash_budget"
+
+    def __init__(self):
+        super().__init__("Storage hash byte budget was exceeded")
+
+
+class DescriptorHashDeadlineError(DescriptorHashError):
+    code = "descriptor_hash_deadline"
+
+    def __init__(self):
+        super().__init__("Storage hash deadline was exceeded")
+
+
+class DescriptorHashShortReadError(DescriptorHashError):
+    code = "descriptor_hash_short_read"
+
+    def __init__(self):
+        super().__init__("Storage hash read ended before the observed size")
+
+
+class DescriptorHashConcurrentChangeError(DescriptorHashError):
+    code = "descriptor_hash_concurrent_change"
+
+    def __init__(self):
+        super().__init__("Storage hash target changed during observation")
+
+
 class InvalidRelativePathError(StorageResolutionError):
     code = "invalid_relative_path"
 

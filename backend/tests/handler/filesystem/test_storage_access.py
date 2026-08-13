@@ -313,12 +313,20 @@ def test_descriptor_hash_distinguishes_same_metadata_different_bytes(tmp_path):
     path.write_bytes(b"first")
     timestamp = path.stat().st_mtime_ns
     first = hash_descriptor_file(
-        _external(tmp_path), "game.rom", max_bytes=5, deadline_monotonic=10.0
+        _external(tmp_path),
+        "game.rom",
+        max_bytes=5,
+        deadline_monotonic=10.0,
+        monotonic=lambda: 0.0,
     )
     path.write_bytes(b"other")
     os.utime(path, ns=(timestamp, timestamp))
     second = hash_descriptor_file(
-        _external(tmp_path), "game.rom", max_bytes=5, deadline_monotonic=10.0
+        _external(tmp_path),
+        "game.rom",
+        max_bytes=5,
+        deadline_monotonic=10.0,
+        monotonic=lambda: 0.0,
     )
     assert first.before.size == second.before.size
     assert first.before.mode == second.before.mode
@@ -356,7 +364,11 @@ def test_descriptor_hash_rejects_short_long_and_changed_reads(tmp_path, monkeypa
     monkeypatch.setattr("handler.filesystem.storage_access.os.read", lambda *_: b"")
     with pytest.raises(DescriptorHashShortReadError):
         hash_descriptor_file(
-            _external(tmp_path), "game.rom", max_bytes=4, deadline_monotonic=10.0
+            _external(tmp_path),
+            "game.rom",
+            max_bytes=4,
+            deadline_monotonic=10.0,
+            monotonic=lambda: 0.0,
         )
 
     monkeypatch.setattr(
@@ -365,7 +377,11 @@ def test_descriptor_hash_rejects_short_long_and_changed_reads(tmp_path, monkeypa
     )
     with pytest.raises(DescriptorHashConcurrentChangeError):
         hash_descriptor_file(
-            _external(tmp_path), "game.rom", max_bytes=4, deadline_monotonic=10.0
+            _external(tmp_path),
+            "game.rom",
+            max_bytes=4,
+            deadline_monotonic=10.0,
+            monotonic=lambda: 0.0,
         )
 
     changed = False
@@ -375,13 +391,17 @@ def test_descriptor_hash_rejects_short_long_and_changed_reads(tmp_path, monkeypa
         chunk = real_read(descriptor, count)
         if not changed:
             changed = True
-            os.ftruncate(descriptor, 5)
+            path.write_bytes(b"12345")
         return chunk
 
     monkeypatch.setattr("handler.filesystem.storage_access.os.read", mutate_after_read)
     with pytest.raises(DescriptorHashConcurrentChangeError):
         hash_descriptor_file(
-            _external(tmp_path), "game.rom", max_bytes=8, deadline_monotonic=10.0
+            _external(tmp_path),
+            "game.rom",
+            max_bytes=8,
+            deadline_monotonic=10.0,
+            monotonic=lambda: 0.0,
         )
 
 
@@ -396,6 +416,7 @@ def test_descriptor_hash_denies_symlinks_and_closes_on_every_failure(tmp_path):
                 "link.rom",
                 max_bytes=4,
                 deadline_monotonic=10.0,
+                monotonic=lambda: 0.0,
             )
         with pytest.raises(DescriptorHashBudgetError):
             hash_descriptor_file(
@@ -403,5 +424,6 @@ def test_descriptor_hash_denies_symlinks_and_closes_on_every_failure(tmp_path):
                 "real.rom",
                 max_bytes=3,
                 deadline_monotonic=10.0,
+                monotonic=lambda: 0.0,
             )
     assert len(os.listdir("/proc/self/fd")) <= before + 1
