@@ -71,7 +71,6 @@ const canSeeProfile = computed(
   () => !!user.value?.id && scopes.value.includes("me.write"),
 );
 const canScan = computed(() => scopes.value.includes("platforms.write"));
-const canUpload = computed(() => scopes.value.includes("roms.write"));
 const canSeeLibraryMgmt = computed(() =>
   scopes.value.includes("platforms.write"),
 );
@@ -194,13 +193,6 @@ async function onLogout() {
         :to="{ name: ROUTES.SCAN }"
         icon="mdi-radar"
         :label="t('scan.scan')"
-        @click="open = false"
-      />
-      <RMenuItem
-        v-if="canUpload"
-        :to="{ name: ROUTES.UPLOAD }"
-        icon="mdi-cloud-upload-outline"
-        :label="t('common.upload-roms')"
         @click="open = false"
       />
       <RMenuItem

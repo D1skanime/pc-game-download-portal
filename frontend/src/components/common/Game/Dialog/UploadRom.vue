@@ -7,12 +7,7 @@ import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import platformApi from "@/services/api/platform";
-import romApi from "@/services/api/rom";
-import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat";
 import { type Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
-import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 
@@ -20,11 +15,8 @@ const { t } = useI18n();
 const { mdAndUp, smAndUp } = useDisplay();
 const show = ref(false);
 const filesToUpload = ref<File[]>([]);
-const scanningStore = storeScanning();
 const selectedPlatform = ref<Platform | null>(null);
 const supportedPlatforms = ref<Platform[]>();
-const heartbeat = storeHeartbeat();
-const uploadStore = storeUpload();
 const dropZoneRef = ref<HTMLDivElement>();
 
 const HEADERS = [
@@ -62,92 +54,16 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
     });
 });
 
-async function uploadRoms() {
-  if (!selectedPlatform.value) return;
+function uploadRoms() {
   show.value = false;
-
-  if (selectedPlatform.value.id == -1) {
-    await platformApi
-      .uploadPlatform({ fsSlug: selectedPlatform.value.fs_slug })
-      .then(({ data }) => {
-        emitter?.emit("snackbarShow", {
-          msg: `Platform ${selectedPlatform.value?.name} created successfully!`,
-          icon: "mdi-check-bold",
-          color: "green",
-          timeout: 2000,
-        });
-        selectedPlatform.value = data;
-      })
-      .catch((error) => {
-        console.error(error);
-        emitter?.emit("snackbarShow", {
-          msg: error.response.data.detail,
-          icon: "mdi-close-circle",
-          color: "red",
-        });
-        return;
-      })
-      .finally(() => {
-        emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-      });
-  }
-
-  const platformId = selectedPlatform.value.id;
-
-  await romApi
-    .uploadRoms({
-      filesToUpload: filesToUpload.value,
-      platformId: platformId,
-    })
-    .then((responses) => {
-      const successfulUploads = responses.filter(
-        (d) => d.status == "fulfilled",
-      );
-      const failedUploads = responses.filter((d) => d.status == "rejected");
-
-      if (failedUploads.length == 0) {
-        uploadStore.reset();
-      }
-
-      if (successfulUploads.length == 0) {
-        return emitter?.emit("snackbarShow", {
-          msg: `All files skipped, nothing to upload.`,
-          icon: "mdi-close-circle",
-          color: "orange",
-          timeout: 5000,
-        });
-      }
-
-      emitter?.emit("snackbarShow", {
-        msg: `${successfulUploads.length} files uploaded successfully (and ${failedUploads.length} skipped/failed). Starting scan...`,
-        icon: "mdi-check-bold",
-        color: "green",
-        timeout: 3000,
-      });
-
-      scanningStore.setScanning(true);
-
-      if (!socket.connected) socket.connect();
-      setTimeout(() => {
-        socket.emit("scan", {
-          platforms: [platformId],
-          type: "quick",
-          apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
-        });
-      }, 2000);
-    })
-    .catch(({ response, message }) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to upload roms: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-    });
   filesToUpload.value = [];
   selectedPlatform.value = null;
+  emitter?.emit("snackbarShow", {
+    msg: t("home.empty-scan-desc"),
+    icon: "mdi-folder-search-outline",
+    color: "info",
+    timeout: 4000,
+  });
 }
 
 function triggerFileInput() {

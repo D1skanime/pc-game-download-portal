@@ -314,12 +314,6 @@ watch(
 );
 
 // ── Admin actions ───────────────────────────────────────────────
-function onUploadRoms() {
-  const p = currentPlatform.value;
-  if (!p) return;
-  router.push({ name: ROUTES.UPLOAD, query: { platform: String(p.id) } });
-}
-
 function onScan() {
   if (!currentPlatform.value) return;
   scanOpen.value = true;
@@ -444,7 +438,6 @@ async function onDelete() {
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
-        @upload="onUploadRoms"
         @scan="onScan"
         @random="onRandomGame"
         @download="onDownload"
@@ -473,7 +466,6 @@ async function onDelete() {
         :random-loading="randomLoading"
         :labels="headLabels"
         @update:tab="onTabChange"
-        @upload="onUploadRoms"
         @scan="onScan"
         @random="onRandomGame"
         @download="onDownload"

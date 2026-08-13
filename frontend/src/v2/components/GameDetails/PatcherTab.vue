@@ -1,14 +1,9 @@
 <script setup lang="ts">
-// PatcherTab — server-side patch flow for a single ROM, rendered as a tab
-// in GameDetails. Picks a base game file and a patch file from the ROM's
-// `files`, POSTs to `/roms/{fileId}/patch`, and streams the patched ROM
-// back as a blob to download locally and/or re-upload into RomM.
+// PatcherTab applies a temporary server-side patch and downloads the result.
 import {
   RAlert,
   RBtn,
-  RCheckbox,
   RDropzone,
-  RExpandTransition,
   RIcon,
   RPlatformIcon,
   RSelect,
@@ -16,32 +11,18 @@ import {
   RTextField,
   RTooltip,
 } from "@v2/lib";
-import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import api from "@/services/api";
-import romApi from "@/services/api/rom";
-import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat";
-import storePlatforms, { type Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
-import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
-import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
-import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
 
 const { t } = useI18n();
-const platformsStore = storePlatforms();
-const { filteredPlatforms } = storeToRefs(platformsStore);
 const snackbar = useSnackbar();
-const heartbeat = storeHeartbeat();
-const scanningStore = storeScanning();
-const uploadStore = storeUpload();
 
 const supportedPatchExtensions = [
   ".ips",
@@ -78,24 +59,6 @@ const uploadedPatch = ref<File | null>(null);
 
 const acceptAttr = supportedPatchExtensions.join(",");
 
-const downloadLocally = ref(true);
-// Uploading the patched ROM back into RomM needs write access. Viewers
-// can only download locally, so both toggles are hidden for them and
-// `saveIntoRomM` stays off — the apply button then reads "apply and
-// download".
-const canUpload = useCan("rom.upload");
-const saveIntoRomM = ref(false);
-// `selectedPlatformId` is the source of truth (matches PlatformSelect's
-// id-keyed v-model); `selectedPlatform` is a derived lookup that keeps
-// the rest of the file working against the full `Platform` object.
-const selectedPlatformId = ref<number | null>(null);
-const selectedPlatform = computed<Platform | null>(() => {
-  if (selectedPlatformId.value === null) return null;
-  return (
-    filteredPlatforms.value.find((p) => p.id === selectedPlatformId.value) ??
-    null
-  );
-});
 const customFileName = ref("");
 
 const applying = ref(false);
@@ -152,8 +115,6 @@ watch(
     // otherwise start on upload so a plain game is patchable right away.
     patchSource.value = hasLibraryPatches.value ? "library" : "upload";
     uploadedPatch.value = null;
-    // Preselect the ROM's own platform as the upload target.
-    selectedPlatformId.value = props.rom.platform_id;
   },
   { immediate: true },
 );
@@ -198,12 +159,6 @@ async function patchRom() {
   if (!hasPatch.value) {
     return (loadError.value = t("patcher.error-no-patch"));
   }
-  if (saveIntoRomM.value && !selectedPlatform.value) {
-    return (loadError.value = t("patcher.error-no-platform"));
-  }
-  if (!downloadLocally.value && !saveIntoRomM.value) {
-    return (loadError.value = t("patcher.error-no-action"));
-  }
 
   applying.value = true;
   try {
@@ -243,27 +198,16 @@ async function patchRom() {
       });
     }
 
-    if (downloadLocally.value) {
-      statusMessage.value = t("patcher.status-downloading");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = outputFileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      actions.push(t("patcher.success-downloaded"));
-    }
-
-    if (saveIntoRomM.value && selectedPlatform.value) {
-      statusMessage.value = t("patcher.status-uploading");
-      const file = new File([blob], outputFileName, {
-        type: "application/octet-stream",
-      });
-      await uploadPatchedFile(file, selectedPlatform.value.id);
-      actions.push(t("patcher.success-uploaded"));
-    }
+    statusMessage.value = t("patcher.status-downloading");
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = outputFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    actions.push(t("patcher.success-downloaded"));
 
     if (actions.length > 0) {
       statusMessage.value = t("patcher.success-message", {
@@ -281,62 +225,11 @@ async function patchRom() {
   }
 }
 
-async function uploadPatchedFile(file: File, platformId: number) {
-  const responses = await romApi.uploadRoms({
-    filesToUpload: [file],
-    platformId,
-  });
-  const failed = responses.filter((r) => r.status === "rejected");
-  const successful = responses.filter((r) => r.status === "fulfilled");
-
-  if (successful.length === 0) {
-    const firstFailure = failed[0] as PromiseRejectedResult | undefined;
-    const detail =
-      firstFailure?.reason?.response?.data?.detail ||
-      firstFailure?.reason?.message ||
-      t("common.unknown-error");
-    throw new Error(t("patcher.error-upload-failed", { error: detail }));
-  }
-
-  if (failed.length === 0) uploadStore.reset();
-
-  snackbar.success(
-    t("patcher.upload-success", {
-      errors: failed.length > 0 ? t("patcher.upload-errors") : "",
-    }),
-    { icon: "mdi-check-bold", timeout: 3000 },
-  );
-
-  selectedPlatformId.value = props.rom.platform_id;
-  saveIntoRomM.value = false;
-
-  scanningStore.setScanning(true);
-  if (!socket.connected) socket.connect();
-  setTimeout(() => {
-    socket.emit("scan", {
-      platforms: [platformId],
-      type: "quick",
-      apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
-    });
-  }, 2000);
-}
-
 const canApply = computed(
-  () =>
-    !!selectedRomFile.value &&
-    hasPatch.value &&
-    !applying.value &&
-    (downloadLocally.value || saveIntoRomM.value) &&
-    (!saveIntoRomM.value || !!selectedPlatform.value),
+  () => !!selectedRomFile.value && hasPatch.value && !applying.value,
 );
 
-const applyLabel = computed(() => {
-  if (downloadLocally.value && saveIntoRomM.value) {
-    return t("patcher.apply-download-upload");
-  }
-  if (saveIntoRomM.value) return t("patcher.apply-upload");
-  return t("patcher.apply-download");
-});
+const applyLabel = computed(() => t("patcher.apply-download"));
 </script>
 
 <template>
@@ -553,23 +446,6 @@ const applyLabel = computed(() => {
 
     <!-- Controls panel -->
     <div class="r-v2-patch__controls">
-      <!-- Viewers can only download locally, so the choice (download vs.
-           upload to RomM) is meaningless: hide both toggles and let the
-           apply button read "apply and download". Editors/admins get the
-           full pair. -->
-      <div v-if="canUpload" class="r-v2-patch__toggle-row">
-        <RCheckbox
-          v-model="downloadLocally"
-          :label="t('patcher.download-locally')"
-          hide-details
-        />
-        <RCheckbox
-          v-model="saveIntoRomM"
-          :label="t('patcher.upload-to-romm')"
-          hide-details
-        />
-      </div>
-
       <RTextField
         v-model="customFileName"
         prefix-label="stacked"
@@ -584,21 +460,6 @@ const applyLabel = computed(() => {
           {{ t("patcher.output-filename") }}
         </template>
       </RTextField>
-
-      <RExpandTransition>
-        <PlatformSelect
-          v-if="saveIntoRomM"
-          v-model="selectedPlatformId"
-          :items="filteredPlatforms"
-          :label="t('common.platforms')"
-          prepend-inner-icon="mdi-controller"
-          density="comfortable"
-          :icon-size="32"
-          show-meta
-          clearable
-          hide-details
-        />
-      </RExpandTransition>
 
       <div class="r-v2-patch__apply-row">
         <RBtn

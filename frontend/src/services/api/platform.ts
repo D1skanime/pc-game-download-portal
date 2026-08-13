@@ -1,5 +1,4 @@
 import type {
-  Body_add_platform_api_platforms_post as AddPlatformInput,
   Body_update_platform_api_platforms__id__put as UpdatePlatformInput,
   PlatformSchema,
 } from "@/__generated__";
@@ -8,11 +7,6 @@ import api from "@/services/api";
 type Platform = PlatformSchema;
 
 export const platformApi = api;
-
-async function uploadPlatform({ fsSlug }: { fsSlug: string }) {
-  const payload: AddPlatformInput = { fs_slug: fsSlug };
-  return api.post<Platform>("/platforms", payload);
-}
 
 async function getPlatforms() {
   return api.get<Platform[]>("/platforms");
@@ -49,7 +43,6 @@ async function deletePlatform({ platform }: { platform: Platform }) {
 }
 
 export default {
-  uploadPlatform,
   getPlatforms,
   getPlatform,
   getSupportedPlatforms,

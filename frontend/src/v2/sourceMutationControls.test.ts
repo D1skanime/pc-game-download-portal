@@ -79,7 +79,7 @@ vi.mock("@/services/api/setup", () => ({
   default: {
     getLibraryInfo: vi.fn().mockResolvedValue({
       data: {
-        detected_structure: "structure_a",
+        detected_structure: "struct_a",
         existing_platforms: [],
         supported_platforms: [],
       },
@@ -323,7 +323,7 @@ describe("external source mutation authority inventory", () => {
     const wrapper = shallowMount(SetupStepPlatforms, {
       props: {
         libraryInfo: {
-          detected_structure: "structure_a",
+          detected_structure: "struct_a",
           existing_platforms: [{ fs_slug: "pc", rom_count: 2 }],
           supported_platforms: [
             {
@@ -332,10 +332,21 @@ describe("external source mutation authority inventory", () => {
               fs_slug: "pc",
               name: "PC",
               display_name: "PC",
+              rom_count: 2,
+              igdb_slug: null,
+              moby_slug: null,
+              hltb_slug: null,
+              libretro_slug: null,
+              created_at: "",
+              updated_at: "",
+              fs_size_bytes: 0,
+              is_unidentified: false,
+              is_identified: true,
+              missing_from_fs: false,
+              firmware_count: 0,
             },
           ],
         },
-        selectedNewPlatforms: [],
       },
       global: {
         stubs: {

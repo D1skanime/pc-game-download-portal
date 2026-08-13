@@ -387,37 +387,7 @@ async function loadLibraryInfo() {
 }
 
 async function finishWizard() {
-  // First create platform folders if any selected
-  const platformsToCreate = selectedPlatforms.value.filter(
-    (slug) => !isPlatformExisting(slug),
-  );
-
-  if (platformsToCreate.length > 0) {
-    creatingPlatforms.value = true;
-    try {
-      const response = await setupApi.createPlatforms(platformsToCreate);
-
-      emitter?.emit("snackbarShow", {
-        msg: response.data.message,
-        icon: "mdi-check-circle",
-        color: "success",
-      });
-    } catch (error: any) {
-      emitter?.emit("snackbarShow", {
-        msg: `Failed to create platform folders: ${
-          error.response?.data?.detail || error.message
-        }`,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
-      creatingPlatforms.value = false;
-      return; // Stop if folder creation fails
-    } finally {
-      creatingPlatforms.value = false;
-    }
-  }
-
-  // Then create admin user
+  // Setup only creates the admin user. Existing source directories are read-only.
   await userApi
     .createUser(defaultAdminUser.value)
     .then(async () => {

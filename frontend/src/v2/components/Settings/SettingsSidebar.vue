@@ -86,12 +86,6 @@ const groups = computed<Group[]>(() => {
           visible: scopes.value.includes("platforms.write"),
         },
         {
-          icon: "mdi-cloud-upload-outline",
-          label: t("common.upload-roms"),
-          to: { name: ROUTES.UPLOAD },
-          visible: scopes.value.includes("roms.write"),
-        },
-        {
           icon: "mdi-table-cog",
           label: t("common.library-management"),
           to: { name: ROUTES.LIBRARY_MANAGEMENT },

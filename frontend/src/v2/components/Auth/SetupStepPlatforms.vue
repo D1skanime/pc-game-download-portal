@@ -1,321 +1,44 @@
 <script setup lang="ts">
-// SetupStepPlatforms — Step 1 of the setup wizard.
-//
-// Layout:
-//   1. Structure banner — what folder layout is in use or will be created.
-//   2. Detected platforms — read-only, always rendered (folders that
-//      already exist on disk). Bundled with any unidentified folders so
-//      the user knows nothing of theirs got lost.
-//   3. Supported platforms — every platform RomM knows about, grouped
-//      by manufacturer. Groups are CLOSED by default and their bodies
-//      are gated with v-if (not v-show), so first-render is tiny —
-//      otherwise the catalogue's ~300 entries blow up DOM cost.
-//   4. Search — when non-empty, replaces the grouped browse with a flat,
-//      capped result list across every supported platform.
-//   5. Summary line — restates how many new folders the wizard will
-//      create under which pattern, so the directory creation effect
-//      is never a surprise.
-import {
-  RCheckbox,
-  RChip,
-  RCollapsible,
-  REmptyState,
-  RIcon,
-  RPlatformIcon,
-  RSliderBtnGroup,
-  RTag,
-  RTextField,
-} from "@v2/lib";
-import type { SliderBtnGroupItem } from "@v2/lib";
-import { computed, ref } from "vue";
+import { RAlert, RPlatformIcon } from "@v2/lib";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SetupLibraryInfo } from "@/services/api/setup";
-import type { Platform } from "@/stores/platforms";
 
-defineOptions({ inheritAttrs: false });
-
-interface Props {
-  libraryInfo: SetupLibraryInfo;
-  selectedNewPlatforms: string[];
-}
-
-const props = defineProps<Props>();
-const emit = defineEmits<{
-  (e: "update:selectedNewPlatforms", value: string[]): void;
-}>();
-
+const props = defineProps<{ libraryInfo: SetupLibraryInfo }>();
 const { t } = useI18n();
 
-const search = ref("");
-const openGroups = ref<Set<string>>(new Set());
-// Groups that have been opened at least once. We keep their body content
-// mounted once expanded so re-opening animates smoothly without remounting.
-const mountedGroups = ref<Set<string>>(new Set());
-
-const UNIDENTIFIED = "__unidentified__";
-const SEARCH_LIMIT = 80;
-
-// ── Detected platforms ─────────────────────────────────────────────
-//
-// "Detected" = on disk. We split into identified (matches a supported
-// platform → we have a nice display name + icon) and unidentified
-// (a folder that doesn't match — likely a typo or an unsupported
-// platform). Both get shown in the same section so nothing slips
-// through the cracks.
-
-const detectedSlugSet = computed(
-  () => new Set(props.libraryInfo.existing_platforms.map((p) => p.fs_slug)),
-);
-
-const romCountBySlug = computed(() => {
-  const map = new Map<string, number>();
-  for (const p of props.libraryInfo.existing_platforms)
-    map.set(p.fs_slug, p.rom_count);
-  return map;
-});
-
-const supportedSlugSet = computed(
-  () => new Set(props.libraryInfo.supported_platforms.map((p) => p.fs_slug)),
-);
-
-const detectedPlatforms = computed<Array<Platform & { unidentified: boolean }>>(
-  () => {
-    if (!props.libraryInfo.detected_structure) return [];
-    const identified = props.libraryInfo.supported_platforms
-      .filter((p) => detectedSlugSet.value.has(p.fs_slug))
-      .map((p) => ({ ...p, unidentified: false }));
-    const unidentified = props.libraryInfo.existing_platforms
-      .filter((p) => !supportedSlugSet.value.has(p.fs_slug))
-      .map(
-        (p) =>
-          ({
-            fs_slug: p.fs_slug,
-            slug: p.fs_slug,
-            name: p.fs_slug,
-            family_name: UNIDENTIFIED,
-            generation: 999,
-            unidentified: true,
-          }) as Platform & { unidentified: boolean },
-      );
-    return [...identified, ...unidentified].sort((a, b) =>
-      (a.name ?? a.fs_slug).localeCompare(b.name ?? b.fs_slug),
-    );
-  },
-);
-
-const totalDetectedGames = computed(() =>
-  props.libraryInfo.existing_platforms.reduce((s, p) => s + p.rom_count, 0),
-);
-
-// ── Detected-pane filter ───────────────────────────────────────────
-//
-// When the library has both identified and unidentified folders, give
-// the user a way to narrow the list. The slider is hidden when there's
-// nothing to filter (no unidentified folders).
-
-type DetectedFilter = "all" | "identified" | "unidentified";
-const detectedFilter = ref<DetectedFilter>("all");
-
-const identifiedDetectedCount = computed(
-  () => detectedPlatforms.value.filter((p) => !p.unidentified).length,
-);
-const unidentifiedDetectedCount = computed(
-  () => detectedPlatforms.value.filter((p) => p.unidentified).length,
-);
-
-const showDetectedFilter = computed(
+const supportedBySlug = computed(
   () =>
-    identifiedDetectedCount.value > 0 && unidentifiedDetectedCount.value > 0,
+    new Map(
+      props.libraryInfo.supported_platforms.map((platform) => [
+        platform.fs_slug,
+        platform,
+      ]),
+    ),
 );
 
-const detectedFilterItems = computed<SliderBtnGroupItem<DetectedFilter>[]>(
-  () => [
-    {
-      id: "all",
-      icon: "mdi-folder-multiple-outline",
-      title: t("setup.filter-all"),
-      ariaLabel: t("setup.filter-all"),
-    },
-    {
-      id: "identified",
-      icon: "mdi-folder-check",
-      title: t("setup.identified"),
-      ariaLabel: t("setup.identified"),
-    },
-    {
-      id: "unidentified",
-      icon: "mdi-folder-question-outline",
-      title: t("setup.unidentified"),
-      ariaLabel: t("setup.unidentified"),
-    },
-  ],
+const detectedPlatforms = computed(() =>
+  props.libraryInfo.existing_platforms.map((existing) => {
+    const supported = supportedBySlug.value.get(existing.fs_slug);
+    return {
+      fs_slug: existing.fs_slug,
+      slug: supported?.slug ?? existing.fs_slug,
+      name: supported?.display_name ?? supported?.name ?? existing.fs_slug,
+      rom_count: existing.rom_count,
+    };
+  }),
 );
-
-const filteredDetectedPlatforms = computed(() => {
-  if (detectedFilter.value === "identified")
-    return detectedPlatforms.value.filter((p) => !p.unidentified);
-  if (detectedFilter.value === "unidentified")
-    return detectedPlatforms.value.filter((p) => p.unidentified);
-  return detectedPlatforms.value;
-});
-
-// ── Supported (selectable) platforms ───────────────────────────────
-//
-// Filter out anything already on disk — those are shown in the detected
-// section. We never present the same fs_slug twice.
-
-const supportedAvailable = computed<Platform[]>(() =>
-  props.libraryInfo.supported_platforms.filter(
-    (p) => !detectedSlugSet.value.has(p.fs_slug),
-  ),
-);
-
-interface Group {
-  key: string;
-  label: string;
-  items: Platform[];
-}
-
-const groupedAvailable = computed<Group[]>(() => {
-  const map = new Map<string, Platform[]>();
-  for (const p of supportedAvailable.value) {
-    const key = p.family_name || "Other";
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(p);
-  }
-  const groups: Group[] = [];
-  const keys = [...map.keys()].sort((a, b) => {
-    if (a === "Other") return 1;
-    if (b === "Other") return -1;
-    return a.localeCompare(b);
-  });
-  for (const key of keys) {
-    const items = map.get(key)!;
-    items.sort((a, b) => {
-      const aGen = a.generation ?? -1;
-      const bGen = b.generation ?? -1;
-      if (aGen !== bGen) return aGen - bGen;
-      return (a.name ?? a.fs_slug).localeCompare(b.name ?? b.fs_slug);
-    });
-    groups.push({ key, label: key, items });
-  }
-  return groups;
-});
-
-// ── Search ─────────────────────────────────────────────────────────
-//
-// When a query is present, we abandon the grouped browse and show a
-// flat list of supported (non-detected) matches, capped so a one-letter
-// search doesn't end up rendering the whole catalogue.
-
-const searchResults = computed<Platform[]>(() => {
-  const q = search.value.trim().toLowerCase();
-  if (!q) return [];
-  return supportedAvailable.value
-    .filter(
-      (p) =>
-        p.name?.toLowerCase().includes(q) ||
-        p.fs_slug.toLowerCase().includes(q) ||
-        p.slug?.toLowerCase().includes(q) ||
-        p.family_name?.toLowerCase().includes(q),
-    )
-    .slice(0, SEARCH_LIMIT);
-});
-
-// ── Selection helpers ──────────────────────────────────────────────
-
-function isSelected(slug: string): boolean {
-  return props.selectedNewPlatforms.includes(slug);
-}
-
-function togglePlatform(slug: string, next: boolean) {
-  if (detectedSlugSet.value.has(slug)) return;
-  const set = new Set(props.selectedNewPlatforms);
-  if (next) set.add(slug);
-  else set.delete(slug);
-  emit("update:selectedNewPlatforms", [...set]);
-}
-
-function newSlugsInGroup(items: Platform[]): string[] {
-  return items
-    .filter((p) => !detectedSlugSet.value.has(p.fs_slug))
-    .map((p) => p.fs_slug);
-}
-
-function groupSelectedState(items: Platform[]): boolean | null {
-  const selectable = newSlugsInGroup(items);
-  if (selectable.length === 0) return false;
-  const selected = selectable.filter((s) => isSelected(s)).length;
-  if (selected === 0) return false;
-  if (selected === selectable.length) return true;
-  return null;
-}
-
-function toggleGroup(items: Platform[], next: boolean) {
-  const selectable = newSlugsInGroup(items);
-  if (selectable.length === 0) return;
-  const set = new Set(props.selectedNewPlatforms);
-  if (next) for (const s of selectable) set.add(s);
-  else for (const s of selectable) set.delete(s);
-  emit("update:selectedNewPlatforms", [...set]);
-}
-
-const allAvailableSelected = computed(() => {
-  if (supportedAvailable.value.length === 0) return false;
-  return supportedAvailable.value.every((p) => isSelected(p.fs_slug));
-});
-
-// Tri-state for the master "Select all available" checkbox: true when
-// every selectable platform is picked, false when none are, null when
-// the selection is partial (renders as the indeterminate dash).
-const allAvailableState = computed<boolean | null>(() => {
-  if (supportedAvailable.value.length === 0) return false;
-  const picked = supportedAvailable.value.filter((p) =>
-    isSelected(p.fs_slug),
-  ).length;
-  if (picked === 0) return false;
-  if (picked === supportedAvailable.value.length) return true;
-  return null;
-});
-
-function toggleAllAvailable() {
-  const set = new Set(props.selectedNewPlatforms);
-  if (allAvailableSelected.value) {
-    for (const p of supportedAvailable.value) set.delete(p.fs_slug);
-  } else {
-    for (const p of supportedAvailable.value) set.add(p.fs_slug);
-  }
-  emit("update:selectedNewPlatforms", [...set]);
-}
-
-function setGroupOpen(key: string, open: boolean) {
-  const s = new Set(openGroups.value);
-  if (open) {
-    s.add(key);
-    if (!mountedGroups.value.has(key)) {
-      mountedGroups.value = new Set([...mountedGroups.value, key]);
-    }
-  } else {
-    s.delete(key);
-  }
-  openGroups.value = s;
-}
-
-// ── Structure banner copy ──────────────────────────────────────────
 
 const detectedStructure = computed(() => props.libraryInfo.detected_structure);
-const structurePattern = computed(() => {
-  if (detectedStructure.value === "struct_b") return "{platform}/roms";
-  return "roms/{platform}";
-});
-const detectedPlatformCount = computed(
-  () => props.libraryInfo.existing_platforms.length,
+const structurePattern = computed(() =>
+  detectedStructure.value === "struct_b"
+    ? "{platform}/roms"
+    : "roms/{platform}",
 );
 </script>
 
 <template>
   <section class="r-setup-platforms">
-    <!-- Lead + structure banner -->
     <p class="r-setup-platforms__lead">
       {{ t("setup.supported-platforms-lead") }}
     </p>
@@ -325,354 +48,43 @@ const detectedPlatformCount = computed(
       :data-tone="detectedStructure ? 'info' : 'warning'"
     >
       <div class="r-setup-platforms__banner-text">
-        <strong>
+        <strong>{{ structurePattern }}</strong>
+        <span>
           {{
-            detectedStructure === "struct_a"
-              ? t("setup.structure-a-detected")
-              : detectedStructure === "struct_b"
-                ? t("setup.structure-b-detected")
-                : t("setup.no-structure-banner-title")
+            t("setup.detected-platforms", { count: detectedPlatforms.length })
           }}
-        </strong>
-        <code class="r-setup-platforms__banner-pattern">
-          {{ structurePattern }}
-        </code>
-        <span v-if="!detectedStructure" class="r-setup-platforms__banner-meta">
-          — {{ t("setup.no-structure-banner-body") }}
         </span>
       </div>
     </div>
 
-    <!-- Two-column body: detected | supported -->
-    <div class="r-setup-platforms__columns">
-      <!-- LEFT: Detected platforms -->
-      <section class="r-setup-platforms__pane">
-        <header class="r-setup-platforms__section-head">
-          <h3 class="r-setup-platforms__section-title">
-            <span>{{ t("setup.detected-platforms") }}</span>
-            <RChip
-              size="x-small"
-              variant="translucent"
-              color="primary"
-              prepend-icon="mdi-gamepad-variant-outline"
-              :aria-label="t('setup.platforms')"
-            >
-              {{ detectedPlatformCount }}
-            </RChip>
-            <RChip
-              size="x-small"
-              variant="translucent"
-              prepend-icon="mdi-disc"
-              :aria-label="t('setup.games')"
-            >
-              {{ totalDetectedGames }}
-            </RChip>
-          </h3>
-          <div v-if="showDetectedFilter" class="r-setup-platforms__toolbar">
-            <RSliderBtnGroup
-              v-model="detectedFilter"
-              :items="detectedFilterItems"
-              variant="segmented"
-              :aria-label="t('setup.detected-platforms')"
-            />
-          </div>
-        </header>
-
-        <div class="r-setup-platforms__pane-scroll">
-          <REmptyState
-            v-if="filteredDetectedPlatforms.length === 0"
-            icon="mdi-folder-search-outline"
-            :title="t('setup.no-structure-detected')"
-          />
-          <ul v-else class="r-setup-platforms__items">
-            <li
-              v-for="platform in filteredDetectedPlatforms"
-              :key="platform.fs_slug"
-              class="r-setup-platforms__item"
-              data-state="detected"
-            >
-              <RPlatformIcon
-                :slug="platform.slug"
-                :fs-slug="platform.fs_slug"
-                :name="platform.name"
-                :size="26"
-                :show-tooltip="false"
-                class="r-setup-platforms__item-icon"
-              />
-              <div class="r-setup-platforms__item-body">
-                <span class="r-setup-platforms__item-name">
-                  {{ platform.name || platform.fs_slug }}
-                </span>
-                <span class="r-setup-platforms__item-slug">
-                  {{ platform.fs_slug }}
-                </span>
-              </div>
-              <div class="r-setup-platforms__item-state">
-                <template v-if="platform.unidentified">
-                  <RTag size="x-small" tone="warning">
-                    {{ t("setup.unidentified") }}
-                  </RTag>
-                  <RChip
-                    size="x-small"
-                    variant="translucent"
-                    color="warning"
-                    prepend-icon="mdi-disc"
-                    :aria-label="t('setup.games')"
-                  >
-                    {{ romCountBySlug.get(platform.fs_slug) ?? 0 }}
-                  </RChip>
-                </template>
-                <RChip
-                  v-else
-                  size="x-small"
-                  variant="translucent"
-                  color="primary"
-                  prepend-icon="mdi-disc"
-                  :aria-label="t('setup.games')"
-                >
-                  {{ romCountBySlug.get(platform.fs_slug) ?? 0 }}
-                </RChip>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <!-- RIGHT: Supported platforms -->
-      <section class="r-setup-platforms__pane">
-        <header class="r-setup-platforms__section-head">
-          <h3 class="r-setup-platforms__section-title">
-            <span>{{ t("setup.supported-platforms") }}</span>
-            <RChip
-              size="x-small"
-              variant="translucent"
-              prepend-icon="mdi-gamepad-variant-outline"
-              :aria-label="t('setup.platforms')"
-            >
-              {{ supportedAvailable.length }}
-            </RChip>
-          </h3>
-          <div class="r-setup-platforms__toolbar">
-            <RCheckbox
-              :model-value="allAvailableState"
-              :indeterminate="allAvailableState === null"
-              :disabled="supportedAvailable.length === 0"
-              :label="t('setup.select-all')"
-              size="sm"
-              hide-details
-              @update:model-value="toggleAllAvailable"
-            />
-            <RTextField
-              v-model="search"
-              density="comfortable"
-              prefix-label="inline"
-              clearable
-              :placeholder="t('setup.platforms-search-placeholder')"
-              hide-details
-              class="r-setup-platforms__search"
-            >
-              <template #prefix-label>
-                <RIcon icon="mdi-magnify" size="16" />
-              </template>
-            </RTextField>
-          </div>
-        </header>
-
-        <div class="r-setup-platforms__pane-scroll">
-          <!-- Search results (flat, capped) -->
-          <template v-if="search.trim()">
-            <REmptyState
-              v-if="searchResults.length === 0"
-              icon="mdi-magnify-close"
-              :title="t('setup.platforms-found-empty')"
-            />
-            <ul v-else class="r-setup-platforms__items">
-              <li
-                v-for="platform in searchResults"
-                :key="platform.fs_slug"
-                class="r-setup-platforms__item"
-                :data-state="
-                  isSelected(platform.fs_slug) ? 'selected' : 'available'
-                "
-                role="checkbox"
-                :aria-checked="isSelected(platform.fs_slug)"
-                :tabindex="0"
-                @click="
-                  togglePlatform(
-                    platform.fs_slug,
-                    !isSelected(platform.fs_slug),
-                  )
-                "
-                @keydown.space.prevent="
-                  togglePlatform(
-                    platform.fs_slug,
-                    !isSelected(platform.fs_slug),
-                  )
-                "
-                @keydown.enter.prevent="
-                  togglePlatform(
-                    platform.fs_slug,
-                    !isSelected(platform.fs_slug),
-                  )
-                "
-              >
-                <RCheckbox
-                  :model-value="isSelected(platform.fs_slug)"
-                  size="sm"
-                  hide-details
-                  bare
-                  @click.stop
-                  @update:model-value="
-                    (v) => togglePlatform(platform.fs_slug, v)
-                  "
-                />
-                <RPlatformIcon
-                  :slug="platform.slug"
-                  :fs-slug="platform.fs_slug"
-                  :name="platform.name"
-                  :size="26"
-                  :show-tooltip="false"
-                  class="r-setup-platforms__item-icon"
-                />
-                <div class="r-setup-platforms__item-body">
-                  <span class="r-setup-platforms__item-name">
-                    {{ platform.name || platform.fs_slug }}
-                  </span>
-                  <span class="r-setup-platforms__item-slug">
-                    {{ platform.fs_slug }}
-                  </span>
-                </div>
-              </li>
-            </ul>
-          </template>
-
-          <!-- Manufacturer groups (browse mode) -->
-          <ul v-else class="r-setup-platforms__groups">
-            <li
-              v-for="group in groupedAvailable"
-              :key="group.key"
-              class="r-setup-platforms__group"
-            >
-              <RCollapsible
-                :model-value="openGroups.has(group.key)"
-                @update:model-value="(v) => setGroupOpen(group.key, v)"
-              >
-                <template #header-prepend>
-                  <RCheckbox
-                    :model-value="groupSelectedState(group.items)"
-                    :indeterminate="groupSelectedState(group.items) === null"
-                    :disabled="newSlugsInGroup(group.items).length === 0"
-                    size="sm"
-                    hide-details
-                    bare
-                    @click.stop
-                    @update:model-value="(v) => toggleGroup(group.items, v)"
-                  />
-                </template>
-                <template #title>
-                  <span class="r-setup-platforms__group-label">
-                    {{ group.label }}
-                  </span>
-                </template>
-                <template #header-append>
-                  <span class="r-setup-platforms__group-count">
-                    {{ group.items.length }}
-                  </span>
-                </template>
-
-                <!-- Mount once on first open; keep mounted so re-opens
-                     animate smoothly without remounting all icons. -->
-                <ul
-                  v-if="mountedGroups.has(group.key)"
-                  class="r-setup-platforms__items r-setup-platforms__items--nested"
-                >
-                  <li
-                    v-for="platform in group.items"
-                    :key="platform.fs_slug"
-                    class="r-setup-platforms__item"
-                    :data-state="
-                      isSelected(platform.fs_slug) ? 'selected' : 'available'
-                    "
-                    role="checkbox"
-                    :aria-checked="isSelected(platform.fs_slug)"
-                    :tabindex="0"
-                    @click="
-                      togglePlatform(
-                        platform.fs_slug,
-                        !isSelected(platform.fs_slug),
-                      )
-                    "
-                    @keydown.space.prevent="
-                      togglePlatform(
-                        platform.fs_slug,
-                        !isSelected(platform.fs_slug),
-                      )
-                    "
-                    @keydown.enter.prevent="
-                      togglePlatform(
-                        platform.fs_slug,
-                        !isSelected(platform.fs_slug),
-                      )
-                    "
-                  >
-                    <RCheckbox
-                      :model-value="isSelected(platform.fs_slug)"
-                      size="sm"
-                      hide-details
-                      bare
-                      @click.stop
-                      @update:model-value="
-                        (v) => togglePlatform(platform.fs_slug, v)
-                      "
-                    />
-                    <RPlatformIcon
-                      :slug="platform.slug"
-                      :fs-slug="platform.fs_slug"
-                      :name="platform.name"
-                      :size="26"
-                      :show-tooltip="false"
-                      class="r-setup-platforms__item-icon"
-                    />
-                    <div class="r-setup-platforms__item-body">
-                      <span class="r-setup-platforms__item-name">
-                        {{ platform.name || platform.fs_slug }}
-                      </span>
-                      <span class="r-setup-platforms__item-slug">
-                        {{ platform.fs_slug }}
-                      </span>
-                    </div>
-                  </li>
-                </ul>
-              </RCollapsible>
-            </li>
-          </ul>
-        </div>
-      </section>
-    </div>
-
-    <!-- Summary bar -->
-    <div class="r-setup-platforms__summary" role="status">
-      <span class="r-setup-platforms__summary-text">
-        <strong>
-          {{
-            selectedNewPlatforms.length === 0
-              ? t("setup.footer-create-summary-none")
-              : selectedNewPlatforms.length === 1
-                ? t("setup.footer-create-summary-one")
-                : t("setup.footer-create-summary-many", {
-                    count: selectedNewPlatforms.length,
-                  })
-          }}
-        </strong>
-        <span class="r-setup-platforms__summary-pattern">
-          {{
-            t("setup.footer-create-summary-under", {
-              pattern: structurePattern,
-            })
-          }}
+    <div
+      v-if="detectedPlatforms.length"
+      class="r-setup-platforms__detected-grid"
+    >
+      <div
+        v-for="platform in detectedPlatforms"
+        :key="platform.fs_slug"
+        class="r-setup-platforms__platform-row"
+      >
+        <RPlatformIcon
+          :slug="platform.slug"
+          :fs-slug="platform.fs_slug"
+          :name="platform.name"
+          :size="32"
+          :show-tooltip="false"
+        />
+        <span class="r-setup-platforms__platform-name">
+          {{ platform.name }}
         </span>
-      </span>
+        <span class="r-setup-platforms__rom-count">
+          {{ platform.rom_count }}
+        </span>
+      </div>
     </div>
+
+    <RAlert v-else type="info" density="compact">
+      {{ t("setup.no-platforms-detected") }}
+    </RAlert>
   </section>
 </template>
 

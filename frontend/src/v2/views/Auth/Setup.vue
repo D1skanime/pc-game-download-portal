@@ -48,7 +48,6 @@ const loadingLibrary = ref(true);
 // Non-null when the library probe failed — the step 1 body swaps to an inline
 // error with a retry instead of silently showing an empty platform list.
 const libraryError = ref<string | null>(null);
-const selectedNewPlatforms = ref<string[]>([]);
 
 // Step 2 — admin user
 const adminUser = ref<AdminUserDraft>({
@@ -129,13 +128,6 @@ function next() {
 async function finishWizard() {
   submitting.value = true;
   try {
-    if (selectedNewPlatforms.value.length > 0) {
-      const { data } = await setupApi.createPlatforms(
-        selectedNewPlatforms.value,
-      );
-      snackbar.success(data.message, { icon: "mdi-check-circle" });
-    }
-
     const { data: createdUser } = await userApi.createUser({
       username: adminUser.value.username,
       email: adminUser.value.email,
@@ -255,7 +247,6 @@ onMounted(loadLibraryInfo);
           v-if="step === 1"
           key="step-1"
           :library-info="libraryInfo"
-          v-model:selected-new-platforms="selectedNewPlatforms"
         />
         <SetupStepAdmin
           v-else-if="step === 2"

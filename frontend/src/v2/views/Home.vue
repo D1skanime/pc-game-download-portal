@@ -223,27 +223,6 @@ function collectionCovers(c: {
 
       <div class="r-v2-home-empty__choices">
         <router-link
-          :to="{ name: ROUTES.UPLOAD }"
-          class="r-v2-home-empty__choice"
-        >
-          <div class="r-v2-home-empty__choice-icon">
-            <RIcon icon="mdi-cloud-upload-outline" size="40" />
-          </div>
-          <h3 class="r-v2-home-empty__choice-title">
-            {{ t("home.empty-upload-title") }}
-          </h3>
-          <p class="r-v2-home-empty__choice-desc">
-            {{ t("home.empty-upload-desc") }}
-          </p>
-          <span class="r-v2-home-empty__choice-cta">
-            {{ t("home.empty-upload-cta") }}
-            <RIcon icon="mdi-arrow-right" size="16" />
-          </span>
-        </router-link>
-
-        <RDivider vertical class="r-v2-home-empty__divider" />
-
-        <router-link
           :to="{ name: ROUTES.SCAN }"
           class="r-v2-home-empty__choice"
         >
