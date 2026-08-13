@@ -231,9 +231,20 @@ class FakeCommand:
 def _harness(
     checkout: Path,
     command: FakeCommand,
-    unlinker=None,
+    unlinker: verifier.Unlinker | None = None,
 ) -> verifier.Phase6ContractHarness:
-    kwargs = dict(
+    if unlinker is None:
+        return verifier.Phase6ContractHarness(
+            runner_container="romm-dev",
+            port=verifier.PHASE6_PORT,
+            checkout=checkout,
+            node_volume="romm-phase06-openapi-node-modules-test",
+            nonce="testnonce",
+            command=command,
+            sleeper=lambda _: None,
+            readiness_attempts=3,
+        )
+    return verifier.Phase6ContractHarness(
         runner_container="romm-dev",
         port=verifier.PHASE6_PORT,
         checkout=checkout,
@@ -242,10 +253,8 @@ def _harness(
         command=command,
         sleeper=lambda _: None,
         readiness_attempts=3,
+        unlinker=unlinker,
     )
-    if unlinker is not None:
-        kwargs["unlinker"] = unlinker
-    return verifier.Phase6ContractHarness(**kwargs)
 
 
 def _calls(command: FakeCommand, prefix: list[str]) -> list[list[str]]:
