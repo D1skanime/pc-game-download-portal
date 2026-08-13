@@ -85,6 +85,9 @@ def test_verify_dialect_exercises_pristine_and_history_paths(monkeypatch):
         "_seed_selectable_0111_results",
         "_verify_seeded_0111_invalidated",
         "_verify_seeded_0111_restored",
+        "_verify_0113_upgrade_state",
+        "_seed_0113_state",
+        "_verify_0113_downgrade_rejected",
     ):
         monkeypatch.setattr(verifier, helper_name, lambda *args: calls.append(args))
     verifier.verify_dialect("mariadb", "romm-dev")
@@ -186,6 +189,21 @@ def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
         "_verify_seeded_0111_restored",
         lambda *args: events.append(("restored-0111", *args)),
     )
+    monkeypatch.setattr(
+        verifier,
+        "_verify_0113_upgrade_state",
+        lambda *args: events.append(("verify-0113", *args)),
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_seed_0113_state",
+        lambda *args: events.append(("seed-0113", *args)),
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_verify_0113_downgrade_rejected",
+        lambda *args: events.append(("guard-0113", *args)),
+    )
 
     verifier.verify_dialect("postgresql", "romm-dev")
 
@@ -210,6 +228,11 @@ def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
         index for index, event in enumerate(events) if event[0] == "restored-0111"
     )
     assert seed_index < invalidated_indexes[0] < restored_index < invalidated_indexes[1]
+    assert any(
+        event[0] == "verify-0113" for event in events if isinstance(event, tuple)
+    )
+    assert any(event[0] == "seed-0113" for event in events if isinstance(event, tuple))
+    assert any(event[0] == "guard-0113" for event in events if isinstance(event, tuple))
     alembic_events = [
         event
         for event in events

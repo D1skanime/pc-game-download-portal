@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from exceptions.storage_read import StaleMappedReadError
 from handler.database.base_handler import sync_session
@@ -719,8 +719,18 @@ def test_rollback_rejects_timestamp_colliding_row_replacement(
             session.flush()
             assert replacement_file.incarnation_token != old_file_token
         else:
-            session.delete(rom_file)
-            session.delete(rom)
+            session.expunge(rom_file)
+            session.expunge(rom)
+            session.execute(
+                delete(RomFile)
+                .where(RomFile.id == ids["changed_file"])
+                .execution_options(synchronize_session=False)
+            )
+            session.execute(
+                delete(Rom)
+                .where(Rom.id == ids["changed_rom"])
+                .execution_options(synchronize_session=False)
+            )
             session.flush()
             replacement_rom = Rom(
                 id=ids["changed_rom"],

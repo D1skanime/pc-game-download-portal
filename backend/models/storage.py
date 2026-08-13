@@ -153,6 +153,7 @@ LEGACY_MIGRATION_STATE_MAX_LENGTH = 16
 LEGACY_OPERATION_MAX_LENGTH = 32
 LEGACY_FINGERPRINT_LENGTH = 64
 LEGACY_CATALOG_ENTITY_KIND_MAX_LENGTH = 16
+LEGACY_INCARNATION_TOKEN_LENGTH = 32
 
 
 class LegacyDetectionState(enum.StrEnum):
@@ -348,6 +349,16 @@ class LegacyMigrationCatalogChange(BaseModel):
             "entity_id > 0",
             name="ck_legacy_migration_catalog_changes_entity_id",
         ),
+        CheckConstraint(
+            "(lineage_valid = false AND entity_incarnation_token IS NULL "
+            "AND parent_rom_id IS NULL AND parent_incarnation_token IS NULL) OR "
+            "(lineage_valid = true AND entity_incarnation_token IS NOT NULL AND "
+            "((entity_kind = 'rom' AND parent_rom_id IS NULL "
+            "AND parent_incarnation_token IS NULL) OR "
+            "(entity_kind = 'rom_file' AND parent_rom_id > 0 "
+            "AND parent_incarnation_token IS NOT NULL)))",
+            name="ck_lmcc_lineage_shape",
+        ),
         UniqueConstraint(
             "migration_id",
             "entity_kind",
@@ -371,6 +382,14 @@ class LegacyMigrationCatalogChange(BaseModel):
     )
     entity_id: Mapped[int] = mapped_column(Integer)
     prior_missing_from_fs: Mapped[bool] = mapped_column(Boolean)
+    entity_incarnation_token: Mapped[str | None] = mapped_column(
+        String(length=LEGACY_INCARNATION_TOKEN_LENGTH), default=None
+    )
+    parent_rom_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    parent_incarnation_token: Mapped[str | None] = mapped_column(
+        String(length=LEGACY_INCARNATION_TOKEN_LENGTH), default=None
+    )
+    lineage_valid: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     migration: Mapped[LegacyMigration] = relationship(
         lazy="raise", back_populates="catalog_changes"

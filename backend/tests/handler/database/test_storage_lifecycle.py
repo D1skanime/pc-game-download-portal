@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from exceptions.storage_exceptions import StaleStorageMappingVersionError
 from exceptions.storage_read import StaleMappedReadError
@@ -154,6 +154,13 @@ def test_catalog_incarnation_tokens_overwrite_input_and_reject_updates():
                 assert entity is not None
                 entity.incarnation_token = "f" * 32
                 session.flush()
+        with pytest.raises(ValueError, match="incarnation token is immutable"):
+            with sync_session.begin() as session:
+                session.execute(
+                    update(model)
+                    .where(model.id == entity_id)
+                    .values(incarnation_token="e" * 32)
+                )
 
 
 def _seed_atomic_migration(tmp_path: Path, *, suffix: str = "one"):

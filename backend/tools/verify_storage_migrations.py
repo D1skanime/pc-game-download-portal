@@ -52,6 +52,8 @@ DIALECTS: dict[str, DialectConfig] = {
     },
 }
 
+LINEAGE_REVISION = "0113_legacy_change_lineage"
+
 
 def _run(args: list[str], *, capture: bool = False) -> str:
     result = subprocess.run(args, check=True, text=True, capture_output=capture)
@@ -148,6 +150,8 @@ def _bootstrap_mysql_0107(name: str) -> None:
         "id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
         "platform_id INTEGER NOT NULL,"
         "missing_from_fs BOOLEAN NOT NULL DEFAULT FALSE,"
+        "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
         "CONSTRAINT fk_verifier_rom_platform FOREIGN KEY (platform_id) "
         "REFERENCES platforms(id) ON DELETE CASCADE);"
         "CREATE TABLE rom_files ("
@@ -157,6 +161,8 @@ def _bootstrap_mysql_0107(name: str) -> None:
         "file_path VARCHAR(1000) NOT NULL,"
         "file_size_bytes BIGINT NOT NULL,"
         "missing_from_fs BOOLEAN NOT NULL DEFAULT FALSE,"
+        "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
         "CONSTRAINT fk_verifier_file_rom FOREIGN KEY (rom_id) "
         "REFERENCES roms(id) ON DELETE CASCADE);"
         "CREATE TABLE saves ("
@@ -553,6 +559,206 @@ def _seed_0111_state(
         _execute_sql(runner, dialect, host, port, database, statement)
 
 
+def _verify_0113_upgrade_state(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    for table, expected in (("roms", "4"), ("rom_files", "4")):
+        valid = _query_scalar(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            f"SELECT COUNT(*) FROM {table} WHERE incarnation_token IS NOT NULL "
+            "AND CHAR_LENGTH(incarnation_token) = 32 "
+            "AND incarnation_token = LOWER(incarnation_token)",
+        )
+        unique = _query_scalar(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            f"SELECT COUNT(DISTINCT incarnation_token) FROM {table}",
+        )
+        if valid != expected or unique != expected:
+            raise RuntimeError(f"{dialect}: incarnation token backfill is invalid")
+    invalidated = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_migration_catalog_changes changes "
+        "JOIN legacy_migrations migrations ON migrations.id = changes.migration_id "
+        "WHERE changes.migration_id = 920001 AND changes.lineage_valid = FALSE "
+        "AND changes.entity_incarnation_token IS NULL "
+        "AND changes.parent_rom_id IS NULL "
+        "AND changes.parent_incarnation_token IS NULL "
+        "AND migrations.state = 'failed' AND migrations.version = 2",
+    )
+    if invalidated != "2":
+        raise RuntimeError(f"{dialect}: seeded 0112 lineage was not invalidated")
+
+
+def _seed_0113_state(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    rom_tokens = [f"{value:032x}" for value in range(1, 5)]
+    file_tokens = [f"{value:032x}" for value in range(101, 105)]
+    if dialect == "mysql":
+        rom_values = ", ".join(
+            f"({920011 + index}, 910001, "
+            f"{'TRUE' if index == 2 else 'FALSE'}, '{rom_tokens[index]}')"
+            for index in range(3)
+        )
+        later_rom_values = f"(920014, 910001, FALSE, '{rom_tokens[3]}')"
+        rom_insert = (
+            "INSERT INTO roms "
+            "(id, platform_id, missing_from_fs, incarnation_token) VALUES "
+        )
+    else:
+        rom_values = ", ".join(
+            f"({920011 + index}, 910001, '{name}.bin', '{name}', '{name}', "
+            f"'bin', 'roms/verifier-910001', 1, '{name.title()}', {missing}, "
+            f"'{rom_tokens[index]}')"
+            for index, (name, missing) in enumerate(
+                (("changed", "FALSE"), ("visible", "FALSE"), ("unmatched", "TRUE"))
+            )
+        )
+        later_rom_values = (
+            "(920014, 910001, 'later.bin', 'later', 'later', 'bin', "
+            "'roms/verifier-910001', 1, 'Later', FALSE, "
+            f"'{rom_tokens[3]}')"
+        )
+        rom_insert = (
+            "INSERT INTO roms "
+            "(id, platform_id, fs_name, fs_name_no_tags, fs_name_no_ext, "
+            "fs_extension, fs_path, fs_size_bytes, name, missing_from_fs, "
+            "incarnation_token) VALUES "
+        )
+    file_insert = (
+        "INSERT INTO rom_files "
+        "(id, rom_id, file_name, file_path, file_size_bytes, missing_from_fs, "
+        "incarnation_token) VALUES "
+    )
+    statements = [
+        "INSERT INTO legacy_detection_results "
+        "(id, platform_id, storage_root_id, state, proposed_relative_path, "
+        "observed_files, observed_bytes, lower_bound, selectable, "
+        "source_fingerprint, observed_mapping_id, observed_mapping_version, "
+        "version, actor_user_id, expires_at) "
+        "VALUES (920001, 910001, 910001, 'detected', "
+        "'roms/verifier-910001', 2, 4096, FALSE, TRUE, "
+        "'0000000000000000000000000000000000000000000000000000000000000000', "
+        "910001, 4, 1, 1, '2037-01-01 00:00:00')",
+        "INSERT INTO legacy_migrations "
+        "(id, detection_result_id, platform_id, storage_root_id, mapping_id, "
+        "relative_path, state, version, actor_user_id, "
+        "reconnected_catalog_count, unmatched_catalog_count, expires_at) "
+        "VALUES (920001, 920001, 910001, 910001, 910001, "
+        "'roms/verifier-910001', 'completed', 1, 1, 0, 0, "
+        "'2037-01-01 00:00:00')",
+        rom_insert + rom_values,
+        file_insert
+        + f"(920021, 920011, 'changed.bin', 'roms/verifier-910001', 1, FALSE, '{file_tokens[0]}'), "
+        + f"(920022, 920012, 'visible.bin', 'roms/verifier-910001', 1, FALSE, '{file_tokens[1]}'), "
+        + f"(920023, 920013, 'unmatched.bin', 'roms/verifier-910001', 1, TRUE, '{file_tokens[2]}')",
+        "INSERT INTO legacy_migration_catalog_changes "
+        "(migration_id, entity_kind, entity_id, prior_missing_from_fs, "
+        "entity_incarnation_token, parent_rom_id, parent_incarnation_token, "
+        "lineage_valid) VALUES "
+        f"(920001, 'rom', 920011, TRUE, '{rom_tokens[0]}', NULL, NULL, TRUE), "
+        f"(920001, 'rom_file', 920021, TRUE, '{file_tokens[0]}', 920011, "
+        f"'{rom_tokens[0]}', TRUE)",
+        rom_insert + later_rom_values,
+        file_insert
+        + f"(920024, 920014, 'later.bin', 'roms/verifier-910001', 1, FALSE, '{file_tokens[3]}')",
+    ]
+    for statement in statements:
+        _execute_sql(runner, dialect, host, port, database, statement)
+
+
+def _verify_timestamp_collision_rejected(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    program = """
+from config.config_manager import ConfigManager
+from sqlalchemy import create_engine, text
+
+engine = create_engine(ConfigManager.get_db_engine())
+connection = engine.connect()
+transaction = connection.begin()
+try:
+    original = connection.execute(text(
+        "SELECT rom_id, file_name, file_path, file_size_bytes, missing_from_fs, "
+        "created_at, updated_at, incarnation_token FROM rom_files "
+        "WHERE id = 920021 FOR UPDATE"
+    )).one()
+    recorded = connection.execute(text(
+        "SELECT entity_incarnation_token, parent_rom_id, parent_incarnation_token "
+        "FROM legacy_migration_catalog_changes WHERE migration_id = 920001 "
+        "AND entity_kind = 'rom_file' AND entity_id = 920021 FOR UPDATE"
+    )).one()
+    parent_token = connection.scalar(text(
+        "SELECT incarnation_token FROM roms WHERE id = 920011 FOR UPDATE"
+    ))
+    connection.execute(text("DELETE FROM rom_files WHERE id = 920021"))
+    connection.execute(text(
+        "INSERT INTO rom_files (id, rom_id, file_name, file_path, file_size_bytes, "
+        "missing_from_fs, created_at, updated_at, incarnation_token) VALUES "
+        "(920021, :rom_id, :file_name, :file_path, :size, :missing, :created, "
+        ":updated, 'ffffffffffffffffffffffffffffffff')"
+    ), {
+        "rom_id": original.rom_id,
+        "file_name": original.file_name,
+        "file_path": original.file_path,
+        "size": original.file_size_bytes,
+        "missing": original.missing_from_fs,
+        "created": original.created_at,
+        "updated": original.updated_at,
+    })
+    replacement = connection.execute(text(
+        "SELECT rom_id, missing_from_fs, created_at, updated_at, incarnation_token "
+        "FROM rom_files WHERE id = 920021 FOR UPDATE"
+    )).one()
+    stale = (
+        replacement.rom_id != recorded.parent_rom_id
+        or bool(replacement.missing_from_fs)
+        or replacement.incarnation_token != recorded.entity_incarnation_token
+        or parent_token != recorded.parent_incarnation_token
+    )
+    if not stale:
+        raise RuntimeError("timestamp-colliding replacement did not reject rollback")
+finally:
+    transaction.rollback()
+    connection.close()
+    engine.dispose()
+"""
+    _run(
+        _runner_command(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            ["/app/.venv/bin/python", "-c", program],
+        )
+    )
+
+
 def _rollback_seeded_exact_state(
     dialect: str,
     runner: str,
@@ -567,25 +773,40 @@ from sqlalchemy import create_engine, text
 engine = create_engine(ConfigManager.get_db_engine())
 with engine.begin() as connection:
     changes = connection.execute(text(
-        "SELECT entity_kind, entity_id, prior_missing_from_fs "
+        "SELECT entity_kind, entity_id, prior_missing_from_fs, "
+        "entity_incarnation_token, parent_rom_id, parent_incarnation_token, "
+        "lineage_valid "
         "FROM legacy_migration_catalog_changes "
         "WHERE migration_id = 920001 ORDER BY entity_kind, entity_id FOR UPDATE"
     )).all()
-    expected = [("rom", 920011, True), ("rom_file", 920021, True)]
-    if [(kind, entity_id, bool(prior)) for kind, entity_id, prior in changes] != expected:
+    if len(changes) != 2 or not all(bool(change.lineage_valid) for change in changes):
         raise RuntimeError("seeded exact catalog change set is stale")
     rom = connection.execute(text(
-        "SELECT id, platform_id, missing_from_fs FROM roms "
+        "SELECT id, platform_id, missing_from_fs, incarnation_token FROM roms "
         "WHERE id = 920011 FOR UPDATE"
     )).one()
     rom_file = connection.execute(text(
-        "SELECT rom_files.id, roms.platform_id, rom_files.missing_from_fs "
+        "SELECT rom_files.id, rom_files.rom_id, roms.platform_id, "
+        "rom_files.missing_from_fs, rom_files.incarnation_token, "
+        "roms.incarnation_token "
         "FROM rom_files JOIN roms ON roms.id = rom_files.rom_id "
         "WHERE rom_files.id = 920021 FOR UPDATE"
     )).one()
-    if rom[1] != 910001 or bool(rom[2]):
+    rom_change = next(change for change in changes if change.entity_kind == "rom")
+    file_change = next(change for change in changes if change.entity_kind == "rom_file")
+    if (
+        rom.platform_id != 910001
+        or bool(rom.missing_from_fs)
+        or rom.incarnation_token != rom_change.entity_incarnation_token
+    ):
         raise RuntimeError("seeded exact ROM state is stale")
-    if rom_file[1] != 910001 or bool(rom_file[2]):
+    if (
+        rom_file[1] != file_change.parent_rom_id
+        or rom_file[2] != 910001
+        or bool(rom_file[3])
+        or rom_file[4] != file_change.entity_incarnation_token
+        or rom_file[5] != file_change.parent_incarnation_token
+    ):
         raise RuntimeError("seeded exact RomFile state is stale")
     connection.execute(text(
         "UPDATE roms SET missing_from_fs = TRUE WHERE id = 920011"
@@ -692,7 +913,6 @@ def _verify_restart_persistence(
     database_container: str,
     health: list[str],
 ) -> str:
-    _seed_0111_state(dialect, runner, host, port, database)
     _run(["docker", "restart", database_container])
     _wait_until_ready(database_container, health)
     port = _mapped_port(database_container, DIALECTS[dialect]["port"])
@@ -716,6 +936,7 @@ def _verify_restart_persistence(
     if first_use != "None" or migration_version != "1":
         raise RuntimeError(f"{dialect}: lifecycle state did not survive restart")
 
+    _verify_timestamp_collision_rejected(dialect, runner, host, port, database)
     _rollback_seeded_exact_state(dialect, runner, host, port, database)
     _verify_exact_catalog_state(dialect, runner, host, port, database)
     _run(["docker", "restart", database_container])
@@ -742,6 +963,18 @@ def _verify_restart_persistence(
     )
     if migration_state != "rolled_back" or rolled_back_at == "None":
         raise RuntimeError(f"{dialect}: legacy rollback state did not survive restart")
+    lineage = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_migration_catalog_changes "
+        "WHERE migration_id = 920001 AND lineage_valid = TRUE "
+        "AND entity_incarnation_token IS NOT NULL",
+    )
+    if lineage != "2":
+        raise RuntimeError(f"{dialect}: lineage rollback state did not survive restart")
 
     mapping_version = _query_scalar(
         runner,
@@ -786,6 +1019,28 @@ def _verify_safe_lifecycle_downgrade_rejected(
     except subprocess.CalledProcessError:
         return
     raise RuntimeError(f"{dialect}: safe lifecycle downgrade unexpectedly succeeded")
+
+
+def _verify_0113_downgrade_rejected(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    try:
+        _alembic(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            "downgrade",
+            "0112_phase6_gap_closure",
+        )
+    except subprocess.CalledProcessError:
+        return
+    raise RuntimeError(f"{dialect}: 0113 lineage downgrade unexpectedly succeeded")
 
 
 def _clear_0111_state(
@@ -835,6 +1090,8 @@ def _handler_tests(
             "tests/handler/database/test_storage_handler.py",
             "tests/integration/test_legacy_migration.py::test_exact_rollback_restores_only_recorded_rows_and_preserves_later_rows",
             "tests/integration/test_legacy_migration.py::test_exact_rollback_rejects_stale_recorded_rows_atomically",
+            "tests/integration/test_legacy_migration.py::test_rollback_rejects_same_platform_reparenting_atomically",
+            "tests/integration/test_legacy_migration.py::test_rollback_rejects_timestamp_colliding_row_replacement",
             "-x",
         ],
     )
@@ -925,6 +1182,20 @@ def verify_dialect(
         _alembic(runner, dialect, host, port, database, "upgrade", "head")
         _verify_seeded_0111_invalidated(dialect, runner, host, port, database)
 
+        _alembic(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            "downgrade",
+            "0112_phase6_gap_closure",
+        )
+        _seed_0111_state(dialect, runner, host, port, database)
+        _alembic(runner, dialect, host, port, database, "upgrade", "head")
+        _verify_0113_upgrade_state(dialect, runner, host, port, database)
+        _clear_0111_state(dialect, runner, host, port, database)
+        _seed_0113_state(dialect, runner, host, port, database)
         port = _verify_restart_persistence(
             dialect,
             runner,
@@ -934,6 +1205,7 @@ def verify_dialect(
             name,
             health,
         )
+        _verify_0113_downgrade_rejected(dialect, runner, host, port, database)
         _verify_safe_lifecycle_downgrade_rejected(dialect, runner, host, port, database)
         _clear_0111_state(dialect, runner, host, port, database)
         _alembic(
@@ -960,7 +1232,10 @@ def verify_dialect(
             )
         elif handler_tests:
             print("mysql: handler tests skipped on the minimal 0107 baseline")
-        print(f"{dialect}: pristine, seeded-0110, and seeded-0111 round-trips passed")
+        print(
+            f"{dialect}: pristine, seeded-0110, seeded-0111, and "
+            "0113 lineage round-trips passed"
+        )
     finally:
         subprocess.run(
             ["docker", "rm", "--force", name],

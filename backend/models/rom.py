@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import enum
 import re
+import secrets
 from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -21,12 +22,17 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     and_,
+    event,
     func,
+)
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import (
     or_,
     select,
 )
 from sqlalchemy.orm import (
     Mapped,
+    Session,
     column_property,
     declared_attr,
     mapped_column,
@@ -47,6 +53,7 @@ from utils.database import CustomJSON
 
 # Max length of the precomputed natural-sort key column.
 NAME_SORT_KEY_MAX_LENGTH = 500
+INCARNATION_TOKEN_LENGTH = 32
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
 ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
@@ -107,6 +114,7 @@ class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
     __table_args__ = (
+        Index("uq_rom_files_incarnation_token", "incarnation_token", unique=True),
         Index("idx_rom_files_rom_id", "rom_id"),
         # Searching the gallery by a hash digest
         Index("idx_rom_files_crc_hash", "crc_hash"),
@@ -117,6 +125,9 @@ class RomFile(BaseModel):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    incarnation_token: Mapped[str] = mapped_column(
+        String(length=INCARNATION_TOKEN_LENGTH), nullable=False
+    )
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     file_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
     file_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
@@ -313,6 +324,7 @@ class Rom(BaseModel):
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
     __table_args__ = (
+        Index("uq_roms_incarnation_token", "incarnation_token", unique=True),
         # Enforce unique fs name per platform to avoid duplicates
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name", unique=True),
         # Covers the sibling_roms view self-join and the group_by_meta_id dedup
@@ -358,6 +370,9 @@ class Rom(BaseModel):
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    incarnation_token: Mapped[str] = mapped_column(
+        String(length=INCARNATION_TOKEN_LENGTH), nullable=False
+    )
     fs_name_no_tags: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
     fs_name_no_ext: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
     fs_extension: Mapped[str] = mapped_column(String(length=FILE_EXTENSION_MAX_LENGTH))
@@ -665,6 +680,33 @@ class Rom(BaseModel):
 
     def __repr__(self) -> str:
         return f"{self.fs_name} ({self.id})"
+
+
+def _assign_fresh_incarnation_token(_mapper, _connection, target) -> None:
+    target.incarnation_token = secrets.token_hex(16)
+
+
+def _reject_incarnation_token_update(_mapper, _connection, target) -> None:
+    if sa_inspect(target).attrs.incarnation_token.history.has_changes():
+        raise ValueError("incarnation token is immutable")
+
+
+def _reject_bulk_incarnation_token_update(execute_state) -> None:
+    if not execute_state.is_update:
+        return
+    statement = execute_state.statement
+    table = getattr(statement, "table", None)
+    if table is None or table.name not in {"roms", "rom_files"}:
+        return
+    values = getattr(statement, "_values", {})
+    if any(getattr(column, "key", column) == "incarnation_token" for column in values):
+        raise ValueError("incarnation token is immutable")
+
+
+for _catalog_model in (Rom, RomFile):
+    event.listen(_catalog_model, "before_insert", _assign_fresh_incarnation_token)
+    event.listen(_catalog_model, "before_update", _reject_incarnation_token_update)
+event.listen(Session, "do_orm_execute", _reject_bulk_incarnation_token_update)
 
 
 # Correlated scalar subqueries against rom_files, deferred and opt-in via `undefer`

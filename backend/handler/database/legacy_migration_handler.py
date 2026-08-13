@@ -710,11 +710,14 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 current_version=confirmation.result_version,
             )
         reconnectable_ids = self._reconnectable_catalog_ids(locked_roms)
+        locked_roms_by_id = {rom.id: rom for rom in locked_roms}
         catalog_changes = [
             LegacyMigrationCatalogChange(
                 entity_kind=LegacyCatalogEntityKind.ROM.value,
                 entity_id=rom.id,
                 prior_missing_from_fs=rom.missing_from_fs,
+                entity_incarnation_token=rom.incarnation_token,
+                lineage_valid=True,
             )
             for rom in locked_roms
             if rom.id in reconnectable_ids and rom.missing_from_fs
@@ -723,6 +726,12 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 entity_kind=LegacyCatalogEntityKind.ROM_FILE.value,
                 entity_id=rom_file.id,
                 prior_missing_from_fs=rom_file.missing_from_fs,
+                entity_incarnation_token=rom_file.incarnation_token,
+                parent_rom_id=rom_file.rom_id,
+                parent_incarnation_token=(
+                    locked_roms_by_id[rom_file.rom_id].incarnation_token
+                ),
+                lineage_valid=True,
             )
             for rom_file in locked_files
             if rom_file.rom_id in reconnectable_ids and rom_file.missing_from_fs
@@ -959,43 +968,62 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             ).all()
         )
         keys = [(change.entity_kind, change.entity_id) for change in changes]
-        if len(keys) != len(set(keys)) or any(
-            change.entity_kind
+        invalid_change = any(
+            not change.lineage_valid
+            or change.entity_id <= 0
+            or not change.prior_missing_from_fs
+            or change.entity_incarnation_token is None
+            or (
+                change.entity_kind == LegacyCatalogEntityKind.ROM.value
+                and (
+                    change.parent_rom_id is not None
+                    or change.parent_incarnation_token is not None
+                )
+            )
+            or (
+                change.entity_kind == LegacyCatalogEntityKind.ROM_FILE.value
+                and (
+                    change.parent_rom_id is None
+                    or change.parent_rom_id <= 0
+                    or change.parent_incarnation_token is None
+                )
+            )
+            or change.entity_kind
             not in {
                 LegacyCatalogEntityKind.ROM.value,
                 LegacyCatalogEntityKind.ROM_FILE.value,
             }
-            or change.entity_id <= 0
-            or not change.prior_missing_from_fs
             for change in changes
-        ):
+        )
+        if len(keys) != len(set(keys)) or invalid_change:
             cls._rollback_stale(migration)
 
-        rom_ids = [
+        rom_change_ids = [
             change.entity_id
             for change in changes
             if change.entity_kind == LegacyCatalogEntityKind.ROM.value
         ]
+        rom_changes = {
+            change.entity_id: change
+            for change in changes
+            if change.entity_kind == LegacyCatalogEntityKind.ROM.value
+        }
         file_ids = [
             change.entity_id
             for change in changes
             if change.entity_kind == LegacyCatalogEntityKind.ROM_FILE.value
         ]
-        file_lineage = (
-            list(
-                session.execute(
-                    select(RomFile.id, RomFile.rom_id)
-                    .where(RomFile.id.in_(file_ids))
-                    .order_by(RomFile.id)
-                ).all()
-            )
-            if file_ids
-            else []
-        )
-        if len(file_lineage) != len(file_ids):
-            cls._rollback_stale(migration)
-        file_parent_ids = {rom_id for _, rom_id in file_lineage}
-        locked_rom_ids = sorted(set(rom_ids) | file_parent_ids)
+        file_changes = {
+            change.entity_id: change
+            for change in changes
+            if change.entity_kind == LegacyCatalogEntityKind.ROM_FILE.value
+        }
+        recorded_parent_ids = {
+            change.parent_rom_id
+            for change in file_changes.values()
+            if change.parent_rom_id is not None
+        }
+        locked_rom_ids = sorted(set(rom_change_ids) | recorded_parent_ids)
         roms = (
             list(
                 session.scalars(
@@ -1022,17 +1050,22 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         )
         roms_by_id = {rom.id: rom for rom in roms}
         files_by_id = {rom_file.id: rom_file for rom_file in files}
-        lineage_by_file_id = dict(file_lineage)
         if len(roms_by_id) != len(locked_rom_ids) or len(files_by_id) != len(file_ids):
             cls._rollback_stale(migration)
         if any(
-            rom.platform_id != migration.platform_id or rom.missing_from_fs
+            rom.platform_id != migration.platform_id
+            or rom.missing_from_fs
+            or rom.incarnation_token != rom_changes[rom_id].entity_incarnation_token
             for rom_id, rom in roms_by_id.items()
-            if rom_id in rom_ids
+            if rom_id in rom_change_ids
         ) or any(
             rom_file.missing_from_fs
-            or rom_file.rom_id != lineage_by_file_id[rom_file.id]
+            or rom_file.rom_id != file_changes[rom_file.id].parent_rom_id
+            or rom_file.incarnation_token
+            != file_changes[rom_file.id].entity_incarnation_token
             or roms_by_id[rom_file.rom_id].platform_id != migration.platform_id
+            or roms_by_id[rom_file.rom_id].incarnation_token
+            != file_changes[rom_file.id].parent_incarnation_token
             for rom_file in files
         ):
             cls._rollback_stale(migration)
