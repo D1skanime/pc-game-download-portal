@@ -202,3 +202,36 @@ def test_seeded_0111_fixture_satisfies_fingerprint_constraints(monkeypatch):
     detection = statements[0]
     assert "source_fingerprint" in detection
     assert "0" * 64 in detection
+
+
+def test_seeded_0111_fixture_records_exact_mixed_catalog_state(monkeypatch):
+    statements = []
+    monkeypatch.setattr(
+        verifier, "_execute_sql", lambda *args: statements.append(args[-1])
+    )
+
+    verifier._seed_0111_state("mariadb", "romm-dev", "host", "3306", "db")
+
+    combined = "\n".join(statements)
+    assert "legacy_migration_catalog_changes" in combined
+    assert "'rom', 920011, TRUE" in combined
+    assert "'rom_file', 920021, TRUE" in combined
+    assert all(str(entity_id) in combined for entity_id in range(920011, 920015))
+    assert all(str(entity_id) in combined for entity_id in range(920021, 920025))
+    change_index = next(
+        index
+        for index, statement in enumerate(statements)
+        if "legacy_migration_catalog_changes" in statement
+    )
+    later_index = next(
+        index for index, statement in enumerate(statements) if "920014" in statement
+    )
+    assert change_index < later_index
+
+
+def test_restart_verifier_proves_exact_catalog_restoration():
+    verifier_source = Path("tools/verify_storage_migrations.py").read_text()
+    assert "exact catalog rollback did not restore recorded rows" in verifier_source
+    assert "exact catalog rollback changed unrelated rows" in verifier_source
+    assert "legacy_migration_catalog_changes" in verifier_source
+    assert "920014" in verifier_source
