@@ -8,8 +8,6 @@
  */
 export type UserScreenshotSchema = {
     id: number;
-    rom_id: (number | null);
-    retained_catalog_id?: (number | null);
     user_id: number;
     file_name: string;
     file_name_no_tags: string;
@@ -22,6 +20,7 @@ export type UserScreenshotSchema = {
     missing_from_fs: boolean;
     created_at: string;
     updated_at: string;
+    rom_id: number;
     is_gallery?: boolean;
     is_public?: boolean;
     username: string;

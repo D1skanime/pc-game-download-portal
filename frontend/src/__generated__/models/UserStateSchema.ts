@@ -9,8 +9,6 @@ import type { ScreenshotSchema } from './ScreenshotSchema';
  */
 export type UserStateSchema = {
     id: number;
-    rom_id: (number | null);
-    retained_catalog_id?: (number | null);
     user_id: number;
     file_name: string;
     file_name_no_tags: string;
@@ -23,6 +21,8 @@ export type UserStateSchema = {
     missing_from_fs: boolean;
     created_at: string;
     updated_at: string;
+    rom_id: (number | null);
+    retained_catalog_id?: (number | null);
     emulator: (string | null);
     is_public?: boolean;
     screenshot: (ScreenshotSchema | null);
