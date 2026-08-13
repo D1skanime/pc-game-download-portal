@@ -93,7 +93,7 @@ Wave 1: 01. Wave 2: 02 and 03. Wave 3: 04 (depends 01,03). Wave 4: 05. Wave 5: 0
 | MySQL pristine and seeded-0110 round trips      | passed; handler tests skipped on the intentional minimal 0107 baseline |
 | PostgreSQL pristine and seeded-0110 round trips | passed; 54 handler tests passed                                        |
 | Controlled OpenAPI generation                   | passed on loopback port 39006                                          |
-| Generated frontend contract                     | three legacy lifecycle models regenerated and typechecked              |
+| Generated frontend contract                     | two changed legacy confirmation models regenerated and typechecked     |
 | Focused catalog-removal component               | 3 passed                                                               |
 | Full frontend suite                             | 51 files and 632 tests passed                                          |
 | Frontend TypeScript typecheck                   | passed with explicit 4096 MB Node heap                                 |
