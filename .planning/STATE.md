@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-09-PLAN.md
-last_updated: "2026-08-13T06:04:14.747Z"
-last_activity: 2026-08-13 -- Phase 06 planning complete
+stopped_at: Completed 06-10-PLAN.md
+last_updated: "2026-08-13T07:02:00.384Z"
+last_activity: 2026-08-13 -- Completed 06-10-PLAN.md
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 52
-  completed_plans: 44
+  completed_plans: 45
   percent: 56
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 9 of 17
+Plan: 11 of 17
 Status: Ready to execute
-Last activity: 2026-08-13 -- Phase 06 planning complete
+Last activity: 2026-08-13 -- Completed 06-10-PLAN.md
 
-Progress: [█████░░░░░] 53%
+Progress: [█████████░] 87%
 
 ## Performance Metrics
 
@@ -82,6 +82,7 @@ _Updated after each plan completion_
 | Phase 06 P07 | 17min | 2 tasks | 7 files |
 | Phase 06 P08 | 31min | 2 tasks | 13 files |
 | Phase 06 P09 | 40min | 2 tasks | 7 files |
+| Phase 06 P10 | 28min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -160,6 +161,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Contract generation requires the exact checkout bound to /app and unused runner loopback port 39006. — Fail-closed runner identity prevents validating stale or arbitrary code.
 - [Phase 06]: The Node generator runs as the checkout owner after initializing only its task-owned node_modules volume. — Generated files must preserve canonical repository ownership while dependency state remains disposable.
 - [Phase 06]: External mutation closure uses an exhaustive operation inventory plus denial before filesystem I/O. — A closed inventory prevents newly added operations from silently inheriting external write authority.
+- [Phase 06]: Detached asset authorization resolves the effective live or retained platform and preserves hidden-platform 404 masking.
+- [Phase 06]: Retained reconnection accepts one exact normalized path or one unique complete CRC32, MD5, and SHA1 triple under deterministic locks.
+- [Phase 06]: Production scan reconnection runs only for newly created ROMs after durable persistence.
 
 ### Blockers/Concerns
 
@@ -177,6 +181,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T00:59:14.560Z
-Stopped at: Completed 06-09-PLAN.md
+Last session: 2026-08-13T07:01:36.031Z
+Stopped at: Completed 06-10-PLAN.md
 Resume file: None
