@@ -324,3 +324,44 @@ def test_restart_verifier_proves_exact_catalog_restoration():
     assert "exact catalog rollback changed unrelated rows" in verifier_source
     assert "legacy_migration_catalog_changes" in verifier_source
     assert "920014" in verifier_source
+
+
+def test_0113_migration_orders_backfill_indexes_constraints_and_guarded_downgrade():
+    migration = Path("alembic/versions/0113_legacy_change_lineage.py").read_text()
+    upgrade = migration.split("def upgrade() -> None:", 1)[1].split(
+        "def downgrade() -> None:", 1
+    )[0]
+    downgrade = migration.split("def downgrade() -> None:", 1)[1]
+
+    assert 'revision = "0113_legacy_change_lineage"' in migration
+    assert 'down_revision = "0112_phase6_gap_closure"' in migration
+    assert "secrets.token_hex(16)" in migration
+    assert upgrade.index("_backfill_incarnation_tokens") < upgrade.index(
+        "uq_roms_incarnation_token"
+    )
+    assert upgrade.index("uq_rom_files_incarnation_token") < upgrade.index(
+        "nullable=False"
+    )
+    assert "ck_lmcc_lineage_shape" in migration
+    assert downgrade.index("_ensure_lineage_downgrade_safe") < downgrade.index(
+        "op.drop_index"
+    )
+    assert downgrade.index("ck_lmcc_lineage_shape") < downgrade.index(
+        'drop_column("entity_incarnation_token")'
+    )
+    assert downgrade.index("uq_roms_incarnation_token") < downgrade.index(
+        'drop_column("incarnation_token")'
+    )
+
+
+def test_three_dialect_verifier_proves_0113_lineage_lifecycle():
+    verifier_source = Path("tools/verify_storage_migrations.py").read_text()
+
+    for marker in (
+        "0113_legacy_change_lineage",
+        "seeded 0112 lineage was not invalidated",
+        "incarnation token backfill is invalid",
+        "timestamp-colliding replacement did not reject rollback",
+        "lineage rollback state did not survive restart",
+    ):
+        assert marker in verifier_source

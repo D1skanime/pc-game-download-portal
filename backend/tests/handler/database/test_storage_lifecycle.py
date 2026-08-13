@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 import stat
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -101,6 +102,58 @@ def _seed_mapping(tmp_path: Path, *, rom_count: int = 2):
             roms.append(rom)
         session.flush()
         return mapping.id, platform.id, [rom.id for rom in roms], source
+
+
+def test_catalog_incarnation_tokens_overwrite_input_and_reject_updates():
+    supplied = "0" * 32
+    with sync_session.begin() as session:
+        platform = Platform(
+            name="Incarnation",
+            slug="incarnation",
+            fs_slug="incarnation",
+        )
+        session.add(platform)
+        session.flush()
+        rom = Rom(
+            platform_id=platform.id,
+            fs_name="incarnation.bin",
+            fs_name_no_tags="incarnation",
+            fs_name_no_ext="incarnation",
+            fs_extension="bin",
+            fs_path="incarnation",
+            fs_size_bytes=1,
+            name="Incarnation",
+            incarnation_token=supplied,
+        )
+        session.add(rom)
+        session.flush()
+        rom_file = RomFile(
+            rom_id=rom.id,
+            file_name=rom.fs_name,
+            file_path=rom.fs_path,
+            file_size_bytes=1,
+            incarnation_token=supplied,
+        )
+        session.add(rom_file)
+        session.flush()
+        rom_id = rom.id
+        file_id = rom_file.id
+        rom_token = rom.incarnation_token
+        file_token = rom_file.incarnation_token
+
+    assert re.fullmatch(r"[0-9a-f]{32}", rom_token)
+    assert re.fullmatch(r"[0-9a-f]{32}", file_token)
+    assert rom_token != supplied
+    assert file_token != supplied
+    assert rom_token != file_token
+
+    for model, entity_id in ((Rom, rom_id), (RomFile, file_id)):
+        with pytest.raises(ValueError, match="incarnation token is immutable"):
+            with sync_session.begin() as session:
+                entity = session.get(model, entity_id)
+                assert entity is not None
+                entity.incarnation_token = "f" * 32
+                session.flush()
 
 
 def _seed_atomic_migration(tmp_path: Path, *, suffix: str = "one"):
@@ -252,11 +305,35 @@ def test_atomic_migrate_commits_mapping_catalog_audit_and_rollback_metadata(
             )
         )
         assert [
-            (change.entity_kind, change.entity_id, change.prior_missing_from_fs)
+            (
+                change.entity_kind,
+                change.entity_id,
+                change.prior_missing_from_fs,
+                change.entity_incarnation_token,
+                change.parent_rom_id,
+                change.parent_incarnation_token,
+                change.lineage_valid,
+            )
             for change in changes
         ] == [
-            (LegacyCatalogEntityKind.ROM.value, rom_ids[0], True),
-            (LegacyCatalogEntityKind.ROM_FILE.value, files[0].id, True),
+            (
+                LegacyCatalogEntityKind.ROM.value,
+                rom_ids[0],
+                True,
+                roms[0].incarnation_token,
+                None,
+                None,
+                True,
+            ),
+            (
+                LegacyCatalogEntityKind.ROM_FILE.value,
+                files[0].id,
+                True,
+                files[0].incarnation_token,
+                roms[0].id,
+                roms[0].incarnation_token,
+                True,
+            ),
         ]
         assert audits == 1
         assert detection is not None and detection.version == 2

@@ -207,11 +207,17 @@ def _seed_exact_rollback(
                     entity_kind=LegacyCatalogEntityKind.ROM.value,
                     entity_id=roms["changed"].id,
                     prior_missing_from_fs=True,
+                    entity_incarnation_token=roms["changed"].incarnation_token,
+                    lineage_valid=True,
                 ),
                 LegacyMigrationCatalogChange(
                     entity_kind=LegacyCatalogEntityKind.ROM_FILE.value,
                     entity_id=files["changed"].id,
                     prior_missing_from_fs=True,
+                    entity_incarnation_token=files["changed"].incarnation_token,
+                    parent_rom_id=roms["changed"].id,
+                    parent_incarnation_token=roms["changed"].incarnation_token,
+                    lineage_valid=True,
                 ),
             ],
         )
@@ -241,6 +247,23 @@ def _catalog_states(ids: dict[str, int]) -> dict[str, bool | None]:
             )
             for key, row_id in ids.items()
         }
+
+
+def _assert_rollback_authority_unchanged(mapping_id: int, migration_id: int) -> None:
+    with sync_session() as session:
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        migration = session.get(LegacyMigration, migration_id)
+        audits = list(
+            session.scalars(
+                select(StorageMappingAudit).where(
+                    StorageMappingAudit.mapping_id == mapping_id
+                )
+            )
+        )
+        assert mapping is not None and mapping.active and mapping.version == 1
+        assert migration is not None and migration.state == "completed"
+        assert migration.version == 1
+        assert audits == []
 
 
 @pytest.fixture(autouse=True)
@@ -620,6 +643,132 @@ def test_exact_rollback_rejects_stale_recorded_rows_atomically(
         assert migration is not None and migration.state == "completed"
         assert migration.version == 1
         assert audits == []
+
+
+def test_rollback_rejects_same_platform_reparenting_atomically(tmp_path: Path):
+    source = tmp_path / "external"
+    mapping_id, migration_id, platform_id, ids = _seed_exact_rollback(
+        source, suffix="same-platform-reparent"
+    )
+    with sync_session.begin() as session:
+        replacement_parent = Rom(
+            platform_id=platform_id,
+            fs_name="replacement-parent.bin",
+            fs_name_no_tags="replacement-parent",
+            fs_name_no_ext="replacement-parent",
+            fs_extension="bin",
+            fs_path="mapped",
+            fs_size_bytes=1,
+            name="Replacement Parent",
+            missing_from_fs=False,
+        )
+        session.add(replacement_parent)
+        session.flush()
+        changed_file = session.get(RomFile, ids["changed_file"])
+        assert changed_file is not None
+        changed_file.rom_id = replacement_parent.id
+        session.flush()
+    before = _catalog_states(ids)
+
+    with pytest.raises(LegacyRollbackError) as captured:
+        DBLegacyMigrationHandler().rollback_migration(
+            migration_id,
+            platform_id=platform_id,
+            expected_version=1,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+        )
+
+    assert captured.value.code == "legacy_rollback_stale"
+    assert _catalog_states(ids) == before
+    _assert_rollback_authority_unchanged(mapping_id, migration_id)
+
+
+@pytest.mark.parametrize("replacement_kind", ["rom", "rom_file"])
+def test_rollback_rejects_timestamp_colliding_row_replacement(
+    tmp_path: Path, replacement_kind: str
+):
+    source = tmp_path / "external"
+    mapping_id, migration_id, platform_id, ids = _seed_exact_rollback(
+        source, suffix=f"timestamp-collision-{replacement_kind}"
+    )
+    with sync_session.begin() as session:
+        rom = session.get(Rom, ids["changed_rom"])
+        rom_file = session.get(RomFile, ids["changed_file"])
+        assert rom is not None and rom_file is not None
+        old_rom_token = rom.incarnation_token
+        old_file_token = rom_file.incarnation_token
+        rom_times = (rom.created_at, rom.updated_at)
+        file_times = (rom_file.created_at, rom_file.updated_at)
+        if replacement_kind == "rom_file":
+            session.delete(rom_file)
+            session.flush()
+            replacement_file = RomFile(
+                id=ids["changed_file"],
+                rom_id=ids["changed_rom"],
+                file_name="changed.bin",
+                file_path="mapped",
+                file_size_bytes=1,
+                missing_from_fs=False,
+                created_at=file_times[0],
+                updated_at=file_times[1],
+                incarnation_token=old_file_token,
+            )
+            session.add(replacement_file)
+            session.flush()
+            assert replacement_file.incarnation_token != old_file_token
+        else:
+            session.delete(rom_file)
+            session.delete(rom)
+            session.flush()
+            replacement_rom = Rom(
+                id=ids["changed_rom"],
+                platform_id=platform_id,
+                fs_name="changed.bin",
+                fs_name_no_tags="changed",
+                fs_name_no_ext="changed",
+                fs_extension="bin",
+                fs_path="mapped",
+                fs_size_bytes=1,
+                name="changed",
+                missing_from_fs=False,
+                created_at=rom_times[0],
+                updated_at=rom_times[1],
+                incarnation_token=old_rom_token,
+            )
+            session.add(replacement_rom)
+            session.flush()
+            replacement_file = RomFile(
+                id=ids["changed_file"],
+                rom_id=ids["changed_rom"],
+                file_name="changed.bin",
+                file_path="mapped",
+                file_size_bytes=1,
+                missing_from_fs=False,
+                created_at=file_times[0],
+                updated_at=file_times[1],
+                incarnation_token=old_file_token,
+            )
+            session.add(replacement_file)
+            session.flush()
+            assert replacement_rom.incarnation_token != old_rom_token
+            assert replacement_file.incarnation_token != old_file_token
+    before = _catalog_states(ids)
+
+    with pytest.raises(LegacyRollbackError) as captured:
+        DBLegacyMigrationHandler().rollback_migration(
+            migration_id,
+            platform_id=platform_id,
+            expected_version=1,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+        )
+
+    assert captured.value.code == "legacy_rollback_stale"
+    assert _catalog_states(ids) == before
+    _assert_rollback_authority_unchanged(mapping_id, migration_id)
 
 
 def test_exact_rollback_catalog_flush_failure_restores_pre_attempt_state(

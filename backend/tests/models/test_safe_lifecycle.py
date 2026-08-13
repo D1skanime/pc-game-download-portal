@@ -2,8 +2,10 @@ from importlib import import_module
 
 from sqlalchemy import inspect
 
+from endpoints.responses.rom import RomFileSchema, RomSchema
 from models import assets as asset_models
 from models import play_session as play_session_models
+from models import rom as rom_models
 from models import storage as storage_models
 
 
@@ -245,6 +247,10 @@ def test_migration_owns_ordered_relationship_free_exact_catalog_changes():
         "entity_kind",
         "entity_id",
         "prior_missing_from_fs",
+        "entity_incarnation_token",
+        "parent_rom_id",
+        "parent_incarnation_token",
+        "lineage_valid",
         "created_at",
         "updated_at",
     }
@@ -257,6 +263,7 @@ def test_migration_owns_ordered_relationship_free_exact_catalog_changes():
     constraint_names = {constraint.name for constraint in model.__table__.constraints}
     assert "ck_legacy_migration_catalog_changes_entity_kind" in constraint_names
     assert "ck_legacy_migration_catalog_changes_entity_id" in constraint_names
+    assert "ck_lmcc_lineage_shape" in constraint_names
     assert "uq_legacy_migration_catalog_changes_identity" in constraint_names
     assert "ix_legacy_migration_catalog_changes_order" in {
         index.name for index in model.__table__.indexes
@@ -269,6 +276,34 @@ def test_migration_owns_ordered_relationship_free_exact_catalog_changes():
         for column in columns
         for token in ("path", "file", "host", "raw", "snapshot", "content", "row")
     )
+
+
+def test_catalog_incarnation_tokens_are_private_bounded_and_unique():
+    for model, index_name in (
+        (rom_models.Rom, "uq_roms_incarnation_token"),
+        (rom_models.RomFile, "uq_rom_files_incarnation_token"),
+    ):
+        column = model.__table__.columns.incarnation_token
+        assert column.type.length == 32
+        assert column.nullable is False
+        index = next(
+            item for item in model.__table__.indexes if item.name == index_name
+        )
+        assert index.unique is True
+
+    assert "incarnation_token" not in RomSchema.model_fields
+    assert "incarnation_token" not in RomFileSchema.model_fields
+
+
+def test_catalog_change_lineage_shape_is_bounded_and_relationship_free():
+    columns = storage_models.LegacyMigrationCatalogChange.__table__.columns
+
+    assert columns.entity_incarnation_token.type.length == 32
+    assert columns.parent_incarnation_token.type.length == 32
+    assert columns.lineage_valid.nullable is False
+    assert len(columns.parent_rom_id.foreign_keys) == 0
+    assert len(columns.entity_incarnation_token.foreign_keys) == 0
+    assert len(columns.parent_incarnation_token.foreign_keys) == 0
 
 
 def test_lifecycle_models_hold_no_filesystem_mutation_authority(tmp_path):
