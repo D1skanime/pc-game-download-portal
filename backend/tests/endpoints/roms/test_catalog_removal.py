@@ -454,6 +454,7 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
     admin_user: User,
     rom: Rom,
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     from endpoints.sockets import scan as scan_module
     from handler.filesystem.roms_handler import FSRom, ParsedRomFiles, ParsedTags
@@ -466,12 +467,34 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
     file_name = rom.fs_name
     hashes = (rom.crc_hash, rom.md5_hash, rom.sha1_hash)
 
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "game.bin").write_bytes(b"immutable source bytes")
+    (source / "nested").mkdir()
+    (source / "nested" / "manual.txt").write_text("source manual")
+    (source / "link").symlink_to("game.bin")
+    source_before = _source_manifest(source)
+
     response = client.post(
         "/api/roms/remove-from-catalog",
         headers=_headers(access_token),
         json={"rom_ids": [old_rom_id]},
     )
     assert response.status_code == status.HTTP_200_OK
+
+    detached_saves = client.get("/api/saves", headers=_headers(access_token))
+    detached_states = client.get("/api/states", headers=_headers(access_token))
+    assert detached_saves.status_code == status.HTTP_200_OK
+    assert detached_states.status_code == status.HTTP_200_OK
+    detached_save = next(
+        item for item in detached_saves.json() if item["id"] == dependencies["save"]
+    )
+    detached_state = next(
+        item for item in detached_states.json() if item["id"] == dependencies["state"]
+    )
+    assert detached_save["rom_id"] is None
+    assert detached_state["rom_id"] is None
+    assert detached_save["retained_catalog_id"] == detached_state["retained_catalog_id"]
 
     monkeypatch.setattr(scan_module, "redis_client", Mock(get=Mock(return_value=None)))
     monkeypatch.setattr(
@@ -565,3 +588,4 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
                 reconnected.id,
                 None,
             )
+    assert _source_manifest(source) == source_before
