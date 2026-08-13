@@ -110,7 +110,7 @@ Detached save and state APIs with retained-platform authorization, plus determin
 - **Files modified:** `backend/endpoints/saves.py`, `backend/endpoints/states.py`
 - **Commit:** `4fc7704b1`
 
-## Verification
+## Test Results
 
 - Task 1 genuine RED: 117 tests collected and failed on non-nullable detached `rom_id`.
 - Task 2 focused backend suite: 117 passed.
