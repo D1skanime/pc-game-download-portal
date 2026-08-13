@@ -58,7 +58,7 @@ def _seed_migrated_mapping(source: Path, *, suffix: str = "one") -> tuple[int, i
     mapped = source / "mapped"
     mapped.mkdir(parents=True)
     (mapped / "game.bin").write_bytes(b"immutable game")
-    now = datetime(2026, 8, 12, 20, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
     with sync_session.begin() as session:
         platform = Platform(
             name=f"First Use {suffix}",
