@@ -147,8 +147,18 @@ def _bootstrap_mysql_0107(name: str) -> None:
         "CREATE TABLE roms ("
         "id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
         "platform_id INTEGER NOT NULL,"
+        "missing_from_fs BOOLEAN NOT NULL DEFAULT FALSE,"
         "CONSTRAINT fk_verifier_rom_platform FOREIGN KEY (platform_id) "
         "REFERENCES platforms(id) ON DELETE CASCADE);"
+        "CREATE TABLE rom_files ("
+        "id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+        "rom_id INTEGER NOT NULL,"
+        "file_name VARCHAR(450) NOT NULL,"
+        "file_path VARCHAR(1000) NOT NULL,"
+        "file_size_bytes BIGINT NOT NULL,"
+        "missing_from_fs BOOLEAN NOT NULL DEFAULT FALSE,"
+        "CONSTRAINT fk_verifier_file_rom FOREIGN KEY (rom_id) "
+        "REFERENCES roms(id) ON DELETE CASCADE);"
         "CREATE TABLE saves ("
         "id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
         "rom_id INTEGER NOT NULL,"
@@ -382,6 +392,37 @@ def _seed_0111_state(
     port: str,
     database: str,
 ) -> None:
+    if dialect == "mysql":
+        rom_values = (
+            "(920011, 910001, FALSE), "
+            "(920012, 910001, FALSE), "
+            "(920013, 910001, TRUE)"
+        )
+        later_rom_values = "(920014, 910001, FALSE)"
+        rom_insert = "INSERT INTO roms (id, platform_id, missing_from_fs) VALUES "
+    else:
+        rom_values = (
+            "(920011, 910001, 'changed.bin', 'changed', 'changed', 'bin', "
+            "'roms/verifier-910001', 1, 'Changed', FALSE), "
+            "(920012, 910001, 'visible.bin', 'visible', 'visible', 'bin', "
+            "'roms/verifier-910001', 1, 'Visible', FALSE), "
+            "(920013, 910001, 'unmatched.bin', 'unmatched', 'unmatched', 'bin', "
+            "'roms/verifier-910001', 1, 'Unmatched', TRUE)"
+        )
+        later_rom_values = (
+            "(920014, 910001, 'later.bin', 'later', 'later', 'bin', "
+            "'roms/verifier-910001', 1, 'Later', FALSE)"
+        )
+        rom_insert = (
+            "INSERT INTO roms "
+            "(id, platform_id, fs_name, fs_name_no_tags, fs_name_no_ext, "
+            "fs_extension, fs_path, fs_size_bytes, name, missing_from_fs) VALUES "
+        )
+    file_insert = (
+        "INSERT INTO rom_files "
+        "(id, rom_id, file_name, file_path, file_size_bytes, missing_from_fs) "
+        "VALUES "
+    )
     statements = [
         "INSERT INTO legacy_detection_results "
         "(id, platform_id, storage_root_id, state, proposed_relative_path, "
@@ -399,9 +440,150 @@ def _seed_0111_state(
         "VALUES (920001, 920001, 910001, 910001, 910001, "
         "'roms/verifier-910001', 'completed', 1, 1, 0, 0, "
         "'2037-01-01 00:00:00')",
+        rom_insert + rom_values,
+        file_insert
+        + "(920021, 920011, 'changed.bin', 'roms/verifier-910001', 1, FALSE), "
+        "(920022, 920012, 'visible.bin', 'roms/verifier-910001', 1, FALSE), "
+        "(920023, 920013, 'unmatched.bin', 'roms/verifier-910001', 1, TRUE)",
+        "INSERT INTO legacy_migration_catalog_changes "
+        "(migration_id, entity_kind, entity_id, prior_missing_from_fs) VALUES "
+        "(920001, 'rom', 920011, TRUE), "
+        "(920001, 'rom_file', 920021, TRUE)",
+        rom_insert + later_rom_values,
+        file_insert + "(920024, 920014, 'later.bin', 'roms/verifier-910001', 1, FALSE)",
     ]
     for statement in statements:
         _execute_sql(runner, dialect, host, port, database, statement)
+
+
+def _rollback_seeded_exact_state(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    program = """
+from config.config_manager import ConfigManager
+from sqlalchemy import create_engine, text
+
+engine = create_engine(ConfigManager.get_db_engine())
+with engine.begin() as connection:
+    changes = connection.execute(text(
+        "SELECT entity_kind, entity_id, prior_missing_from_fs "
+        "FROM legacy_migration_catalog_changes "
+        "WHERE migration_id = 920001 ORDER BY entity_kind, entity_id FOR UPDATE"
+    )).all()
+    expected = [("rom", 920011, True), ("rom_file", 920021, True)]
+    if [(kind, entity_id, bool(prior)) for kind, entity_id, prior in changes] != expected:
+        raise RuntimeError("seeded exact catalog change set is stale")
+    rom = connection.execute(text(
+        "SELECT id, platform_id, missing_from_fs FROM roms "
+        "WHERE id = 920011 FOR UPDATE"
+    )).one()
+    rom_file = connection.execute(text(
+        "SELECT rom_files.id, roms.platform_id, rom_files.missing_from_fs "
+        "FROM rom_files JOIN roms ON roms.id = rom_files.rom_id "
+        "WHERE rom_files.id = 920021 FOR UPDATE"
+    )).one()
+    if rom[1] != 910001 or bool(rom[2]):
+        raise RuntimeError("seeded exact ROM state is stale")
+    if rom_file[1] != 910001 or bool(rom_file[2]):
+        raise RuntimeError("seeded exact RomFile state is stale")
+    connection.execute(text(
+        "UPDATE roms SET missing_from_fs = TRUE WHERE id = 920011"
+    ))
+    connection.execute(text(
+        "UPDATE rom_files SET missing_from_fs = TRUE WHERE id = 920021"
+    ))
+    mapping = connection.execute(text(
+        "UPDATE platform_storage_mappings SET active = FALSE, version = 5 "
+        "WHERE id = 910001 AND platform_id = 910001 "
+        "AND active = TRUE AND version = 4"
+    ))
+    migration = connection.execute(text(
+        "UPDATE legacy_migrations SET state = 'rolled_back', version = 2, "
+        "rolled_back_at = CURRENT_TIMESTAMP "
+        "WHERE id = 920001 AND platform_id = 910001 "
+        "AND state = 'completed' AND version = 1"
+    ))
+    if mapping.rowcount != 1 or migration.rowcount != 1:
+        raise RuntimeError("seeded exact rollback lineage is stale")
+engine.dispose()
+"""
+    _run(
+        _runner_command(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            ["/app/.venv/bin/python", "-c", program],
+        )
+    )
+
+
+def _verify_exact_catalog_state(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    recorded = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_migration_catalog_changes "
+        "WHERE migration_id = 920001 AND prior_missing_from_fs = TRUE",
+    )
+    restored = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM roms WHERE id = 920011 AND missing_from_fs = TRUE",
+    )
+    restored_files = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM rom_files "
+        "WHERE id = 920021 AND missing_from_fs = TRUE",
+    )
+    if recorded != "2" or restored != "1" or restored_files != "1":
+        raise RuntimeError(
+            f"{dialect}: exact catalog rollback did not restore recorded rows"
+        )
+    unchanged = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM roms WHERE "
+        "(id = 920012 AND missing_from_fs = FALSE) OR "
+        "(id = 920013 AND missing_from_fs = TRUE) OR "
+        "(id = 920014 AND missing_from_fs = FALSE)",
+    )
+    unchanged_files = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM rom_files WHERE "
+        "(id = 920022 AND missing_from_fs = FALSE) OR "
+        "(id = 920023 AND missing_from_fs = TRUE) OR "
+        "(id = 920024 AND missing_from_fs = FALSE)",
+    )
+    if unchanged != "3" or unchanged_files != "3":
+        raise RuntimeError(f"{dialect}: exact catalog rollback changed unrelated rows")
 
 
 def _verify_restart_persistence(
@@ -437,28 +619,13 @@ def _verify_restart_persistence(
     if first_use != "None" or migration_version != "1":
         raise RuntimeError(f"{dialect}: lifecycle state did not survive restart")
 
-    _execute_sql(
-        runner,
-        dialect,
-        host,
-        port,
-        database,
-        "UPDATE platform_storage_mappings "
-        "SET active = FALSE, version = 5 WHERE id = 910001",
-    )
-    _execute_sql(
-        runner,
-        dialect,
-        host,
-        port,
-        database,
-        "UPDATE legacy_migrations SET state = 'rolled_back', version = 2, "
-        "rolled_back_at = CURRENT_TIMESTAMP WHERE id = 920001",
-    )
+    _rollback_seeded_exact_state(dialect, runner, host, port, database)
+    _verify_exact_catalog_state(dialect, runner, host, port, database)
     _run(["docker", "restart", database_container])
     _wait_until_ready(database_container, health)
     port = _mapped_port(database_container, DIALECTS[dialect]["port"])
     _wait_until_queryable(runner, dialect, host, port, database)
+    _verify_exact_catalog_state(dialect, runner, host, port, database)
 
     migration_state = _query_scalar(
         runner,
@@ -536,6 +703,8 @@ def _clear_0111_state(
         "SET active = TRUE, version = 4 WHERE id = 910001",
         "DELETE FROM legacy_migrations",
         "DELETE FROM legacy_detection_results",
+        "DELETE FROM rom_files WHERE id BETWEEN 920021 AND 920024",
+        "DELETE FROM roms WHERE id BETWEEN 920011 AND 920014",
         "DELETE FROM owned_cleanup_intents",
         "UPDATE saves SET retained_catalog_id = NULL WHERE retained_catalog_id IS NOT NULL",
         "UPDATE states SET retained_catalog_id = NULL WHERE retained_catalog_id IS NOT NULL",
@@ -567,6 +736,8 @@ def _handler_tests(
             "tests/models/test_storage.py",
             "tests/models/test_safe_lifecycle.py",
             "tests/handler/database/test_storage_handler.py",
+            "tests/integration/test_legacy_migration.py::test_exact_rollback_restores_only_recorded_rows_and_preserves_later_rows",
+            "tests/integration/test_legacy_migration.py::test_exact_rollback_rejects_stale_recorded_rows_atomically",
             "-x",
         ],
     )
