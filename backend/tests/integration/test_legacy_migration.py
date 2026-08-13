@@ -781,6 +781,151 @@ def test_rollback_rejects_timestamp_colliding_row_replacement(
     _assert_rollback_authority_unchanged(mapping_id, migration_id)
 
 
+def test_adversarial_lineage_failures_and_exact_retry_preserve_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    attempt_at = datetime.now(timezone.utc).replace(microsecond=0)
+
+    reparent_source = tmp_path / "reparent"
+    reparent_mapping, reparent_migration, reparent_platform, reparent_ids = (
+        _seed_exact_rollback(reparent_source, suffix="closure-reparent")
+    )
+    with sync_session.begin() as session:
+        replacement_parent = Rom(
+            platform_id=reparent_platform,
+            fs_name="closure-parent.bin",
+            fs_name_no_tags="closure-parent",
+            fs_name_no_ext="closure-parent",
+            fs_extension="bin",
+            fs_path="mapped",
+            fs_size_bytes=1,
+            name="Closure Parent",
+            missing_from_fs=False,
+        )
+        session.add(replacement_parent)
+        session.flush()
+        changed_file = session.get(RomFile, reparent_ids["changed_file"])
+        assert changed_file is not None
+        changed_file.rom_id = replacement_parent.id
+    reparent_before = _manifest(reparent_source)
+
+    with pytest.raises(LegacyRollbackError) as reparented:
+        DBLegacyMigrationHandler().rollback_migration(
+            reparent_migration,
+            platform_id=reparent_platform,
+            expected_version=1,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=attempt_at,
+        )
+    assert reparented.value.code == "legacy_rollback_stale"
+    _assert_rollback_authority_unchanged(reparent_mapping, reparent_migration)
+    assert _manifest(reparent_source) == reparent_before
+
+    substitution_source = tmp_path / "substitution"
+    (
+        substitution_mapping,
+        substitution_migration,
+        substitution_platform,
+        substitution_ids,
+    ) = _seed_exact_rollback(substitution_source, suffix="closure-substitution")
+    with sync_session.begin() as session:
+        original = session.get(RomFile, substitution_ids["changed_file"])
+        assert original is not None
+        original_identity = (
+            original.id,
+            original.rom_id,
+            original.file_name,
+            original.file_path,
+            original.file_size_bytes,
+            original.missing_from_fs,
+            original.created_at,
+            original.updated_at,
+        )
+        original_token = original.incarnation_token
+        session.delete(original)
+        session.flush()
+        replacement = RomFile(
+            id=original_identity[0],
+            rom_id=original_identity[1],
+            file_name=original_identity[2],
+            file_path=original_identity[3],
+            file_size_bytes=original_identity[4],
+            missing_from_fs=original_identity[5],
+            created_at=original_identity[6],
+            updated_at=original_identity[7],
+            incarnation_token=original_token,
+        )
+        session.add(replacement)
+        session.flush()
+        assert (
+            replacement.id,
+            replacement.rom_id,
+            replacement.file_name,
+            replacement.file_path,
+            replacement.file_size_bytes,
+            replacement.missing_from_fs,
+            replacement.created_at,
+            replacement.updated_at,
+        ) == original_identity
+        assert replacement.incarnation_token != original_token
+    substitution_before = _manifest(substitution_source)
+
+    with pytest.raises(LegacyRollbackError) as substituted:
+        DBLegacyMigrationHandler().rollback_migration(
+            substitution_migration,
+            platform_id=substitution_platform,
+            expected_version=1,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=attempt_at,
+        )
+    assert substituted.value.code == "legacy_rollback_stale"
+    _assert_rollback_authority_unchanged(substitution_mapping, substitution_migration)
+    assert _manifest(substitution_source) == substitution_before
+
+    retry_source = tmp_path / "retry"
+    retry_mapping, retry_migration, retry_platform, retry_ids = _seed_exact_rollback(
+        retry_source, suffix="closure-retry"
+    )
+    retry_before = _manifest(retry_source)
+    handler = DBLegacyMigrationHandler()
+    failed_once = False
+
+    def fail_once(stage: str) -> None:
+        nonlocal failed_once
+        if stage == "rollback_catalog" and not failed_once:
+            failed_once = True
+            raise RuntimeError("injected closure rollback failure")
+
+    monkeypatch.setattr(handler, "_after_migration_flush", fail_once)
+    with pytest.raises(RuntimeError, match="injected closure rollback failure"):
+        handler.rollback_migration(
+            retry_migration,
+            platform_id=retry_platform,
+            expected_version=1,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=attempt_at,
+        )
+    _assert_rollback_authority_unchanged(retry_mapping, retry_migration)
+    assert _manifest(retry_source) == retry_before
+
+    retry = handler.rollback_migration(
+        retry_migration,
+        platform_id=retry_platform,
+        expected_version=1,
+        actor_user_id=7,
+        actor_display_name="Admin",
+        now=attempt_at,
+    )
+    assert retry.state == "rolled_back"
+    retry_states = _catalog_states(retry_ids)
+    assert retry_states["changed_rom"] is True
+    assert retry_states["changed_file"] is True
+    assert _manifest(retry_source) == retry_before
+
+
 def test_exact_rollback_catalog_flush_failure_restores_pre_attempt_state(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):

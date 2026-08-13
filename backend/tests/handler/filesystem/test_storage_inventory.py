@@ -221,6 +221,8 @@ def test_phase6_external_mutations_remain_absent_or_policy_governed() -> None:
         "EXTRACT",
         "PATCH",
         "MKDIR",
+        "SIDECAR_WRITE",
+        "COVER_WRITE",
     }
     for row in INVENTORY:
         if not forbidden.intersection(row.operations):

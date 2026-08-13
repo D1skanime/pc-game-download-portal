@@ -448,6 +448,7 @@ def test_concurrent_removal_creates_one_retained_identity(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("read_only", [False, True])
 async def test_remove_then_production_scan_reconnects_retained_user_value(
     client: TestClient,
     access_token: str,
@@ -455,6 +456,7 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
     rom: Rom,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    read_only: bool,
 ) -> None:
     from endpoints.sockets import scan as scan_module
     from handler.filesystem.roms_handler import FSRom, ParsedRomFiles, ParsedTags
@@ -473,6 +475,11 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
     (source / "nested").mkdir()
     (source / "nested" / "manual.txt").write_text("source manual")
     (source / "link").symlink_to("game.bin")
+    if read_only:
+        (source / "game.bin").chmod(0o444)
+        (source / "nested" / "manual.txt").chmod(0o444)
+        (source / "nested").chmod(0o555)
+        source.chmod(0o555)
     source_before = _source_manifest(source)
 
     response = client.post(

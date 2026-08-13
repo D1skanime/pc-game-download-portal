@@ -18,6 +18,32 @@ from endpoints.storage_policy import authorize_api_storage_operation
 from handler.filesystem import legacy_external_storage, storage_composition
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 
+EXTERNAL_READ_OPERATIONS = {
+    StorageOperation.RESOLVE,
+    StorageOperation.LIST,
+    StorageOperation.STAT,
+    StorageOperation.READ,
+    StorageOperation.SCAN,
+    StorageOperation.HASH,
+    StorageOperation.STREAM,
+    StorageOperation.DOWNLOAD,
+}
+EXTERNAL_MUTATION_OPERATIONS = {
+    StorageOperation.CREATE,
+    StorageOperation.UPLOAD,
+    StorageOperation.WRITE,
+    StorageOperation.OVERWRITE,
+    StorageOperation.RENAME,
+    StorageOperation.MOVE,
+    StorageOperation.COPY,
+    StorageOperation.DELETE,
+    StorageOperation.EXTRACT,
+    StorageOperation.PATCH,
+    StorageOperation.MKDIR,
+    StorageOperation.SIDECAR_WRITE,
+    StorageOperation.COVER_WRITE,
+}
+
 TASK_1_ROUTE_MATRIX = (
     ("roms/upload.py", "start_chunked_upload", "UPLOAD", "legacy_external_storage"),
     ("roms/upload.py", "complete_chunked_upload", "UPLOAD", "legacy_external_storage"),
@@ -158,6 +184,13 @@ def test_phase6_external_mutations_are_denied_before_io(
     assert error.value.status_code == 403
     assert error.value.detail["operation"] == operation.value
     io_tripwire.assert_not_called()
+
+
+def test_external_operation_inventory_is_complete() -> None:
+    assert (
+        set(StorageOperation) == EXTERNAL_READ_OPERATIONS | EXTERNAL_MUTATION_OPERATIONS
+    )
+    assert EXTERNAL_READ_OPERATIONS.isdisjoint(EXTERNAL_MUTATION_OPERATIONS)
 
 
 def test_caller_text_cannot_replace_provider_identity() -> None:
