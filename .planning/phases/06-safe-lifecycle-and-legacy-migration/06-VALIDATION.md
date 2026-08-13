@@ -84,30 +84,64 @@ Wave 1: 01. Wave 2: 02 and 03. Wave 3: 04 (depends 01,03). Wave 4: 05. Wave 5: 0
 
 ## Final Execution Evidence
 
-| Gate                                              | Result                        |
-| ------------------------------------------------- | ----------------------------- |
-| Controlled harness unit contract                  | 5 passed                      |
-| Focused Phase 6 closure suite                     | 138 passed                    |
-| Extended lifecycle and migration regression suite | 158 passed                    |
-| MariaDB pristine and seeded-0110 round trips      | passed                        |
-| MySQL pristine and seeded-0110 round trips        | passed                        |
-| PostgreSQL pristine and seeded-0110 round trips   | passed                        |
-| Disposable-dialect handler contract               | 47 passed where supported     |
-| Controlled OpenAPI generation                     | passed on loopback port 39006 |
-| Frontend TypeScript typecheck                     | passed                        |
+| Gate                                            | Result                                                                 |
+| ----------------------------------------------- | ---------------------------------------------------------------------- |
+| Controlled harness unit and failure contract    | 26 passed, 3 existing warnings                                         |
+| Harness plus mapped-read contract               | 43 passed, 3 existing warnings                                         |
+| Focused Phase 6 lifecycle and migration suite   | 291 passed, 5 existing warnings, 167.61 seconds                        |
+| MariaDB pristine and seeded-0110 round trips    | passed; 54 handler tests passed                                        |
+| MySQL pristine and seeded-0110 round trips      | passed; handler tests skipped on the intentional minimal 0107 baseline |
+| PostgreSQL pristine and seeded-0110 round trips | passed; 54 handler tests passed                                        |
+| Controlled OpenAPI generation                   | passed on loopback port 39006                                          |
+| Generated frontend contract                     | three legacy lifecycle models regenerated and typechecked              |
+| Focused catalog-removal component               | 3 passed                                                               |
+| Full frontend suite                             | 51 files and 632 tests passed                                          |
+| Frontend TypeScript typecheck                   | passed with explicit 4096 MB Node heap                                 |
+| Locale parity and sorting                       | all 17 peer locales complete and all locale files sorted               |
+| Production frontend build                       | passed with 4,467 modules transformed                                  |
+| Scoped Trunk and diff checks                    | passed after formatter and one test-helper typing correction           |
 
 The focused suite ran in the existing isolated development runner with
 `pytest -p no:env`, complete explicit database/Redis/auth settings, and
-`DB_HOST=romm-db-dev`. Writable and read-only fixture cases compare path, type,
-mode, size, SHA-256, and symlink identity while deliberately excluding atime.
+`DB_HOST=romm-db-dev` against the task-only
+`romm_test_0615_1786619730` database. The production-flow closure test removes a
+ROM from the catalog, proves detached save and state list usability, reconnects
+the ROM through a later scan, and compares the source manifest before and after.
+Writable and read-only fixture cases compare path, type, mode, size, SHA-256,
+and symlink identity while deliberately excluding atime.
 
-The long-running `romm-dev` service exposes separate backend and frontend bind
-mounts rather than the plan's required exact checkout-to-`/app` bind. The real
-generation and dialect gates therefore used the task-owned
-`romm-phase06-runner-0609` container, bound from this verified checkout to
-`/app` on the existing internal network. The harness used only loopback inside
-that runner, recorded its exact Uvicorn PID, used a uniquely named Node volume,
-and removed only task-owned process files and the volume.
+The controlled harness resolved `romm-dev` to the immutable approved image,
+modeled immutable image environment values plus the exact nonempty allowlist,
+and rejected configuration drift before start. Its disposable runner used the
+exact required name, ownership label, `/bin/sleep` entrypoint, `infinity`
+command, `romm_default` network, `1000:1000` user, read-only checkout bind,
+backend workdir, and no published ports. The mode-0600 environment file never
+printed values. Uvicorn ran as UID 1000 on loopback, generated types through a
+task-owned Node volume, and cleanup removed only the returned full container ID,
+owned environment file, and owned volume on success and failure.
+
+The approved immutable image required two disposable-runtime preparations: UID
+1000 needed execute traversal to the image-bundled Python under `/root`, and the
+validated absolute `ROMM_BASE_PATH` under `/app` needed an owned directory.
+Both changes occurred only inside the disposable runner before a default-user
+Python check and Uvicorn UID assertion. Redacted log-tail diagnostics replace
+every inherited or allowlisted environment value before reporting a startup
+failure.
+
+The authoritative verifier used uniquely named disposable MariaDB, MySQL, and
+PostgreSQL containers. It exercised pristine upgrade, seeded-0110 upgrade,
+restart persistence, expected downgrade refusal while durable lifecycle evidence
+existed, exact rollback, cleanup, downgrade, and re-upgrade. All verifier-owned
+containers exited and were removed.
+
+Warnings were recorded without weakening gates. The backend warnings were the
+existing short test auth-key warning, disabled pytest-env config warning,
+Alembic path-separator deprecation, and HTTP 422 constant deprecation. The first
+standalone frontend typecheck exhausted Node's default 2 GB heap; the required
+4096 MB rerun passed, matching the controlled harness. `npm ci` reported eight
+existing audit findings. Full tests and the build also emitted existing router,
+cache fallback, story accessibility TODO, Browserslist age, CSS pseudo-class,
+dependency eval, and bundle-size warnings. The production build still passed.
 
 No deployment, Team4s service, v1 route, Phase 7 UI, source mutation, published
 port, host networking, or fallback authority was introduced.

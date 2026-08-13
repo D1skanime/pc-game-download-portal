@@ -12,5 +12,7 @@ export type LegacyImpactConfirmationSchema_Input = {
     observed_mapping_version?: (number | null);
     reconnectable_catalog_count: number;
     unmatched_catalog_count: number;
+    source_fingerprint: string;
+    catalog_fingerprint: string;
     expires_at: string;
 };

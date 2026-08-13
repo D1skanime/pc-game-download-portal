@@ -151,9 +151,17 @@ class Phase6ContractHarness:
             for name in RUNNER_ENV_ALLOWLIST
         ):
             raise RuntimeError("Approved source environment is incomplete")
-        return image_id, {
+        selected_environment = {
             name: source_environment[name] for name in RUNNER_ENV_ALLOWLIST
         }
+        result = self.command(["docker", "image", "inspect", image_id], check=True)
+        image = _inspection(result.stdout, "Immutable runner image")
+        image_config = image.get("Config")
+        if not isinstance(image_config, dict):
+            raise RuntimeError("Immutable runner image configuration is incomplete")
+        expected_environment = _environment(image_config.get("Env"))
+        expected_environment.update(selected_environment)
+        return image_id, expected_environment
 
     def _write_env_file(self, environment: dict[str, str]) -> None:
         descriptor, raw_path = tempfile.mkstemp(
@@ -281,6 +289,43 @@ class Phase6ContractHarness:
             check=True,
         )
 
+    def _prepare_runtime(self) -> None:
+        if self.runner_container_id is None:
+            raise RuntimeError("Runner container was not created")
+        runtime_script = (
+            "set -eu; "
+            "chmod 0711 /root; "
+            'test -n "$ROMM_BASE_PATH"; '
+            'runtime_path="$(readlink -m -- "$ROMM_BASE_PATH")"; '
+            'case "$runtime_path" in /app/*) ;; *) exit 1 ;; esac; '
+            'test ! -L "$ROMM_BASE_PATH"; '
+            'mkdir -p -- "$runtime_path"; '
+            'chown 1000:1000 -- "$runtime_path"'
+        )
+        self.command(
+            [
+                "docker",
+                "exec",
+                "--user",
+                "0",
+                self.runner_container_id,
+                "sh",
+                "-lc",
+                runtime_script,
+            ],
+            check=True,
+        )
+        self.command(
+            [
+                "docker",
+                "exec",
+                self.runner_container_id,
+                "/app/.venv/bin/python",
+                "--version",
+            ],
+            check=True,
+        )
+
     def _launch_uvicorn(self) -> None:
         if self.runner_container_id is None:
             raise RuntimeError("Runner container was not created")
@@ -288,7 +333,8 @@ class Phase6ContractHarness:
             "set -eu; "
             "cd /repo/backend; "
             "ROMM_AUTH_SECRET_KEY=phase06-openapi-generation-only "
-            "nohup uv run uvicorn main:app "
+            f"UV_CACHE_DIR=/tmp/romm-phase06-uv-cache-{self.nonce} "
+            "nohup /app/.venv/bin/uvicorn main:app "
             f"--host 127.0.0.1 --port {self.port} --no-access-log "
             f">{self.log_file} 2>&1 & "
             "api_pid=$!; "
@@ -323,6 +369,8 @@ class Phase6ContractHarness:
 
         signature_check = (
             'pid="$0"; '
+            'grep -Eq "^Uid:[[:space:]]+1000([[:space:]]|$)" '
+            '"/proc/$pid/status"; '
             'test -r "/proc/$pid/cmdline"; '
             'tr "\\000" " " <"/proc/$pid/cmdline" '
             '| grep -Fq "uvicorn main:app --host 127.0.0.1 '
@@ -343,6 +391,30 @@ class Phase6ContractHarness:
         if result.returncode:
             raise RuntimeError("Uvicorn PID signature did not match")
 
+    def _redacted_log_tail(self) -> str:
+        if self.runner_container_id is None:
+            return "unavailable"
+        result = self.command(
+            [
+                "docker",
+                "exec",
+                self.runner_container_id,
+                "tail",
+                "-n",
+                "40",
+                self.log_file,
+            ],
+            check=False,
+        )
+        if result.returncode:
+            return "unavailable"
+        output = result.stdout
+        for value in self._runner_env.values():
+            if value:
+                output = output.replace(value, "<redacted>")
+        output = output.strip()
+        return output[-4000:] if output else "empty"
+
     def _wait_until_ready(self) -> None:
         if self.runner_container_id is None:
             raise RuntimeError("Runner container was not created")
@@ -359,7 +431,7 @@ class Phase6ContractHarness:
                     "docker",
                     "exec",
                     self.runner_container_id,
-                    "/repo/.venv/bin/python",
+                    "/app/.venv/bin/python",
                     "-c",
                     readiness_probe,
                 ],
@@ -368,9 +440,10 @@ class Phase6ContractHarness:
             if result.returncode == 0:
                 return
             self.sleeper(1)
+        redacted_log = self._redacted_log_tail()
         raise RuntimeError(
             f"OpenAPI server did not become ready after "
-            f"{self.readiness_attempts} attempts"
+            f"{self.readiness_attempts} attempts; redacted log tail:\n{redacted_log}"
         )
 
     def _run_generation(self) -> None:
@@ -450,6 +523,7 @@ class Phase6ContractHarness:
             self._inspect_runner(image_id)
             self._start_runner()
             self._create_volume()
+            self._prepare_runtime()
             self._launch_uvicorn()
             self._wait_until_ready()
             self._run_generation()
@@ -457,11 +531,53 @@ class Phase6ContractHarness:
             self.cleanup()
 
 
+def _locked_value(expected: str) -> Callable[[str], str]:
+    def validate(value: str) -> str:
+        if value != expected:
+            raise argparse.ArgumentTypeError(f"must be {expected}")
+        return value
+
+    return validate
+
+
+def _locked_checkout(value: str) -> Path:
+    checkout = Path(value).resolve()
+    if checkout != Path(__file__).resolve().parents[2]:
+        raise argparse.ArgumentTypeError("must be the current verified checkout")
+    return checkout
+
+
+def _locked_env_allowlist(value: str) -> tuple[str, ...]:
+    names = tuple(value.split(","))
+    if names != RUNNER_ENV_ALLOWLIST:
+        raise argparse.ArgumentTypeError(
+            "must be the exact Phase 6 environment allowlist"
+        )
+    return names
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Verify the Phase 6 generated frontend contract"
     )
-    parser.add_argument("--runner-container", required=True)
+    parser.add_argument("--source-container", required=True)
+    parser.add_argument("--checkout", required=True, type=_locked_checkout)
+    parser.add_argument(
+        "--expected-image",
+        required=True,
+        type=_locked_value(APPROVED_SOURCE_IMAGE_TAG),
+    )
+    parser.add_argument(
+        "--network", required=True, type=_locked_value(APPROVED_NETWORK)
+    )
+    parser.add_argument("--user", required=True, type=_locked_value("1000:1000"))
+    parser.add_argument("--entrypoint", required=True, type=_locked_value("/bin/sleep"))
+    parser.add_argument("--command", required=True, type=_locked_value("infinity"))
+    parser.add_argument(
+        "--env-allowlist",
+        required=True,
+        type=_locked_env_allowlist,
+    )
     parser.add_argument(
         "--port",
         type=int,
@@ -473,11 +589,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    checkout = Path(__file__).resolve().parents[2]
     harness = Phase6ContractHarness(
-        runner_container=args.runner_container,
+        runner_container=args.source_container,
         port=args.port,
-        checkout=checkout,
+        checkout=args.checkout,
     )
 
     def stop(signum: int, _frame: FrameType | None) -> None:

@@ -10,6 +10,7 @@ ENV_VALUES = {
     name: f"value-{index}"
     for index, name in enumerate(verifier.RUNNER_ENV_ALLOWLIST, start=1)
 }
+IMAGE_ENV_VALUES = {"PATH": "/usr/bin", "NVM_DIR": "/root/.nvm"}
 SOURCE_IMAGE_ID = "sha256:" + "b" * 64
 RUNNER_ID = "a" * 64
 
@@ -55,13 +56,12 @@ class FakeCommand:
         return inspection
 
     def _runner_inspection(self) -> dict[str, object]:
-        env_values = {}
+        env_values = dict(IMAGE_ENV_VALUES)
         if self.env_file is not None:
-            env_values = dict(
-                line.split("=", 1)
-                for line in self.env_file.read_text().splitlines()
-                if line
-            )
+            for line in self.env_file.read_text().splitlines():
+                if line:
+                    env_name, env_value = line.split("=", 1)
+                    env_values[env_name] = env_value
         inspection: dict[str, object] = {
             "Id": RUNNER_ID,
             "Name": f"/{self.runner_name}",
@@ -95,6 +95,8 @@ class FakeCommand:
     def _action(self, args: list[str]) -> str:
         if args[:3] == ["docker", "inspect", "romm-dev"]:
             return "source_inspect"
+        if args[:3] == ["docker", "image", "inspect"]:
+            return "image_inspect"
         if args[:2] == ["docker", "create"]:
             return "create"
         if args[:2] == ["docker", "inspect"] and args[-1] == RUNNER_ID:
@@ -118,6 +120,8 @@ class FakeCommand:
             "openapi.json" in part for part in args
         ):
             return "readiness"
+        if args[:3] == ["docker", "exec", RUNNER_ID] and "tail" in args:
+            return "log_read"
         if args[:3] == ["docker", "rm", "-f"]:
             return "remove"
         if args[:3] == ["docker", "volume", "create"]:
@@ -152,6 +156,19 @@ class FakeCommand:
             stdout = f"{self.checkout}\n"
         elif action == "source_inspect":
             stdout = json.dumps([self._source_inspection()])
+        elif action == "image_inspect":
+            stdout = json.dumps(
+                [
+                    {
+                        "Config": {
+                            "Env": [
+                                f"{name}={value}"
+                                for name, value in IMAGE_ENV_VALUES.items()
+                            ]
+                        }
+                    }
+                ]
+            )
         elif action == "create":
             assert self.env_file is not None
             self.env_file_mode = stat.S_IMODE(self.env_file.stat().st_mode)
@@ -168,6 +185,8 @@ class FakeCommand:
         elif action == "readiness":
             self.readiness_attempts += 1
             returncode = 0 if self.readiness_attempts >= self.ready_after else 1
+        elif action == "log_read":
+            stdout = f"startup failed with {ENV_VALUES['DB_PASSWD']}\n"
 
         result = subprocess.CompletedProcess(args, returncode, stdout, "")
         if check and returncode:
@@ -196,11 +215,37 @@ def _calls(command: FakeCommand, prefix: list[str]) -> list[list[str]]:
 
 
 def test_parser_locks_generation_to_phase6_loopback_port() -> None:
+    checkout = Path(verifier.__file__).resolve().parents[2]
+    required = [
+        "--source-container",
+        "romm-dev",
+        "--checkout",
+        str(checkout),
+        "--expected-image",
+        verifier.APPROVED_SOURCE_IMAGE_TAG,
+        "--network",
+        verifier.APPROVED_NETWORK,
+        "--user",
+        "1000:1000",
+        "--entrypoint",
+        "/bin/sleep",
+        "--command",
+        "infinity",
+        "--env-allowlist",
+        ",".join(verifier.RUNNER_ENV_ALLOWLIST),
+    ]
     parser = verifier.build_parser()
-    args = parser.parse_args(["--runner-container", "romm-dev"])
+    args = parser.parse_args(required)
     assert args.port == verifier.PHASE6_PORT
+    assert args.source_container == "romm-dev"
+    assert args.checkout == checkout
     with pytest.raises(SystemExit):
-        parser.parse_args(["--runner-container", "romm-dev", "--port", "3000"])
+        parser.parse_args([*required, "--port", "3000"])
+    for index in range(0, len(required), 2):
+        with pytest.raises(SystemExit):
+            parser.parse_args(required[:index] + required[index + 2 :])
+    with pytest.raises(SystemExit):
+        parser.parse_args([*required[:-1], "DB_HOST"])
 
 
 def test_harness_creates_inspects_and_removes_exact_owned_runner(
@@ -230,6 +275,29 @@ def test_harness_creates_inspects_and_removes_exact_owned_runner(
     assert command.env_file is not None and not command.env_file.exists()
     assert harness.runner_container_id == RUNNER_ID
     assert command.readiness_attempts == 2
+    launch = next(
+        call
+        for call in _calls(command, ["docker", "exec", RUNNER_ID])
+        if any("uvicorn main:app" in argument for argument in call)
+    )
+    assert "UV_CACHE_DIR=/tmp/romm-phase06-uv-cache-testnonce" in launch[-1]
+    runtime_setup = next(
+        call
+        for call in command.calls
+        if call[:6] == ["docker", "exec", "--user", "0", RUNNER_ID, "sh"]
+    )
+    assert "chmod 0711 /root" in runtime_setup[-1]
+    assert "readlink -m" in runtime_setup[-1]
+    assert 'case "$runtime_path" in /app/*)' in runtime_setup[-1]
+    assert 'test ! -L "$ROMM_BASE_PATH"' in runtime_setup[-1]
+    assert 'chown 1000:1000 -- "$runtime_path"' in runtime_setup[-1]
+    assert [
+        "docker",
+        "exec",
+        RUNNER_ID,
+        "/app/.venv/bin/python",
+        "--version",
+    ] in command.calls
 
     inspect_index = command.calls.index(["docker", "inspect", RUNNER_ID])
     start_index = command.calls.index(["docker", "start", RUNNER_ID])
@@ -343,6 +411,21 @@ def test_reused_pid_signature_mismatch_cleans_exact_container(
     with pytest.raises(RuntimeError, match="signature"):
         _harness(tmp_path, command).run()
 
+    assert _calls(command, ["docker", "rm", "-f"]) == [
+        ["docker", "rm", "-f", RUNNER_ID]
+    ]
+
+
+def test_readiness_failure_reports_only_redacted_log_and_cleans(
+    tmp_path: Path,
+) -> None:
+    command = FakeCommand(tmp_path, ready_after=99)
+
+    with pytest.raises(RuntimeError, match="redacted log tail") as error:
+        _harness(tmp_path, command).run()
+
+    assert ENV_VALUES["DB_PASSWD"] not in str(error.value)
+    assert "<redacted>" in str(error.value)
     assert _calls(command, ["docker", "rm", "-f"]) == [
         ["docker", "rm", "-f", RUNNER_ID]
     ]
