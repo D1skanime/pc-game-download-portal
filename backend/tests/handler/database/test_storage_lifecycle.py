@@ -706,7 +706,7 @@ def _seed_retained_reconnect(
         retained = RetainedCatalogIdentity(
             platform_id=platform.id,
             detached_rom_id=7000,
-            logical_path=f"{platform.fs_slug}/game.bin",
+            logical_path=platform.fs_slug,
             file_name="game.bin",
             crc_hash="a1b2c3d4",
             md5_hash="1" * 32,
@@ -719,8 +719,8 @@ def _seed_retained_reconnect(
                 RetainedCatalogIdentity(
                     platform_id=platform.id,
                     detached_rom_id=7001,
-                    logical_path=f"{platform.fs_slug}/game.bin",
-                    file_name="game-copy.bin",
+                    logical_path=platform.fs_slug,
+                    file_name="game.bin",
                     crc_hash="a1b2c3d4",
                     md5_hash="1" * 32,
                     sha1_hash="2" * 40,

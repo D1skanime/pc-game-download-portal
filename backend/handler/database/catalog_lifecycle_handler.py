@@ -320,3 +320,85 @@ class CatalogLifecycleHandler:
             )
             or 0
         )
+
+    @begin_session
+    def reconnect_retained_identity(
+        self,
+        *,
+        rom_id: int,
+        platform_id: int,
+        logical_path: str | None,
+        crc_hash: str | None,
+        md5_hash: str | None,
+        sha1_hash: str | None,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> RetainedCatalogIdentity | None:
+        """Atomically claim one strong retained identity for a durable ROM."""
+        from handler.database.roms_handler import normalize_catalog_logical_path
+
+        target = session.scalar(
+            select(Rom)
+            .where(Rom.id == rom_id, Rom.platform_id == platform_id)
+            .with_for_update(of=Rom)
+        )
+        if target is None:
+            return None
+
+        # Lock every candidate in a stable order. The locking read sees a
+        # concurrent winner's committed active_rom_id before evaluating it.
+        candidates = list(
+            session.scalars(
+                select(RetainedCatalogIdentity)
+                .where(RetainedCatalogIdentity.platform_id == platform_id)
+                .order_by(RetainedCatalogIdentity.id)
+                .with_for_update()
+            ).all()
+        )
+        detached = [row for row in candidates if row.active_rom_id is None]
+
+        selected: RetainedCatalogIdentity | None = None
+        if logical_path is not None:
+            normalized = normalize_catalog_logical_path(logical_path)
+            logical_matches = [
+                row
+                for row in detached
+                if normalize_catalog_logical_path(f"{row.logical_path}/{row.file_name}")
+                == normalized
+            ]
+            if len(logical_matches) == 1:
+                selected = logical_matches[0]
+            elif logical_matches:
+                return None
+
+        if selected is None:
+            if not (crc_hash and md5_hash and sha1_hash):
+                return None
+            hash_matches = [
+                row
+                for row in detached
+                if (
+                    row.crc_hash == crc_hash
+                    and row.md5_hash == md5_hash
+                    and row.sha1_hash == sha1_hash
+                )
+            ]
+            if len(hash_matches) != 1:
+                return None
+            selected = hash_matches[0]
+
+        for model in (Save, State, PlaySession):
+            session.execute(
+                update(model)
+                .where(
+                    model.retained_catalog_id == selected.id,
+                    model.rom_id.is_(None),
+                )
+                .values(rom_id=rom_id, retained_catalog_id=None)
+                .execution_options(synchronize_session=False)
+            )
+
+        selected.active_rom_id = rom_id
+        selected.version += 1
+        selected.reconnected_at = utc_now()
+        session.flush()
+        return selected

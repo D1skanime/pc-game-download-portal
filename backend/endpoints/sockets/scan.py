@@ -33,6 +33,7 @@ from handler.database import (
     db_rom_handler,
     db_storage_handler,
 )
+from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
 from handler.filesystem import (
     fs_firmware_handler,
     fs_platform_handler,
@@ -82,6 +83,7 @@ from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
+catalog_lifecycle_handler = CatalogLifecycleHandler()
 
 
 def _scan_platforms_func_name() -> str:
@@ -496,6 +498,16 @@ async def _identify_rom(
     )
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
+
+    if newly_added:
+        catalog_lifecycle_handler.reconnect_retained_identity(
+            rom_id=_added_rom.id,
+            platform_id=platform.id,
+            logical_path=f"{roms_path}/{fs_rom['fs_name']}",
+            crc_hash=fs_rom["crc_hash"],
+            md5_hash=fs_rom["md5_hash"],
+            sha1_hash=fs_rom["sha1_hash"],
+        )
 
     if _added_rom.is_identified:
         await socket_manager.emit(

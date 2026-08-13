@@ -253,6 +253,11 @@ def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
     return (rom_file.crc_hash, rom_file.md5_hash, rom_file.sha1_hash)
 
 
+def normalize_catalog_logical_path(path: str) -> str:
+    """Normalize catalog identity without weakening exact path matching."""
+    return path.replace("\\", "/").strip("/")
+
+
 def _cache_value_to_str(value: Any) -> str | None:
     if value is None:
         return None
@@ -2715,11 +2720,11 @@ class DBRomsHandler(DBBaseHandler):
             ).all()
         )
         if logical_path is not None:
-            normalized = logical_path.replace("\\", "/").strip("/")
+            normalized = normalize_catalog_logical_path(logical_path)
             logical_matches = [
                 row
                 for row in missing
-                if f"{row.fs_path}/{row.fs_name}".replace("\\", "/").strip("/")
+                if normalize_catalog_logical_path(f"{row.fs_path}/{row.fs_name}")
                 == normalized
             ]
             if len(logical_matches) == 1:

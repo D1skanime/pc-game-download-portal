@@ -392,3 +392,123 @@ def test_concurrent_removal_creates_one_retained_identity(
             )
         ).all()
         assert len(retained) == 1
+
+
+@pytest.mark.asyncio
+async def test_remove_then_production_scan_reconnects_retained_user_value(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from endpoints.sockets import scan as scan_module
+    from handler.filesystem.roms_handler import FSRom, ParsedRomFiles, ParsedTags
+    from handler.scan_handler import ScanType
+
+    dependencies = _seed_dependencies(rom, admin_user)
+    old_rom_id = rom.id
+    platform = rom.platform
+    logical_path = rom.fs_path
+    file_name = rom.fs_name
+    hashes = (rom.crc_hash, rom.md5_hash, rom.sha1_hash)
+
+    response = client.post(
+        "/api/roms/remove-from-catalog",
+        headers=_headers(access_token),
+        json={"rom_ids": [old_rom_id]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    monkeypatch.setattr(scan_module, "redis_client", Mock(get=Mock(return_value=None)))
+    monkeypatch.setattr(
+        scan_module.fs_rom_handler,
+        "parse_tags",
+        Mock(
+            return_value=ParsedTags(
+                version="", revision="", regions=[], languages=[], other_tags=[]
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        scan_module.fs_rom_handler,
+        "get_roms_fs_structure",
+        Mock(return_value=logical_path),
+    )
+    monkeypatch.setattr(
+        scan_module.fs_rom_handler,
+        "get_file_name_with_no_tags",
+        Mock(return_value=rom.name),
+    )
+    monkeypatch.setattr(
+        scan_module.fs_rom_handler,
+        "get_rom_files",
+        AsyncMock(
+            return_value=ParsedRomFiles(
+                rom_files=[],
+                crc_hash=hashes[0],
+                md5_hash=hashes[1],
+                sha1_hash=hashes[2],
+                ra_hash="",
+            )
+        ),
+    )
+    config = Mock(SKIP_HASH_CALCULATION=False)
+    monkeypatch.setattr(scan_module.cm, "get_config", Mock(return_value=config))
+
+    async def scan_without_external_metadata(**kwargs):
+        scanned = kwargs["rom"]
+        scanned.crc_hash, scanned.md5_hash, scanned.sha1_hash = hashes
+        return scanned
+
+    monkeypatch.setattr(
+        scan_module, "scan_rom", AsyncMock(side_effect=scan_without_external_metadata)
+    )
+
+    fs_rom: FSRom = {
+        "fs_name": file_name,
+        "flat": True,
+        "nested": False,
+        "files": [],
+        "crc_hash": "",
+        "md5_hash": "",
+        "sha1_hash": "",
+        "ra_hash": "",
+    }
+    await scan_module._identify_rom(
+        platform=platform,
+        fs_rom=fs_rom,
+        rom=None,
+        scan_type=ScanType.HASHES,
+        roms_ids=[],
+        metadata_sources=[],
+        launchbox_remote_enabled=False,
+        playmatch_enabled=False,
+        socket_manager=AsyncMock(),
+        scan_stats=AsyncMock(),
+    )
+
+    with sync_session() as session:
+        reconnected = session.scalar(
+            select(Rom).where(
+                Rom.platform_id == platform.id,
+                Rom.fs_name == file_name,
+            )
+        )
+        retained = session.scalar(
+            select(RetainedCatalogIdentity).where(
+                RetainedCatalogIdentity.detached_rom_id == old_rom_id
+            )
+        )
+        assert reconnected is not None and reconnected.id != old_rom_id
+        assert retained is not None and retained.active_rom_id == reconnected.id
+        for model, key in (
+            (Save, "save"),
+            (State, "state"),
+            (PlaySession, "play_session"),
+        ):
+            row = session.get(model, dependencies[key])
+            assert (row.rom_id, row.retained_catalog_id) == (
+                reconnected.id,
+                None,
+            )
