@@ -1,7 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
-import type { Platform } from "@/stores/platforms";
 import Upload from "./Upload.vue";
 
 const { getSupportedPlatforms, uploadPlatform, uploadRoms } = vi.hoisted(
@@ -56,47 +54,9 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   }),
 }));
 
-function platform(overrides: Partial<Platform>): Platform {
-  return {
-    id: -1,
-    slug: "platform",
-    fs_slug: "platform",
-    rom_count: 0,
-    name: "Platform",
-    igdb_slug: null,
-    moby_slug: null,
-    hltb_slug: null,
-    libretro_slug: null,
-    created_at: "",
-    updated_at: "",
-    fs_size_bytes: 0,
-    is_unidentified: false,
-    is_identified: true,
-    missing_from_fs: true,
-    display_name: "Platform",
-    firmware_count: 0,
-    ...overrides,
-  };
-}
-
-describe("Upload platform selection", () => {
-  it("uses the unique slug when unsupported platforms share sentinel id -1", async () => {
-    const threeDo = platform({
-      slug: "3do",
-      fs_slug: "3do",
-      name: "3DO Interactive Multiplayer",
-      display_name: "3DO Interactive Multiplayer",
-    });
-    const zx80 = platform({
-      slug: "zx80",
-      fs_slug: "zx80",
-      name: "ZX80",
-      display_name: "ZX80",
-    });
-    getSupportedPlatforms.mockResolvedValueOnce({ data: [zx80, threeDo] });
-    uploadPlatform.mockResolvedValueOnce({ data: { ...threeDo, id: 123 } });
-    uploadRoms.mockResolvedValueOnce([{ status: "fulfilled" }]);
-
+describe("source-read-only upload route", () => {
+  it("renders no upload, platform creation, dropzone, or file control", async () => {
+    getSupportedPlatforms.mockResolvedValueOnce({ data: [] });
     const wrapper = mount(Upload, {
       global: {
         stubs: {
@@ -124,20 +84,11 @@ describe("Upload platform selection", () => {
     });
 
     await flushPromises();
-    expect(wrapper.get(".platform-select").attributes("data-item-key")).toBe(
-      "slug",
-    );
-
-    await wrapper.get(".platform-select").trigger("click");
-    await wrapper.get(".dropzone").trigger("click");
-    await nextTick();
-    await wrapper.get(".upload").trigger("click");
-    await flushPromises();
-
-    expect(uploadPlatform).toHaveBeenCalledWith({ fsSlug: "3do" });
-    expect(uploadRoms).toHaveBeenCalledWith({
-      platformId: 123,
-      filesToUpload: [expect.objectContaining({ name: "game.rom" })],
-    });
+    expect(wrapper.find(".platform-select").exists()).toBe(false);
+    expect(wrapper.find(".dropzone").exists()).toBe(false);
+    expect(wrapper.find(".upload").exists()).toBe(false);
+    expect(wrapper.find('input[type="file"]').exists()).toBe(false);
+    expect(uploadPlatform).not.toHaveBeenCalled();
+    expect(uploadRoms).not.toHaveBeenCalled();
   });
 });

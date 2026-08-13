@@ -1,31 +1,54 @@
 import { flushPromises, shallowMount } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { computed, ref } from "vue";
+import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
+import SetupStepPlatforms from "@/v2/components/Auth/SetupStepPlatforms.vue";
 import FilesTab from "@/v2/components/GameDetails/FilesTab/FilesTab.vue";
 import ManualSubtab from "@/v2/components/GameDetails/ManualSubtab.vue";
 import MediaTab from "@/v2/components/GameDetails/MediaTab.vue";
+import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
 import ScreenshotsSubtab from "@/v2/components/GameDetails/ScreenshotsSubtab.vue";
+import SettingsSidebar from "@/v2/components/Settings/SettingsSidebar.vue";
+import Setup from "@/v2/views/Auth/Setup.vue";
+import Home from "@/v2/views/Home.vue";
 
 const mocks = vi.hoisted(() => ({
   uploadManuals: vi.fn(),
   uploadGalleryScreenshots: vi.fn(),
   deleteScreenshot: vi.fn(),
   setScreenshotVisibility: vi.fn(),
+  createPlatforms: vi.fn(),
+  createUser: vi.fn(),
 }));
 
 vi.mock("pinia", async (importOriginal) => {
   const actual = await importOriginal<typeof import("pinia")>();
   return {
     ...actual,
-    storeToRefs: (store: { user: unknown }) => ({ user: ref(store.user) }),
+    storeToRefs: (store: Record<string, unknown>) =>
+      Object.fromEntries(
+        Object.entries(store)
+          .filter(([, value]) => typeof value !== "function")
+          .map(([key, value]) => [key, ref(value)]),
+      ),
   };
 });
 
 vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock("vue-router", () => ({
-  useRoute: () => ({ params: { platform: "pc" }, path: "/pc/game", query: {} }),
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-}));
+vi.mock("vue-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("vue-router")>();
+  return {
+    ...actual,
+    useRoute: () => ({
+      params: { platform: "pc" },
+      path: "/pc/game",
+      query: {},
+    }),
+    useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  };
+});
 vi.mock("@/v2/composables/useCan", () => ({
   useCan: () => computed(() => true),
 }));
@@ -52,14 +75,83 @@ vi.mock("@/services/api/screenshot", () => ({
     setScreenshotVisibility: mocks.setScreenshotVisibility,
   },
 }));
+vi.mock("@/services/api/setup", () => ({
+  default: {
+    getLibraryInfo: vi.fn().mockResolvedValue({
+      data: {
+        detected_structure: "structure_a",
+        existing_platforms: [],
+        supported_platforms: [],
+      },
+    }),
+    createPlatforms: mocks.createPlatforms,
+  },
+}));
 vi.mock("@/stores/roms", () => ({
-  default: () => ({ update: vi.fn(), currentRom: null }),
+  default: () => ({
+    update: vi.fn(),
+    currentRom: null,
+    recentRoms: [],
+    continuePlayingRoms: [],
+    fetchRecentRoms: vi.fn().mockResolvedValue(undefined),
+    fetchContinuePlayingRoms: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+vi.mock("@/stores/platforms", () => ({
+  default: () => ({
+    allPlatforms: [],
+    filledPlatforms: [],
+    fetchingPlatforms: false,
+    fetchPlatforms: vi.fn(),
+  }),
+}));
+vi.mock("@/stores/collections", () => ({
+  default: () => ({
+    allCollections: [],
+    smartCollections: [],
+    virtualCollections: [],
+    favoriteCollection: null,
+    fetchingCollections: false,
+    fetchingSmartCollections: false,
+    fetchingVirtualCollections: false,
+    fetchCollections: vi.fn(),
+    fetchSmartCollections: vi.fn(),
+    fetchVirtualCollections: vi.fn(),
+  }),
 }));
 vi.mock("@/stores/upload", () => ({ default: () => ({ reset: vi.fn() }) }));
-vi.mock("@/stores/auth", () => ({ default: () => ({ user: { id: 11 } }) }));
+vi.mock("@/stores/auth", () => ({
+  default: () => ({
+    user: { id: 11 },
+    scopes: ["me.write", "platforms.write", "roms.write"],
+  }),
+}));
+vi.mock("@/stores/heartbeat", () => ({
+  default: () => ({ value: { FRONTEND: { DISABLE_LOGS_VIEWER: false } } }),
+}));
+vi.mock("@/composables/useUISettings", () => ({
+  useUISettings: () => ({
+    showHomeWidgets: ref(false),
+    showRecentRoms: ref(false),
+    showContinuePlaying: ref(false),
+    showPlatforms: ref(false),
+    showCollections: ref(false),
+    showSmartCollections: ref(false),
+    showVirtualCollections: ref(false),
+    virtualCollectionType: ref("recent"),
+  }),
+}));
+vi.mock("@/v2/composables/useGridNav", () => ({ useGridNav: vi.fn() }));
+vi.mock("@/v2/composables/useWebpSupport", () => ({
+  useWebpSupport: () => ({
+    supportsWebp: ref(false),
+    toWebp: (value: string) => value,
+  }),
+}));
 vi.mock("@/utils", () => ({
   FRONTEND_RESOURCES_PATH: "/resources",
   getDownloadLink: vi.fn(() => "/download"),
+  formatBytes: vi.fn((value: number) => String(value)),
 }));
 
 const rom = {
@@ -181,5 +273,138 @@ describe("maximum-grant source mutation controls", () => {
     await flushPromises();
     expect(media.findAll("[data-dropzone]")).toHaveLength(0);
     expect(media.html()).not.toContain("common.upload");
+  });
+});
+
+const routeStub = {
+  props: ["to"],
+  template: '<a :data-route="to && to.name"><slot /></a>',
+};
+
+function source(path: string) {
+  return readFileSync(resolve(process.cwd(), path), "utf8");
+}
+
+describe("external source mutation authority inventory", () => {
+  it("renders no upload route in Settings under maximum grants", () => {
+    const wrapper = shallowMount(SettingsSidebar, {
+      global: {
+        stubs: {
+          RouterLink: routeStub,
+          RChip: true,
+          RIcon: true,
+        },
+      },
+    });
+
+    expect(wrapper.find('[data-route="upload"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("common.upload-roms");
+  });
+
+  it("renders the empty Home without an upload route", async () => {
+    const wrapper = shallowMount(Home, {
+      global: {
+        stubs: {
+          RouterLink: routeStub,
+          RChip: true,
+          RDivider: true,
+          RIcon: true,
+          RSkeletonBlock: true,
+        },
+      },
+    });
+
+    await flushPromises();
+    expect(wrapper.find('[data-route="upload"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("common.upload-roms");
+  });
+
+  it("renders detected setup state without platform creation selection", () => {
+    const wrapper = shallowMount(SetupStepPlatforms, {
+      props: {
+        libraryInfo: {
+          detected_structure: "structure_a",
+          existing_platforms: [{ fs_slug: "pc", rom_count: 2 }],
+          supported_platforms: [
+            {
+              id: 1,
+              slug: "pc",
+              fs_slug: "pc",
+              name: "PC",
+              display_name: "PC",
+            },
+          ],
+        },
+        selectedNewPlatforms: [],
+      },
+      global: {
+        stubs: {
+          RCheckbox: {
+            template: '<input data-platform-create type="checkbox" />',
+          },
+        },
+      },
+    });
+
+    expect(wrapper.find("[data-platform-create]").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("setup.select-platforms");
+  });
+
+  it("removes upload and creation services without replacing them with raw clients", () => {
+    const files = {
+      rom: source("src/services/api/rom.ts"),
+      platform: source("src/services/api/platform.ts"),
+      setup: source("src/services/api/setup.ts"),
+      upload: source("src/v2/views/Upload.vue"),
+      setupView: source("src/v2/views/Auth/Setup.vue"),
+      platformView: source("src/v2/views/Gallery/Platform.vue"),
+      userMenu: source("src/v2/components/AppShell/UserMenu.vue"),
+    };
+
+    expect(files.rom).not.toMatch(/\buploadRoms\b/);
+    expect(files.platform).not.toMatch(/\buploadPlatform\b/);
+    expect(files.setup).not.toMatch(/\bcreatePlatforms\b/);
+    expect(files.upload).not.toMatch(/api\.(post|put|patch|delete)\s*\(/);
+    expect(files.setupView).not.toMatch(/createPlatforms|selectedNewPlatforms/);
+    expect(files.platformView).not.toContain("ROUTES.UPLOAD");
+    expect(files.userMenu).not.toContain("ROUTES.UPLOAD");
+  });
+
+  it("classifies the retained raw patch call by method, route, and authority", () => {
+    const patcher = source("src/v2/components/GameDetails/PatcherTab.vue");
+    const endpoint = source("../backend/endpoints/roms/patch.py");
+    const inventory = [
+      {
+        method: "POST",
+        route: "/roms/{id}/patch",
+        input: "READ/external",
+        output: "PATCH/TEMP",
+      },
+    ];
+
+    expect(patcher).toMatch(
+      /api\.post\(\s*`\/roms\/\$\{selectedRomFile\.value\.id\}\/patch`/,
+    );
+    expect(endpoint).toContain(
+      "StorageOperation.READ, legacy_external_storage",
+    );
+    expect(endpoint).toContain("StorageOperation.PATCH");
+    expect(endpoint).toContain("OwnedStorageKind.TEMP");
+    expect(inventory).toEqual([
+      expect.objectContaining({
+        method: "POST",
+        route: "/roms/{id}/patch",
+        input: "READ/external",
+        output: "PATCH/TEMP",
+      }),
+    ]);
+  });
+
+  it("keeps only local browser download on the patch surface", () => {
+    const patcher = source("src/v2/components/GameDetails/PatcherTab.vue");
+    expect(patcher).not.toMatch(
+      /saveIntoRomM|uploadRoms|scanPlatform|platformId/,
+    );
+    expect(patcher).toMatch(/URL\.createObjectURL|downloadPatchedFile/);
   });
 });
