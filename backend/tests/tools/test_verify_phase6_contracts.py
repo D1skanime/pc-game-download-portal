@@ -15,6 +15,17 @@ SOURCE_IMAGE_ID = "sha256:" + "b" * 64
 RUNNER_ID = "a" * 64
 
 
+class FailOnceUnlink:
+    def __init__(self) -> None:
+        self.calls: list[Path] = []
+
+    def __call__(self, path: Path) -> None:
+        self.calls.append(path)
+        if len(self.calls) == 1:
+            raise OSError(f"failure {ENV_VALUES['DB_PASSWD']}")
+        path.unlink(missing_ok=True)
+
+
 class FakeCommand:
     def __init__(
         self,
@@ -26,6 +37,8 @@ class FakeCommand:
         pid_signature_valid: bool = True,
         ready_after: int = 1,
         fail_action: str | None = None,
+        fail_actions_once: set[str] | None = None,
+        already_absent_actions: set[str] | None = None,
     ) -> None:
         self.checkout = checkout
         self.source_overrides = source_overrides or {}
@@ -34,6 +47,9 @@ class FakeCommand:
         self.pid_signature_valid = pid_signature_valid
         self.ready_after = ready_after
         self.fail_action = fail_action
+        self.fail_actions_once = fail_actions_once or set()
+        self.already_absent_actions = already_absent_actions or set()
+        self.action_calls: dict[str, int] = {}
         self.readiness_attempts = 0
         self.calls: list[list[str]] = []
         self.env_file: Path | None = None
@@ -135,6 +151,24 @@ class FakeCommand:
     ) -> subprocess.CompletedProcess[str]:
         self.calls.append(args)
         action = self._action(args)
+        self.action_calls[action] = self.action_calls.get(action, 0) + 1
+        if action in self.fail_actions_once and self.action_calls[action] == 1:
+            result = subprocess.CompletedProcess(
+                args, 1, "", f"failure {ENV_VALUES['DB_PASSWD']}"
+            )
+            if check:
+                raise subprocess.CalledProcessError(
+                    1, args, output=result.stdout, stderr=result.stderr
+                )
+            return result
+        if action in self.already_absent_actions:
+            subject = "container" if action == "remove" else "volume"
+            return subprocess.CompletedProcess(
+                args,
+                1,
+                "",
+                f"Error response from daemon: No such {subject}: exact-id",
+            )
         if action == "create":
             self.runner_name = args[args.index("--name") + 1]
             label = args[args.index("--label") + 1]
@@ -197,8 +231,9 @@ class FakeCommand:
 def _harness(
     checkout: Path,
     command: FakeCommand,
+    unlinker=None,
 ) -> verifier.Phase6ContractHarness:
-    return verifier.Phase6ContractHarness(
+    kwargs = dict(
         runner_container="romm-dev",
         port=verifier.PHASE6_PORT,
         checkout=checkout,
@@ -208,6 +243,9 @@ def _harness(
         sleeper=lambda _: None,
         readiness_attempts=3,
     )
+    if unlinker is not None:
+        kwargs["unlinker"] = unlinker
+    return verifier.Phase6ContractHarness(**kwargs)
 
 
 def _calls(command: FakeCommand, prefix: list[str]) -> list[list[str]]:
@@ -465,3 +503,128 @@ def test_cleanup_is_idempotent_and_never_uses_name_pid_or_label_lookup(
     assert not any(
         call[:2] == ["docker", "ps"] or "kill" in call for call in command.calls
     )
+
+
+@pytest.mark.parametrize(
+    ("failed_action", "expected_after_first", "expected_calls"),
+    (
+        (
+            "remove",
+            (True, False, True),
+            {"remove": 1, "volume_remove": 1},
+        ),
+        (
+            "volume_remove",
+            (False, True, True),
+            {"remove": 1, "volume_remove": 1},
+        ),
+    ),
+)
+def test_cleanup_retries_only_the_failed_exact_docker_resource(
+    tmp_path: Path,
+    failed_action: str,
+    expected_after_first: tuple[bool, bool, bool],
+    expected_calls: dict[str, int],
+) -> None:
+    command = FakeCommand(tmp_path, fail_actions_once={failed_action})
+    harness = _harness(tmp_path, command)
+
+    with pytest.raises(RuntimeError) as error:
+        harness.run()
+
+    assert ENV_VALUES["DB_PASSWD"] not in str(error.value)
+    assert (
+        harness.runner_container_id is not None,
+        harness._volume_created,
+        harness._env_file is not None,
+    ) == expected_after_first
+    assert harness._cleaned is False
+    assert {
+        action: command.action_calls[action] for action in expected_calls
+    } == expected_calls
+
+    harness.cleanup()
+
+    assert harness.runner_container_id is None
+    assert harness._volume_created is False
+    assert harness._env_file is None
+    assert harness._cleaned is True
+    assert command.action_calls[failed_action] == 2
+    successful_action = "volume_remove" if failed_action == "remove" else "remove"
+    assert command.action_calls[successful_action] == 1
+
+
+def test_cleanup_retries_only_a_failed_environment_unlink(
+    tmp_path: Path,
+) -> None:
+    command = FakeCommand(tmp_path)
+    unlinker = FailOnceUnlink()
+    harness = _harness(tmp_path, command, unlinker=unlinker)
+
+    with pytest.raises(RuntimeError) as error:
+        harness.run()
+
+    assert ENV_VALUES["DB_PASSWD"] not in str(error.value)
+    assert harness.runner_container_id is None
+    assert harness._volume_created is False
+    assert harness._env_file is not None
+    assert harness._cleaned is False
+    assert len(unlinker.calls) == 1
+
+    harness.cleanup()
+
+    assert harness._env_file is None
+    assert harness._cleaned is True
+    assert len(unlinker.calls) == 2
+    assert command.action_calls["remove"] == 1
+    assert command.action_calls["volume_remove"] == 1
+
+
+def test_cleanup_aggregates_bounded_failures_then_retries_all_owned_resources(
+    tmp_path: Path,
+) -> None:
+    command = FakeCommand(
+        tmp_path,
+        fail_actions_once={"remove", "volume_remove"},
+    )
+    unlinker = FailOnceUnlink()
+    harness = _harness(tmp_path, command, unlinker=unlinker)
+
+    with pytest.raises(RuntimeError) as error:
+        harness.run()
+
+    message = str(error.value)
+    assert ENV_VALUES["DB_PASSWD"] not in message
+    assert "runner container" in message
+    assert "Node volume" in message
+    assert "runner environment" in message
+    assert harness.runner_container_id == RUNNER_ID
+    assert harness._volume_created is True
+    assert harness._env_file is not None
+    assert harness._cleaned is False
+
+    harness.cleanup()
+
+    assert harness._cleaned is True
+    assert command.action_calls["remove"] == 2
+    assert command.action_calls["volume_remove"] == 2
+    assert len(unlinker.calls) == 2
+
+
+def test_cleanup_treats_explicitly_absent_docker_resources_as_complete(
+    tmp_path: Path,
+) -> None:
+    command = FakeCommand(
+        tmp_path,
+        already_absent_actions={"remove", "volume_remove"},
+    )
+    harness = _harness(tmp_path, command)
+
+    harness.run()
+
+    assert harness.runner_container_id is None
+    assert harness._volume_created is False
+    assert harness._env_file is None
+    assert harness._cleaned is True
+    assert command.action_calls["remove"] == 1
+    assert command.action_calls["volume_remove"] == 1
