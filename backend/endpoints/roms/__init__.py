@@ -2072,8 +2072,14 @@ async def remove_roms_from_catalog(
         )
 
     if removed_ids:
-        db_rom_handler.invalidate_filter_values_cache()
-        refresh_affected_smart_collections(removed_ids)
+        try:
+            db_rom_handler.invalidate_filter_values_cache()
+        except Exception:
+            log.error("Catalog removal filter cache invalidation failed after commit")
+        try:
+            refresh_affected_smart_collections(removed_ids)
+        except Exception:
+            log.error("Catalog removal smart collection refresh failed after commit")
 
     return CatalogRemovalResponse(
         successful_items=len(removed_ids),
