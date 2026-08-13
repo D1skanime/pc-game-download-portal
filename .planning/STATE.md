@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-20-PLAN.md
-last_updated: "2026-08-13T17:22:21.361Z"
+stopped_at: Completed
+last_updated: "2026-08-13T17:49:58.515Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 61
-  completed_plans: 54
+  completed_plans: 55
   percent: 56
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 3 of 26
+Plan: 4 of 26
 Status: Ready to execute
 Last activity: 2026-08-13
 
@@ -92,6 +92,7 @@ _Updated after each plan completion_
 | Phase 06 P15 | 51m | 2 tasks | 6 files |
 | Phase 06 P19 | 12m | 1 tasks | 5 files |
 | Phase 06 P20 | 19m18s | 2 tasks | 5 files |
+| Phase 06 P22 | 18m | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -192,6 +193,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Every durably persisted scan result attempts retained identity reconnection, including an already-existing exact ROM match. — A separately durable idempotent reconnect lets a later scan repair post-insert failure without weak identity or source authority.
 - [Phase 06]: Use fingerprint_refresh_required as the exact reversible marker for pre-0112 selectable rows. — This invalidates only fingerprintless selectable rows before constraints and lets downgrade restore only rows without later durable evidence.
 - [Phase 06]: Cap HASH by the lesser of per-file allowance and aggregate remaining bytes. — Both descriptor failures and returned byte overages must be classified against the limiting budget before progress is recorded.
+- [Phase 06]: Retain cleanup ownership independently until exact removal or explicitly classified absence succeeds. - This preserves safe retry semantics without repeating successful resource removals.
+- [Phase 06]: Require live ROM ownership for screenshots while save and state remain detachable. - This matches response and generated contracts to the persistence lifecycle each asset supports.
 
 ### Blockers/Concerns
 
@@ -209,6 +212,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T17:22:21.357Z
-Stopped at: Completed 06-20-PLAN.md
+Last session: 2026-08-13T17:49:58.512Z
+Stopped at: Completed
 Resume file: None
