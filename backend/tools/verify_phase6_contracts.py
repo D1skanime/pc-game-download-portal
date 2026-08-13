@@ -38,6 +38,7 @@ RUNNER_ENV_ALLOWLIST = (
 )
 
 Command = Callable[[list[str]], subprocess.CompletedProcess[str]]
+Unlinker = Callable[[Path], None]
 
 
 def _command(
@@ -49,6 +50,14 @@ def _command(
         capture_output=True,
         text=True,
     )
+
+
+def _unlink(path: Path) -> None:
+    path.unlink(missing_ok=True)
+
+
+def _docker_resource_absent(result: subprocess.CompletedProcess[str]) -> bool:
+    return "No such container:" in result.stderr or "No such volume:" in result.stderr
 
 
 def _inspection(stdout: str, subject: str) -> dict[str, Any]:
@@ -89,6 +98,7 @@ class Phase6ContractHarness:
         default=_command,
         repr=False,
     )
+    unlinker: Unlinker = field(default=_unlink, repr=False)
     sleeper: Callable[[float], None] = field(default=time.sleep, repr=False)
     readiness_attempts: int = 60
     uvicorn_pid: int | None = field(default=None, init=False)
@@ -486,33 +496,39 @@ class Phase6ContractHarness:
     def cleanup(self) -> None:
         if self._cleaned:
             return
-        self._cleaned = True
-        cleanup_error: RuntimeError | None = None
+        cleanup_errors: list[str] = []
         if self.runner_container_id is not None:
             result = self.command(
                 ["docker", "rm", "-f", self.runner_container_id],
                 check=False,
             )
-            if result.returncode:
-                cleanup_error = RuntimeError("Failed to remove owned runner container")
+            if result.returncode and not _docker_resource_absent(result):
+                cleanup_errors.append("runner container")
+            else:
+                self.runner_container_id = None
         if self._volume_created:
             result = self.command(
                 ["docker", "volume", "rm", self.node_volume],
                 check=False,
             )
-            self._volume_created = False
-            if result.returncode and cleanup_error is None:
-                cleanup_error = RuntimeError("Failed to remove owned Node volume")
+            if result.returncode and not _docker_resource_absent(result):
+                cleanup_errors.append("Node volume")
+            else:
+                self._volume_created = False
         if self._env_file is not None:
             try:
-                self._env_file.unlink(missing_ok=True)
+                self.unlinker(self._env_file)
             except OSError:
-                if cleanup_error is None:
-                    cleanup_error = RuntimeError(
-                        "Failed to remove owned runner environment"
-                    )
-        if cleanup_error is not None:
-            raise cleanup_error
+                cleanup_errors.append("runner environment")
+            else:
+                self._env_file = None
+        self._cleaned = (
+            self.runner_container_id is None
+            and not self._volume_created
+            and self._env_file is None
+        )
+        if cleanup_errors:
+            raise RuntimeError("Failed to remove owned " + ", ".join(cleanup_errors))
 
     def run(self) -> None:
         try:

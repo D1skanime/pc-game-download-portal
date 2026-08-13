@@ -311,7 +311,7 @@ def test_harness_creates_inspects_and_removes_exact_owned_runner(
     assert "-p" not in create and "--publish" not in create
     assert command.env_file_mode == 0o600
     assert command.env_file is not None and not command.env_file.exists()
-    assert harness.runner_container_id == RUNNER_ID
+    assert harness.runner_container_id is None
     assert command.readiness_attempts == 2
     launch = next(
         call
@@ -510,12 +510,12 @@ def test_cleanup_is_idempotent_and_never_uses_name_pid_or_label_lookup(
     (
         (
             "remove",
-            (True, False, True),
+            (True, False, False),
             {"remove": 1, "volume_remove": 1},
         ),
         (
             "volume_remove",
-            (False, True, True),
+            (False, True, False),
             {"remove": 1, "volume_remove": 1},
         ),
     ),
