@@ -122,6 +122,12 @@ class LegacyImpactConfirmationSchema(BaseModel):
     observed_mapping_version: int | None = Field(default=None, gt=0)
     reconnectable_catalog_count: int = Field(ge=0)
     unmatched_catalog_count: int = Field(ge=0)
+    source_fingerprint: str = Field(
+        min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$"
+    )
+    catalog_fingerprint: str = Field(
+        min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$"
+    )
     expires_at: UTCDatetime
 
 

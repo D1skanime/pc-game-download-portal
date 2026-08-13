@@ -84,6 +84,8 @@ class LegacyImpactConfirmation:
     observed_mapping_version: int | None
     reconnectable_catalog_count: int
     unmatched_catalog_count: int
+    source_fingerprint: str
+    catalog_fingerprint: str
     expires_at: datetime
 
 
@@ -286,7 +288,7 @@ def _inspect_candidate(
                         deadline_monotonic=deadline_monotonic,
                         monotonic=monotonic,
                     )
-                except DescriptorHashError:
+                except (DescriptorHashError, StorageResolutionError):
                     return _CandidateObservation(
                         relative_path,
                         True,
@@ -395,6 +397,18 @@ def detect_legacy_storage(
             per_file_byte_budget=per_file_byte_budget,
             aggregate_byte_budget=aggregate_byte_budget,
         )
+        if observation.safe_problem_code == "time_budget":
+            return LegacyDetectionOutcome(
+                platform_id,
+                storage_root_id,
+                observation.state or LegacyDetectionState.DETECTED.value,
+                observation.relative_path,
+                observation.observed_files,
+                observation.observed_bytes,
+                observation.lower_bound,
+                False,
+                observation.safe_problem_code,
+            )
         if observation.state == LegacyDetectionState.UNREACHABLE.value:
             return LegacyDetectionOutcome(
                 platform_id,

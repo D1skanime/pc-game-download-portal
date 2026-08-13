@@ -48,6 +48,7 @@ OWNED_STORAGE_PATHS: Mapping[OwnedStorageKind, Path] = MappingProxyType(
 class StorageCompositionConfig:
     library_base_path: Path
     owned_paths: Mapping[OwnedStorageKind, Path]
+    legacy_external_root_id: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +86,9 @@ def build_storage_composition(
         (str(path) for path in owned_paths.values()),
     )
 
-    external = _create_external_descriptor(0, external_path)
+    external = _create_external_descriptor(
+        trusted_config.legacy_external_root_id, external_path
+    )
     owned = MappingProxyType(
         {
             kind: _create_bound_owned_descriptor(kind, kind.value, path)

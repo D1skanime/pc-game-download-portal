@@ -4,7 +4,7 @@ import hashlib
 import struct
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select, update
@@ -21,9 +21,11 @@ from handler.database.base_handler import DBBaseHandler
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.storage import (
+    LegacyCatalogEntityKind,
     LegacyDetectionResult,
     LegacyDetectionState,
     LegacyMigration,
+    LegacyMigrationCatalogChange,
     LegacyMigrationState,
     PlatformStorageMapping,
     StorageMappingAuditAction,
@@ -376,6 +378,47 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         return reconnectable, unsafe + ambiguous, tuple(problems)
 
     @staticmethod
+    def _lock_catalog(
+        session: Session, platform_id: int
+    ) -> tuple[list[Rom], list[RomFile]]:
+        roms = list(
+            session.scalars(
+                select(Rom)
+                .where(Rom.platform_id == platform_id)
+                .order_by(Rom.id)
+                .with_for_update(of=Rom)
+            ).all()
+        )
+        rom_ids = [rom.id for rom in roms]
+        files = (
+            list(
+                session.scalars(
+                    select(RomFile)
+                    .where(RomFile.rom_id.in_(rom_ids))
+                    .order_by(RomFile.id)
+                    .with_for_update(of=RomFile)
+                ).all()
+            )
+            if rom_ids
+            else []
+        )
+        return roms, files
+
+    @staticmethod
+    def _reconnectable_catalog_ids(roms: list[Rom]) -> set[int]:
+        from handler.filesystem.storage_resolver import normalize_relative_path
+
+        identities: dict[str, list[int]] = {}
+        for rom in roms:
+            logical = "/".join(part for part in (rom.fs_path, rom.fs_name) if part)
+            try:
+                logical = normalize_relative_path(logical)
+            except StorageResolutionError:
+                continue
+            identities.setdefault(logical, []).append(rom.id)
+        return {matches[0] for matches in identities.values() if len(matches) == 1}
+
+    @staticmethod
     def _catalog_fingerprint(session: Session, platform_id: int) -> str:
         rom_rows = session.execute(
             select(Rom.id, Rom.fs_path, Rom.fs_name, Rom.missing_from_fs)
@@ -526,6 +569,8 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             result.observed_mapping_version,
             reconnectable,
             unmatched,
+            result.source_fingerprint,
+            self._catalog_fingerprint(session, platform_id),
             expiry,
         )
         return LegacyMigrationImpact(
@@ -596,6 +641,15 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         )
         from handler.database.roms_handler import DBRomsHandler
         from handler.database.storage_handler import DBStorageHandler
+        from handler.filesystem.storage_composition import (
+            OWNED_STORAGE_PATHS,
+            StorageCompositionConfig,
+            build_storage_composition,
+        )
+        from handler.storage.legacy_migration import (
+            LEGACY_OBSERVATION_DEADLINE_SECONDS,
+            detect_legacy_storage,
+        )
 
         impact = self._preview_impact(
             session,
@@ -611,6 +665,68 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 platform_id=confirmation.platform_id,
                 current_version=confirmation.result_version,
             )
+
+        platform, root, _ = self._lock_context(
+            session, confirmation.platform_id, confirmation.storage_root_id
+        )
+        locked_roms, locked_files = self._lock_catalog(
+            session, confirmation.platform_id
+        )
+        current_catalog_fingerprint = self._catalog_fingerprint(
+            session, confirmation.platform_id
+        )
+        try:
+            composition = build_storage_composition(
+                StorageCompositionConfig(
+                    Path(root.container_path),
+                    OWNED_STORAGE_PATHS,
+                    legacy_external_root_id=root.id,
+                )
+            )
+            fresh = detect_legacy_storage(
+                composition.legacy_external,
+                platform_id=platform.id,
+                storage_root_id=root.id,
+                fs_slug=platform.fs_slug,
+                time_budget=LEGACY_OBSERVATION_DEADLINE_SECONDS,
+            )
+        except (StorageResolutionError, OSError, ValueError, TypeError):
+            raise LegacyDetectionResultError(
+                "legacy_impact_stale",
+                result_id=confirmation.detection_result_id,
+                platform_id=confirmation.platform_id,
+                current_version=confirmation.result_version,
+            ) from None
+        if (
+            not fresh.selectable
+            or fresh.proposed_relative_path != confirmation.relative_path
+            or fresh.source_fingerprint != confirmation.source_fingerprint
+            or current_catalog_fingerprint != confirmation.catalog_fingerprint
+        ):
+            raise LegacyDetectionResultError(
+                "legacy_impact_stale",
+                result_id=confirmation.detection_result_id,
+                platform_id=confirmation.platform_id,
+                current_version=confirmation.result_version,
+            )
+        reconnectable_ids = self._reconnectable_catalog_ids(locked_roms)
+        catalog_changes = [
+            LegacyMigrationCatalogChange(
+                entity_kind=LegacyCatalogEntityKind.ROM.value,
+                entity_id=rom.id,
+                prior_missing_from_fs=rom.missing_from_fs,
+            )
+            for rom in locked_roms
+            if rom.id in reconnectable_ids and rom.missing_from_fs
+        ] + [
+            LegacyMigrationCatalogChange(
+                entity_kind=LegacyCatalogEntityKind.ROM_FILE.value,
+                entity_id=rom_file.id,
+                prior_missing_from_fs=rom_file.missing_from_fs,
+            )
+            for rom_file in locked_files
+            if rom_file.rom_id in reconnectable_ids and rom_file.missing_from_fs
+        ]
 
         existing = session.scalar(
             select(LegacyMigration)
@@ -689,6 +805,7 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             unmatched_catalog_count=unmatched,
             expires_at=confirmation.expires_at,
             completed_at=completed_at,
+            catalog_changes=catalog_changes,
         )
         result = session.get(LegacyDetectionResult, confirmation.detection_result_id)
         if result is None or result.version != confirmation.result_version:

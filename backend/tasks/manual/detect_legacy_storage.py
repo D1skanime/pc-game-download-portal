@@ -1,8 +1,10 @@
 from pathlib import PurePath
+from time import monotonic
 
 from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
 from handler.filesystem.storage_policy import _create_external_descriptor
 from handler.storage.legacy_migration import (
+    LEGACY_OBSERVATION_DEADLINE_SECONDS,
     LegacyDetectionOutcome,
     detect_legacy_storage,
 )
@@ -34,6 +36,8 @@ class DetectLegacyStorageTask(Task):
                 platform_id=context.platform_id,
                 storage_root_id=context.storage_root_id,
                 fs_slug=context.fs_slug,
+                time_budget=LEGACY_OBSERVATION_DEADLINE_SECONDS,
+                monotonic=monotonic,
             )
         else:
             outcome = LegacyDetectionOutcome(

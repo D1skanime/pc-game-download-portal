@@ -1119,3 +1119,37 @@ def test_phase6_openapi_contract_is_complete_and_path_safe(client):
             "file_list",
         )
     )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("source_fingerprint", "A" * 64),
+        ("source_fingerprint", "a" * 63),
+        ("catalog_fingerprint", "g" * 64),
+        ("catalog_fingerprint", "b" * 65),
+    ],
+)
+def test_legacy_confirmation_fingerprints_are_strict_lowercase_hex(field, value):
+    from pydantic import ValidationError
+
+    from endpoints.responses.storage import LegacyImpactConfirmationSchema
+
+    confirmation = {
+        "detection_result_id": 41,
+        "result_version": 3,
+        "platform_id": 5,
+        "storage_root_id": 7,
+        "relative_path": "roms/gb",
+        "observed_mapping_id": None,
+        "observed_mapping_version": None,
+        "reconnectable_catalog_count": 4,
+        "unmatched_catalog_count": 1,
+        "source_fingerprint": "a" * 64,
+        "catalog_fingerprint": "b" * 64,
+        "expires_at": datetime(2026, 8, 13, tzinfo=timezone.utc),
+    }
+    confirmation[field] = value
+
+    with pytest.raises(ValidationError):
+        LegacyImpactConfirmationSchema(**confirmation)

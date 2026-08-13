@@ -539,6 +539,8 @@ def _legacy_impact_schema(impact) -> LegacyImpactPreviewSchema:
                 observed_mapping_version=confirmation.observed_mapping_version,
                 reconnectable_catalog_count=confirmation.reconnectable_catalog_count,
                 unmatched_catalog_count=confirmation.unmatched_catalog_count,
+                source_fingerprint=confirmation.source_fingerprint,
+                catalog_fingerprint=confirmation.catalog_fingerprint,
                 expires_at=confirmation.expires_at,
             )
             if confirmation is not None
@@ -603,6 +605,8 @@ def migrate_legacy_platform(
         observed_mapping_version=body.observed_mapping_version,
         reconnectable_catalog_count=body.reconnectable_catalog_count,
         unmatched_catalog_count=body.unmatched_catalog_count,
+        source_fingerprint=body.source_fingerprint,
+        catalog_fingerprint=body.catalog_fingerprint,
         expires_at=body.expires_at,
     )
     try:

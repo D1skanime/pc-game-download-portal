@@ -697,6 +697,26 @@ def test_admin_migrate_endpoint_returns_only_bounded_atomic_outcome(
     assert payload["unmatched_catalog_count"] == 0
     assert payload["source_immutable"] is True
     assert payload["legacy_fallback_enabled"] is False
+    from sqlalchemy import select
+
+    from handler.database.base_handler import sync_session
+    from models.storage import LegacyMigrationCatalogChange
+
+    with sync_session() as database:
+        changes = database.scalars(
+            select(LegacyMigrationCatalogChange)
+            .where(LegacyMigrationCatalogChange.migration_id == payload["migration_id"])
+            .order_by(
+                LegacyMigrationCatalogChange.entity_kind,
+                LegacyMigrationCatalogChange.entity_id,
+            )
+        ).all()
+    assert [
+        (change.entity_kind, change.prior_missing_from_fs) for change in changes
+    ] == [
+        ("rom", True),
+        ("rom", True),
+    ]
     serialized = str(payload).lower()
     assert str(tmp_path).lower() not in serialized
     assert "relative_path" not in serialized
@@ -769,6 +789,56 @@ def test_migration_rejects_equal_count_catalog_replacement_before_owned_writes(
             now=now,
         )
     assert stale.value.code == "legacy_impact_stale"
+    with sync_session() as database:
+        assert database.scalar(select(func.count(PlatformStorageMapping.id))) == 0
+        assert database.scalar(select(func.count(LegacyMigration.id))) == 0
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["rename", "disappearance", "unreadable", "symlink"],
+)
+def test_migration_reobserves_canonical_source_drift_before_owned_writes(
+    tmp_path: Path, platform, admin_user, monkeypatch, mutation
+):
+    from sqlalchemy import func, select
+
+    from exceptions.storage_exceptions import DescriptorHashShortReadError
+    from handler.database.base_handler import sync_session
+    from handler.database.legacy_migration_handler import LegacyDetectionResultError
+    from handler.storage import legacy_migration as detector
+    from models.storage import LegacyMigration, PlatformStorageMapping
+
+    handler, result, now = _seed_impact_preview(tmp_path, platform, admin_user)
+    impact = handler.preview_migration_impact(
+        result.id, platform_id=platform.id, expected_result_version=1, now=now
+    )
+    source = tmp_path / "roms" / platform.fs_slug / "one.gb"
+    if mutation == "rename":
+        source.rename(source.with_name("renamed.gb"))
+    elif mutation == "disappearance":
+        source.unlink()
+    elif mutation == "symlink":
+        secret = tmp_path / "private-source"
+        secret.write_bytes(b"one")
+        source.unlink()
+        source.symlink_to(secret)
+    else:
+
+        def unreadable(*_args, **_kwargs):
+            raise DescriptorHashShortReadError()
+
+        monkeypatch.setattr(detector, "hash_descriptor_file", unreadable)
+
+    with pytest.raises(LegacyDetectionResultError) as stale:
+        handler.migrate_platform(
+            impact.confirmation,
+            actor_user_id=admin_user.id,
+            actor_display_name=admin_user.username,
+            now=now,
+        )
+    assert stale.value.code == "legacy_impact_stale"
+    assert str(tmp_path) not in str(stale.value)
     with sync_session() as database:
         assert database.scalar(select(func.count(PlatformStorageMapping.id))) == 0
         assert database.scalar(select(func.count(LegacyMigration.id))) == 0

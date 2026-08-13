@@ -121,7 +121,7 @@ INVENTORY: tuple[InventoryRow, ...] = (
         "legacy-detection",
         "tasks.manual.detect_legacy_storage",
         "DetectLegacyStorageTask.run",
-        ("LIST", "STAT"),
+        ("LIST", "STAT", "HASH"),
         _LEGACY_DETECTION_EVIDENCE,
     ),
     _read(
