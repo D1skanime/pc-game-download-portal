@@ -5,11 +5,20 @@ from pathlib import PurePath
 from typing import Protocol
 
 from exceptions.storage_exceptions import (
+    InactiveStorageRootError,
+    InvalidRelativePathError,
     MissingPlatformStorageMappingError,
     MissingStorageRootError,
     MissingStorageTargetError,
+    NonDirectoryStorageTargetError,
+    SafeStorageFilesystemError,
+    StaleStorageMappingVersionError,
+    StorageEscapeError,
     StoragePolicyDenied,
+    StorageResolutionError,
     UnreadableStorageTargetError,
+    UnsafeSymlinkError,
+    UnsafeWritableRootError,
 )
 from exceptions.storage_read import (
     MappedReadDeniedError,
@@ -64,7 +73,10 @@ class MappingReadContext:
     def validate(self):
         try:
             mapping = self._repository().get_mapping(self.mapping_id)
-        except MissingPlatformStorageMappingError:
+        except (
+            MissingPlatformStorageMappingError,
+            StaleStorageMappingVersionError,
+        ):
             raise StaleMappedReadError(
                 self.mapping_id, self.expected_revision
             ) from None
@@ -133,15 +145,35 @@ class MappingReadContext:
             )
             self.boundary()
             return open_storage_access(descriptor, operation, logical_path)
-        except (MissingStorageRootError, UnreadableStorageTargetError):
-            raise UnreachableMappedStorageError(
-                self.mapping_id, self.expected_revision
-            ) from None
-        except MissingStorageTargetError:
-            raise MissingMappedContentError(
+        except (
+            MissingPlatformStorageMappingError,
+            StaleStorageMappingVersionError,
+        ):
+            raise StaleMappedReadError(
                 self.mapping_id, self.expected_revision
             ) from None
         except StoragePolicyDenied:
             raise MappedReadDeniedError(
+                self.mapping_id, self.expected_revision
+            ) from None
+        except (
+            InvalidRelativePathError,
+            MissingStorageTargetError,
+            NonDirectoryStorageTargetError,
+            StorageEscapeError,
+            UnsafeSymlinkError,
+        ):
+            raise MissingMappedContentError(
+                self.mapping_id, self.expected_revision
+            ) from None
+        except (
+            InactiveStorageRootError,
+            MissingStorageRootError,
+            SafeStorageFilesystemError,
+            UnreadableStorageTargetError,
+            UnsafeWritableRootError,
+            StorageResolutionError,
+        ):
+            raise UnreachableMappedStorageError(
                 self.mapping_id, self.expected_revision
             ) from None

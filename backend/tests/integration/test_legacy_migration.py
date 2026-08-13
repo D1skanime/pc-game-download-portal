@@ -83,6 +83,7 @@ def _seed_migrated_mapping(source: Path, *, suffix: str = "one") -> tuple[int, i
             observed_bytes=14,
             lower_bound=False,
             selectable=True,
+            source_fingerprint="a" * 64,
             version=2,
             actor_user_id=7,
             completed_at=now,

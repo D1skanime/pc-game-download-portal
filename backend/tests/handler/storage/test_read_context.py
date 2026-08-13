@@ -176,9 +176,20 @@ def test_context_translates_expected_resolution_failures(
     def fail_resolution(*_args):
         raise failure
 
-    monkeypatch.setattr(read_context, "resolve_directory", fail_resolution)
+    if isinstance(failure, StoragePolicyDenied):
+        monkeypatch.setattr(
+            read_context, "resolve_directory", lambda *_args: root / "console"
+        )
+        monkeypatch.setattr(
+            read_context,
+            "_create_external_descriptor",
+            lambda *_args, **_kwargs: object(),
+        )
+        monkeypatch.setattr(read_context, "open_storage_access", fail_resolution)
+    else:
+        monkeypatch.setattr(read_context, "resolve_directory", fail_resolution)
     with pytest.raises(expected_error) as error:
-        context.open(StorageOperation.STREAM, "/secret/logical/path")
+        context.open(StorageOperation.STREAM, "game.bin")
 
     assert error.value.code == code
     assert error.value.safe_state == safe_state
@@ -201,3 +212,34 @@ def test_context_translates_mapping_identity_failures(
         MappingReadContext(41, 7, repository=FailingRepository()).open(
             StorageOperation.SCAN
         )
+
+
+def test_first_use_mark_precedes_bounded_resolution_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "external"
+    (root / "console").mkdir(parents=True)
+    context = MappingReadContext(41, 7, repository=MappingRepository(mapping(root)))
+    marks: list[str] = []
+    monkeypatch.setattr(
+        read_context,
+        "get_storage_root_health_snapshot",
+        lambda _root: SimpleNamespace(reachable=True, readable=True, non_writable=True),
+    )
+    monkeypatch.setattr(
+        MappingReadContext,
+        "_mark_first_use",
+        lambda _self, operation: marks.append(operation),
+    )
+
+    def fail_after_mark(*_args):
+        raise InvalidRelativePathError()
+
+    monkeypatch.setattr(read_context, "resolve_directory", fail_after_mark)
+    with pytest.raises(MissingMappedContentError) as error:
+        context.open(StorageOperation.STREAM, "game.bin")
+
+    assert marks == ["stream"]
+    assert error.value.code == "missing_storage_content"
+    assert error.value.safe_state == "missing"
