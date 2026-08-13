@@ -551,10 +551,66 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
         "sha1_hash": "",
         "ra_hash": "",
     }
+    real_reconnect = scan_module.catalog_lifecycle_handler.reconnect_retained_identity
+    reconnect_attempt = 0
+
+    def fail_once_then_reconnect(**kwargs):
+        nonlocal reconnect_attempt
+        reconnect_attempt += 1
+        if reconnect_attempt == 1:
+            raise RuntimeError("injected post-insert reconnect failure")
+        return real_reconnect(**kwargs)
+
+    monkeypatch.setattr(
+        scan_module.catalog_lifecycle_handler,
+        "reconnect_retained_identity",
+        fail_once_then_reconnect,
+    )
+
+    with pytest.raises(RuntimeError, match="injected post-insert reconnect failure"):
+        await scan_module._identify_rom(
+            platform=platform,
+            fs_rom=fs_rom,
+            rom=None,
+            scan_type=ScanType.HASHES,
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+    with sync_session() as session:
+        persisted = session.scalar(
+            select(Rom).where(
+                Rom.platform_id == platform.id,
+                Rom.fs_name == file_name,
+            )
+        )
+        retained = session.scalar(
+            select(RetainedCatalogIdentity).where(
+                RetainedCatalogIdentity.detached_rom_id == old_rom_id
+            )
+        )
+        assert persisted is not None and persisted.id != old_rom_id
+        assert retained is not None and retained.active_rom_id is None
+        persisted_id = persisted.id
+        for model, key in (
+            (Save, "save"),
+            (State, "state"),
+            (PlaySession, "play_session"),
+        ):
+            row = session.get(model, dependencies[key])
+            assert (row.rom_id, row.retained_catalog_id) == (
+                None,
+                retained.id,
+            )
+
     await scan_module._identify_rom(
         platform=platform,
         fs_rom=fs_rom,
-        rom=None,
+        rom=persisted,
         scan_type=ScanType.HASHES,
         roms_ids=[],
         metadata_sources=[],
@@ -576,7 +632,7 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
                 RetainedCatalogIdentity.detached_rom_id == old_rom_id
             )
         )
-        assert reconnected is not None and reconnected.id != old_rom_id
+        assert reconnected is not None and reconnected.id == persisted_id
         assert retained is not None and retained.active_rom_id == reconnected.id
         for model, key in (
             (Save, "save"),

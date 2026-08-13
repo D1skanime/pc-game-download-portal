@@ -870,9 +870,93 @@ def test_retained_identity_reconnects_all_user_value_atomically(admin_user):
         )
 
 
+def test_retained_identity_same_rom_retry_is_idempotent(admin_user):
+    from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
+    from models.assets import Save, State
+    from models.catalog_lifecycle import RetainedCatalogIdentity
+    from models.play_session import PlaySession
+
+    seeded = _seed_retained_reconnect(admin_user, suffix="retry")
+    handler = CatalogLifecycleHandler()
+    first = handler.reconnect_retained_identity(
+        rom_id=seeded["target_id"],
+        platform_id=seeded["platform_id"],
+        logical_path=seeded["logical_path"],
+        crc_hash="a1b2c3d4",
+        md5_hash="1" * 32,
+        sha1_hash="2" * 40,
+    )
+    second = handler.reconnect_retained_identity(
+        rom_id=seeded["target_id"],
+        platform_id=seeded["platform_id"],
+        logical_path=seeded["logical_path"],
+        crc_hash="a1b2c3d4",
+        md5_hash="1" * 32,
+        sha1_hash="2" * 40,
+    )
+
+    assert first is not None
+    assert second is None
+    with sync_session() as session:
+        retained = session.get(RetainedCatalogIdentity, seeded["retained_id"])
+        assert retained is not None
+        assert retained.active_rom_id == seeded["target_id"]
+        assert retained.version == 2
+        for model, row_id in (
+            (Save, seeded["save_id"]),
+            (State, seeded["state_id"]),
+            (PlaySession, seeded["play_id"]),
+        ):
+            row = session.get(model, row_id)
+            assert (row.rom_id, row.retained_catalog_id) == (
+                seeded["target_id"],
+                None,
+            )
+
+
+def test_retained_identity_failure_rolls_back_all_ownership(admin_user):
+    from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
+    from models.assets import Save, State
+    from models.catalog_lifecycle import RetainedCatalogIdentity
+    from models.play_session import PlaySession
+
+    class FailingReconnectHandler(CatalogLifecycleHandler):
+        def _before_reconnect_flush(self, **_kwargs):
+            raise RuntimeError("injected reconnect ownership failure")
+
+    seeded = _seed_retained_reconnect(admin_user, suffix="failure")
+    with pytest.raises(RuntimeError, match="injected reconnect ownership failure"):
+        FailingReconnectHandler().reconnect_retained_identity(
+            rom_id=seeded["target_id"],
+            platform_id=seeded["platform_id"],
+            logical_path=seeded["logical_path"],
+            crc_hash="a1b2c3d4",
+            md5_hash="1" * 32,
+            sha1_hash="2" * 40,
+        )
+
+    with sync_session() as session:
+        retained = session.get(RetainedCatalogIdentity, seeded["retained_id"])
+        assert retained is not None
+        assert retained.active_rom_id is None
+        assert retained.version == 1
+        for model, row_id in (
+            (Save, seeded["save_id"]),
+            (State, seeded["state_id"]),
+            (PlaySession, seeded["play_id"]),
+        ):
+            row = session.get(model, row_id)
+            assert (row.rom_id, row.retained_catalog_id) == (
+                None,
+                seeded["retained_id"],
+            )
+
+
 def test_retained_identity_rejects_weak_and_ambiguous_matches(admin_user):
     from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
+    from models.assets import Save, State
     from models.catalog_lifecycle import RetainedCatalogIdentity
+    from models.play_session import PlaySession
 
     seeded = _seed_retained_reconnect(
         admin_user, suffix="ambiguous", duplicate_identity=True
@@ -919,6 +1003,16 @@ def test_retained_identity_rejects_weak_and_ambiguous_matches(admin_user):
             )
         ).all()
         assert all(identity.active_rom_id is None for identity in identities)
+        for model, row_id in (
+            (Save, seeded["save_id"]),
+            (State, seeded["state_id"]),
+            (PlaySession, seeded["play_id"]),
+        ):
+            row = session.get(model, row_id)
+            assert (row.rom_id, row.retained_catalog_id) == (
+                None,
+                seeded["retained_id"],
+            )
 
 
 def test_concurrent_retained_claim_has_one_winner_and_no_mixed_ownership(admin_user):

@@ -592,7 +592,7 @@ class TestIdentifyRomReassociation:
         platform.id = 1
         return platform
 
-    async def _run(self, db):
+    async def _run(self, db, rom=None):
         fs_rom: FSRom = {
             "fs_name": "New Name.zip",
             "flat": True,
@@ -606,7 +606,7 @@ class TestIdentifyRomReassociation:
         await _identify_rom(
             platform=self._platform(),
             fs_rom=fs_rom,
-            rom=None,
+            rom=rom,
             scan_type=ScanType.HASHES,
             roms_ids=[],
             metadata_sources=[],
@@ -699,6 +699,41 @@ class TestIdentifyRomReassociation:
             crc_hash="crc",
             md5_hash="md5",
             sha1_hash="sha1",
+        )
+
+    async def test_retries_reconnect_for_existing_rom_after_post_insert_failure(
+        self, patched, mocker
+    ):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+        lifecycle = mocker.patch.object(
+            scan_module, "catalog_lifecycle_handler", create=True
+        )
+        lifecycle.reconnect_retained_identity.side_effect = [
+            RuntimeError("injected reconnect failure"),
+            None,
+        ]
+
+        with pytest.raises(RuntimeError, match="injected reconnect failure"):
+            await self._run(db)
+
+        existing = MagicMock(
+            id=99,
+            fs_name="New Name.zip",
+            is_identified=False,
+            url_cover="",
+            url_manual="",
+            url_screenshots=[],
+        )
+        await self._run(db, rom=existing)
+
+        assert lifecycle.reconnect_retained_identity.call_count == 2
+        assert all(
+            call.kwargs["rom_id"] == 99
+            for call in lifecycle.reconnect_retained_identity.call_args_list
         )
 
 
