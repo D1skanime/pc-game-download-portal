@@ -537,3 +537,38 @@ async def test_crafted_setup_platform_requests_are_replay_safe_and_immutable(
         "get_admin_users",
         Mock(return_value=[]),
     )
+    monkeypatch.setattr(
+        heartbeat_endpoints.fs_platform_handler,
+        "detect_library_structure",
+        detect,
+    )
+    monkeypatch.setattr(
+        heartbeat_endpoints.fs_platform_handler,
+        "create_library_structure",
+        create_structure,
+    )
+    monkeypatch.setattr(
+        heartbeat_endpoints.fs_platform_handler,
+        "add_platform",
+        add_platform,
+    )
+
+    for slugs in (["pc"], ["pc"], ["../escape"], [str(source / "alias")]):
+        with pytest.raises(HTTPException) as error:
+            await unwrap(heartbeat_endpoints.create_setup_platforms)(
+                request=_setup_request(),
+                platform_slugs=slugs,
+            )
+        assert error.value.status_code == 403
+        assert error.value.detail == {
+            "code": "external_storage_operation_denied",
+            "operation": "create",
+            "storage_class": "external_read_only",
+            "storage_id": "root:0",
+        }
+        assert str(source) not in str(error.value.detail)
+
+    assert _source_manifest(source) == before
+    detect.assert_not_called()
+    create_structure.assert_not_called()
+    add_platform.assert_not_called()
