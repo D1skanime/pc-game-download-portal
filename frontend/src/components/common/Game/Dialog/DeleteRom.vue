@@ -41,7 +41,7 @@ const HEADERS = [
 
 async function deleteRoms() {
   await romApi
-    .deleteRoms({ roms: roms.value, deleteFromFs: romsToDeleteFromFs.value })
+    .deleteRoms({ roms: roms.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
         msg:

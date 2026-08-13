@@ -4,7 +4,6 @@ import type {
   CatalogRemovalRequest,
   CatalogRemovalResponse,
   Body_update_rom_api_roms__id__put as UpdateRomInput,
-  BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
   RomUserData,
@@ -837,16 +836,7 @@ async function updateUserRomProps({
   );
 }
 
-async function deleteRoms({
-  roms,
-  deleteFromFs = [],
-}: {
-  roms: SimpleRom[];
-  deleteFromFs: number[];
-}) {
-  if (deleteFromFs.length > 0) {
-    throw new Error("Source-file deletion is unavailable");
-  }
+async function deleteRoms({ roms }: { roms: SimpleRom[] }) {
   const payload: CatalogRemovalRequest = {
     rom_ids: roms.map((rom) => rom.id),
   };

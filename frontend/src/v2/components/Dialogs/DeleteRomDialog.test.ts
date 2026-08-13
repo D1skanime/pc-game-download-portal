@@ -9,8 +9,8 @@ import DeleteRomDialog from "./DeleteRomDialog.vue";
 
 const mocks = vi.hoisted(() => ({
   addExclusion: vi.fn(),
+  apiPost: vi.fn(),
   configAddExclusion: vi.fn(),
-  deleteRoms: vi.fn(),
   galleryRemove: vi.fn(),
   push: vi.fn(),
   remove: vi.fn(),
@@ -29,8 +29,11 @@ vi.mock("vue-i18n", () => ({
   }),
 }));
 
-vi.mock("vue-router", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("vue-router")>()),
+vi.mock("@/plugins/router", () => ({
+  ROUTES: { PLATFORM: "platform" },
+}));
+
+vi.mock("vue-router", () => ({
   useRoute: () => ({ name: "platform" }),
   useRouter: () => ({ push: mocks.push }),
 }));
@@ -39,8 +42,8 @@ vi.mock("@/services/api/config", () => ({
   default: { addExclusion: mocks.configAddExclusion },
 }));
 
-vi.mock("@/services/api/rom", () => ({
-  default: { deleteRoms: mocks.deleteRoms },
+vi.mock("@/services/api", () => ({
+  default: { post: mocks.apiPost },
 }));
 
 vi.mock("@/stores/config", () => ({
@@ -189,7 +192,7 @@ describe("DeleteRomDialog catalog-only removal", () => {
   it("sends ROM identities only and reconciles a partial result", async () => {
     const alpha = rom(1, "Alpha");
     const beta = rom(2, "Beta");
-    mocks.deleteRoms.mockResolvedValueOnce({
+    mocks.apiPost.mockResolvedValueOnce({
       data: {
         errors: [
           { code: "catalog_removal_failed", message: "Failed", rom_id: 2 },
@@ -221,8 +224,11 @@ describe("DeleteRomDialog catalog-only removal", () => {
       .trigger("click");
     await flushPromises();
 
-    expect(mocks.deleteRoms).toHaveBeenCalledWith({ roms: [alpha, beta] });
-    expect(mocks.deleteRoms.mock.calls[0][0]).toEqual({ roms: [alpha, beta] });
+    expect(mocks.apiPost).toHaveBeenCalledWith("/roms/remove-from-catalog", {
+      rom_ids: [1, 2],
+    });
+    expect(mocks.apiPost.mock.calls[0][1]).toEqual({ rom_ids: [1, 2] });
+    expect(Object.keys(mocks.apiPost.mock.calls[0][1])).toEqual(["rom_ids"]);
     expect(mocks.remove).toHaveBeenCalledWith([alpha]);
     expect(mocks.galleryRemove).toHaveBeenCalledWith([alpha]);
     expect(mocks.removeIds).toHaveBeenCalledWith([1]);
@@ -242,7 +248,10 @@ describe("DeleteRomDialog catalog-only removal", () => {
 
   it("keeps the dialog and selection intact when removal fails", async () => {
     const alpha = rom(1, "Alpha");
-    mocks.deleteRoms.mockRejectedValueOnce({
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.apiPost.mockRejectedValueOnce({
       response: { data: { detail: "Catalog removal unavailable" } },
     });
     const wrapper = await openDialog([alpha]);
@@ -262,5 +271,7 @@ describe("DeleteRomDialog catalog-only removal", () => {
       "Catalog removal unavailable",
       { icon: "mdi-close-circle" },
     );
+    expect(consoleError).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
   });
 });

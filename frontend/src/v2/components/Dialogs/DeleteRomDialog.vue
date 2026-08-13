@@ -1,10 +1,9 @@
 <script setup lang="ts">
-// DeleteRomDialog — single or multi-ROM delete flow. Each row has a
-// "also remove file from disk" checkbox; a global "exclude on delete" flag
-// adds deleted filenames to the scan exclusion list so they don't re-appear.
+// Catalog-only removal keeps original files unchanged. Optional exclusions
+// prevent successfully removed entries from returning in later scans.
 import { RBtn, RCheckbox, RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter, useRoute } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -27,7 +26,6 @@ const romsStore = storeRoms();
 const galleryRomsStore = storeGalleryRoms();
 const gallerySelectionStore = storeGallerySelection();
 const roms = ref<SimpleRom[]>([]);
-const romsToDeleteFromFs = ref<number[]>([]);
 const excludeOnDelete = ref(false);
 const platformId = ref<number>(0);
 const deleting = ref(false);
@@ -43,30 +41,6 @@ const openHandler = (romsToDelete: SimpleRom[]) => {
 emitter?.on("showDeleteRomDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showDeleteRomDialog", openHandler));
 
-const fsCount = computed(() => romsToDeleteFromFs.value.length);
-const allOnFs = computed(
-  () =>
-    roms.value.length > 0 &&
-    romsToDeleteFromFs.value.length === roms.value.length,
-);
-
-function toggleAllFs() {
-  if (allOnFs.value) {
-    romsToDeleteFromFs.value = [];
-  } else {
-    romsToDeleteFromFs.value = roms.value.map((r) => r.id);
-  }
-}
-
-function toggleRomOnFs(id: number) {
-  const idx = romsToDeleteFromFs.value.indexOf(id);
-  if (idx >= 0) {
-    romsToDeleteFromFs.value.splice(idx, 1);
-  } else {
-    romsToDeleteFromFs.value.push(id);
-  }
-}
-
 function coverFor(rom: SimpleRom): string | null {
   return rom.path_cover_small ?? rom.url_cover ?? null;
 }
@@ -81,27 +55,19 @@ async function deleteRoms() {
   // to the ROMs it actually processed.
   const targetRoms = roms.value;
   const targetPlatformId = platformId.value;
-  const deleteFromFs = romsToDeleteFromFs.value;
   const exclude = excludeOnDelete.value;
 
   try {
-    const response = await romApi.deleteRoms({
-      roms: targetRoms,
-      deleteFromFs,
-    });
-    // The backend deletes per-ROM and can partially fail; only prune the
+    const response = await romApi.deleteRoms({ roms: targetRoms });
+    // The backend removes each catalog entry independently. Only prune the
     // ROMs it actually removed so a failed subset stays visible and
     // selected for the user to retry.
     const failedIds = new Set(response.data.failed_ids);
     const deletedRoms = targetRoms.filter((rom) => !failedIds.has(rom.id));
     snackbar.success(
-      deleteFromFs.length > 0
-        ? t("rom.deleted-from-filesystem", {
-            count: response.data.successful_items,
-          })
-        : t("rom.deleted-from-database", {
-            count: response.data.successful_items,
-          }),
+      t("rom.removed-from-catalog", {
+        count: response.data.successful_items,
+      }),
       { icon: "mdi-check-bold" },
     );
     if (exclude) {
@@ -155,7 +121,6 @@ async function deleteRoms() {
 }
 
 function closeDialog() {
-  romsToDeleteFromFs.value = [];
   roms.value = [];
   excludeOnDelete.value = false;
   show.value = false;
@@ -171,41 +136,24 @@ function closeDialog() {
     @close="closeDialog"
   >
     <template #header>
-      <span>{{ t("rom.removing-title", roms.length) }}</span>
+      <span>{{ t("rom.remove-from-catalog-title", roms.length) }}</span>
     </template>
     <template #toolbar>
       <div class="r-v2-del-rom__toolbar">
-        <span class="r-v2-del-rom__hint">
-          {{ t("rom.delete-select-instruction") }}
-        </span>
-        <button
-          type="button"
-          class="r-v2-del-rom__toggle-all"
-          :aria-pressed="allOnFs"
-          @click="toggleAllFs"
-        >
-          <RIcon
-            :icon="
-              allOnFs
-                ? 'mdi-checkbox-multiple-marked'
-                : 'mdi-checkbox-multiple-blank-outline'
-            "
-            size="14"
-          />
-          {{ allOnFs ? t("rom.unselect-all") : t("rom.select-all-disk") }}
-        </button>
+        <p class="r-v2-del-rom__summary">
+          {{ t("rom.remove-from-catalog-body", roms.length) }}
+        </p>
+        <p class="r-v2-del-rom__assurance">
+          {{ t("rom.remove-from-catalog-source-unchanged") }}
+        </p>
+        <p class="r-v2-del-rom__assurance">
+          {{ t("rom.remove-from-catalog-retained-value") }}
+        </p>
       </div>
     </template>
     <template #content>
       <ul class="r-v2-del-rom__list">
-        <li
-          v-for="rom in roms"
-          :key="rom.id"
-          class="r-v2-del-rom__row"
-          :class="{
-            'r-v2-del-rom__row--fs': romsToDeleteFromFs.includes(rom.id),
-          }"
-        >
+        <li v-for="rom in roms" :key="rom.id" class="r-v2-del-rom__row">
           <div class="r-v2-del-rom__cover">
             <img
               v-if="coverFor(rom)"
@@ -224,21 +172,6 @@ function closeDialog() {
               {{ rom.fs_name }}
             </p>
           </div>
-          <button
-            type="button"
-            class="r-v2-del-rom__fs-toggle"
-            :aria-pressed="romsToDeleteFromFs.includes(rom.id)"
-            :aria-label="t('rom.delete-from-disk-aria', { name: rom.fs_name })"
-            :class="{
-              'r-v2-del-rom__fs-toggle--on': romsToDeleteFromFs.includes(
-                rom.id,
-              ),
-            }"
-            @click="toggleRomOnFs(rom.id)"
-          >
-            <RIcon icon="mdi-harddisk-remove" size="14" />
-            {{ t("rom.delete-file") }}
-          </button>
         </li>
       </ul>
     </template>
@@ -247,15 +180,8 @@ function closeDialog() {
         <RCheckbox
           v-model="excludeOnDelete"
           hide-details
-          :label="t('common.exclude-on-delete')"
+          :label="t('rom.remove-from-catalog-future-scan-exclusion')"
         />
-        <p v-if="fsCount > 0" class="r-v2-del-rom__warn">
-          <RIcon icon="mdi-alert" size="14" color="var(--r-color-danger-fg)" />
-          <span>
-            <strong>{{ t("common.warning") }}:</strong>
-            {{ t("rom.delete-filesystem-warning", fsCount) }}
-          </span>
-        </p>
       </div>
     </template>
     <template #footer>
@@ -271,7 +197,7 @@ function closeDialog() {
         :disabled="deleting || roms.length === 0"
         @click="deleteRoms"
       >
-        {{ t("common.confirm") }}
+        {{ t("rom.remove-from-catalog-confirm") }}
       </RBtn>
     </template>
   </RDialog>
@@ -280,33 +206,23 @@ function closeDialog() {
 <style scoped>
 .r-v2-del-rom__toolbar {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
   width: 100%;
   font-size: 12px;
   color: var(--r-color-fg-muted);
 }
-.r-v2-del-rom__hint {
-  flex: 1;
+.r-v2-del-rom__summary,
+.r-v2-del-rom__assurance {
+  margin: 0;
+  line-height: 1.4;
 }
-
-.r-v2-del-rom__toggle-all {
-  appearance: none;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
+.r-v2-del-rom__summary {
   color: var(--r-color-fg-secondary);
-  padding: 4px 10px;
-  border-radius: var(--r-radius-pill);
-  font-size: 11px;
-  font-weight: var(--r-font-weight-medium);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: inherit;
 }
-.r-v2-del-rom__toggle-all:hover {
-  background: var(--r-color-surface);
+.r-v2-del-rom__assurance {
+  color: var(--r-color-fg-muted);
 }
 
 .r-v2-del-rom__list {
@@ -322,26 +238,13 @@ function closeDialog() {
 
 .r-v2-del-rom__row {
   display: grid;
-  grid-template-columns: 36px 1fr auto;
+  grid-template-columns: 36px 1fr;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
-  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-del-rom__row--fs {
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 35%,
-    transparent
-  );
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 6%,
-    transparent
-  );
 }
 
 .r-v2-del-rom__cover {
@@ -387,69 +290,10 @@ function closeDialog() {
   text-overflow: ellipsis;
 }
 
-.r-v2-del-rom__fs-toggle {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-pill);
-  font-size: 11px;
-  color: var(--r-color-fg-secondary);
-  font-weight: var(--r-font-weight-medium);
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-del-rom__fs-toggle:hover {
-  background: var(--r-color-surface);
-  color: var(--r-color-fg);
-}
-.r-v2-del-rom__fs-toggle--on,
-.r-v2-del-rom__fs-toggle--on:hover {
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 18%,
-    transparent
-  );
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 40%,
-    transparent
-  );
-  color: var(--r-color-danger-fg);
-}
-
 .r-v2-del-rom__append {
   padding: 10px 14px 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.r-v2-del-rom__warn {
-  display: flex;
-  gap: 8px;
-  padding: 8px 10px;
-  margin: 0;
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 10%,
-    transparent
-  );
-  border: 1px solid
-    color-mix(in srgb, var(--r-color-status-base-danger) 25%, transparent);
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg);
-  font-size: 12px;
-  line-height: 1.4;
-}
-.r-v2-del-rom__warn strong {
-  color: var(--r-color-danger-fg);
 }
 </style>
