@@ -82,7 +82,21 @@ completed: 2026-08-13
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Tracking Bug] Corrected inconsistent SDK progress output**
+
+- **Found during:** Plan closeout tracking
+- **Issue:** The SDK counted 50 of 52 completed plans and reported 96 percent, but wrote 56 percent to STATE frontmatter, left the body at 94 percent, and collapsed ROADMAP table spacing.
+- **Fix:** Aligned both STATE progress representations to the SDK count and restored the ROADMAP row formatting.
+- **Files modified:** `.planning/STATE.md`, `.planning/ROADMAP.md`
+- **Verification:** Frontmatter, body progress, and the phase row now agree with 50 of 52 total plans and 15 of 17 Phase 6 summaries.
+- **Committed in:** Plan tracking commit
+
+---
+
+**Total deviations:** 1 auto-fixed tracking bug.
+**Impact on plan:** Tracking now reflects the completed summary count. Locale scope and product behavior are unchanged.
 
 ## Issues Encountered
 

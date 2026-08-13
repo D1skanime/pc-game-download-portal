@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-13-PLAN.md
-last_updated: "2026-08-13T10:24:00.869Z"
+stopped_at: Completed 06-16-PLAN.md
+last_updated: "2026-08-13T10:47:29.681Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 52
-  completed_plans: 49
-  percent: 94
+  completed_plans: 50
+  percent: 96
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 15 of 17
+Plan: 16 of 17
 Status: Ready to execute
 Last activity: 2026-08-13
 
-Progress: [█████████░] 94%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -87,6 +87,7 @@ _Updated after each plan completion_
 | Phase 06 P14 | 22m | 3 tasks | 7 files |
 | Phase 06 P11 | 45m | 1 tasks | 4 files |
 | Phase 06 P13 | 31m | 3 tasks | 5 files |
+| Phase 06 P16 | 8m | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -178,6 +179,8 @@ Recent decisions affecting current work:
 - [Phase 06]: The shared ROM removal client accepts identities only and serializes rom_ids. - The TypeScript boundary prevents hidden or stale source-delete intent.
 - [Phase 06]: Rollback locks exact persisted changes and recorded RomFile lineage before validating migration-produced state.
 - [Phase 06]: Missing changed or cross-platform recorded catalog rows make rollback fail atomically with legacy_rollback_stale.
+- [Phase 06]: Catalog removal uses seven dedicated locale keys that state catalog-only behavior and unchanged original files.
+- [Phase 06]: The first locale batch preserves exact placeholders and leaves only the nine Plan 17 peers for final parity.
 
 ### Blockers/Concerns
 
@@ -195,6 +198,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T10:24:00.866Z
-Stopped at: Completed 06-13-PLAN.md
+Last session: 2026-08-13T10:47:29.677Z
+Stopped at: Completed 06-16-PLAN.md
 Resume file: None
