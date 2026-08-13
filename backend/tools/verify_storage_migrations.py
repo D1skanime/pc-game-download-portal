@@ -386,11 +386,12 @@ def _seed_0111_state(
         "INSERT INTO legacy_detection_results "
         "(id, platform_id, storage_root_id, state, proposed_relative_path, "
         "observed_files, observed_bytes, lower_bound, selectable, "
-        "observed_mapping_id, observed_mapping_version, version, actor_user_id, "
-        "expires_at) "
+        "source_fingerprint, observed_mapping_id, observed_mapping_version, "
+        "version, actor_user_id, expires_at) "
         "VALUES (920001, 910001, 910001, 'detected', "
-        "'roms/verifier-910001', 2, 4096, FALSE, TRUE, 910001, 4, 1, 1, "
-        "'2037-01-01 00:00:00')",
+        "'roms/verifier-910001', 2, 4096, FALSE, TRUE, "
+        "'0000000000000000000000000000000000000000000000000000000000000000', "
+        "910001, 4, 1, 1, '2037-01-01 00:00:00')",
         "INSERT INTO legacy_migrations "
         "(id, detection_result_id, platform_id, storage_root_id, mapping_id, "
         "relative_path, state, version, actor_user_id, "

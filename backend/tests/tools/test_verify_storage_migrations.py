@@ -189,3 +189,16 @@ def test_clear_0111_state_restores_seeded_mapping_baseline(monkeypatch):
         "SET active = TRUE, version = 4 WHERE id = 910001"
     )
     assert statements[1] == "DELETE FROM legacy_migrations"
+
+
+def test_seeded_0111_fixture_satisfies_fingerprint_constraints(monkeypatch):
+    statements = []
+    monkeypatch.setattr(
+        verifier, "_execute_sql", lambda *args: statements.append(args[-1])
+    )
+
+    verifier._seed_0111_state("mariadb", "romm-dev", "host", "3306", "db")
+
+    detection = statements[0]
+    assert "source_fingerprint" in detection
+    assert "0" * 64 in detection
