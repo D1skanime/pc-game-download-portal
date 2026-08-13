@@ -13,6 +13,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from endpoints import roms as roms_endpoint
 from handler.database.base_handler import sync_session
 from models.assets import Save, Screenshot, State
 from models.catalog_lifecycle import (
@@ -256,6 +257,58 @@ def test_source_delete_inputs_and_duplicate_ids_are_rejected(
 
     with sync_session.begin() as session:
         assert session.get(Rom, rom.id) is not None
+
+
+@pytest.mark.parametrize(
+    ("failed_operation", "expected_log_context"),
+    (
+        ("invalidate_filter_values_cache", "filter cache invalidation"),
+        ("refresh_affected_smart_collections", "smart collection refresh"),
+    ),
+)
+def test_remove_from_catalog_preserves_committed_response_on_cache_failure(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    monkeypatch: pytest.MonkeyPatch,
+    failed_operation: str,
+    expected_log_context: str,
+) -> None:
+    raw_failure = "/secret/source/game.bin dependent service failure"
+    invalidate = Mock()
+    refresh = Mock()
+    if failed_operation == "invalidate_filter_values_cache":
+        invalidate.side_effect = RuntimeError(raw_failure)
+    else:
+        refresh.side_effect = RuntimeError(raw_failure)
+    monkeypatch.setattr(
+        roms_endpoint.db_rom_handler,
+        "invalidate_filter_values_cache",
+        invalidate,
+    )
+    monkeypatch.setattr(
+        roms_endpoint,
+        "refresh_affected_smart_collections",
+        refresh,
+    )
+    log_error = Mock()
+    monkeypatch.setattr(roms_endpoint.log, "error", log_error)
+
+    response = client.post(
+        "/api/roms/remove-from-catalog",
+        headers=_headers(access_token),
+        json={"rom_ids": [rom.id]},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["successful_items"] == 1
+    assert response.json()["failed_ids"] == []
+    assert [item["rom_id"] for item in response.json()["items"]] == [rom.id]
+    invalidate.assert_called_once_with()
+    refresh.assert_called_once_with([rom.id])
+    messages = [str(call.args[0]) for call in log_error.call_args_list]
+    assert any(expected_log_context in message for message in messages)
+    assert all(raw_failure not in message for message in messages)
 
 
 def test_remove_from_catalog_authorizes_before_observation(
