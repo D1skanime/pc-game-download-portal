@@ -22,6 +22,7 @@ class FakeCommand:
         source_overrides: dict[str, object] | None = None,
         runner_overrides: dict[str, object] | None = None,
         pid_state: str | None = "4242\n",
+        pid_signature_valid: bool = True,
         ready_after: int = 1,
         fail_action: str | None = None,
     ) -> None:
@@ -29,6 +30,7 @@ class FakeCommand:
         self.source_overrides = source_overrides or {}
         self.runner_overrides = runner_overrides or {}
         self.pid_state = pid_state
+        self.pid_signature_valid = pid_signature_valid
         self.ready_after = ready_after
         self.fail_action = fail_action
         self.readiness_attempts = 0
@@ -76,6 +78,7 @@ class FakeCommand:
                 "NetworkMode": verifier.APPROVED_NETWORK,
                 "PortBindings": {},
             },
+            "NetworkSettings": {"Networks": {verifier.APPROVED_NETWORK: {}}},
             "Mounts": [
                 {
                     "Type": "bind",
@@ -98,6 +101,10 @@ class FakeCommand:
             return "runner_inspect"
         if args[:2] == ["docker", "start"]:
             return "start"
+        if args[:3] == ["docker", "exec", RUNNER_ID] and any(
+            "/proc/$pid/cmdline" in part for part in args
+        ):
+            return "pid_signature"
         if args[:3] == ["docker", "exec", RUNNER_ID] and any(
             "uvicorn main:app" in part for part in args
         ):
@@ -124,6 +131,11 @@ class FakeCommand:
     ) -> subprocess.CompletedProcess[str]:
         self.calls.append(args)
         action = self._action(args)
+        if action == "create":
+            self.runner_name = args[args.index("--name") + 1]
+            label = args[args.index("--label") + 1]
+            self.nonce = label.split("=", 1)[1]
+            self.env_file = Path(args[args.index("--env-file") + 1])
         if action == self.fail_action:
             result = subprocess.CompletedProcess(
                 args, 1, "", f"failure {ENV_VALUES['DB_PASSWD']}"
@@ -141,10 +153,6 @@ class FakeCommand:
         elif action == "source_inspect":
             stdout = json.dumps([self._source_inspection()])
         elif action == "create":
-            self.runner_name = args[args.index("--name") + 1]
-            label = args[args.index("--label") + 1]
-            self.nonce = label.split("=", 1)[1]
-            self.env_file = Path(args[args.index("--env-file") + 1])
             self.env_file_mode = stat.S_IMODE(self.env_file.stat().st_mode)
             stdout = f"{RUNNER_ID}\n"
         elif action == "runner_inspect":
@@ -154,6 +162,8 @@ class FakeCommand:
                 returncode = 1
             else:
                 stdout = self.pid_state
+        elif action == "pid_signature":
+            returncode = 0 if self.pid_signature_valid else 1
         elif action == "readiness":
             self.readiness_attempts += 1
             returncode = 0 if self.readiness_attempts >= self.ready_after else 1
@@ -317,6 +327,19 @@ def test_missing_or_malformed_pid_never_blocks_exact_container_cleanup(
     command = FakeCommand(tmp_path, pid_state=pid_state)
 
     with pytest.raises(RuntimeError, match="valid PID"):
+        _harness(tmp_path, command).run()
+
+    assert _calls(command, ["docker", "rm", "-f"]) == [
+        ["docker", "rm", "-f", RUNNER_ID]
+    ]
+
+
+def test_reused_pid_signature_mismatch_cleans_exact_container(
+    tmp_path: Path,
+) -> None:
+    command = FakeCommand(tmp_path, pid_signature_valid=False)
+
+    with pytest.raises(RuntimeError, match="signature"):
         _harness(tmp_path, command).run()
 
     assert _calls(command, ["docker", "rm", "-f"]) == [
