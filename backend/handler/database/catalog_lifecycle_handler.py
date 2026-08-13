@@ -50,6 +50,15 @@ class ClaimedCleanupIntent:
 
 
 class CatalogLifecycleHandler:
+    def _before_reconnect_flush(
+        self,
+        *,
+        session: Session,
+        retained: RetainedCatalogIdentity,
+        rom_id: int,
+    ) -> None:
+        """Test seam for reconnect transaction rollback evidence."""
+
     def _before_catalog_delete(
         self,
         *,
@@ -396,6 +405,12 @@ class CatalogLifecycleHandler:
                 .values(rom_id=rom_id, retained_catalog_id=None)
                 .execution_options(synchronize_session=False)
             )
+
+        self._before_reconnect_flush(
+            session=session,
+            retained=selected,
+            rom_id=rom_id,
+        )
 
         selected.active_rom_id = rom_id
         selected.version += 1
