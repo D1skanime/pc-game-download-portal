@@ -6,13 +6,14 @@ import stat
 from inspect import unwrap
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock, call
+from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 from fastapi import HTTPException
 
 from endpoints import firmware as firmware_endpoints
 from endpoints import heartbeat as heartbeat_endpoints
+from endpoints import roms as rom_endpoints
 from endpoints.storage_policy import authorize_api_storage_operation
 from handler.filesystem import legacy_external_storage, storage_composition
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
@@ -572,3 +573,217 @@ async def test_crafted_setup_platform_requests_are_replay_safe_and_immutable(
     detect.assert_not_called()
     create_structure.assert_not_called()
     add_platform.assert_not_called()
+
+
+def _rom_update_fixture() -> SimpleNamespace:
+    return SimpleNamespace(
+        id=41,
+        platform_id=2,
+        fs_name="game.bin",
+        fs_path="pc",
+        files=[],
+        igdb_id=None,
+        sgdb_id=None,
+        moby_id=None,
+        ss_id=None,
+        ra_id=None,
+        launchbox_id=None,
+        hasheous_id=None,
+        tgdb_id=None,
+        flashpoint_id=None,
+        hltb_id=None,
+        libretro_id=None,
+        igdb_metadata={},
+        moby_metadata={},
+        ss_metadata={},
+        ra_metadata={},
+        launchbox_metadata={},
+        hasheous_metadata={},
+        flashpoint_metadata={},
+        hltb_metadata={},
+        url_screenshots=[],
+        name="Game",
+        summary="Original",
+        name_sort_key="Game",
+        url_cover="",
+        url_manual="",
+    )
+
+
+def _install_update_rom_tripwires(
+    monkeypatch: pytest.MonkeyPatch,
+    rom: SimpleNamespace,
+    effects: list[str],
+) -> None:
+    monkeypatch.setattr(
+        rom_endpoints.db_rom_handler,
+        "get_rom",
+        Mock(return_value=rom),
+    )
+    monkeypatch.setattr(rom_endpoints, "assert_rom_visible", Mock())
+    monkeypatch.setattr(
+        rom_endpoints.db_rom_handler,
+        "update_rom",
+        Mock(side_effect=lambda *_args, **_kwargs: effects.append("database")),
+    )
+    for name in (
+        "remove_cover",
+        "store_artwork",
+        "get_cover",
+        "get_manual",
+        "get_rom_screenshots",
+        "store_ra_badge",
+        "remove_media_resources_path",
+        "store_media_file",
+    ):
+        monkeypatch.setattr(
+            rom_endpoints.fs_resource_handler,
+            name,
+            AsyncMock(side_effect=AssertionError("owned resource mutation reached")),
+        )
+    monkeypatch.setattr(
+        rom_endpoints.fs_rom_handler,
+        "rename_fs_rom",
+        AsyncMock(side_effect=AssertionError("external rename reached")),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "crafted_name",
+    [
+        "renamed.bin",
+        "../escape.bin",
+        "alias.bin",
+        "occupied.bin",
+    ],
+)
+async def test_update_rom_changed_fs_name_denies_before_partial_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    crafted_name: str,
+) -> None:
+    source = tmp_path / "external"
+    owned = tmp_path / "resources"
+    source.mkdir()
+    owned.mkdir()
+    (source / "game.bin").write_bytes(b"immutable source")
+    (source / "occupied.bin").write_bytes(b"collision")
+    (source / "alias.bin").symlink_to("game.bin")
+    (owned / "cover.png").write_bytes(b"immutable owned")
+    source_before = _source_manifest(source)
+    owned_before = _source_manifest(owned)
+
+    rom = _rom_update_fixture()
+    effects: list[str] = []
+    _install_update_rom_tripwires(monkeypatch, rom, effects)
+    real_authorize = rom_endpoints.authorize_api_storage_operation
+
+    def record_authorization(operation, storage):
+        effects.append("authorize:" + operation.value)
+        return real_authorize(operation, storage)
+
+    monkeypatch.setattr(
+        rom_endpoints,
+        "authorize_api_storage_operation",
+        record_authorization,
+    )
+
+    form = rom_endpoints.RomUpdateForm(
+        fs_name=crafted_name,
+        name="Updated",
+        url_cover="https://example.invalid/cover.png",
+        url_manual="https://example.invalid/manual.pdf",
+        raw_manual_metadata='{"languages":["en"]}',
+    )
+    for _ in range(2):
+        with pytest.raises(HTTPException) as error:
+            await unwrap(rom_endpoints.update_rom)(
+                request=Mock(),
+                id=rom.id,
+                form_data=form,
+                artwork=None,
+                remove_cover=True,
+                unmatch_metadata=False,
+            )
+        assert error.value.status_code == 403
+        assert error.value.detail == {
+            "code": "external_storage_operation_denied",
+            "operation": "rename",
+            "storage_class": "external_read_only",
+            "storage_id": "root:0",
+        }
+        assert str(source) not in str(error.value.detail)
+
+    assert effects == ["authorize:rename", "authorize:rename"]
+    assert _source_manifest(source) == source_before
+    assert _source_manifest(owned) == owned_before
+    rom_endpoints.db_rom_handler.update_rom.assert_not_called()
+    rom_endpoints.fs_rom_handler.rename_fs_rom.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_rom_same_fs_name_keeps_metadata_and_owned_resources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rom = _rom_update_fixture()
+    db_update = Mock()
+    authorize = Mock(side_effect=AssertionError("rename authorization reached"))
+    monkeypatch.setattr(
+        rom_endpoints.db_rom_handler,
+        "get_rom",
+        Mock(return_value=rom),
+    )
+    monkeypatch.setattr(rom_endpoints.db_rom_handler, "update_rom", db_update)
+    monkeypatch.setattr(
+        rom_endpoints.db_rom_handler,
+        "invalidate_filter_values_cache",
+        Mock(),
+    )
+    monkeypatch.setattr(rom_endpoints, "refresh_affected_smart_collections", Mock())
+    monkeypatch.setattr(rom_endpoints, "assert_rom_visible", Mock())
+    monkeypatch.setattr(
+        rom_endpoints,
+        "authorize_api_storage_operation",
+        authorize,
+    )
+    monkeypatch.setattr(
+        rom_endpoints.fs_resource_handler,
+        "get_cover",
+        AsyncMock(return_value=("cover-small.png", "cover-big.png")),
+    )
+    monkeypatch.setattr(
+        rom_endpoints.fs_resource_handler,
+        "get_manual",
+        AsyncMock(return_value="manual.pdf"),
+    )
+    monkeypatch.setattr(
+        rom_endpoints.meta_playmatch_handler,
+        "is_manual_match",
+        Mock(return_value=False),
+    )
+    monkeypatch.setattr(
+        rom_endpoints.DetailedRomSchema,
+        "from_orm_with_request",
+        Mock(return_value="updated"),
+    )
+
+    result = await unwrap(rom_endpoints.update_rom)(
+        request=Mock(),
+        id=rom.id,
+        form_data=rom_endpoints.RomUpdateForm(
+            fs_name=rom.fs_name,
+            name="Updated",
+        ),
+        artwork=None,
+        remove_cover=False,
+        unmatch_metadata=False,
+    )
+
+    assert result == "updated"
+    authorize.assert_not_called()
+    db_update.assert_called_once()
+    assert db_update.call_args.args[1]["name"] == "Updated"
+    assert db_update.call_args.args[1]["fs_name"] == rom.fs_name
+    rom_endpoints.fs_resource_handler.get_cover.assert_awaited_once()
+    rom_endpoints.fs_resource_handler.get_manual.assert_awaited_once()
