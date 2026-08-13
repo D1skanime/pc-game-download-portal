@@ -118,12 +118,12 @@ def _healthy_root(*_args, **_kwargs):
 
 
 def _seed_exact_rollback(
-    source: Path, *, suffix: str
+    source: Path, *, suffix: str, now: datetime | None = None
 ) -> tuple[int, int, int, dict[str, int]]:
     mapped = source / "mapped"
     mapped.mkdir(parents=True)
     (mapped / "changed.bin").write_bytes(b"immutable game")
-    now = datetime(2026, 8, 12, 20, tzinfo=timezone.utc)
+    now = now or datetime(2026, 8, 12, 20, tzinfo=timezone.utc)
     with sync_session.begin() as session:
         platform = Platform(
             name=f"Exact Rollback {suffix}",
@@ -788,7 +788,7 @@ def test_adversarial_lineage_failures_and_exact_retry_preserve_source(
 
     reparent_source = tmp_path / "reparent"
     reparent_mapping, reparent_migration, reparent_platform, reparent_ids = (
-        _seed_exact_rollback(reparent_source, suffix="closure-reparent")
+        _seed_exact_rollback(reparent_source, suffix="closure-reparent", now=attempt_at)
     )
     with sync_session.begin() as session:
         replacement_parent = Rom(
@@ -828,7 +828,9 @@ def test_adversarial_lineage_failures_and_exact_retry_preserve_source(
         substitution_migration,
         substitution_platform,
         substitution_ids,
-    ) = _seed_exact_rollback(substitution_source, suffix="closure-substitution")
+    ) = _seed_exact_rollback(
+        substitution_source, suffix="closure-substitution", now=attempt_at
+    )
     with sync_session.begin() as session:
         original = session.get(RomFile, substitution_ids["changed_file"])
         assert original is not None
@@ -886,7 +888,7 @@ def test_adversarial_lineage_failures_and_exact_retry_preserve_source(
 
     retry_source = tmp_path / "retry"
     retry_mapping, retry_migration, retry_platform, retry_ids = _seed_exact_rollback(
-        retry_source, suffix="closure-retry"
+        retry_source, suffix="closure-retry", now=attempt_at
     )
     retry_before = _manifest(retry_source)
     handler = DBLegacyMigrationHandler()
