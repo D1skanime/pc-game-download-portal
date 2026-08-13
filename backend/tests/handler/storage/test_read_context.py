@@ -3,8 +3,30 @@ from types import SimpleNamespace
 
 import pytest
 
-from exceptions.storage_read import StaleMappedReadError
+from exceptions.storage_exceptions import (
+    InactiveStorageRootError,
+    InvalidRelativePathError,
+    MissingPlatformStorageMappingError,
+    MissingStorageRootError,
+    MissingStorageTargetError,
+    NonDirectoryStorageTargetError,
+    SafeStorageFilesystemError,
+    StaleStorageMappingVersionError,
+    StorageEscapeError,
+    StoragePolicyDenied,
+    StorageResolutionError,
+    UnreadableStorageTargetError,
+    UnsafeSymlinkError,
+    UnsafeWritableRootError,
+)
+from exceptions.storage_read import (
+    MappedReadDeniedError,
+    MissingMappedContentError,
+    StaleMappedReadError,
+    UnreachableMappedStorageError,
+)
 from handler.filesystem.storage_policy import StorageOperation
+from handler.storage import read_context
 from handler.storage.read_context import MappingReadContext
 
 
@@ -23,6 +45,7 @@ def mapping(root: Path, *, active: bool = True, version: int = 7):
         version=version,
         active=active,
         relative_path="console",
+        storage_root_id=3,
         storage_root=SimpleNamespace(
             id=3,
             container_path=str(root),
@@ -53,3 +76,128 @@ def test_context_rejects_symlink_before_issuing_handle(tmp_path: Path):
     context = MappingReadContext(41, 7, repository=MappingRepository(mapping(root)))
     with pytest.raises(Exception):
         context.open(StorageOperation.SCAN)
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_error", "code", "safe_state"),
+    (
+        (
+            InvalidRelativePathError(),
+            MissingMappedContentError,
+            "missing_storage_content",
+            "missing",
+        ),
+        (
+            MissingStorageTargetError(),
+            MissingMappedContentError,
+            "missing_storage_content",
+            "missing",
+        ),
+        (
+            NonDirectoryStorageTargetError(),
+            MissingMappedContentError,
+            "missing_storage_content",
+            "missing",
+        ),
+        (
+            UnsafeSymlinkError(),
+            MissingMappedContentError,
+            "missing_storage_content",
+            "missing",
+        ),
+        (
+            StorageEscapeError(),
+            MissingMappedContentError,
+            "missing_storage_content",
+            "missing",
+        ),
+        (
+            MissingStorageRootError(3),
+            UnreachableMappedStorageError,
+            "unreachable_storage",
+            "unreachable",
+        ),
+        (
+            InactiveStorageRootError(3),
+            UnreachableMappedStorageError,
+            "unreachable_storage",
+            "unreachable",
+        ),
+        (
+            UnreadableStorageTargetError(),
+            UnreachableMappedStorageError,
+            "unreachable_storage",
+            "unreachable",
+        ),
+        (
+            UnsafeWritableRootError(3),
+            UnreachableMappedStorageError,
+            "unreachable_storage",
+            "unreachable",
+        ),
+        (
+            SafeStorageFilesystemError(3),
+            UnreachableMappedStorageError,
+            "unreachable_storage",
+            "unreachable",
+        ),
+        (
+            StorageResolutionError("/secret/source raw os error"),
+            UnreachableMappedStorageError,
+            "unreachable_storage",
+            "unreachable",
+        ),
+        (
+            StoragePolicyDenied("stream", "external", "/secret/source"),
+            MappedReadDeniedError,
+            "mapped_storage_access_denied",
+            "denied",
+        ),
+    ),
+)
+def test_context_translates_expected_resolution_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: StorageResolutionError,
+    expected_error: type[StorageResolutionError],
+    code: str,
+    safe_state: str,
+) -> None:
+    root = tmp_path / "external"
+    (root / "console").mkdir(parents=True)
+    context = MappingReadContext(41, 7, repository=MappingRepository(mapping(root)))
+
+    monkeypatch.setattr(
+        read_context,
+        "get_storage_root_health_snapshot",
+        lambda _root: SimpleNamespace(reachable=True, readable=True, non_writable=True),
+    )
+
+    def fail_resolution(*_args):
+        raise failure
+
+    monkeypatch.setattr(read_context, "resolve_directory", fail_resolution)
+    with pytest.raises(expected_error) as error:
+        context.open(StorageOperation.STREAM, "/secret/logical/path")
+
+    assert error.value.code == code
+    assert error.value.safe_state == safe_state
+    assert str(root) not in str(error.value)
+    assert "/secret" not in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    (MissingPlatformStorageMappingError(41), StaleStorageMappingVersionError(41, 8)),
+)
+def test_context_translates_mapping_identity_failures(
+    failure: StorageResolutionError,
+) -> None:
+    class FailingRepository:
+        def get_mapping(self, mapping_id: int):
+            raise failure
+
+    with pytest.raises(StaleMappedReadError):
+        MappingReadContext(41, 7, repository=FailingRepository()).open(
+            StorageOperation.SCAN
+        )
