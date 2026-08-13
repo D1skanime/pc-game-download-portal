@@ -90,7 +90,7 @@ const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
 
-const validForm = computed(() => !!(rom.value?.name && rom.value?.fs_name));
+const validForm = computed(() => !!rom.value?.name);
 
 const isFolderRom = computed(
   () =>
@@ -265,10 +265,7 @@ async function unmatchRom() {
 }
 
 async function updateRom() {
-  if (!rom.value?.fs_name) {
-    snackbar.error(t("rom.filename-required"), { icon: "mdi-close-circle" });
-    return;
-  }
+  if (!rom.value) return;
   await handleRomUpdate(
     { rom: rom.value, removeCover: removeCover.value },
     t("rom.update-success"),
@@ -381,10 +378,10 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           </RTextField>
 
           <RTextField
-            v-model="rom.fs_name"
+            :model-value="rom.fs_name"
             prefix-label="stacked"
             hide-details
-            :rules="[(v: string) => !!v || t('common.required')]"
+            readonly
           >
             <template #prefix-label>
               <RIcon

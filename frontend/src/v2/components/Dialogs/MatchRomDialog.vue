@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // MatchRomDialog — manual metadata match flow. The shell owns search +
 // filters + the update API call; the actual "pick a match → pick a
-// cover → optional rename" step is delegated to one of two body
+// cover selection step is delegated to one of two body
 // variants (see `components/MatchRom/`): grid (cards + overlay) or
 // list (master/detail). The variant is switchable at runtime via the
 // segmented control in the toolbar, mirroring the gallery's
@@ -222,12 +222,9 @@ async function onBodyConfirm(payload: ConfirmPayload) {
   if (!rom.value || matching.value) return;
   matching.value = true;
 
-  const { matchedRom, cover, renameFromSource } = payload;
+  const { matchedRom, cover } = payload;
   rom.value = {
     ...rom.value,
-    fs_name: renameFromSource
-      ? rom.value.fs_name.replace(rom.value.fs_name_no_tags, matchedRom.name)
-      : rom.value.fs_name,
     igdb_id: matchedRom.igdb_id || null,
     ss_id: matchedRom.ss_id || null,
     moby_id: matchedRom.moby_id || null,

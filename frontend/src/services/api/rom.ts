@@ -415,7 +415,7 @@ async function updateRom({
   removeCover = false,
   unmatch = false,
 }: {
-  rom: UpdateRom;
+  rom: Omit<UpdateRom, "fs_name">;
   removeCover?: boolean;
   unmatch?: boolean;
 }) {
@@ -425,7 +425,6 @@ async function updateRom({
   const fields: FormInputField<UpdateRomInput>[] = [
     ["name", rom.name],
     ["name_sort_key", rom.name_sort_key ?? ""],
-    ["fs_name", rom.fs_name],
     ["summary", rom.summary],
     ["igdb_id", toFormIdValue(rom.igdb_id)],
     ["sgdb_id", toFormIdValue(rom.sgdb_id)],

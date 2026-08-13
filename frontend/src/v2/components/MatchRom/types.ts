@@ -1,6 +1,6 @@
 // Shared types + helpers for the MatchRom body variants (grid /
 // list). The dialog shell owns search state and API calls; each body
-// variant renders results + the per-match cover / rename picker in
+// variant renders results and the per-match cover picker in
 // its own visual language.
 import type { SearchRom } from "@/stores/roms";
 
@@ -102,7 +102,6 @@ export function firstAvailableCover(r: SearchRom): string | null {
 export interface ConfirmPayload {
   matchedRom: SearchRom;
   cover: MatchedSource | undefined;
-  renameFromSource: boolean;
 }
 
 export type MatchVariant = "list" | "grid";

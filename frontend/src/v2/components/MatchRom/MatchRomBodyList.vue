@@ -3,13 +3,12 @@
 //
 // Left column: condensed list of matches (mini cover + title + provider
 // chips). Right column: detail panel for the currently picked match —
-// summary, source-cover picker, rename toggle and a sticky confirm.
+// summary, source-cover picker and a sticky confirm.
 // In xs the columns stack with the detail panel below the list.
 import { RBtn, REmptyState, RIcon, RProgressCircular } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
-import MatchRomRenameToggle from "@/v2/components/MatchRom/MatchRomRenameToggle.vue";
 import {
   type ConfirmPayload,
   firstAvailableCover,
@@ -35,7 +34,6 @@ const { t } = useI18n();
 
 const selectedKey = ref<string | null>(null);
 const selectedSource = ref<MatchedSource | undefined>(undefined);
-const renameFromSource = ref(false);
 
 const selectedMatch = computed<SearchRom | null>(
   () => props.results.find((r) => matchKey(r) === selectedKey.value) ?? null,
@@ -63,7 +61,6 @@ function select(r: SearchRom) {
   selectedKey.value = matchKey(r);
   const sources = getMatchSources(r);
   selectedSource.value = sources.length === 1 ? sources[0] : undefined;
-  renameFromSource.value = false;
 }
 
 function confirm() {
@@ -71,7 +68,6 @@ function confirm() {
   emit("confirm", {
     matchedRom: selectedMatch.value,
     cover: selectedSource.value,
-    renameFromSource: renameFromSource.value,
   });
 }
 
@@ -80,7 +76,6 @@ watch(
   () => {
     selectedKey.value = null;
     selectedSource.value = undefined;
-    renameFromSource.value = false;
   },
 );
 </script>
@@ -216,12 +211,6 @@ watch(
         </div>
 
         <div class="match-list__detail-foot">
-          <MatchRomRenameToggle
-            v-model="renameFromSource"
-            :rom="rom"
-            :matched-name="selectedMatch.name"
-          />
-
           <div class="match-list__cta">
             <RBtn
               variant="flat"

@@ -3,14 +3,13 @@
 //
 // Grid of result cards stays visible at all times. Clicking a card
 // lifts it, blurs the rest of the grid and overlays a focused panel
-// over the body with cover-source picker + rename + confirm. Click
+// over the body with a cover-source picker and confirm action. Click
 // the backdrop or press Esc to close.
 import { RBtn, REmptyState, RIcon, RProgressCircular } from "@v2/lib";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
-import MatchRomRenameToggle from "@/v2/components/MatchRom/MatchRomRenameToggle.vue";
 import {
   type ConfirmPayload,
   firstAvailableCover,
@@ -41,7 +40,6 @@ const { t } = useI18n();
 
 const activeKey = ref<string | null>(null);
 const selectedSource = ref<MatchedSource | undefined>(undefined);
-const renameFromSource = ref(false);
 
 const activeMatch = computed<SearchRom | null>(
   () => props.results.find((r) => matchKey(r) === activeKey.value) ?? null,
@@ -65,13 +63,11 @@ function open(r: SearchRom) {
   activeKey.value = matchKey(r);
   const sources = getMatchSources(r);
   selectedSource.value = sources.length === 1 ? sources[0] : undefined;
-  renameFromSource.value = false;
 }
 
 function close() {
   activeKey.value = null;
   selectedSource.value = undefined;
-  renameFromSource.value = false;
 }
 
 function confirm() {
@@ -79,7 +75,6 @@ function confirm() {
   emit("confirm", {
     matchedRom: activeMatch.value,
     cover: selectedSource.value,
-    renameFromSource: renameFromSource.value,
   });
 }
 
@@ -227,12 +222,6 @@ watch(
           </div>
 
           <div class="match-grid__footer">
-            <MatchRomRenameToggle
-              v-model="renameFromSource"
-              :rom="rom"
-              :matched-name="activeMatch.name"
-            />
-
             <div class="match-grid__cta">
               <RBtn
                 variant="flat"

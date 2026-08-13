@@ -572,8 +572,11 @@ function reachableServicePaths(): string[] {
 }
 
 function payloadCapabilities(source: string): string[] {
-  return [
-    "fs_name",
+  const capabilities: string[] = [];
+  if (/[.\s]fs_name\b/.test(source) || /["']fs_name["']\s*,/.test(source)) {
+    capabilities.push("fs_name");
+  }
+  for (const capability of [
     "delete_from_fs",
     "artwork",
     "manual",
@@ -581,11 +584,29 @@ function payloadCapabilities(source: string): string[] {
     "save",
     "state",
     "patch_file",
-  ].filter((capability) => new RegExp("\\b" + capability + "\\b").test(source));
+  ]) {
+    if (new RegExp("\\b" + capability + "\\b").test(source)) {
+      capabilities.push(capability);
+    }
+  }
+  return capabilities;
 }
 
 function finalAuthority(call: RawCall, source: string): Authority {
-  const capabilities = payloadCapabilities(source);
+  const functionName = call.call.split(":", 1)[0];
+  const marker = "function " + functionName;
+  const start = source.indexOf(marker);
+  let authoritySource = source;
+  if (start >= 0) {
+    const candidates = [
+      source.indexOf("\nasync function ", start + marker.length),
+      source.indexOf("\nfunction ", start + marker.length),
+      source.indexOf("\nexport default", start + marker.length),
+    ].filter((index) => index >= 0);
+    const end = candidates.length ? Math.min(...candidates) : source.length;
+    authoritySource = source.slice(start, end);
+  }
+  const capabilities = payloadCapabilities(authoritySource);
   if (call.method === "GET" || call.method === "HEAD") {
     return {
       ...call,
@@ -755,6 +776,22 @@ describe("final active v2 semantic mutation closure", () => {
     expect(patchRoute).toContain("OwnedStorageKind.TEMP");
     expect(romRoutes).toContain("router.include_router(patch_router)");
     expect(romRoutes).toContain('router.put,\n    "/{id}"');
+  });
+
+  it("keeps generic-client stats, token, and log consumers source-neutral", () => {
+    for (const importer of [
+      "v2/components/Home/Widgets/LibraryStatsWidget.vue",
+      "v2/views/Settings/ServerStats.vue",
+      "v2/views/Settings/ClientApiTokens.vue",
+      "v2/views/Settings/Logs.vue",
+    ]) {
+      const path = resolve(process.cwd(), "src", importer);
+      const source = readFileSync(path, "utf8");
+      const authorities = extractRawCalls(source, importer).map((call) =>
+        finalAuthority(call, source),
+      );
+      expect(authorities.every((authority) => !authority.forbidden)).toBe(true);
+    }
   });
 
   it("fails aliases, dynamic calls, conditional flags, and every external mutation family with safe diagnostics", () => {
