@@ -20,9 +20,12 @@ from handler.database.legacy_migration_handler import (
 from handler.filesystem.storage_policy import StorageOperation
 from handler.storage.read_context import MappingReadContext
 from models.platform import Platform
+from models.rom import Rom, RomFile
 from models.storage import (
+    LegacyCatalogEntityKind,
     LegacyDetectionResult,
     LegacyMigration,
+    LegacyMigrationCatalogChange,
     PlatformStorageMapping,
     StorageMappingAudit,
     StorageMappingAuditAction,
@@ -112,6 +115,132 @@ def _seed_migrated_mapping(source: Path, *, suffix: str = "one") -> tuple[int, i
 
 def _healthy_root(*_args, **_kwargs):
     return SimpleNamespace(reachable=True, readable=True, non_writable=True)
+
+
+def _seed_exact_rollback(
+    source: Path, *, suffix: str
+) -> tuple[int, int, int, dict[str, int]]:
+    mapped = source / "mapped"
+    mapped.mkdir(parents=True)
+    (mapped / "changed.bin").write_bytes(b"immutable game")
+    now = datetime(2026, 8, 12, 20, tzinfo=timezone.utc)
+    with sync_session.begin() as session:
+        platform = Platform(
+            name=f"Exact Rollback {suffix}",
+            slug=f"exact-rollback-{suffix}",
+            fs_slug=f"exact-rollback-{suffix}",
+        )
+        root = StorageRoot(name=f"Archive {suffix}", container_path=str(source))
+        session.add_all([platform, root])
+        session.flush()
+        mapping = PlatformStorageMapping(
+            platform_id=platform.id,
+            storage_root_id=root.id,
+            relative_path="mapped",
+            active=True,
+            version=1,
+        )
+        session.add(mapping)
+        session.flush()
+        roms: dict[str, Rom] = {}
+        files: dict[str, RomFile] = {}
+        for name, missing in (
+            ("changed", False),
+            ("already-visible", False),
+            ("unmatched-missing", True),
+        ):
+            rom = Rom(
+                platform_id=platform.id,
+                fs_name=f"{name}.bin",
+                fs_name_no_tags=name,
+                fs_name_no_ext=name,
+                fs_extension="bin",
+                fs_path="mapped",
+                fs_size_bytes=1,
+                name=name,
+                missing_from_fs=missing,
+            )
+            session.add(rom)
+            session.flush()
+            rom_file = RomFile(
+                rom_id=rom.id,
+                file_name=rom.fs_name,
+                file_path=rom.fs_path,
+                file_size_bytes=1,
+                missing_from_fs=missing,
+            )
+            session.add(rom_file)
+            roms[name] = rom
+            files[name] = rom_file
+        detection = LegacyDetectionResult(
+            platform_id=platform.id,
+            storage_root_id=root.id,
+            state="detected",
+            proposed_relative_path="mapped",
+            observed_files=1,
+            observed_bytes=14,
+            lower_bound=False,
+            selectable=True,
+            source_fingerprint="a" * 64,
+            version=2,
+            actor_user_id=7,
+            completed_at=now,
+            expires_at=now + timedelta(hours=24),
+        )
+        session.add(detection)
+        session.flush()
+        migration = LegacyMigration(
+            detection_result_id=detection.id,
+            platform_id=platform.id,
+            storage_root_id=root.id,
+            mapping_id=mapping.id,
+            relative_path="mapped",
+            state="completed",
+            version=1,
+            actor_user_id=7,
+            reconnected_catalog_count=1,
+            unmatched_catalog_count=2,
+            completed_at=now,
+            expires_at=now + timedelta(hours=24),
+            catalog_changes=[
+                LegacyMigrationCatalogChange(
+                    entity_kind=LegacyCatalogEntityKind.ROM.value,
+                    entity_id=roms["changed"].id,
+                    prior_missing_from_fs=True,
+                ),
+                LegacyMigrationCatalogChange(
+                    entity_kind=LegacyCatalogEntityKind.ROM_FILE.value,
+                    entity_id=files["changed"].id,
+                    prior_missing_from_fs=True,
+                ),
+            ],
+        )
+        session.add(migration)
+        session.flush()
+        ids = {
+            "changed_rom": roms["changed"].id,
+            "changed_file": files["changed"].id,
+            "visible_rom": roms["already-visible"].id,
+            "visible_file": files["already-visible"].id,
+            "missing_rom": roms["unmatched-missing"].id,
+            "missing_file": files["unmatched-missing"].id,
+        }
+        return mapping.id, migration.id, platform.id, ids
+
+
+def _catalog_states(ids: dict[str, int]) -> dict[str, bool | None]:
+    with sync_session() as session:
+        return {
+            key: (
+                row.missing_from_fs
+                if (
+                    row := session.get(RomFile if key.endswith("file") else Rom, row_id)
+                )
+                is not None
+                else None
+            )
+            for key, row_id in ids.items()
+        }
 
 
 @pytest.fixture(autouse=True)
@@ -354,6 +483,193 @@ def test_unused_migration_rollback_is_atomic_and_source_neutral(
     assert persisted.state == "rolled_back"
     assert persisted.migration_version == 2
     assert not persisted.rollback_eligible
+
+
+@pytest.mark.parametrize("read_only", [False, True])
+def test_exact_rollback_restores_only_recorded_rows_and_preserves_later_rows(
+    tmp_path: Path, read_only: bool
+):
+    source = tmp_path / "external"
+    suffix = "exact-read-only" if read_only else "exact-writable"
+    _, migration_id, platform_id, ids = _seed_exact_rollback(source, suffix=suffix)
+    with sync_session.begin() as session:
+        later = Rom(
+            platform_id=platform_id,
+            fs_name="later.bin",
+            fs_name_no_tags="later",
+            fs_name_no_ext="later",
+            fs_extension="bin",
+            fs_path="mapped",
+            fs_size_bytes=1,
+            name="later",
+            missing_from_fs=False,
+        )
+        session.add(later)
+        session.flush()
+        later_file = RomFile(
+            rom_id=later.id,
+            file_name=later.fs_name,
+            file_path=later.fs_path,
+            file_size_bytes=1,
+            missing_from_fs=False,
+        )
+        session.add(later_file)
+        session.flush()
+        ids.update(later_rom=later.id, later_file=later_file.id)
+    if read_only:
+        (source / "mapped" / "changed.bin").chmod(0o444)
+        (source / "mapped").chmod(0o555)
+        source.chmod(0o555)
+    before_source = _manifest(source)
+
+    outcome = DBLegacyMigrationHandler().rollback_migration(
+        migration_id,
+        platform_id=platform_id,
+        expected_version=1,
+        actor_user_id=7,
+        actor_display_name="Admin",
+        now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+    )
+
+    assert outcome.state == "rolled_back"
+    assert _catalog_states(ids) == {
+        "changed_rom": True,
+        "changed_file": True,
+        "visible_rom": False,
+        "visible_file": False,
+        "missing_rom": True,
+        "missing_file": True,
+        "later_rom": False,
+        "later_file": False,
+    }
+    assert _manifest(source) == before_source
+
+
+@pytest.mark.parametrize("mutation", ["changed", "deleted", "cross-platform"])
+def test_exact_rollback_rejects_stale_recorded_rows_atomically(
+    tmp_path: Path, mutation: str
+):
+    source = tmp_path / "external"
+    mapping_id, migration_id, platform_id, ids = _seed_exact_rollback(
+        source, suffix=f"stale-{mutation}"
+    )
+    with sync_session.begin() as session:
+        if mutation == "changed":
+            row = session.get(Rom, ids["changed_rom"])
+            assert row is not None
+            row.missing_from_fs = True
+        elif mutation == "deleted":
+            row = session.get(RomFile, ids["changed_file"])
+            assert row is not None
+            session.delete(row)
+        else:
+            foreign_platform = Platform(
+                name="Foreign Exact Rollback",
+                slug=f"foreign-exact-rollback-{migration_id}",
+                fs_slug=f"foreign-exact-rollback-{migration_id}",
+            )
+            session.add(foreign_platform)
+            session.flush()
+            foreign_rom = Rom(
+                platform_id=foreign_platform.id,
+                fs_name="foreign.bin",
+                fs_name_no_tags="foreign",
+                fs_name_no_ext="foreign",
+                fs_extension="bin",
+                fs_path="mapped",
+                fs_size_bytes=1,
+                name="foreign",
+                missing_from_fs=False,
+            )
+            session.add(foreign_rom)
+            session.flush()
+            change = session.scalar(
+                select(LegacyMigrationCatalogChange).where(
+                    LegacyMigrationCatalogChange.migration_id == migration_id,
+                    LegacyMigrationCatalogChange.entity_kind
+                    == LegacyCatalogEntityKind.ROM.value,
+                )
+            )
+            assert change is not None
+            change.entity_id = foreign_rom.id
+    before = _catalog_states(ids)
+
+    with pytest.raises(LegacyRollbackError) as captured:
+        DBLegacyMigrationHandler().rollback_migration(
+            migration_id,
+            platform_id=platform_id,
+            expected_version=1,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+        )
+
+    assert captured.value.code == "legacy_rollback_stale"
+    assert _catalog_states(ids) == before
+    with sync_session() as session:
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        migration = session.get(LegacyMigration, migration_id)
+        audits = list(
+            session.scalars(
+                select(StorageMappingAudit).where(
+                    StorageMappingAudit.mapping_id == mapping_id
+                )
+            )
+        )
+        assert mapping is not None and mapping.active and mapping.version == 1
+        assert migration is not None and migration.state == "completed"
+        assert migration.version == 1
+        assert audits == []
+
+
+def test_exact_rollback_catalog_flush_failure_restores_pre_attempt_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    source = tmp_path / "external"
+    mapping_id, migration_id, platform_id, ids = _seed_exact_rollback(
+        source, suffix="catalog-flush"
+    )
+    before = _catalog_states(ids)
+    handler = DBLegacyMigrationHandler()
+
+    def fail(stage: str) -> None:
+        if stage == "rollback_catalog":
+            raise RuntimeError("injected exact catalog failure")
+
+    monkeypatch.setattr(handler, "_after_migration_flush", fail)
+    with pytest.raises(RuntimeError, match="injected exact catalog failure"):
+        handler.rollback_migration(
+            migration_id,
+            platform_id=platform_id,
+            expected_version=1,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+        )
+
+    assert _catalog_states(ids) == before
+    with sync_session() as session:
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        migration = session.get(LegacyMigration, migration_id)
+        assert mapping is not None and mapping.active and mapping.version == 1
+        assert migration is not None and migration.state == "completed"
+        assert migration.version == 1
+
+    monkeypatch.setattr(handler, "_after_migration_flush", lambda _stage: None)
+    retry = handler.rollback_migration(
+        migration_id,
+        platform_id=platform_id,
+        expected_version=1,
+        actor_user_id=7,
+        actor_display_name="Admin",
+        now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+    )
+    assert retry.state == "rolled_back"
+    assert _catalog_states(ids) == {
+        **before,
+        "changed_rom": True,
+        "changed_file": True,
+    }
 
 
 def test_first_use_makes_rollback_ineligible_with_stable_error(tmp_path: Path):

@@ -18,8 +18,10 @@ from handler.storage.read_context import MappingReadContext
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.storage import (
+    LegacyCatalogEntityKind,
     LegacyDetectionResult,
     LegacyMigration,
+    LegacyMigrationCatalogChange,
     PlatformStorageMapping,
     StorageMappingAudit,
     StorageMappingAuditAction,
@@ -217,6 +219,25 @@ def test_atomic_migrate_commits_mapping_catalog_audit_and_rollback_metadata(
         assert migration.mapping_id == mapping.id
         assert migration.reconnected_catalog_count == 1
         assert migration.unmatched_catalog_count == 2
+        changes = list(
+            session.scalars(
+                select(LegacyMigrationCatalogChange)
+                .where(
+                    LegacyMigrationCatalogChange.migration_id == outcome.migration_id
+                )
+                .order_by(
+                    LegacyMigrationCatalogChange.entity_kind,
+                    LegacyMigrationCatalogChange.entity_id,
+                )
+            )
+        )
+        assert [
+            (change.entity_kind, change.entity_id, change.prior_missing_from_fs)
+            for change in changes
+        ] == [
+            (LegacyCatalogEntityKind.ROM.value, rom_ids[0], True),
+            (LegacyCatalogEntityKind.ROM_FILE.value, files[0].id, True),
+        ]
         assert audits == 1
         assert detection is not None and detection.version == 2
         assert [rom.missing_from_fs for rom in roms] == [False, True, True]
