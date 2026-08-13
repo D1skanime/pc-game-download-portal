@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-21-PLAN.md
-last_updated: "2026-08-13T19:57:12.440Z"
+stopped_at: Completed 06-25-PLAN.md
+last_updated: "2026-08-13T21:09:38.912Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 61
-  completed_plans: 58
+  completed_plans: 59
   percent: 56
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 6 of 26
+Plan: 7 of 26
 Status: Ready to execute
 Last activity: 2026-08-13
 
@@ -96,6 +96,7 @@ _Updated after each plan completion_
 | Phase 06 P24 | 33m | 1 tasks | 11 files |
 | Phase 06 P18 | 37m | 1 tasks | 13 files |
 | Phase 06 P21 | 24m11s | 2 tasks | 9 files |
+| Phase 06 P25 | 42min | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -204,6 +205,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Keep generic HTTP clients available and reject only semantically classified external mutation pairs. - Concrete operation, route, StorageOperation, and descriptor classification preserves safe generic-client consumers.
 - [Phase 06]: Generate every Rom and RomFile incarnation token immediately before ORM insert, overriding caller input, and reject ORM instance and bulk updates. - Normal creation cannot preserve caller-supplied identity and persisted rows cannot change incarnation.
 - [Phase 06]: Invalidate all pre-0113 completed migration records because their historical entity and parent lineage cannot be reconstructed safely. - Unknown predecessor lineage must never authorize rollback.
+- [Phase 06]: Keep the legacy v2 upload route inert while removing every active v2 navigation and mutation control.
+- [Phase 06]: Classify POST /roms/{id}/patch as READ/external input and PATCH/TEMP output.
+- [Phase 06]: Authorize CREATE and MKDIR before setup detection while empty input remains neutral.
 
 ### Blockers/Concerns
 
@@ -221,6 +225,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T19:57:12.436Z
-Stopped at: Completed 06-21-PLAN.md
+Last session: 2026-08-13T21:09:38.908Z
+Stopped at: Completed 06-25-PLAN.md
 Resume file: None
