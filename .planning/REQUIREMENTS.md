@@ -84,8 +84,8 @@
 ### Legacy Migration and Compatibility
 
 - [x] **MIG-01**: A migration can represent existing RomM platform layouts as storage roots and relative mappings without moving, renaming, copying, or creating library content.
-- [ ] **MIG-02**: Migration behavior is portable across MariaDB, MySQL, and PostgreSQL and is reversible at the database-schema level where practical.
-- [ ] **MIG-03**: If an existing layout cannot be migrated safely, startup or administration reports a clear manual mapping requirement instead of guessing.
+- [x] **MIG-02**: Migration behavior is portable across MariaDB, MySQL, and PostgreSQL and is reversible at the database-schema level where practical.
+- [x] **MIG-03**: If an existing layout cannot be migrated safely, startup or administration reports a clear manual mapping requirement instead of guessing.
 - [x] **MIG-04**: Existing mapped platforms remain scanable after restart and mapping records survive normal deployment lifecycle operations.
 - [x] **MIG-05**: Any legacy fallback is explicit, observable, time-bounded, and unable to bypass the external-root policy.
 
