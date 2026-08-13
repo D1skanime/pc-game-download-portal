@@ -6,6 +6,10 @@ from pathlib import Path
 import pytest
 
 from exceptions.storage_exceptions import (
+    DescriptorHashBudgetError,
+    DescriptorHashConcurrentChangeError,
+    DescriptorHashDeadlineError,
+    DescriptorHashShortReadError,
     MissingStorageTargetError,
     NonDirectoryStorageTargetError,
     StorageResolutionError,
@@ -17,6 +21,7 @@ from handler.filesystem.storage_access import (
     OwnedDirectory,
     OwnedRead,
     OwnedReplace,
+    hash_descriptor_file,
     open_owned_access,
     open_storage_access,
 )
@@ -284,3 +289,119 @@ def test_subprocess_adapter_lists_only_the_capability_fd(tmp_path):
         assert argv[:2] == ("tool", "--input")
         assert argv[2] == f"/proc/self/fd/{pass_fds[0]}"
         assert pass_fds == (access.fileno(),)
+
+
+@pytest.mark.parametrize("size", [0, 1024 * 1024, 1024 * 1024 + 17])
+def test_descriptor_hash_reads_exact_bytes_in_fixed_chunks(tmp_path, size):
+    content = bytes((index % 251 for index in range(size)))
+    (tmp_path / "game.rom").write_bytes(content)
+    result = hash_descriptor_file(
+        _external(tmp_path),
+        "game.rom",
+        max_bytes=max(1, size),
+        deadline_monotonic=10.0,
+        monotonic=lambda: 0.0,
+    )
+    assert result.sha256 == hashlib.sha256(content).hexdigest()
+    assert result.bytes_read == size
+    assert result.before == result.after
+    assert result.before.size == size
+
+
+def test_descriptor_hash_distinguishes_same_metadata_different_bytes(tmp_path):
+    path = tmp_path / "game.rom"
+    path.write_bytes(b"first")
+    timestamp = path.stat().st_mtime_ns
+    first = hash_descriptor_file(
+        _external(tmp_path), "game.rom", max_bytes=5, deadline_monotonic=10.0
+    )
+    path.write_bytes(b"other")
+    os.utime(path, ns=(timestamp, timestamp))
+    second = hash_descriptor_file(
+        _external(tmp_path), "game.rom", max_bytes=5, deadline_monotonic=10.0
+    )
+    assert first.before.size == second.before.size
+    assert first.before.mode == second.before.mode
+    assert first.before.mtime_ns == second.before.mtime_ns
+    assert first.sha256 != second.sha256
+
+
+def test_descriptor_hash_rejects_byte_budget_and_deadline_without_path(tmp_path):
+    (tmp_path / "secret-name.rom").write_bytes(b"1234")
+    with pytest.raises(DescriptorHashBudgetError) as budget:
+        hash_descriptor_file(
+            _external(tmp_path),
+            "secret-name.rom",
+            max_bytes=3,
+            deadline_monotonic=10.0,
+            monotonic=lambda: 0.0,
+        )
+    clock = iter((0.0, 10.0))
+    with pytest.raises(DescriptorHashDeadlineError) as deadline:
+        hash_descriptor_file(
+            _external(tmp_path),
+            "secret-name.rom",
+            max_bytes=4,
+            deadline_monotonic=10.0,
+            monotonic=lambda: next(clock),
+        )
+    assert "secret-name" not in str(budget.value)
+    assert "secret-name" not in str(deadline.value)
+
+
+def test_descriptor_hash_rejects_short_long_and_changed_reads(tmp_path, monkeypatch):
+    path = tmp_path / "game.rom"
+    path.write_bytes(b"1234")
+    real_read = os.read
+    monkeypatch.setattr("handler.filesystem.storage_access.os.read", lambda *_: b"")
+    with pytest.raises(DescriptorHashShortReadError):
+        hash_descriptor_file(
+            _external(tmp_path), "game.rom", max_bytes=4, deadline_monotonic=10.0
+        )
+
+    monkeypatch.setattr(
+        "handler.filesystem.storage_access.os.read",
+        lambda _fd, count: b"x" * (count + 1),
+    )
+    with pytest.raises(DescriptorHashConcurrentChangeError):
+        hash_descriptor_file(
+            _external(tmp_path), "game.rom", max_bytes=4, deadline_monotonic=10.0
+        )
+
+    changed = False
+
+    def mutate_after_read(descriptor, count):
+        nonlocal changed
+        chunk = real_read(descriptor, count)
+        if not changed:
+            changed = True
+            os.ftruncate(descriptor, 5)
+        return chunk
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.read", mutate_after_read)
+    with pytest.raises(DescriptorHashConcurrentChangeError):
+        hash_descriptor_file(
+            _external(tmp_path), "game.rom", max_bytes=8, deadline_monotonic=10.0
+        )
+
+
+def test_descriptor_hash_denies_symlinks_and_closes_on_every_failure(tmp_path):
+    (tmp_path / "real.rom").write_bytes(b"1234")
+    (tmp_path / "link.rom").symlink_to(tmp_path / "real.rom")
+    before = len(os.listdir("/proc/self/fd"))
+    for _ in range(20):
+        with pytest.raises(UnsafeSymlinkError):
+            hash_descriptor_file(
+                _external(tmp_path),
+                "link.rom",
+                max_bytes=4,
+                deadline_monotonic=10.0,
+            )
+        with pytest.raises(DescriptorHashBudgetError):
+            hash_descriptor_file(
+                _external(tmp_path),
+                "real.rom",
+                max_bytes=3,
+                deadline_monotonic=10.0,
+            )
+    assert len(os.listdir("/proc/self/fd")) <= before + 1

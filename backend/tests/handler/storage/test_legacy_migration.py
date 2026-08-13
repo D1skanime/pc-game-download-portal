@@ -96,6 +96,7 @@ def test_detects_only_the_exact_persisted_fs_slug(tmp_path: Path):
     assert result.selectable is True
     assert result.safe_problem_code is None
     assert _source_manifest(tmp_path) == before
+    assert len(result.source_fingerprint) == 64
 
 
 def test_custom_alias_and_configured_names_never_become_candidates(tmp_path: Path):
@@ -148,8 +149,9 @@ def test_entry_budget_reports_observed_lower_bound(tmp_path: Path):
 
     assert result.state == "detected"
     assert result.observed_files == 1
-    assert result.lower_bound is True
-    assert result.selectable is True
+    assert result.lower_bound is False
+    assert result.source_fingerprint is None
+    assert result.selectable is False
     assert result.safe_problem_code == "entry_budget"
 
 
@@ -186,7 +188,95 @@ def test_detection_uses_only_list_and_stat_capabilities(tmp_path: Path, monkeypa
 
     assert result.state == "detected"
     assert operations
-    assert set(operations) <= {"list", "stat"}
+    assert set(operations) <= {"list", "stat", "hash"}
+    assert "hash" in operations
+
+
+def test_source_fingerprint_is_content_complete_and_enumeration_deterministic(
+    tmp_path: Path,
+):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    for root, order in ((first, ("b.rom", "a.rom")), (second, ("a.rom", "b.rom"))):
+        canonical = root / "roms" / "gb"
+        canonical.mkdir(parents=True)
+        for name in order:
+            (canonical / name).write_bytes(name.encode())
+
+    first_result = _detect(first)
+    second_result = _detect(second)
+
+    assert first_result.selectable is True
+    assert first_result.source_fingerprint == second_result.source_fingerprint
+
+
+def test_source_fingerprint_rejects_same_metadata_different_bytes(tmp_path: Path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    paths = []
+    for root, content in ((first, b"first"), (second, b"other")):
+        path = root / "roms" / "gb" / "game.rom"
+        path.parent.mkdir(parents=True)
+        path.write_bytes(content)
+        path.chmod(0o640)
+        os.utime(path, ns=(1_700_000_000_000_000_000,) * 2)
+        paths.append(path)
+
+    first_result = _detect(first)
+    second_result = _detect(second)
+
+    assert paths[0].stat().st_size == paths[1].stat().st_size
+    assert stat.S_IMODE(paths[0].stat().st_mode) == stat.S_IMODE(
+        paths[1].stat().st_mode
+    )
+    assert paths[0].stat().st_mtime_ns == paths[1].stat().st_mtime_ns
+    assert first_result.source_fingerprint != second_result.source_fingerprint
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "problem"),
+    [
+        ({"per_file_byte_budget": 3}, "file_byte_budget"),
+        ({"aggregate_byte_budget": 3}, "aggregate_byte_budget"),
+    ],
+)
+def test_incomplete_source_byte_budgets_are_manual_and_path_free(
+    tmp_path: Path, kwargs, problem
+):
+    canonical = tmp_path / "roms" / "gb"
+    canonical.mkdir(parents=True)
+    (canonical / "private-game.rom").write_bytes(b"1234")
+
+    result = _detect(tmp_path, **kwargs)
+
+    assert result.selectable is False
+    assert result.source_fingerprint is None
+    assert result.safe_problem_code == problem
+    assert "private-game" not in str(asdict(result))
+
+
+def test_typed_hash_failure_is_manual_and_does_not_mutate_source(
+    tmp_path: Path, monkeypatch
+):
+    from exceptions.storage_exceptions import DescriptorHashShortReadError
+
+    subject = _subject()
+    canonical = tmp_path / "roms" / "gb"
+    canonical.mkdir(parents=True)
+    (canonical / "private-game.rom").write_bytes(b"1234")
+    before = _source_manifest(tmp_path)
+
+    def fail_hash(*_args, **_kwargs):
+        raise DescriptorHashShortReadError()
+
+    monkeypatch.setattr(subject, "hash_descriptor_file", fail_hash)
+    result = _detect(tmp_path)
+
+    assert result.selectable is False
+    assert result.source_fingerprint is None
+    assert result.safe_problem_code == "hash_incomplete"
+    assert "private-game" not in str(asdict(result))
+    assert _source_manifest(tmp_path) == before
 
 
 def test_detection_results_expire_bind_and_reject_reuse(
