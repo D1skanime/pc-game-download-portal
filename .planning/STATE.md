@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-25-PLAN.md
-last_updated: "2026-08-13T21:09:38.912Z"
+stopped_at: Completed 06-26-PLAN.md
+last_updated: "2026-08-13T21:54:21.304Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 61
-  completed_plans: 59
+  completed_plans: 60
   percent: 56
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 7 of 26
+Plan: 8 of 26
 Status: Ready to execute
 Last activity: 2026-08-13
 
@@ -97,6 +97,7 @@ _Updated after each plan completion_
 | Phase 06 P18 | 37m | 1 tasks | 13 files |
 | Phase 06 P21 | 24m11s | 2 tasks | 9 files |
 | Phase 06 P25 | 42min | 2 tasks | 17 files |
+| Phase 06 P26 | 22m | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -208,6 +209,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Keep the legacy v2 upload route inert while removing every active v2 navigation and mutation control.
 - [Phase 06]: Classify POST /roms/{id}/patch as READ/external input and PATCH/TEMP output.
 - [Phase 06]: Authorize CREATE and MKDIR before setup detection while empty input remains neutral.
+- [Phase 06]: Keep source filename visible but read-only and remove rename intent from active v2 UI, types, and payload construction. — CAT-04 permits metadata and owned-resource changes but not external source rename authority.
+- [Phase 06]: Narrow updateRom at its callable boundary and serializer while retaining the shared UpdateRom model for frozen v1 type consumers. — This removes active-v2 authority without breaking out-of-scope legacy type consumers.
+- [Phase 06]: Authorize changed fs_name as external RENAME before any database, owned-resource, or filesystem effect. — Mixed-authority requests must fail closed without partial mutation.
 
 ### Blockers/Concerns
 
@@ -225,6 +229,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T21:09:38.908Z
-Stopped at: Completed 06-25-PLAN.md
+Last session: 2026-08-13T21:54:21.301Z
+Stopped at: Completed 06-26-PLAN.md
 Resume file: None
