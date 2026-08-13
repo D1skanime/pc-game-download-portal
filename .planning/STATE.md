@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-07-PLAN.md
-last_updated: "2026-08-12T23:38:59.259Z"
-last_activity: 2026-08-12
+stopped_at: Completed 06-08-PLAN.md
+last_updated: "2026-08-13T00:11:33.865Z"
+last_activity: 2026-08-13
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 44
-  completed_plans: 42
-  percent: 95
+  completed_plans: 43
+  percent: 56
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 8 of 9
+Plan: 9 of 9
 Status: Ready to execute
-Last activity: 2026-08-12
+Last activity: 2026-08-13
 
 Progress: [██████████] 95%
 
@@ -80,6 +80,7 @@ _Updated after each plan completion_
 | Phase 06 P05 | 18min | 2 tasks | 14 files |
 | Phase 06 P06 | 27min | 2 tasks | 12 files |
 | Phase 06 P07 | 17min | 2 tasks | 7 files |
+| Phase 06 P08 | 31min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Productive operations persist only scan, hash, stream, play, or download.
 - [Phase 06]: First use is marked under row locks before descriptor creation, followed by exact-revision revalidation.
 - [Phase 06]: Concurrent productive uses preserve the original marker and increment lifecycle version once.
+- [Phase 06]: Rollback and productive first use serialize by locking the migration row before the mapping row.
+- [Phase 06]: Rollback restores only exact still-valid prior owned mapping state and never accesses source storage.
+- [Phase 06]: Rollback status exposes bounded IDs, versions, eligibility, expiry, and operation vocabulary only.
 
 ### Blockers/Concerns
 
@@ -169,6 +173,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-12T23:38:47.080Z
-Stopped at: Completed 06-07-PLAN.md
+Last session: 2026-08-13T00:11:33.861Z
+Stopped at: Completed 06-08-PLAN.md
 Resume file: None
