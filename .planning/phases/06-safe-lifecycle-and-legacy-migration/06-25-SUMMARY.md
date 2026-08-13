@@ -30,6 +30,8 @@ key-files:
     - frontend/src/services/api/platform.ts
     - frontend/src/services/api/setup.ts
     - backend/endpoints/heartbeat.py
+    - backend/endpoints/roms/files.py
+    - backend/endpoints/roms/patch.py
     - backend/tests/endpoints/test_storage_policy_denials.py
 key-decisions:
   - "Keep the legacy v2 upload route inert while removing every active v2 navigation and mutation control."
@@ -70,6 +72,7 @@ metrics:
 4. **Task 2 GREEN: guard setup source creation** - `41dd91caa`
 5. **Closeout Rule 3: resolve scoped static errors** - `48b1c3066`
 6. **Closeout Rule 1: complete replay immutability coverage** - `4d70abb01`
+7. **Post-wave Rule 1: remove retired backend imports** - `524923703`
 
 ## Files Created/Modified
 
@@ -125,6 +128,14 @@ metrics:
 - **Files modified:** `backend/tests/endpoints/test_storage_policy_denials.py`
 - **Commit:** `4d70abb01`
 
+**5. [Rule 1 - Bug] Removed retired backend imports exposed by the cumulative gate**
+
+- **Found during:** Mandatory Wave 3 post-merge verification
+- **Issue:** Four imports retired by prior endpoint migrations remained unused and caused scoped Ruff F401 failures.
+- **Fix:** Removed only `FileRedirectResponse`, `OwnedCreate`, `OwnedDelete`, and `OwnedDirectory` imports after verifying no usages remained.
+- **Files modified:** `backend/endpoints/roms/files.py`, `backend/endpoints/roms/patch.py`
+- **Commit:** `524923703`
+
 ## Issues Encountered
 
 - The standalone Trunk command timed out twice while resolving tools. Mandatory commit hooks passed, and the exact cached Trunk Ruff 0.15.22 binary then passed both backend files for lint and format.
@@ -140,7 +151,7 @@ metrics:
 - Frontend typecheck with 4096 MB Node memory: passed.
 - Frontend production build with 4096 MB Node memory: passed, 4,463 modules transformed.
 - Frontend installed ESLint across 15 touched frontend files: zero errors.
-- Cached Trunk Ruff 0.15.22 across both backend files: lint passed; 2 files already formatted.
+- Cached Trunk Ruff 0.15.22 across all 15 changed backend endpoint modules: lint passed after the post-wave import cleanup; AST compilation passed for all 15 modules.
 - Semantic inventory: active v2 upload routes 0; forbidden service exports 0; Upload mutation clients 0; patch raw POSTs 1; patch persistence controls 0; setup creation controls 0.
 - Live patch descriptor pair: `READ / legacy_external_storage` plus `PATCH / OwnedStorageKind.TEMP`.
 - `git diff --check`: passed.
