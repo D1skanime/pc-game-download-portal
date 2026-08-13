@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-14-PLAN.md
-last_updated: "2026-08-13T08:41:28.533Z"
+stopped_at: Completed 06-11-PLAN.md
+last_updated: "2026-08-13T09:42:49.412Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 52
-  completed_plans: 47
+  completed_plans: 48
   percent: 56
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 14 of 17
+Plan: 15 of 17
 Status: Ready to execute
 Last activity: 2026-08-13
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -85,6 +85,7 @@ _Updated after each plan completion_
 | Phase 06 P10 | 28min | 3 tasks | 14 files |
 | Phase 06-safe-lifecycle-and-legacy-migration P12 | 63m | 3 tasks | 19 files |
 | Phase 06 P14 | 22m | 3 tasks | 7 files |
+| Phase 06 P11 | 45m | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -172,6 +173,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Cache and derived-state failures remain best-effort after durable catalog commit.
 - [Phase 06]: Mapped-read resolution failures use exhaustive bounded domain classification.
 - [Phase 06]: Contract verification runs in a nonce-owned inert container cleaned by full ID.
+- [Phase 06]: V2 ROM removal exposes catalog-only removal plus optional future-scan exclusion. - The active flow cannot express source-file deletion.
+- [Phase 06]: The shared ROM removal client accepts identities only and serializes rom_ids. - The TypeScript boundary prevents hidden or stale source-delete intent.
 
 ### Blockers/Concerns
 
@@ -189,6 +192,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T08:41:28.530Z
-Stopped at: Completed 06-14-PLAN.md
+Last session: 2026-08-13T09:42:18.846Z
+Stopped at: Completed 06-11-PLAN.md
 Resume file: None
