@@ -189,6 +189,47 @@ def test_remove_from_catalog_retains_user_value_and_source_manifest(
         assert all(intent.state == OwnedCleanupState.PENDING for intent in intents)
 
 
+def test_remove_from_catalog_exposes_detached_asset_contract(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    rom: Rom,
+) -> None:
+    dependency_ids = _seed_dependencies(rom, admin_user)
+
+    response = client.post(
+        "/api/roms/remove-from-catalog",
+        headers=_headers(access_token),
+        json={"rom_ids": [rom.id]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    saves_response = client.get("/api/saves", headers=_headers(access_token))
+    states_response = client.get("/api/states", headers=_headers(access_token))
+
+    assert saves_response.status_code == status.HTTP_200_OK
+    assert states_response.status_code == status.HTTP_200_OK
+    save = next(
+        item for item in saves_response.json() if item["id"] == dependency_ids["save"]
+    )
+    state = next(
+        item for item in states_response.json() if item["id"] == dependency_ids["state"]
+    )
+    assert save["rom_id"] is None
+    assert state["rom_id"] is None
+    assert isinstance(save["retained_catalog_id"], int)
+    assert save["retained_catalog_id"] == state["retained_catalog_id"]
+
+    platform_saves = client.get(
+        f"/api/saves?platform_id={rom.platform_id}", headers=_headers(access_token)
+    )
+    platform_states = client.get(
+        f"/api/states?platform_id={rom.platform_id}", headers=_headers(access_token)
+    )
+    assert [item["id"] for item in platform_saves.json()] == [dependency_ids["save"]]
+    assert [item["id"] for item in platform_states.json()] == [dependency_ids["state"]]
+
+
 def test_source_delete_inputs_and_duplicate_ids_are_rejected(
     client: TestClient, access_token: str, rom: Rom
 ) -> None:
