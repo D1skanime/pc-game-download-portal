@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
+status: gaps_found
 stopped_at: Completed 06-15-PLAN.md
-last_updated: "2026-08-13T12:06:04.207Z"
-last_activity: 2026-08-13
+last_updated: "2026-08-13T13:00:56.987Z"
+last_activity: 2026-08-13 (re-verification gaps found)
 progress:
   total_phases: 9
-  completed_phases: 6
+  completed_phases: 5
   total_plans: 52
   completed_plans: 52
-  percent: 67
+  percent: 56
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
 Plan: 17 of 17
-Status: Phase complete — ready for verification
-Last activity: 2026-08-13
+Status: gaps_found
+Last activity: 2026-08-13 (re-verification gaps found)
 
 Progress: [██████████] 100%
 
