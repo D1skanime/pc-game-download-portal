@@ -261,6 +261,70 @@ def test_incomplete_source_byte_budgets_are_manual_and_path_free(
     assert "private-game" not in str(asdict(result))
 
 
+def test_stat_to_hash_replacement_uses_only_aggregate_remaining(
+    tmp_path: Path, monkeypatch
+):
+    subject = _subject()
+    canonical = tmp_path / "roms" / "gb"
+    canonical.mkdir(parents=True)
+    (canonical / "a.rom").write_bytes(b"123")
+    replaced = canonical / "z-private.rom"
+    replaced.write_bytes(b"1")
+    real_hash = subject.hash_descriptor_file
+    passed_caps = []
+    replacement_manifest = None
+
+    def replace_before_hash(storage, logical_path, **kwargs):
+        nonlocal replacement_manifest
+        passed_caps.append(kwargs["max_bytes"])
+        if logical_path.endswith("z-private.rom"):
+            replaced.write_bytes(b"4567")
+            replacement_manifest = _source_manifest(tmp_path)
+        return real_hash(storage, logical_path, **kwargs)
+
+    monkeypatch.setattr(subject, "hash_descriptor_file", replace_before_hash)
+    result = _detect(tmp_path, per_file_byte_budget=10, aggregate_byte_budget=5)
+
+    assert passed_caps == [5, 2]
+    assert result.selectable is False
+    assert result.source_fingerprint is None
+    assert result.safe_problem_code == "aggregate_byte_budget"
+    assert "private-game" not in str(asdict(result))
+    assert replacement_manifest is not None
+    assert _source_manifest(tmp_path) == replacement_manifest
+
+
+def test_hash_return_over_aggregate_remaining_is_rejected_before_progress(
+    tmp_path: Path, monkeypatch
+):
+    subject = _subject()
+    canonical = tmp_path / "roms" / "gb"
+    canonical.mkdir(parents=True)
+    (canonical / "private-game.rom").write_bytes(b"12")
+    before = _source_manifest(tmp_path)
+    passed_caps = []
+
+    def dishonest_hash(*_args, **kwargs):
+        passed_caps.append(kwargs["max_bytes"])
+        return type(
+            "DishonestHashResult",
+            (),
+            {"bytes_read": 5, "sha256": "0" * 64},
+        )()
+
+    monkeypatch.setattr(subject, "hash_descriptor_file", dishonest_hash)
+    result = _detect(tmp_path, per_file_byte_budget=10, aggregate_byte_budget=4)
+
+    assert passed_caps == [4]
+    assert result.observed_files == 0
+    assert result.observed_bytes == 0
+    assert result.selectable is False
+    assert result.source_fingerprint is None
+    assert result.safe_problem_code == "aggregate_byte_budget"
+    assert "private-game" not in str(asdict(result))
+    assert _source_manifest(tmp_path) == before
+
+
 def test_typed_hash_failure_is_manual_and_does_not_mutate_source(
     tmp_path: Path, monkeypatch
 ):

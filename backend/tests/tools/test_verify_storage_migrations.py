@@ -82,6 +82,9 @@ def test_verify_dialect_exercises_pristine_and_history_paths(monkeypatch):
         "_verify_restart_persistence",
         "_verify_safe_lifecycle_downgrade_rejected",
         "_clear_0111_state",
+        "_seed_selectable_0111_results",
+        "_verify_seeded_0111_invalidated",
+        "_verify_seeded_0111_restored",
     ):
         monkeypatch.setattr(verifier, helper_name, lambda *args: calls.append(args))
     verifier.verify_dialect("mariadb", "romm-dev")
@@ -155,6 +158,21 @@ def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
     monkeypatch.setattr(
         verifier, "_clear_0111_state", lambda *args: events.append(("clear", *args))
     )
+    monkeypatch.setattr(
+        verifier,
+        "_seed_selectable_0111_results",
+        lambda *args: events.append(("seed-0111", *args)),
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_verify_seeded_0111_invalidated",
+        lambda *args: events.append(("invalidated-0111", *args)),
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_verify_seeded_0111_restored",
+        lambda *args: events.append(("restored-0111", *args)),
+    )
 
     verifier.verify_dialect("postgresql", "romm-dev")
 
@@ -168,6 +186,28 @@ def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
         and event[-2:] == ("downgrade", "0110_mapping_preview_results")
         for event in events
         if isinstance(event, tuple)
+    )
+    seed_index = next(
+        index for index, event in enumerate(events) if event[0] == "seed-0111"
+    )
+    invalidated_indexes = [
+        index for index, event in enumerate(events) if event[0] == "invalidated-0111"
+    ]
+    restored_index = next(
+        index for index, event in enumerate(events) if event[0] == "restored-0111"
+    )
+    assert seed_index < invalidated_indexes[0] < restored_index < invalidated_indexes[1]
+    alembic_events = [
+        event
+        for event in events
+        if isinstance(event, tuple) and event[:2] == ("alembic", "romm-dev")
+    ]
+    assert (
+        sum(
+            event[-2:] == ("downgrade", "0111_safe_lifecycle")
+            for event in alembic_events
+        )
+        >= 2
     )
 
 
@@ -189,6 +229,42 @@ def test_clear_0111_state_restores_seeded_mapping_baseline(monkeypatch):
         "SET active = TRUE, version = 4 WHERE id = 910001"
     )
     assert statements[1] == "DELETE FROM legacy_migrations"
+
+
+def test_seeded_0111_fixture_is_fingerprintless_and_mixed(monkeypatch):
+    statements = []
+    monkeypatch.setattr(
+        verifier, "_execute_sql", lambda *args: statements.append(args[-1])
+    )
+
+    verifier._seed_selectable_0111_results("mariadb", "romm-dev", "host", "3306", "db")
+
+    combined = "\n".join(statements)
+    assert "source_fingerprint" not in combined
+    assert "'detected'" in combined
+    assert "FALSE, TRUE, NULL" in combined
+    assert "'manual_mapping_required'" in combined
+    assert "'empty'" in combined
+
+
+def test_seeded_0111_verifiers_require_narrow_marker_and_exact_restore(monkeypatch):
+    statements = []
+
+    def query(*args):
+        statements.append(args[-1])
+        return "3"
+
+    monkeypatch.setattr(verifier, "_query_scalar", query)
+    verifier._verify_seeded_0111_invalidated(
+        "mariadb", "romm-dev", "host", "3306", "db"
+    )
+    verifier._verify_seeded_0111_restored("mariadb", "romm-dev", "host", "3306", "db")
+
+    combined = "\n".join(statements)
+    assert "fingerprint_refresh_required" in combined
+    assert "version = 8" in combined
+    assert "version = 7" in combined
+    assert "source_fingerprint" in statements[0]
 
 
 def test_seeded_0111_fixture_satisfies_fingerprint_constraints(monkeypatch):

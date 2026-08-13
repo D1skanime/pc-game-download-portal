@@ -385,6 +385,103 @@ def _verify_seeded_0110_state(
         raise RuntimeError(f"{dialect}: seeded 0110 state did not survive")
 
 
+def _seed_selectable_0111_results(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    statement = (
+        "INSERT INTO legacy_detection_results "
+        "(id, platform_id, storage_root_id, state, proposed_relative_path, "
+        "observed_files, observed_bytes, lower_bound, selectable, "
+        "safe_problem_code, observed_mapping_id, observed_mapping_version, "
+        "version, actor_user_id, expires_at) VALUES "
+        "(930001, 910001, 910001, 'detected', 'roms/verifier-910001', "
+        "2, 4096, FALSE, TRUE, NULL, 910001, 4, 7, 1, "
+        "'2037-01-01 00:00:00'), "
+        "(930002, 910001, 910001, 'manual_mapping_required', NULL, "
+        "0, 0, TRUE, FALSE, 'multiple_canonical_layouts', 910001, 4, 3, 1, "
+        "'2037-01-01 00:00:00'), "
+        "(930003, 910001, 910001, 'empty', 'roms/verifier-910001', "
+        "0, 0, FALSE, FALSE, 'canonical_layout_empty', 910001, 4, 4, 1, "
+        "'2037-01-01 00:00:00')"
+    )
+    _execute_sql(runner, dialect, host, port, database, statement)
+
+
+def _verify_seeded_0111_invalidated(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    matching = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_results WHERE "
+        "(id = 930001 AND state = 'manual_mapping_required' "
+        "AND proposed_relative_path = 'roms/verifier-910001' "
+        "AND observed_files = 2 AND observed_bytes = 4096 "
+        "AND lower_bound = TRUE AND selectable = FALSE "
+        "AND safe_problem_code = 'fingerprint_refresh_required' "
+        "AND version = 8 AND source_fingerprint IS NULL) OR "
+        "(id = 930002 AND state = 'manual_mapping_required' "
+        "AND proposed_relative_path IS NULL AND observed_files = 0 "
+        "AND observed_bytes = 0 AND lower_bound = TRUE "
+        "AND selectable = FALSE "
+        "AND safe_problem_code = 'multiple_canonical_layouts' "
+        "AND version = 3 AND source_fingerprint IS NULL) OR "
+        "(id = 930003 AND state = 'empty' "
+        "AND proposed_relative_path = 'roms/verifier-910001' "
+        "AND observed_files = 0 AND observed_bytes = 0 "
+        "AND lower_bound = FALSE AND selectable = FALSE "
+        "AND safe_problem_code = 'canonical_layout_empty' "
+        "AND version = 4 AND source_fingerprint IS NULL)",
+    )
+    if matching != "3":
+        raise RuntimeError(f"{dialect}: seeded 0111 invalidation is not exact")
+
+
+def _verify_seeded_0111_restored(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    matching = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_results WHERE "
+        "(id = 930001 AND state = 'detected' "
+        "AND proposed_relative_path = 'roms/verifier-910001' "
+        "AND observed_files = 2 AND observed_bytes = 4096 "
+        "AND lower_bound = FALSE AND selectable = TRUE "
+        "AND safe_problem_code IS NULL AND version = 7) OR "
+        "(id = 930002 AND state = 'manual_mapping_required' "
+        "AND proposed_relative_path IS NULL AND observed_files = 0 "
+        "AND observed_bytes = 0 AND lower_bound = TRUE "
+        "AND selectable = FALSE "
+        "AND safe_problem_code = 'multiple_canonical_layouts' AND version = 3) OR "
+        "(id = 930003 AND state = 'empty' "
+        "AND proposed_relative_path = 'roms/verifier-910001' "
+        "AND observed_files = 0 AND observed_bytes = 0 "
+        "AND lower_bound = FALSE AND selectable = FALSE "
+        "AND safe_problem_code = 'canonical_layout_empty' AND version = 4)",
+    )
+    if matching != "3":
+        raise RuntimeError(f"{dialect}: seeded 0111 restore is not exact")
+
+
 def _seed_0111_state(
     dialect: str,
     runner: str,
@@ -814,6 +911,20 @@ def verify_dialect(
         _seed_0110_state(dialect, runner, host, port, database)
         _alembic(runner, dialect, host, port, database, "upgrade", "head")
         _verify_seeded_0110_state(dialect, runner, host, port, database)
+
+        _alembic(
+            runner, dialect, host, port, database, "downgrade", "0111_safe_lifecycle"
+        )
+        _seed_selectable_0111_results(dialect, runner, host, port, database)
+        _alembic(runner, dialect, host, port, database, "upgrade", "head")
+        _verify_seeded_0111_invalidated(dialect, runner, host, port, database)
+        _alembic(
+            runner, dialect, host, port, database, "downgrade", "0111_safe_lifecycle"
+        )
+        _verify_seeded_0111_restored(dialect, runner, host, port, database)
+        _alembic(runner, dialect, host, port, database, "upgrade", "head")
+        _verify_seeded_0111_invalidated(dialect, runner, host, port, database)
+
         port = _verify_restart_persistence(
             dialect,
             runner,
