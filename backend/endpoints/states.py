@@ -10,8 +10,13 @@ from endpoints.roms import refresh_affected_smart_collections
 from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
-from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
+from handler.auth.dependencies import assert_platform_visible, assert_rom_visible
+from handler.database import (
+    db_platform_handler,
+    db_rom_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.filesystem import fs_asset_handler, storage_composition
 from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
@@ -20,9 +25,37 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import State
+from models.platform import Platform
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size
+
+
+def _resolve_state_platform(
+    request: Request, state: State, *, not_found_detail: str
+) -> Platform:
+    """Resolve and authorize the platform that owns a live or retained state."""
+    if state.rom is not None:
+        assert_rom_visible(request, state.rom, not_found_detail=not_found_detail)
+        return state.rom.platform
+
+    retained_catalog = state.retained_catalog
+    if retained_catalog is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="State has no live or retained catalog identity",
+        )
+
+    platform = db_platform_handler.get_platform(retained_catalog.platform_id)
+    if platform is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=not_found_detail,
+        )
+
+    assert_platform_visible(request, platform, not_found_detail=not_found_detail)
+    return platform
+
 
 router = APIRouter(
     prefix="/states",
@@ -221,6 +254,9 @@ def get_state(request: Request, id: int) -> StateSchema:
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+    _resolve_state_platform(
+        request, state, not_found_detail=f"State with ID {id} not found"
+    )
     return StateSchema.model_validate(state)
 
 
@@ -235,10 +271,9 @@ def download_state(request: Request, id: int) -> FileResponse:
             detail=f"State with ID {id} not found",
         )
 
-    # Sharing must not override the hidden-ROM/platform policy: a state on a ROM
-    # hidden from the caller stays 404-masked, just like the ROM itself.
-    assert_rom_visible(
-        request, state.rom, not_found_detail=f"State with ID {id} not found"
+    # Sharing must not override hidden live-ROM or retained-platform policy.
+    _resolve_state_platform(
+        request, state, not_found_detail=f"State with ID {id} not found"
     )
 
     try:
@@ -277,6 +312,15 @@ async def update_state(
         error = f"State with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    _resolve_state_platform(
+        request, db_state, not_found_detail=f"State with ID {id} not found"
+    )
+    if db_state.rom is None and screenshotFile is not None and screenshotFile.filename:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A detached state cannot update a ROM-owned screenshot",
+        )
 
     if stateFile:
         await fs_asset_handler.write_file(
@@ -330,13 +374,14 @@ async def update_state(
                 screenshot=scanned_screenshot
             )
 
-    # Set the last played time for the current user
-    rom_user = db_rom_handler.get_rom_user(db_state.rom_id, request.user.id)
-    if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(db_state.rom_id, request.user.id)
-    db_rom_handler.update_rom_user(
-        rom_user.id, {"last_played": datetime.now(timezone.utc)}
-    )
+    # Detached states have no live RomUser row to update.
+    if db_state.rom_id is not None:
+        rom_user = db_rom_handler.get_rom_user(db_state.rom_id, request.user.id)
+        if not rom_user:
+            rom_user = db_rom_handler.add_rom_user(db_state.rom_id, request.user.id)
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"last_played": datetime.now(timezone.utc)}
+        )
 
     # Refetch the state to get updated fields
     return StateSchema.model_validate(db_state)
@@ -361,6 +406,9 @@ def update_state_visibility(
             detail=f"State with ID {id} not found",
         )
 
+    _resolve_state_platform(
+        request, state, not_found_detail=f"State with ID {id} not found"
+    )
     updated = db_state_handler.update_state(id, {"is_public": is_public})
 
     # Keep the auto-captured thumbnail's visibility in sync so a shared state
@@ -371,7 +419,8 @@ def update_state_visibility(
         )
 
     # Sharing a state exposes it to every other user's `has_states` filter.
-    refresh_affected_smart_collections([state.rom_id], membership_only=True)
+    if state.rom_id is not None:
+        refresh_affected_smart_collections([state.rom_id], membership_only=True)
 
     return StateSchema.model_validate(updated)
 
@@ -414,17 +463,23 @@ async def delete_states(
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-        affected_rom_ids.add(state.rom_id)
+        platform = _resolve_state_platform(
+            request,
+            state,
+            not_found_detail=f"State with ID {state_id} not found",
+        )
+        if state.rom_id is not None:
+            affected_rom_ids.add(state.rom_id)
         db_state_handler.delete_state(state_id)
         log.info(
-            f"Deleting state {hl(state.file_name)} [{state.rom.platform_slug}] from filesystem"
+            f"Deleting state {hl(state.file_name)} [{platform.fs_slug}] from filesystem"
         )
 
         try:
             file_path = f"{state.file_path}/{state.file_name}"
             await fs_asset_handler.remove_file(file_path=file_path)
         except FileNotFoundError:
-            error = f"State file {hl(state.file_name)} not found for platform {hl(state.rom.platform_display_name, color=BLUE)}[{hl(state.rom.platform_slug)}]"
+            error = f"State file {hl(state.file_name)} not found for platform {hl(platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
             log.error(error)
 
         if state.screenshot:
@@ -434,9 +489,10 @@ async def delete_states(
                 file_path = f"{state.screenshot.file_path}/{state.screenshot.file_name}"
                 await fs_asset_handler.remove_file(file_path=file_path)
             except FileNotFoundError:
-                error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
+                error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(platform.fs_slug)}]"
                 log.error(error)
 
-    refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
+    if affected_rom_ids:
+        refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
     return states

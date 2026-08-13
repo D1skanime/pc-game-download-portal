@@ -12,7 +12,8 @@ class BaseAsset(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    rom_id: int
+    rom_id: int | None
+    retained_catalog_id: int | None = None
     user_id: int
     file_name: str
     file_name_no_tags: str

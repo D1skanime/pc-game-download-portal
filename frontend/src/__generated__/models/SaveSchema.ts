@@ -6,7 +6,8 @@ import type { DeviceSyncSchema } from './DeviceSyncSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 export type SaveSchema = {
     id: number;
-    rom_id: number;
+    rom_id: (number | null);
+    retained_catalog_id?: (number | null);
     user_id: number;
     file_name: string;
     file_name_no_tags: string;

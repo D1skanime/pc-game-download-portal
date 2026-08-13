@@ -2,10 +2,11 @@ from collections.abc import Sequence
 from typing import Literal
 
 from sqlalchemy import and_, asc, delete, desc, func, or_, select, update
-from sqlalchemy.orm import QueryableAttribute, Session, load_only
+from sqlalchemy.orm import QueryableAttribute, Session, joinedload, load_only
 
 from decorators.database import begin_session
 from models.assets import Save
+from models.catalog_lifecycle import RetainedCatalogIdentity
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
@@ -27,7 +28,12 @@ class DBSavesHandler(DBBaseHandler):
         id: int,
         session: Session = None,  # type: ignore
     ) -> Save | None:
-        return session.scalar(select(Save).filter_by(user_id=user_id, id=id).limit(1))
+        return session.scalar(
+            select(Save)
+            .options(joinedload(Save.retained_catalog))
+            .filter_by(user_id=user_id, id=id)
+            .limit(1)
+        )
 
     @begin_session
     def get_save_by_filename(
@@ -99,8 +105,18 @@ class DBSavesHandler(DBBaseHandler):
             query = query.filter_by(rom_id=rom_id)
 
         if platform_id:
-            query = query.join(Rom, Save.rom_id == Rom.id).filter(
-                Rom.platform_id == platform_id
+            query = (
+                query.outerjoin(Rom, Save.rom_id == Rom.id)
+                .outerjoin(
+                    RetainedCatalogIdentity,
+                    Save.retained_catalog_id == RetainedCatalogIdentity.id,
+                )
+                .filter(
+                    or_(
+                        Rom.platform_id == platform_id,
+                        RetainedCatalogIdentity.platform_id == platform_id,
+                    )
+                )
             )
 
         if slot is not None:
@@ -116,6 +132,8 @@ class DBSavesHandler(DBBaseHandler):
 
         if only_fields:
             query = query.options(load_only(*only_fields))
+        else:
+            query = query.options(joinedload(Save.retained_catalog))
 
         return session.scalars(query).all()
 
@@ -128,7 +146,12 @@ class DBSavesHandler(DBBaseHandler):
         """Fetch a save by id without scoping to an owner. Used for the
         visibility toggle and community downloads, where the caller may not own
         the save. Mirrors db_screenshot_handler.get_screenshot_by_id."""
-        return session.get(Save, id)
+        return session.scalar(
+            select(Save)
+            .options(joinedload(Save.retained_catalog))
+            .filter_by(id=id)
+            .limit(1)
+        )
 
     @begin_session
     def get_rom_shared_saves(
@@ -191,7 +214,9 @@ class DBSavesHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Save).filter_by(id=id).one()
+        return session.scalars(
+            select(Save).options(joinedload(Save.retained_catalog)).filter_by(id=id)
+        ).one()
 
     @begin_session
     def delete_save(

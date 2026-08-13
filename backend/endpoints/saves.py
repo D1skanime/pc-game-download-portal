@@ -15,10 +15,11 @@ from endpoints.roms import refresh_affected_smart_collections
 from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_platform_visible, assert_rom_visible
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
+    db_platform_handler,
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
@@ -33,6 +34,7 @@ from logger.logger import log
 from models.assets import Save
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from models.platform import Platform
 from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
@@ -143,6 +145,32 @@ def _increment_session_counter(session_id: int, user_id: int) -> None:
         )
     except Exception:
         log.warning(f"Failed to update sync session {session_id}", exc_info=True)
+
+
+def _resolve_save_platform(
+    request: Request, save: Save, *, not_found_detail: str
+) -> Platform:
+    """Resolve and authorize the platform that owns a live or retained save."""
+    if save.rom is not None:
+        assert_rom_visible(request, save.rom, not_found_detail=not_found_detail)
+        return save.rom.platform
+
+    retained_catalog = save.retained_catalog
+    if retained_catalog is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Save has no live or retained catalog identity",
+        )
+
+    platform = db_platform_handler.get_platform(retained_catalog.platform_id)
+    if platform is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=not_found_detail,
+        )
+
+    assert_platform_visible(request, platform, not_found_detail=not_found_detail)
+    return platform
 
 
 router = APIRouter(
@@ -477,6 +505,9 @@ def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSch
             detail=f"Save with ID {id} not found",
         )
 
+    _resolve_save_platform(
+        request, save, not_found_detail=f"Save with ID {id} not found"
+    )
     return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
 
@@ -501,10 +532,9 @@ def download_save(
             detail=f"Save with ID {id} not found",
         )
 
-    # Sharing must not override the hidden-ROM/platform policy: a save on a ROM
-    # hidden from the caller stays 404-masked, just like the ROM itself.
-    assert_rom_visible(
-        request, save.rom, not_found_detail=f"Save with ID {id} not found"
+    # Sharing must not override hidden live-ROM or retained-platform policy.
+    _resolve_save_platform(
+        request, save, not_found_detail=f"Save with ID {id} not found"
     )
 
     is_owner = save.user_id == request.user.id
@@ -590,6 +620,15 @@ async def update_save(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+    platform = _resolve_save_platform(
+        request, db_save, not_found_detail=f"Save with ID {id} not found"
+    )
+    if db_save.rom is None and screenshotFile is not None and screenshotFile.filename:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A detached save cannot update a ROM-owned screenshot",
+        )
+
     if saveFile:
         await fs_asset_handler.write_file(
             file=saveFile, path=db_save.file_path, filename=db_save.file_name
@@ -597,8 +636,12 @@ async def update_save(
         scanned_save = await scan_save(
             file_name=db_save.file_name,
             user=request.user,
-            platform_fs_slug=db_save.rom.platform_fs_slug,
-            rom_id=db_save.rom_id,
+            platform_fs_slug=platform.fs_slug,
+            rom_id=(
+                db_save.rom_id
+                if db_save.rom_id is not None
+                else db_save.retained_catalog.detached_rom_id
+            ),
             emulator=db_save.emulator,
         )
         db_save = db_save_handler.update_save(
@@ -652,13 +695,14 @@ async def update_save(
             scanned_screenshot.user_id = request.user.id
             db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
 
-    # Set the last played time for the current user
-    rom_user = db_rom_handler.get_rom_user(db_save.rom_id, request.user.id)
-    if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(db_save.rom_id, request.user.id)
-    db_rom_handler.update_rom_user(
-        rom_user.id, {"last_played": datetime.now(timezone.utc)}
-    )
+    # Detached saves have no live RomUser row to update.
+    if db_save.rom_id is not None:
+        rom_user = db_rom_handler.get_rom_user(db_save.rom_id, request.user.id)
+        if not rom_user:
+            rom_user = db_rom_handler.add_rom_user(db_save.rom_id, request.user.id)
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"last_played": datetime.now(timezone.utc)}
+        )
 
     if device:
         db_device_save_sync_handler.upsert_sync(
@@ -688,6 +732,9 @@ def update_save_visibility(
             detail=f"Save with ID {id} not found",
         )
 
+    _resolve_save_platform(
+        request, save, not_found_detail=f"Save with ID {id} not found"
+    )
     updated = db_save_handler.update_save(id, {"is_public": is_public})
 
     # Keep the auto-captured thumbnail's visibility in sync so a shared save
@@ -698,7 +745,8 @@ def update_save_visibility(
         )
 
     # Sharing a save exposes it to every other user's `has_saves` filter.
-    refresh_affected_smart_collections([save.rom_id], membership_only=True)
+    if save.rom_id is not None:
+        refresh_affected_smart_collections([save.rom_id], membership_only=True)
 
     return _build_save_schema(updated)
 
@@ -741,17 +789,23 @@ async def delete_saves(
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-        affected_rom_ids.add(save.rom_id)
+        platform = _resolve_save_platform(
+            request,
+            save,
+            not_found_detail=f"Save with ID {save_id} not found",
+        )
+        if save.rom_id is not None:
+            affected_rom_ids.add(save.rom_id)
         db_save_handler.delete_save(save_id)
 
         log.info(
-            f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
+            f"Deleting save {hl(save.file_name)} [{platform.fs_slug}] from filesystem"
         )
         try:
             file_path = f"{save.file_path}/{save.file_name}"
             await fs_asset_handler.remove_file(file_path=file_path)
         except FileNotFoundError:
-            error = f"Save file {hl(save.file_name)} not found for platform {hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
+            error = f"Save file {hl(save.file_name)} not found for platform {hl(platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
             log.error(error)
 
         if save.screenshot:
@@ -761,10 +815,11 @@ async def delete_saves(
                 file_path = f"{save.screenshot.file_path}/{save.screenshot.file_name}"
                 await fs_asset_handler.remove_file(file_path=file_path)
             except FileNotFoundError:
-                error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
+                error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(platform.fs_slug)}]"
                 log.error(error)
 
-    refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
+    if affected_rom_ids:
+        refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
     return saves
 
