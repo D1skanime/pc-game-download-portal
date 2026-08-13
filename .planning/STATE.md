@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-10-PLAN.md
-last_updated: "2026-08-13T07:02:00.384Z"
-last_activity: 2026-08-13 -- Completed 06-10-PLAN.md
+stopped_at: Completed-06-12-PLAN.md
+last_updated: "2026-08-13T08:13:31.080Z"
+last_activity: 2026-08-13
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 52
-  completed_plans: 45
+  completed_plans: 46
   percent: 56
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 11 of 17
+Plan: 12 of 17
 Status: Ready to execute
-Last activity: 2026-08-13 -- Completed 06-10-PLAN.md
+Last activity: 2026-08-13
 
 Progress: [█████████░] 87%
 
@@ -83,6 +83,7 @@ _Updated after each plan completion_
 | Phase 06 P08 | 31min | 2 tasks | 13 files |
 | Phase 06 P09 | 40min | 2 tasks | 7 files |
 | Phase 06 P10 | 28min | 3 tasks | 14 files |
+| Phase 06-safe-lifecycle-and-legacy-migration P12 | 63m | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -164,6 +165,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Detached asset authorization resolves the effective live or retained platform and preserves hidden-platform 404 masking.
 - [Phase 06]: Retained reconnection accepts one exact normalized path or one unique complete CRC32, MD5, and SHA1 triple under deterministic locks.
 - [Phase 06]: Production scan reconnection runs only for newly created ROMs after durable persistence.
+- [Phase 06-safe-lifecycle-and-legacy-migration]: Source-fingerprints-use-sorted-domain-separated-length-delimited-records.
+- [Phase 06-safe-lifecycle-and-legacy-migration]: Migration-confirmation-binds-current-source-and-exact-catalog-fingerprints-under-ordered-lifecycle-locks.
+- [Phase 06-safe-lifecycle-and-legacy-migration]: Legacy-observation-uses-240-seconds-beneath-the-inherited-300-second-task-timeout.
 
 ### Blockers/Concerns
 
@@ -181,6 +185,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T07:01:36.031Z
-Stopped at: Completed 06-10-PLAN.md
+Last session: 2026-08-13T08:13:31.074Z
+Stopped at: Completed-06-12-PLAN.md
 Resume file: None
