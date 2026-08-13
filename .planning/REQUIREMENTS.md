@@ -51,7 +51,7 @@
 ### Catalog and Lifecycle Semantics
 
 - [ ] **CAT-01**: The product distinguishes `Remove from catalog` from source-file deletion in API contracts and UI language.
-- [ ] **CAT-02**: Removing a game from the catalog deletes only explicitly defined RomM-owned records and assets and preserves every source file and directory.
+- [x] **CAT-02**: Removing a game from the catalog deletes only explicitly defined RomM-owned records and assets and preserves every source file and directory.
 - [x] **CAT-03**: Removing a platform mapping deletes only configuration and audit state required by policy and does not implicitly delete indexed games or source content.
 - [ ] **CAT-04**: Source-file delete, rename, move, upload, extraction, and patch actions do not exist for external roots in the v2 UI and remain blocked server-side.
 
@@ -171,7 +171,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | SCAN-05     | Phase 5 | Complete |
 | SCAN-06     | Phase 5 | Complete |
 | CAT-01      | Phase 6 | Blocked  |
-| CAT-02      | Phase 6 | Blocked  |
+| CAT-02      | Phase 6 | Complete |
 | CAT-03      | Phase 6 | Complete |
 | CAT-04      | Phase 6 | Blocked  |
 | API-01      | Phase 3 | Complete |
