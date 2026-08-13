@@ -139,6 +139,47 @@ class LegacyMigrationResultSchema(BaseModel):
     legacy_fallback_enabled: Literal[False] = False
 
 
+class LegacyRollbackErrorCode(enum.StrEnum):
+    MISSING = "legacy_rollback_missing"
+    STALE = "legacy_rollback_stale"
+    EXPIRED = "legacy_rollback_expired"
+    CROSS_PLATFORM = "legacy_rollback_cross_platform"
+    INELIGIBLE = "legacy_rollback_ineligible"
+
+
+class LegacyRollbackErrorDetail(BaseModel):
+    code: LegacyRollbackErrorCode
+    message: str = Field(min_length=1, max_length=160)
+    migration_id: int | None = Field(default=None, gt=0)
+    platform_id: int | None = Field(default=None, gt=0)
+    current_version: int | None = Field(default=None, gt=0)
+
+
+class LegacyRollbackErrorResponse(BaseModel):
+    detail: LegacyRollbackErrorDetail
+
+
+class LegacyRollbackRequestSchema(BaseModel):
+    platform_id: int = Field(gt=0)
+    expected_version: int = Field(gt=0)
+
+
+class LegacyRollbackStatusSchema(BaseModel):
+    migration_id: int = Field(gt=0)
+    migration_version: int = Field(gt=0)
+    platform_id: int = Field(gt=0)
+    mapping_id: int = Field(gt=0)
+    mapping_version: int = Field(gt=0)
+    state: Literal["completed", "rolled_back"]
+    rollback_eligible: bool
+    first_used: bool
+    first_use_operation: Literal["scan", "hash", "stream", "play", "download"] | None
+    expires_at: UTCDatetime
+    expired: bool
+    source_immutable: Literal[True] = True
+    legacy_fallback_enabled: Literal[False] = False
+
+
 class LegacyImpactPreviewSchema(BaseModel):
     state: Literal["ready", "manual_mapping_required"]
     proposed_mapping: LegacyImpactProposedMappingSchema | None

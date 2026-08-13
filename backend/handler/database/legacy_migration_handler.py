@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,7 +17,7 @@ from exceptions.storage_exceptions import (
 )
 from handler.database.base_handler import DBBaseHandler
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from models.storage import (
     LegacyDetectionResult,
     LegacyDetectionState,
@@ -74,6 +74,23 @@ class LegacyMigrationOutcome:
 
 
 @dataclass(frozen=True, slots=True)
+class LegacyRollbackStatus:
+    migration_id: int
+    migration_version: int
+    platform_id: int
+    mapping_id: int
+    mapping_version: int
+    state: str
+    rollback_eligible: bool
+    first_used: bool
+    first_use_operation: str | None
+    expires_at: datetime
+    expired: bool
+    source_immutable: bool = True
+    legacy_fallback_enabled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class LegacyDetectionContext:
     platform_id: int
     storage_root_id: int
@@ -96,6 +113,22 @@ class LegacyDetectionResultError(Exception):
         super().__init__(code)
         self.code = code
         self.result_id = result_id
+        self.platform_id = platform_id
+        self.current_version = current_version
+
+
+class LegacyRollbackError(Exception):
+    def __init__(
+        self,
+        code: str,
+        *,
+        migration_id: int | None = None,
+        platform_id: int | None = None,
+        current_version: int | None = None,
+    ) -> None:
+        super().__init__(code)
+        self.code = code
+        self.migration_id = migration_id
         self.platform_id = platform_id
         self.current_version = current_version
 
@@ -630,6 +663,274 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             reconnected_catalog_count=reconnected,
             unmatched_catalog_count=unmatched,
         )
+
+    @staticmethod
+    def _rollback_status(
+        migration: LegacyMigration,
+        mapping: PlatformStorageMapping,
+        prior_mapping: PlatformStorageMapping | None = None,
+        *,
+        now: datetime | None = None,
+    ) -> LegacyRollbackStatus:
+        current = now or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        expires_at = migration.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        expired = expires_at <= current
+        mapping_matches = (
+            migration.mapping_id == mapping.id
+            and migration.platform_id == mapping.platform_id
+            and migration.storage_root_id == mapping.storage_root_id
+            and migration.relative_path == mapping.relative_path
+        )
+        prior_state_matches = not migration.prior_mapping_active or (
+            prior_mapping is not None
+            and prior_mapping.platform_id == migration.platform_id
+            and prior_mapping.version == migration.prior_mapping_version
+            and not prior_mapping.active
+        )
+        eligible = (
+            migration.state == LegacyMigrationState.COMPLETED
+            and migration.first_used_at is None
+            and not expired
+            and mapping_matches
+            and mapping.active
+            and mapping.version == 1
+            and prior_state_matches
+        )
+        return LegacyRollbackStatus(
+            migration_id=migration.id,
+            migration_version=migration.version,
+            platform_id=migration.platform_id,
+            mapping_id=mapping.id,
+            mapping_version=mapping.version,
+            state=migration.state,
+            rollback_eligible=eligible,
+            first_used=migration.first_used_at is not None,
+            first_use_operation=migration.first_use_operation,
+            expires_at=expires_at,
+            expired=expired,
+        )
+
+    @staticmethod
+    def _load_rollback_mappings(
+        session: Session, migration: LegacyMigration
+    ) -> tuple[PlatformStorageMapping, PlatformStorageMapping | None]:
+        if migration.mapping_id is None:
+            raise LegacyRollbackError(
+                "legacy_rollback_stale",
+                migration_id=migration.id,
+                platform_id=migration.platform_id,
+                current_version=migration.version,
+            )
+        mapping_ids = {migration.mapping_id}
+        if migration.prior_mapping_id is not None:
+            mapping_ids.add(migration.prior_mapping_id)
+        mappings = list(
+            session.scalars(
+                select(PlatformStorageMapping)
+                .where(PlatformStorageMapping.id.in_(mapping_ids))
+                .order_by(PlatformStorageMapping.id)
+                .with_for_update(of=PlatformStorageMapping)
+            ).all()
+        )
+        mapping = next(
+            (item for item in mappings if item.id == migration.mapping_id), None
+        )
+        if mapping is None:
+            raise LegacyRollbackError(
+                "legacy_rollback_stale",
+                migration_id=migration.id,
+                platform_id=migration.platform_id,
+                current_version=migration.version,
+            )
+        prior = next(
+            (item for item in mappings if item.id == migration.prior_mapping_id),
+            None,
+        )
+        return mapping, prior
+
+    @begin_session
+    def get_rollback_status(
+        self,
+        migration_id: int,
+        *,
+        platform_id: int,
+        now: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> LegacyRollbackStatus:
+        migration = session.get(LegacyMigration, migration_id)
+        if migration is None:
+            raise LegacyRollbackError(
+                "legacy_rollback_missing", migration_id=migration_id
+            )
+        if migration.platform_id != platform_id:
+            raise LegacyRollbackError(
+                "legacy_rollback_cross_platform",
+                migration_id=migration_id,
+                platform_id=platform_id,
+            )
+        mapping, prior_mapping = self._load_rollback_mappings(session, migration)
+        return self._rollback_status(migration, mapping, prior_mapping, now=now)
+
+    @begin_session
+    def rollback_migration(
+        self,
+        migration_id: int,
+        *,
+        platform_id: int,
+        expected_version: int,
+        actor_user_id: int,
+        actor_display_name: str,
+        now: datetime | None = None,
+        session: Session = None,  # type: ignore
+    ) -> LegacyRollbackStatus:
+        from handler.database.storage_handler import DBStorageHandler
+
+        migration = session.scalar(
+            select(LegacyMigration)
+            .where(LegacyMigration.id == migration_id)
+            .with_for_update(of=LegacyMigration)
+        )
+        if migration is None:
+            raise LegacyRollbackError(
+                "legacy_rollback_missing", migration_id=migration_id
+            )
+        if migration.platform_id != platform_id:
+            raise LegacyRollbackError(
+                "legacy_rollback_cross_platform",
+                migration_id=migration_id,
+                platform_id=platform_id,
+            )
+        if migration.version != expected_version:
+            raise LegacyRollbackError(
+                "legacy_rollback_stale",
+                migration_id=migration_id,
+                platform_id=platform_id,
+                current_version=migration.version,
+            )
+
+        current = now or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        expires_at = migration.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= current:
+            raise LegacyRollbackError(
+                "legacy_rollback_expired",
+                migration_id=migration_id,
+                platform_id=platform_id,
+                current_version=migration.version,
+            )
+        if migration.state != LegacyMigrationState.COMPLETED:
+            raise LegacyRollbackError(
+                "legacy_rollback_stale",
+                migration_id=migration_id,
+                platform_id=platform_id,
+                current_version=migration.version,
+            )
+        if migration.first_used_at is not None:
+            raise LegacyRollbackError(
+                "legacy_rollback_ineligible",
+                migration_id=migration_id,
+                platform_id=platform_id,
+                current_version=migration.version,
+            )
+
+        mapping, prior_mapping = self._load_rollback_mappings(session, migration)
+        status = self._rollback_status(migration, mapping, prior_mapping, now=current)
+        if not status.rollback_eligible:
+            raise LegacyRollbackError(
+                "legacy_rollback_stale",
+                migration_id=migration_id,
+                platform_id=platform_id,
+                current_version=migration.version,
+            )
+
+        roms = list(
+            session.scalars(
+                select(Rom)
+                .where(Rom.platform_id == platform_id)
+                .order_by(Rom.id)
+                .with_for_update(of=Rom)
+            ).all()
+        )
+        rom_ids = [rom.id for rom in roms]
+        if rom_ids:
+            session.scalars(
+                select(RomFile)
+                .where(RomFile.rom_id.in_(rom_ids))
+                .order_by(RomFile.id)
+                .with_for_update(of=RomFile)
+            ).all()
+
+        old = DBStorageHandler._snapshot(mapping)
+        mapping.active = False
+        mapping.version += 1
+        session.flush()
+        if migration.prior_mapping_active:
+            if (
+                prior_mapping is None
+                or prior_mapping.platform_id != migration.platform_id
+                or prior_mapping.version != migration.prior_mapping_version
+            ):
+                raise LegacyRollbackError(
+                    "legacy_rollback_stale",
+                    migration_id=migration_id,
+                    platform_id=platform_id,
+                    current_version=migration.version,
+                )
+            prior_old = DBStorageHandler._snapshot(prior_mapping)
+            prior_mapping.active = True
+            prior_mapping.version += 1
+            session.flush()
+            DBStorageHandler._append_audit(
+                session,
+                prior_mapping,
+                StorageMappingAuditAction.ACTIVATE,
+                prior_old,
+                DBStorageHandler._snapshot(prior_mapping),
+                actor_user_id,
+                actor_display_name,
+            )
+        self._after_migration_flush("rollback_mapping")
+
+        if rom_ids:
+            session.execute(
+                update(Rom)
+                .where(Rom.id.in_(rom_ids))
+                .values(missing_from_fs=True)
+                .execution_options(synchronize_session=False)
+            )
+            session.execute(
+                update(RomFile)
+                .where(RomFile.rom_id.in_(rom_ids))
+                .values(missing_from_fs=True)
+                .execution_options(synchronize_session=False)
+            )
+        session.flush()
+        self._after_migration_flush("rollback_catalog")
+
+        DBStorageHandler._append_audit(
+            session,
+            mapping,
+            StorageMappingAuditAction.REMOVE,
+            old,
+            DBStorageHandler._snapshot(mapping),
+            actor_user_id,
+            actor_display_name,
+        )
+        self._after_migration_flush("rollback_audit")
+
+        migration.state = LegacyMigrationState.ROLLED_BACK
+        migration.version += 1
+        migration.rolled_back_at = current
+        session.flush()
+        self._after_migration_flush("rollback_state")
+        return self._rollback_status(migration, mapping, now=current)
 
     @begin_session
     def mark_first_use(

@@ -112,6 +112,11 @@ export type { LegacyImpactPreviewSchema } from './models/LegacyImpactPreviewSche
 export type { LegacyImpactProblemSchema } from './models/LegacyImpactProblemSchema';
 export type { LegacyImpactProposedMappingSchema } from './models/LegacyImpactProposedMappingSchema';
 export type { LegacyMigrationResultSchema } from './models/LegacyMigrationResultSchema';
+export type { LegacyRollbackErrorCode } from './models/LegacyRollbackErrorCode';
+export type { LegacyRollbackErrorDetail } from './models/LegacyRollbackErrorDetail';
+export type { LegacyRollbackErrorResponse } from './models/LegacyRollbackErrorResponse';
+export type { LegacyRollbackRequestSchema } from './models/LegacyRollbackRequestSchema';
+export type { LegacyRollbackStatusSchema } from './models/LegacyRollbackStatusSchema';
 export type { LoadStateRequest } from './models/LoadStateRequest';
 export type { LogEntrySchema } from './models/LogEntrySchema';
 export type { ManualMetadata } from './models/ManualMetadata';

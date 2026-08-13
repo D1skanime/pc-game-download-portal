@@ -13,7 +13,10 @@ from sqlalchemy import select
 
 from exceptions.storage_read import StaleMappedReadError
 from handler.database.base_handler import sync_session
-from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
+from handler.database.legacy_migration_handler import (
+    DBLegacyMigrationHandler,
+    LegacyRollbackError,
+)
 from handler.filesystem.storage_policy import StorageOperation
 from handler.storage.read_context import MappingReadContext
 from models.platform import Platform
@@ -358,7 +361,7 @@ def test_first_use_makes_rollback_ineligible_with_stable_error(tmp_path: Path):
         operation="download",
         now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
     )
-    with pytest.raises(Exception) as captured:
+    with pytest.raises(LegacyRollbackError) as captured:
         handler.rollback_migration(
             migration_id,
             platform_id=platform_id,
@@ -395,7 +398,7 @@ def test_rollback_first_use_race_has_one_ordered_winner(tmp_path: Path):
                 now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
             )
             return "rollback"
-        except Exception as error:
+        except LegacyRollbackError as error:
             return getattr(error, "code", "rollback-error")
 
     def first_use():
@@ -420,3 +423,116 @@ def test_rollback_first_use_race_has_one_ordered_winner(tmp_path: Path):
         {"use", "legacy_rollback_stale"},
         {"use", "legacy_rollback_ineligible"},
     )
+
+
+@pytest.mark.parametrize(
+    "failure_stage",
+    ["rollback_mapping", "rollback_catalog", "rollback_audit", "rollback_state"],
+)
+def test_rollback_failure_is_atomic_and_retryable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure_stage: str
+):
+    source = tmp_path / "external"
+    mapping_id, migration_id = _seed_migrated_mapping(
+        source, suffix=f"failure-{failure_stage}"
+    )
+    before = _manifest(source)
+    handler = DBLegacyMigrationHandler()
+    with sync_session() as session:
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        assert mapping is not None
+        platform_id = mapping.platform_id
+
+    def fail(stage: str) -> None:
+        if stage == failure_stage:
+            raise RuntimeError(f"injected {failure_stage} failure")
+
+    monkeypatch.setattr(handler, "_after_migration_flush", fail)
+    with pytest.raises(RuntimeError, match=f"injected {failure_stage} failure"):
+        handler.rollback_migration(
+            migration_id,
+            platform_id=platform_id,
+            expected_version=1,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+        )
+
+    with sync_session() as session:
+        migration = session.get(LegacyMigration, migration_id)
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        audits = list(
+            session.scalars(
+                select(StorageMappingAudit).where(
+                    StorageMappingAudit.mapping_id == mapping_id
+                )
+            )
+        )
+        assert migration is not None
+        assert migration.state == "completed"
+        assert migration.version == 1
+        assert migration.rolled_back_at is None
+        assert mapping is not None and mapping.active and mapping.version == 1
+        assert audits == []
+    assert _manifest(source) == before
+
+    monkeypatch.setattr(handler, "_after_migration_flush", lambda _stage: None)
+    retry = handler.rollback_migration(
+        migration_id,
+        platform_id=platform_id,
+        expected_version=1,
+        actor_user_id=7,
+        actor_display_name="Admin",
+        now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+    )
+    assert retry.state == "rolled_back"
+    assert _manifest(source) == before
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    [
+        ("missing", "legacy_rollback_missing"),
+        ("cross_platform", "legacy_rollback_cross_platform"),
+        ("stale", "legacy_rollback_stale"),
+        ("expired", "legacy_rollback_expired"),
+        ("replayed", "legacy_rollback_stale"),
+    ],
+)
+def test_rollback_identity_and_lifecycle_fail_closed(
+    tmp_path: Path, mutation: str, expected_code: str
+):
+    source = tmp_path / "external"
+    mapping_id, migration_id = _seed_migrated_mapping(
+        source, suffix=f"reject-{mutation}"
+    )
+    handler = DBLegacyMigrationHandler()
+    with sync_session.begin() as session:
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        migration = session.get(LegacyMigration, migration_id)
+        assert mapping is not None and migration is not None
+        platform_id = mapping.platform_id
+        if mutation == "expired":
+            migration.expires_at = datetime(2026, 8, 12, 20, tzinfo=timezone.utc)
+        elif mutation == "replayed":
+            migration.state = "rolled_back"
+            migration.version = 2
+            migration.rolled_back_at = datetime(2026, 8, 12, 20, tzinfo=timezone.utc)
+
+    requested_id = migration_id + 999999 if mutation == "missing" else migration_id
+    requested_platform = (
+        platform_id + 999999 if mutation == "cross_platform" else platform_id
+    )
+    expected_version = (
+        99 if mutation == "stale" else (2 if mutation == "replayed" else 1)
+    )
+    with pytest.raises(LegacyRollbackError) as captured:
+        handler.rollback_migration(
+            requested_id,
+            platform_id=requested_platform,
+            expected_version=expected_version,
+            actor_user_id=7,
+            actor_display_name="Admin",
+            now=datetime(2026, 8, 12, 21, tzinfo=timezone.utc),
+        )
+    assert captured.value.code == expected_code

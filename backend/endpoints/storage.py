@@ -25,6 +25,11 @@ from endpoints.responses.storage import (
     LegacyImpactProblemSchema,
     LegacyImpactProposedMappingSchema,
     LegacyMigrationResultSchema,
+    LegacyRollbackErrorCode,
+    LegacyRollbackErrorDetail,
+    LegacyRollbackErrorResponse,
+    LegacyRollbackRequestSchema,
+    LegacyRollbackStatusSchema,
     StorageConflictDetail,
     StorageConflictErrorCode,
     StorageConflictResponse,
@@ -70,7 +75,11 @@ from handler.database import (
     db_mapping_previews_handler,
     db_storage_handler,
 )
-from handler.database.legacy_migration_handler import LegacyDetectionResultError
+from handler.database.legacy_migration_handler import (
+    LegacyDetectionResultError,
+    LegacyRollbackError,
+    LegacyRollbackStatus,
+)
 from handler.filesystem.storage_resolver import (
     MAX_DIRECTORY_PAGE_SIZE,
     MAX_DIRECTORY_SCAN_ENTRIES,
@@ -237,6 +246,23 @@ _LEGACY_RESPONSES = {
     404: {"model": LegacyDetectionErrorResponse},
     409: {"model": LegacyDetectionErrorResponse},
     410: {"model": LegacyDetectionErrorResponse},
+}
+
+_ROLLBACK_ERROR_MESSAGES = {
+    "legacy_rollback_missing": "Legacy migration was not found",
+    "legacy_rollback_stale": "Legacy rollback state changed; reload before retrying",
+    "legacy_rollback_expired": "Legacy rollback eligibility has expired",
+    "legacy_rollback_cross_platform": "Legacy migration belongs to another platform",
+    "legacy_rollback_ineligible": "Legacy migration has already been used",
+}
+_ROLLBACK_ERROR_STATUS = {
+    "legacy_rollback_missing": status.HTTP_404_NOT_FOUND,
+    "legacy_rollback_expired": status.HTTP_410_GONE,
+}
+_ROLLBACK_RESPONSES = {
+    404: {"model": LegacyRollbackErrorResponse},
+    409: {"model": LegacyRollbackErrorResponse},
+    410: {"model": LegacyRollbackErrorResponse},
 }
 
 _CONFLICT_MESSAGES = {
@@ -598,6 +624,92 @@ def migrate_legacy_platform(
         source_immutable=outcome.source_immutable,
         legacy_fallback_enabled=outcome.legacy_fallback_enabled,
     )
+
+
+def _legacy_rollback_status_schema(
+    rollback_status: LegacyRollbackStatus,
+) -> LegacyRollbackStatusSchema:
+    return LegacyRollbackStatusSchema(
+        migration_id=rollback_status.migration_id,
+        migration_version=rollback_status.migration_version,
+        platform_id=rollback_status.platform_id,
+        mapping_id=rollback_status.mapping_id,
+        mapping_version=rollback_status.mapping_version,
+        state=rollback_status.state,
+        rollback_eligible=rollback_status.rollback_eligible,
+        first_used=rollback_status.first_used,
+        first_use_operation=rollback_status.first_use_operation,
+        expires_at=rollback_status.expires_at,
+        expired=rollback_status.expired,
+        source_immutable=rollback_status.source_immutable,
+        legacy_fallback_enabled=rollback_status.legacy_fallback_enabled,
+    )
+
+
+def _raise_legacy_rollback_error(error: LegacyRollbackError) -> None:
+    code = (
+        error.code
+        if error.code in _ROLLBACK_ERROR_MESSAGES
+        else "legacy_rollback_stale"
+    )
+    detail = LegacyRollbackErrorDetail(
+        code=LegacyRollbackErrorCode(code),
+        message=_ROLLBACK_ERROR_MESSAGES[code],
+        migration_id=error.migration_id,
+        platform_id=error.platform_id,
+        current_version=error.current_version,
+    )
+    raise HTTPException(
+        status_code=_ROLLBACK_ERROR_STATUS.get(code, status.HTTP_409_CONFLICT),
+        detail=detail.model_dump(mode="json", exclude_none=True),
+    ) from None
+
+
+@protected_route(
+    router.get,
+    "/legacy-migrations/{migration_id}/rollback-status",
+    [Scope.USERS_READ],
+    response_model=LegacyRollbackStatusSchema,
+    responses=_ROLLBACK_RESPONSES,
+)
+def get_legacy_migration_rollback_status(
+    request: Request,
+    migration_id: int,
+    platform_id: Annotated[int, Query(gt=0)],
+) -> LegacyRollbackStatusSchema:
+    assert_admin(request)
+    try:
+        rollback_status = db_legacy_migration_handler.get_rollback_status(
+            migration_id, platform_id=platform_id
+        )
+    except LegacyRollbackError as error:
+        _raise_legacy_rollback_error(error)
+    return _legacy_rollback_status_schema(rollback_status)
+
+
+@protected_route(
+    router.post,
+    "/legacy-migrations/{migration_id}/rollback",
+    [Scope.USERS_WRITE],
+    response_model=LegacyRollbackStatusSchema,
+    responses=_ROLLBACK_RESPONSES,
+)
+def rollback_legacy_migration(
+    request: Request,
+    migration_id: int,
+    body: LegacyRollbackRequestSchema,
+) -> LegacyRollbackStatusSchema:
+    assert_admin(request)
+    try:
+        rollback_status = db_legacy_migration_handler.rollback_migration(
+            migration_id,
+            platform_id=body.platform_id,
+            expected_version=body.expected_version,
+            **_actor(request),
+        )
+    except LegacyRollbackError as error:
+        _raise_legacy_rollback_error(error)
+    return _legacy_rollback_status_schema(rollback_status)
 
 
 @protected_route(

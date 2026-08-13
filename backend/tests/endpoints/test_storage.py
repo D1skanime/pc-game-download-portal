@@ -1021,7 +1021,10 @@ def test_legacy_rollback_openapi_requires_platform_and_expected_version(client):
     rollback_operation = schema["paths"][
         "/api/storage/legacy-migrations/{migration_id}/rollback"
     ]["post"]
-    serialized = (str(status_operation) + str(rollback_operation)).lower()
+    request_schema = schema["components"]["schemas"]["LegacyRollbackRequestSchema"]
+    serialized = (
+        str(status_operation) + str(rollback_operation) + str(request_schema)
+    ).lower()
     assert "legacyrollbackrequestschema" in serialized
     assert "legacyrollbackstatusschema" in serialized
     assert "expected_version" in serialized
@@ -1029,4 +1032,43 @@ def test_legacy_rollback_openapi_requires_platform_and_expected_version(client):
     assert not any(
         token in serialized
         for token in ("relative_path", "container_path", "prior_mapping", "raw_row")
+    )
+
+
+def test_used_legacy_rollback_returns_stable_bounded_409(
+    client, access_token, monkeypatch
+):
+    from endpoints import storage as endpoint
+    from handler.database.legacy_migration_handler import LegacyRollbackError
+
+    def ineligible(*_args, **_kwargs):
+        raise LegacyRollbackError(
+            "legacy_rollback_ineligible",
+            migration_id=51,
+            platform_id=5,
+            current_version=2,
+        )
+
+    monkeypatch.setattr(
+        endpoint.db_legacy_migration_handler,
+        "rollback_migration",
+        ineligible,
+        raising=False,
+    )
+    response = client.post(
+        "/api/storage/legacy-migrations/51/rollback",
+        headers=_auth(access_token),
+        json={"platform_id": 5, "expected_version": 2},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "code": "legacy_rollback_ineligible",
+        "message": "Legacy migration has already been used",
+        "migration_id": 51,
+        "platform_id": 5,
+        "current_version": 2,
+    }
+    assert not any(
+        token in response.text
+        for token in ("relative_path", "container_path", "prior_mapping", "snapshot")
     )

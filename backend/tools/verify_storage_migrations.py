@@ -435,6 +435,69 @@ def _verify_restart_persistence(
     )
     if first_use != "None" or migration_version != "1":
         raise RuntimeError(f"{dialect}: lifecycle state did not survive restart")
+
+    _execute_sql(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "UPDATE platform_storage_mappings "
+        "SET active = FALSE, version = 5 WHERE id = 910001",
+    )
+    _execute_sql(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "UPDATE legacy_migrations SET state = 'rolled_back', version = 2, "
+        "rolled_back_at = CURRENT_TIMESTAMP WHERE id = 920001",
+    )
+    _run(["docker", "restart", database_container])
+    _wait_until_ready(database_container, health)
+    port = _mapped_port(database_container, DIALECTS[dialect]["port"])
+    _wait_until_queryable(runner, dialect, host, port, database)
+
+    migration_state = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT state FROM legacy_migrations WHERE id = 920001",
+    )
+    rolled_back_at = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT rolled_back_at FROM legacy_migrations WHERE id = 920001",
+    )
+    if migration_state != "rolled_back" or rolled_back_at == "None":
+        raise RuntimeError(f"{dialect}: legacy rollback state did not survive restart")
+
+    mapping_version = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT version FROM platform_storage_mappings WHERE id = 910001",
+    )
+    mapping_active = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT active FROM platform_storage_mappings WHERE id = 910001",
+    )
+    if mapping_version != "5" or mapping_active not in {"0", "False", "false"}:
+        raise RuntimeError(
+            f"{dialect}: mapping rollback revision did not survive restart"
+        )
     return port
 
 
@@ -468,6 +531,8 @@ def _clear_0111_state(
     database: str,
 ) -> None:
     for statement in (
+        "UPDATE platform_storage_mappings "
+        "SET active = TRUE, version = 4 WHERE id = 910001",
         "DELETE FROM legacy_migrations",
         "DELETE FROM legacy_detection_results",
         "DELETE FROM owned_cleanup_intents",

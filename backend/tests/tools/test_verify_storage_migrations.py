@@ -176,3 +176,16 @@ def test_restart_verifier_proves_rollback_state_and_mapping_revision():
     assert "rolled_back_at" in verifier_source
     assert "legacy rollback state did not survive restart" in verifier_source
     assert "mapping rollback revision did not survive restart" in verifier_source
+
+
+def test_clear_0111_state_restores_seeded_mapping_baseline(monkeypatch):
+    statements = []
+    monkeypatch.setattr(
+        verifier, "_execute_sql", lambda *args: statements.append(args[-1])
+    )
+    verifier._clear_0111_state("mariadb", "romm-dev", "host", "3306", "db")
+    assert statements[0] == (
+        "UPDATE platform_storage_mappings "
+        "SET active = TRUE, version = 4 WHERE id = 910001"
+    )
+    assert statements[1] == "DELETE FROM legacy_migrations"
