@@ -11,7 +11,7 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 - [x] **Phase 3: Mapping Administration Contracts** - Provide authorized, audited APIs for roots, safe browsing, and mapping lifecycle operations. (completed 2026-08-11)
 - [x] **Phase 4: V2 Storage Design Specification** - Derive a RomM-native design contract for the new storage surfaces from read-only Team4s principles. (completed 2026-08-12)
 - [x] **Phase 5: Preview and Read-path Cutover** - Make preview, scanning, watching, hashing, streaming, and downloading mapping-aware and non-mutating. (completed 2026-08-12)
-- [x] **Phase 6: Safe Lifecycle and Legacy Migration** - Make catalog removal and legacy-layout migration explicit, reversible, and source-safe. (completed 2026-08-13)
+- [ ] **Phase 6: Safe Lifecycle and Legacy Migration** - Make catalog removal and legacy-layout migration explicit, reversible, and source-safe.
 - [ ] **Phase 7: V2 Storage Administration Experience** - Deliver accessible root, browser, mapping, and preview workflows in the sole active UI.
 - [ ] **Phase 8: Bounded V1 Removal** - Remove the frozen frontend and compatibility paths behind a dedicated v2 regression gate.
 - [ ] **Phase 9: Operational Immutability Proof** - Prove the complete boundary in production-like conditions and document safe NAS operation.
@@ -186,19 +186,27 @@ Plans:
 4. Ambiguous legacy layouts require an explicit manual mapping rather than a guess, and any compatibility fallback is visible and time-bounded.
 5. Mappings survive restarts and normal deployment operations, with portable and practically reversible database migration behavior.
 
-**Plans**: 0/9 plans complete
+**Plans**: 9/17 plans executed
 
 Plans:
 
-- [ ] `06-01-PLAN.md` - Durable ownership and lifecycle schema
-- [ ] `06-02-PLAN.md` - Catalog-only game removal
-- [ ] `06-03-PLAN.md` - Mapping removal, cancellation, and reconnection
-- [ ] `06-04-PLAN.md` - Exact bounded legacy detection
-- [ ] `06-05-PLAN.md` - Typed impact preview and manual outcomes
-- [ ] `06-06-PLAN.md` - Atomic per-platform migration
-- [ ] `06-07-PLAN.md` - Productive first-use CAS integration
-- [ ] `06-08-PLAN.md` - Typed rollback API and durable persistence
-- [ ] `06-09-PLAN.md` - Integration immutability and contract closure
+- [x] `06-01-PLAN.md` - Durable ownership and lifecycle schema
+- [x] `06-02-PLAN.md` - Catalog-only game removal
+- [x] `06-03-PLAN.md` - Mapping removal, cancellation, and reconnection
+- [x] `06-04-PLAN.md` - Exact bounded legacy detection
+- [x] `06-05-PLAN.md` - Typed impact preview and manual outcomes
+- [x] `06-06-PLAN.md` - Atomic per-platform migration
+- [x] `06-07-PLAN.md` - Productive first-use CAS integration
+- [x] `06-08-PLAN.md` - Typed rollback API and durable persistence
+- [x] `06-09-PLAN.md` - Integration immutability and contract closure
+- [ ] `06-10-PLAN.md` - Close the detached user-value and retained-identity reconnection gap.
+- [ ] `06-11-PLAN.md` - Remove forbidden source-file deletion affordances and language from the active v2 ROM removal flow.
+- [ ] `06-12-PLAN.md` - Bind migration confirmation to the current canonical source and exact catalog identity set.
+- [ ] `06-13-PLAN.md` - Replace blanket platform rollback with exact prior catalog restoration.
+- [ ] `06-14-PLAN.md` - Close the three bounded robustness warnings from Phase 6 review.
+- [ ] `06-15-PLAN.md` - Re-run Phase 6 as a complete, adversarial closure and correct its validation evidence.
+- [ ] `06-16-PLAN.md` - Establish the source locale contract and first bounded translation batch for catalog-only ROM removal.
+- [ ] `06-17-PLAN.md` - Complete the bounded catalog-only translation rollout and prove repository-wide locale parity.
 
 ### Phase 7: V2 Storage Administration Experience
 
@@ -254,7 +262,7 @@ Plans:
 | 3. Mapping Administration Contracts     | 6/6            | Complete    | 2026-08-11 |
 | 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
 | 5. Preview and Read-path Cutover        | 8/8            | Complete    | 2026-08-12 |
-| 6. Safe Lifecycle and Legacy Migration  | 9/9            | Complete    | 2026-08-13 |
+| 6. Safe Lifecycle and Legacy Migration  | 9/17           | In Progress |            |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
 | 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |
