@@ -1,5 +1,8 @@
 from datetime import datetime, timezone
+
+# mypy: disable-error-code=func-returns-value
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -396,7 +399,7 @@ def test_mapping_mutations_capture_authenticated_actor_and_version(
 ):
     from endpoints import storage as endpoint
 
-    captured = {}
+    captured: dict[str, Any] = {}
 
     def update(mapping_id, storage_root_id, relative_path, **kwargs):
         captured.update(
@@ -609,7 +612,7 @@ def test_mapping_audit_page_is_filter_bound_and_allowlisted(
 ):
     from endpoints import storage as endpoint
 
-    captured = {}
+    captured: dict[str, Any] = {}
 
     def audits(**kwargs):
         captured.update(kwargs)
@@ -704,7 +707,7 @@ def test_mapping_removal_contract_is_explicit_bounded_and_distinct(
 ):
     from endpoints import storage as endpoint
 
-    captured = {}
+    captured: dict[str, Any] = {}
     monkeypatch.setattr(
         endpoint.db_storage_handler,
         "preview_mapping_removal",
@@ -849,7 +852,7 @@ def test_legacy_impact_returns_allowlisted_confirmation(
         source_immutable=True,
         legacy_fallback_enabled=False,
     )
-    captured = {}
+    captured: dict[str, Any] = {}
     monkeypatch.setattr(
         endpoint.db_legacy_migration_handler,
         "preview_migration_impact",

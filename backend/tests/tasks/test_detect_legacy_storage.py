@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -39,7 +40,7 @@ async def test_task_persists_safe_result_at_239_and_cancels_at_240(
         container_path=str(tmp_path),
         root_active=True,
     )
-    saved = {}
+    saved: dict[str, Any] = {}
 
     class FakeHandler:
         def get_detection_context(self, platform_id, storage_root_id):

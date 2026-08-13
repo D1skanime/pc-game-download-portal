@@ -6,6 +6,7 @@ import struct
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from typing import cast
 
 from exceptions.storage_exceptions import (
     DescriptorHashError,
@@ -17,6 +18,8 @@ from exceptions.storage_exceptions import (
     UnsafeSymlinkError,
 )
 from handler.filesystem.storage_access import (
+    ListCapability,
+    StatCapability,
     hash_descriptor_file,
     open_storage_access,
 )
@@ -168,7 +171,7 @@ def _inspect_candidate(
             with open_storage_access(
                 storage, StorageOperation.LIST, directory
             ) as listing:
-                entries = listing.list()
+                entries = cast(ListCapability, listing).list()
         except MissingStorageTargetError:
             if directory == relative_path:
                 return _CandidateObservation(relative_path, False)
@@ -230,7 +233,7 @@ def _inspect_candidate(
                 with open_storage_access(
                     storage, StorageOperation.STAT, logical_path
                 ) as metadata:
-                    item = metadata.stat()
+                    item = cast(StatCapability, metadata).stat()
             except UnsafeSymlinkError:
                 return _CandidateObservation(
                     relative_path,

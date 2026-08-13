@@ -5,7 +5,7 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 from fastapi import HTTPException, Query, Request, status
 
@@ -276,7 +276,7 @@ _CONFLICT_MESSAGES = {
 }
 
 
-def _raise_safe_storage_error(error: StorageResolutionError) -> None:
+def _raise_safe_storage_error(error: StorageResolutionError) -> NoReturn:
     code = error.code if error.code in _ERROR_MESSAGES else "storage_resolution_error"
     detail = StorageErrorDetail(
         code=StorageReadErrorCode(code), message=_ERROR_MESSAGES[code]
@@ -376,7 +376,7 @@ def _actor(request: Request) -> dict[str, object]:
     }
 
 
-def _raise_mapping_conflict(error: StorageResolutionError) -> None:
+def _raise_mapping_conflict(error: StorageResolutionError) -> NoReturn:
     code = error.code
     if code not in _CONFLICT_MESSAGES:
         _raise_safe_storage_error(error)
@@ -424,7 +424,7 @@ def _legacy_detection_result_schema(
     )
 
 
-def _raise_legacy_detection_error(error: LegacyDetectionResultError) -> None:
+def _raise_legacy_detection_error(error: LegacyDetectionResultError) -> NoReturn:
     code = (
         error.code if error.code in _LEGACY_ERROR_MESSAGES else "legacy_detection_stale"
     )
@@ -650,7 +650,7 @@ def _legacy_rollback_status_schema(
     )
 
 
-def _raise_legacy_rollback_error(error: LegacyRollbackError) -> None:
+def _raise_legacy_rollback_error(error: LegacyRollbackError) -> NoReturn:
     code = (
         error.code
         if error.code in _ROLLBACK_ERROR_MESSAGES
