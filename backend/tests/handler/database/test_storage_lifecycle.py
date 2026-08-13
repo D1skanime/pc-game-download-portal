@@ -682,3 +682,238 @@ def test_reconnect_requires_exact_logical_identity_or_unique_complete_hashes(
         )
         is None
     )
+
+
+def _seed_retained_reconnect(
+    admin_user,
+    *,
+    suffix: str,
+    duplicate_identity: bool = False,
+):
+    from models.assets import Save, State
+    from models.catalog_lifecycle import RetainedCatalogIdentity
+    from models.play_session import PlaySession
+
+    now = datetime.now(timezone.utc)
+    with sync_session.begin() as session:
+        platform = Platform(
+            name=f"Reconnect {suffix}",
+            slug=f"reconnect-{suffix}",
+            fs_slug=f"reconnect-{suffix}",
+        )
+        session.add(platform)
+        session.flush()
+        retained = RetainedCatalogIdentity(
+            platform_id=platform.id,
+            detached_rom_id=7000,
+            logical_path=f"{platform.fs_slug}/game.bin",
+            file_name="game.bin",
+            crc_hash="a1b2c3d4",
+            md5_hash="1" * 32,
+            sha1_hash="2" * 40,
+            detached_by_user_id=admin_user.id,
+        )
+        session.add(retained)
+        if duplicate_identity:
+            session.add(
+                RetainedCatalogIdentity(
+                    platform_id=platform.id,
+                    detached_rom_id=7001,
+                    logical_path=f"{platform.fs_slug}/game.bin",
+                    file_name="game-copy.bin",
+                    crc_hash="a1b2c3d4",
+                    md5_hash="1" * 32,
+                    sha1_hash="2" * 40,
+                    detached_by_user_id=admin_user.id,
+                )
+            )
+        session.flush()
+        target = Rom(
+            platform_id=platform.id,
+            fs_name="game.bin",
+            fs_path=platform.fs_slug,
+            fs_size_bytes=1,
+            name="Reconnected Game",
+            crc_hash="a1b2c3d4",
+            md5_hash="1" * 32,
+            sha1_hash="2" * 40,
+        )
+        alternate = Rom(
+            platform_id=platform.id,
+            fs_name="alternate.bin",
+            fs_path=platform.fs_slug,
+            fs_size_bytes=1,
+            name="Alternate Claim",
+            crc_hash="a1b2c3d4",
+            md5_hash="1" * 32,
+            sha1_hash="2" * 40,
+        )
+        session.add_all([target, alternate])
+        session.flush()
+        save = Save(
+            rom_id=None,
+            retained_catalog_id=retained.id,
+            user_id=admin_user.id,
+            file_name="slot.srm",
+            file_path="users/admin/saves/reconnect",
+            file_size_bytes=1,
+        )
+        state = State(
+            rom_id=None,
+            retained_catalog_id=retained.id,
+            user_id=admin_user.id,
+            file_name="slot.state",
+            file_path="users/admin/states/reconnect",
+            file_size_bytes=1,
+        )
+        play = PlaySession(
+            rom_id=None,
+            retained_catalog_id=retained.id,
+            user_id=admin_user.id,
+            device_id=None,
+            start_time=now,
+            end_time=now,
+            duration_ms=1,
+        )
+        session.add_all([save, state, play])
+        session.flush()
+        return {
+            "platform_id": platform.id,
+            "retained_id": retained.id,
+            "target_id": target.id,
+            "alternate_id": alternate.id,
+            "save_id": save.id,
+            "state_id": state.id,
+            "play_id": play.id,
+            "logical_path": f"{platform.fs_slug}/game.bin",
+        }
+
+
+def test_retained_identity_reconnects_all_user_value_atomically(admin_user):
+    from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
+    from models.assets import Save, State
+    from models.catalog_lifecycle import RetainedCatalogIdentity
+    from models.play_session import PlaySession
+
+    seeded = _seed_retained_reconnect(admin_user, suffix="exact")
+    result = CatalogLifecycleHandler().reconnect_retained_identity(
+        rom_id=seeded["target_id"],
+        platform_id=seeded["platform_id"],
+        logical_path=seeded["logical_path"].replace("/", "\\"),
+        crc_hash=None,
+        md5_hash=None,
+        sha1_hash=None,
+    )
+
+    assert result is not None and result.id == seeded["retained_id"]
+    with sync_session() as session:
+        retained = session.get(RetainedCatalogIdentity, seeded["retained_id"])
+        save = session.get(Save, seeded["save_id"])
+        state = session.get(State, seeded["state_id"])
+        play = session.get(PlaySession, seeded["play_id"])
+        assert retained is not None
+        assert retained.active_rom_id == seeded["target_id"]
+        assert retained.version == 2
+        assert retained.reconnected_at is not None
+        assert (save.rom_id, save.retained_catalog_id) == (
+            seeded["target_id"],
+            None,
+        )
+        assert (state.rom_id, state.retained_catalog_id) == (
+            seeded["target_id"],
+            None,
+        )
+        assert (play.rom_id, play.retained_catalog_id) == (
+            seeded["target_id"],
+            None,
+        )
+
+
+def test_retained_identity_rejects_weak_and_ambiguous_matches(admin_user):
+    from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
+    from models.catalog_lifecycle import RetainedCatalogIdentity
+
+    seeded = _seed_retained_reconnect(
+        admin_user, suffix="ambiguous", duplicate_identity=True
+    )
+    handler = CatalogLifecycleHandler()
+
+    assert (
+        handler.reconnect_retained_identity(
+            rom_id=seeded["target_id"],
+            platform_id=seeded["platform_id"],
+            logical_path="different/game.bin",
+            crc_hash="a1b2c3d4",
+            md5_hash=None,
+            sha1_hash="2" * 40,
+        )
+        is None
+    )
+    assert (
+        handler.reconnect_retained_identity(
+            rom_id=seeded["target_id"],
+            platform_id=seeded["platform_id"],
+            logical_path="different/game.bin",
+            crc_hash="a1b2c3d4",
+            md5_hash="1" * 32,
+            sha1_hash="2" * 40,
+        )
+        is None
+    )
+    assert (
+        handler.reconnect_retained_identity(
+            rom_id=seeded["target_id"],
+            platform_id=seeded["platform_id"],
+            logical_path=seeded["logical_path"],
+            crc_hash=None,
+            md5_hash=None,
+            sha1_hash=None,
+        )
+        is None
+    )
+    with sync_session() as session:
+        identities = session.scalars(
+            select(RetainedCatalogIdentity).where(
+                RetainedCatalogIdentity.platform_id == seeded["platform_id"]
+            )
+        ).all()
+        assert all(identity.active_rom_id is None for identity in identities)
+
+
+def test_concurrent_retained_claim_has_one_winner_and_no_mixed_ownership(admin_user):
+    from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
+    from models.assets import Save, State
+    from models.catalog_lifecycle import RetainedCatalogIdentity
+    from models.play_session import PlaySession
+
+    seeded = _seed_retained_reconnect(admin_user, suffix="race")
+    barrier = threading.Barrier(2)
+
+    def claim(rom_id: int):
+        barrier.wait(timeout=5)
+        return CatalogLifecycleHandler().reconnect_retained_identity(
+            rom_id=rom_id,
+            platform_id=seeded["platform_id"],
+            logical_path=seeded["logical_path"],
+            crc_hash="a1b2c3d4",
+            md5_hash="1" * 32,
+            sha1_hash="2" * 40,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = list(
+            executor.map(claim, [seeded["target_id"], seeded["alternate_id"]])
+        )
+
+    assert sum(result is not None for result in outcomes) == 1
+    with sync_session() as session:
+        retained = session.get(RetainedCatalogIdentity, seeded["retained_id"])
+        winner = retained.active_rom_id
+        assert winner in {seeded["target_id"], seeded["alternate_id"]}
+        for model, row_id in (
+            (Save, seeded["save_id"]),
+            (State, seeded["state_id"]),
+            (PlaySession, seeded["play_id"]),
+        ):
+            row = session.get(model, row_id)
+            assert (row.rom_id, row.retained_catalog_id) == (winner, None)

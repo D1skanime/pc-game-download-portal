@@ -678,6 +678,29 @@ class TestIdentifyRomReassociation:
         assert isinstance(created, Rom)
         assert created.fs_name == "New Name.zip"
 
+    async def test_reconnects_retained_identity_after_durable_add(
+        self, patched, mocker
+    ):
+        db = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+        lifecycle = mocker.patch.object(
+            scan_module, "catalog_lifecycle_handler", create=True
+        )
+
+        await self._run(db)
+
+        lifecycle.reconnect_retained_identity.assert_called_once_with(
+            rom_id=99,
+            platform_id=1,
+            logical_path="test/roms/New Name.zip",
+            crc_hash="crc",
+            md5_hash="md5",
+            sha1_hash="sha1",
+        )
+
 
 class TestIdentifyPlatformMarksMissingBeforeScan:
     """`_identify_platform` must flag missing entries before identifying files.
