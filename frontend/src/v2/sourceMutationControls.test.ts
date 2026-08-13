@@ -3,15 +3,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { computed, ref } from "vue";
-import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
 import SetupStepPlatforms from "@/v2/components/Auth/SetupStepPlatforms.vue";
 import FilesTab from "@/v2/components/GameDetails/FilesTab/FilesTab.vue";
 import ManualSubtab from "@/v2/components/GameDetails/ManualSubtab.vue";
 import MediaTab from "@/v2/components/GameDetails/MediaTab.vue";
-import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
 import ScreenshotsSubtab from "@/v2/components/GameDetails/ScreenshotsSubtab.vue";
 import SettingsSidebar from "@/v2/components/Settings/SettingsSidebar.vue";
-import Setup from "@/v2/views/Auth/Setup.vue";
 import Home from "@/v2/views/Home.vue";
 
 const mocks = vi.hoisted(() => ({

@@ -7,7 +7,7 @@
 // as cells. When the input modality flips to `"pad"` (gamepad detected
 // or pressed) we autofocus the first cell so the synthetic keys
 // dispatched by `useGamepad` have somewhere to go.
-import { RChip, RDivider, RIcon, RSkeletonBlock } from "@v2/lib";
+import { RChip, RIcon, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";

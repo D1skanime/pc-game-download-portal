@@ -373,10 +373,14 @@ async function loadLibraryInfo() {
     selectedPlatforms.value = [
       ...(libraryInfo.value.existing_platforms.map((p) => p.fs_slug) || []),
     ];
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const setupError = error as {
+      response?: { data?: { detail?: string } };
+      message?: string;
+    };
     emitter?.emit("snackbarShow", {
       msg: `Failed to load library info: ${
-        error.response?.data?.detail || error.message
+        setupError.response?.data?.detail || setupError.message
       }`,
       icon: "mdi-close-circle",
       color: "red",
