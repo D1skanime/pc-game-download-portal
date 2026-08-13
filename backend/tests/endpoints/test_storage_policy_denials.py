@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import ast
+import hashlib
+import stat
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 from fastapi import HTTPException
 
+from endpoints import firmware as firmware_endpoints
 from endpoints.storage_policy import authorize_api_storage_operation
 from handler.filesystem import legacy_external_storage, storage_composition
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
@@ -62,6 +66,27 @@ def _function_calls(relative_file: str, function_name: str) -> set[str]:
     return {
         ast.unparse(node) for node in ast.walk(function) if isinstance(node, ast.Call)
     }
+
+
+def _authorization_is_guarded_by_non_empty_delete_list() -> bool:
+    source = Path("endpoints", "firmware.py").read_text()
+    tree = ast.parse(source)
+    function = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "delete_firmware"
+    )
+    expected = (
+        "authorize_api_storage_operation(StorageOperation.DELETE, "
+        "legacy_external_storage)"
+    )
+    return any(
+        ast.unparse(node.test) == "delete_from_fs"
+        and expected
+        in {ast.unparse(call) for call in ast.walk(node) if isinstance(call, ast.Call)}
+        for node in ast.walk(function)
+        if isinstance(node, ast.If)
+    )
 
 
 @pytest.mark.parametrize(
@@ -164,6 +189,32 @@ def test_owned_output_authorization_proceeds() -> None:
     assert grant.operation is StorageOperation.PATCH
 
 
+OWNED_DELETE_ROUTE_MATRIX = (
+    (
+        "screenshots.py",
+        "delete_screenshot",
+        "storage_composition.owned[OwnedStorageKind.ASSETS]",
+    ),
+    (
+        "roms/manual.py",
+        "delete_rom_manuals",
+        "storage_composition.owned[OwnedStorageKind.RESOURCES]",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("relative_file", "function_name", "provider"), OWNED_DELETE_ROUTE_MATRIX
+)
+def test_owned_deletions_authorize_the_exact_typed_descriptor_before_io(
+    relative_file: str, function_name: str, provider: str
+) -> None:
+    calls = _function_calls(relative_file, function_name)
+    assert (
+        f"authorize_api_storage_operation(StorageOperation.DELETE, {provider})" in calls
+    )
+
+
 TASK_2_ROUTE_MATRIX = (
     (
         "saves.py",
@@ -258,3 +309,112 @@ def test_identity_form_cannot_supply_storage_classification() -> None:
         "avatar",
         "ui_settings",
     }
+
+
+@pytest.mark.asyncio
+async def test_firmware_catalog_removal_never_requests_external_delete(
+    monkeypatch,
+) -> None:
+    firmware = SimpleNamespace(
+        id=7,
+        platform_id=3,
+        file_name="bios.bin",
+        file_path="firmware",
+        platform=SimpleNamespace(slug="pc"),
+    )
+    permissions = Mock()
+    permissions.can_see_platform.return_value = True
+    db_delete = Mock()
+    fs_delete = Mock(side_effect=AssertionError("external deletion reached"))
+    monkeypatch.setattr(
+        firmware_endpoints, "get_permissions", lambda _request: permissions
+    )
+    monkeypatch.setattr(firmware_endpoints, "assert_can", Mock())
+    monkeypatch.setattr(
+        firmware_endpoints.db_firmware_handler,
+        "get_firmware",
+        Mock(return_value=firmware),
+    )
+    monkeypatch.setattr(
+        firmware_endpoints.db_firmware_handler, "delete_firmware", db_delete
+    )
+    monkeypatch.setattr(
+        firmware_endpoints.fs_firmware_handler, "remove_file", fs_delete
+    )
+
+    result = await firmware_endpoints.delete_firmware(
+        request=Mock(), firmware=[firmware.id], delete_from_fs=[]
+    )
+
+    assert result == {"successful_items": 1, "failed_ids": [], "errors": []}
+    db_delete.assert_called_once_with(firmware.id)
+    fs_delete.assert_not_called()
+    assert _authorization_is_guarded_by_non_empty_delete_list()
+
+
+def _source_manifest(root: Path) -> tuple[tuple[object, ...], ...]:
+    records = []
+    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
+        info = path.lstat()
+        kind = "symlink" if path.is_symlink() else "file" if path.is_file() else "dir"
+        digest = ""
+        target = ""
+        if kind == "file":
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        elif kind == "symlink":
+            target = path.readlink().as_posix()
+        records.append(
+            (
+                path.relative_to(root).as_posix(),
+                kind,
+                stat.S_IMODE(info.st_mode),
+                info.st_size,
+                digest,
+                target,
+            )
+        )
+    return tuple(records)
+
+
+@pytest.mark.asyncio
+async def test_crafted_firmware_delete_is_replay_safe_and_source_immutable(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "external"
+    source.mkdir()
+    firmware_file = source / "bios.bin"
+    firmware_file.write_bytes(b"immutable firmware")
+    (source / "alias.bin").symlink_to(firmware_file.name)
+    before = _source_manifest(source)
+
+    db_read = Mock(side_effect=AssertionError("database lookup reached"))
+    db_delete = Mock(side_effect=AssertionError("database mutation reached"))
+    fs_delete = Mock(side_effect=AssertionError("filesystem mutation reached"))
+    monkeypatch.setattr(firmware_endpoints.db_firmware_handler, "get_firmware", db_read)
+    monkeypatch.setattr(
+        firmware_endpoints.db_firmware_handler, "delete_firmware", db_delete
+    )
+    monkeypatch.setattr(
+        firmware_endpoints.fs_firmware_handler, "remove_file", fs_delete
+    )
+
+    for firmware_ids in ([1], [1], [1, 2], [999_999]):
+        with pytest.raises(HTTPException) as error:
+            await firmware_endpoints.delete_firmware(
+                request=Mock(),
+                firmware=firmware_ids,
+                delete_from_fs=[firmware_ids[0]],
+            )
+        assert error.value.status_code == 403
+        assert error.value.detail == {
+            "code": "external_storage_operation_denied",
+            "operation": "delete",
+            "storage_class": "external_read_only",
+            "storage_id": "root:0",
+        }
+        assert str(source) not in str(error.value.detail)
+
+    assert _source_manifest(source) == before
+    db_read.assert_not_called()
+    db_delete.assert_not_called()
+    fs_delete.assert_not_called()

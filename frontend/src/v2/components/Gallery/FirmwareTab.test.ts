@@ -1,7 +1,9 @@
 import { shallowMount } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import type { FirmwareSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
+import DeleteFirmwareDialog from "@/v2/components/Gallery/DeleteFirmwareDialog.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
 import FirmwareTab from "./FirmwareTab.vue";
 
@@ -90,6 +92,26 @@ function chipEntries(wrapper: ReturnType<typeof mountTab>) {
 }
 
 describe("FirmwareTab", () => {
+  it("exposes read, download, and catalog removal without source mutation", () => {
+    const wrapper = mountTab([firmware()]);
+    const tabSource = readFileSync(
+      "src/v2/components/Gallery/FirmwareTab.vue",
+      "utf8",
+    );
+    const dialogSource = readFileSync(
+      "src/v2/components/Gallery/DeleteFirmwareDialog.vue",
+      "utf8",
+    );
+    const serviceSource = readFileSync("src/services/api/firmware.ts", "utf8");
+
+    expect(wrapper.findAllComponents({ name: "RDropzone" })).toHaveLength(0);
+    expect(tabSource).not.toMatch(/uploadFirmware|pendingFiles|RDropzone/);
+    expect(dialogSource).not.toMatch(/deleteFromFs|filesystem|from disk/);
+    expect(serviceSource).not.toMatch(/uploadFirmware|delete_from_fs/);
+    expect(serviceSource).toMatch(/firmware:\s*firmware\.map/);
+    expect(DeleteFirmwareDialog.props).toBeDefined();
+  });
+
   // #4082: the MD5 used to render as a plain chip with no copy affordance
   // and `user-select: none`, and CRC / SHA-1 were never shown at all.
   it("renders a copyable chip for every stored hash", () => {
