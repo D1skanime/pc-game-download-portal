@@ -6,6 +6,7 @@ import pytest
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints.responses.assets import SaveSchema, ScreenshotSchema, UserSaveSchema
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import (
@@ -40,6 +41,27 @@ def _detach_rom(client, access_token: str, rom: Rom) -> None:
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["successful_items"] == 1
+
+
+@pytest.mark.parametrize("schema", (SaveSchema, UserSaveSchema))
+def test_save_schema_remains_detachable_with_live_screenshot(schema) -> None:
+    json_schema = schema.model_json_schema()
+
+    assert "rom_id" in json_schema["required"]
+    assert {
+        item.get("type") for item in json_schema["properties"]["rom_id"]["anyOf"]
+    } == {
+        "integer",
+        "null",
+    }
+    assert "retained_catalog_id" in json_schema["properties"]
+    screenshot_schema = json_schema["$defs"]["ScreenshotSchema"]
+    assert screenshot_schema["properties"]["rom_id"] == {
+        "title": "Rom Id",
+        "type": "integer",
+    }
+    assert "retained_catalog_id" not in screenshot_schema["properties"]
+    assert SaveSchema.model_fields["screenshot"].annotation == ScreenshotSchema | None
 
 
 class TestDetachedSaveLifecycle:

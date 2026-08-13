@@ -1,8 +1,11 @@
 from io import BytesIO
 from unittest import mock
 
+import pytest
 from fastapi import status
+from pydantic import ValidationError
 
+from endpoints.responses.assets import ScreenshotSchema, UserScreenshotSchema
 from handler.database import db_screenshot_handler
 from handler.database.base_handler import sync_session
 from models.assets import Screenshot
@@ -19,6 +22,30 @@ def _auth(token: str) -> dict[str, str]:
 def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
     with sync_session.begin() as s:
         s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
+
+
+@pytest.mark.parametrize("schema", (ScreenshotSchema, UserScreenshotSchema))
+def test_screenshot_schema_requires_live_rom_ownership(schema) -> None:
+    json_schema = schema.model_json_schema()
+
+    assert "rom_id" in json_schema["required"]
+    assert json_schema["properties"]["rom_id"] == {"title": "Rom Id", "type": "integer"}
+    assert "retained_catalog_id" not in json_schema["properties"]
+
+
+def test_screenshot_schema_rejects_missing_or_null_rom_owner(
+    screenshot: Screenshot,
+) -> None:
+    payload = {
+        field: getattr(screenshot, field)
+        for field in ScreenshotSchema.model_fields
+        if field != "rom_id"
+    }
+
+    with pytest.raises(ValidationError):
+        ScreenshotSchema.model_validate(payload)
+    with pytest.raises(ValidationError):
+        ScreenshotSchema.model_validate({**payload, "rom_id": None})
 
 
 # ---------- POST /api/screenshots ----------

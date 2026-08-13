@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 from fastapi import status
 
+from endpoints.responses.assets import ScreenshotSchema, StateSchema, UserStateSchema
 from handler.database import db_screenshot_handler, db_state_handler
 from handler.database.base_handler import sync_session
 from models.assets import Screenshot, State
@@ -32,6 +33,27 @@ def _detach_rom(client, access_token: str, rom: Rom) -> None:
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["successful_items"] == 1
+
+
+@pytest.mark.parametrize("schema", (StateSchema, UserStateSchema))
+def test_state_schema_remains_detachable_with_live_screenshot(schema) -> None:
+    json_schema = schema.model_json_schema()
+
+    assert "rom_id" in json_schema["required"]
+    assert {
+        item.get("type") for item in json_schema["properties"]["rom_id"]["anyOf"]
+    } == {
+        "integer",
+        "null",
+    }
+    assert "retained_catalog_id" in json_schema["properties"]
+    screenshot_schema = json_schema["$defs"]["ScreenshotSchema"]
+    assert screenshot_schema["properties"]["rom_id"] == {
+        "title": "Rom Id",
+        "type": "integer",
+    }
+    assert "retained_catalog_id" not in screenshot_schema["properties"]
+    assert StateSchema.model_fields["screenshot"].annotation == ScreenshotSchema | None
 
 
 class TestDetachedStateLifecycle:
