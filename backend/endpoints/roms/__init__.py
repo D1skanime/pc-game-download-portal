@@ -1766,6 +1766,11 @@ async def update_rom(
 
     new_fs_name = str(form_data.fs_name or rom.fs_name)
     new_fs_name = sanitize_filename(new_fs_name)
+    should_update_fs = new_fs_name != rom.fs_name
+    if should_update_fs:
+        authorize_api_storage_operation(
+            StorageOperation.RENAME, legacy_external_storage
+        )
     cleaned_data.update({"fs_name": new_fs_name})
 
     # Re-parse tags from the filename so region/language/revision/version/tags
@@ -1925,7 +1930,6 @@ async def update_rom(
         ) from exc
 
     # Rename the file/folder if the name has changed
-    should_update_fs = new_fs_name != rom.fs_name
     if should_update_fs:
         try:
             await fs_rom_handler.rename_fs_rom(
