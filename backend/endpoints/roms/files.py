@@ -31,7 +31,6 @@ from utils.media_types import (
     is_allowed_document_file,
     is_allowed_media_file,
 )
-from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 
 router = APIRouter()
