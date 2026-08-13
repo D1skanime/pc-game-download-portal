@@ -70,6 +70,8 @@ completed: 2026-08-13
 
 1. **Task 1: Specify portable lineage and stale substitution behavior** - `8d794d3f3` (test)
 2. **Task 2: Persist and enforce migration-time lineage under locks** - `648a7add6` (fix)
+3. **Post-wave: Stabilize rollback expiry fixture** - `975e021e3` (test)
+4. **Post-wave: Remove stale migration import** - `e65930edf` (fix)
 
 ## Files Created/Modified
 
@@ -130,9 +132,27 @@ completed: 2026-08-13
 - **Verification:** MySQL exact restoration and unrelated-row preservation passed.
 - **Committed in:** `648a7add6`.
 
+**5. [Rule 3 - Blocking] Stabilized the rollback expiry fixture**
+
+- **Found during:** Cumulative Wave 2 post-merge gate
+- **Issue:** The migration helper used a fixed timestamp plus a 24-hour window that expired seven minutes before the cumulative run.
+- **Fix:** Seeded migration time from current UTC at database-compatible second precision while retaining the production expiry calculation and expiry assertions.
+- **Files modified:** `backend/tests/integration/test_legacy_migration.py`.
+- **Verification:** Both failing parameterizations passed, followed by the complete 152-test backend union.
+- **Committed in:** `975e021e3`.
+
+**6. [Rule 3 - Blocking] Removed a stale SQLAlchemy import**
+
+- **Found during:** Cumulative Wave 2 scoped static gate
+- **Issue:** `sqlalchemy.update` remained imported after the lineage handler stopped using SQL expression updates.
+- **Fix:** Removed only the unused import; digest update calls remain unchanged.
+- **Files modified:** `backend/handler/database/legacy_migration_handler.py`.
+- **Verification:** Scoped Ruff, Black, isort, mypy, compilation, hooks, and the 152-test backend union passed.
+- **Committed in:** `e65930edf`.
+
 ---
 
-**Total deviations:** 4 auto-fixed (2 bugs, 2 blocking issues).
+**Total deviations:** 6 auto-fixed (2 bugs, 4 blocking issues).
 **Impact on plan:** All fixes were necessary to execute the exact acceptance gates and did not widen runtime authority, public contracts, or project scope.
 
 ## Issues Encountered
@@ -152,7 +172,9 @@ completed: 2026-08-13
 - Schema: revision lengths are 26 and 23 characters; lineage has no direct mutable-entity foreign key; named indexes and checks remain within identifier limits.
 - Static checks: scoped Ruff, Black, isort, and mypy reported no issues; `git diff --check` passed.
 - Commit hooks: RED and GREEN commits passed without bypass.
+- Cumulative Wave 2 gate: 152 backend tests and 11 frontend authority tests passed; frontend typecheck and production build passed.
 - Cleanup: `romm_test_0621`, all verifier containers, and task-owned logs were removed and confirmed absent.
+- Post-wave cleanup: uniquely named database/user/build resources were removed, and normal application `SELECT 1` passed before and after.
 
 ## Known Stubs
 
@@ -169,7 +191,7 @@ Legacy rollback now binds exact migration-time catalog incarnation and parent li
 ## Self-Check: PASSED
 
 - Summary artifact exists at the required phase path.
-- Task commits `8d794d3f3` and `648a7add6` exist.
+- Task and post-wave commits `8d794d3f3`, `648a7add6`, `975e021e3`, and `e65930edf` exist.
 - All nine created or modified files exist, and neither task commit deleted a tracked file.
 - The stub, privacy, logging, foreign-key, cleanup, and task-owned resource scans passed.
 
