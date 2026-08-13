@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed
-last_updated: "2026-08-13T17:49:58.515Z"
+stopped_at: Completed 06-24-PLAN.md
+last_updated: "2026-08-13T18:28:28.966Z"
 last_activity: 2026-08-13
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 61
-  completed_plans: 55
+  completed_plans: 56
   percent: 56
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 4 of 26
+Plan: 5 of 26
 Status: Ready to execute
 Last activity: 2026-08-13
 
@@ -93,6 +93,7 @@ _Updated after each plan completion_
 | Phase 06 P19 | 12m | 1 tasks | 5 files |
 | Phase 06 P20 | 19m18s | 2 tasks | 5 files |
 | Phase 06 P22 | 18m | 2 tasks | 12 files |
+| Phase 06 P24 | 33m | 1 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -195,6 +196,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Cap HASH by the lesser of per-file allowance and aggregate remaining bytes. — Both descriptor failures and returned byte overages must be classified against the limiting budget before progress is recorded.
 - [Phase 06]: Retain cleanup ownership independently until exact removal or explicitly classified absence succeeds. - This preserves safe retry semantics without repeating successful resource removals.
 - [Phase 06]: Require live ROM ownership for screenshots while save and state remain detachable. - This matches response and generated contracts to the persistence lifecycle each asset supports.
+- [Phase 06]: Allow firmware catalog removal only with no external delete intent and deny non-empty delete_from_fs before lookup or mutation. — Preserve useful catalog lifecycle without granting external source mutation.
+- [Phase 06]: Authorize personal screenshot and primary manual deletion with exact typed ASSETS and RESOURCES descriptors immediately before owned I/O. — Keep owned lifecycle useful while external storage remains fail-closed.
 
 ### Blockers/Concerns
 
@@ -212,6 +215,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-13T17:49:58.512Z
-Stopped at: Completed
+Last session: 2026-08-13T18:28:28.962Z
+Stopped at: Completed 06-24-PLAN.md
 Resume file: None
