@@ -6,12 +6,13 @@ import stat
 from inspect import unwrap
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from fastapi import HTTPException
 
 from endpoints import firmware as firmware_endpoints
+from endpoints import heartbeat as heartbeat_endpoints
 from endpoints.storage_policy import authorize_api_storage_operation
 from handler.filesystem import legacy_external_storage, storage_composition
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
@@ -419,3 +420,120 @@ async def test_crafted_firmware_delete_is_replay_safe_and_source_immutable(
     db_read.assert_not_called()
     db_delete.assert_not_called()
     fs_delete.assert_not_called()
+
+
+def _setup_request() -> SimpleNamespace:
+    return SimpleNamespace(auth=SimpleNamespace(scopes=[]))
+
+
+@pytest.mark.asyncio
+async def test_empty_setup_platform_request_is_neutral_and_path_free(
+    monkeypatch,
+) -> None:
+    detect = Mock(side_effect=AssertionError("structure detection reached"))
+    create_structure = Mock(side_effect=AssertionError("structure creation reached"))
+    add_platform = Mock(side_effect=AssertionError("platform creation reached"))
+    authorize = Mock(side_effect=AssertionError("authorization reached"))
+    monkeypatch.setattr(
+        heartbeat_endpoints.db_user_handler,
+        "get_admin_users",
+        Mock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        heartbeat_endpoints.fs_platform_handler,
+        "detect_library_structure",
+        detect,
+    )
+    monkeypatch.setattr(
+        heartbeat_endpoints.fs_platform_handler,
+        "create_library_structure",
+        create_structure,
+    )
+    monkeypatch.setattr(
+        heartbeat_endpoints.fs_platform_handler,
+        "add_platform",
+        add_platform,
+    )
+    monkeypatch.setattr(
+        heartbeat_endpoints,
+        "authorize_api_storage_operation",
+        authorize,
+        raising=False,
+    )
+
+    result = await unwrap(heartbeat_endpoints.create_setup_platforms)(
+        request=_setup_request(),
+        platform_slugs=[],
+    )
+
+    assert result == {
+        "success": True,
+        "created_count": 0,
+        "message": "No platforms selected",
+    }
+    authorize.assert_not_called()
+    detect.assert_not_called()
+    create_structure.assert_not_called()
+    add_platform.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_setup_platform_authorizes_create_and_mkdir_before_detection(
+    monkeypatch,
+) -> None:
+    denial = HTTPException(
+        status_code=403,
+        detail={"code": "external_storage_operation_denied"},
+    )
+    authorize = Mock(side_effect=[None, denial])
+    detect = Mock(side_effect=AssertionError("structure detection reached"))
+    monkeypatch.setattr(
+        heartbeat_endpoints.db_user_handler,
+        "get_admin_users",
+        Mock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        heartbeat_endpoints,
+        "authorize_api_storage_operation",
+        authorize,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        heartbeat_endpoints.fs_platform_handler,
+        "detect_library_structure",
+        detect,
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await unwrap(heartbeat_endpoints.create_setup_platforms)(
+            request=_setup_request(),
+            platform_slugs=["pc"],
+        )
+
+    assert error.value is denial
+    assert authorize.call_args_list == [
+        call(StorageOperation.CREATE, legacy_external_storage),
+        call(StorageOperation.MKDIR, legacy_external_storage),
+    ]
+    detect.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_crafted_setup_platform_requests_are_replay_safe_and_immutable(
+    monkeypatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "external"
+    source.mkdir()
+    (source / "pc").mkdir()
+    marker = source / "pc" / "game.bin"
+    marker.write_bytes(b"immutable game")
+    (source / "alias").symlink_to("pc", target_is_directory=True)
+    before = _source_manifest(source)
+    detect = Mock(side_effect=AssertionError("structure detection reached"))
+    create_structure = Mock(side_effect=AssertionError("structure creation reached"))
+    add_platform = Mock(side_effect=AssertionError("platform creation reached"))
+    monkeypatch.setattr(
+        heartbeat_endpoints.db_user_handler,
+        "get_admin_users",
+        Mock(return_value=[]),
+    )
