@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-27-PLAN.md
-last_updated: "2026-08-20T11:14:25.829Z"
-last_activity: 2026-08-20 -- Completed Plan 06-27 early rename authorization
+stopped_at: Completed 06-28-PLAN.md
+last_updated: "2026-08-20T11:53:04.730Z"
+last_activity: 2026-08-20
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 67
-  completed_plans: 62
+  completed_plans: 63
   percent: 56
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 27 of 32
+Plan: 28 of 32
 Status: Ready to execute
-Last activity: 2026-08-20 -- Completed Plan 06-27 early rename authorization
+Last activity: 2026-08-20
 
 Progress: [█████████░] 87%
 
@@ -100,6 +100,7 @@ _Updated after each plan completion_
 | Phase 06 P26 | 22m | 2 tasks | 10 files |
 | Phase 06 P23 | 150min | 2 tasks | 8 files |
 | Phase 06 P27 | 12min | 2 tasks | 2 files |
+| Phase 06 P28 | 30min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -219,6 +220,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Static remediation remains bounded to Plans 18 through 26 changed files; unrelated inherited findings stay unchanged.
 - [Phase 06]: Compute and authorize the effective submitted filename once, immediately after ROM visibility. — Changed-name denial must precede every mixed-authority effect.
 - [Phase 06]: Treat every changed normalized filename as external RENAME authority before unmatch, provider, database, cache, collection, response, owned-resource, or filesystem work. — CAT-04 requires a fail-closed boundary regardless of other permitted fields.
+- [Phase 06]: Enforce incarnation-token immutability at Engine.before_execute for all supported ORM update forms. — Mapper and Session events do not observe every bulk parameter path before SQL.
+- [Phase 06]: Match only exact Rom and RomFile mapped tables at the execution boundary. — Alembic migration updates use independent table metadata and must remain functional.
+- [Phase 06]: Verify the same narrow ORM matrix before restart and exact token equality afterward on all three dialects. — The immutable rollback premise must survive dialect and deployment lifecycle differences.
 
 ### Blockers/Concerns
 
@@ -236,6 +240,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-20T11:14:25.825Z
-Stopped at: Completed 06-27-PLAN.md
+Last session: 2026-08-20T11:53:04.727Z
+Stopped at: Completed 06-28-PLAN.md
 Resume file: None
