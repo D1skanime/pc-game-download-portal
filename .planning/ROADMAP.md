@@ -11,7 +11,7 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 - [x] **Phase 3: Mapping Administration Contracts** - Provide authorized, audited APIs for roots, safe browsing, and mapping lifecycle operations. (completed 2026-08-11)
 - [x] **Phase 4: V2 Storage Design Specification** - Derive a RomM-native design contract for the new storage surfaces from read-only Team4s principles. (completed 2026-08-12)
 - [x] **Phase 5: Preview and Read-path Cutover** - Make preview, scanning, watching, hashing, streaming, and downloading mapping-aware and non-mutating. (completed 2026-08-12)
-- [x] **Phase 6: Safe Lifecycle and Legacy Migration** - Make catalog removal and legacy-layout migration explicit, reversible, and source-safe. (completed 2026-08-20)
+- [ ] **Phase 6: Safe Lifecycle and Legacy Migration** - Make catalog removal and legacy-layout migration explicit, reversible, and source-safe.
 - [ ] **Phase 7: V2 Storage Administration Experience** - Deliver accessible root, browser, mapping, and preview workflows in the sole active UI.
 - [ ] **Phase 8: Bounded V1 Removal** - Remove the frozen frontend and compatibility paths behind a dedicated v2 regression gate.
 - [ ] **Phase 9: Operational Immutability Proof** - Prove the complete boundary in production-like conditions and document safe NAS operation.
@@ -277,7 +277,7 @@ Plans:
 | 3. Mapping Administration Contracts     | 6/6            | Complete    | 2026-08-11 |
 | 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
 | 5. Preview and Read-path Cutover        | 8/8            | Complete    | 2026-08-12 |
-| 6. Safe Lifecycle and Legacy Migration  | 32/32          | Complete    | 2026-08-20 |
+| 6. Safe Lifecycle and Legacy Migration  | 32/32          | Gaps found  | -          |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
 | 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |

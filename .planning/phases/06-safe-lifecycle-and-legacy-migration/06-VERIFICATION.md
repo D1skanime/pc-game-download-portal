@@ -1,245 +1,279 @@
 ---
 phase: 06-safe-lifecycle-and-legacy-migration
-verified: 2026-08-20T06:59:28Z
+verified: 2026-08-20T15:07:27Z
 status: gaps_found
-score: 25/28 must-haves verified
+score: 23/31 must-haves verified
 overrides_applied: 0
 overrides: []
-requirements: 7/9 requirements satisfied
+requirements: 6/9 satisfied, 1 satisfied_with_warning, 2 blocked
 re_verification:
   previous_status: gaps_found
-  previous_score: 21/28
+  previous_score: 25/28
   gaps_closed:
-    - "The active-v2 generic, sidecar, firmware, upload, setup, patch-persistence, and rename controls/services identified previously are removed."
-    - "Retained identity reconnection now runs after every durable scan result and retries safely for an existing ROM."
-    - "Seeded 0111/0112 migration lifecycle and aggregate HASH call/return budgets are repaired across the declared dialect verifier."
-    - "Rollback now records and validates entity and parent incarnation lineage under deterministic locks."
-    - "Screenshot response/generated contracts now require live ROM ownership while saves and states remain detachable."
+    - "Changed fs_name authorization now runs before unmatch, provider, database, cache, collection, resource, or filesystem effects."
+    - "Rom and RomFile incarnation tokens are guarded across the supported instance, statement, executemany, and bulk mapping paths."
+    - "All bounded legacy observation exits now persist and expose truthful lower-bound metadata."
+    - "Owned create/replace now retry short and interrupted writes and reject zero progress."
   gaps_remaining:
-    - "External rename authorization still occurs after an unmatch return path and after possible owned screenshot effects."
-    - "Rollback incarnation tokens remain mutable through a supported bulk mapping update path."
+    - "Legacy preview and migration reconnect catalog-only identities without proving each source file exists."
+    - "Primary manual replacement is destructive before successful staged publication and concurrent uploads race."
+    - "Screenshot upload performs owned filesystem and database effects without ROM/platform visibility enforcement."
+    - "OwnedCreate publishes its final name before content is complete and durable."
+    - "HEAD download preflight consumes direct rollback eligibility without productive content delivery."
+    - "The active-v2 mutation inventory omits direct fetch, callable clients, and request(config) calls."
   regressions:
-    - "The final semantic v2 inventory silently omits element-access clients and dynamic/concatenated routes."
-    - "Budget-limited legacy observations incorrectly advertise prefix counts as exact."
-    - "Inherited owned create/replace capabilities can publish short writes."
+    - "Raw source-derived filenames are interpolated into Content-Disposition without safe encoding."
 gaps:
-  - truth: "External-root mutation requests fail closed before database, RomM-owned resource, or filesystem effects, and the final v2 inventory enforces that contract."
+  - truth: "Only source identities actually observed under the detected legacy mapping reconnect; missing catalog entries stay unreachable."
     status: failed
-    reason: "A changed fs_name combined with unmatch_metadata commits database/cache/collection effects without any RENAME authorization, and the semantic inventory silently drops dynamic client syntax."
+    reason: "Preview and migration derive reconnectability only from unique catalog paths and never intersect those paths with the bounded source observation."
     artifacts:
-      - path: "backend/endpoints/roms/__init__.py"
-        issue: "update_rom returns from the unmatch branch at lines 1539-1583, while changed-fs_name authorization is delayed until lines 1767-1773; screenshot downloads can also occur at lines 1730-1741 first."
-      - path: "frontend/src/v2/sourceMutationInventory.test.ts"
-        issue: "routeText accepts only literals/templates and extraction accepts only identifier property access, so element access, concatenated routes, variable routes, and namespace clients disappear instead of failing closed."
+      - path: "backend/handler/database/legacy_migration_handler.py"
+        issue: "_catalog_impact and _reconnectable_catalog_ids use catalog rows only."
+      - path: "backend/handler/database/roms_handler.py"
+        issue: "reconnect_legacy_catalog clears Rom and every child RomFile missing_from_fs flag for every unique catalog path."
     missing:
-      - "Sanitize/compare fs_name and authorize external RENAME immediately after ROM visibility, before every branch, provider, database, cache, or resource effect."
-      - "Exercise changed fs_name with unmatch_metadata and provider screenshot URLs, asserting 403 and zero effects."
-      - "Make unknown client syntax fail closed and route negative fixtures through the live extractor/inventory entry point."
-  - truth: "Rollback lineage is bound to private immutable Rom and RomFile incarnation tokens."
+      - "Persist or privately bind the exact normalized source identities observed during detection."
+      - "Compute preview and migration changes from the source/catalog intersection, including child RomFile identity."
+      - "Add an integration regression with one present ROM, one absent unique ROM, and an absent sidecar."
+  - truth: "Replacing a primary manual preserves the previous manual until one complete replacement is durably and atomically published."
     status: failed
-    reason: "Instance updates and statement .values() updates are rejected, but Session.bulk_update_mappings rewrites incarnation_token and bypasses both installed listeners."
+    reason: "The backend deletes different-extension manuals before receiving the replacement and streams into the final name; the frontend concurrently submits every selected primary manual."
     artifacts:
-      - path: "backend/models/rom.py"
-        issue: "The mapper listener covers instance history and do_orm_execute inspects statement._values only; legacy bulk mappings do not traverse either invariant guard."
-      - path: "backend/tests/handler/database/test_storage_lifecycle.py"
-        issue: "The current test covers instance assignment and update(...).values(...), but no bulk mapping or database-boundary rewrite."
+      - path: "backend/endpoints/roms/manual.py"
+        issue: "Lines 97-127 delete the prior extension and write directly to the public destination before request success."
+      - path: "frontend/src/services/api/rom.ts"
+        issue: "Lines 499-524 launch all manual uploads concurrently with Promise.allSettled."
     missing:
-      - "Reject every supported ORM bulk parameter/mapping update form, or enforce immutable incarnation tokens at the database boundary on all supported dialects."
-      - "Add ORM executemany, bulk_update_mappings, restart, and dialect tests."
-  - truth: "Budget-limited legacy detection summaries identify prefix counts as lower bounds."
-    status: partial
-    reason: "Entry, time, file-byte, aggregate-byte, and descriptor budget exits return lower_bound=False even though observation stopped early."
+      - "Accept one primary manual per operation, stage and fsync a unique temporary file, atomically publish, commit path_manual, then remove the superseded file."
+      - "Serialize or reject multiple/concurrent primary manual uploads and cover disconnect, retry, replacement, and concurrency."
+  - truth: "ROM-scoped screenshot upload enforces hidden ROM and platform visibility before every owned filesystem or database effect."
+    status: failed
+    reason: "add_screenshot looks up the ROM but never calls assert_rom_visible before deriving the path, writing the file, scanning it, and creating/updating the row."
     artifacts:
-      - path: "backend/handler/storage/legacy_migration.py"
-        issue: "Budget exits at lines 151-169, 216-227, and 267-350 mark partial observations exact."
-      - path: "backend/tests/handler/storage/test_legacy_migration.py"
-        issue: "test_entry_budget_reports_observed_lower_bound explicitly asserts the incorrect false value."
+      - path: "backend/endpoints/screenshots.py"
+        issue: "Lines 53-123 perform upload effects without the visibility guard used by download at lines 149-151."
+      - path: "backend/tests/endpoints/test_screenshots.py"
+        issue: "Hidden download cases exist, but hidden-ROM and hidden-platform upload cases do not."
     missing:
-      - "Set lower_bound=true for every partial budget exit and cover each budget reason through persistence/API serialization."
-  - truth: "RomM-owned create and replace operations either write complete content or leave no published partial artifact."
-    status: partial
-    reason: "OwnedCreate.create and OwnedReplace.replace each call os.write once and ignore its returned count. A fresh probe installed 2-byte outputs from a 6-byte payload; the code predates Phase 6 and does not mutate external source content, so it is a serious inherited data-integrity warning rather than a Phase 6 source-immutability blocker."
+      - "Call assert_rom_visible immediately after ROM lookup and before path derivation or writes."
+      - "Add hidden-ROM/platform upload regressions asserting 404 masking, zero filesystem calls, and no row."
+  - truth: "OwnedCreate either publishes complete durable content or leaves no final artifact, including across process failure."
+    status: failed
+    reason: "OwnedCreate creates the final name before writing and does not fsync the file or parent; process death can expose a partial final file."
     artifacts:
       - path: "backend/handler/filesystem/storage_access.py"
-        issue: "Single os.write calls at lines 422 and 467 can publish truncated created/replaced files; failed create also lacks destination cleanup."
+        issue: "Lines 422-446 write the public destination directly; Python exception cleanup cannot cover process death and close failure can bypass unlink."
     missing:
-      - "Use a retrying write-all helper with zero-write and InterruptedError handling, unlink failed creates, and replace only after complete write plus fsync."
+      - "Write and fsync a unique descriptor-relative temporary, close safely, atomically publish without replacement, and fsync the parent."
+      - "Add subprocess-crash, close-error, and durability-path tests."
+  - truth: "Only productive scan, hash, stream, play, or download use consumes direct migration rollback eligibility."
+    status: failed
+    reason: "GET and HEAD share DOWNLOAD preflight, which marks first use before the HEAD branch closes the descriptor without transferring content."
+    artifacts:
+      - path: "backend/endpoints/roms/files.py"
+        issue: "preflight_mapped_download runs at line 226 before request.method HEAD is handled at lines 248-254."
+      - path: "backend/handler/storage/read_context.py"
+        issue: "DOWNLOAD maps unconditionally to the first-use marker in lines 45-51 and 125-129."
+    missing:
+      - "Provide a metadata-only HEAD path that validates and stats without marking first use."
+      - "Test that HEAD preserves rollback eligibility while GET/productive delivery consumes it."
+  - truth: "The live active-v2 mutation inventory discovers every supported HTTP transport form and fails closed on unresolved calls."
+    status: failed
+    reason: "extractRawCalls skips call expressions whose callee is not property/element access, so direct fetch and callable clients disappear; request(config) is also not decoded."
+    artifacts:
+      - path: "frontend/src/v2/sourceMutationInventory.test.ts"
+        issue: "Lines 414-421 skip direct calls, and the extractor only treats method-named members as HTTP operations."
+      - path: "frontend/src/services/api/play-session.ts"
+        issue: "A reachable direct fetch POST at lines 31-40 proves the omission exists in production source."
+    missing:
+      - "Extract global fetch, callable Axios clients, and request(config), resolving or failing closed on method and route."
+      - "Route negative fixtures through the production finalInventorySource path."
 deferred: []
 ---
 
 # Phase 6: Safe Lifecycle and Legacy Migration Verification Report
 
 **Phase Goal:** Operators can remove catalog state and bridge existing layouts without restructuring or deleting source content.
-**Verified:** 2026-08-20T06:59:28Z
+**Verified:** 2026-08-20T15:07:27Z
 **Status:** gaps_found
-**Re-verification:** Yes, after all 26 plans and final review
-**Verified tree:** Linux `/home/d1sk/romm`, branch `codex/pc-module-analysis`, origin `https://github.com/rommapp/romm.git`, HEAD `1da8069a4`
+**Re-verification:** Yes, mandatory final gate after Plan 06-32 and code review
+**Verified tree:** Linux `/home/d1sk/romm`, branch `codex/pc-module-analysis`, origin `https://github.com/rommapp/romm.git`, HEAD `895b872694bb52e38975c01938ddd10d8855880c`
 
 ## Goal Achievement
 
-The original four root gaps are materially closed in the live implementation: active-v2 mutation affordances are removed, retained reconnection is retry-safe, seeded predecessor migrations and HASH budgets are repaired, and rollback records exact lineage. The phase still fails its final contract because a crafted rename request can perform durable non-source side effects before the server denial, and the rollback identity claimed to be immutable is writable through a supported bulk mapping API. Source content remained unchanged in all inspected and executed paths, but task completion does not satisfy CAT-04 or the rollback-lineage must-have.
+Catalog-only removal, source immutability, exact legacy path grammar, mapping persistence, portable schema migration, and the previously reported rename/token/lower-bound/short-write defects are implemented. The phase still fails the complete contract. Migration can falsely publish absent catalog rows as reachable, owned manual/create flows can lose or expose partial data, screenshot upload bypasses hidden-resource visibility, HEAD consumes rollback eligibility without productive use, and the advertised v2 mutation inventory silently omits live transport syntax.
 
-### Observable Truths
+### Roadmap Success Criteria
 
-| #   | Truth                                                                                            | Status                | Evidence                                                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Game removal preserves every original source file/directory.                                     | VERIFIED              | IDs-only catalog request, retained identity transfer, typed owned cleanup intents, and existing immutable-manifest tests are wired.          |
-| 2   | Mapping/catalog removal retains source and every external mutation request fails before effects. | FAILED                | UI/service removal is real, but `update_rom` authorizes changed `fs_name` only after an early unmatch return and possible screenshot writes. |
-| 3   | Supported layouts become roots/relative mappings without content restructuring.                  | VERIFIED              | Detector constructs only `roms/{fs_slug}` and `{fs_slug}/roms`; migration writes DB/config/audit state only.                                 |
-| 4   | Ambiguous layouts require manual mapping; fallback is visible/time-bounded.                      | VERIFIED              | Both-candidate, unsafe, empty, overlap, expiry, and no-fallback paths are substantive and wired. Budget prefix labelling remains a warning.  |
-| 5   | Mappings persist with portable, practically reversible migration behavior.                       | VERIFIED              | 0111/0112/0113 upgrade, guarded downgrade, restart, and re-upgrade implementation exists for all three dialects.                             |
-| 6   | Detached saves/states/play sessions remain usable and reconnectable.                             | VERIFIED              | Effective retained ownership is used by endpoints and one strong identity is rebound atomically.                                             |
-| 7   | Remove from catalog accepts IDs only.                                                            | VERIFIED              | `CatalogRemovalRequest` and frontend `deleteRoms` serialize only `rom_ids`.                                                                  |
-| 8   | Cleanup targets only RomM-owned assets.                                                          | VERIFIED              | Cleanup intents are typed to managed resources/screenshots; external descriptors are never accepted.                                         |
-| 9   | Mapping removal reports retention and cancellation consequences.                                 | VERIFIED              | Protected storage route returns the bounded consequence schema.                                                                              |
-| 10  | Confirmed mapping removal updates mapping/catalog/audit atomically.                              | VERIFIED              | Ordered row locks and one handler transaction update revision, reachability, cancellation, and audit.                                        |
-| 11  | Later scans reconnect only one unique retained identity and retry after failure.                 | VERIFIED              | `scan.py:505-514` invokes reconnection for every durable add/update; retry and ambiguity tests pass.                                         |
-| 12  | Only an authorized administrator explicitly starts detection.                                    | VERIFIED              | Protected admin route/manual task; no startup or scheduled trigger was found.                                                                |
-| 13  | Only two literal fs_slug grammars are observed within byte/time/entry budgets.                   | VERIFIED              | Descriptor LIST/STAT/HASH path, remaining aggregate cap, and returned-byte rejection are wired; fresh race tests passed.                     |
-| 14  | Impact preview reports proposed mapping, counts, problems, and owned effects.                    | VERIFIED WITH WARNING | Real locked DB data flows, but partial observations incorrectly expose `lower_bound=false`.                                                  |
-| 15  | Confirmation binds current source and exact catalog state.                                       | VERIFIED              | Source/catalog fingerprints are recomputed under lifecycle locks before mutation.                                                            |
-| 16  | Active/equal/ancestor/descendant mappings block migration.                                       | VERIFIED              | Ordered active-mapping conflict checks are present and tested.                                                                               |
-| 17  | Mapping/reconnection/audit/change metadata commit atomically.                                    | VERIFIED              | One session transaction creates mapping, reconnects exact rows, audits, versions detection, and records rollback changes.                    |
-| 18  | Injected migration failure leaves no partial state.                                              | VERIFIED              | Flush seams and transaction rollback tests cover mapping, catalog, audit, and rollback stages.                                               |
-| 19  | Ambiguous catalog entries remain visible and unreachable.                                        | VERIFIED              | Only unique normalized logical identities reconnect.                                                                                         |
-| 20  | Productive consumers mark first use before source open.                                          | VERIFIED              | Shared read context performs validation, CAS mark, revision revalidation, then descriptor open.                                              |
-| 21  | First-use CAS is followed by exact revision revalidation.                                        | VERIFIED              | Mapping ID/revision are checked after durable first-use marking.                                                                             |
-| 22  | Concurrent first use creates one durable marker.                                                 | VERIFIED              | Stable lock/CAS implementation and concurrency regression exist.                                                                             |
-| 23  | Admin rollback binds migration/platform/expected version.                                        | VERIFIED              | Protected typed GET/POST routes delegate to locked compare-and-set handler.                                                                  |
-| 24  | Rollback restores only exact unchanged original entities.                                        | FAILED                | Persisted entity/parent lineage validation is correct under locks, but its incarnation authority is mutable via `bulk_update_mappings`.      |
-| 25  | Used/stale/replayed/expired/cross-platform rollback fails safely.                                | VERIFIED              | Handler checks and bounded typed errors are wired.                                                                                           |
-| 26  | Writable/read-only phase regressions preserve source manifests.                                  | VERIFIED              | Existing 315-test evidence matches HEAD; targeted current-HEAD reruns passed.                                                                |
-| 27  | Closed server/UI inventory denies external mutation before I/O.                                  | FAILED                | Rename preflight ordering is wrong and the semantic inventory silently omits dynamic syntax.                                                 |
-| 28  | Backend OpenAPI and generated frontend contracts are coherent.                                   | VERIFIED              | Screenshot models require `rom_id`, omit retained ownership, and save/state models remain nullable/retained.                                 |
+| #   | Roadmap truth                                                                                        | Status   | Evidence                                                                                                                                                                          |
+| --- | ---------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Catalog removal leaves every original source file and directory unchanged.                           | VERIFIED | IDs-only request, retained identity transfer, typed owned cleanup, source-manifest regressions, and the independent regression gate pass.                                         |
+| 2   | Mapping removal retains indexed games/source; external-root mutations are absent and server-blocked. | VERIFIED | Atomic deactivation/reachability/audit flow and early server denials are wired. The semantic inventory proof remains incomplete, tracked separately below.                        |
+| 3   | Supported layouts become roots and relative mappings without source restructuring.                   | VERIFIED | Detection constructs only `roms/{fs_slug}` and `{fs_slug}/roms`; migration writes owned DB/config state only. Its reachability result is incorrect for absent catalog identities. |
+| 4   | Ambiguous layouts require explicit manual mapping; fallback is visible and time-bounded.             | VERIFIED | Both-candidate, unsafe, empty, overlap, expiry, lower-bound, and no-fallback paths remain substantive and tested.                                                                 |
+| 5   | Mappings survive restart/deployment with portable and practically reversible migration behavior.     | FAILED   | Persistence and dialect portability pass, but a non-productive HEAD request permanently consumes direct rollback eligibility.                                                     |
 
-**Score:** 25/28 observable truths verified
+**Roadmap score:** 4/5 success criteria verified
 
-All 90 PLAN-level truths were traced into these consolidated observable truths. The three failed consolidated truths correspond to the late rename guard, mutable rollback identity authority, and incomplete semantic inventory/pre-I/O gate.
+### Consolidated Must-Haves
+
+| #   | Truth                                                                                      | Status   | Evidence                                                                                                |
+| --- | ------------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
+| 1   | Game removal preserves every original source file/directory.                               | VERIFIED | Catalog-only request and immutable source evidence remain wired.                                        |
+| 2   | Mapping/catalog removal retains source and external mutation requests deny before effects. | VERIFIED | Historical late rename authorization gap is closed; current guards run before side effects.             |
+| 3   | Supported layouts become roots/relative mappings without restructuring.                    | VERIFIED | Exact two-grammar detector and owned-only migration writes.                                             |
+| 4   | Ambiguous layouts require manual mapping; fallback is visible/time-bounded.                | VERIFIED | Unsafe/incomplete outcomes are unselectable and expiring.                                               |
+| 5   | Mappings persist with portable, practically reversible migration behavior.                 | FAILED   | HEAD incorrectly marks productive first use.                                                            |
+| 6   | Detached saves/states/play sessions remain usable and reconnectable.                       | VERIFIED | Retained ownership and strong-identity scan reconnection are live.                                      |
+| 7   | Remove from catalog accepts IDs only.                                                      | VERIFIED | Backend schema and frontend serializer accept `rom_ids` only.                                           |
+| 8   | Cleanup targets only RomM-owned assets.                                                    | VERIFIED | Typed cleanup intents cannot address the external descriptor.                                           |
+| 9   | Mapping removal reports retention and cancellation consequences.                           | VERIFIED | Protected route returns bounded consequence schema.                                                     |
+| 10  | Confirmed mapping removal updates mapping/catalog/audit atomically.                        | VERIFIED | Ordered locks and one handler transaction remain wired.                                                 |
+| 11  | Later scans reconnect one unique retained identity and retry safely.                       | VERIFIED | Durable add/update path invokes idempotent retained reconnection.                                       |
+| 12  | Only an authorized administrator explicitly starts detection.                              | VERIFIED | Admin route/manual task only; no startup or scheduled trigger.                                          |
+| 13  | Only two literal fs_slug grammars are observed within budgets.                             | VERIFIED | Descriptor LIST/STAT/HASH flow and truthful lower bounds remain wired.                                  |
+| 14  | Impact preview reports truthful mapping, counts, problems, and owned effects.              | FAILED   | Reconnectable counts come from catalog uniqueness without source-existence intersection.                |
+| 15  | Confirmation binds current source and exact catalog state.                                 | VERIFIED | Source/catalog fingerprints are recomputed under lifecycle locks.                                       |
+| 16  | Active/equal/ancestor/descendant mappings block migration.                                 | VERIFIED | Ordered active-mapping conflict checks remain wired.                                                    |
+| 17  | Mapping/reconnection/audit/change metadata commit atomically.                              | VERIFIED | One transaction commits the set, although CR-01 makes the chosen set wrong.                             |
+| 18  | Injected migration failure leaves no partial database state.                               | VERIFIED | Flush seams and rollback tests remain substantive.                                                      |
+| 19  | Missing or ambiguous catalog entries stay visible and unreachable.                         | FAILED   | Catalog-only uniqueness reconnects absent rows and all child files.                                     |
+| 20  | Only productive consumers mark first use before source open.                               | FAILED   | HEAD uses DOWNLOAD preflight and consumes the marker.                                                   |
+| 21  | First-use CAS is followed by exact revision revalidation.                                  | VERIFIED | Mapping ID/revision revalidation remains in shared read context.                                        |
+| 22  | Concurrent productive first use creates one marker.                                        | VERIFIED | Stable lock/CAS implementation remains tested.                                                          |
+| 23  | Admin rollback binds migration/platform/expected version.                                  | VERIFIED | Typed routes delegate to locked compare-and-set handler.                                                |
+| 24  | Rollback restores only exact unchanged original entities.                                  | VERIFIED | Current token guards cover supported ORM bulk paths and exact lineage validation.                       |
+| 25  | Used/stale/replayed/expired/cross-platform rollback fails safely.                          | VERIFIED | Handler checks and bounded typed errors remain wired.                                                   |
+| 26  | Writable/read-only regressions preserve source manifests.                                  | VERIFIED | Current focused tests pass and no product change followed Plan 32 evidence.                             |
+| 27  | Closed server/UI inventory discovers and classifies all external mutation calls.           | FAILED   | Direct fetch/callable/request(config) transports are silently omitted.                                  |
+| 28  | Backend OpenAPI and generated frontend contracts are coherent.                             | VERIFIED | Screenshot remains live-ROM-owned; saves/states remain detachable; generated tree has no worktree diff. |
+| 29  | Primary manual replacement is staged, serialized, and failure-atomic.                      | FAILED   | Prior manual is deleted before upload completes and frontend uploads concurrently.                      |
+| 30  | Screenshot upload enforces ROM/platform visibility before effects.                         | FAILED   | Upload lacks `assert_rom_visible`; download has it.                                                     |
+| 31  | OwnedCreate publishes complete durable content or no final artifact.                       | FAILED   | Final filename exists during write and no fsync/atomic publication protects process failure.            |
+
+**Score:** 23/31 must-haves verified
 
 ## Required Artifacts
 
-The 73 artifact declarations across Plans 01-26 exist and are substantive. GSD existence/substance checks passed all file artifacts; Plan 23's generated directory was inspected manually. Representative Level 3/4 results follow.
-
-| Artifact                                                                 | Expected                                  | Status   | Details                                                                                                              |
-| ------------------------------------------------------------------------ | ----------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `backend/handler/database/catalog_lifecycle_handler.py`                  | Catalog removal and retained reconnection | VERIFIED | Locked strong-identity claim moves saves/states/sessions and versions the retained row in one transaction.           |
-| `backend/endpoints/sockets/scan.py`                                      | Retry-safe production reconnection        | VERIFIED | Every durable add/update result invokes reconnect, including existing-ROM retry.                                     |
-| `backend/handler/storage/legacy_migration.py`                            | Exact bounded detector/fingerprint        | PARTIAL  | HASH budget race is fixed; budget-exhaustion `lower_bound` metadata is wrong.                                        |
-| `backend/alembic/versions/0112_phase6_gap_closure.py`                    | Seeded predecessor normalization          | VERIFIED | Selectable fingerprintless 0111 rows are invalidated before constraints and narrowly restored on safe downgrade.     |
-| `backend/alembic/versions/0113_legacy_change_lineage.py`                 | Portable incarnation/lineage schema       | VERIFIED | Bounded token columns, backfill, indexes, lineage shape, predecessor invalidation, and guarded downgrade exist.      |
-| `backend/handler/database/legacy_migration_handler.py`                   | Exact confirmation/rollback               | VERIFIED | Fresh fingerprints, exact change capture, deterministic locks, and entity/parent lineage comparison are substantive. |
-| `backend/models/rom.py`                                                  | Immutable incarnation authority           | FAILED   | Insert freshness works; `bulk_update_mappings` changes the token.                                                    |
-| `backend/endpoints/roms/__init__.py`                                     | Pre-effect source rename denial           | FAILED   | Authorization is below early DB-return and provider/resource paths.                                                  |
-| `frontend/src/services/api/rom.ts` and active-v2 controls                | No external mutation authority            | VERIFIED | Forbidden source mutation exports/controls are absent; update serializer omits `fs_name`.                            |
-| `frontend/src/v2/sourceMutationInventory.test.ts`                        | Fail-closed semantic inventory            | PARTIAL  | Live literal/property-access graph passes, but unclassifiable dynamic client syntax is dropped.                      |
-| `backend/endpoints/responses/assets.py` plus generated screenshot models | Lifecycle-coherent contract               | VERIFIED | Screenshots require live ROM ID; save/state retain nullable live and retained ownership.                             |
-| `backend/tools/verify_phase6_contracts.py`                               | Exact retry-safe cleanup                  | VERIFIED | Production `_unlink` uses `Path.unlink(missing_ok=True)` and Docker absence is explicitly classified.                |
-| `backend/handler/filesystem/storage_access.py`                           | Typed owned capabilities                  | WARNING  | Authority boundary is correct, but create/replace single writes can publish truncation.                              |
+| Artifact                                                | Expected                                      | Status   | Details                                                                                                      |
+| ------------------------------------------------------- | --------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `backend/handler/database/catalog_lifecycle_handler.py` | Catalog detachment and retained identity      | VERIFIED | Substantive, called by removal and scan reconnection, real DB state flows.                                   |
+| `backend/handler/database/storage_handler.py`           | Atomic mapping removal                        | VERIFIED | Substantive, endpoint-wired, ordered DB locks and audit data flow.                                           |
+| `backend/handler/storage/legacy_migration.py`           | Exact bounded source observation              | VERIFIED | Descriptor-bound real observation, SHA-256 fingerprint, budgets, lower bounds.                               |
+| `backend/handler/database/legacy_migration_handler.py`  | Preview/migrate/rollback orchestration        | FAILED   | Wired and substantive, but preview/reconnect selection does not consume observed source identities.          |
+| `backend/handler/database/roms_handler.py`              | Catalog reconnection                          | FAILED   | Wired into migration, but clears reachability for catalog-only unique identities and all child files.        |
+| `backend/endpoints/roms/manual.py`                      | Safe primary manual upload                    | FAILED   | Wired to resources storage and DB, but destructive ordering and public-name streaming are not atomic.        |
+| `backend/endpoints/screenshots.py`                      | Authorized screenshot lifecycle               | FAILED   | Real file/DB flow exists, but upload omits hidden ROM/platform visibility guard.                             |
+| `backend/handler/filesystem/storage_access.py`          | Owned create/replace capabilities             | FAILED   | Replace is staged; create writes the final name directly and lacks durability/atomic-publication guarantees. |
+| `backend/endpoints/roms/files.py`                       | Mapped GET/HEAD delivery                      | FAILED   | Both methods use productive DOWNLOAD preflight; raw filename also enters Content-Disposition.                |
+| `frontend/src/v2/sourceMutationInventory.test.ts`       | Fail-closed live v2 mutation inventory        | FAILED   | Substantive and executed, but direct/callable/config transports never reach classification.                  |
+| `frontend/src/v2/sourceMutationControls.test.ts`        | Absence of active-v2 source mutation controls | VERIFIED | Current 10-test control gate passes.                                                                         |
+| `backend/tools/verify_storage_migrations.py`            | Three-dialect migration authority             | VERIFIED | Substantive lifecycle/lineage verifier; Plan 32 evidence covers MariaDB, MySQL, PostgreSQL.                  |
 
 ## Key Link Verification
 
-| From                  | To                                | Via                                             | Status                 | Details                                                                             |
-| --------------------- | --------------------------------- | ----------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------- |
-| Catalog removal route | Lifecycle handler                 | Protected IDs-only call                         | WIRED                  | Response follows committed handler outcome; source paths are not request authority. |
-| Scan persistence      | Retained reconnect                | Unconditional post-persistence call             | WIRED                  | Existing-ROM retry closes the prior crash gap.                                      |
-| Detector              | External descriptor HASH          | Remaining call cap and returned-byte validation | WIRED                  | Fresh race tests passed.                                                            |
-| Confirmation          | Current source/catalog            | Locked reobservation plus exact fingerprints    | WIRED                  | Drift writes nothing.                                                               |
-| Migration             | Mapping/catalog/audit/change rows | One DB transaction                              | WIRED                  | Real database state flows through one session.                                      |
-| Rollback              | Recorded entity/parent lineage    | Deterministic row locks                         | PARTIAL                | Comparison is wired, but token immutability can be bypassed.                        |
-| Active v2             | Shared services/backend routes    | Semantic inventory                              | PARTIAL                | Live known calls classify cleanly; unknown dynamic syntax is not fail-closed.       |
-| Changed ROM filename  | External storage policy           | `StorageOperation.RENAME`                       | NOT WIRED EARLY ENOUGH | Guard runs after early and owned-resource effects.                                  |
-| Backend schemas       | Generated frontend                | Controlled OpenAPI generation                   | WIRED                  | Live and generated screenshot/save/state ownership shapes agree.                    |
+| From                       | To                        | Via                              | Status           | Details                                                                                  |
+| -------------------------- | ------------------------- | -------------------------------- | ---------------- | ---------------------------------------------------------------------------------------- |
+| Catalog removal endpoint   | catalog lifecycle handler | IDs-only protected call          | WIRED            | Retained ownership and owned cleanup response flow to API.                               |
+| Mapping removal endpoint   | storage handler           | expected-version transaction     | WIRED            | Consequences, deactivation, reachability, cancellation, and audit are connected.         |
+| Detection task             | legacy detector           | explicit admin/manual task       | WIRED            | Real descriptor observations persist bounded results.                                    |
+| Migration handler          | source observation        | source fingerprint reobservation | PARTIAL          | Aggregate fingerprint is bound, but exact observed identities do not drive reconnection. |
+| Migration handler          | ROM reconnection          | `reconnect_legacy_catalog`       | WIRED BUT WRONG  | Real DB updates flow, but catalog uniqueness substitutes for source existence.           |
+| Manual upload UI           | manual endpoint           | concurrent POST calls            | WIRED BUT UNSAFE | Promise fan-out reaches direct final-file writes.                                        |
+| Screenshot POST            | visibility boundary       | `assert_rom_visible`             | NOT WIRED        | Guard is imported but absent from upload path.                                           |
+| HEAD download              | rollback first-use CAS    | DOWNLOAD read context            | WIRED BUT WRONG  | HEAD reaches CAS before method branch.                                                   |
+| Active-v2 modules/services | semantic inventory        | AST extraction/classification    | PARTIAL          | Property/element method calls flow; direct/callable/config calls disappear.              |
 
 ## Data-Flow Trace (Level 4)
 
-| Artifact                      | Data                                                   | Source                                                       | Produces real data | Status                        |
-| ----------------------------- | ------------------------------------------------------ | ------------------------------------------------------------ | ------------------ | ----------------------------- |
-| Catalog removal               | ROM IDs, retained identity, cleanup intents            | Locked ORM rows                                              | Yes                | FLOWING                       |
-| Retained reconnect            | Logical path/hash triple and retained assets           | Durable scanned ROM plus locked retained rows                | Yes                | FLOWING                       |
-| Detection/preview             | Candidate entries, hashes, counts, problems            | Descriptor-only source observations plus locked catalog rows | Yes                | FLOWING WITH METADATA WARNING |
-| Migration                     | Mapping, catalog reachability, audit, rollback changes | Fresh confirmation and locked DB state                       | Yes                | FLOWING                       |
-| Rollback                      | Recorded row IDs/tokens/parents/prior state            | Persisted 0113 lineage and locked live rows                  | Yes                | FLOWING, AUTHORITY PARTIAL    |
-| Screenshot generated contract | Pydantic OpenAPI schema                                | Backend response models                                      | Yes                | FLOWING                       |
+| Artifact          | Data variable                         | Source                            | Produces real data                         | Status                |
+| ----------------- | ------------------------------------- | --------------------------------- | ------------------------------------------ | --------------------- |
+| Legacy preview    | reconnectable/unmatched counts        | Live catalog query only           | Yes, but missing source intersection       | HOLLOW SOURCE BINDING |
+| Legacy migration  | reconnected ROM/RomFile IDs           | Live locked catalog rows only     | Yes, but absent rows included              | FAILED                |
+| Catalog removal   | retained identity and cleanup intents | Live locked ROM/asset rows        | Yes                                        | FLOWING               |
+| Mapping removal   | reachability/version/audit            | Live locked mapping/catalog rows  | Yes                                        | FLOWING               |
+| Manual upload     | final manual bytes/path               | Request stream to public filename | Yes, but destructive/non-atomic            | FAILED                |
+| Screenshot upload | ROM/platform/user ownership           | Live ROM lookup and upload        | Yes, but visibility unchecked              | FAILED                |
+| Download HEAD     | mapping first-use state               | Shared DOWNLOAD preflight         | Yes, but non-productive request mutates it | FAILED                |
 
-## Review Finding Reconciliation
+## Review Reconciliation
 
-| Finding                             | Independent verdict                 | Exact evidence                                                                                                                                                                                                                                             | Phase severity                                              |
-| ----------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| CR-01 late rename authorization     | CONFIRMED                           | Direct probe with changed `fs_name` plus `unmatch_metadata=true` returned normally, recorded `database,cache,collections`, and made zero rename authorization calls.                                                                                       | BLOCKER                                                     |
-| CR-02 short owned writes            | CONFIRMED                           | Direct monkeypatch probe wrote 2 bytes from a 6-byte payload for both create and atomic replace. `git blame` places the affected lines in Phase 2 commit `b87109531`.                                                                                      | WARNING for this phase, critical owned-data defect globally |
-| WR-01 exact label on budget prefix  | CONFIRMED                           | All partial budget exits pass `lower_bound=False`; the named test asserts false after observing only one of two entries.                                                                                                                                   | WARNING                                                     |
-| WR-02 executemany token bypass      | CONFIRMED WITH MECHANISM CORRECTION | The exact `Session.execute(update(Model), [params])` example raises `TypeError` before SQL because `_values` is `None`, so that form does not mutate. `Session.bulk_update_mappings`, however, changed the token successfully and bypassed both listeners. | BLOCKER because a PLAN must-have says immutable             |
-| WR-03 inventory drops dynamic calls | CONFIRMED                           | AST extraction supports only string/template routes, named imports, identifier receivers, and property access. The negative fixture calls `finalAuthority` directly and never tests extraction.                                                            | WARNING and CAT-04 gate gap                                 |
-| WR-04 absent env file loops forever | REFUTED                             | Production `_unlink` is `path.unlink(missing_ok=True)`, so an absent environment file succeeds and clears ownership. The broad catch is not reached for production `FileNotFoundError`.                                                                    | No finding                                                  |
+| Finding                                                     | Verdict                                | Independent evidence                                                                                                                                        |
+| ----------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CR-01 reconnect without source-existence proof              | CONFIRMED, BLOCKER                     | `roms_handler.py:2673-2697` and `legacy_migration_handler.py:350-378,408-419` use catalog identities only; no observed identity set is persisted or passed. |
+| CR-02 failed/concurrent manual uploads destroy prior manual | CONFIRMED, BLOCKER                     | `manual.py:97-127` deletes prior extension and streams to final; `rom.ts:499-524` concurrently submits all files.                                           |
+| CR-03 screenshot upload lacks visibility guard              | CONFIRMED, BLOCKER                     | `screenshots.py:53-123` has no guard before file/DB effects; download uses the guard at 149-151.                                                            |
+| CR-04 OwnedCreate publishes partial final file              | CONFIRMED, BLOCKER                     | `storage_access.py:422-446` opens final with O_EXCL, writes, and closes without temp publication or fsync.                                                  |
+| WR-01 HEAD consumes rollback eligibility                    | CONFIRMED, BLOCKER FOR PHASE MUST-HAVE | `files.py:225-254` calls DOWNLOAD preflight before HEAD branch; `read_context.py:45-51,125-129` marks first use.                                            |
+| WR-02 inventory ignores direct/callable mutations           | CONFIRMED, BLOCKER FOR PHASE MUST-HAVE | `sourceMutationInventory.test.ts:414-421` skips direct calls; reachable `play-session.ts:31-40` contains direct POST fetch.                                 |
+| WR-03 raw filename can break Content-Disposition            | CONFIRMED, WARNING                     | `files.py:241` interpolates the database filename without escaping or RFC 5987 encoding; no quote/control/Unicode tests were found.                         |
 
-**Reconciliation totals:** 5 confirmed (one with corrected mechanism), 1 refuted, 0 resolved in the reviewed tree.
+No finding is refuted. Product code is byte-identical to reviewed product HEAD `f7420c24e`; the only later code commit changes two tests.
 
 ## Behavioral Spot-Checks
 
-| Behavior                                                                      | Command/result                                                                                                   | Status                                       |
-| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Active-v2 inventory/rendered controls                                         | `npm run test -- sourceMutationInventory sourceMutationControls`: 2 files, 20 tests passed in 3.68s              | PASS                                         |
-| Rename, HASH race, cleanup retry, screenshot schema                           | Isolated task DB/user, `pytest -p no:env`: 10 passed in 1.78s                                                    | PASS, but rename test coverage is incomplete |
-| Reconnect retry, instance/token guard, reparent rollback, seeded-0111 fixture | Same isolation: 4 passed, 141 deselected in 0.26s                                                                | PASS                                         |
-| Changed filename plus unmatch branch                                          | Direct current-HEAD endpoint probe: normal return, durable DB/cache/collection effects, zero authorization calls | FAIL                                         |
-| ORM incarnation immutability                                                  | ORM executemany raised TypeError before mutation; `bulk_update_mappings` changed token                           | FAIL                                         |
-| Owned short-write handling                                                    | 6-byte content produced 2-byte created and replacement files                                                     | FAIL                                         |
-| Cleanup absence semantics                                                     | Code-level production wrapper inspection: `Path.unlink(missing_ok=True)`                                         | PASS                                         |
+| Behavior                           | Command                                                                                                      | Result                                                                    | Status                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | -------------------------------------- |
+| Prior Phase 1-5 regression         | 29 derived pytest modules, one isolated MariaDB DB/user/basetemp per module, `-p no:env -p no:cacheprovider` | 931 passed, 8 skipped, 0 failed                                           | PASS                                   |
+| Review-adjacent backend regression | screenshots, legacy migration, storage access, manual, ROM file modules                                      | 114 passed, 7 skipped, 0 failed                                           | PASS, coverage gaps remain             |
+| Active-v2 inventory/control tests  | `npm run test -- sourceMutationInventory.test.ts sourceMutationControls.test.ts`                             | 2 files, 26 tests passed                                                  | PASS, WR-02 is an extractor blind spot |
+| Post-review behavior diff          | `git diff --name-status f7420c24e..895b87269`                                                                | Only `test_rom.py`, `test_heartbeat.py`, and review documentation changed | PASS, no product behavior change       |
+| Final environment identity         | uname/git top-level/branch/origin/HEAD                                                                       | All exact expected values                                                 | PASS                                   |
 
-The first backend setup attempt collected no tests because the normal application DB user correctly lacked authority to create the unique test database. A task-only database/user was then created explicitly, used with `-p no:env` and a test-only auth secret, and removed exactly. It is not counted as behavioral evidence.
+The first attempt at the prior-phase gate intentionally disabled `pytest-env` but omitted its `ROMM_BASE_PATH=romm_test` value, causing fixture-path failures in module 12. After restoring that repository test setting explicitly, all 29 deterministic modules produced the required 939 outcomes. The failed attempt's exact DB/user/basetemp was removed before retry.
 
 ## Probe Execution
 
-Step 7c: SKIPPED. No `probe-*.sh` file or Phase 06 probe declaration exists.
+No `scripts/*/tests/probe-*.sh` files or Phase 6 declared probe paths exist. Step 7c is skipped; the checked-in Python verifiers are represented by the recorded Plan 32 evidence and source inspection, not claimed as newly executed probes.
 
 ## Requirements Coverage
 
-| Requirement | Description                                                                                        | Status                 | Evidence                                                                                                                          |
-| ----------- | -------------------------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| CAT-01      | Catalog removal is distinct from source deletion in API/UI.                                        | SATISFIED              | IDs-only request/client and catalog-only localized v2 confirmation.                                                               |
-| CAT-02      | Catalog removal deletes only defined owned state/assets and preserves source.                      | SATISFIED              | Retained identity transfer, typed cleanup intents, immutable manifests.                                                           |
-| CAT-03      | Mapping removal retains indexed games/source and changes owned state only.                         | SATISFIED              | Atomic deactivation/reachability/audit transaction.                                                                               |
-| CAT-04      | External delete/rename/move/upload/extract/patch actions are absent in v2 and blocked server-side. | BLOCKED                | Live v2 affordances are absent, but changed filename denial is not pre-effect and the final inventory is not fail-closed.         |
-| MIG-01      | Supported layouts become roots/mappings without content mutation.                                  | SATISFIED              | Exact two-grammar detector and DB/config-only migration.                                                                          |
-| MIG-02      | Portable, practically reversible migration behavior.                                               | BLOCKED                | Dialect lifecycle passes, but rollback's declared immutable row-incarnation authority can be rewritten by supported bulk mapping. |
-| MIG-03      | Unsafe layouts require explicit manual mapping.                                                    | SATISFIED WITH WARNING | Unsafe/incomplete results are unselectable and fallback-free; partial count metadata is mislabeled exact.                         |
-| MIG-04      | Mappings and scanability survive restart/deployment.                                               | SATISFIED              | Durable mapping/revision/first-use/lineage schema and restart verifier.                                                           |
-| MIG-05      | Compatibility state is explicit, expiring, and cannot bypass policy.                               | SATISFIED              | Detection results expire, are version-bound, unselectable on uncertainty, and have no source fallback consumer.                   |
+| Requirement | Source plans                            | Status                 | Evidence                                                                                                                                             |
+| ----------- | --------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CAT-01      | 02, 09, 11, 15-18, 22-26, 32            | SATISFIED              | API/UI distinguish catalog removal and contain no source-delete option.                                                                              |
+| CAT-02      | 01-02, 09-10, 14-15, 19, 22, 31-32      | BLOCKED                | Catalog removal preserves source, but primary manual replacement and OwnedCreate violate the plan-expanded owned-state integrity contract.           |
+| CAT-03      | 03, 06, 09, 15, 19, 23, 32              | SATISFIED              | Mapping removal retains indexed games/source and atomically changes owned state.                                                                     |
+| CAT-04      | 02-03, 09, 11, 15-18, 24-29, 32         | SATISFIED WITH WARNING | Actual inspected v2 calls remain source-safe and server denials are live, but the required semantic inventory is not fail-closed for all transports. |
+| MIG-01      | 04-06, 09, 12, 15, 20-21, 23, 32        | SATISFIED              | Exact layouts become owned roots/mappings without source mutation.                                                                                   |
+| MIG-02      | 01, 08-09, 12-13, 15, 20-21, 23, 28, 32 | BLOCKED                | Dialect/schema portability passes, but non-productive HEAD consumes practical direct rollback.                                                       |
+| MIG-03      | 04-06, 09, 12, 15, 20, 23, 30, 32       | SATISFIED              | Unsafe/ambiguous detection remains manual and unselectable; CR-01 is catalog reachability after safe layout detection.                               |
+| MIG-04      | 01, 06-09, 12-13, 15, 20-21, 23, 28, 32 | SATISFIED              | Mapping and lifecycle state survive restart with portable durable schema.                                                                            |
+| MIG-05      | 04-05, 08-09, 12, 15, 20, 23, 30, 32    | SATISFIED              | Compatibility state is explicit, expiring, bounded, and no fallback bypass was found.                                                                |
 
-**Requirements:** 7/9 satisfied, CAT-04 and MIG-02 blocked. No Phase 6 requirement is orphaned from all plans.
+No Phase 6 requirement is orphaned from all plans. Later Phases 7-9 do not specifically own any reported defect, so no gap is deferred.
 
-## Security, Privacy, and Resource Bounds
+## Anti-Patterns Found
 
-- Authorization remains route-scoped and backend authoritative. The confirmed rename defect is ordering, not missing authentication.
-- External storage authority remains descriptor-bound and fail-closed for delete/upload/write/mkdir/move/copy/extract families. No live active-v2 forbidden literal call was found.
-- Source observations use no-follow descriptor access, source/catalog fingerprints, symlink/path replacement rejection, and call/return HASH budgets.
-- Public errors and inventory diagnostics expose stable operations/storage IDs/routes, not host paths, tokens, DB credentials, or file inventories.
-- Phase-range high-signal diff sweep found only `example.invalid` and loopback `127.0.0.1` destinations, list-form `subprocess.run`, no new dependency/CI file, and no added executable/binary blob.
-- No unreferenced TBD/FIXME/XXX marker exists in the reviewed Phase 06 set. `HACK` at `models/rom.py:81` is an enum value, not a debt marker.
-- No human verification is needed to decide the current gaps.
+| File                              | Line | Pattern                  | Severity | Impact                                                                        |
+| --------------------------------- | ---- | ------------------------ | -------- | ----------------------------------------------------------------------------- |
+| `backend/models/rom.py`           | 82   | `HACK`                   | INFO     | Enum member `RomFileCategory.HACK`, not a debt marker.                        |
+| Phase 6 reviewed code             | n/a  | TBD/FIXME/XXX            | NONE     | No unreferenced blocker debt marker found.                                    |
+| `backend/endpoints/roms/files.py` | 241  | Raw header interpolation | WARNING  | Quote/control/Unicode filenames can produce invalid headers or 500 responses. |
 
-## Cleanup and Repository Integrity
+## Confirmation-Bias Countercheck
 
-- Task database `romm_test_p06vf_0820`: absent after cleanup.
-- Task DB user `p06vf_0820`: absent after cleanup.
-- Task containers/volumes/temp directories: none remain.
-- Normal application `SELECT 1`: returned 1 before and after cleanup.
-- No service restart, deployment, branch/worktree operation, source mutation, or product/test edit occurred.
-- Before this report, the only tracked diff was the submitted `06-REVIEW.md`; all 28 pre-existing untracked status entries were preserved.
+- Partial requirement: CAT-04 behavior appears source-safe, but its claimed exhaustive inventory is not exhaustive.
+- Misleading passing test: the 26-test frontend gate passes because the extractor silently omits direct `fetch`, including the live play-session POST.
+- Uncovered error path: process termination during `OwnedCreate.create` cannot run Python cleanup and leaves the public final name partial.
 
 ## Human Verification Required
 
-None. The blocking and warning behaviors are deterministic in code and were directly exercised where useful.
+None. The blocking behaviors are deterministic in current source and do not require visual, realtime, or external-service judgment.
 
-## Deferred Items
+## Cleanup and Worktree Proof
 
-None. Later phases do not explicitly own these Phase 06 contract failures.
+- No deployment, restart, service mutation, branch operation, product edit, or test edit was performed.
+- Every verifier-created `romm_test_p06fv_*` database and `p06fv_*` user is absent; application `SELECT 1` returns 1.
+- No `/tmp/romm-p06fv-*` basetemp remains.
+- The exact 28 baseline untracked paths remain unchanged.
+- After this report, the only new tracked worktree difference is this `06-VERIFICATION.md` file.
 
 ## Gaps Summary
 
-The phase is not ready to pass. The blocking root concerns are the late external rename guard and mutable rollback-incarnation authority. The semantic inventory and lower-bound metadata need closure to make the advertised regression and bounded-result contracts truthful. The owned short-write defect is real but inherited from Phase 2 and does not grant or perform external source mutation, so it is recorded as a serious non-goal warning rather than used to inflate the Phase 06 blocker count. The cleanup finding is refuted by the production `missing_ok=True` wrapper.
+Six closure roots block the final gate: source-observed migration matching, atomic primary-manual replacement, screenshot visibility-before-effects, crash-safe OwnedCreate publication, productive-only rollback consumption, and exhaustive fail-closed v2 transport inventory. The raw Content-Disposition handling is a separate warning. All are current code defects; none is clearly assigned to a later milestone phase.
 
 ---
 
-_Verified: 2026-08-20T06:59:28Z_
+_Verified: 2026-08-20T15:07:27Z_
 _Verifier: Codex (gsd-verifier)_
