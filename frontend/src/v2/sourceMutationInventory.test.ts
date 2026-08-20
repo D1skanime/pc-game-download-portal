@@ -134,23 +134,131 @@ function scriptFrom(source: string): string {
   return match?.[1] ?? source;
 }
 
+function placeholderText(
+  node: ts.Expression,
+  sourceFile: ts.SourceFile,
+): string {
+  const name = node
+    .getText(sourceFile)
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[^a-zA-Z0-9_]/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase();
+  return "{" + (name || "id") + "}";
+}
+
+function constBindings(sourceFile: ts.SourceFile): Map<string, ts.Expression> {
+  const bindings = new Map<string, ts.Expression>();
+  const rejected = new Set<string>();
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer
+    ) {
+      const declarationList = node.parent;
+      if (
+        ts.isVariableDeclarationList(declarationList) &&
+        (declarationList.flags & ts.NodeFlags.Const) !== 0 &&
+        !bindings.has(node.name.text)
+      ) {
+        bindings.set(node.name.text, node.initializer);
+      } else {
+        rejected.add(node.name.text);
+      }
+    }
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(node.left)
+    ) {
+      rejected.add(node.left.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  for (const name of rejected) bindings.delete(name);
+  return bindings;
+}
+
+function resolveRoute(
+  node: ts.Expression,
+  sourceFile: ts.SourceFile,
+  bindings: Map<string, ts.Expression>,
+  embedded: boolean,
+  resolving: Set<string>,
+): string | null {
+  if (ts.isStringLiteralLike(node)) return node.text;
+  if (
+    ts.isParenthesizedExpression(node) ||
+    ts.isAsExpression(node) ||
+    ts.isTypeAssertionExpression(node)
+  ) {
+    return resolveRoute(
+      node.expression,
+      sourceFile,
+      bindings,
+      embedded,
+      resolving,
+    );
+  }
+  if (ts.isTemplateExpression(node)) {
+    let route = node.head.text;
+    for (const span of node.templateSpans) {
+      route +=
+        (resolveRoute(span.expression, sourceFile, bindings, true, resolving) ??
+          placeholderText(span.expression, sourceFile)) + span.literal.text;
+    }
+    return route;
+  }
+  if (
+    ts.isBinaryExpression(node) &&
+    node.operatorToken.kind === ts.SyntaxKind.PlusToken
+  ) {
+    const left = resolveRoute(node.left, sourceFile, bindings, true, resolving);
+    const right = resolveRoute(
+      node.right,
+      sourceFile,
+      bindings,
+      true,
+      resolving,
+    );
+    return left === null || right === null ? null : left + right;
+  }
+  if (ts.isIdentifier(node)) {
+    const initializer = bindings.get(node.text);
+    if (initializer) {
+      if (resolving.has(node.text)) return null;
+      resolving.add(node.text);
+      const value = resolveRoute(
+        initializer,
+        sourceFile,
+        bindings,
+        embedded,
+        resolving,
+      );
+      resolving.delete(node.text);
+      return value;
+    }
+    return embedded ? placeholderText(node, sourceFile) : null;
+  }
+  return embedded &&
+    (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+    ? placeholderText(node, sourceFile)
+    : null;
+}
+
 function routeText(
   node: ts.Expression,
   sourceFile: ts.SourceFile,
 ): string | null {
-  if (ts.isStringLiteralLike(node)) return node.text;
-  if (!ts.isTemplateExpression(node)) return null;
-  let route = node.head.text;
-  for (const span of node.templateSpans) {
-    const name = span.expression
-      .getText(sourceFile)
-      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-      .replace(/[^a-zA-Z0-9_]/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .toLowerCase();
-    route += `{${name || "id"}}${span.literal.text}`;
-  }
-  return route;
+  return resolveRoute(
+    node,
+    sourceFile,
+    constBindings(sourceFile),
+    false,
+    new Set(),
+  );
 }
 
 function normalizeRoute(route: string): string {
@@ -179,6 +287,23 @@ function enclosingFunction(node: ts.Node): string {
   return "module";
 }
 
+function expressionPath(node: ts.Expression): string | null {
+  if (ts.isIdentifier(node)) return node.text;
+  if (ts.isPropertyAccessExpression(node)) {
+    const receiver = expressionPath(node.expression);
+    return receiver ? receiver + "." + node.name.text : null;
+  }
+  if (
+    ts.isElementAccessExpression(node) &&
+    node.argumentExpression &&
+    ts.isStringLiteralLike(node.argumentExpression)
+  ) {
+    const receiver = expressionPath(node.expression);
+    return receiver ? receiver + "." + node.argumentExpression.text : null;
+  }
+  return null;
+}
+
 function importedClients(sourceFile: ts.SourceFile): Set<string> {
   const clients = new Set<string>();
   for (const statement of sourceFile.statements) {
@@ -188,13 +313,16 @@ function importedClients(sourceFile: ts.SourceFile): Set<string> {
     )
       continue;
     const moduleName = statement.moduleSpecifier.text;
-    if (moduleName !== "axios" && !moduleName.includes("/services/api"))
+    if (moduleName !== "axios" && !/(?:^|\/)services\/api$/.test(moduleName))
       continue;
     const clause = statement.importClause;
     if (clause?.name) clients.add(clause.name.text);
     if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
       for (const element of clause.namedBindings.elements)
         clients.add(element.name.text);
+    }
+    if (clause?.namedBindings && ts.isNamespaceImport(clause.namedBindings)) {
+      clients.add(clause.namedBindings.name.text + ".default");
     }
   }
   return clients;
@@ -209,8 +337,8 @@ function collectAliases(sourceFile: ts.SourceFile, clients: Set<string>): void {
         ts.isVariableDeclaration(node) &&
         ts.isIdentifier(node.name) &&
         node.initializer &&
-        ts.isIdentifier(node.initializer) &&
-        clients.has(node.initializer.text) &&
+        expressionPath(node.initializer) !== null &&
+        clients.has(expressionPath(node.initializer)!) &&
         !clients.has(node.name.text)
       ) {
         clients.add(node.name.text);
@@ -220,6 +348,49 @@ function collectAliases(sourceFile: ts.SourceFile, clients: Set<string>): void {
     };
     visit(sourceFile);
   }
+}
+
+function containsClient(node: ts.Node, clients: Set<string>): boolean {
+  const path = ts.isExpression(node) ? expressionPath(node) : null;
+  if (
+    path &&
+    [...clients].some(
+      (client) => path === client || path.startsWith(client + "."),
+    )
+  )
+    return true;
+  let found = false;
+  ts.forEachChild(node, (child) => {
+    if (!found && containsClient(child, clients)) found = true;
+  });
+  return found;
+}
+
+function safeImporter(importer: string): string {
+  const normalized = importer.replace(/\\/g, "/");
+  if (/^(?:\/|[A-Za-z]:\/)/.test(normalized)) {
+    return normalized.split("/").filter(Boolean).at(-1) ?? "unknown";
+  }
+  return normalized.slice(0, 120);
+}
+
+function unclassifiableCall(
+  importer: string,
+  call: string,
+  method: string,
+  route: string,
+): never {
+  throw new Error(
+    "unclassifiable call importer=" +
+      safeImporter(importer) +
+      " call=" +
+      call.slice(0, 120) +
+      " method=" +
+      method +
+      " route=" +
+      route +
+      " operation=UNKNOWN storage=unknown",
+  );
 }
 
 function extractRawCalls(source: string, importer: string): RawCall[] {
@@ -236,29 +407,64 @@ function extractRawCalls(source: string, importer: string): RawCall[] {
   collectAliases(sourceFile, clients);
   const calls: RawCall[] = [];
   const visit = (node: ts.Node) => {
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression)
-    ) {
-      const method = node.expression.name.text.toUpperCase() as HttpMethod;
-      const receiver = node.expression.expression;
-      if (
-        httpMethods.has(method) &&
-        ts.isIdentifier(receiver) &&
-        clients.has(receiver.text) &&
-        node.arguments[0]
-      ) {
-        const route = routeText(node.arguments[0], sourceFile);
-        if (route) {
-          calls.push({
-            importer,
-            call: `${enclosingFunction(node)}:${receiver.text}.${method.toLowerCase()}`,
-            method,
-            route: normalizeRoute(route),
-          });
-        }
-      }
+    if (!ts.isCallExpression(node)) {
+      ts.forEachChild(node, visit);
+      return;
     }
+    const member = node.expression;
+    if (
+      !ts.isPropertyAccessExpression(member) &&
+      !ts.isElementAccessExpression(member)
+    ) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    const receiver = member.expression;
+    const receiverPath = expressionPath(receiver);
+    const receiverKnown = receiverPath !== null && clients.has(receiverPath);
+    const memberText = ts.isPropertyAccessExpression(member)
+      ? member.name.text
+      : member.argumentExpression &&
+          ts.isStringLiteralLike(member.argumentExpression)
+        ? member.argumentExpression.text
+        : null;
+    const methodText = memberText?.toUpperCase() ?? "UNKNOWN";
+    const method = httpMethods.has(methodText as HttpMethod)
+      ? (methodText as HttpMethod)
+      : null;
+    const dynamicMember =
+      ts.isElementAccessExpression(member) && memberText === null;
+    if (!method && !dynamicMember) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    if (!receiverKnown && !(method && containsClient(receiver, clients))) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    const call =
+      enclosingFunction(node) +
+      ":" +
+      (receiverPath ?? "receiver") +
+      "." +
+      (memberText?.toLowerCase() ?? "[dynamic]");
+    const route = node.arguments[0]
+      ? routeText(node.arguments[0], sourceFile)
+      : null;
+    if (!receiverKnown || !method || !route) {
+      unclassifiableCall(
+        importer,
+        call,
+        method?.toString() ?? "UNKNOWN",
+        route ? normalizeRoute(route) : "unknown",
+      );
+    }
+    calls.push({
+      importer: safeImporter(importer),
+      call,
+      method,
+      route: normalizeRoute(route),
+    });
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
@@ -275,8 +481,12 @@ function serviceCalls(source: string): Map<string, RawCall[]> {
   return result;
 }
 
-function importedRomServiceAliases(sourceFile: ts.SourceFile): Set<string> {
-  const aliases = new Set<string>();
+function importedRomServiceAliases(sourceFile: ts.SourceFile): {
+  objects: Set<string>;
+  functions: Map<string, string>;
+} {
+  const objects = new Set<string>();
+  const functions = new Map<string, string>();
   for (const statement of sourceFile.statements) {
     if (
       !ts.isImportDeclaration(statement) ||
@@ -284,11 +494,22 @@ function importedRomServiceAliases(sourceFile: ts.SourceFile): Set<string> {
     )
       continue;
     if (statement.moduleSpecifier.text !== "@/services/api/rom") continue;
-    if (statement.importClause?.name)
-      aliases.add(statement.importClause.name.text);
+    const clause = statement.importClause;
+    if (clause?.name) objects.add(clause.name.text);
+    if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+      for (const element of clause.namedBindings.elements) {
+        const imported = element.propertyName?.text ?? element.name.text;
+        if (imported === "default") objects.add(element.name.text);
+        else functions.set(element.name.text, imported);
+      }
+    }
+    if (clause?.namedBindings && ts.isNamespaceImport(clause.namedBindings)) {
+      objects.add(clause.namedBindings.name.text);
+      objects.add(clause.namedBindings.name.text + ".default");
+    }
   }
-  collectAliases(sourceFile, aliases);
-  return aliases;
+  collectAliases(sourceFile, objects);
+  return { objects, functions };
 }
 
 function usedServiceCalls(
@@ -307,18 +528,46 @@ function usedServiceCalls(
   const aliases = importedRomServiceAliases(sourceFile);
   const result: RawCall[] = [];
   const visit = (node: ts.Node) => {
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      ts.isIdentifier(node.expression.expression) &&
-      aliases.has(node.expression.expression.text)
+    if (!ts.isCallExpression(node)) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    let functionName: string | null = null;
+    if (ts.isIdentifier(node.expression)) {
+      functionName = aliases.functions.get(node.expression.text) ?? null;
+    } else if (
+      ts.isPropertyAccessExpression(node.expression) ||
+      ts.isElementAccessExpression(node.expression)
     ) {
-      const functionName = node.expression.name.text;
+      const member = node.expression;
+      const receiver = expressionPath(member.expression);
+      const name = ts.isPropertyAccessExpression(member)
+        ? member.name.text
+        : member.argumentExpression &&
+            ts.isStringLiteralLike(member.argumentExpression)
+          ? member.argumentExpression.text
+          : null;
+      if (receiver && aliases.objects.has(receiver)) {
+        if (!name) {
+          unclassifiableCall(
+            importer,
+            enclosingFunction(node) + ":" + receiver + ".[dynamic]",
+            "UNKNOWN",
+            "unknown",
+          );
+        }
+        functionName = name;
+      }
+    }
+    if (functionName) {
       for (const serviceCall of callsByFunction.get(functionName) ?? []) {
         result.push({
           ...serviceCall,
-          importer,
-          call: `${node.expression.getText(sourceFile)} -> ${serviceCall.call}`,
+          importer: safeImporter(importer),
+          call:
+            node.expression.getText(sourceFile).slice(0, 80) +
+            " -> " +
+            serviceCall.call,
         });
       }
     }
@@ -605,6 +854,17 @@ function finalAuthority(call: RawCall, source: string): Authority {
     ].filter((index) => index >= 0);
     const end = candidates.length ? Math.min(...candidates) : source.length;
     authoritySource = source.slice(start, end);
+  }
+  const fixedRoute = routeAuthorities.find(
+    (entry) => entry.method === call.method && entry.route.test(call.route),
+  );
+  if (fixedRoute) {
+    return {
+      ...call,
+      operation: fixedRoute.operation,
+      storageClass: fixedRoute.storageClass,
+      forbidden: fixedRoute.forbidden,
+    };
   }
   const capabilities = payloadCapabilities(authoritySource);
   if (call.method === "GET" || call.method === "HEAD") {
