@@ -4,6 +4,7 @@ import copy
 import enum
 import re
 import secrets
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -30,9 +31,9 @@ from sqlalchemy import (
     or_,
     select,
 )
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import (
     Mapped,
-    Session,
     column_property,
     declared_attr,
     mapped_column,
@@ -691,22 +692,65 @@ def _reject_incarnation_token_update(_mapper, _connection, target) -> None:
         raise ValueError("incarnation token is immutable")
 
 
-def _reject_bulk_incarnation_token_update(execute_state) -> None:
-    if not execute_state.is_update:
+def _contains_incarnation_token(values: Mapping[object, object]) -> bool:
+    return any(
+        getattr(column, "key", column) == "incarnation_token" for column in values
+    )
+
+
+def _iter_parameter_mappings(value):
+    if isinstance(value, Mapping):
+        yield value
         return
-    statement = execute_state.statement
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        for item in value:
+            yield from _iter_parameter_mappings(item)
+
+
+def _is_catalog_update(statement) -> bool:
+    if not getattr(statement, "is_update", False):
+        return False
     table = getattr(statement, "table", None)
-    if table is None or table.name not in {"roms", "rom_files"}:
+    if table is None:
+        return False
+    expected = {
+        Rom.__table__.key: Rom.__table__,
+        RomFile.__table__.key: RomFile.__table__,
+    }.get(getattr(table, "key", None))
+    if expected is None:
+        return False
+    return (
+        table is expected
+        or getattr(table, "original", None) is expected
+        or getattr(table, "metadata", None) is expected.metadata
+    )
+
+
+def _reject_bulk_incarnation_token_update(
+    _connection,
+    statement,
+    multiparams,
+    params,
+    _execution_options,
+) -> None:
+    if not _is_catalog_update(statement):
         return
-    values = getattr(statement, "_values", {})
-    if any(getattr(column, "key", column) == "incarnation_token" for column in values):
+    statement_values = getattr(statement, "_values", None)
+    if isinstance(statement_values, Mapping) and _contains_incarnation_token(
+        statement_values
+    ):
+        raise ValueError("incarnation token is immutable")
+    if any(
+        _contains_incarnation_token(mapping)
+        for mapping in _iter_parameter_mappings((multiparams, params))
+    ):
         raise ValueError("incarnation token is immutable")
 
 
 for _catalog_model in (Rom, RomFile):
     event.listen(_catalog_model, "before_insert", _assign_fresh_incarnation_token)
     event.listen(_catalog_model, "before_update", _reject_incarnation_token_update)
-event.listen(Session, "do_orm_execute", _reject_bulk_incarnation_token_update)
+event.listen(Engine, "before_execute", _reject_bulk_incarnation_token_update)
 
 
 # Correlated scalar subqueries against rom_files, deferred and opt-in via `undefer`

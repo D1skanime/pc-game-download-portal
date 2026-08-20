@@ -280,6 +280,209 @@ def _wait_until_queryable(
     raise RuntimeError(f"{dialect}: database did not become queryable after restart")
 
 
+def _verify_orm_incarnation_guard(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    program = """
+from config.config_manager import ConfigManager
+from sqlalchemy import create_engine, select, update
+from sqlalchemy.orm import lazyload, load_only, sessionmaker
+from models.assets import Save, Screenshot, State  # noqa: F401
+from models.client_token import ClientToken  # noqa: F401
+from models.collection import VirtualCollection  # noqa: F401
+from models.device import Device  # noqa: F401
+from models.device_save_sync import DeviceSaveSync  # noqa: F401
+from models.firmware import Firmware  # noqa: F401
+from models.mapping_preview import MappingPreview  # noqa: F401
+from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa: F401
+from models.platform import Platform  # noqa: F401
+from models.play_session import PlaySession  # noqa: F401
+from models.rom import Rom, RomFacets, RomFile, RomMetadata, SiblingRom  # noqa: F401
+from models.storage import PlatformStorageMapping, StorageRoot  # noqa: F401
+from models.sync_session import SyncSession  # noqa: F401
+from models.user import User  # noqa: F401
+
+engine = create_engine(ConfigManager.get_db_engine())
+session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+replacement = "f" * 32
+entities = (
+    (Rom, 920011, f"{1:032x}"),
+    (RomFile, 920021, f"{101:032x}"),
+)
+
+
+def instance_flush(session, model, entity_id):
+    entity = session.scalars(
+        select(model)
+        .options(load_only(model.incarnation_token), lazyload("*"))
+        .where(model.id == entity_id)
+    ).one()
+    entity.incarnation_token = replacement
+    session.flush()
+
+
+def statement_values(session, model, entity_id):
+    session.execute(
+        update(model)
+        .where(model.id == entity_id)
+        .values(incarnation_token=replacement)
+    )
+
+
+def query_update(session, model, entity_id):
+    session.query(model).filter(model.id == entity_id).update(
+        {model.incarnation_token: replacement},
+        synchronize_session=False,
+    )
+
+
+def orm_executemany(session, model, entity_id):
+    session.execute(
+        update(model),
+        [{"id": entity_id, "incarnation_token": replacement}],
+    )
+
+
+def bulk_update_mappings(session, model, entity_id):
+    session.bulk_update_mappings(
+        model,
+        [{"id": entity_id, "incarnation_token": replacement}],
+    )
+
+
+def bulk_save_objects(session, model, entity_id):
+    entity = session.scalars(
+        select(model)
+        .options(load_only(model.incarnation_token), lazyload("*"))
+        .where(model.id == entity_id)
+    ).one()
+    session.expunge(entity)
+    entity.incarnation_token = replacement
+    session.bulk_save_objects([entity], update_changed_only=True)
+
+
+mutations = (
+    ("instance_flush", instance_flush),
+    ("statement_values", statement_values),
+    ("query_update", query_update),
+    ("orm_executemany", orm_executemany),
+    ("bulk_update_mappings", bulk_update_mappings),
+    ("bulk_save_objects", bulk_save_objects),
+)
+
+for model, entity_id, expected_token in entities:
+    for label, mutation in mutations:
+        session = session_factory()
+        try:
+            mutation(session, model, entity_id)
+        except ValueError as error:
+            session.rollback()
+            if str(error) != "incarnation token is immutable":
+                raise RuntimeError(f"{label}: unstable immutable guard") from error
+        except TypeError as error:
+            session.rollback()
+            raise RuntimeError(
+                f"{label}: framework TypeError is not immutability evidence"
+            ) from error
+        else:
+            session.rollback()
+            raise RuntimeError(f"{label}: incarnation mutation was not rejected")
+        finally:
+            session.close()
+        with session_factory() as verification_session:
+            current = verification_session.scalar(
+                select(model.incarnation_token).where(model.id == entity_id)
+            )
+            if current != expected_token:
+                raise RuntimeError(f"{label}: incarnation token changed")
+
+    with session_factory.begin() as positive_session:
+        changed = (
+            positive_session.query(model)
+            .filter(model.id == entity_id)
+            .update({model.missing_from_fs: True}, synchronize_session=False)
+        )
+        if changed != 1:
+            raise RuntimeError("ordinary bulk update did not update one row")
+    with session_factory.begin() as restoration_session:
+        restoration_session.query(model).filter(model.id == entity_id).update(
+            {model.missing_from_fs: False},
+            synchronize_session=False,
+        )
+
+engine.dispose()
+"""
+    _run(
+        _runner_command(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            ["/app/.venv/bin/python", "-c", program],
+        )
+    )
+    print("orm incarnation guard passed before restart", dialect)
+
+
+def _verify_orm_incarnation_tokens_after_restart(
+    dialect: str,
+    runner: str,
+    host: str,
+    port: str,
+    database: str,
+) -> None:
+    program = """
+from config.config_manager import ConfigManager
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
+from models.assets import Save, Screenshot, State  # noqa: F401
+from models.client_token import ClientToken  # noqa: F401
+from models.collection import VirtualCollection  # noqa: F401
+from models.device import Device  # noqa: F401
+from models.device_save_sync import DeviceSaveSync  # noqa: F401
+from models.firmware import Firmware  # noqa: F401
+from models.mapping_preview import MappingPreview  # noqa: F401
+from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa: F401
+from models.platform import Platform  # noqa: F401
+from models.play_session import PlaySession  # noqa: F401
+from models.rom import Rom, RomFacets, RomFile, RomMetadata, SiblingRom  # noqa: F401
+from models.storage import PlatformStorageMapping, StorageRoot  # noqa: F401
+from models.sync_session import SyncSession  # noqa: F401
+from models.user import User  # noqa: F401
+
+engine = create_engine(ConfigManager.get_db_engine())
+session_factory = sessionmaker(bind=engine)
+expected = (
+    (Rom, 920011, f"{1:032x}"),
+    (RomFile, 920021, f"{101:032x}"),
+)
+with session_factory() as session:
+    for model, entity_id, expected_token in expected:
+        current = session.scalar(
+            select(model.incarnation_token).where(model.id == entity_id)
+        )
+        if current != expected_token:
+            raise RuntimeError("incarnation token changed across restart")
+engine.dispose()
+"""
+    _run(
+        _runner_command(
+            runner,
+            dialect,
+            host,
+            port,
+            database,
+            ["/app/.venv/bin/python", "-c", program],
+        )
+    )
+    print("orm incarnation tokens survived restart", dialect)
+
+
 def _platform_statements(dialect: str, platform_id: int) -> list[str]:
     if dialect == "mysql":
         return [f"INSERT INTO platforms (id) VALUES ({platform_id})"]
@@ -1196,6 +1399,7 @@ def verify_dialect(
         _verify_0113_upgrade_state(dialect, runner, host, port, database)
         _clear_0111_state(dialect, runner, host, port, database)
         _seed_0113_state(dialect, runner, host, port, database)
+        _verify_orm_incarnation_guard(dialect, runner, host, port, database)
         port = _verify_restart_persistence(
             dialect,
             runner,
@@ -1204,6 +1408,9 @@ def verify_dialect(
             database,
             name,
             health,
+        )
+        _verify_orm_incarnation_tokens_after_restart(
+            dialect, runner, host, port, database
         )
         _verify_0113_downgrade_rejected(dialect, runner, host, port, database)
         _verify_safe_lifecycle_downgrade_rejected(dialect, runner, host, port, database)
