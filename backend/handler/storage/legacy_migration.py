@@ -10,6 +10,7 @@ from typing import cast
 
 from exceptions.storage_exceptions import (
     DescriptorHashBudgetError,
+    DescriptorHashDeadlineError,
     DescriptorHashError,
     MissingStorageRootError,
     MissingStorageTargetError,
@@ -155,18 +156,21 @@ def _inspect_candidate(
             return "time_budget"
         return None
 
+    def budget_observation(reason: str) -> _CandidateObservation:
+        return _CandidateObservation(
+            relative_path=relative_path,
+            present=True,
+            state=LegacyDetectionState.DETECTED.value,
+            observed_files=files,
+            observed_bytes=size,
+            lower_bound=True,
+            safe_problem_code=reason,
+        )
+
     while pending:
         reason = budget_reason()
         if reason is not None:
-            return _CandidateObservation(
-                relative_path,
-                True,
-                LegacyDetectionState.DETECTED.value,
-                files,
-                size,
-                False,
-                reason,
-            )
+            return budget_observation(reason)
         directory = pending.pop()
         try:
             with open_storage_access(
@@ -216,15 +220,7 @@ def _inspect_candidate(
         for name in entries:
             reason = budget_reason()
             if reason is not None:
-                return _CandidateObservation(
-                    relative_path,
-                    True,
-                    LegacyDetectionState.DETECTED.value,
-                    files,
-                    size,
-                    False,
-                    reason,
-                )
+                return budget_observation(reason)
             inspected += 1
             logical_path = f"{directory}/{name}"
             relative_name = logical_path[len(relative_path) + 1 :]
@@ -265,36 +261,12 @@ def _inspect_candidate(
                 )
             elif stat.S_ISREG(item.st_mode):
                 if item.st_size > per_file_byte_budget:
-                    return _CandidateObservation(
-                        relative_path,
-                        True,
-                        LegacyDetectionState.DETECTED.value,
-                        files,
-                        size,
-                        False,
-                        "file_byte_budget",
-                    )
+                    return budget_observation("file_byte_budget")
                 if size + item.st_size > aggregate_byte_budget:
-                    return _CandidateObservation(
-                        relative_path,
-                        True,
-                        LegacyDetectionState.DETECTED.value,
-                        files,
-                        size,
-                        False,
-                        "aggregate_byte_budget",
-                    )
+                    return budget_observation("aggregate_byte_budget")
                 remaining = aggregate_byte_budget - size
                 if remaining <= 0:
-                    return _CandidateObservation(
-                        relative_path,
-                        True,
-                        LegacyDetectionState.DETECTED.value,
-                        files,
-                        size,
-                        False,
-                        "aggregate_byte_budget",
-                    )
+                    return budget_observation("aggregate_byte_budget")
                 hash_cap = min(per_file_byte_budget, remaining)
                 try:
                     hashed = hash_descriptor_file(
@@ -305,19 +277,15 @@ def _inspect_candidate(
                         monotonic=monotonic,
                     )
                 except DescriptorHashBudgetError:
-                    return _CandidateObservation(
-                        relative_path,
-                        True,
-                        LegacyDetectionState.DETECTED.value,
-                        files,
-                        size,
-                        False,
+                    return budget_observation(
                         (
                             "aggregate_byte_budget"
                             if hash_cap == remaining
                             else "file_byte_budget"
-                        ),
+                        )
                     )
+                except DescriptorHashDeadlineError:
+                    return budget_observation("time_budget")
                 except (DescriptorHashError, StorageResolutionError):
                     return _CandidateObservation(
                         relative_path,
@@ -329,25 +297,9 @@ def _inspect_candidate(
                         "hash_incomplete",
                     )
                 if hashed.bytes_read > remaining:
-                    return _CandidateObservation(
-                        relative_path,
-                        True,
-                        LegacyDetectionState.DETECTED.value,
-                        files,
-                        size,
-                        False,
-                        "aggregate_byte_budget",
-                    )
+                    return budget_observation("aggregate_byte_budget")
                 if hashed.bytes_read > hash_cap:
-                    return _CandidateObservation(
-                        relative_path,
-                        True,
-                        LegacyDetectionState.DETECTED.value,
-                        files,
-                        size,
-                        False,
-                        "file_byte_budget",
-                    )
+                    return budget_observation("file_byte_budget")
                 files += 1
                 size += hashed.bytes_read
                 records.append(

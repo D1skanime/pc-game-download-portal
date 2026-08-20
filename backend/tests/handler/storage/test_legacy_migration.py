@@ -8,6 +8,7 @@ import stat
 from dataclasses import asdict
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -249,7 +250,7 @@ def test_byte_budget_exits_report_observed_lower_bounds(
     subject = _subject()
     canonical = tmp_path / "roms" / "gb"
     canonical.mkdir(parents=True)
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
     if case == "file_size":
         (canonical / "private-game.rom").write_bytes(b"1234")
         kwargs["per_file_byte_budget"] = 3
