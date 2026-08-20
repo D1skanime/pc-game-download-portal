@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import os
 import stat
@@ -278,6 +279,201 @@ def test_owned_create_replace_delete_and_directory_are_descriptor_relative(tmp_p
     with open_owned_access(owned, StorageOperation.DELETE, "nested/game.bin") as delete:
         delete.delete()  # type: ignore
     assert not (tmp_path / "nested" / "game.bin").exists()
+
+
+def _assert_descriptors_closed(descriptors: set[int]) -> None:
+    assert descriptors
+    for descriptor in descriptors:
+        with pytest.raises(OSError) as error:
+            os.fstat(descriptor)
+        assert error.value.errno == errno.EBADF
+
+
+def test_owned_create_retries_short_write_to_completion(tmp_path, monkeypatch):
+    content = b"complete-create"
+    counts = iter((2, 3, len(content) - 5))
+    descriptors: set[int] = set()
+    real_write = os.write
+
+    def short_write(descriptor: int, data: bytes | memoryview) -> int:
+        descriptors.add(descriptor)
+        count = next(counts)
+        return real_write(descriptor, data[:count])
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.write", short_write)
+    with open_owned_access(
+        _owned(tmp_path), StorageOperation.CREATE, "created.bin"
+    ) as create:
+        create.create(content)  # type: ignore[attr-defined]
+
+    assert (tmp_path / "created.bin").read_bytes() == content
+    _assert_descriptors_closed(descriptors)
+
+
+def test_owned_replace_retries_short_write_to_completion(tmp_path, monkeypatch):
+    target = tmp_path / "replaced.bin"
+    target.write_bytes(b"old-content")
+    content = b"complete-replace"
+    counts = iter((1, 4, len(content) - 5))
+    descriptors: set[int] = set()
+    real_write = os.write
+
+    def short_write(descriptor: int, data: bytes | memoryview) -> int:
+        descriptors.add(descriptor)
+        count = next(counts)
+        return real_write(descriptor, data[:count])
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.write", short_write)
+    with open_owned_access(
+        _owned(tmp_path), StorageOperation.OVERWRITE, target.name
+    ) as replace:
+        replace.replace(content)  # type: ignore[attr-defined]
+
+    assert target.read_bytes() == content
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+    _assert_descriptors_closed(descriptors)
+
+
+@pytest.mark.parametrize(
+    ("operation", "method_name"),
+    [
+        (StorageOperation.CREATE, "create"),
+        (StorageOperation.OVERWRITE, "replace"),
+    ],
+)
+def test_owned_writes_retry_interrupted_calls(
+    tmp_path, monkeypatch, operation, method_name
+):
+    target = tmp_path / "interrupted.bin"
+    if operation is StorageOperation.OVERWRITE:
+        target.write_bytes(b"old-content")
+    content = b"complete-after-interrupt"
+    calls = 0
+    descriptors: set[int] = set()
+    real_write = os.write
+
+    def interrupted_write(descriptor: int, data: bytes | memoryview) -> int:
+        nonlocal calls
+        descriptors.add(descriptor)
+        calls += 1
+        if calls == 1:
+            raise InterruptedError(errno.EINTR, "interrupted")
+        count = min(3, len(data))
+        return real_write(descriptor, data[:count])
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.write", interrupted_write)
+    with open_owned_access(_owned(tmp_path), operation, target.name) as capability:
+        getattr(capability, method_name)(content)
+
+    assert calls > 2
+    assert target.read_bytes() == content
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+    _assert_descriptors_closed(descriptors)
+
+
+@pytest.mark.parametrize("reported_count", [0, -1, len(b"payload") + 1])
+@pytest.mark.parametrize(
+    ("operation", "method_name"),
+    [
+        (StorageOperation.CREATE, "create"),
+        (StorageOperation.OVERWRITE, "replace"),
+    ],
+)
+def test_owned_writes_reject_invalid_progress_and_rollback(
+    tmp_path, monkeypatch, operation, method_name, reported_count
+):
+    target = tmp_path / "invalid-progress.bin"
+    if operation is StorageOperation.OVERWRITE:
+        target.write_bytes(b"old-content")
+    descriptors: set[int] = set()
+
+    def invalid_write(descriptor: int, _data: bytes | memoryview) -> int:
+        descriptors.add(descriptor)
+        return reported_count
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.write", invalid_write)
+    with pytest.raises(StorageResolutionError):
+        with open_owned_access(_owned(tmp_path), operation, target.name) as capability:
+            getattr(capability, method_name)(b"payload")
+
+    if operation is StorageOperation.OVERWRITE:
+        assert target.read_bytes() == b"old-content"
+    else:
+        assert not target.exists()
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+    _assert_descriptors_closed(descriptors)
+
+
+@pytest.mark.parametrize(
+    ("operation", "method_name"),
+    [
+        (StorageOperation.CREATE, "create"),
+        (StorageOperation.OVERWRITE, "replace"),
+    ],
+)
+def test_owned_writes_rollback_after_partial_failure(
+    tmp_path, monkeypatch, operation, method_name
+):
+    target = tmp_path / "partial-failure.bin"
+    if operation is StorageOperation.OVERWRITE:
+        target.write_bytes(b"old-content")
+    calls = 0
+    descriptors: set[int] = set()
+    real_write = os.write
+
+    def failing_write(descriptor: int, data: bytes | memoryview) -> int:
+        nonlocal calls
+        descriptors.add(descriptor)
+        calls += 1
+        if calls == 1:
+            return real_write(descriptor, data[:2])
+        raise OSError(errno.ENOSPC, "simulated write failure")
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.write", failing_write)
+    with pytest.raises(StorageResolutionError, match="not accessible"):
+        with open_owned_access(_owned(tmp_path), operation, target.name) as capability:
+            getattr(capability, method_name)(b"payload")
+
+    if operation is StorageOperation.OVERWRITE:
+        assert target.read_bytes() == b"old-content"
+    else:
+        assert not target.exists()
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+    _assert_descriptors_closed(descriptors)
+
+
+@pytest.mark.parametrize(
+    ("operation", "method_name"),
+    [
+        (StorageOperation.CREATE, "create"),
+        (StorageOperation.OVERWRITE, "replace"),
+    ],
+)
+def test_owned_empty_writes_skip_os_write_and_close_descriptors(
+    tmp_path, monkeypatch, operation, method_name
+):
+    target = tmp_path / "empty.bin"
+    if operation is StorageOperation.OVERWRITE:
+        target.write_bytes(b"old-content")
+    opened: set[int] = set()
+    real_open = os.open
+
+    def tracking_open(*args, **kwargs):
+        descriptor = real_open(*args, **kwargs)
+        opened.add(descriptor)
+        return descriptor
+
+    def forbidden_write(*_args, **_kwargs):
+        raise AssertionError("empty writes must not call os.write")
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.open", tracking_open)
+    monkeypatch.setattr("handler.filesystem.storage_access.os.write", forbidden_write)
+    with open_owned_access(_owned(tmp_path), operation, target.name) as capability:
+        getattr(capability, method_name)(b"")
+
+    assert target.read_bytes() == b""
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+    _assert_descriptors_closed(opened)
 
 
 def test_subprocess_adapter_lists_only_the_capability_fd(tmp_path):
