@@ -699,7 +699,7 @@ def test_update_rom(
             "name": "Metroid Prime Remastered",
             "name_sort_key": "Metroid Prime",
             "slug": "metroid-prime-remastered",
-            "fs_name": "Metroid Prime Remastered.zip",
+            "fs_name": rom.fs_name,
             "summary": "summary test",
             "url_cover": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2l7z.jpg",
             "genres": '[{"id": 5, "name": "Shooter"}, {"id": 8, "name": "Platform"}, {"id": 31, "name": "Adventure"}]',
@@ -722,16 +722,16 @@ def test_update_rom(
     assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
-    assert body["fs_name"] == "Metroid Prime Remastered.zip"
+    assert body["fs_name"] == rom.fs_name
     assert body["name_sort_key"] == compute_name_sort_key("Metroid Prime")
 
     assert rename_fs_rom_mock.called
-    assert get_rom_by_id_mock.called
+    get_rom_by_id_mock.assert_not_called()
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
-def test_update_rom_reparses_tags_on_fs_name_change(
+def test_update_rom_preserves_tags_with_current_fs_name_binding(
     rename_fs_rom_mock: AsyncMock,
     get_rom_by_id_mock: AsyncMock,
     client: TestClient,
@@ -741,40 +741,52 @@ def test_update_rom_reparses_tags_on_fs_name_change(
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
-        data={"fs_name": "Patapon (Fr, En) (Rev 1).iso"},
+        data={
+            "fs_name": rom.fs_name,
+            "summary": "metadata-only update",
+        },
     )
     assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
-    assert body["fs_name"] == "Patapon (Fr, En) (Rev 1).iso"
-    assert body["languages"] == ["French", "English"]
+    assert body["fs_name"] == rom.fs_name
+    assert body["summary"] == "metadata-only update"
+    assert body["languages"] == []
     assert body["regions"] == []
-    assert body["revision"] == "1"
+    assert body["revision"] is None
     assert body["tags"] == []
+    rename_fs_rom_mock.assert_not_called()
+    get_rom_by_id_mock.assert_not_called()
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
-def test_update_rom_adds_region_tag_on_rename(
+def test_update_rom_preserves_regions_with_current_fs_name_binding(
     rename_fs_rom_mock: AsyncMock,
     get_rom_by_id_mock: AsyncMock,
     client: TestClient,
     access_token: str,
     rom: Rom,
 ):
-    """Renaming an untagged ROM to add ``(Europe)`` surfaces the region (issue #3471)."""
+    """Metadata edits keep source-derived regions bound to the current filename."""
     assert rom.regions == []
 
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
-        data={"fs_name": "test_rom (Europe).zip"},
+        data={
+            "fs_name": rom.fs_name,
+            "name": "European metadata title",
+        },
     )
     assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
-    assert body["fs_name"] == "test_rom (Europe).zip"
-    assert body["regions"] == ["Europe"]
+    assert body["fs_name"] == rom.fs_name
+    assert body["name"] == "European metadata title"
+    assert body["regions"] == []
+    rename_fs_rom_mock.assert_not_called()
+    get_rom_by_id_mock.assert_not_called()
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
@@ -787,14 +799,14 @@ def test_update_rom_refreshes_smart_collection_membership(
     admin_user: User,
     rom: Rom,
 ):
-    # An edit changes what the saved filters match, so the cached counts have
-    # to follow it rather than wait for the next scan.
+    # A metadata-only edit changes what the saved search matches without
+    # requesting authority to rename the external source.
     smart_collection = db_collection_handler.add_smart_collection(
         SmartCollection(
             name="European games",
             description="",
             user_id=admin_user.id,
-            filter_criteria={"regions": ["Europe"]},
+            filter_criteria={"search_term": "European"},
         )
     )
     db_collection_handler.refresh_smart_collection(smart_collection.id)
@@ -802,13 +814,21 @@ def test_update_rom_refreshes_smart_collection_membership(
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
-        data={"fs_name": "test_rom (Europe).zip"},
+        data={
+            "fs_name": rom.fs_name,
+            "name": "European metadata title",
+        },
     )
     assert response.status_code == status.HTTP_200_OK
 
+    body = response.json()
+    assert body["fs_name"] == rom.fs_name
+    assert body["name"] == "European metadata title"
     refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
     assert refreshed is not None
     assert refreshed.rom_ids == [rom.id]
+    rename_fs_rom_mock.assert_not_called()
+    get_rom_by_id_mock.assert_not_called()
 
 
 # Minimal valid PNG (1x1 transparent pixel)

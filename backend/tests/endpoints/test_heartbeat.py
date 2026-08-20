@@ -79,6 +79,7 @@ def test_heartbeat_metadata(client):
     assert response.status_code == status.HTTP_200_OK
     assert response.json() is True
 
+
 def test_heartbeat_metadata_unknown_source(client):
     response = client.get("/api/heartbeat/metadata/unknown")
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -240,7 +241,7 @@ def test_get_setup_library_info_handles_errors(client, admin_user, access_token)
 
 
 def test_create_setup_platforms_success(client, admin_user, access_token):
-    """Test create_setup_platforms successfully creates platforms"""
+    """External setup creation is denied before structure detection or writes."""
     platform_slugs = ["n64", "psx", "gba"]
 
     with patch(
@@ -259,13 +260,15 @@ def test_create_setup_platforms_success(client, admin_user, access_token):
                 headers={"Authorization": f"Bearer {access_token}"},
             )
 
-            assert response.status_code == status.HTTP_201_CREATED
-            data = response.json()
-
-            assert data["success"] is True
-            assert data["created_count"] == 3
-            assert "Successfully created 3 platform folder(s)" in data["message"]
-            assert mock_add_platform.call_count == 3
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert response.json()["detail"] == {
+                "code": "external_storage_operation_denied",
+                "operation": "create",
+                "storage_class": "external_read_only",
+                "storage_id": "root:0",
+            }
+            mock_detect.assert_not_called()
+            mock_add_platform.assert_not_called()
 
 
 def test_create_setup_platforms_empty_list(client, admin_user, access_token):
@@ -287,7 +290,7 @@ def test_create_setup_platforms_empty_list(client, admin_user, access_token):
 def test_create_setup_platforms_creates_structure_a_when_none_exists(
     client, admin_user, access_token
 ):
-    """Test create_setup_platforms creates Structure A when no structure detected"""
+    """Setup denial precedes fallback structure creation."""
     platform_slugs = ["n64"]
 
     with patch(
@@ -295,8 +298,12 @@ def test_create_setup_platforms_creates_structure_a_when_none_exists(
     ) as mock_detect:
         mock_detect.return_value = None  # No structure detected
 
-        with patch("os.makedirs") as mock_makedirs:
-            with patch("endpoints.heartbeat.fs_platform_handler.add_platform"):
+        with patch(
+            "endpoints.heartbeat.fs_platform_handler.create_library_structure"
+        ) as mock_create_structure:
+            with patch(
+                "endpoints.heartbeat.fs_platform_handler.add_platform"
+            ) as mock_add_platform:
                 response = client.post(
                     "/api/setup/platforms",
                     json=platform_slugs,
@@ -306,17 +313,19 @@ def test_create_setup_platforms_creates_structure_a_when_none_exists(
                 assert response.status_code == status.HTTP_403_FORBIDDEN
                 assert response.json()["detail"] == {
                     "code": "external_storage_operation_denied",
-                    "operation": "mkdir",
+                    "operation": "create",
                     "storage_class": "external_read_only",
                     "storage_id": "root:0",
                 }
-                mock_makedirs.assert_not_called()
+                mock_detect.assert_not_called()
+                mock_create_structure.assert_not_called()
+                mock_add_platform.assert_not_called()
 
 
 def test_create_setup_platforms_skips_existing_platforms(
     client, admin_user, access_token
 ):
-    """Test create_setup_platforms skips platforms that already exist"""
+    """External setup denial precedes existing-platform handling."""
     platform_slugs = ["n64", "psx", "gba"]
 
     with patch(
@@ -340,18 +349,21 @@ def test_create_setup_platforms_skips_existing_platforms(
                 headers={"Authorization": f"Bearer {access_token}"},
             )
 
-            assert response.status_code == status.HTTP_201_CREATED
-            data = response.json()
-
-            assert data["success"] is True
-            # Should only count 2 created (psx and gba)
-            assert data["created_count"] == 2
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert response.json()["detail"] == {
+                "code": "external_storage_operation_denied",
+                "operation": "create",
+                "storage_class": "external_read_only",
+                "storage_id": "root:0",
+            }
+            mock_detect.assert_not_called()
+            mock_add_platform.assert_not_called()
 
 
 def test_create_setup_platforms_handles_permission_errors(
     client, admin_user, access_token
 ):
-    """Test create_setup_platforms handles permission errors"""
+    """Policy denial precedes lower-level permission handling."""
     platform_slugs = ["n64"]
 
     with patch(
@@ -370,5 +382,12 @@ def test_create_setup_platforms_handles_permission_errors(
                 headers={"Authorization": f"Bearer {access_token}"},
             )
 
-            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-            assert "Failed to create some platform folders" in response.json()["detail"]
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            assert response.json()["detail"] == {
+                "code": "external_storage_operation_denied",
+                "operation": "create",
+                "storage_class": "external_read_only",
+                "storage_id": "root:0",
+            }
+            mock_detect.assert_not_called()
+            mock_add_platform.assert_not_called()
