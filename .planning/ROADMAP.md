@@ -186,7 +186,7 @@ Plans:
 4. Ambiguous legacy layouts require an explicit manual mapping rather than a guess, and any compatibility fallback is visible and time-bounded.
 5. Mappings survive restarts and normal deployment operations, with portable and practically reversible database migration behavior.
 
-**Plans**: 26/32 plans executed
+**Plans**: 32/32 plans executed
 
 Plans:
 
@@ -216,12 +216,12 @@ Plans:
 - [x] `06-24-PLAN.md` - Remove firmware external mutation authority and prove backend denial.
 - [x] `06-25-PLAN.md` - Remove active-v2 external upload and source-directory creation.
 - [x] `06-26-PLAN.md` - Close source rename and install the final v2 mutation inventory.
-- [ ] `06-27-PLAN.md` - Authorize changed source names before every database, owned-resource, or filesystem effect.
-- [ ] `06-28-PLAN.md` - Enforce immutable rollback lineage across supported bulk ORM mutation paths.
-- [ ] `06-29-PLAN.md` - Make the active-v2 external-mutation inventory complete and fail closed.
-- [ ] `06-30-PLAN.md` - Correct lower-bound semantics for budget-limited legacy observations.
-- [ ] `06-31-PLAN.md` - Make owned create and replace writes complete and failure-atomic.
-- [ ] `06-32-PLAN.md` - Re-run complete Phase 6 integration and adversarial verification.
+- [x] `06-27-PLAN.md` - Authorize changed source names before every database, owned-resource, or filesystem effect.
+- [x] `06-28-PLAN.md` - Enforce immutable rollback lineage across supported bulk ORM mutation paths.
+- [x] `06-29-PLAN.md` - Make the active-v2 external-mutation inventory complete and fail closed.
+- [x] `06-30-PLAN.md` - Correct lower-bound semantics for budget-limited legacy observations.
+- [x] `06-31-PLAN.md` - Make owned create and replace writes complete and failure-atomic.
+- [x] `06-32-PLAN.md` - Re-run complete Phase 6 integration and adversarial verification.
 
 ### Phase 7: V2 Storage Administration Experience
 
