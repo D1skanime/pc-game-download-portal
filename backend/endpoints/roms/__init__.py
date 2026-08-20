@@ -1536,6 +1536,13 @@ async def update_rom(
 
     assert_rom_visible(request, rom)
 
+    new_fs_name = sanitize_filename(str(form_data.fs_name or rom.fs_name))
+    should_update_fs = new_fs_name != rom.fs_name
+    if should_update_fs:
+        authorize_api_storage_operation(
+            StorageOperation.RENAME, legacy_external_storage
+        )
+
     if unmatch_metadata:
         db_rom_handler.update_rom(
             id,
@@ -1764,13 +1771,6 @@ async def update_rom(
                 submitted or name_value
             )
 
-    new_fs_name = str(form_data.fs_name or rom.fs_name)
-    new_fs_name = sanitize_filename(new_fs_name)
-    should_update_fs = new_fs_name != rom.fs_name
-    if should_update_fs:
-        authorize_api_storage_operation(
-            StorageOperation.RENAME, legacy_external_storage
-        )
     cleaned_data.update({"fs_name": new_fs_name})
 
     # Re-parse tags from the filename so region/language/revision/version/tags
