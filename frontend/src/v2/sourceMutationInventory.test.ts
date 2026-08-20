@@ -680,6 +680,16 @@ function finalAuthority(call: RawCall, source: string): Authority {
   };
 }
 
+function finalInventorySource(
+  source: string,
+  importer: string,
+  callsByFunction = new Map<string, RawCall[]>(),
+): Authority[] {
+  return inventorySource(source, importer, callsByFunction).map((call) =>
+    finalAuthority(call, source),
+  );
+}
+
 describe("final active v2 semantic mutation closure", () => {
   it("inventories every production v2 module and reachable API service", () => {
     const servicePaths = reachableServicePaths();
@@ -794,64 +804,185 @@ describe("final active v2 semantic mutation closure", () => {
     }
   });
 
-  it("fails aliases, dynamic calls, conditional flags, and every external mutation family with safe diagnostics", () => {
-    const renamed = finalAuthority(
-      {
-        importer: "raw-put.ts",
-        call: "submit:client.put",
-        method: "PUT",
-        route: "/roms/{rom_id}",
-      },
-      'client["put"]("/roms/" + romId, { fs_name: nextName })',
+  it("fails closed for string element access before classification", () => {
+    const authorities = finalInventorySource(
+      `
+        import api from "@/services/api";
+        api["delete"]("/roms/" + romId + "/files/" + fileId);
+      `,
+      "element-access-negative.ts",
     );
-    expect(renamed).toMatchObject({
-      operation: "RENAME",
-      storageClass: "external_read_only",
-      forbidden: true,
-    });
-
-    const firmwareDelete = finalAuthority(
+    expect(
+      authorities,
+      "RED: string element access must reach inventory classification",
+    ).toMatchObject([
       {
-        importer: "conditional-delete.ts",
-        call: "remove:alias.post",
-        method: "POST",
-        route: "/firmware/delete",
+        method: "DELETE",
+        route: "/roms/{rom_id}/files/{file_id}",
+        operation: "DELETE",
+        storageClass: "external_read_only",
+        forbidden: true,
       },
-      "const payload = enabled ? { delete_from_fs: true } : {}",
-    );
-    expect(firmwareDelete).toMatchObject({
-      operation: "DELETE",
-      storageClass: "external_read_only",
-      forbidden: true,
-    });
+    ]);
+  });
 
-    for (const operation of externalMutationOperations) {
-      const diagnostic =
-        "importer=negative-" +
-        operation.toLowerCase() +
-        ".ts call=fixture:client[method] method=POST route=/external/" +
-        operation.toLowerCase() +
-        " payload=" +
-        operation.toLowerCase() +
-        " operation=" +
-        operation +
-        " storage=external_read_only";
-      expect(diagnostic).not.toMatch(/\/home\/|\/romm\/library|[A-Z]:\\\\/);
-      expect(diagnostic).toContain("operation=" + operation);
+  it("normalizes const aliases and concatenated routes through inventory", () => {
+    expect(
+      finalInventorySource(
+        `
+          import api from "@/services/api";
+          const prefix = "/roms/";
+          const route = prefix + romId + "/files/" + fileId;
+          api.delete(route);
+        `,
+        "const-route-negative.ts",
+      ),
+    ).toMatchObject([
+      {
+        route: "/roms/{rom_id}/files/{file_id}",
+        operation: "DELETE",
+        storageClass: "external_read_only",
+        forbidden: true,
+      },
+    ]);
+  });
+
+  it("discovers default, named, aliased, namespace, and nested clients", () => {
+    const authorities = finalInventorySource(
+      `
+        import defaultClient from "@/services/api";
+        import { default as namedClient } from "@/services/api";
+        import * as apiNamespace from "@/services/api";
+        const alias = defaultClient;
+        const nested = apiNamespace.default;
+        defaultClient.get("/heartbeat");
+        namedClient.head("/heartbeat");
+        alias.post("/collections", {});
+        apiNamespace.default.get("/heartbeat");
+        nested.post("/collections", {});
+      `,
+      "client-imports-positive.ts",
+    );
+    expect(authorities).toHaveLength(5);
+    expect(authorities.every((authority) => !authority.forbidden)).toBe(true);
+  });
+
+  it("discovers named, aliased, namespace, and nested shared-service calls", () => {
+    const callsByFunction = serviceCalls(`
+      import api from "@/services/api";
+      function deleteSourceFile(romId: number, fileId: number) {
+        return api.delete("/roms/" + romId + "/files/" + fileId);
+      }
+    `);
+    const consumers = [
+      `import romService from "@/services/api/rom";
+        const alias = romService; alias.deleteSourceFile(1, 2);`,
+      `import { deleteSourceFile as removeFile } from "@/services/api/rom";
+        removeFile(1, 2);`,
+      `import * as romNamespace from "@/services/api/rom";
+        romNamespace.deleteSourceFile(1, 2);`,
+      `import * as romNamespace from "@/services/api/rom";
+        romNamespace.default.deleteSourceFile(1, 2);`,
+    ];
+    for (const [index, source] of consumers.entries()) {
+      expect(
+        inventorySource(source, `service-${index}.ts`, callsByFunction),
+      ).toMatchObject([
+        { forbidden: true, storageClass: "external_read_only" },
+      ]);
     }
+  });
 
+  it("fails closed with bounded diagnostics for unresolved known-client forms", () => {
+    const fixtures = [
+      {
+        importer: "dynamic-method.ts",
+        source:
+          'import api from "@/services/api"; api[method]("/roms/1/files/2");',
+        method: "UNKNOWN",
+      },
+      {
+        importer: "mutable-route.ts",
+        source:
+          'import api from "@/services/api"; let route = "/roms/1/files/2"; api.delete(route);',
+        method: "DELETE",
+      },
+      {
+        importer: "unsupported-receiver.ts",
+        source:
+          'import api from "@/services/api"; (enabled ? api : fallback).delete("/roms/1/files/2");',
+        method: "DELETE",
+      },
+      {
+        importer: "non-reducible-route.ts",
+        source:
+          'import api from "@/services/api"; api.delete("/roms/" + routePart());',
+        method: "DELETE",
+      },
+    ];
+    for (const fixture of fixtures) {
+      expect(() =>
+        finalInventorySource(fixture.source, fixture.importer),
+      ).toThrow(`unclassifiable call importer=${fixture.importer} call=`);
+      try {
+        finalInventorySource(fixture.source, fixture.importer);
+      } catch (error) {
+        const diagnostic = String(error);
+        expect(diagnostic).toContain(`method=${fixture.method}`);
+        expect(diagnostic).toContain("operation=UNKNOWN storage=unknown");
+        expect(diagnostic).not.toMatch(/\/home\/|\/romm\/library|[A-Z]:\\\\/);
+        expect(diagnostic.length).toBeLessThan(320);
+      }
+    }
+  });
+
+  it("routes each external mutation family through extraction", () => {
+    for (const operation of externalMutationOperations) {
+      const importer = `negative-${operation.toLowerCase()}.ts`;
+      const source = `import api from "@/services/api";
+        api.post("/external/${operation.toLowerCase()}", {});`;
+      expect(() => finalInventorySource(source, importer)).toThrow(
+        `unclassified authority importer=${importer} call=module:api.post method=POST route=/external/${operation.toLowerCase()} payload=none operation=UNKNOWN storage=unknown`,
+      );
+    }
+  });
+
+  it("keeps conditional rename and firmware payloads on the extraction path", () => {
+    expect(
+      finalInventorySource(
+        `import api from "@/services/api";
+          api["put"]("/roms/" + romId, { fs_name: nextName });`,
+        "raw-put.ts",
+      ),
+    ).toMatchObject([
+      {
+        operation: "RENAME",
+        storageClass: "external_read_only",
+        forbidden: true,
+      },
+    ]);
+    expect(
+      finalInventorySource(
+        `import api from "@/services/api";
+          const payload = enabled ? { delete_from_fs: true } : {};
+          api.post("/firmware/delete", payload);`,
+        "conditional-delete.ts",
+      ),
+    ).toMatchObject([
+      {
+        operation: "DELETE",
+        storageClass: "external_read_only",
+        forbidden: true,
+      },
+    ]);
     expect(() =>
-      finalAuthority(
-        {
-          importer: "unknown-negative.ts",
-          call: "module:client[method]",
-          method: "PATCH",
-          route: "/roms/{rom_id}/unknown",
-        },
-        "const method = 'patch'",
+      finalInventorySource(
+        `import api from "@/services/api";
+          api.patch("/roms/" + romId + "/unknown", {});`,
+        "unknown-negative.ts",
       ),
     ).toThrow(
-      "unclassified authority importer=unknown-negative.ts call=module:client[method] method=PATCH route=/roms/{rom_id}/unknown payload=none operation=UNKNOWN storage=unknown",
+      "unclassified authority importer=unknown-negative.ts call=module:api.patch method=PATCH route=/roms/{rom_id}/unknown payload=none operation=UNKNOWN storage=unknown",
     );
   });
 });
