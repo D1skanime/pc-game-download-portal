@@ -5,143 +5,180 @@ nyquist_validation: enabled
 requirements:
   [CAT-01, CAT-02, CAT-03, CAT-04, MIG-01, MIG-02, MIG-03, MIG-04, MIG-05]
 created: 2026-08-12
-validated: 2026-08-13
+validated: 2026-08-20
 ---
 
 # Phase 6: Safe Lifecycle and Legacy Migration - Validation
 
 ## Objective
 
-Prove every outcome changes only explicit RomM-owned state, preserves external source byte-for-byte, fails closed under conflicts/races, and works on MariaDB, MySQL and PostgreSQL. [VERIFIED: .planning/config.json]
+Prove that catalog removal and legacy layout migration change only explicit
+RomM-owned state, preserve external source content and structure, fail closed
+under races and conflicts, and remain portable across MariaDB, MySQL, and
+PostgreSQL.
 
 ## Requirement Matrix
 
-| Req    | Evidence                                                                                                                                   |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| CAT-01 | API and generated OpenAPI describe catalog removal with no source-delete input.                                                            |
-| CAT-02 | Owned dependency and asset changes pass while writable/read-only source manifests remain equal.                                            |
-| CAT-03 | Removal retention, unreachable state, revision, and audit assertions pass atomically.                                                      |
-| CAT-04 | The closed mutation inventory denies create/upload/write/overwrite/rename/move/copy/delete/extract/patch/mkdir/sidecars/covers before I/O. |
-| MIG-01 | Candidate tests accept only exact `roms/<fs_slug>` and `<fs_slug>/roms` forms.                                                             |
-| MIG-02 | Pristine and seeded-0110 round trips pass on MariaDB, MySQL, and PostgreSQL.                                                               |
-| MIG-03 | Missing, empty, unreadable, ambiguous, unsafe, and conflicting cases remain manual.                                                        |
-| MIG-04 | Integration tests prove mapping, migration, and first-use state survives restarts.                                                         |
-| MIG-05 | API tests prove no source fallback and observable result/status expiry.                                                                    |
-
-## Test Layers
-
-- Pure: exact candidate construction, unique matching, budgets, safe serialization, state transitions.
-- Handler: removal retention; atomic migration; injected failure after every flush; rollback/use race; overlap and stale-version rejection.
-- API: auth before observation, safe errors, stale confirmation, independent per-platform commits, OpenAPI contract.
-- Policy: mutation denial and source-authority inventory remain closed.
-- Integration: writable and read-only source fixtures, restart, worker and actual three-dialect containers.
-
-## Cancellation Boundaries
-
-| Scenario             | Boundary                                  |
-| -------------------- | ----------------------------------------- |
-| queued after removal | before first I/O                          |
-| scan mid-run         | next bounded batch, before reconciliation |
-| hash mid-run         | next chunk/file                           |
-| stream/download      | before response commitment                |
-| multi-file           | before each member                        |
-| replacement mapping  | old ID/revision never redirects           |
-
-Instrument descriptor opens and DB writes. After invalidation no later open/reconciliation may occur under stale identity. Already-open single-file reads may finish after their final boundary; do not claim descriptor revocation. [ASSUMED]
-
-## Immutability Evidence
-
-For success, rejection, injected crash, rollback and retry, capture source path/type/mode/size/hash/symlink identity before/after on writable and read-only-mounted fixtures. Assert source byte/structure equality and allowed owned changes separately. Exclude atime until Phase 9. [VERIFIED: Phase 2/5 patterns]
-
-## Concurrency and Dialects
-
-Use barriers, not sleeps, for migrate/migrate, migrate/create, remove/read, rollback/first-use and confirm/lifecycle races. Run pristine upgrade, seeded-0110 upgrade, downgrade and re-upgrade in isolated MariaDB, MySQL, PostgreSQL containers. Restart API/workers and prove persistence/stale queued-work failure. [VERIFIED: Phase 3 pattern]
-
-## Adversarial Cases
-
-- aliases, case/whitespace/Unicode variants, configured bindings, both canonical candidates;
-- absolute/UNC/drive/traversal/symlink/missing/file/writable/disabled/unreadable paths;
-- unknown/stale/expired/replayed/cross-platform result and rollback IDs;
-- budget exhaustion, filesystem/catalog change after preview;
-- cleanup crash/retry and exception path sentinels.
-
-## Wave 0
-
-- [x] `backend/tests/endpoints/roms/test_catalog_removal.py`
-- [x] `backend/tests/handler/database/test_storage_lifecycle.py`
-- [x] `backend/tests/handler/storage/test_legacy_migration.py`
-
-## Plan Assignment and Executable Gates
-
-- Plans 01 and 08 extend backend/tools/verify_storage_migrations.py and run pristine plus seeded-0110 upgrade/downgrade/re-upgrade in uniquely named disposable MariaDB, MySQL and PostgreSQL containers after verifying the runner bind mount is this checkout.
-- Plan 03 owns the D-04 typed mapping-removal consequence and ordinary confirmation contract plus endpoint/OpenAPI tests.
-- Plan 07 owns only productive first-use CAS consumer wiring. Plan 08 exclusively owns D-15/D-16 rollback eligibility, rollback mutation, restart persistence, endpoint/OpenAPI tests, and dialect verification.
-- Plan 09 first creates RED unit expectations for the absent controlled-generation harness, then implements the harness, runs final characterization and the real three-dialect verifier, regenerates OpenAPI types, and typechecks the frontend.
-
-## Revision 2 Wave Assignment
-
-Wave 1: 01. Wave 2: 02 and 03. Wave 3: 04 (depends 01,03). Wave 4: 05. Wave 5: 06. Wave 6: 07. Wave 7: 08. Wave 8: 09. Same-wave plans have no file overlap.
+| Req    | Current executable evidence                                                                                                                                    |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CAT-01 | The IDs-only catalog-removal request and generated contract pass, with no source-delete input.                                                                 |
+| CAT-02 | Detached save, state, and play-session value survives catalog removal and reconnects on existing-ROM scan retry after an injected post-insert failure.         |
+| CAT-03 | Mapping removal, lifecycle revision, audit, retention, and owned cleanup assertions commit atomically.                                                         |
+| CAT-04 | The closed backend inventory denies every external mutation family before I/O, while the complete active-v2 inventory contains no external mutation authority. |
+| MIG-01 | Detection accepts only literal `roms/<fs_slug>` and `<fs_slug>/roms` candidates.                                                                               |
+| MIG-02 | Pristine and seeded 0110/0111 lifecycles, 0112/0113 lineage, restart, guarded downgrade, cleanup, and re-upgrade pass on all three dialects.                   |
+| MIG-03 | Missing, empty, unreadable, ambiguous, unsafe, conflicting, over-budget, and concurrently replaced observations remain non-selectable.                         |
+| MIG-04 | Mapping, migration, first-use state, and rollback lineage survive the verifier restart boundary.                                                               |
+| MIG-05 | Status is explicit and expiring, and no legacy fallback or mutation authority remains.                                                                         |
 
 ## Final Execution Evidence
 
-| Gate                                            | Result                                                                 |
-| ----------------------------------------------- | ---------------------------------------------------------------------- |
-| Controlled harness unit and failure contract    | 26 passed, 3 existing warnings                                         |
-| Harness plus mapped-read contract               | 43 passed, 3 existing warnings                                         |
-| Focused Phase 6 lifecycle and migration suite   | 291 passed, 5 existing warnings, 167.61 seconds                        |
-| MariaDB pristine and seeded-0110 round trips    | passed; 54 handler tests passed                                        |
-| MySQL pristine and seeded-0110 round trips      | passed; handler tests skipped on the intentional minimal 0107 baseline |
-| PostgreSQL pristine and seeded-0110 round trips | passed; 54 handler tests passed                                        |
-| Controlled OpenAPI generation                   | passed on loopback port 39006                                          |
-| Generated frontend contract                     | two changed legacy confirmation models regenerated and typechecked     |
-| Focused catalog-removal component               | 3 passed                                                               |
-| Full frontend suite                             | 51 files and 632 tests passed                                          |
-| Frontend TypeScript typecheck                   | passed with explicit 4096 MB Node heap                                 |
-| Locale parity and sorting                       | all 17 peer locales complete and all locale files sorted               |
-| Production frontend build                       | passed with 4,467 modules transformed                                  |
-| Scoped Trunk and diff checks                    | passed after formatter and one test-helper typing correction           |
+| Gate                                            | Current result                                                                                                               |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Task 1 adversarial closure                      | 140 passed, 4 warnings, 20.58 seconds                                                                                        |
+| Harness and mapped-read contracts               | 48 passed, 2 warnings                                                                                                        |
+| Post-remediation affected backend               | 138 passed, 2 warnings, 4.44 seconds                                                                                         |
+| Full Phase 6 lifecycle and migration regression | 315 passed, 4 warnings, 131.70 seconds                                                                                       |
+| Task 2 cleanup feedback                         | 11 passed, 20 deselected, 2 warnings                                                                                         |
+| Task 2 frontend feedback                        | 3 files, 23 tests passed                                                                                                     |
+| MariaDB migration verifier                      | pristine and seeded lifecycles passed; 59 handler/model tests passed                                                         |
+| MySQL migration verifier                        | pristine and seeded lifecycles passed; handler tests correctly skipped on the minimal 0107 baseline                          |
+| PostgreSQL migration verifier                   | pristine and seeded lifecycles passed; 59 handler/model tests passed                                                         |
+| Controlled OpenAPI contract                     | exact-checkout runner passed and cleaned every owned resource                                                                |
+| Generated frontend contract                     | 257 files; screenshot schemas coherent; zero screenshot incarnation-token fields                                             |
+| Focused frontend closure                        | 4 files and 26 tests passed                                                                                                  |
+| Full frontend suite                             | 53 files and 653 tests passed                                                                                                |
+| Frontend typecheck                              | passed with a 4096 MB Node heap                                                                                              |
+| Production frontend build                       | passed with 4,463 modules and 744 PWA entries                                                                                |
+| Locale parity and sorting                       | all 17 peer locales complete and sorted                                                                                      |
+| Active-v2 inventory                             | 436 production modules, 13 external mutation operations, 10 owned descriptors, 19 route families, zero forbidden authorities |
+| Phase 6 backend static scope                    | 18 production files, zero Trunk issues                                                                                       |
+| Phase 6 frontend static scope                   | 29 files, zero direct repository ESLint errors                                                                               |
+| Diff and repository state                       | `git diff --check` passed; tracked tree clean; 28 pre-existing untracked files preserved                                     |
+| Cleanup and normal application access           | all owned resource counts zero; normal application `SELECT 1` returned 1 before and after cleanup                            |
 
-The focused suite ran in the existing isolated development runner with
-`pytest -p no:env`, complete explicit database/Redis/auth settings, and
-`DB_HOST=romm-db-dev` against the task-only
-`romm_test_0615_1786619730` database. The production-flow closure test removes a
-ROM from the catalog, proves detached save and state list usability, reconnects
-the ROM through a later scan, and compares the source manifest before and after.
-Writable and read-only fixture cases compare path, type, mode, size, SHA-256,
-and symlink identity while deliberately excluding atime.
+## Commands and Topology
 
-The controlled harness resolved `romm-dev` to the immutable approved image,
-modeled immutable image environment values plus the exact nonempty allowlist,
-and rejected configuration drift before start. Its disposable runner used the
-exact required name, ownership label, `/bin/sleep` entrypoint, `infinity`
-command, `romm_default` network, `1000:1000` user, read-only checkout bind,
-backend workdir, and no published ports. The mode-0600 environment file never
-printed values. Uvicorn ran as UID 1000 on loopback, generated types through a
-task-owned Node volume, and cleanup removed only the returned full container ID,
-owned environment file, and owned volume on success and failure.
+The authoritative dialect command was:
 
-The approved immutable image required two disposable-runtime preparations: UID
-1000 needed execute traversal to the image-bundled Python under `/root`, and the
-validated absolute `ROMM_BASE_PATH` under `/app` needed an owned directory.
-Both changes occurred only inside the disposable runner before a default-user
-Python check and Uvicorn UID assertion. Redacted log-tail diagnostics replace
-every inherited or allowlisted environment value before reporting a startup
-failure.
+```text
+cd backend && python3 tools/verify_storage_migrations.py --dialects mariadb mysql postgresql --handler-tests --handler-test-repetitions 1
+```
 
-The authoritative verifier used uniquely named disposable MariaDB, MySQL, and
-PostgreSQL containers. It exercised pristine upgrade, seeded-0110 upgrade,
-restart persistence, expected downgrade refusal while durable lifecycle evidence
-existed, exact rollback, cleanup, downgrade, and re-upgrade. All verifier-owned
-containers exited and were removed.
+The prescribed `/home/d1sk/.local/bin/uv` launcher could not traverse the
+root-owned checkout virtual environment, so the same standard-library verifier
+was run with host `python3`. It created unique disposable database containers,
+used mapped ephemeral ports, ran against the canonical read-only application
+checkout through `romm-dev`, and removed every container. MariaDB, MySQL, and
+PostgreSQL each passed pristine upgrade, seeded 0110 and seeded 0111 upgrade
+through 0112/0113, restart, expected guarded downgrade refusal, exact rollback,
+cleanup, downgrade, and re-upgrade. The guarded-downgrade tracebacks were
+expected assertion evidence and not failures.
 
-Warnings were recorded without weakening gates. The backend warnings were the
-existing short test auth-key warning, disabled pytest-env config warning,
-Alembic path-separator deprecation, and HTTP 422 constant deprecation. The first
-standalone frontend typecheck exhausted Node's default 2 GB heap; the required
-4096 MB rerun passed, matching the controlled harness. `npm ci` reported eight
-existing audit findings. Full tests and the build also emitted existing router,
-cache fallback, story accessibility TODO, Browserslist age, CSS pseudo-class,
-dependency eval, and bundle-size warnings. The production build still passed.
+The controlled contract command retained the exact plan arguments:
 
-No deployment, Team4s service, v1 route, Phase 7 UI, source mutation, published
-port, host networking, or fallback authority was introduced.
+```text
+cd backend && python3 tools/verify_phase6_contracts.py --source-container romm-dev --checkout /home/d1sk/romm --expected-image romm-romm-dev --network romm_default --user 1000:1000 --entrypoint /bin/sleep --command infinity --env-allowlist DB_HOST,DB_NAME,DB_PASSWD,DB_PORT,DB_USER,REDIS_DB,REDIS_HOST,REDIS_PORT,REDIS_SSL,ROMM_BASE_PATH --port 39006
+```
+
+The same host `uv` traversal failure required the standard-library
+`python3` launcher. The harness verified the exact checkout, immutable image,
+allowlist, UID 1000, read-only bind, no published ports, and task-owned cleanup.
+Generation produced only terminal blank lines in three legacy models.
+`git diff --check` detected them and an exact reverse patch removed only those
+whitespace changes. The generated tree is byte-clean and contract-clean.
+
+The post-remediation backend regression command ran these suites in the existing
+isolated application runner with explicit `DB_NAME=romm_test_0623`,
+`pytest -p no:env -p no:cacheprovider`, and no service restart:
+
+```text
+tests/endpoints/roms/test_catalog_removal.py
+tests/endpoints/test_saves.py
+tests/endpoints/test_screenshots.py
+tests/endpoints/test_states.py
+tests/endpoints/test_storage_policy_denials.py
+tests/handler/database/test_storage_lifecycle.py
+tests/handler/filesystem/test_storage_inventory.py
+tests/handler/storage/test_legacy_migration.py
+tests/integration/test_legacy_migration.py
+tests/models/test_safe_lifecycle.py
+tests/tools/test_verify_storage_migrations.py
+```
+
+The frontend commands were `npm run test`,
+`NODE_OPTIONS=--max-old-space-size=4096 npm run typecheck`, the task-owned
+`mktemp` and trap build wrapper around `npm run build`, and both locale
+scripts. The build output directory used the
+`/tmp/romm-p0623-build.*` prefix and was removed by the trap.
+
+## Adversarial and Immutability Coverage
+
+The current tests directly prove:
+
+- catalog removal followed by an injected failure after ROM insertion and an
+  existing-ROM scan retry reconnects detached saves, states, and play sessions;
+- writable and read-only source manifests preserve path, kind, mode, size,
+  SHA-256, and symlink identity across success, rejection, crash, retry,
+  rollback, and restart;
+- atime remains intentionally excluded until Phase 9;
+- stale and replayed confirmation, same-platform reparent, timestamp-colliding
+  row substitution, immutable rollback lineage collision, symlink replacement,
+  path replacement, and injected transaction failure fail closed;
+- STAT-to-HASH replacement cannot exceed either the per-file or remaining
+  aggregate byte budget and rejects concurrent replacement;
+- mapping removal and external create, upload, write, overwrite, rename, move,
+  copy, delete, extract, patch, mkdir, sidecar, and cover paths are denied before
+  I/O;
+- owned create, replace, delete, and directory capabilities remain available
+  only through typed owned descriptors;
+- contract-runner cleanup is retryable after a first cleanup failure.
+
+## Static and Privacy Classification
+
+The literal broad Plan 23 Trunk diagnostic used a temporary checkout. Its
+frontend ESLint process could not resolve `@eslint/js` from that checkout and
+reported 465 runner failures. A later 47-file exact Phase 6 changed-file run had
+no code issues and only 16 repetitions of the same frontend runner failure.
+Direct ESLint from the repository dependency topology checked all 29 Phase 6
+frontend files with the exact repository configuration and returned zero errors.
+
+Backend findings were classified before editing:
+
+- Class A, caused by the two Task 1 commits: none.
+- Class B, inherited inside Plans 18 through 26: capability type narrowing and
+  one stale variable in `backend/endpoints/sockets/scan.py`; capability type
+  narrowing and two silent best-effort cleanup handlers in
+  `backend/endpoints/roms/patch.py`.
+- Class C, outside Phase 6: two mypy findings in
+  `backend/endpoints/export.py`; Black findings in
+  `backend/endpoints/roms/screenshot.py`,
+  `backend/endpoints/roms/soundtrack.py`, and
+  `backend/endpoints/streaming.py`; six ESLint findings in
+  `MarkdownViewer.vue`, `RDateField.vue`, and `Player/Stream.vue`.
+
+Only Class B was changed. Commit `d2bf9d2f7` added static-only narrowing,
+removed the unused value, and replaced silent cleanup swallowing with bounded
+warnings. Hooks passed, the affected 138-test suite passed, and the exact
+18-file backend Phase 6 Trunk scope returned zero issues. No rule was disabled,
+ignored, or weakened. Trunk also ran its configured security and secret-aware
+checks over the Phase 6 backend scope, and the closed source-mutation inventories
+passed on both stacks.
+
+## Cleanup Proof
+
+After every acceptance gate:
+
+- task database `romm_test_0623`: 0;
+- task-owned database users: 0;
+- migration and contract containers: 0;
+- contract Node volumes: 0;
+- contract environment, log, PID, and build temporary artifacts: 0;
+- verifier and contract processes: 0;
+- normal application `SELECT 1`: 1 before cleanup and 1 after cleanup;
+- tracked changes: 0 before this evidence update;
+- pre-existing untracked files: 28, unchanged.
+
+No global or normal application grant was changed. No source content, project
+service, deployment, published port, host network, v1 route, or persistent
+runtime was mutated.
