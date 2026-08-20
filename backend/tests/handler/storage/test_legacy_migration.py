@@ -149,10 +149,232 @@ def test_entry_budget_reports_observed_lower_bound(tmp_path: Path):
 
     assert result.state == "detected"
     assert result.observed_files == 1
-    assert result.lower_bound is False
+    assert result.lower_bound is True
     assert result.source_fingerprint is None
     assert result.selectable is False
     assert result.safe_problem_code == "entry_budget"
+
+
+def test_time_budget_before_listing_reports_lower_bound(tmp_path: Path):
+    ticks = iter((0.0, 2.0))
+
+    result = _detect(
+        tmp_path,
+        time_budget=1.0,
+        monotonic=lambda: next(ticks),
+    )
+
+    assert result.state == "detected"
+    assert result.observed_files == 0
+    assert result.observed_bytes == 0
+    assert result.lower_bound is True
+    assert result.source_fingerprint is None
+    assert result.selectable is False
+    assert result.safe_problem_code == "time_budget"
+
+
+def test_time_budget_between_entries_preserves_observed_prefix(
+    tmp_path: Path, monkeypatch
+):
+    subject = _subject()
+    canonical = tmp_path / "roms" / "gb"
+    canonical.mkdir(parents=True)
+    (canonical / "one.gb").write_bytes(b"1")
+    (canonical / "two.gb").write_bytes(b"2")
+    ticks = iter((0.0, 0.0, 0.0, 2.0))
+
+    def hash_one(*_args, **_kwargs):
+        return type("HashResult", (), {"bytes_read": 1, "sha256": "0" * 64})()
+
+    monkeypatch.setattr(subject, "hash_descriptor_file", hash_one)
+    result = _detect(
+        tmp_path,
+        time_budget=1.0,
+        monotonic=lambda: next(ticks),
+    )
+
+    assert result.observed_files == 1
+    assert result.observed_bytes == 1
+    assert result.lower_bound is True
+    assert result.source_fingerprint is None
+    assert result.selectable is False
+    assert result.safe_problem_code == "time_budget"
+
+
+def test_descriptor_deadline_reports_time_budget_lower_bound(
+    tmp_path: Path, monkeypatch
+):
+    from exceptions.storage_exceptions import DescriptorHashDeadlineError
+
+    subject = _subject()
+    canonical = tmp_path / "roms" / "gb"
+    canonical.mkdir(parents=True)
+    (canonical / "private-game.rom").write_bytes(b"12")
+
+    def fail_deadline(*_args, **_kwargs):
+        raise DescriptorHashDeadlineError()
+
+    monkeypatch.setattr(subject, "hash_descriptor_file", fail_deadline)
+    result = _detect(tmp_path)
+
+    assert result.observed_files == 0
+    assert result.observed_bytes == 0
+    assert result.lower_bound is True
+    assert result.source_fingerprint is None
+    assert result.selectable is False
+    assert result.safe_problem_code == "time_budget"
+
+
+@pytest.mark.parametrize(
+    ("case", "problem", "observed_files", "observed_bytes"),
+    [
+        ("file_size", "file_byte_budget", 0, 0),
+        ("aggregate_size", "aggregate_byte_budget", 1, 1),
+        ("descriptor_file", "file_byte_budget", 0, 0),
+        ("descriptor_aggregate", "aggregate_byte_budget", 0, 0),
+        ("returned_file", "file_byte_budget", 0, 0),
+        ("returned_aggregate", "aggregate_byte_budget", 0, 0),
+    ],
+)
+def test_byte_budget_exits_report_observed_lower_bounds(
+    tmp_path: Path,
+    monkeypatch,
+    case: str,
+    problem: str,
+    observed_files: int,
+    observed_bytes: int,
+):
+    from exceptions.storage_exceptions import DescriptorHashBudgetError
+
+    subject = _subject()
+    canonical = tmp_path / "roms" / "gb"
+    canonical.mkdir(parents=True)
+    kwargs = {}
+    if case == "file_size":
+        (canonical / "private-game.rom").write_bytes(b"1234")
+        kwargs["per_file_byte_budget"] = 3
+    elif case == "aggregate_size":
+        (canonical / "a.rom").write_bytes(b"1")
+        (canonical / "private-game.rom").write_bytes(b"234")
+        kwargs["aggregate_byte_budget"] = 3
+    else:
+        (canonical / "private-game.rom").write_bytes(b"12")
+        if case.endswith("file"):
+            kwargs.update(per_file_byte_budget=3, aggregate_byte_budget=10)
+        else:
+            kwargs.update(per_file_byte_budget=10, aggregate_byte_budget=3)
+
+        if case.startswith("descriptor"):
+
+            def fail_budget(*_args, **_kwargs):
+                raise DescriptorHashBudgetError()
+
+            monkeypatch.setattr(subject, "hash_descriptor_file", fail_budget)
+        else:
+
+            def return_over_cap(*_args, **_kwargs):
+                return type(
+                    "DishonestHashResult",
+                    (),
+                    {"bytes_read": 4, "sha256": "0" * 64},
+                )()
+
+            monkeypatch.setattr(subject, "hash_descriptor_file", return_over_cap)
+
+    result = _detect(tmp_path, **kwargs)
+
+    assert result.observed_files == observed_files
+    assert result.observed_bytes == observed_bytes
+    assert result.lower_bound is True
+    assert result.source_fingerprint is None
+    assert result.selectable is False
+    assert result.safe_problem_code == problem
+    assert "private-game" not in str(asdict(result))
+
+
+def test_exact_and_non_budget_outcomes_are_not_lower_bounds(
+    tmp_path: Path, monkeypatch
+):
+    from exceptions.storage_exceptions import DescriptorHashConcurrentChangeError
+
+    exact_root = tmp_path / "exact"
+    exact = exact_root / "roms" / "gb"
+    exact.mkdir(parents=True)
+    (exact / "game.gb").write_bytes(b"game")
+    detected = _detect(exact_root)
+
+    empty_root = tmp_path / "empty"
+    (empty_root / "roms" / "gb").mkdir(parents=True)
+    empty = _detect(empty_root)
+
+    concurrent_root = tmp_path / "concurrent"
+    concurrent = concurrent_root / "roms" / "gb"
+    concurrent.mkdir(parents=True)
+    (concurrent / "game.gb").write_bytes(b"game")
+
+    def fail_concurrent(*_args, **_kwargs):
+        raise DescriptorHashConcurrentChangeError()
+
+    monkeypatch.setattr(_subject(), "hash_descriptor_file", fail_concurrent)
+    incomplete = _detect(concurrent_root)
+
+    assert detected.lower_bound is False
+    assert detected.selectable is True
+    assert empty.lower_bound is False
+    assert empty.selectable is False
+    assert incomplete.lower_bound is False
+    assert incomplete.selectable is False
+    assert incomplete.safe_problem_code == "hash_incomplete"
+
+
+def test_budget_lower_bound_survives_persistence_and_public_serialization(
+    tmp_path: Path, platform, admin_user
+):
+    from handler.database.base_handler import sync_session
+    from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
+    from models.storage import StorageRoot
+
+    canonical = tmp_path / "roms" / platform.fs_slug
+    canonical.mkdir(parents=True)
+    (canonical / "private-one.rom").write_bytes(b"1")
+    (canonical / "private-two.rom").write_bytes(b"2")
+    with sync_session.begin() as database:
+        root = StorageRoot(name="legacy-lower-bound", container_path=str(tmp_path))
+        database.add(root)
+        database.flush()
+        root_id = root.id
+
+    handler = DBLegacyMigrationHandler()
+    context = handler.get_detection_context(platform.id, root_id)
+    outcome = _subject().detect_legacy_storage(
+        _external(tmp_path, root_id),
+        platform_id=platform.id,
+        storage_root_id=root_id,
+        fs_slug=platform.fs_slug,
+        entry_budget=1,
+    )
+    result = handler.save_detection_result(
+        context,
+        outcome,
+        actor_user_id=admin_user.id,
+    )
+
+    from endpoints.storage import _legacy_detection_result_schema
+
+    payload = _legacy_detection_result_schema(result).model_dump(mode="json")
+    serialized = str(payload)
+    assert result.lower_bound is True
+    assert result.selectable is False
+    assert result.source_fingerprint is None
+    assert result.safe_problem_code == "entry_budget"
+    assert payload["lower_bound"] is True
+    assert payload["selectable"] is False
+    assert payload["safe_problem_code"] == "entry_budget"
+    assert "fingerprint" not in serialized.lower()
+    assert str(tmp_path) not in serialized
+    assert "private-one.rom" not in serialized
+    assert "private-two.rom" not in serialized
+    assert "raw" not in serialized.lower()
 
 
 def test_unsafe_candidate_is_path_free_and_unselectable(tmp_path: Path):
