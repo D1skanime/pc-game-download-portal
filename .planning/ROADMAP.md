@@ -270,14 +270,14 @@ Plans:
 
 ## Progress
 
-| Phase                                   | Plans Complete | Status       | Completed  |
-| --------------------------------------- | -------------- | ------------ | ---------- |
-| 1. Immutable Storage Foundation         | 7/7            | Complete     | 2026-08-05 |
-| 2. Read-only Policy Boundary            | 11/11          | Complete     | 2026-08-10 |
-| 3. Mapping Administration Contracts     | 6/6            | Complete     | 2026-08-11 |
-| 4. V2 Storage Design Specification      | 3/3            | Complete     | 2026-08-12 |
-| 5. Preview and Read-path Cutover        | 8/8            | Complete     | 2026-08-12 |
-| 6. Safe Lifecycle and Legacy Migration  | 26/32          | Gaps planned | -          |
-| 7. V2 Storage Administration Experience | 0/TBD          | Not started  | -          |
-| 8. Bounded V1 Removal                   | 0/TBD          | Not started  | -          |
-| 9. Operational Immutability Proof       | 0/TBD          | Not started  | -          |
+| Phase                                   | Plans Complete | Status      | Completed  |
+| --------------------------------------- | -------------- | ----------- | ---------- |
+| 1. Immutable Storage Foundation         | 7/7            | Complete    | 2026-08-05 |
+| 2. Read-only Policy Boundary            | 11/11          | Complete    | 2026-08-10 |
+| 3. Mapping Administration Contracts     | 6/6            | Complete    | 2026-08-11 |
+| 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
+| 5. Preview and Read-path Cutover        | 8/8            | Complete    | 2026-08-12 |
+| 6. Safe Lifecycle and Legacy Migration  | 27/32          | In Progress |            |
+| 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
+| 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
+| 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |

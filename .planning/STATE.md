@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 06 gap planning complete - 6 plans ready
-last_updated: "2026-08-20T10:16:44.062Z"
-last_activity: 2026-08-20 -- Phase 06 planning complete
+stopped_at: Completed 06-27-PLAN.md
+last_updated: "2026-08-20T11:14:25.829Z"
+last_activity: 2026-08-20 -- Completed Plan 06-27 early rename authorization
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 67
-  completed_plans: 61
+  completed_plans: 62
   percent: 56
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 06 - safe-lifecycle-and-legacy-migration
+**Current focus:** Phase 06 — safe-lifecycle-and-legacy-migration
 
 ## Current Position
 
-Phase: 06 (safe-lifecycle-and-legacy-migration) - EXECUTING
-Plan: 26 of 32
+Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
+Plan: 27 of 32
 Status: Ready to execute
-Last activity: 2026-08-20 -- Phase 06 planning complete
+Last activity: 2026-08-20 -- Completed Plan 06-27 early rename authorization
 
 Progress: [█████████░] 87%
 
@@ -99,6 +99,7 @@ _Updated after each plan completion_
 | Phase 06 P25 | 42min | 2 tasks | 17 files |
 | Phase 06 P26 | 22m | 2 tasks | 10 files |
 | Phase 06 P23 | 150min | 2 tasks | 8 files |
+| Phase 06 P27 | 12min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -216,6 +217,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Source manifests compare path, kind, mode, size, SHA-256, and symlink identity; atime remains excluded until Phase 9.
 - [Phase 06]: Frontend static acceptance uses the exact Phase 6 changed-file set under the repository dependency topology after Trunk temporary-checkout resolution failure.
 - [Phase 06]: Static remediation remains bounded to Plans 18 through 26 changed files; unrelated inherited findings stay unchanged.
+- [Phase 06]: Compute and authorize the effective submitted filename once, immediately after ROM visibility. — Changed-name denial must precede every mixed-authority effect.
+- [Phase 06]: Treat every changed normalized filename as external RENAME authority before unmatch, provider, database, cache, collection, response, owned-resource, or filesystem work. — CAT-04 requires a fail-closed boundary regardless of other permitted fields.
 
 ### Blockers/Concerns
 
@@ -233,6 +236,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-20T07:03:51.902Z
-Stopped at: Final Phase 06 re-verification gaps found
+Last session: 2026-08-20T11:14:25.825Z
+Stopped at: Completed 06-27-PLAN.md
 Resume file: None
