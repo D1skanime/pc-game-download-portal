@@ -672,12 +672,39 @@ def _install_update_rom_tripwires(
         monkeypatch.setattr(
             rom_endpoints.fs_resource_handler,
             name,
-            AsyncMock(side_effect=AssertionError("owned resource mutation reached")),
+            AsyncMock(
+                side_effect=lambda *_args, _name=name, **_kwargs: (
+                    effects.append(f"owned:{_name}"),
+                    (_ for _ in ()).throw(
+                        AssertionError("owned resource mutation reached")
+                    ),
+                )[1]
+            ),
         )
     monkeypatch.setattr(
         rom_endpoints.fs_rom_handler,
         "rename_fs_rom",
-        AsyncMock(side_effect=AssertionError("external rename reached")),
+        AsyncMock(
+            side_effect=lambda *_args, **_kwargs: (
+                effects.append("external:rename"),
+                (_ for _ in ()).throw(AssertionError("external rename reached")),
+            )[1]
+        ),
+    )
+    monkeypatch.setattr(
+        rom_endpoints.db_rom_handler,
+        "invalidate_filter_values_cache",
+        Mock(side_effect=lambda: effects.append("cache")),
+    )
+    monkeypatch.setattr(
+        rom_endpoints,
+        "refresh_affected_smart_collections",
+        Mock(side_effect=lambda *_args, **_kwargs: effects.append("collection")),
+    )
+    monkeypatch.setattr(
+        rom_endpoints.DetailedRomSchema,
+        "from_orm_with_request",
+        Mock(side_effect=lambda *_args, **_kwargs: effects.append("response")),
     )
 
 
@@ -753,6 +780,140 @@ async def test_update_rom_changed_fs_name_denies_before_partial_mutation(
     assert _source_manifest(owned) == owned_before
     rom_endpoints.db_rom_handler.update_rom.assert_not_called()
     rom_endpoints.fs_rom_handler.rename_fs_rom.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_rom_changed_fs_name_denied_before_unmatch_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "external"
+    owned = tmp_path / "resources"
+    source.mkdir()
+    owned.mkdir()
+    (source / "game.bin").write_bytes(b"immutable source")
+    (owned / "cover.png").write_bytes(b"immutable owned")
+    source_before = _source_manifest(source)
+    owned_before = _source_manifest(owned)
+
+    rom = _rom_update_fixture()
+    effects: list[str] = []
+    _install_update_rom_tripwires(monkeypatch, rom, effects)
+    real_authorize = rom_endpoints.authorize_api_storage_operation
+
+    def record_authorization(operation, storage):
+        effects.append("authorize:" + operation.value)
+        return real_authorize(operation, storage)
+
+    monkeypatch.setattr(
+        rom_endpoints,
+        "authorize_api_storage_operation",
+        record_authorization,
+    )
+
+    form = rom_endpoints.RomUpdateForm(fs_name="renamed.bin")
+    for _ in range(2):
+        with pytest.raises(HTTPException) as error:
+            await unwrap(rom_endpoints.update_rom)(
+                request=Mock(),
+                id=rom.id,
+                form_data=form,
+                artwork=None,
+                remove_cover=False,
+                unmatch_metadata=True,
+            )
+        assert error.value.status_code == 403
+        assert error.value.detail == {
+            "code": "external_storage_operation_denied",
+            "operation": "rename",
+            "storage_class": "external_read_only",
+            "storage_id": "root:0",
+        }
+        assert str(source) not in str(error.value.detail)
+
+    assert effects == ["authorize:rename", "authorize:rename"]
+    assert _source_manifest(source) == source_before
+    assert _source_manifest(owned) == owned_before
+    rom_endpoints.db_rom_handler.update_rom.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_rom_changed_fs_name_denied_before_provider_screenshot_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "external"
+    owned = tmp_path / "resources"
+    source.mkdir()
+    owned.mkdir()
+    (source / "game.bin").write_bytes(b"immutable source")
+    (owned / "cover.png").write_bytes(b"immutable owned")
+    source_before = _source_manifest(source)
+    owned_before = _source_manifest(owned)
+
+    rom = _rom_update_fixture()
+    effects: list[str] = []
+    _install_update_rom_tripwires(monkeypatch, rom, effects)
+    real_authorize = rom_endpoints.authorize_api_storage_operation
+
+    def record_authorization(operation, storage):
+        effects.append("authorize:" + operation.value)
+        return real_authorize(operation, storage)
+
+    async def provider_result(*_args, **_kwargs):
+        effects.append("provider")
+        return {
+            "igdb_id": 101,
+            "url_screenshots": ["https://example.invalid/screenshot.png"],
+        }
+
+    async def screenshot_effect(*_args, **_kwargs):
+        effects.append("owned:get_rom_screenshots")
+        return ["screenshot.png"]
+
+    monkeypatch.setattr(
+        rom_endpoints,
+        "authorize_api_storage_operation",
+        record_authorization,
+    )
+    monkeypatch.setattr(
+        rom_endpoints.meta_igdb_handler,
+        "get_rom_by_id",
+        AsyncMock(side_effect=provider_result),
+    )
+    monkeypatch.setattr(
+        rom_endpoints.fs_resource_handler,
+        "get_rom_screenshots",
+        AsyncMock(side_effect=screenshot_effect),
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await unwrap(rom_endpoints.update_rom)(
+            request=Mock(),
+            id=rom.id,
+            form_data=rom_endpoints.RomUpdateForm(
+                fs_name="renamed.bin",
+                igdb_id="101",
+            ),
+            artwork=None,
+            remove_cover=False,
+            unmatch_metadata=False,
+        )
+
+    assert error.value.status_code == 403
+    assert error.value.detail == {
+        "code": "external_storage_operation_denied",
+        "operation": "rename",
+        "storage_class": "external_read_only",
+        "storage_id": "root:0",
+    }
+    assert str(source) not in str(error.value.detail)
+    assert effects == ["authorize:rename"]
+    assert _source_manifest(source) == source_before
+    assert _source_manifest(owned) == owned_before
+    rom_endpoints.meta_igdb_handler.get_rom_by_id.assert_not_awaited()
+    rom_endpoints.fs_resource_handler.get_rom_screenshots.assert_not_awaited()
+    rom_endpoints.db_rom_handler.update_rom.assert_not_called()
 
 
 @pytest.mark.asyncio
