@@ -304,7 +304,7 @@ def test_owned_create_retries_short_write_to_completion(tmp_path, monkeypatch):
     with open_owned_access(
         _owned(tmp_path), StorageOperation.CREATE, "created.bin"
     ) as create:
-        create.create(content)  # type: ignore[attr-defined]
+        create.create(content)  # type: ignore[union-attr]
 
     assert (tmp_path / "created.bin").read_bytes() == content
     _assert_descriptors_closed(descriptors)
@@ -327,7 +327,7 @@ def test_owned_replace_retries_short_write_to_completion(tmp_path, monkeypatch):
     with open_owned_access(
         _owned(tmp_path), StorageOperation.OVERWRITE, target.name
     ) as replace:
-        replace.replace(content)  # type: ignore[attr-defined]
+        replace.replace(content)  # type: ignore[union-attr]
 
     assert target.read_bytes() == content
     assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()

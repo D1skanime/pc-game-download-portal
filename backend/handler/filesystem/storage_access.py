@@ -50,6 +50,18 @@ def _bounded_open_error(
     return StorageResolutionError("Storage target is not accessible")
 
 
+def _write_all(descriptor: int, content: bytes) -> None:
+    remaining = memoryview(content)
+    while remaining:
+        try:
+            written = os.write(descriptor, remaining)
+        except InterruptedError:
+            continue
+        if written <= 0 or written > len(remaining):
+            raise OSError(errno.EIO, "Storage write did not make valid progress")
+        remaining = remaining[written:]
+
+
 def _root_path(
     storage_root: ExternalStorageDescriptor | OwnedStorageDescriptor,
 ) -> str:
@@ -418,10 +430,20 @@ class OwnedCreate(_OwnedMutationCapability):
             )
         except OSError as error:
             raise _bounded_open_error(error) from error
+        active_descriptor: int | None = descriptor
         try:
-            os.write(descriptor, content)
-        finally:
+            _write_all(descriptor, content)
+        except OSError as error:
             os.close(descriptor)
+            active_descriptor = None
+            try:
+                os.unlink(self._name, dir_fd=parent)
+            except OSError:
+                pass
+            raise _bounded_open_error(error) from error
+        finally:
+            if active_descriptor is not None:
+                os.close(active_descriptor)
 
 
 class OwnedReplace(_OwnedMutationCapability):
@@ -464,7 +486,7 @@ class OwnedReplace(_OwnedMutationCapability):
                 0o644,
                 dir_fd=parent,
             )
-            os.write(descriptor, content)
+            _write_all(descriptor, content)
             os.fsync(descriptor)
             os.close(descriptor)
             descriptor = None
