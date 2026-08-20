@@ -163,6 +163,157 @@ def test_catalog_incarnation_tokens_overwrite_input_and_reject_updates():
                 )
 
 
+def _seed_bulk_guard_entities() -> dict[type[Rom] | type[RomFile], tuple[int, str]]:
+    with sync_session.begin() as session:
+        platform = Platform(
+            name="Bulk incarnation",
+            slug="bulk-incarnation",
+            fs_slug="bulk-incarnation",
+        )
+        session.add(platform)
+        session.flush()
+        rom = Rom(
+            platform_id=platform.id,
+            fs_name="bulk-incarnation.bin",
+            fs_path="bulk-incarnation",
+            fs_size_bytes=1,
+            name="Bulk incarnation",
+        )
+        session.add(rom)
+        session.flush()
+        rom_file = RomFile(
+            rom_id=rom.id,
+            file_name=rom.fs_name,
+            file_path=rom.fs_path,
+            file_size_bytes=1,
+        )
+        session.add(rom_file)
+        session.flush()
+        return {
+            Rom: (rom.id, rom.incarnation_token),
+            RomFile: (rom_file.id, rom_file.incarnation_token),
+        }
+
+
+def _assert_incarnation_mutation_rejected(
+    model: type[Rom] | type[RomFile],
+    entity_id: int,
+    original_token: str,
+    mutation_form: str,
+) -> None:
+    replacement = "f" * 32
+    rejection: ValueError | None = None
+    session = sync_session()
+    try:
+        if mutation_form == "instance_flush":
+            entity = session.get(model, entity_id)
+            assert entity is not None
+            entity.incarnation_token = replacement
+            session.flush()
+        elif mutation_form == "statement_values":
+            session.execute(
+                update(model)
+                .where(model.id == entity_id)
+                .values(incarnation_token=replacement)
+            )
+        elif mutation_form == "query_update":
+            session.query(model).filter(model.id == entity_id).update(
+                {model.incarnation_token: replacement},
+                synchronize_session=False,
+            )
+        elif mutation_form == "orm_executemany":
+            session.execute(
+                update(model),
+                [{"id": entity_id, "incarnation_token": replacement}],
+            )
+        elif mutation_form == "bulk_update_mappings":
+            session.bulk_update_mappings(
+                model,
+                [{"id": entity_id, "incarnation_token": replacement}],
+            )
+        elif mutation_form == "bulk_save_objects":
+            entity = session.get(model, entity_id)
+            assert entity is not None
+            session.expunge(entity)
+            entity.incarnation_token = replacement
+            session.bulk_save_objects([entity], update_changed_only=True)
+        else:
+            raise AssertionError(f"unknown mutation form: {mutation_form}")
+        session.commit()
+    except ValueError as error:
+        session.rollback()
+        rejection = error
+    except TypeError as error:
+        session.rollback()
+        pytest.fail(
+            f"{mutation_form} raised framework TypeError instead of the immutable "
+            f"guard: {error}",
+            pytrace=False,
+        )
+    finally:
+        session.close()
+
+    with sync_session() as verification_session:
+        persisted = verification_session.get(model, entity_id)
+        assert persisted is not None
+        assert (
+            persisted.incarnation_token == original_token
+        ), f"{mutation_form} changed incarnation_token without the immutable guard"
+    assert rejection is not None, f"{mutation_form} did not raise the immutable guard"
+    assert str(rejection) == "incarnation token is immutable"
+
+    with sync_session.begin() as positive_session:
+        updated = (
+            positive_session.query(model)
+            .filter(model.id == entity_id)
+            .update({model.missing_from_fs: True}, synchronize_session=False)
+        )
+        assert updated == 1
+    with sync_session() as verification_session:
+        persisted = verification_session.get(model, entity_id)
+        assert persisted is not None
+        assert persisted.missing_from_fs is True
+
+
+@pytest.mark.parametrize("model", [Rom, RomFile])
+@pytest.mark.parametrize(
+    "mutation_form",
+    [
+        "instance_flush",
+        "statement_values",
+        "query_update",
+        "orm_executemany",
+        "bulk_save_objects",
+    ],
+)
+def test_catalog_incarnation_tokens_reject_supported_orm_updates(
+    model: type[Rom] | type[RomFile],
+    mutation_form: str,
+):
+    seeded = _seed_bulk_guard_entities()
+    entity_id, original_token = seeded[model]
+    _assert_incarnation_mutation_rejected(
+        model,
+        entity_id,
+        original_token,
+        mutation_form,
+    )
+
+
+@pytest.mark.parametrize("model", [Rom, RomFile])
+def test_catalog_incarnation_tokens_reject_bulk_update_mappings(
+    model: type[Rom] | type[RomFile],
+):
+    seeded = _seed_bulk_guard_entities()
+    entity_id, original_token = seeded[model]
+    _assert_incarnation_mutation_rejected(
+        model,
+        entity_id,
+        original_token,
+        "bulk_update_mappings",
+    )
+
+
 def _seed_atomic_migration(tmp_path: Path, *, suffix: str = "one"):
     from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
     from handler.filesystem.storage_composition import (

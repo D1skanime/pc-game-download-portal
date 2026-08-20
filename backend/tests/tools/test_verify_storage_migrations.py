@@ -388,3 +388,19 @@ def test_three_dialect_verifier_proves_0113_lineage_lifecycle():
         "lineage rollback state did not survive restart",
     ):
         assert marker in verifier_source
+
+
+def test_three_dialect_verifier_wires_orm_guard_around_restart():
+    verifier_source = Path("tools/verify_storage_migrations.py").read_text()
+    verify_dialect = verifier_source.split("def verify_dialect(", 1)[1]
+
+    pre_restart = verify_dialect.index("_verify_orm_incarnation_guard(")
+    restart = verify_dialect.index("_verify_restart_persistence(")
+    post_restart = verify_dialect.index("_verify_orm_incarnation_tokens_after_restart(")
+
+    assert pre_restart < restart < post_restart
+    assert '"orm incarnation guard passed before restart"' in verifier_source
+    assert '"orm incarnation tokens survived restart"' in verifier_source
+    assert "bulk_update_mappings" in verifier_source
+    assert "bulk_save_objects" in verifier_source
+    assert "incarnation_token" in verifier_source
