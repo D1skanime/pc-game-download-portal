@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-28-PLAN.md
-last_updated: "2026-08-20T11:53:04.730Z"
+stopped_at: Completed 06-29-PLAN.md
+last_updated: "2026-08-20T12:24:12.760Z"
 last_activity: 2026-08-20
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 67
-  completed_plans: 63
-  percent: 56
+  completed_plans: 64
+  percent: 96
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 28 of 32
+Plan: 29 of 32
 Status: Ready to execute
 Last activity: 2026-08-20
 
-Progress: [█████████░] 87%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -101,6 +101,7 @@ _Updated after each plan completion_
 | Phase 06 P23 | 150min | 2 tasks | 8 files |
 | Phase 06 P27 | 12min | 2 tasks | 2 files |
 | Phase 06 P28 | 30min | 2 tasks | 4 files |
+| Phase 06 P29 | 20min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -223,6 +224,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Enforce incarnation-token immutability at Engine.before_execute for all supported ORM update forms. — Mapper and Session events do not observe every bulk parameter path before SQL.
 - [Phase 06]: Match only exact Rom and RomFile mapped tables at the execution boundary. — Alembic migration updates use independent table metadata and must remain functional.
 - [Phase 06]: Verify the same narrow ORM matrix before restart and exact token equality afterward on all three dialects. — The immutable rollback premise must survive dialect and deployment lifecycle differences.
+- [Phase 06]: Recognize supported HTTP members on known clients while excluding axios utilities. — Keeps utility calls outside the mutation inventory without permitting dynamic request methods.
+- [Phase 06]: Resolve immutable routes and reject mutable or non-reducible expressions. — Fail-closed normalization prevents unknown mutation routes from escaping classification.
+- [Phase 06]: Redact importers to a basename and exclude arguments from diagnostics. — Diagnostics remain actionable without leaking payload data or absolute paths.
 
 ### Blockers/Concerns
 
@@ -240,6 +244,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-20T11:53:04.727Z
-Stopped at: Completed 06-28-PLAN.md
+Last session: 2026-08-20T12:24:12.756Z
+Stopped at: Completed 06-29-PLAN.md
 Resume file: None
