@@ -186,7 +186,7 @@ Plans:
 4. Ambiguous legacy layouts require an explicit manual mapping rather than a guess, and any compatibility fallback is visible and time-bounded.
 5. Mappings survive restarts and normal deployment operations, with portable and practically reversible database migration behavior.
 
-**Plans**: 26/26 plans executed
+**Plans**: 26/32 plans executed
 
 Plans:
 
@@ -216,6 +216,12 @@ Plans:
 - [x] `06-24-PLAN.md` - Remove firmware external mutation authority and prove backend denial.
 - [x] `06-25-PLAN.md` - Remove active-v2 external upload and source-directory creation.
 - [x] `06-26-PLAN.md` - Close source rename and install the final v2 mutation inventory.
+- [ ] `06-27-PLAN.md` - Authorize changed source names before every database, owned-resource, or filesystem effect.
+- [ ] `06-28-PLAN.md` - Enforce immutable rollback lineage across supported bulk ORM mutation paths.
+- [ ] `06-29-PLAN.md` - Make the active-v2 external-mutation inventory complete and fail closed.
+- [ ] `06-30-PLAN.md` - Correct lower-bound semantics for budget-limited legacy observations.
+- [ ] `06-31-PLAN.md` - Make owned create and replace writes complete and failure-atomic.
+- [ ] `06-32-PLAN.md` - Re-run complete Phase 6 integration and adversarial verification.
 
 ### Phase 7: V2 Storage Administration Experience
 
@@ -264,14 +270,14 @@ Plans:
 
 ## Progress
 
-| Phase                                   | Plans Complete | Status      | Completed  |
-| --------------------------------------- | -------------- | ----------- | ---------- |
-| 1. Immutable Storage Foundation         | 7/7            | Complete    | 2026-08-05 |
-| 2. Read-only Policy Boundary            | 11/11          | Complete    | 2026-08-10 |
-| 3. Mapping Administration Contracts     | 6/6            | Complete    | 2026-08-11 |
-| 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
-| 5. Preview and Read-path Cutover        | 8/8            | Complete    | 2026-08-12 |
-| 6. Safe Lifecycle and Legacy Migration  | 26/26          | Gaps found  | -          |
-| 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
-| 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
-| 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |
+| Phase                                   | Plans Complete | Status       | Completed  |
+| --------------------------------------- | -------------- | ------------ | ---------- |
+| 1. Immutable Storage Foundation         | 7/7            | Complete     | 2026-08-05 |
+| 2. Read-only Policy Boundary            | 11/11          | Complete     | 2026-08-10 |
+| 3. Mapping Administration Contracts     | 6/6            | Complete     | 2026-08-11 |
+| 4. V2 Storage Design Specification      | 3/3            | Complete     | 2026-08-12 |
+| 5. Preview and Read-path Cutover        | 8/8            | Complete     | 2026-08-12 |
+| 6. Safe Lifecycle and Legacy Migration  | 26/32          | Gaps planned | -          |
+| 7. V2 Storage Administration Experience | 0/TBD          | Not started  | -          |
+| 8. Bounded V1 Removal                   | 0/TBD          | Not started  | -          |
+| 9. Operational Immutability Proof       | 0/TBD          | Not started  | -          |
