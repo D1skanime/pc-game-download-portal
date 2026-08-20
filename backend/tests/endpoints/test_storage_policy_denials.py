@@ -6,6 +6,7 @@ import stat
 from inspect import unwrap
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, Mock, call
 
 import pytest
@@ -669,27 +670,25 @@ def _install_update_rom_tripwires(
         "remove_media_resources_path",
         "store_media_file",
     ):
+
+        async def owned_resource_effect(*_args, _name: str = name, **_kwargs) -> None:
+            effects.append(f"owned:{_name}")
+            raise AssertionError("owned resource mutation reached")
+
         monkeypatch.setattr(
             rom_endpoints.fs_resource_handler,
             name,
-            AsyncMock(
-                side_effect=lambda *_args, _name=name, **_kwargs: (
-                    effects.append(f"owned:{_name}"),
-                    (_ for _ in ()).throw(
-                        AssertionError("owned resource mutation reached")
-                    ),
-                )[1]
-            ),
+            AsyncMock(side_effect=owned_resource_effect),
         )
+
+    async def external_rename_effect(*_args, **_kwargs) -> None:
+        effects.append("external:rename")
+        raise AssertionError("external rename reached")
+
     monkeypatch.setattr(
         rom_endpoints.fs_rom_handler,
         "rename_fs_rom",
-        AsyncMock(
-            side_effect=lambda *_args, **_kwargs: (
-                effects.append("external:rename"),
-                (_ for _ in ()).throw(AssertionError("external rename reached")),
-            )[1]
-        ),
+        AsyncMock(side_effect=external_rename_effect),
     )
     monkeypatch.setattr(
         rom_endpoints.db_rom_handler,
@@ -779,7 +778,7 @@ async def test_update_rom_changed_fs_name_denies_before_partial_mutation(
     assert _source_manifest(source) == source_before
     assert _source_manifest(owned) == owned_before
     rom_endpoints.db_rom_handler.update_rom.assert_not_called()
-    rom_endpoints.fs_rom_handler.rename_fs_rom.assert_not_awaited()
+    cast(AsyncMock, rom_endpoints.fs_rom_handler.rename_fs_rom).assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -911,8 +910,10 @@ async def test_update_rom_changed_fs_name_denied_before_provider_screenshot_effe
     assert effects == ["authorize:rename"]
     assert _source_manifest(source) == source_before
     assert _source_manifest(owned) == owned_before
-    rom_endpoints.meta_igdb_handler.get_rom_by_id.assert_not_awaited()
-    rom_endpoints.fs_resource_handler.get_rom_screenshots.assert_not_awaited()
+    cast(AsyncMock, rom_endpoints.meta_igdb_handler.get_rom_by_id).assert_not_awaited()
+    cast(
+        AsyncMock, rom_endpoints.fs_resource_handler.get_rom_screenshots
+    ).assert_not_awaited()
     rom_endpoints.db_rom_handler.update_rom.assert_not_called()
 
 
@@ -979,5 +980,5 @@ async def test_update_rom_same_fs_name_keeps_metadata_and_owned_resources(
     db_update.assert_called_once()
     assert db_update.call_args.args[1]["name"] == "Updated"
     assert db_update.call_args.args[1]["fs_name"] == rom.fs_name
-    rom_endpoints.fs_resource_handler.get_cover.assert_awaited_once()
-    rom_endpoints.fs_resource_handler.get_manual.assert_awaited_once()
+    cast(AsyncMock, rom_endpoints.fs_resource_handler.get_cover).assert_awaited_once()
+    cast(AsyncMock, rom_endpoints.fs_resource_handler.get_manual).assert_awaited_once()
