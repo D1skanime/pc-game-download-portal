@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-30-PLAN.md
-last_updated: "2026-08-20T12:54:06.831Z"
+stopped_at: Completed 06-31-PLAN.md
+last_updated: "2026-08-20T13:13:19.059Z"
 last_activity: 2026-08-20
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 67
-  completed_plans: 65
-  percent: 97
+  completed_plans: 66
+  percent: 56
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 30 of 32
+Plan: 31 of 32
 Status: Ready to execute
 Last activity: 2026-08-20
 
@@ -103,6 +103,7 @@ _Updated after each plan completion_
 | Phase 06 P28 | 30min | 2 tasks | 4 files |
 | Phase 06 P29 | 20min | 2 tasks | 1 files |
 | Phase 06 P30 | 17min | 2 tasks | 2 files |
+| Phase 06 P31 | 10min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -230,6 +231,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Redact importers to a basename and exclude arguments from diagnostics. — Diagnostics remain actionable without leaking payload data or absolute paths.
 - [Phase 06]: Treat every budget-limited prefix as a lower bound while exact and non-budget outcomes retain their existing semantics.
 - [Phase 06]: Classify descriptor hash deadlines as time_budget before generic hash failures.
+- [Phase 06]: Owned byte writes reject invalid kernel progress — Retry only InterruptedError and reject zero, negative, or over-reported counts.
+- [Phase 06]: Owned replacements publish only complete fsynced content — Create cleanup stays descriptor-relative and replace preserves the prior target until atomic install.
 
 ### Blockers/Concerns
 
@@ -247,6 +250,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-20T12:53:49.665Z
-Stopped at: Completed 06-30-PLAN.md
+Last session: 2026-08-20T13:13:19.055Z
+Stopped at: Completed 06-31-PLAN.md
 Resume file: None
