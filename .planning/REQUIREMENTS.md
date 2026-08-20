@@ -192,7 +192,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | V2-04       | Phase 8 | Pending  |
 | V2-05       | Phase 8 | Pending  |
 | MIG-01      | Phase 6 | Complete |
-| MIG-02      | Phase 6 | Blocked  |
+| MIG-02      | Phase 6 | Complete |
 | MIG-03      | Phase 6 | Complete |
 | MIG-04      | Phase 6 | Complete |
 | MIG-05      | Phase 6 | Complete |

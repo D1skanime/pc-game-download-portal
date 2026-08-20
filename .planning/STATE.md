@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 06-31-PLAN.md
-last_updated: "2026-08-20T13:13:19.059Z"
+status: complete
+stopped_at: Completed 06-32-PLAN.md
+last_updated: "2026-08-20T13:48:40.311Z"
 last_activity: 2026-08-20
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 67
-  completed_plans: 66
-  percent: 56
+  completed_plans: 67
+  percent: 67
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 31 of 32
-Status: Ready to execute
+Phase: 06 (safe-lifecycle-and-legacy-migration) - COMPLETE
+Plan: 32 of 32
+Status: Phase complete
 Last activity: 2026-08-20
 
-Progress: [██████████] 97%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
@@ -104,6 +104,7 @@ _Updated after each plan completion_
 | Phase 06 P29 | 20min | 2 tasks | 1 files |
 | Phase 06 P30 | 17min | 2 tasks | 2 files |
 | Phase 06 P31 | 10min | 2 tasks | 2 files |
+| Phase 06 P32 | 17min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -233,6 +234,7 @@ Recent decisions affecting current work:
 - [Phase 06]: Classify descriptor hash deadlines as time_budget before generic hash failures.
 - [Phase 06]: Owned byte writes reject invalid kernel progress — Retry only InterruptedError and reject zero, negative, or over-reported counts.
 - [Phase 06]: Owned replacements publish only complete fsynced content — Create cleanup stays descriptor-relative and replace preserves the prior target until atomic install.
+- [Phase 06]: Use the proven host Python launcher when the application image intentionally lacks the Docker client. - This preserves the exact checked-in verifier while allowing disposable dialect resources.
 
 ### Blockers/Concerns
 
@@ -250,6 +252,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-20T13:13:19.055Z
-Stopped at: Completed 06-31-PLAN.md
+Last session: 2026-08-20T13:48:03.203Z
+Stopped at: Completed 06-32-PLAN.md
 Resume file: None
