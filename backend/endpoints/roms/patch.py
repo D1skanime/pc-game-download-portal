@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -20,12 +20,19 @@ from handler.filesystem import (
     storage_composition,
 )
 from handler.filesystem.storage_access import (
+    OwnedCreate,
+    OwnedDelete,
+    OwnedDirectory,
     OwnedRead,
     ReadCapability,
     open_owned_access,
     open_storage_access,
 )
-from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
+from handler.filesystem.storage_policy import (
+    OwnedStorageDescriptor,
+    OwnedStorageKind,
+    StorageOperation,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -133,9 +140,13 @@ async def patch_rom(
     rom_base = Path(rom_file.file_name).stem
     temp_storage = storage_composition.owned[OwnedStorageKind.TEMP]
     temp_dir = f"romm_patch_{uuid4().hex}"
-    with open_owned_access(temp_storage, StorageOperation.MKDIR, temp_dir) as directory:
+    with cast(
+        OwnedDirectory,
+        open_owned_access(temp_storage, StorageOperation.MKDIR, temp_dir),
+    ) as directory:
         directory.mkdir()
     cleanup_names: list[str] = []
+    patch_capability: ReadCapability
 
     try:
         if patch_file is not None:
@@ -169,19 +180,28 @@ async def patch_rom(
         )
 
         with (
-            open_storage_access(
-                legacy_external_storage, StorageOperation.READ, rom_file.full_path
+            cast(
+                ReadCapability,
+                open_storage_access(
+                    legacy_external_storage,
+                    StorageOperation.READ,
+                    rom_file.full_path,
+                ),
             ) as rom_capability,
             patch_capability,
-            open_owned_access(
-                temp_storage, StorageOperation.CREATE, output_relative
+            cast(
+                OwnedCreate,
+                open_owned_access(
+                    temp_storage, StorageOperation.CREATE, output_relative
+                ),
             ) as output_capability,
         ):
             validated = await apply_patch(
                 rom_capability, patch_capability, output_capability
             )
-        with open_owned_access(
-            temp_storage, StorageOperation.READ, output_relative
+        with cast(
+            OwnedRead,
+            open_owned_access(temp_storage, StorageOperation.READ, output_relative),
         ) as output_read:
             output_content = output_read.read()
     except PatcherError as e:
@@ -201,19 +221,23 @@ async def patch_rom(
     finally:
         for cleanup_name in reversed(cleanup_names):
             try:
-                with open_owned_access(
-                    temp_storage, StorageOperation.DELETE, cleanup_name
+                with cast(
+                    OwnedDelete,
+                    open_owned_access(
+                        temp_storage, StorageOperation.DELETE, cleanup_name
+                    ),
                 ) as delete_capability:
                     delete_capability.delete()
             except Exception:
-                pass
+                log.warning("Failed to remove an owned temporary patch artifact")
         try:
-            with open_owned_access(
-                temp_storage, StorageOperation.MKDIR, temp_dir
+            with cast(
+                OwnedDirectory,
+                open_owned_access(temp_storage, StorageOperation.MKDIR, temp_dir),
             ) as directory:
                 directory.rmdir()
         except Exception:
-            pass
+            log.warning("Failed to remove the owned temporary patch directory")
 
     output_size = len(output_content)
     log.info(
@@ -279,15 +303,20 @@ def _resolve_library_patch(
         )
 
     return (
-        open_storage_access(
-            legacy_external_storage, StorageOperation.READ, patch_file.full_path
+        cast(
+            ReadCapability,
+            open_storage_access(
+                legacy_external_storage, StorageOperation.READ, patch_file.full_path
+            ),
         ),
         patch_file.file_name,
     )
 
 
 async def _stage_uploaded_patch(
-    patch_file: UploadFile, temp_storage, temp_dir: str
+    patch_file: UploadFile,
+    temp_storage: OwnedStorageDescriptor,
+    temp_dir: str,
 ) -> tuple[OwnedRead, str, str]:
     """Stage an uploaded patch into owned temporary storage.
 
@@ -324,12 +353,16 @@ async def _stage_uploaded_patch(
             detail="Uploaded patch file is empty",
         )
 
-    with open_owned_access(
-        temp_storage, StorageOperation.CREATE, patch_name
+    with cast(
+        OwnedCreate,
+        open_owned_access(temp_storage, StorageOperation.CREATE, patch_name),
     ) as create_capability:
         create_capability.create(bytes(content))
     return (
-        open_owned_access(temp_storage, StorageOperation.READ, patch_name),
+        cast(
+            OwnedRead,
+            open_owned_access(temp_storage, StorageOperation.READ, patch_name),
+        ),
         display_name,
         patch_name,
     )

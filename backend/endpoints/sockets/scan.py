@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from itertools import batched, chain
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import pydash
 import socketio  # type: ignore
@@ -44,7 +44,11 @@ from handler.filesystem import (
     storage_composition,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.filesystem.storage_access import open_owned_access
+from handler.filesystem.storage_access import (
+    OwnedReplace,
+    ScanCapability,
+    open_owned_access,
+)
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
 from handler.metadata.ss_handler import add_ss_auth_to_url
@@ -59,6 +63,7 @@ from handler.redis_handler import (
     redis_client,
 )
 from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
+from handler.scan_handler import MappedScanCommand as HandlerMappedScanCommand
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -872,8 +877,9 @@ async def scan_platforms(
         roms_ids (list[int], optional): List of selected roms to be scanned.
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
-    with open_storage_access(
-        legacy_external_storage, StorageOperation.SCAN, ""
+    with cast(
+        ScanCapability,
+        open_storage_access(legacy_external_storage, StorageOperation.SCAN, ""),
     ) as access:
         access.scan()
 
@@ -1024,10 +1030,13 @@ async def scan_platforms(
             for platform_slug in platform_list:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
-                    with open_owned_access(
-                        storage_composition.owned[OwnedStorageKind.RESOURCES],
-                        StorageOperation.OVERWRITE,
-                        f"gamelist_{platform.id}.xml",
+                    with cast(
+                        OwnedReplace,
+                        open_owned_access(
+                            storage_composition.owned[OwnedStorageKind.RESOURCES],
+                            StorageOperation.OVERWRITE,
+                            f"gamelist_{platform.id}.xml",
+                        ),
                     ) as destination:
                         export_success = (
                             await gamelist_exporter.export_platform_to_file(
@@ -1050,10 +1059,13 @@ async def scan_platforms(
             for platform_slug in platform_list:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
-                    with open_owned_access(
-                        storage_composition.owned[OwnedStorageKind.RESOURCES],
-                        StorageOperation.OVERWRITE,
-                        f"metadata_pegasus_{platform.id}.txt",
+                    with cast(
+                        OwnedReplace,
+                        open_owned_access(
+                            storage_composition.owned[OwnedStorageKind.RESOURCES],
+                            StorageOperation.OVERWRITE,
+                            f"metadata_pegasus_{platform.id}.txt",
+                        ),
                     ) as destination:
                         export_success = await pegasus_exporter.export_platform_to_file(
                             platform.id, request=None, destination=destination
@@ -1104,7 +1116,10 @@ async def execute_mapping_scan(
             playmatch_enabled=playmatch_enabled,
         )
 
-    return await execute_mapped_scan(command, _scan_batch)
+    return await execute_mapped_scan(
+        cast(HandlerMappedScanCommand, command),
+        _scan_batch,
+    )
 
 
 def mapping_scan_commands(
@@ -1203,7 +1218,6 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
     platform_ids = options.get("platforms", [])
-    platform_fs_slugs = options.get("platform_fs_slugs", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
