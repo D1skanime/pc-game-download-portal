@@ -103,33 +103,92 @@ const manualItems = computed(() =>
 
 // ---------- Upload / refresh plumbing ----------
 // The filled viewer is wrapped in an overlay RDropzone (drag files onto the
-// manual to add another); the header's Upload button opens its picker.
+// manual to replace it); the footer's Replace button opens its picker.
 const manualDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const redownloadingManual = ref(false);
+const uploadingManual = ref(false);
+const refreshingManual = ref(false);
+const replacingManual = ref(false);
+const manualMutationPending = computed(
+  () => uploadingManual.value || refreshingManual.value,
+);
 
-async function refreshRom() {
-  try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
+async function refreshRom(romId: number) {
+  const { data } = await romApi.getRom({ romId });
+  romsStore.update(data);
+  if (romsStore.currentRom?.id === romId) {
     romsStore.currentRom = data;
-    romsStore.update(data);
-  } catch (error) {
-    console.error(error);
   }
 }
 
-// Manual upload routes through the target-selection dialog (mounted in
-// AppLayout), which writes only to RomM-owned resources storage.
+function isAcceptedManual(file: File) {
+  const extensionAllowed = /\.(pdf|md)$/i.test(file.name);
+  const mimeAllowed =
+    file.type === "" ||
+    file.type === "application/pdf" ||
+    file.type === "text/markdown" ||
+    file.type === "text/plain";
+  return extensionAllowed && mimeAllowed;
+}
+
 async function handleManualFiles(files: File[]) {
-  if (files.length === 0) return;
-  emitter?.emit("showManualUploadTargetDialog", { rom: props.rom, files });
+  if (!canEdit.value || manualMutationPending.value || files.length === 0) {
+    return;
+  }
+  if (files.length !== 1 || !isAcceptedManual(files[0])) {
+    snackbar.error(t("rom.manual-invalid-selection"), {
+      icon: "mdi-close-circle",
+    });
+    return;
+  }
+
+  const romId = props.rom.id;
+  const replacing = manualEntries.value.length > 0;
+  replacingManual.value = replacing;
+  uploadingManual.value = true;
+  let uploadCommitted = false;
+
+  try {
+    await romApi.uploadManual({ romId, file: files[0] });
+    uploadCommitted = true;
+    uploadingManual.value = false;
+    refreshingManual.value = true;
+    await refreshRom(romId);
+    snackbar.success(
+      t(replacing ? "rom.manual-replace-success" : "rom.manual-upload-success"),
+      { icon: "mdi-check-bold" },
+    );
+  } catch (error: unknown) {
+    if (uploadCommitted) {
+      snackbar.warning(t("rom.manual-refresh-warning"), {
+        icon: "mdi-alert-circle",
+      });
+    } else if (axios.isAxiosError(error) && error.response?.status === 409) {
+      snackbar.warning(t("rom.manual-upload-conflict"), {
+        icon: "mdi-alert-circle",
+      });
+    } else {
+      snackbar.error(
+        t(
+          replacing
+            ? "rom.manual-replace-failed-safe"
+            : "rom.manual-upload-failed-safe",
+        ),
+        { icon: "mdi-close-circle" },
+      );
+    }
+  } finally {
+    uploadingManual.value = false;
+    refreshingManual.value = false;
+  }
 }
 
 async function redownloadManual() {
-  if (redownloadingManual.value) return;
+  if (redownloadingManual.value || manualMutationPending.value) return;
   redownloadingManual.value = true;
   try {
     await romApi.redownloadManual({ romId: props.rom.id });
-    await refreshRom();
+    await refreshRom(props.rom.id);
     snackbar.success(t("rom.manual-redownloaded"), {
       icon: "mdi-check-bold",
     });
@@ -159,7 +218,10 @@ function requestDeleteManual() {
 </script>
 
 <template>
-  <div class="r-v2-manual">
+  <div class="r-v2-manual" :aria-busy="manualMutationPending">
+    <p v-if="manualMutationPending" role="status" aria-live="polite">
+      {{ t(replacingManual ? "rom.manual-replacing" : "rom.manual-uploading") }}
+    </p>
     <!-- The subtab label in the sidebar already names the section, so the
          header skips a redundant title and just hosts the entry selector
          (when multiple). -->
@@ -182,11 +244,11 @@ function requestDeleteManual() {
     <RDropzone
       v-else-if="manualEntries.length === 0"
       :title="t('rom.manual-empty')"
-      :hint="t('common.dropzone-hint')"
+      :hint="t('rom.manual-empty-upload-hint')"
       :active-title="t('common.dropzone-drag-over')"
       :input-label="t('rom.upload-manual')"
+      :disabled="manualMutationPending"
       accept="application/pdf,.md"
-      multiple
       @files="handleManualFiles"
     >
       <template v-if="rom.url_manual" #actions>
@@ -194,7 +256,7 @@ function requestDeleteManual() {
           variant="outlined"
           prepend-icon="mdi-cloud-download-outline"
           :loading="redownloadingManual"
-          :disabled="redownloadingManual"
+          :disabled="redownloadingManual || manualMutationPending"
           @click.stop="redownloadManual"
         >
           {{ t("rom.redownload") }}
@@ -206,12 +268,11 @@ function requestDeleteManual() {
       v-if="selectedManual"
       ref="manualDz"
       overlay
-      :disabled="!canEdit"
+      :disabled="!canEdit || manualMutationPending"
       class="r-v2-manual__fill"
       :release-label="t('common.dropzone-drag-over')"
-      :input-label="t('rom.upload-manual')"
+      :input-label="t('rom.replace-manual')"
       accept="application/pdf,.md"
-      multiple
       @files="handleManualFiles"
     >
       <div class="r-v2-manual__viewer">
@@ -222,6 +283,7 @@ function requestDeleteManual() {
           :deletable="canEdit"
           :redownloadable="canEdit && !!rom.url_manual"
           :redownloading="redownloadingManual"
+          :mutation-disabled="manualMutationPending"
           @delete="requestDeleteManual"
           @redownload="redownloadManual"
         />
@@ -232,6 +294,7 @@ function requestDeleteManual() {
           :deletable="canEdit"
           :redownloadable="canEdit && !!rom.url_manual"
           :redownloading="redownloadingManual"
+          :mutation-disabled="manualMutationPending"
           @delete="requestDeleteManual"
           @redownload="redownloadManual"
         />
@@ -239,14 +302,18 @@ function requestDeleteManual() {
     </RDropzone>
 
     <div v-if="manualEntries.length > 0 && canEdit">
+      <p>{{ t("rom.manual-primary-helper") }}</p>
       <RBtn
         block
         variant="outlined"
         size="small"
         prepend-icon="mdi-cloud-upload-outline"
+        :loading="manualMutationPending"
+        :disabled="manualMutationPending"
+        :aria-busy="manualMutationPending"
         @click="manualDz?.open()"
       >
-        {{ t("common.upload") }}
+        {{ t("rom.replace-manual") }}
       </RBtn>
     </div>
   </div>

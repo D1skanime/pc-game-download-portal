@@ -259,7 +259,7 @@ describe("maximum-grant source mutation controls", () => {
   it("keeps manuals resources-only", () => {
     const wrapper = mountPanel(ManualSubtab);
     expect(wrapper.find("[data-manual-select]").exists()).toBe(false);
-    expect(wrapper.html()).toContain("common.upload");
+    expect(wrapper.html()).toContain("rom.replace-manual");
     expect(wrapper.html()).not.toContain("guide.pdf");
     expect(wrapper.html()).not.toContain("rom.convert-to-folder");
   });

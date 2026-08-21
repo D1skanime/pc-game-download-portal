@@ -10,7 +10,6 @@ import DeleteManualDialog from "@/v2/components/Dialogs/DeleteManualDialog.vue";
 import DeleteRomDialog from "@/v2/components/Dialogs/DeleteRomDialog.vue";
 import EditRomDialog from "@/v2/components/Dialogs/EditRomDialog.vue";
 import ManageCollectionsDialog from "@/v2/components/Dialogs/ManageCollectionsDialog.vue";
-import ManualUploadTargetDialog from "@/v2/components/Dialogs/ManualUploadTargetDialog.vue";
 import MatchRomDialog from "@/v2/components/Dialogs/MatchRomDialog.vue";
 import RefreshMetadataDialog from "@/v2/components/Dialogs/RefreshMetadataDialog.vue";
 import SearchCoverDialog from "@/v2/components/Dialogs/SearchCoverDialog.vue";
@@ -31,7 +30,6 @@ defineOptions({ inheritAttrs: false });
   <UploadProgressToast />
   <NewVersionBanner />
   <ConfirmDialog />
-  <ManualUploadTargetDialog />
   <DeleteManualDialog />
   <EditRomDialog />
   <DeleteRomDialog />
