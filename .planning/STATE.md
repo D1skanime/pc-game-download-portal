@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-39-PLAN.md
-last_updated: "2026-08-21T14:18:36.445Z"
+stopped_at: Completed
+last_updated: "2026-08-21T14:31:46.307Z"
 last_activity: 2026-08-21
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 82
-  completed_plans: 77
+  completed_plans: 78
   percent: 56
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 43 of 47
+Plan: 44 of 47
 Status: Ready to execute
 Last activity: 2026-08-21
 
@@ -115,6 +115,7 @@ _Updated after each plan completion_
 | Phase 06 P41 | 23m | 2 tasks | 3 files |
 | Phase 06 P39 | 12m | 2 tasks | 9 files |
 | Phase 06 P42 | 18m | 2 tasks | 3 files |
+| Phase 06 P43 | 18m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -267,6 +268,7 @@ Recent decisions affecting current work:
 - [Phase 06]: Pre-success replacement failure preserves the existing manual, while post-success refresh failure directs the user to reload.
 - [Phase 06]: Persist only lowercase hexadecimal source identity digests in private result-owned rows.
 - [Phase 06]: Invalidate selectable detection authority in bounded batches before 0114 evidence is absent.
+- [Phase 06]: Primary manuals publish unique owned bytes before locked path compare-and-swap.
 
 ### Blockers/Concerns
 
@@ -284,6 +286,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-21T14:18:24.554Z
-Stopped at: Completed 06-39-PLAN.md
+Last session: 2026-08-21T14:31:32.522Z
+Stopped at: Completed
 Resume file: None
