@@ -221,10 +221,15 @@ def test_content_type_derived_from_db_not_path_param(
 
 
 def test_content_disposition_escapes_quotes_and_backslashes(
-    client: TestClient, access_token: str, admin_user: User, platform: Platform
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     rom = _make_rom(admin_user, platform)
-    file = _add_file(rom, 'game "quoted"\\edition.bin', RomFileCategory.GAME)
+    file = _add_db_file(rom, 'game "quoted"\\edition.bin', RomFileCategory.GAME)
+    monkeypatch.setattr(files_endpoint, "preflight_mapped_stat", lambda _rom, _file: 10)
 
     response = client.head(
         f"/api/roms/{file.id}/files/content/client-name.bin",

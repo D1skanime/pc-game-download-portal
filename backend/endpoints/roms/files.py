@@ -1,7 +1,9 @@
 import os
+import stat as stat_lib
 from collections.abc import Iterator
 from pathlib import PurePath
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import HTTPException
 from fastapi import Path as PathVar
@@ -13,7 +15,7 @@ from decorators.auth import protected_route
 from endpoints.responses.rom import RomFileSchema
 from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.storage_read import MappedReadError
+from exceptions.storage_read import MappedReadError, MissingMappedContentError
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_can, assert_rom_visible, get_permissions
 from handler.database import db_rom_handler, db_storage_handler
@@ -47,6 +49,21 @@ def _mapped_relative_path(full_path: str) -> str:
     return PurePath(*parts[1:]).as_posix()
 
 
+def _content_disposition(disposition: str, filename: str) -> str:
+    if any(
+        ord(character) < 0x20 or 0x7F <= ord(character) <= 0x9F
+        for character in filename
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid download filename",
+        )
+    fallback = filename.encode("ascii", errors="ignore").decode("ascii") or "download"
+    fallback = fallback.replace("\\", "\\\\").replace('"', '\\"')
+    encoded = quote(filename, safe="")
+    return f"{disposition}; filename=\"{fallback}\"; filename*=UTF-8''{encoded}"
+
+
 def preflight_mapped_download(rom, file, *, first_use_operation: str = "download"):
     """Authorize the current mapping revision and open one download handle."""
     mapping = db_storage_handler.get_active_mapping(rom.platform_id)
@@ -63,6 +80,20 @@ def preflight_mapped_download(rom, file, *, first_use_operation: str = "download
         access.close()
         raise
     return context, access, size
+
+
+def preflight_mapped_stat(rom, file) -> int:
+    """Authorize the current mapping revision and read non-productive metadata."""
+    mapping = db_storage_handler.get_active_mapping(rom.platform_id)
+    context = MappingReadContext(mapping.id, mapping.version)
+    with context.open(
+        StorageOperation.STAT, _mapped_relative_path(file.full_path)
+    ) as access:
+        metadata = access.stat()
+        if not stat_lib.S_ISREG(metadata.st_mode):
+            raise MissingMappedContentError(mapping.id, mapping.version)
+        context.boundary()
+        return metadata.st_size
 
 
 def _mapped_http_error(error: MappedReadError) -> HTTPException:
@@ -221,16 +252,23 @@ async def get_romfile_content(
     # keeps the browser from sniffing them into anything script-capable (e.g. a
     # Markdown manual into HTML).
     headers = {"X-Content-Type-Options": "nosniff"} if disposition == "inline" else {}
+    content_disposition = _content_disposition(disposition, file.file_name)
 
+    context = None
+    access = None
     try:
-        context, access, size = preflight_mapped_download(rom, file)
+        if request.method == "HEAD":
+            size = preflight_mapped_stat(rom, file)
+        else:
+            context, access, size = preflight_mapped_download(rom, file)
     except MappedReadError as error:
         raise _mapped_http_error(error) from None
 
     try:
         bounds = _range_bounds(request.headers.get("range"), size)
     except HTTPException:
-        access.close()
+        if access is not None:
+            access.close()
         raise
     start, end = bounds if bounds is not None else (0, max(size - 1, 0))
     content_length = end - start + 1 if size else 0
@@ -238,7 +276,7 @@ async def get_romfile_content(
         **headers,
         "Accept-Ranges": "bytes",
         "Content-Length": str(content_length),
-        "Content-Disposition": f'{disposition}; filename="{file.file_name}"',
+        "Content-Disposition": content_disposition,
     }
     response_status = status.HTTP_200_OK
     if bounds is not None:
@@ -246,13 +284,13 @@ async def get_romfile_content(
         response_headers["Content-Range"] = f"bytes {start}-{end}/{size}"
 
     if request.method == "HEAD":
-        access.close()
         return Response(
             status_code=response_status,
             media_type=media_type,
             headers=response_headers,
         )
 
+    assert context is not None and access is not None
     return MappedContentResponse(
         _mapped_chunks(context, access, start, content_length),
         status_code=response_status,
