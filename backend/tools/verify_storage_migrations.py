@@ -4,6 +4,7 @@
 
 import argparse
 import json
+import re
 import subprocess
 import time
 import uuid
@@ -15,6 +16,7 @@ class DialectConfig(TypedDict):
     port: str
     env: dict[str, str]
     health: list[str]
+    data_path: str
 
 
 DIALECTS: dict[str, DialectConfig] = {
@@ -28,6 +30,7 @@ DIALECTS: dict[str, DialectConfig] = {
             "MARIADB_ROOT_PASSWORD": "root",
         },
         "health": ["mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"],
+        "data_path": "/var/lib/mysql",
     },
     "mysql": {
         "image": "mysql:8.4",
@@ -39,6 +42,7 @@ DIALECTS: dict[str, DialectConfig] = {
             "MYSQL_ROOT_PASSWORD": "root",
         },
         "health": ["mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"],
+        "data_path": "/var/lib/mysql",
     },
     "postgresql": {
         "image": "postgres:15",
@@ -49,14 +53,66 @@ DIALECTS: dict[str, DialectConfig] = {
             "POSTGRES_PASSWORD": "romm",
         },
         "health": ["pg_isready", "-U", "romm", "-d", "romm_migration"],
+        "data_path": "/var/lib/postgresql/data",
     },
 }
 
 LINEAGE_REVISION = "0113_legacy_change_lineage"
+SOURCE_IDENTITY_REVISION = "0114_legacy_source_identities"
+SOURCE_IDENTITY_MARKERS = (
+    "0114 pristine schema passed",
+    "0114 seeded 0113 invalidation passed",
+    "0114 evidence constraints passed",
+    "0114 private identities survived restart",
+    "0114 exact handler selection passed",
+    "0114 downgrade invalidation passed",
+    "0114 re-upgrade unselectability passed",
+    "0114 privacy checks passed",
+    "0114 exact cleanup passed",
+)
+_OWNED_DATABASE_CONTAINER = re.compile(
+    r"romm-storage-migration-(?:mariadb|mysql|postgresql)-[0-9a-f]{10}"
+)
+_OWNED_DATABASE_VOLUME = re.compile(
+    r"romm-storage-migration-(?:mariadb|mysql|postgresql)-[0-9a-f]{10}-data"
+)
+
+
+class VerifierCommandError(subprocess.CalledProcessError):
+    def __str__(self) -> str:
+        return f"verifier command failed with exit {self.returncode}"
+
+
+def _remove_owned_container(name: str) -> None:
+    if _OWNED_DATABASE_CONTAINER.fullmatch(name) is None:
+        raise ValueError("refusing to remove unowned verifier container")
+    result = subprocess.run(
+        ["docker", "rm", "--force", "--volumes", name],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("exact verifier container cleanup failed")
+
+
+def _remove_owned_volume(name: str) -> None:
+    if _OWNED_DATABASE_VOLUME.fullmatch(name) is None:
+        raise ValueError("refusing to remove unowned verifier volume")
+    result = subprocess.run(
+        ["docker", "volume", "rm", name],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("exact verifier volume cleanup failed")
 
 
 def _run(args: list[str], *, capture: bool = False) -> str:
-    result = subprocess.run(args, check=True, text=True, capture_output=capture)
+    result = subprocess.run(args, check=False, text=True, capture_output=True)
+    if result.returncode != 0:
+        raise VerifierCommandError(result.returncode, ["redacted"])
     return result.stdout.strip() if capture else ""
 
 
@@ -104,6 +160,11 @@ def _database_environment(
         "DB_NAME": database,
         "ROMM_AUTH_SECRET_KEY": "storage-migration-verifier-only",
         "ROMM_BASE_PATH": "/tmp/romm-storage-migration-verifier",
+        "REDIS_HOST": "romm-valkey-dev",
+        "REDIS_PORT": "6379",
+        "REDIS_DB": "0",
+        "REDIS_SSL": "false",
+        "PYTHONDONTWRITEBYTECODE": "1",
     }
 
 
@@ -1270,6 +1331,301 @@ def _clear_0111_state(
         _execute_sql(runner, dialect, host, port, database, statement)
 
 
+def _schema_scope(dialect: str) -> str:
+    return (
+        "table_schema = DATABASE()"
+        if dialect in {"mariadb", "mysql"}
+        else "table_schema = current_schema()"
+    )
+
+
+def _verify_0114_pristine_schema(dialect, runner, host, port, database) -> None:
+    revision = _query_scalar(
+        runner, dialect, host, port, database, "SELECT version_num FROM alembic_version"
+    )
+    table = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM information_schema.tables WHERE "
+        "table_name = 'legacy_detection_source_identities' AND "
+        + _schema_scope(dialect),
+    )
+    columns = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM information_schema.columns WHERE "
+        "table_name = 'legacy_detection_source_identities' AND "
+        + _schema_scope(dialect),
+    )
+    if (revision, table, columns) != (SOURCE_IDENTITY_REVISION, "1", "5"):
+        raise RuntimeError(f"{dialect}: 0114 pristine schema is incomplete")
+    print(SOURCE_IDENTITY_MARKERS[0], dialect)
+
+
+def _seed_selectable_0113_result(dialect, runner, host, port, database) -> None:
+    _execute_sql(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "INSERT INTO legacy_detection_results "
+        "(id, platform_id, storage_root_id, state, proposed_relative_path, "
+        "observed_files, observed_bytes, lower_bound, selectable, safe_problem_code, "
+        "source_fingerprint, observed_mapping_id, observed_mapping_version, version, "
+        "actor_user_id, expires_at) VALUES "
+        "(940001, 910001, 910001, 'detected', 'roms/verifier-910001', 2, 4096, "
+        "FALSE, TRUE, NULL, "
+        "'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', "
+        "910001, 4, 7, 1, '2037-01-01 00:00:00')",
+    )
+
+
+def _verify_0114_seeded_invalidation(dialect, runner, host, port, database) -> None:
+    exact = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_results WHERE id = 940001 "
+        "AND state = 'manual_mapping_required' AND lower_bound = TRUE "
+        "AND selectable = FALSE AND safe_problem_code = 'fingerprint_refresh_required' "
+        "AND source_fingerprint IS NULL AND version = 8",
+    )
+    evidence = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_source_identities",
+    )
+    if (exact, evidence) != ("1", "0"):
+        raise RuntimeError(f"{dialect}: seeded 0113 result retained authority")
+    print(SOURCE_IDENTITY_MARKERS[1], dialect)
+
+
+def _seed_0114_evidence_state(dialect, runner, host, port, database) -> None:
+    for statement in (
+        "INSERT INTO legacy_detection_results "
+        "(id, platform_id, storage_root_id, state, proposed_relative_path, "
+        "observed_files, observed_bytes, lower_bound, selectable, safe_problem_code, "
+        "source_fingerprint, observed_mapping_id, observed_mapping_version, version, "
+        "actor_user_id, expires_at) VALUES "
+        "(940002, 910001, 910001, 'detected', 'roms/verifier-910001', 2, 4096, "
+        "FALSE, TRUE, NULL, "
+        "'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', "
+        "910001, 4, 1, 1, '2037-01-01 00:00:00')",
+        "INSERT INTO legacy_detection_source_identities "
+        "(detection_result_id, identity_digest) VALUES "
+        "(940002, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), "
+        "(940002, 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')",
+    ):
+        _execute_sql(runner, dialect, host, port, database, statement)
+
+
+def _expect_0114_rejection(
+    dialect, runner, host, port, database, statement: str
+) -> None:
+    try:
+        _execute_sql(runner, dialect, host, port, database, statement)
+    except subprocess.CalledProcessError:
+        if _query_scalar(runner, dialect, host, port, database, "SELECT 1") != "1":
+            raise RuntimeError(
+                f"{dialect}: evidence rejection hid infrastructure failure"
+            ) from None
+        return
+    raise RuntimeError(f"{dialect}: invalid private evidence was accepted")
+
+
+def _verify_0114_evidence_constraints(dialect, runner, host, port, database) -> None:
+    exact = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_source_identities "
+        "WHERE detection_result_id = 940002 AND CHAR_LENGTH(identity_digest) = 64 "
+        "AND identity_digest = LOWER(identity_digest)",
+    )
+    unique = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(DISTINCT identity_digest) FROM legacy_detection_source_identities "
+        "WHERE detection_result_id = 940002",
+    )
+    if (exact, unique) != ("2", "2"):
+        raise RuntimeError(f"{dialect}: private evidence set is invalid")
+    for digest in (
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+    ):
+        _expect_0114_rejection(
+            dialect,
+            runner,
+            host,
+            port,
+            database,
+            "INSERT INTO legacy_detection_source_identities "
+            "(detection_result_id, identity_digest) "
+            f"VALUES (940002, '{digest}')",
+        )
+    remaining = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_source_identities WHERE detection_result_id = 940002",
+    )
+    if remaining != "2":
+        raise RuntimeError(f"{dialect}: rejected evidence changed state")
+    print(SOURCE_IDENTITY_MARKERS[2], dialect)
+
+
+def _verify_0114_private_persistence(
+    dialect, runner, host, port, database, database_container, health
+) -> str:
+    _run(["docker", "restart", database_container])
+    _wait_until_ready(database_container, health)
+    port = _mapped_port(database_container, DIALECTS[dialect]["port"])
+    _wait_until_queryable(runner, dialect, host, port, database)
+    exact = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_results results "
+        "JOIN legacy_detection_source_identities identities "
+        "ON identities.detection_result_id = results.id "
+        "WHERE results.id = 940002 AND results.selectable = TRUE "
+        "AND results.lower_bound = FALSE AND results.source_fingerprint IS NOT NULL",
+    )
+    if exact != "2":
+        raise RuntimeError(f"{dialect}: private identities did not persist")
+    print(SOURCE_IDENTITY_MARKERS[3], dialect)
+    return port
+
+
+def _verify_0114_downgrade_invalidation(dialect, runner, host, port, database) -> None:
+    exact = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_results WHERE id = 940002 "
+        "AND state = 'manual_mapping_required' AND lower_bound = TRUE "
+        "AND selectable = FALSE AND safe_problem_code = 'fingerprint_refresh_required' "
+        "AND source_fingerprint IS NULL AND version = 2",
+    )
+    table = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM information_schema.tables WHERE "
+        "table_name = 'legacy_detection_source_identities' AND "
+        + _schema_scope(dialect),
+    )
+    if (exact, table) != ("1", "0"):
+        raise RuntimeError(f"{dialect}: downgrade retained unsafe authority")
+    print(SOURCE_IDENTITY_MARKERS[5], dialect)
+
+
+def _verify_0114_reupgrade_unselectability(
+    dialect, runner, host, port, database
+) -> None:
+    exact = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_results WHERE id = 940002 "
+        "AND state = 'manual_mapping_required' AND lower_bound = TRUE "
+        "AND selectable = FALSE AND safe_problem_code = 'fingerprint_refresh_required' "
+        "AND source_fingerprint IS NULL AND version = 2",
+    )
+    evidence = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM legacy_detection_source_identities",
+    )
+    if (exact, evidence) != ("1", "0"):
+        raise RuntimeError(f"{dialect}: re-upgrade guessed private evidence")
+    print(SOURCE_IDENTITY_MARKERS[6], dialect)
+
+
+def _verify_0114_privacy(dialect, runner, host, port, database) -> None:
+    disallowed = _query_scalar(
+        runner,
+        dialect,
+        host,
+        port,
+        database,
+        "SELECT COUNT(*) FROM information_schema.columns WHERE "
+        "table_name = 'legacy_detection_source_identities' AND "
+        + _schema_scope(dialect)
+        + " AND (LOWER(column_name) LIKE '%path%' OR LOWER(column_name) LIKE '%file%' "
+        "OR LOWER(column_name) LIKE '%source_value%' "
+        "OR LOWER(column_name) LIKE '%diagnostic%')",
+    )
+    if disallowed != "0":
+        raise RuntimeError(f"{dialect}: evidence schema exposes source values")
+    print(SOURCE_IDENTITY_MARKERS[7], dialect)
+
+
+def _verify_0114_round_trip(
+    dialect, runner, host, port, database, database_container, health
+) -> str:
+    _verify_0114_pristine_schema(dialect, runner, host, port, database)
+    _alembic(runner, dialect, host, port, database, "downgrade", LINEAGE_REVISION)
+    _seed_selectable_0113_result(dialect, runner, host, port, database)
+    _alembic(runner, dialect, host, port, database, "upgrade", "head")
+    _verify_0114_seeded_invalidation(dialect, runner, host, port, database)
+    _seed_0114_evidence_state(dialect, runner, host, port, database)
+    _verify_0114_evidence_constraints(dialect, runner, host, port, database)
+    port = (
+        _verify_0114_private_persistence(
+            dialect, runner, host, port, database, database_container, health
+        )
+        or port
+    )
+    _alembic(runner, dialect, host, port, database, "downgrade", LINEAGE_REVISION)
+    _verify_0114_downgrade_invalidation(dialect, runner, host, port, database)
+    _alembic(runner, dialect, host, port, database, "upgrade", "head")
+    _verify_0114_reupgrade_unselectability(dialect, runner, host, port, database)
+    _verify_0114_privacy(dialect, runner, host, port, database)
+    return port
+
+
+def _clear_0114_state(dialect, runner, host, port, database) -> None:
+    for statement in (
+        "DELETE FROM legacy_detection_source_identities "
+        "WHERE detection_result_id IN (940001, 940002)",
+        "DELETE FROM legacy_detection_results WHERE id IN (940001, 940002)",
+    ):
+        _execute_sql(runner, dialect, host, port, database, statement)
+
+
 def _handler_tests(
     runner: str,
     dialect: str,
@@ -1288,9 +1644,16 @@ def _handler_tests(
             "/app/.venv/bin/pytest",
             "-c",
             "/dev/null",
+            "-p",
+            "no:env",
+            "-p",
+            "no:cacheprovider",
+            "--basetemp",
+            f"/tmp/romm-storage-migration-handler-{dialect}",
             "tests/models/test_storage.py",
             "tests/models/test_safe_lifecycle.py",
             "tests/handler/database/test_storage_handler.py",
+            "tests/integration/test_legacy_migration.py::test_migration_reconnects_only_source_observed_rom_and_sidecar",
             "tests/integration/test_legacy_migration.py::test_exact_rollback_restores_only_recorded_rows_and_preserves_later_rows",
             "tests/integration/test_legacy_migration.py::test_exact_rollback_rejects_stale_recorded_rows_atomically",
             "tests/integration/test_legacy_migration.py::test_rollback_rejects_same_platform_reparenting_atomically",
@@ -1299,7 +1662,52 @@ def _handler_tests(
         ],
     )
     for _ in range(repetitions):
-        _run(command)
+        result = subprocess.run(
+            command,
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            selectors = sorted(
+                set(
+                    re.findall(
+                        r"FAILED ([A-Za-z0-9_./:-]+)",
+                        result.stdout + result.stderr,
+                    )
+                )
+            )
+            combined = result.stdout + result.stderr
+            categories = [
+                label
+                for token, label in (
+                    ("ERROR collecting", "collection-error"),
+                    ("Permission denied", "permission-error"),
+                    ("Read-only file system", "readonly-filesystem"),
+                    ("OperationalError", "database-operational-error"),
+                    ("IntegrityError", "database-integrity-error"),
+                    ("ConnectionError", "dependency-connection-error"),
+                    ("usage: pytest", "pytest-usage-error"),
+                    ("file or directory not found", "missing-test-path"),
+                    ("INTERNALERROR", "pytest-internal-error"),
+                )
+                if token in combined
+            ]
+            exception_types = sorted(
+                set(
+                    re.findall(
+                        r"(?:^|\n)E +([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception))",
+                        combined,
+                    )
+                )
+            )
+            evidence = selectors[:5] + categories + exception_types[:5]
+            bounded = ", ".join(evidence) or "exit-without-bounded-evidence"
+            raise RuntimeError(
+                f"{dialect}: handler pytest failed with exit "
+                f"{result.returncode}: {bounded}"
+            )
+    print(SOURCE_IDENTITY_MARKERS[4], dialect)
 
 
 def verify_dialect(
@@ -1312,6 +1720,7 @@ def verify_dialect(
     config = DIALECTS[dialect]
     suffix = uuid.uuid4().hex[:10]
     name = f"romm-storage-migration-{dialect}-{suffix}"
+    volume = f"{name}-data"
     database = f"romm_migration_{suffix}"
     environment = dict(config["env"])
     database_key = {
@@ -1326,19 +1735,82 @@ def verify_dialect(
 
     command = [
         "docker",
-        "run",
-        "--detach",
+        "create",
         "--name",
         name,
+        "--label",
+        "romm.verifier.plan=06-46",
+        "--label",
+        f"romm.verifier.resource={name}",
         "--publish",
         f"0:{config['port']}",
+        "--mount",
+        f"type=volume,source={volume},target={config['data_path']}",
     ]
     for key, value in environment.items():
         command.extend(["--env", f"{key}={value}"])
     command.append(config["image"])
 
+    existing = _run(
+        [
+            "docker",
+            "ps",
+            "-a",
+            "--filter",
+            f"name=^/{name}$",
+            "--format",
+            "{{.Names}}",
+        ],
+        capture=True,
+    )
+    existing_volume = _run(
+        [
+            "docker",
+            "volume",
+            "ls",
+            "--filter",
+            f"name=^{volume}$",
+            "--format",
+            "{{.Name}}",
+        ],
+        capture=True,
+    )
+    if existing or existing_volume:
+        raise RuntimeError("exact verifier resource identity already exists")
+
+    owned = False
+    volume_owned = False
+    primary_error: BaseException | None = None
     try:
-        _run(command)
+        created_volume = _run(
+            [
+                "docker",
+                "volume",
+                "create",
+                "--label",
+                "romm.verifier.plan=06-46",
+                "--label",
+                f"romm.verifier.resource={volume}",
+                volume,
+            ],
+            capture=True,
+        )
+        inspected_volume = _run(
+            ["docker", "volume", "inspect", "--format", "{{.Name}}", volume],
+            capture=True,
+        )
+        if created_volume != volume or inspected_volume != volume:
+            raise RuntimeError("verifier volume identity proof failed")
+        volume_owned = True
+        created_id = _run(command, capture=True)
+        inspected_id = _run(
+            ["docker", "inspect", "--format", "{{.Id}}", name],
+            capture=True,
+        )
+        if not created_id or inspected_id != created_id:
+            raise RuntimeError("verifier container identity proof failed")
+        owned = True
+        _run(["docker", "start", name])
         _wait_until_ready(name, health)
         host = _runner_gateway(runner)
         port = _mapped_port(name, config["port"])
@@ -1428,6 +1900,18 @@ def verify_dialect(
         _alembic(runner, dialect, host, port, database, "upgrade", "head")
         _verify_seeded_0110_state(dialect, runner, host, port, database)
 
+        _clear_0111_state(dialect, runner, host, port, database)
+        port = _verify_0114_round_trip(
+            dialect,
+            runner,
+            host,
+            port,
+            database,
+            name,
+            health,
+        )
+        _clear_0114_state(dialect, runner, host, port, database)
+
         if handler_tests and dialect != "mysql":
             _handler_tests(
                 runner,
@@ -1440,16 +1924,55 @@ def verify_dialect(
         elif handler_tests:
             print("mysql: handler tests skipped on the minimal 0107 baseline")
         print(
-            f"{dialect}: pristine, seeded-0110, seeded-0111, and "
-            "0113 lineage round-trips passed"
+            f"{dialect}: pristine, seeded-0110, seeded-0111, 0113 lineage, "
+            "and 0114 private identity round-trips passed"
         )
+    except BaseException as error:
+        primary_error = error
     finally:
-        subprocess.run(
-            ["docker", "rm", "--force", name],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        cleanup_error: BaseException | None = None
+        if owned:
+            try:
+                _remove_owned_container(name)
+            except BaseException as error:
+                cleanup_error = error
+        if volume_owned:
+            try:
+                _remove_owned_volume(volume)
+            except BaseException as error:
+                cleanup_error = cleanup_error or error
+        remaining = _run(
+            [
+                "docker",
+                "ps",
+                "-a",
+                "--filter",
+                f"name=^/{name}$",
+                "--format",
+                "{{.Names}}",
+            ],
+            capture=True,
         )
+        remaining_volume = _run(
+            [
+                "docker",
+                "volume",
+                "ls",
+                "--filter",
+                f"name=^{volume}$",
+                "--format",
+                "{{.Name}}",
+            ],
+            capture=True,
+        )
+        if remaining or remaining_volume:
+            cleanup_error = RuntimeError("exact verifier resource remains")
+        if cleanup_error is None:
+            print(SOURCE_IDENTITY_MARKERS[8], dialect)
+        elif primary_error is None:
+            raise cleanup_error
+    if primary_error is not None:
+        raise primary_error
 
 
 def _positive_integer(value: str) -> int:

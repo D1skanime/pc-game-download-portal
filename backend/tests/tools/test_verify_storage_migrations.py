@@ -62,7 +62,15 @@ def test_verify_dialect_exercises_pristine_and_history_paths(monkeypatch):
     calls = []
 
     def record_run(*args, **kwargs):
-        calls.append(args[0])
+        command = args[0]
+        calls.append(command)
+        if command[:2] in (["docker", "create"], ["docker", "inspect"]):
+            return "owned-container-id"
+        if command[:3] in (
+            ["docker", "volume", "create"],
+            ["docker", "volume", "inspect"],
+        ):
+            return command[-1]
         return ""
 
     monkeypatch.setattr(verifier.subprocess, "run", lambda *args, **kwargs: None)
@@ -71,6 +79,8 @@ def test_verify_dialect_exercises_pristine_and_history_paths(monkeypatch):
     monkeypatch.setattr(verifier, "_runner_gateway", lambda runner: "172.17.0.1")
     monkeypatch.setattr(verifier, "_mapped_port", lambda *args: "33060")
     monkeypatch.setattr(verifier, "_bootstrap_mysql_0107", lambda name: None)
+    monkeypatch.setattr(verifier, "_remove_owned_container", lambda name: None)
+    monkeypatch.setattr(verifier, "_remove_owned_volume", lambda name: None)
     monkeypatch.setattr(verifier, "_alembic", lambda *args: calls.append(args))
     monkeypatch.setattr(
         verifier,
@@ -89,6 +99,8 @@ def test_verify_dialect_exercises_pristine_and_history_paths(monkeypatch):
         "_verify_0113_upgrade_state",
         "_seed_0113_state",
         "_verify_0113_downgrade_rejected",
+        "_verify_0114_round_trip",
+        "_clear_0114_state",
     ):
         monkeypatch.setattr(verifier, helper_name, lambda *args: calls.append(args))
     verifier.verify_dialect("mariadb", "romm-dev")
@@ -139,7 +151,15 @@ def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
     events = []
 
     def record_run(*args, **kwargs):
-        events.append(args[0])
+        command = args[0]
+        events.append(command)
+        if command[:2] in (["docker", "create"], ["docker", "inspect"]):
+            return "owned-container-id"
+        if command[:3] in (
+            ["docker", "volume", "create"],
+            ["docker", "volume", "inspect"],
+        ):
+            return command[-1]
         return ""
 
     monkeypatch.setattr(verifier.subprocess, "run", lambda *args, **kwargs: None)
@@ -148,6 +168,8 @@ def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
     monkeypatch.setattr(verifier, "_runner_gateway", lambda runner: "172.17.0.1")
     monkeypatch.setattr(verifier, "_mapped_port", lambda *args: "33060")
     monkeypatch.setattr(verifier, "_bootstrap_mysql_0107", lambda *args: None)
+    monkeypatch.setattr(verifier, "_remove_owned_container", lambda name: None)
+    monkeypatch.setattr(verifier, "_remove_owned_volume", lambda name: None)
     monkeypatch.setattr(
         verifier, "_alembic", lambda *args: events.append(("alembic", *args))
     )
@@ -204,6 +226,16 @@ def test_verify_dialect_exercises_seeded_0110_and_restart_paths(monkeypatch):
         verifier,
         "_verify_0113_downgrade_rejected",
         lambda *args: events.append(("guard-0113", *args)),
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_verify_0114_round_trip",
+        lambda *args: events.append(("round-trip-0114", *args)),
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_clear_0114_state",
+        lambda *args: events.append(("clear-0114", *args)),
     )
 
     verifier.verify_dialect("postgresql", "romm-dev")
@@ -503,3 +535,48 @@ def test_verifier_redacts_failed_command_diagnostics(monkeypatch):
     assert "verifier command failed with exit 23" in diagnostic
     assert private_command_value not in diagnostic
     assert private_output_value not in diagnostic
+
+
+def test_verifier_cleanup_removes_only_exact_owned_container(monkeypatch):
+    removals = []
+
+    def record(args, **kwargs):
+        removals.append((args, kwargs))
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(verifier.subprocess, "run", record)
+    verifier._remove_owned_container("romm-storage-migration-mariadb-0123456789")
+    verifier._remove_owned_volume("romm-storage-migration-mariadb-0123456789-data")
+    assert removals == [
+        (
+            [
+                "docker",
+                "rm",
+                "--force",
+                "--volumes",
+                "romm-storage-migration-mariadb-0123456789",
+            ],
+            {
+                "check": False,
+                "stdout": verifier.subprocess.DEVNULL,
+                "stderr": verifier.subprocess.DEVNULL,
+            },
+        ),
+        (
+            [
+                "docker",
+                "volume",
+                "rm",
+                "romm-storage-migration-mariadb-0123456789-data",
+            ],
+            {
+                "check": False,
+                "stdout": verifier.subprocess.DEVNULL,
+                "stderr": verifier.subprocess.DEVNULL,
+            },
+        ),
+    ]
+    with pytest.raises(ValueError, match="refusing to remove unowned"):
+        verifier._remove_owned_container("romm-db-dev")
+    with pytest.raises(ValueError, match="refusing to remove unowned"):
+        verifier._remove_owned_volume("unrelated-data")
