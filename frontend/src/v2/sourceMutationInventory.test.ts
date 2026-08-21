@@ -248,19 +248,6 @@ function resolveRoute(
     : null;
 }
 
-function routeText(
-  node: ts.Expression,
-  sourceFile: ts.SourceFile,
-): string | null {
-  return resolveRoute(
-    node,
-    sourceFile,
-    constBindings(sourceFile),
-    false,
-    new Set(),
-  );
-}
-
 function normalizeRoute(route: string): string {
   const clean = route
     .split("?")[0]
@@ -318,8 +305,11 @@ function importedClients(sourceFile: ts.SourceFile): Set<string> {
     const clause = statement.importClause;
     if (clause?.name) clients.add(clause.name.text);
     if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
-      for (const element of clause.namedBindings.elements)
-        clients.add(element.name.text);
+      for (const element of clause.namedBindings.elements) {
+        if ((element.propertyName?.text ?? element.name.text) === "default") {
+          clients.add(element.name.text);
+        }
+      }
     }
     if (clause?.namedBindings && ts.isNamespaceImport(clause.namedBindings)) {
       clients.add(clause.namedBindings.name.text + ".default");
@@ -337,12 +327,18 @@ function collectAliases(sourceFile: ts.SourceFile, clients: Set<string>): void {
         ts.isVariableDeclaration(node) &&
         ts.isIdentifier(node.name) &&
         node.initializer &&
-        expressionPath(node.initializer) !== null &&
-        clients.has(expressionPath(node.initializer)!) &&
-        !clients.has(node.name.text)
+        ts.isVariableDeclarationList(node.parent) &&
+        (node.parent.flags & ts.NodeFlags.Const) !== 0
       ) {
-        clients.add(node.name.text);
-        changed = true;
+        const initializerPath = expressionPath(node.initializer);
+        if (
+          initializerPath !== null &&
+          clients.has(initializerPath) &&
+          !clients.has(node.name.text)
+        ) {
+          clients.add(node.name.text);
+          changed = true;
+        }
       }
       ts.forEachChild(node, visit);
     };
@@ -374,23 +370,245 @@ function safeImporter(importer: string): string {
   return normalized.slice(0, 120);
 }
 
+function safeFunctionLabel(node: ts.Node): string {
+  const label = enclosingFunction(node).replace(/[^A-Za-z0-9_$-]/g, "_");
+  return (label || "module").slice(0, 60);
+}
+
 function unclassifiableCall(
   importer: string,
   call: string,
   method: string,
   route: string,
+  transport = "client",
 ): never {
   throw new Error(
     "unclassifiable call importer=" +
       safeImporter(importer) +
       " call=" +
-      call.slice(0, 120) +
+      call.replace(/[^A-Za-z0-9_$:.[\]-]/g, "_").slice(0, 120) +
+      " transport=" +
+      transport.slice(0, 24) +
       " method=" +
       method +
       " route=" +
       route +
       " operation=UNKNOWN storage=unknown",
   );
+}
+
+function unwrapExpression(node: ts.Expression): ts.Expression {
+  let current = node;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isNonNullExpression(current) ||
+    ts.isSatisfiesExpression(current)
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function resolveBoundExpression(
+  node: ts.Expression,
+  bindings: Map<string, ts.Expression>,
+  resolving = new Set<string>(),
+): ts.Expression | null {
+  const current = unwrapExpression(node);
+  if (!ts.isIdentifier(current)) return current;
+  const initializer = bindings.get(current.text);
+  if (!initializer || resolving.has(current.text)) return null;
+  resolving.add(current.text);
+  const resolved = resolveBoundExpression(initializer, bindings, resolving);
+  resolving.delete(current.text);
+  return resolved;
+}
+
+function propertyNameText(name: ts.PropertyName): string | null {
+  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) return name.text;
+  return null;
+}
+
+function configProperty(
+  object: ts.ObjectLiteralExpression,
+  key: string,
+): ts.Expression | null | undefined {
+  let value: ts.Expression | undefined;
+  for (const property of object.properties) {
+    if (
+      ts.isSpreadAssignment(property) ||
+      ts.isMethodDeclaration(property) ||
+      ts.isGetAccessorDeclaration(property) ||
+      ts.isSetAccessorDeclaration(property) ||
+      property.name === undefined ||
+      property.name.getText().startsWith("[")
+    ) {
+      return null;
+    }
+    const propertyKey = propertyNameText(property.name);
+    if (propertyKey === null) return null;
+    if (propertyKey !== key) continue;
+    if (value !== undefined) return null;
+    if (ts.isPropertyAssignment(property)) value = property.initializer;
+    else if (ts.isShorthandPropertyAssignment(property)) value = property.name;
+    else return null;
+  }
+  return value;
+}
+
+function configCallParts(
+  argument: ts.Expression | undefined,
+  sourceFile: ts.SourceFile,
+  bindings: Map<string, ts.Expression>,
+): { method: HttpMethod; route: string } | null {
+  if (!argument) return null;
+  const resolved = resolveBoundExpression(argument, bindings);
+  if (!resolved || !ts.isObjectLiteralExpression(resolved)) return null;
+  const urlExpression = configProperty(resolved, "url");
+  const methodExpression = configProperty(resolved, "method");
+  if (urlExpression === null || methodExpression === null || !urlExpression)
+    return null;
+  const route = resolveRoute(
+    urlExpression,
+    sourceFile,
+    bindings,
+    false,
+    new Set(),
+  );
+  if (!route) return null;
+  let method: HttpMethod = "GET";
+  if (methodExpression) {
+    const methodText = resolveRoute(
+      methodExpression,
+      sourceFile,
+      bindings,
+      false,
+      new Set(),
+    )?.toUpperCase();
+    if (!methodText || !httpMethods.has(methodText as HttpMethod)) return null;
+    method = methodText as HttpMethod;
+  }
+  return { method, route: normalizeRoute(route) };
+}
+
+type Wrapper = {
+  parameters: string[];
+  transportCall: ts.CallExpression;
+};
+
+function wrapperTransportCall(
+  node: ts.FunctionDeclaration | ts.FunctionExpression | ts.ArrowFunction,
+): ts.CallExpression | null {
+  if (ts.isArrowFunction(node) && !ts.isBlock(node.body)) {
+    const body = unwrapExpression(node.body);
+    return ts.isCallExpression(body) ? body : null;
+  }
+  if (!node.body || !ts.isBlock(node.body) || node.body.statements.length !== 1)
+    return null;
+  const statement = node.body.statements[0];
+  return statement &&
+    ts.isReturnStatement(statement) &&
+    statement.expression &&
+    ts.isCallExpression(unwrapExpression(statement.expression))
+    ? (unwrapExpression(statement.expression) as ts.CallExpression)
+    : null;
+}
+
+function recognizedTransportRoot(
+  call: ts.CallExpression,
+  clients: Set<string>,
+): boolean {
+  const callee = unwrapExpression(call.expression);
+  const path = expressionPath(callee);
+  if (
+    path === "fetch" ||
+    path === "window.fetch" ||
+    path === "globalThis.fetch"
+  )
+    return true;
+  if (
+    path &&
+    [...clients].some(
+      (client) => path === client || path.startsWith(client + "."),
+    )
+  )
+    return true;
+  return containsClient(callee, clients);
+}
+
+function collectActiveWrappers(
+  sourceFile: ts.SourceFile,
+  clients: Set<string>,
+): {
+  wrappers: Map<string, Wrapper>;
+  innerCalls: Set<ts.CallExpression>;
+} {
+  const candidates = new Map<string, Wrapper>();
+  const visitDefinitions = (node: ts.Node) => {
+    let name: string | null = null;
+    let callable:
+      ts.FunctionDeclaration | ts.FunctionExpression | ts.ArrowFunction | null =
+      null;
+    if (ts.isFunctionDeclaration(node) && node.name) {
+      name = node.name.text;
+      callable = node;
+    } else if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      (ts.isArrowFunction(node.initializer) ||
+        ts.isFunctionExpression(node.initializer))
+    ) {
+      name = node.name.text;
+      callable = node.initializer;
+    }
+    if (name && callable) {
+      const parameters = callable.parameters.map((parameter) =>
+        ts.isIdentifier(parameter.name) ? parameter.name.text : null,
+      );
+      const transportCall = wrapperTransportCall(callable);
+      if (
+        parameters.every(
+          (parameter): parameter is string => parameter !== null,
+        ) &&
+        transportCall &&
+        recognizedTransportRoot(transportCall, clients)
+      ) {
+        candidates.set(name, { parameters, transportCall });
+      }
+    }
+    ts.forEachChild(node, visitDefinitions);
+  };
+  visitDefinitions(sourceFile);
+
+  const invoked = new Set<string>();
+  const visitInvocations = (node: ts.Node) => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(unwrapExpression(node.expression)) &&
+      candidates.has((unwrapExpression(node.expression) as ts.Identifier).text)
+    ) {
+      const candidate = candidates.get(
+        (unwrapExpression(node.expression) as ts.Identifier).text,
+      );
+      if (candidate?.transportCall !== node)
+        invoked.add((unwrapExpression(node.expression) as ts.Identifier).text);
+    }
+    ts.forEachChild(node, visitInvocations);
+  };
+  visitInvocations(sourceFile);
+
+  const wrappers = new Map(
+    [...candidates].filter(([name]) => invoked.has(name)),
+  );
+  return {
+    wrappers,
+    innerCalls: new Set(
+      [...wrappers.values()].map((wrapper) => wrapper.transportCall),
+    ),
+  };
 }
 
 function extractRawCalls(source: string, importer: string): RawCall[] {
@@ -405,66 +623,193 @@ function extractRawCalls(source: string, importer: string): RawCall[] {
   const clients = importedClients(sourceFile);
   clients.add("api");
   collectAliases(sourceFile, clients);
+  const bindings = constBindings(sourceFile);
+  const { wrappers, innerCalls } = collectActiveWrappers(sourceFile, clients);
   const calls: RawCall[] = [];
+
+  const fail = (
+    node: ts.Node,
+    transport: string,
+    method = "UNKNOWN",
+    route = "UNKNOWN",
+  ): never =>
+    unclassifiableCall(
+      importer,
+      safeFunctionLabel(node) + ":" + transport,
+      method,
+      route,
+      transport,
+    );
+
+  const decode = (
+    node: ts.CallExpression,
+    currentBindings: Map<string, ts.Expression>,
+    labelNode: ts.Node,
+  ): RawCall | null => {
+    const callee = unwrapExpression(node.expression);
+    const path = expressionPath(callee);
+    const callFor = (transport: string) =>
+      safeFunctionLabel(labelNode) + ":" + transport;
+
+    if (
+      path === "fetch" ||
+      path === "window.fetch" ||
+      path === "globalThis.fetch"
+    ) {
+      const route = node.arguments[0]
+        ? resolveRoute(
+            node.arguments[0],
+            sourceFile,
+            currentBindings,
+            false,
+            new Set(),
+          )
+        : null;
+      let method: HttpMethod = "GET";
+      if (node.arguments[1]) {
+        const init = resolveBoundExpression(node.arguments[1], currentBindings);
+        if (!init || !ts.isObjectLiteralExpression(init))
+          return fail(labelNode, "fetch");
+        const methodExpression = configProperty(init, "method");
+        if (methodExpression === null) return fail(labelNode, "fetch");
+        if (methodExpression) {
+          const methodText = resolveRoute(
+            methodExpression,
+            sourceFile,
+            currentBindings,
+            false,
+            new Set(),
+          )?.toUpperCase();
+          if (!methodText || !httpMethods.has(methodText as HttpMethod))
+            return fail(labelNode, "fetch");
+          method = methodText as HttpMethod;
+        }
+      }
+      if (!route) {
+        if (method === "GET") return null;
+        return fail(labelNode, "fetch");
+      }
+      return {
+        importer: safeImporter(importer),
+        call: callFor("fetch"),
+        method,
+        route: normalizeRoute(route),
+      };
+    }
+
+    if (path && clients.has(path)) {
+      const parts = configCallParts(
+        node.arguments[0],
+        sourceFile,
+        currentBindings,
+      );
+      if (!parts) return fail(labelNode, "callable-client");
+      return {
+        importer: safeImporter(importer),
+        call: callFor("callable-client"),
+        ...parts,
+      };
+    }
+
+    if (
+      ts.isPropertyAccessExpression(callee) ||
+      ts.isElementAccessExpression(callee)
+    ) {
+      const receiver = callee.expression;
+      const receiverPath = expressionPath(receiver);
+      const receiverKnown = receiverPath !== null && clients.has(receiverPath);
+      const memberText = ts.isPropertyAccessExpression(callee)
+        ? callee.name.text
+        : callee.argumentExpression &&
+            ts.isStringLiteralLike(callee.argumentExpression)
+          ? callee.argumentExpression.text
+          : null;
+
+      if (receiverKnown && memberText === "request") {
+        const parts = configCallParts(
+          node.arguments[0],
+          sourceFile,
+          currentBindings,
+        );
+        if (!parts) return fail(labelNode, "request");
+        return {
+          importer: safeImporter(importer),
+          call: callFor("request"),
+          ...parts,
+        };
+      }
+
+      const methodText = memberText?.toUpperCase() ?? "UNKNOWN";
+      const method = httpMethods.has(methodText as HttpMethod)
+        ? (methodText as HttpMethod)
+        : null;
+      const recognizedReceiver =
+        receiverKnown || containsClient(receiver, clients);
+      if (recognizedReceiver && (method || memberText === null)) {
+        const route = node.arguments[0]
+          ? resolveRoute(
+              node.arguments[0],
+              sourceFile,
+              currentBindings,
+              false,
+              new Set(),
+            )
+          : null;
+        if (!receiverKnown || !method || !route) {
+          return fail(
+            labelNode,
+            "client-member",
+            method?.toString() ?? "UNKNOWN",
+            route ? normalizeRoute(route) : "UNKNOWN",
+          );
+        }
+        return {
+          importer: safeImporter(importer),
+          call:
+            safeFunctionLabel(labelNode) +
+            ":" +
+            receiverPath +
+            "." +
+            memberText!.toLowerCase(),
+          method,
+          route: normalizeRoute(route),
+        };
+      }
+    }
+
+    if (ts.isConditionalExpression(callee) && containsClient(callee, clients))
+      return fail(labelNode, "conditional-client");
+    return null;
+  };
+
   const visit = (node: ts.Node) => {
     if (!ts.isCallExpression(node)) {
       ts.forEachChild(node, visit);
       return;
     }
-    const member = node.expression;
-    if (
-      !ts.isPropertyAccessExpression(member) &&
-      !ts.isElementAccessExpression(member)
-    ) {
-      ts.forEachChild(node, visit);
+    if (innerCalls.has(node)) return;
+
+    const callee = unwrapExpression(node.expression);
+    if (ts.isIdentifier(callee) && wrappers.has(callee.text)) {
+      const wrapper = wrappers.get(callee.text)!;
+      if (node.arguments.length < wrapper.parameters.length)
+        fail(node, "wrapper");
+      const wrapperBindings = new Map(bindings);
+      wrapper.parameters.forEach((parameter, index) => {
+        const argument = node.arguments[index];
+        if (argument) wrapperBindings.set(parameter, argument);
+      });
+      const decoded = decode(wrapper.transportCall, wrapperBindings, node);
+      if (!decoded) return fail(node, "wrapper");
+      calls.push(decoded);
       return;
     }
-    const receiver = member.expression;
-    const receiverPath = expressionPath(receiver);
-    const receiverKnown = receiverPath !== null && clients.has(receiverPath);
-    const memberText = ts.isPropertyAccessExpression(member)
-      ? member.name.text
-      : member.argumentExpression &&
-          ts.isStringLiteralLike(member.argumentExpression)
-        ? member.argumentExpression.text
-        : null;
-    const methodText = memberText?.toUpperCase() ?? "UNKNOWN";
-    const method = httpMethods.has(methodText as HttpMethod)
-      ? (methodText as HttpMethod)
-      : null;
-    const dynamicMember =
-      ts.isElementAccessExpression(member) && memberText === null;
-    if (!method && !dynamicMember) {
-      ts.forEachChild(node, visit);
+
+    const decoded = decode(node, bindings, node);
+    if (decoded) {
+      calls.push(decoded);
       return;
     }
-    if (!receiverKnown && !(method && containsClient(receiver, clients))) {
-      ts.forEachChild(node, visit);
-      return;
-    }
-    const call =
-      enclosingFunction(node) +
-      ":" +
-      (receiverPath ?? "receiver") +
-      "." +
-      (memberText?.toLowerCase() ?? "[dynamic]");
-    const route = node.arguments[0]
-      ? routeText(node.arguments[0], sourceFile)
-      : null;
-    if (!receiverKnown || !method || !route) {
-      unclassifiableCall(
-        importer,
-        call,
-        method?.toString() ?? "UNKNOWN",
-        route ? normalizeRoute(route) : "unknown",
-      );
-    }
-    calls.push({
-      importer: safeImporter(importer),
-      call,
-      method,
-      route: normalizeRoute(route),
-    });
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
