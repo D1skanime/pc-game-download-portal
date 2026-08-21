@@ -18,6 +18,8 @@ const props = defineProps<{
   redownloadable?: boolean;
   /** Drive the re-download button's loading/disabled state. */
   redownloading?: boolean;
+  /** Disable owned manual mutations while another mutation is pending. */
+  mutationDisabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -78,6 +80,7 @@ watch(() => props.url, load, { immediate: true });
             v-bind="activator"
             :href="url"
             :download="fileName"
+            :aria-label="t('common.download')"
             class="r-v2-mdv__btn"
           >
             <RIcon icon="mdi-download" size="18" />
@@ -92,7 +95,8 @@ watch(() => props.url, load, { immediate: true });
             type="button"
             class="r-v2-mdv__btn"
             :class="{ 'r-v2-mdv__btn--loading': redownloading }"
-            :disabled="redownloading"
+            :aria-label="t('rom.redownload')"
+            :disabled="redownloading || mutationDisabled"
             @click="emit('redownload')"
           >
             <RIcon icon="mdi-cloud-download-outline" size="18" />
@@ -106,6 +110,8 @@ watch(() => props.url, load, { immediate: true });
             v-bind="activator"
             type="button"
             class="r-v2-mdv__btn r-v2-mdv__btn--danger"
+            :aria-label="t('common.delete')"
+            :disabled="mutationDisabled"
             @click="emit('delete')"
           >
             <RIcon icon="mdi-delete-outline" size="18" />

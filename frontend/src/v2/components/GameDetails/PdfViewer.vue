@@ -22,6 +22,8 @@ defineProps<{
   redownloadable?: boolean;
   /** Drive the re-download button's loading/disabled state. */
   redownloading?: boolean;
+  /** Disable owned manual mutations while another mutation is pending. */
+  mutationDisabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -179,7 +181,8 @@ const ids = {
             type="button"
             class="r-v2-pdfv__btn"
             :class="{ 'r-v2-pdfv__btn--loading': redownloading }"
-            :disabled="redownloading"
+            :aria-label="t('rom.redownload')"
+            :disabled="redownloading || mutationDisabled"
             @click="emit('redownload')"
           >
             <RIcon icon="mdi-cloud-download-outline" size="18" />
@@ -193,6 +196,8 @@ const ids = {
             v-bind="activator"
             type="button"
             class="r-v2-pdfv__btn r-v2-pdfv__btn--danger"
+            :aria-label="t('common.delete')"
+            :disabled="mutationDisabled"
             @click="emit('delete')"
           >
             <RIcon icon="mdi-delete-outline" size="18" />
