@@ -3,6 +3,7 @@ from importlib import import_module
 from sqlalchemy import inspect
 
 from endpoints.responses.rom import RomFileSchema, RomSchema
+from endpoints.responses.storage import LegacyDetectionResultSchema
 from models import assets as asset_models
 from models import play_session as play_session_models
 from models import rom as rom_models
@@ -235,6 +236,57 @@ def test_migration_state_is_versioned_rollbackable_and_first_use_nullable():
     assert "ck_legacy_migrations_first_use_pair" in constraint_names
     assert "ck_legacy_migrations_state" in constraint_names
     assert "ck_legacy_migrations_version" in constraint_names
+
+
+def test_detection_source_identity_is_private_bounded_and_unique():
+    model = storage_models.LegacyDetectionSourceIdentity
+    columns = model.__table__.columns
+
+    assert set(columns.keys()) == {
+        "id",
+        "detection_result_id",
+        "identity_digest",
+        "created_at",
+        "updated_at",
+    }
+    assert columns.detection_result_id.nullable is False
+    assert columns.identity_digest.type.length == 64
+    assert columns.identity_digest.nullable is False
+    foreign_key = _foreign_key(columns.detection_result_id)
+    assert foreign_key.target_fullname == "legacy_detection_results.id"
+    assert foreign_key.ondelete == "CASCADE"
+
+    constraint_names = {constraint.name for constraint in model.__table__.constraints}
+    assert "ck_legacy_detection_source_identities_digest_format" in constraint_names
+    assert "uq_legacy_detection_source_identities_result_digest" in constraint_names
+    assert "ix_legacy_detection_source_identities_order" in {
+        index.name for index in model.__table__.indexes
+    }
+
+    relationship = inspect(
+        storage_models.LegacyDetectionResult
+    ).relationships.source_identities
+    assert relationship.back_populates == "detection_result"
+    assert "delete-orphan" in relationship.cascade
+    assert relationship.single_parent is True
+    assert relationship.passive_deletes is True
+    assert relationship.order_by is not False
+
+    assert "source_identities" not in LegacyDetectionResultSchema.model_fields
+    assert not any(
+        token in column.name
+        for column in columns
+        for token in (
+            "path",
+            "filename",
+            "file_name",
+            "host",
+            "raw",
+            "record",
+            "snapshot",
+            "token",
+        )
+    )
 
 
 def test_migration_owns_ordered_relationship_free_exact_catalog_changes():
