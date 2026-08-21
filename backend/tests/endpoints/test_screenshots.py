@@ -1,10 +1,14 @@
+import os
 from io import BytesIO
+from pathlib import Path
 from unittest import mock
 
 import pytest
 from fastapi import status
 from pydantic import ValidationError
+from sqlalchemy import select
 
+from config import ASSETS_BASE_PATH
 from endpoints.responses.assets import ScreenshotSchema, UserScreenshotSchema
 from handler.database import db_screenshot_handler
 from handler.database.base_handler import sync_session
@@ -22,6 +26,37 @@ def _auth(token: str) -> dict[str, str]:
 def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
     with sync_session.begin() as s:
         s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
+
+
+def _asset_manifest():
+    root = Path(ASSETS_BASE_PATH).resolve()
+    if not root.exists():
+        return False, ()
+
+    entries = []
+    for path in sorted(root.rglob("*")):
+        stat = path.lstat()
+        if path.is_symlink():
+            content = os.readlink(path)
+        elif path.is_file():
+            content = path.read_bytes()
+        else:
+            content = None
+        entries.append(
+            (path.relative_to(root).as_posix(), stat.st_mode, stat.st_size, content)
+        )
+    return True, tuple(entries)
+
+
+def _screenshot_ids_for_rom(rom_id: int) -> tuple[int, ...]:
+    with sync_session() as session:
+        return tuple(
+            session.scalars(
+                select(Screenshot.id)
+                .where(Screenshot.rom_id == rom_id)
+                .order_by(Screenshot.id)
+            ).all()
+        )
 
 
 @pytest.mark.parametrize("schema", (ScreenshotSchema, UserScreenshotSchema))
@@ -104,6 +139,127 @@ def test_upload_rejects_invalid_extension(
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Unsupported image file type" in response.json()["detail"]
+
+
+def _assert_hidden_upload_is_masked_before_effects(
+    *,
+    client,
+    token: str,
+    user: User,
+    rom: Rom,
+    platform: Platform,
+) -> None:
+    before_ids = _screenshot_ids_for_rom(rom.id)
+    before_assets = _asset_manifest()
+    file_name = "hidden-target-proof.png"
+    scanned = Screenshot(
+        file_name=file_name,
+        file_name_no_tags="hidden-target-proof",
+        file_name_no_ext="hidden-target-proof",
+        file_extension="png",
+        file_path="unused/screenshots",
+        file_size_bytes=3,
+    )
+    real_get = db_screenshot_handler.get_screenshot
+    real_add = db_screenshot_handler.add_screenshot
+    real_update = db_screenshot_handler.update_screenshot
+
+    with (
+        mock.patch(
+            "endpoints.screenshots.fs_asset_handler.build_screenshots_file_path",
+            return_value=Path("/tmp/hidden-target-proof"),
+        ) as mock_build_path,
+        mock.patch(
+            "endpoints.screenshots.fs_asset_handler.write_file",
+            new_callable=mock.AsyncMock,
+        ) as mock_write,
+        mock.patch(
+            "endpoints.screenshots.scan_screenshot",
+            new_callable=mock.AsyncMock,
+            return_value=scanned,
+        ) as mock_scan,
+        mock.patch(
+            "endpoints.screenshots.db_screenshot_handler.get_screenshot",
+            side_effect=real_get,
+        ) as mock_get,
+        mock.patch(
+            "endpoints.screenshots.db_screenshot_handler.add_screenshot",
+            side_effect=real_add,
+        ) as mock_add,
+        mock.patch(
+            "endpoints.screenshots.db_screenshot_handler.update_screenshot",
+            side_effect=real_update,
+        ) as mock_update,
+    ):
+        response = client.post(
+            f"/api/screenshots?rom_id={rom.id}",
+            files={"screenshotFile": (file_name, BytesIO(b"img"), "image/png")},
+            headers=_auth(token),
+        )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "ROM not found"}
+    for hidden_detail in (
+        rom.id,
+        rom.name,
+        rom.fs_path,
+        platform.id,
+        platform.name,
+        platform.fs_slug,
+        file_name,
+        user.username,
+        "permission",
+    ):
+        assert str(hidden_detail).lower() not in response.text.lower()
+
+    for effect in (
+        mock_build_path,
+        mock_write,
+        mock_scan,
+        mock_get,
+        mock_add,
+        mock_update,
+    ):
+        effect.assert_not_called()
+
+    assert _screenshot_ids_for_rom(rom.id) == before_ids
+    assert _asset_manifest() == before_assets
+
+
+def test_hidden_rom_screenshot_upload_is_masked_before_effects(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    _assert_hidden_upload_is_masked_before_effects(
+        client=client,
+        token=viewer_access_token,
+        user=viewer_user,
+        rom=rom,
+        platform=platform,
+    )
+
+
+def test_hidden_platform_screenshot_upload_is_masked_before_effects(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+
+    _assert_hidden_upload_is_masked_before_effects(
+        client=client,
+        token=viewer_access_token,
+        user=viewer_user,
+        rom=rom,
+        platform=platform,
+    )
 
 
 # ---------- PUT /api/screenshots/{id} (visibility) ----------
