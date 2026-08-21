@@ -543,7 +543,10 @@ def test_detection_identity_evidence_is_bounded_and_private(
     ):
         with pytest.raises(ValueError) as invalid:
             subject._source_identity_digest(ambiguous)
-        assert ambiguous not in str(invalid.value)
+        assert (
+            str(invalid.value)
+            == "source identity must be canonical relative POSIX text"
+        )
 
     bounded = _detect(tmp_path, entry_budget=1)
     assert bounded.observed_files == 1

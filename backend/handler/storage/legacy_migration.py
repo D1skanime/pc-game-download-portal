@@ -4,8 +4,9 @@ import hashlib
 import stat
 import struct
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import PurePosixPath
 from typing import cast
 
 from exceptions.storage_exceptions import (
@@ -52,7 +53,9 @@ class LegacyDetectionOutcome:
     selectable: bool
     safe_problem_code: str | None
 
-    source_fingerprint: str | None = None
+    source_fingerprint: str | None = field(default=None, repr=False)
+    observed_identity_count: int = 0
+    source_identity_digests: tuple[bytes, ...] = field(default=(), repr=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,7 +120,9 @@ class _CandidateObservation:
     lower_bound: bool = False
     safe_problem_code: str | None = None
 
-    source_fingerprint: str | None = None
+    source_fingerprint: str | None = field(default=None, repr=False)
+    observed_identity_count: int = 0
+    source_identity_digests: tuple[bytes, ...] = field(default=(), repr=False)
 
 
 def build_legacy_candidate_paths(fs_slug: str) -> tuple[str, str]:
@@ -134,6 +139,32 @@ def _fingerprint_record(*parts: bytes) -> bytes:
     return b"".join(struct.pack(">Q", len(part)) + part for part in parts)
 
 
+def _source_identity_digest(relative_identity: str) -> bytes:
+    invalid = (
+        type(relative_identity) is not str
+        or not relative_identity
+        or relative_identity.startswith("/")
+        or "\\" in relative_identity
+        or "\0" in relative_identity
+    )
+    parts = relative_identity.split("/") if not invalid else ()
+    if (
+        invalid
+        or any(part in ("", ".", "..") for part in parts)
+        or PurePosixPath(relative_identity).as_posix() != relative_identity
+    ):
+        raise ValueError("source identity must be canonical relative POSIX text")
+    try:
+        identity_bytes = relative_identity.encode("utf-8", errors="strict")
+    except UnicodeEncodeError:
+        raise ValueError(
+            "source identity must be canonical relative POSIX text"
+        ) from None
+    return hashlib.sha256(
+        _fingerprint_record(b"romm-legacy-source-identity-v1", identity_bytes)
+    ).digest()
+
+
 def _inspect_candidate(
     storage: ExternalStorageDescriptor,
     relative_path: str,
@@ -148,6 +179,29 @@ def _inspect_candidate(
     pending = [relative_path]
 
     records: list[tuple[bytes, bytes]] = []
+    identity_digests: set[bytes] = set()
+
+    def candidate_observation(
+        state: str,
+        safe_problem_code: str | None,
+        *,
+        lower_bound: bool = False,
+        source_fingerprint: str | None = None,
+    ) -> _CandidateObservation:
+        frozen_identity_digests = tuple(sorted(identity_digests))
+        assert len(frozen_identity_digests) == files
+        return _CandidateObservation(
+            relative_path=relative_path,
+            present=True,
+            state=state,
+            observed_files=files,
+            observed_bytes=size,
+            lower_bound=lower_bound,
+            safe_problem_code=safe_problem_code,
+            source_fingerprint=source_fingerprint,
+            observed_identity_count=len(frozen_identity_digests),
+            source_identity_digests=frozen_identity_digests,
+        )
 
     def budget_reason() -> str | None:
         if inspected >= entry_budget:
@@ -157,14 +211,10 @@ def _inspect_candidate(
         return None
 
     def budget_observation(reason: str) -> _CandidateObservation:
-        return _CandidateObservation(
-            relative_path=relative_path,
-            present=True,
-            state=LegacyDetectionState.DETECTED.value,
-            observed_files=files,
-            observed_bytes=size,
+        return candidate_observation(
+            LegacyDetectionState.DETECTED.value,
+            reason,
             lower_bound=True,
-            safe_problem_code=reason,
         )
 
     while pending:
@@ -180,13 +230,8 @@ def _inspect_candidate(
         except MissingStorageTargetError:
             if directory == relative_path:
                 return _CandidateObservation(relative_path, False)
-            return _CandidateObservation(
-                relative_path,
-                True,
+            return candidate_observation(
                 LegacyDetectionState.UNREADABLE.value,
-                files,
-                size,
-                False,
                 "unreadable_entry",
             )
         except MissingStorageRootError:
@@ -197,23 +242,13 @@ def _inspect_candidate(
                 safe_problem_code="storage_root_unreachable",
             )
         except (UnsafeSymlinkError, NonDirectoryStorageTargetError):
-            return _CandidateObservation(
-                relative_path,
-                True,
+            return candidate_observation(
                 LegacyDetectionState.UNSAFE.value,
-                files,
-                size,
-                False,
                 "unsafe_entry",
             )
         except (UnreadableStorageTargetError, StorageResolutionError):
-            return _CandidateObservation(
-                relative_path,
-                True,
+            return candidate_observation(
                 LegacyDetectionState.UNREADABLE.value,
-                files,
-                size,
-                False,
                 "unreadable_directory",
             )
 
@@ -232,23 +267,13 @@ def _inspect_candidate(
                 ) as metadata:
                     item = cast(StatCapability, metadata).stat()
             except UnsafeSymlinkError:
-                return _CandidateObservation(
-                    relative_path,
-                    True,
+                return candidate_observation(
                     LegacyDetectionState.UNSAFE.value,
-                    files,
-                    size,
-                    False,
                     "unsafe_entry",
                 )
             except StorageResolutionError:
-                return _CandidateObservation(
-                    relative_path,
-                    True,
+                return candidate_observation(
                     LegacyDetectionState.UNREADABLE.value,
-                    files,
-                    size,
-                    False,
                     "unreadable_entry",
                 )
             if stat.S_ISDIR(item.st_mode):
@@ -287,19 +312,27 @@ def _inspect_candidate(
                 except DescriptorHashDeadlineError:
                     return budget_observation("time_budget")
                 except (DescriptorHashError, StorageResolutionError):
-                    return _CandidateObservation(
-                        relative_path,
-                        True,
+                    return candidate_observation(
                         LegacyDetectionState.DETECTED.value,
-                        files,
-                        size,
-                        False,
                         "hash_incomplete",
                     )
                 if hashed.bytes_read > remaining:
                     return budget_observation("aggregate_byte_budget")
                 if hashed.bytes_read > hash_cap:
                     return budget_observation("file_byte_budget")
+                try:
+                    identity_digest = _source_identity_digest(relative_name)
+                except ValueError:
+                    return candidate_observation(
+                        LegacyDetectionState.UNSAFE.value,
+                        "unsafe_entry",
+                    )
+                if identity_digest in identity_digests:
+                    return candidate_observation(
+                        LegacyDetectionState.UNSAFE.value,
+                        "unsafe_entry",
+                    )
+                identity_digests.add(identity_digest)
                 files += 1
                 size += hashed.bytes_read
                 records.append(
@@ -314,35 +347,23 @@ def _inspect_candidate(
                     )
                 )
             else:
-                return _CandidateObservation(
-                    relative_path,
-                    True,
+                return candidate_observation(
                     LegacyDetectionState.UNSAFE.value,
-                    files,
-                    size,
-                    False,
                     "unsupported_entry",
                 )
 
     if files == 0:
-        return _CandidateObservation(
-            relative_path,
-            True,
+        return candidate_observation(
             LegacyDetectionState.EMPTY.value,
-            safe_problem_code="canonical_layout_empty",
+            "canonical_layout_empty",
         )
     fingerprint = hashlib.sha256(b"romm-legacy-source-v1\0")
     for _name, record in sorted(records, key=lambda item: item[0]):
         fingerprint.update(record)
-    return _CandidateObservation(
-        relative_path,
-        True,
+    return candidate_observation(
         LegacyDetectionState.DETECTED.value,
-        files,
-        size,
-        False,
         None,
-        fingerprint.hexdigest(),
+        source_fingerprint=fingerprint.hexdigest(),
     )
 
 
@@ -410,6 +431,9 @@ def detect_legacy_storage(
                 observation.lower_bound,
                 False,
                 observation.safe_problem_code,
+                observation.source_fingerprint,
+                observation.observed_identity_count,
+                observation.source_identity_digests,
             )
         if observation.state == LegacyDetectionState.UNREACHABLE.value:
             return LegacyDetectionOutcome(
@@ -463,4 +487,6 @@ def detect_legacy_storage(
         selected.source_fingerprint is not None,
         selected.safe_problem_code,
         selected.source_fingerprint,
+        selected.observed_identity_count,
+        selected.source_identity_digests,
     )
