@@ -951,6 +951,117 @@ function finalInventorySource(
 }
 
 describe("final active v2 semantic mutation closure", () => {
+  it("live_play_session_keepalive_is_inventoried", () => {
+    const path = resolve(serviceRoot, "play-session.ts");
+    expect(reachableServicePaths()).toContain(path);
+    const liveAuthorities = finalInventorySource(
+      readFileSync(path, "utf8"),
+      "services/api/play-session.ts",
+    );
+    const keepalive = liveAuthorities.find(
+      (authority) =>
+        authority.call.includes("ingestPlaySessionsKeepalive") &&
+        authority.method === "POST" &&
+        authority.route === "/play-sessions" &&
+        authority.operation === "CONTROL_PLANE" &&
+        authority.storageClass === "database" &&
+        !authority.forbidden,
+    );
+    if (!keepalive) {
+      const red = new Error(
+        "RED: the live keepalive fetch must enter the semantic inventory",
+      );
+      red.stack = red.message;
+      throw red;
+    }
+
+    const supported = [
+      [
+        `fetch("/api/play-sessions", { method: "POST" });`,
+        { method: "POST", route: "/play-sessions" },
+      ],
+      [
+        `window.fetch("/api/play-sessions", { method: "POST" });`,
+        { method: "POST", route: "/play-sessions" },
+      ],
+      [
+        `import client from "@/services/api"; client({ url: "/collections", method: "POST" });`,
+        { method: "POST", route: "/collections" },
+      ],
+      [
+        `import axiosClient from "axios"; axiosClient({ url: "/heartbeat" });`,
+        { method: "GET", route: "/heartbeat" },
+      ],
+      [
+        `import api from "@/services/api"; api.request({ url: "/collections", method: "POST" });`,
+        { method: "POST", route: "/collections" },
+      ],
+      [
+        `import api from "@/services/api";
+         const prefix = "/play-"; const url = prefix + "sessions";
+         const method = "POST"; const request = { url, method };
+         api.request(request);`,
+        { method: "POST", route: "/play-sessions" },
+      ],
+      [
+        `import api from "@/services/api";
+         const send = (request: { url: string; method: string }) => api.request(request);
+         send({ url: "/collections", method: "POST" });`,
+        { method: "POST", route: "/collections" },
+      ],
+      [
+        `function send(url: string, init: { method: string }) { return fetch(url, init); }
+         send("/api/play-sessions", { method: "POST" });`,
+        { method: "POST", route: "/play-sessions" },
+      ],
+      [
+        `import client from "@/services/api";
+         import { default as named } from "@/services/api";
+         import * as clients from "@/services/api";
+         const alias = client; alias.get("/heartbeat");
+         named({ url: "/collections", method: "POST" });
+         clients.default.request({ url: "/heartbeat" });`,
+        { length: 3 },
+      ],
+    ] as const;
+    for (const [source, expected] of supported) {
+      const authorities = finalInventorySource(source, "supported-fixture.ts");
+      if ("length" in expected)
+        expect(authorities).toHaveLength(expected.length);
+      else expect(authorities).toMatchObject([expected]);
+      expect(authorities.every((authority) => !authority.forbidden)).toBe(true);
+    }
+
+    const rejected = [
+      `fetch(secretRoute, { method: "POST", body: "payload-s3cr3t" });`,
+      `window.fetch("/api/play-sessions", { method: selectedMethod });`,
+      `import api from "@/services/api"; api.request({ ...secretConfig });`,
+      `import api from "@/services/api"; api({ [routeKey]: "/secret/dynamic", method: "POST" });`,
+      `import api from "@/services/api"; let request = { url: "/collections", method: "POST" }; api(request);`,
+      `import api from "@/services/api"; import axios from "axios"; (enabled ? api : axios)({ url: "/collections", method: "POST" });`,
+      `import api from "@/services/api";
+       const send = (request: unknown) => api.request(request);
+       send(buildSecretConfig("payload-s3cr3t"));`,
+    ];
+    for (const source of rejected) {
+      try {
+        finalInventorySource(source, "/home/d1sk/romm/rejected-fixture.ts");
+        expect.fail("recognized unresolved transport did not fail closed");
+      } catch (error) {
+        const diagnostic = String(error);
+        expect(diagnostic).toContain(
+          "unclassifiable call importer=rejected-fixture.ts",
+        );
+        expect(diagnostic).toContain("method=UNKNOWN route=UNKNOWN");
+        expect(diagnostic).toContain("operation=UNKNOWN storage=unknown");
+        expect(diagnostic).not.toMatch(
+          /payload-s3cr3t|secretRoute|secretConfig|buildSecretConfig|\/home\/|\/secret\//,
+        );
+        expect(diagnostic.length).toBeLessThan(320);
+      }
+    }
+  });
+
   it("inventories every production v2 module and reachable API service", () => {
     const servicePaths = reachableServicePaths();
     expect(
