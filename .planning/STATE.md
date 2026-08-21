@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 6 planned with 15 gap plans ready
-last_updated: "2026-08-20T20:40:38.456Z"
-last_activity: 2026-08-20 -- Phase 06 planning complete
+stopped_at: Completed 06-33-PLAN.md
+last_updated: "2026-08-21T10:08:24.426Z"
+last_activity: 2026-08-21
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 82
-  completed_plans: 67
+  completed_plans: 68
   percent: 56
 ---
 
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 
 ## Current Position
 
-Phase: 06 (safe-lifecycle-and-legacy-migration) - EXECUTING
-Plan: 32 of 47
+Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
+Plan: 34 of 47
 Status: Ready to execute
-Last activity: 2026-08-20 -- Phase 06 planning complete
+Last activity: 2026-08-21
 
 Progress: [#######---] 68%
 
@@ -105,6 +105,7 @@ _Updated after each plan completion_
 | Phase 06 P30 | 17min | 2 tasks | 2 files |
 | Phase 06 P31 | 10min | 2 tasks | 2 files |
 | Phase 06 P32 | 17min | 1 tasks | 2 files |
+| Phase 06 P33 | 24min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -235,6 +236,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Owned byte writes reject invalid kernel progress — Retry only InterruptedError and reject zero, negative, or over-reported counts.
 - [Phase 06]: Owned replacements publish only complete fsynced content — Create cleanup stays descriptor-relative and replace preserves the prior target until atomic install.
 - [Phase 06]: Use the proven host Python launcher when the application image intentionally lacks the Docker client. - This preserves the exact checked-in verifier while allowing disposable dialect resources.
+- [Phase 06]: OwnedCreate create, binary_file, and subprocess_file share one descriptor-relative staged-publication state machine. — Complete bytes remain unpublished until one common durability sequence succeeds.
+- [Phase 06]: Atomic hard-link publication provides Linux no-replace semantics without widening authority beyond the owned parent descriptor. — The owned parent descriptor remains the only namespace authority.
+- [Phase 06]: Failed post-publication parent fsync triggers exact-name rollback and a second parent fsync; uncertain rollback raises a bounded indeterminate-publication error. — Acknowledged success requires durable directory state while any uncertain visible final contains complete fsynced bytes.
 
 ### Blockers/Concerns
 
@@ -252,6 +256,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-20T20:40:38.446Z
-Stopped at: Phase 6 planned with 15 gap plans ready
-Resume file: .planning/phases/06-safe-lifecycle-and-legacy-migration/06-33-PLAN.md
+Last session: 2026-08-21T10:08:24.422Z
+Stopped at: Completed 06-33-PLAN.md
+Resume file: None
