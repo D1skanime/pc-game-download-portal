@@ -186,7 +186,7 @@ Plans:
 4. Ambiguous legacy layouts require an explicit manual mapping rather than a guess, and any compatibility fallback is visible and time-bounded.
 5. Mappings survive restarts and normal deployment operations, with portable and practically reversible database migration behavior.
 
-**Plans**: 39/47 plans complete
+**Plans**: 40/47 plans complete
 
 Plans:
 
@@ -234,7 +234,7 @@ Dependency note: Plans 06-33, 06-34, 06-35, 06-36, 06-37, 06-38, 06-40, and 06-4
 - [ ] `06-37-PLAN.md` - Define exact private source-observed identity evidence at the detector boundary.
 - [ ] `06-38-PLAN.md` - Install the approved primary-manual copy contract in en_US and the first locale batch.
 - [x] `06-40-PLAN.md` - Create the singular request and progress contract consumed by the safe manual UI.
-- [ ] `06-41-PLAN.md` - Add the viewer control contract needed to keep the existing manual visible but non-racing while replacement is pending.
+- [x] `06-41-PLAN.md` - Add the viewer control contract needed to keep the existing manual visible but non-racing while replacement is pending.
 
 **Wave 2 — Gap closure: dependent persistence and replacement**
 
@@ -317,7 +317,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 3. Mapping Administration Contracts     | 6/6            | Complete    | 2026-08-11 |
 | 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
 | 5. Preview and Read-path Cutover        | 8/8            | Complete    | 2026-08-12 |
-| 6. Safe Lifecycle and Legacy Migration  | 39/47          | In Progress |            |
+| 6. Safe Lifecycle and Legacy Migration  | 40/47          | In Progress |            |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
 | 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |

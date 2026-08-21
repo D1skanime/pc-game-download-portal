@@ -171,7 +171,7 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | SCAN-05     | Phase 5 | Complete |
 | SCAN-06     | Phase 5 | Complete |
 | CAT-01      | Phase 6 | Complete |
-| CAT-02      | Phase 6 | Blocked  |
+| CAT-02      | Phase 6 | Complete |
 | CAT-03      | Phase 6 | Complete |
 | CAT-04      | Phase 6 | Complete |
 | API-01      | Phase 3 | Complete |

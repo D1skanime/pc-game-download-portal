@@ -86,8 +86,16 @@ completed: 2026-08-21
 - **Files modified:** `frontend/src/v2/components/GameDetails/ManualViewerControls.test.ts`
 - **Commit:** `6d95ba210`
 
-**Total deviations:** 1 auto-fixed blocking harness issue.
-**Impact:** Product scope and the deterministic RED identity are unchanged.
+**2. [Rule 1 - Tracking Bug] Corrected handler output while preserving the earliest incomplete plan**
+
+- **Found during:** Plan closeout tracking
+- **Issue:** Approved handlers wrote 56 percent in STATE frontmatter, left body progress stale, collapsed ROADMAP spacing, omitted the 06-41 completion mark, and left CAT-02 blocked in traceability despite recognizing it as complete.
+- **Fix:** Aligned STATE to 91 percent, restored ROADMAP formatting, marked 06-41 complete, recorded 40 of 47 summaries, and aligned CAT-02 traceability. Per direction, `state advance-plan` was omitted so Plan 39 remains current.
+- **Files modified:** `.planning/STATE.md`, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, `06-41-SUMMARY.md`
+- **Commit:** Plan tracking commit
+
+**Total deviations:** 2 auto-fixed issues.
+**Impact:** Product scope and deterministic RED identity are unchanged; tracking records out-of-order Plan 41 completion while keeping Plan 39 next.
 
 ## Issues Encountered
 
