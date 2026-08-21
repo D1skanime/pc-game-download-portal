@@ -487,6 +487,30 @@ async function updateRom({
   });
 }
 
+export function uploadManual({ romId, file }: { romId: number; file: File }) {
+  const uploadStore = storeUpload();
+  const operationId = `primary-manual:${romId}`;
+  const formData = new FormData();
+  formData.append(file.name, file);
+
+  uploadStore.startOperation(operationId, file.name);
+  return api
+    .post(`/roms/${romId}/manuals`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        "X-Upload-Filename": file.name,
+      },
+      params: {},
+      onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+        uploadStore.updateOperation(operationId, progressEvent);
+      },
+    })
+    .catch((error) => {
+      uploadStore.failOperation(operationId, error.response?.data?.detail);
+      throw error;
+    });
+}
+
 async function uploadManuals({
   romId,
   filesToUpload,
@@ -656,6 +680,7 @@ export default {
   bulkDownloadRoms,
   searchRom,
   updateRom,
+  uploadManual,
   uploadManuals,
   removeManual,
   redownloadManual,

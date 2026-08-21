@@ -3,6 +3,7 @@ import { defineStore } from "pinia";
 
 class UploadingFile {
   filename: string;
+  declare operationKey?: string;
   progress: number;
   total: number;
   loaded: number;
@@ -11,8 +12,11 @@ class UploadingFile {
   failed: boolean;
   failureReason: string;
 
-  constructor(filename: string) {
+  constructor(filename: string, operationKey?: string) {
     this.filename = filename;
+    if (operationKey !== undefined) {
+      this.operationKey = operationKey;
+    }
     this.progress = 0;
     this.total = 0;
     this.loaded = 0;
@@ -30,6 +34,35 @@ export default defineStore("upload", {
   actions: {
     start(filename: string) {
       this.files = [...this.files, new UploadingFile(filename)];
+    },
+    startOperation(operationId: string, displayFilename: string) {
+      this.files = [
+        ...this.files.filter((file) => file.operationKey !== operationId),
+        new UploadingFile(displayFilename, operationId),
+      ];
+    },
+    updateOperation(operationId: string, progressEvent: AxiosProgressEvent) {
+      const file = this.files.find(
+        (candidate) => candidate.operationKey === operationId,
+      );
+      if (!file) return;
+
+      file.progress = progressEvent.progress
+        ? progressEvent.progress * 100
+        : file.progress;
+      file.total = progressEvent.total || file.total;
+      file.loaded = progressEvent.loaded;
+      file.rate = progressEvent.rate || file.rate;
+      file.finished = progressEvent.loaded === progressEvent.total;
+    },
+    failOperation(operationId: string, reason: string) {
+      const file = this.files.find(
+        (candidate) => candidate.operationKey === operationId,
+      );
+      if (!file) return;
+
+      file.failed = true;
+      file.failureReason = reason;
     },
     update(filename: string, progressEvent: AxiosProgressEvent) {
       const file = this.files.find((f) => f.filename === filename);

@@ -23,10 +23,7 @@ vi.mock("@/stores/upload", () => ({
   }),
 }));
 
-type UploadManual = (input: {
-  romId: number;
-  file: File;
-}) => Promise<unknown>;
+type UploadManual = (input: { romId: number; file: File }) => Promise<unknown>;
 
 function uploadManualExport(): UploadManual | undefined {
   return (
@@ -94,7 +91,11 @@ describe("rom service", () => {
     ];
     expect(url).toBe("/roms/41/manuals");
     expect(body).toBeInstanceOf(FormData);
-    expect(Array.from(body.entries())).toEqual([["guide.pdf", firstFile]]);
+    const formMembers: unknown[] = [];
+    body.forEach((value, key) => {
+      formMembers.push([key, value]);
+    });
+    expect(formMembers).toEqual([["guide.pdf", firstFile]]);
     expect(config.headers).toEqual({
       "Content-Type": "multipart/form-data",
       "X-Upload-Filename": "guide.pdf",
@@ -141,8 +142,9 @@ describe("rom service", () => {
       ["primary-manual:42", "guide.pdf"],
     ]);
     expect(mocks.apiPost).toHaveBeenCalledTimes(4);
-    expect(mocks.apiPost.mock.calls.every((call) => call[1] instanceof FormData))
-      .toBe(true);
+    expect(
+      mocks.apiPost.mock.calls.every((call) => call[1] instanceof FormData),
+    ).toBe(true);
     expect(allSettled).not.toHaveBeenCalled();
     allSettled.mockRestore();
   });
