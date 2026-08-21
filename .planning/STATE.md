@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-35-PLAN.md
-last_updated: "2026-08-21T10:59:14.922Z"
+stopped_at: Completed 06-36-PLAN.md
+last_updated: "2026-08-21T11:34:04.330Z"
 last_activity: 2026-08-21
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 82
-  completed_plans: 70
+  completed_plans: 71
   percent: 56
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 36 of 47
+Plan: 37 of 47
 Status: Ready to execute
 Last activity: 2026-08-21
 
@@ -108,6 +108,7 @@ _Updated after each plan completion_
 | Phase 06 P33 | 24min | 2 tasks | 4 files |
 | Phase 06 P34 | 18min | 2 tasks | 2 files |
 | Phase 06 P35 | 18min | 2 tasks | 3 files |
+| Phase 06 P36 | 29min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -244,6 +245,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Apply assert_rom_visible immediately after ROM lookup with the static ROM not found detail. — Mask hidden screenshot upload targets before every owned asset or database effect.
 - [Phase 06]: HEAD uses STAT-only mapped capability and GET alone consumes download first-use. — Preserve rollback eligibility for metadata-only requests.
 - [Phase 06]: Download filenames reject controls and emit escaped ASCII plus RFC 5987 UTF-8. — Keep response headers bounded, standards-safe, and source-private.
+- [Phase 06]: Recognized mutating transport syntax must classify or fail closed; unresolved read-only GET fetches remain outside the mutation inventory. — Mutation authority cannot be inferred from unresolved dynamic values, while GET cannot mutate.
+- [Phase 06]: Absent config methods default to GET, while static method and URL values resolve only through immutable bindings. — Static reduction must be deterministic and must not evaluate project code.
+- [Phase 06]: The live play-session keepalive POST is CONTROL_PLANE/database authority, not a source-library mutation. — The endpoint records RomM session state and does not write the external library.
 
 ### Blockers/Concerns
 
@@ -261,6 +265,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-21T10:59:14.917Z
-Stopped at: Completed 06-35-PLAN.md
+Last session: 2026-08-21T11:34:04.326Z
+Stopped at: Completed 06-36-PLAN.md
 Resume file: None
