@@ -256,9 +256,17 @@ def test_detection_source_identity_is_private_bounded_and_unique():
     assert foreign_key.target_fullname == "legacy_detection_results.id"
     assert foreign_key.ondelete == "CASCADE"
 
-    constraint_names = {constraint.name for constraint in model.__table__.constraints}
-    assert "ck_legacy_detection_source_identities_digest_format" in constraint_names
-    assert "uq_legacy_detection_source_identities_result_digest" in constraint_names
+    constraints = {
+        constraint.name: constraint for constraint in model.__table__.constraints
+    }
+    assert "ck_legacy_detection_source_identities_digest_format" in constraints
+    assert "uq_legacy_detection_source_identities_result_digest" in constraints
+    digest_check = str(
+        constraints["ck_legacy_detection_source_identities_digest_format"].sqltext
+    )
+    assert "CHAR_LENGTH(identity_digest) = 64" in digest_check
+    assert "identity_digest = LOWER(identity_digest)" in digest_check
+    assert all(f"'{character}'" in digest_check for character in "0123456789abcdef")
     assert "ix_legacy_detection_source_identities_order" in {
         index.name for index in model.__table__.indexes
     }

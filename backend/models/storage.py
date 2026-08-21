@@ -152,6 +152,7 @@ LEGACY_PROBLEM_CODE_MAX_LENGTH = 64
 LEGACY_MIGRATION_STATE_MAX_LENGTH = 16
 LEGACY_OPERATION_MAX_LENGTH = 32
 LEGACY_FINGERPRINT_LENGTH = 64
+LEGACY_SOURCE_IDENTITY_DIGEST_LENGTH = 64
 LEGACY_CATALOG_ENTITY_KIND_MAX_LENGTH = 16
 LEGACY_INCARNATION_TOKEN_LENGTH = 32
 
@@ -243,6 +244,54 @@ class LegacyDetectionResult(BaseModel):
     actor_user_id: Mapped[int] = mapped_column(Integer)
     expires_at: Mapped[datetime] = mapped_column()
     completed_at: Mapped[datetime | None] = mapped_column(default=None)
+
+    source_identities: Mapped[list[LegacyDetectionSourceIdentity]] = relationship(
+        lazy="raise",
+        back_populates="detection_result",
+        cascade="all, delete-orphan",
+        single_parent=True,
+        passive_deletes=True,
+        order_by=lambda: LegacyDetectionSourceIdentity.identity_digest,
+    )
+
+
+class LegacyDetectionSourceIdentity(BaseModel):
+    __tablename__ = "legacy_detection_source_identities"
+    __table_args__ = (
+        CheckConstraint(
+            "CHAR_LENGTH(identity_digest) = 64 AND "
+            "identity_digest = LOWER(identity_digest) AND "
+            "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE("
+            "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE("
+            "REPLACE(REPLACE(identity_digest, '0', ''), '1', ''), '2', ''), "
+            "'3', ''), '4', ''), '5', ''), '6', ''), '7', ''), '8', ''), "
+            "'9', ''), 'a', ''), 'b', ''), 'c', ''), 'd', ''), 'e', ''), "
+            "'f', '') = ''",
+            name="ck_legacy_detection_source_identities_digest_format",
+        ),
+        UniqueConstraint(
+            "detection_result_id",
+            "identity_digest",
+            name="uq_legacy_detection_source_identities_result_digest",
+        ),
+        Index(
+            "ix_legacy_detection_source_identities_order",
+            "detection_result_id",
+            "identity_digest",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    detection_result_id: Mapped[int] = mapped_column(
+        ForeignKey("legacy_detection_results.id", ondelete="CASCADE")
+    )
+    identity_digest: Mapped[str] = mapped_column(
+        String(length=LEGACY_SOURCE_IDENTITY_DIGEST_LENGTH)
+    )
+
+    detection_result: Mapped[LegacyDetectionResult] = relationship(
+        lazy="raise", back_populates="source_identities"
+    )
 
 
 class LegacyMigration(BaseModel):
