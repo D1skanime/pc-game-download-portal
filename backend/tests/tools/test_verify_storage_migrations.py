@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -404,3 +405,101 @@ def test_three_dialect_verifier_wires_orm_guard_around_restart():
     assert "bulk_update_mappings" in verifier_source
     assert "bulk_save_objects" in verifier_source
     assert "incarnation_token" in verifier_source
+
+
+def test_verifier_requires_0114_source_identity_round_trip():
+    verifier_source = Path("tools/verify_storage_migrations.py").read_text()
+
+    markers = (
+        "0114_legacy_source_identities",
+        "0114 pristine schema passed",
+        "0114 seeded 0113 invalidation passed",
+        "0114 evidence constraints passed",
+        "0114 private identities survived restart",
+        "0114 exact handler selection passed",
+        "0114 downgrade invalidation passed",
+        "0114 re-upgrade unselectability passed",
+        "0114 privacy checks passed",
+        "0114 exact cleanup passed",
+    )
+    positions = [verifier_source.index(marker) for marker in markers]
+    assert positions == sorted(positions)
+    assert (
+        "test_migration_reconnects_only_source_observed_rom_and_sidecar"
+        in verifier_source
+    )
+
+
+@pytest.mark.parametrize("dialect", sorted(verifier.DIALECTS))
+def test_0114_round_trip_dispatches_every_private_probe(monkeypatch, dialect):
+    events = []
+
+    monkeypatch.setattr(
+        verifier,
+        "_alembic",
+        lambda *args: events.append(("alembic", args[-2], args[-1])),
+    )
+    probe_names = (
+        "_verify_0114_pristine_schema",
+        "_seed_selectable_0113_result",
+        "_verify_0114_seeded_invalidation",
+        "_seed_0114_evidence_state",
+        "_verify_0114_evidence_constraints",
+        "_verify_0114_private_persistence",
+        "_verify_0114_downgrade_invalidation",
+        "_verify_0114_reupgrade_unselectability",
+        "_verify_0114_privacy",
+    )
+    for probe_name in probe_names:
+        monkeypatch.setattr(
+            verifier,
+            probe_name,
+            lambda *args, _probe_name=probe_name: events.append(_probe_name),
+        )
+
+    verifier._verify_0114_round_trip(
+        dialect,
+        "runner",
+        "host",
+        "3306",
+        "database",
+        "database-container",
+        ["health"],
+    )
+
+    assert events == [
+        "_verify_0114_pristine_schema",
+        ("alembic", "downgrade", "0113_legacy_change_lineage"),
+        "_seed_selectable_0113_result",
+        ("alembic", "upgrade", "head"),
+        "_verify_0114_seeded_invalidation",
+        "_seed_0114_evidence_state",
+        "_verify_0114_evidence_constraints",
+        "_verify_0114_private_persistence",
+        ("alembic", "downgrade", "0113_legacy_change_lineage"),
+        "_verify_0114_downgrade_invalidation",
+        ("alembic", "upgrade", "head"),
+        "_verify_0114_reupgrade_unselectability",
+        "_verify_0114_privacy",
+    ]
+
+
+def test_verifier_redacts_failed_command_diagnostics(monkeypatch):
+    private_command_value = "private-command-value"
+    private_output_value = "private-output-value"
+
+    monkeypatch.setattr(
+        verifier.subprocess,
+        "run",
+        lambda *args, **kwargs: verifier.subprocess.CompletedProcess(
+            args[0], 23, private_output_value, private_output_value
+        ),
+    )
+
+    with pytest.raises(subprocess.CalledProcessError) as failure:
+        verifier._run(["command", private_command_value])
+
+    diagnostic = str(failure.value)
+    assert "verifier command failed with exit 23" in diagnostic
+    assert private_command_value not in diagnostic
+    assert private_output_value not in diagnostic
