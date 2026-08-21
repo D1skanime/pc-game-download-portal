@@ -462,6 +462,150 @@ def test_source_fingerprint_rejects_same_metadata_different_bytes(tmp_path: Path
     assert first_result.source_fingerprint != second_result.source_fingerprint
 
 
+def test_detection_records_private_exact_source_identity_set(tmp_path: Path):
+    subject = _subject()
+    canonical = tmp_path / "roms" / "gb"
+    source_directory = canonical / "Pokémon"
+    source_directory.mkdir(parents=True)
+    rom_path = source_directory / "game.gb"
+    sidecar_path = source_directory / "manual.txt"
+    rom_path.write_bytes(b"game")
+    sidecar_path.write_bytes(b"manual")
+
+    first = _detect(tmp_path)
+
+    assert hasattr(
+        first, "source_identity_digests"
+    ), "exact private source identity evidence is missing"
+    assert hasattr(subject, "_source_identity_digest")
+    expected = tuple(
+        sorted(
+            (
+                subject._source_identity_digest("Pokémon/game.gb"),
+                subject._source_identity_digest("Pokémon/manual.txt"),
+            )
+        )
+    )
+    assert first.observed_identity_count == 2
+    assert first.source_identity_digests == expected
+    assert len(set(first.source_identity_digests)) == 2
+    assert all(len(digest) == hashlib.sha256().digest_size for digest in expected)
+    assert subject._source_identity_digest("missing/game.gb") not in expected
+
+    repeated = _detect(tmp_path)
+    assert repeated.source_identity_digests == expected
+    assert repeated.source_fingerprint == first.source_fingerprint
+
+    rom_path.write_bytes(b"GAME")
+    changed = _detect(tmp_path)
+    assert changed.source_identity_digests == expected
+    assert changed.source_fingerprint != first.source_fingerprint
+
+    outside = tmp_path / "outside.rom"
+    outside.write_bytes(b"outside")
+    symlink_identity = "z-private-symlink.rom"
+    (canonical / symlink_identity).symlink_to(outside)
+    unsafe = _detect(tmp_path)
+    assert unsafe.state == "unsafe"
+    assert unsafe.selectable is False
+    assert (
+        subject._source_identity_digest(symlink_identity)
+        not in unsafe.source_identity_digests
+    )
+
+
+def test_detection_identity_evidence_is_bounded_and_private(
+    tmp_path: Path,
+    client,
+    access_token,
+    monkeypatch,
+    caplog,
+):
+    subject = _subject()
+    canonical = tmp_path / "roms" / "gb"
+    canonical.mkdir(parents=True)
+    private_name = "private-token-host.example.rom"
+    (canonical / private_name).write_bytes(b"private")
+    (canonical / "second.rom").write_bytes(b"second")
+
+    assert hasattr(subject, "_source_identity_digest")
+    for ambiguous in (
+        "",
+        ".",
+        "./game.rom",
+        "../game.rom",
+        "dir/../game.rom",
+        "/game.rom",
+        "dir//game.rom",
+        "dir/",
+        "dir\\game.rom",
+        "dir/\0game.rom",
+    ):
+        with pytest.raises(ValueError) as invalid:
+            subject._source_identity_digest(ambiguous)
+        assert ambiguous not in str(invalid.value)
+
+    bounded = _detect(tmp_path, entry_budget=1)
+    assert bounded.observed_files == 1
+    assert bounded.observed_identity_count == 1
+    assert len(bounded.source_identity_digests) == 1
+    assert bounded.lower_bound is True
+    assert bounded.selectable is False
+
+    exact = _detect(tmp_path)
+    identity_digests = exact.source_identity_digests
+    repr_text = repr(exact)
+    assert exact.source_fingerprint not in repr_text
+    for digest in identity_digests:
+        assert digest.hex() not in repr_text
+        assert repr(digest) not in repr_text
+
+    from endpoints import storage as endpoint
+
+    public_schema = client.get("/openapi.json").json()["components"]["schemas"][
+        "LegacyDetectionResultSchema"
+    ]
+    captured = {}
+    monkeypatch.setattr(
+        endpoint.db_legacy_migration_handler,
+        "validate_detection_request",
+        lambda *_args, **_kwargs: None,
+    )
+
+    def enqueue(_function, **kwargs):
+        captured.update(kwargs)
+        return type("Job", (), {"id": "bounded-job-id"})()
+
+    monkeypatch.setattr(endpoint.low_prio_queue, "enqueue", enqueue)
+    response = client.post(
+        "/api/storage/legacy-detections",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"platform_id": 5, "storage_root_id": 7},
+    )
+    assert response.status_code == 202
+
+    surfaces = (
+        repr_text,
+        caplog.text,
+        str(public_schema),
+        str(captured["meta"]),
+        str(response.json()),
+    )
+    forbidden = (
+        private_name,
+        str(tmp_path),
+        "private-token-host.example",
+        exact.source_fingerprint,
+        *(digest.hex() for digest in identity_digests),
+        *(repr(digest) for digest in identity_digests),
+    )
+    for surface in surfaces:
+        assert all(value not in surface for value in forbidden)
+    serialized_public = str(public_schema).lower()
+    assert "source_identity" not in serialized_public
+    assert "identity_digest" not in serialized_public
+
+
 @pytest.mark.parametrize(
     ("kwargs", "problem"),
     [
