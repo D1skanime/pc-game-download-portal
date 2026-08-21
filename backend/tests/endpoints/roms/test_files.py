@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from unittest.mock import AsyncMock
+from urllib.parse import quote
 
 import pytest
 from fastapi import status
@@ -15,7 +16,6 @@ from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.storage import PlatformStorageMapping, StorageRoot
 from models.user import User
-
 
 _MAPPED_ROOT: Path | None = None
 
@@ -58,12 +58,22 @@ def mapped_file_storage(
     yield
     _MAPPED_ROOT = None
 
+
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
 def _add_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
-    file = db_rom_handler.add_rom_file(
+    file = _add_db_file(rom, name, category)
+    assert _MAPPED_ROOT is not None
+    source = _MAPPED_ROOT.joinpath(*Path(file.full_path).parts)
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_bytes(b"mapped-data")
+    return file
+
+
+def _add_db_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
+    return db_rom_handler.add_rom_file(
         RomFile(
             rom_id=rom.id,
             file_name=name,
@@ -72,11 +82,6 @@ def _add_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
             category=category,
         )
     )
-    assert _MAPPED_ROOT is not None
-    source = _MAPPED_ROOT.joinpath(*Path(file.full_path).parts)
-    source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_bytes(b"mapped-data")
-    return file
 
 
 def _make_rom(admin_user: User, platform: Platform) -> Rom:
@@ -213,6 +218,93 @@ def test_content_type_derived_from_db_not_path_param(
     assert r.status_code == status.HTTP_200_OK
     assert r.headers["content-type"].startswith("application/octet-stream")
     assert r.headers["content-disposition"].startswith("attachment")
+
+
+def test_content_disposition_escapes_quotes_and_backslashes(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, 'game "quoted"\\edition.bin', RomFileCategory.GAME)
+
+    response = client.head(
+        f"/api/roms/{file.id}/files/content/client-name.bin",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    value = response.headers["content-disposition"]
+    escaped = file.file_name.replace("\\", "\\\\").replace('"', '\\"')
+    assert f'filename="{escaped}"' in value
+    assert f"filename*=UTF-8''{quote(file.file_name, safe='')}" in value
+    assert value.count("filename=") == 1
+    assert value.count("filename*=") == 1
+
+
+def test_content_disposition_encodes_unicode_with_stable_ascii_fallback(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, "ゲーム", RomFileCategory.GAME)
+
+    response = client.head(
+        f"/api/roms/{file.id}/files/content/client-name.bin",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    value = response.headers["content-disposition"]
+    assert 'filename="download"' in value
+    assert f"filename*=UTF-8''{quote(file.file_name, safe='')}" in value
+    assert file.file_name not in value
+
+
+def test_content_disposition_uses_database_name_not_client_path_parameter(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, "archive.bin", RomFileCategory.GAME)
+
+    response = client.head(
+        f"/api/roms/{file.id}/files/content/C:%5Cserver%5Cprivate.txt",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    value = response.headers["content-disposition"]
+    assert "archive.bin" in value
+    assert "server" not in value
+    assert "private" not in value
+
+
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        "bad\rname.bin",
+        "bad\nname.bin",
+        "bad\x00name.bin",
+        "C:\\private\\host\x85name.bin",
+    ],
+)
+def test_content_disposition_rejects_controls_without_raw_detail(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    file_name: str,
+):
+    rom = _make_rom(admin_user, platform)
+    file = _add_db_file(rom, file_name, RomFileCategory.GAME)
+
+    response = client.head(
+        f"/api/roms/{file.id}/files/content/client-name.bin",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.headers.get("content-disposition") is None
+    assert file_name not in response.text
+    assert "private" not in response.text
+    assert "traceback" not in response.text.lower()
 
 
 # ---------- DELETE /api/roms/{rom_id}/files/{file_id} ----------

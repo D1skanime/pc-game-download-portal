@@ -9,15 +9,22 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from fastapi import status
+from fastapi.testclient import TestClient
+from main import app
 from sqlalchemy import delete, select
 
+from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from exceptions.storage_read import StaleMappedReadError
+from handler.auth import oauth_handler
+from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.database.legacy_migration_handler import (
     DBLegacyMigrationHandler,
     LegacyRollbackError,
 )
 from handler.filesystem.storage_policy import StorageOperation
+from handler.redis_handler import sync_cache
 from handler.storage.read_context import MappingReadContext
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -111,6 +118,43 @@ def _seed_migrated_mapping(source: Path, *, suffix: str = "one") -> tuple[int, i
         session.add(migration)
         session.flush()
         return mapping.id, migration.id
+
+
+def _seed_downloadable_migration(
+    source: Path, *, suffix: str, user_id: int
+) -> tuple[int, int, int]:
+    mapping_id, migration_id = _seed_migrated_mapping(source, suffix=suffix)
+    with sync_session() as session:
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        assert mapping is not None
+        platform_id = mapping.platform_id
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform_id,
+            name=f"Download {suffix}",
+            slug=f"download-{suffix}",
+            fs_name="game.bin",
+            fs_name_no_tags="game",
+            fs_name_no_ext="game",
+            fs_extension="bin",
+            fs_path="mapped",
+            fs_size_bytes=14,
+        )
+    )
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=user_id)
+    rom_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="game.bin",
+            file_path="mapped",
+            file_size_bytes=14,
+        )
+    )
+    return rom_file.id, mapping_id, migration_id
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _healthy_root(*_args, **_kwargs):
@@ -264,6 +308,22 @@ def _assert_rollback_authority_unchanged(mapping_id: int, migration_id: int) -> 
         assert migration is not None and migration.state == "completed"
         assert migration.version == 1
         assert audits == []
+
+
+@pytest.fixture
+def migration_endpoint_client(admin_user):
+    sync_cache.flushall()
+    token = oauth_handler.create_access_token(
+        data={
+            "sub": admin_user.username,
+            "iss": "romm:oauth",
+            "scopes": " ".join(admin_user.oauth_scopes),
+        },
+        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
+    )
+    with TestClient(app) as client:
+        yield client, token
+    sync_cache.flushall()
 
 
 @pytest.fixture(autouse=True)
@@ -431,6 +491,99 @@ def test_first_use_preserves_writable_and_read_only_source_manifests(
         )
         access.close()
 
+    assert _manifest(source) == before
+
+
+def test_head_metadata_preserves_direct_rollback_eligibility(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    migration_endpoint_client: tuple[TestClient, str],
+    admin_user,
+):
+    client, access_token = migration_endpoint_client
+    source = tmp_path / "external-head"
+    rom_file_id, mapping_id, migration_id = _seed_downloadable_migration(
+        source, suffix="head", user_id=admin_user.id
+    )
+    before = _manifest(source)
+    opened_fds: list[int] = []
+    real_open = MappingReadContext.open
+
+    def tracked_open(context, operation, relative_path="", **kwargs):
+        access = real_open(context, operation, relative_path, **kwargs)
+        opened_fds.append(access.fileno())
+        return access
+
+    monkeypatch.setattr(MappingReadContext, "open", tracked_open)
+    response = client.head(
+        f"/api/roms/{rom_file_id}/files/content/client-name.bin",
+        headers={**_auth(access_token), "Range": "bytes=2-5"},
+    )
+
+    assert response.status_code == status.HTTP_206_PARTIAL_CONTENT
+    assert response.headers["content-type"].startswith("application/octet-stream")
+    assert response.headers["accept-ranges"] == "bytes"
+    assert response.headers["content-length"] == "4"
+    assert response.headers["content-range"] == "bytes 2-5/14"
+    assert opened_fds
+    for descriptor in opened_fds:
+        with pytest.raises(OSError):
+            os.fstat(descriptor)
+    with sync_session() as session:
+        migration = session.get(LegacyMigration, migration_id)
+        assert migration is not None
+        assert migration.first_used_at is None
+        assert migration.first_use_operation is None
+        assert migration.version == 1
+        mapping = session.get(PlatformStorageMapping, mapping_id)
+        assert mapping is not None
+        platform_id = mapping.platform_id
+    rollback = DBLegacyMigrationHandler().get_rollback_status(
+        migration_id,
+        platform_id=platform_id,
+    )
+    assert rollback.rollback_eligible
+    assert not rollback.first_used
+    assert _manifest(source) == before
+
+
+def test_get_consumes_direct_rollback_eligibility(
+    tmp_path: Path,
+    migration_endpoint_client: tuple[TestClient, str],
+    admin_user,
+):
+    client, access_token = migration_endpoint_client
+    source = tmp_path / "external-get"
+    rom_file_id, _mapping_id, migration_id = _seed_downloadable_migration(
+        source, suffix="get", user_id=admin_user.id
+    )
+    before = _manifest(source)
+
+    first = client.get(
+        f"/api/roms/{rom_file_id}/files/content/client-name.bin",
+        headers=_auth(access_token),
+    )
+    assert first.status_code == status.HTTP_200_OK
+    assert first.content == b"immutable game"
+    with sync_session() as session:
+        migration = session.get(LegacyMigration, migration_id)
+        assert migration is not None
+        first_used_at = migration.first_used_at
+        assert first_used_at is not None
+        assert migration.first_use_operation == "download"
+        assert migration.version == 2
+
+    second = client.get(
+        f"/api/roms/{rom_file_id}/files/content/ignored-again.bin",
+        headers=_auth(access_token),
+    )
+    assert second.status_code == status.HTTP_200_OK
+    with sync_session() as session:
+        migration = session.get(LegacyMigration, migration_id)
+        assert migration is not None
+        assert migration.first_used_at == first_used_at
+        assert migration.first_use_operation == "download"
+        assert migration.version == 2
     assert _manifest(source) == before
 
 
