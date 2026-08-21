@@ -752,6 +752,8 @@ def test_detection_results_expire_bind_and_reject_reuse(
         selectable=True,
         safe_problem_code=None,
         source_fingerprint="0" * 64,
+        observed_identity_count=1,
+        source_identity_digests=(_subject()._source_identity_digest("game.gb"),),
     )
     completed_at = datetime(2026, 8, 12, tzinfo=timezone.utc)
     result = handler.save_detection_result(
@@ -938,7 +940,6 @@ def _seed_impact_preview(tmp_path: Path, platform, admin_user):
 
     from handler.database.base_handler import sync_session
     from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
-    from handler.storage.legacy_migration import LegacyDetectionOutcome
     from models.rom import Rom
     from models.storage import StorageRoot
 
@@ -977,18 +978,7 @@ def _seed_impact_preview(tmp_path: Path, platform, admin_user):
     assert detected.source_fingerprint is not None
     result = handler.save_detection_result(
         context,
-        LegacyDetectionOutcome(
-            platform_id=platform.id,
-            storage_root_id=root_id,
-            state="detected",
-            proposed_relative_path=f"roms/{platform.fs_slug}",
-            observed_files=2,
-            observed_bytes=6,
-            lower_bound=False,
-            selectable=True,
-            safe_problem_code=None,
-            source_fingerprint=detected.source_fingerprint,
-        ),
+        detected,
         actor_user_id=admin_user.id,
         now=now,
     )
@@ -1231,7 +1221,7 @@ def test_migration_rejects_equal_count_catalog_replacement_before_owned_writes(
 
 @pytest.mark.parametrize(
     "mutation",
-    ["rename", "disappearance", "unreadable", "symlink"],
+    ["rename", "disappearance", "unreadable", "symlink", "identity_membership"],
 )
 def test_migration_reobserves_canonical_source_drift_before_owned_writes(
     tmp_path: Path, platform, admin_user, monkeypatch, mutation
@@ -1258,6 +1248,28 @@ def test_migration_reobserves_canonical_source_drift_before_owned_writes(
         secret.write_bytes(b"one")
         source.unlink()
         source.symlink_to(secret)
+    elif mutation == "identity_membership":
+        from dataclasses import replace
+
+        original_detect = detector.detect_legacy_storage
+
+        def membership_drift(*args, **kwargs):
+            fresh = original_detect(*args, **kwargs)
+            changed = tuple(
+                sorted(
+                    (
+                        detector._source_identity_digest("one.gb"),
+                        detector._source_identity_digest("replacement.gb"),
+                    )
+                )
+            )
+            return replace(
+                fresh,
+                source_fingerprint=impact.confirmation.source_fingerprint,
+                source_identity_digests=changed,
+            )
+
+        monkeypatch.setattr(detector, "detect_legacy_storage", membership_drift)
     else:
 
         def unreadable(*_args, **_kwargs):

@@ -2648,12 +2648,11 @@ class DBRomsHandler(DBBaseHandler):
     def reconnect_legacy_catalog(
         self,
         platform_id: int,
+        rom_ids: frozenset[int],
+        rom_file_ids: frozenset[int],
         *,
         session: Session = None,  # type: ignore
     ) -> tuple[int, int]:
-        from exceptions.storage_exceptions import StorageResolutionError
-        from handler.filesystem.storage_resolver import normalize_relative_path
-
         roms = list(
             session.scalars(
                 select(Rom)
@@ -2662,40 +2661,42 @@ class DBRomsHandler(DBBaseHandler):
                 .with_for_update(of=Rom)
             ).all()
         )
-        rom_ids = [rom.id for rom in roms]
-        if rom_ids:
-            session.scalars(
-                select(RomFile)
-                .where(RomFile.rom_id.in_(rom_ids))
-                .order_by(RomFile.id)
-                .with_for_update(of=RomFile)
-            ).all()
-        identities: dict[str, list[Rom]] = {}
-        for rom in roms:
-            logical = "/".join(part for part in (rom.fs_path, rom.fs_name) if part)
-            try:
-                logical = normalize_relative_path(logical)
-            except StorageResolutionError:
-                continue
-            identities.setdefault(logical, []).append(rom)
+        platform_rom_ids = frozenset(rom.id for rom in roms)
+        if not rom_ids.issubset(platform_rom_ids):
+            raise ValueError("legacy ROM selection is outside the locked platform")
+        files = (
+            list(
+                session.scalars(
+                    select(RomFile)
+                    .where(RomFile.rom_id.in_(platform_rom_ids))
+                    .order_by(RomFile.id)
+                    .with_for_update(of=RomFile)
+                ).all()
+            )
+            if platform_rom_ids
+            else []
+        )
+        files_by_id = {rom_file.id: rom_file for rom_file in files}
+        if not rom_file_ids.issubset(files_by_id):
+            raise ValueError("legacy ROM file selection is outside the locked platform")
+        if any(files_by_id[file_id].rom_id not in rom_ids for file_id in rom_file_ids):
+            raise ValueError("legacy ROM file selection has an unselected parent")
 
-        reconnected_ids = {
-            matches[0].id for matches in identities.values() if len(matches) == 1
-        }
-        if reconnected_ids:
+        if rom_ids:
             session.execute(
                 update(Rom)
-                .where(Rom.id.in_(reconnected_ids))
+                .where(Rom.id.in_(rom_ids))
                 .values(missing_from_fs=False)
                 .execution_options(synchronize_session=False)
             )
+        if rom_file_ids:
             session.execute(
                 update(RomFile)
-                .where(RomFile.rom_id.in_(reconnected_ids))
+                .where(RomFile.id.in_(rom_file_ids))
                 .values(missing_from_fs=False)
                 .execution_options(synchronize_session=False)
             )
-        return len(reconnected_ids), len(roms) - len(reconnected_ids)
+        return len(rom_ids), len(roms) - len(rom_ids)
 
     @begin_session
     def get_matching_missing_rom(

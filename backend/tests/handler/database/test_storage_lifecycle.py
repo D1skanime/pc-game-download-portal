@@ -21,6 +21,7 @@ from models.rom import Rom, RomFile
 from models.storage import (
     LegacyCatalogEntityKind,
     LegacyDetectionResult,
+    LegacyDetectionSourceIdentity,
     LegacyMigration,
     LegacyMigrationCatalogChange,
     PlatformStorageMapping,
@@ -397,6 +398,10 @@ def _seed_atomic_migration(tmp_path: Path, *, suffix: str = "one"):
             actor_user_id=7,
             completed_at=now,
             expires_at=now + timedelta(hours=24),
+            source_identities=[
+                LegacyDetectionSourceIdentity(identity_digest=digest.hex())
+                for digest in detected.source_identity_digests
+            ],
         )
         session.add(result)
         session.flush()

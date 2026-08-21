@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import struct
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
@@ -23,6 +23,7 @@ from models.rom import Rom, RomFile
 from models.storage import (
     LegacyCatalogEntityKind,
     LegacyDetectionResult,
+    LegacyDetectionSourceIdentity,
     LegacyDetectionState,
     LegacyMigration,
     LegacyMigrationCatalogChange,
@@ -92,6 +93,17 @@ class LegacyRollbackStatus:
     expired: bool
     source_immutable: bool = True
     legacy_fallback_enabled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _LegacyCatalogSelection:
+    rom_ids: frozenset[int]
+    rom_file_ids: frozenset[int]
+    unmatched_rom_count: int
+    problems: tuple[LegacyImpactProblem, ...]
+    persisted_identity_digests: tuple[str, ...] = field(repr=False)
+    roms: tuple[Rom, ...] = field(repr=False)
+    rom_files: tuple[RomFile, ...] = field(repr=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -284,6 +296,26 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             )
 
         completed_at = now or datetime.now(timezone.utc)
+        identity_digests = tuple(final.source_identity_digests)
+        if final.selectable:
+            valid_identity_evidence = (
+                not final.lower_bound
+                and final.observed_files > 0
+                and final.observed_identity_count == final.observed_files
+                and len(identity_digests) == final.observed_files
+                and all(
+                    type(digest) is bytes
+                    and len(digest) == hashlib.sha256().digest_size
+                    for digest in identity_digests
+                )
+                and identity_digests == tuple(sorted(identity_digests))
+                and len(set(identity_digests)) == len(identity_digests)
+            )
+            if not valid_identity_evidence:
+                raise LegacyDetectionResultError(
+                    "legacy_detection_invalid_identity_evidence",
+                    platform_id=context.platform_id,
+                )
         result = LegacyDetectionResult(
             platform_id=context.platform_id,
             storage_root_id=context.storage_root_id,
@@ -301,6 +333,14 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             actor_user_id=actor_user_id,
             expires_at=completed_at + timedelta(hours=LEGACY_DETECTION_TTL_HOURS),
             completed_at=completed_at,
+        )
+        result.source_identities = (
+            [
+                LegacyDetectionSourceIdentity(identity_digest=digest.hex())
+                for digest in identity_digests
+            ]
+            if final.selectable
+            else []
         )
         session.add(result)
         session.flush()
@@ -347,37 +387,6 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         )
 
     @staticmethod
-    def _catalog_impact(session: Session, platform_id: int):
-        from handler.filesystem.storage_resolver import normalize_relative_path
-        from handler.storage.legacy_migration import LegacyImpactProblem
-
-        rows = session.execute(
-            select(Rom.id, Rom.fs_path, Rom.fs_name)
-            .where(Rom.platform_id == platform_id)
-            .order_by(Rom.id)
-        ).all()
-        identities: dict[str, int] = {}
-        unsafe = 0
-        for row in rows:
-            logical = "/".join(part for part in (row.fs_path, row.fs_name) if part)
-            try:
-                logical = normalize_relative_path(logical)
-            except StorageResolutionError:
-                unsafe += 1
-                continue
-            identities[logical] = identities.get(logical, 0) + 1
-        ambiguous = sum(count for count in identities.values() if count > 1)
-        reconnectable = sum(1 for count in identities.values() if count == 1)
-        problems = []
-        if unsafe:
-            problems.append(LegacyImpactProblem("unsafe_catalog_identity", unsafe))
-        if ambiguous:
-            problems.append(
-                LegacyImpactProblem("ambiguous_catalog_identity", ambiguous)
-            )
-        return reconnectable, unsafe + ambiguous, tuple(problems)
-
-    @staticmethod
     def _lock_catalog(
         session: Session, platform_id: int
     ) -> tuple[list[Rom], list[RomFile]]:
@@ -405,18 +414,102 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         return roms, files
 
     @staticmethod
-    def _reconnectable_catalog_ids(roms: list[Rom]) -> set[int]:
-        from handler.filesystem.storage_resolver import normalize_relative_path
+    def _lock_source_identity_digests(
+        session: Session, result_id: int
+    ) -> tuple[str, ...]:
+        return tuple(
+            session.scalars(
+                select(LegacyDetectionSourceIdentity.identity_digest)
+                .where(LegacyDetectionSourceIdentity.detection_result_id == result_id)
+                .order_by(LegacyDetectionSourceIdentity.identity_digest)
+                .with_for_update()
+            ).all()
+        )
 
-        identities: dict[str, list[int]] = {}
+    @staticmethod
+    def _catalog_source_identity(
+        fs_slug: str, path: str, name: str
+    ) -> tuple[str, str] | None:
+        from handler.filesystem.storage_resolver import normalize_relative_path
+        from handler.storage.legacy_migration import _source_identity_digest
+
+        if type(path) is not str or type(name) is not str:
+            return None
+        logical = "/".join(part for part in (path, name) if part)
+        if not logical or "\\" in logical or "\0" in logical:
+            return None
+        parts = logical.split("/")
+        if not parts or parts[0] != fs_slug:
+            return None
+        try:
+            normalized = normalize_relative_path(logical)
+        except StorageResolutionError:
+            return None
+        if normalized != logical:
+            return None
+        relative_identity = "/".join(parts[1:])
+        try:
+            digest = _source_identity_digest(relative_identity).hex()
+        except ValueError:
+            return None
+        return relative_identity, digest
+
+    @classmethod
+    def _select_catalog(
+        cls,
+        fs_slug: str,
+        roms: list[Rom],
+        rom_files: list[RomFile],
+        persisted_identity_digests: tuple[str, ...],
+    ) -> _LegacyCatalogSelection:
+        from handler.storage.legacy_migration import LegacyImpactProblem
+
+        digest_set = frozenset(persisted_identity_digests)
+        identities: dict[str, list[tuple[Rom, str]]] = {}
+        unsafe = 0
         for rom in roms:
-            logical = "/".join(part for part in (rom.fs_path, rom.fs_name) if part)
-            try:
-                logical = normalize_relative_path(logical)
-            except StorageResolutionError:
+            identity = cls._catalog_source_identity(fs_slug, rom.fs_path, rom.fs_name)
+            if identity is None:
+                unsafe += 1
                 continue
-            identities.setdefault(logical, []).append(rom.id)
-        return {matches[0] for matches in identities.values() if len(matches) == 1}
+            relative_identity, digest = identity
+            identities.setdefault(relative_identity, []).append((rom, digest))
+        ambiguous = sum(
+            len(matches) for matches in identities.values() if len(matches) > 1
+        )
+        selected_rom_ids = frozenset(
+            matches[0][0].id
+            for matches in identities.values()
+            if len(matches) == 1 and matches[0][1] in digest_set
+        )
+        selected_file_ids = frozenset(
+            rom_file.id
+            for rom_file in rom_files
+            if rom_file.rom_id in selected_rom_ids
+            and (
+                identity := cls._catalog_source_identity(
+                    fs_slug, rom_file.file_path, rom_file.file_name
+                )
+            )
+            is not None
+            and identity[1] in digest_set
+        )
+        problems = []
+        if unsafe:
+            problems.append(LegacyImpactProblem("unsafe_catalog_identity", unsafe))
+        if ambiguous:
+            problems.append(
+                LegacyImpactProblem("ambiguous_catalog_identity", ambiguous)
+            )
+        return _LegacyCatalogSelection(
+            selected_rom_ids,
+            selected_file_ids,
+            len(roms) - len(selected_rom_ids),
+            tuple(problems),
+            persisted_identity_digests,
+            tuple(roms),
+            tuple(rom_files),
+        )
 
     @staticmethod
     def _catalog_fingerprint(session: Session, platform_id: int) -> str:
@@ -481,6 +574,7 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         platform_id: int,
         expected_result_version: int,
         now: datetime | None,
+        selection_out: list[_LegacyCatalogSelection] | None = None,
     ) -> LegacyMigrationImpact:
         from handler.filesystem.storage_resolver import normalize_relative_path
         from handler.storage.legacy_migration import (
@@ -505,7 +599,7 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 result_id=result_id,
                 platform_id=platform_id,
             )
-        _, root, mappings = self._lock_context(
+        platform, root, mappings = self._lock_context(
             session, identity.platform_id, identity.storage_root_id
         )
         result = session.scalar(
@@ -553,7 +647,28 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             for mapping in mappings
         ):
             return self._manual_impact(result, "mapping_overlap")
-        reconnectable, unmatched, problems = self._catalog_impact(session, platform_id)
+        locked_roms, locked_files = self._lock_catalog(session, platform_id)
+        persisted_identity_digests = self._lock_source_identity_digests(
+            session, result.id
+        )
+        if (
+            not persisted_identity_digests
+            or len(persisted_identity_digests) != result.observed_files
+        ):
+            raise LegacyDetectionResultError(
+                "legacy_detection_stale",
+                result_id=result.id,
+                platform_id=platform_id,
+                current_version=result.version,
+            )
+        selection = self._select_catalog(
+            platform.fs_slug, locked_roms, locked_files, persisted_identity_digests
+        )
+        if selection_out is not None:
+            selection_out.append(selection)
+        reconnectable = len(selection.rom_ids)
+        unmatched = selection.unmatched_rom_count
+        problems = selection.problems
         if result.safe_problem_code is not None:
             problems = (self._impact_problem(result.safe_problem_code),) + problems
         proposed = LegacyImpactProposedMapping(
@@ -651,14 +766,20 @@ class DBLegacyMigrationHandler(DBBaseHandler):
             detect_legacy_storage,
         )
 
+        selections: list[_LegacyCatalogSelection] = []
         impact = self._preview_impact(
             session,
             confirmation.detection_result_id,
             platform_id=confirmation.platform_id,
             expected_result_version=confirmation.result_version,
             now=now,
+            selection_out=selections,
         )
-        if impact.state != "ready" or impact.confirmation != confirmation:
+        if (
+            impact.state != "ready"
+            or impact.confirmation != confirmation
+            or len(selections) != 1
+        ):
             raise LegacyDetectionResultError(
                 "legacy_impact_stale",
                 result_id=confirmation.detection_result_id,
@@ -669,9 +790,9 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         platform, root, _ = self._lock_context(
             session, confirmation.platform_id, confirmation.storage_root_id
         )
-        locked_roms, locked_files = self._lock_catalog(
-            session, confirmation.platform_id
-        )
+        selection = selections[0]
+        locked_roms = selection.roms
+        locked_files = selection.rom_files
         current_catalog_fingerprint = self._catalog_fingerprint(
             session, confirmation.platform_id
         )
@@ -697,10 +818,15 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 platform_id=confirmation.platform_id,
                 current_version=confirmation.result_version,
             ) from None
+        fresh_identity_digests = tuple(
+            digest.hex() for digest in fresh.source_identity_digests
+        )
         if (
             not fresh.selectable
             or fresh.proposed_relative_path != confirmation.relative_path
             or fresh.source_fingerprint != confirmation.source_fingerprint
+            or fresh.observed_identity_count != len(fresh_identity_digests)
+            or fresh_identity_digests != selection.persisted_identity_digests
             or current_catalog_fingerprint != confirmation.catalog_fingerprint
         ):
             raise LegacyDetectionResultError(
@@ -709,7 +835,6 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 platform_id=confirmation.platform_id,
                 current_version=confirmation.result_version,
             )
-        reconnectable_ids = self._reconnectable_catalog_ids(locked_roms)
         locked_roms_by_id = {rom.id: rom for rom in locked_roms}
         catalog_changes = [
             LegacyMigrationCatalogChange(
@@ -720,7 +845,7 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 lineage_valid=True,
             )
             for rom in locked_roms
-            if rom.id in reconnectable_ids and rom.missing_from_fs
+            if rom.id in selection.rom_ids and rom.missing_from_fs
         ] + [
             LegacyMigrationCatalogChange(
                 entity_kind=LegacyCatalogEntityKind.ROM_FILE.value,
@@ -734,7 +859,7 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 lineage_valid=True,
             )
             for rom_file in locked_files
-            if rom_file.rom_id in reconnectable_ids and rom_file.missing_from_fs
+            if rom_file.id in selection.rom_file_ids and rom_file.missing_from_fs
         ]
 
         existing = session.scalar(
@@ -769,7 +894,10 @@ class DBLegacyMigrationHandler(DBBaseHandler):
         self._after_migration_flush("mapping")
 
         reconnected, unmatched = DBRomsHandler().reconnect_legacy_catalog(
-            confirmation.platform_id, session=session
+            confirmation.platform_id,
+            rom_ids=selection.rom_ids,
+            rom_file_ids=selection.rom_file_ids,
+            session=session,
         )
         if (
             reconnected != confirmation.reconnectable_catalog_count
