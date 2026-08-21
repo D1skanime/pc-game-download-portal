@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-44-PLAN.md
-last_updated: "2026-08-21T15:11:48.664Z"
+stopped_at: Completed 06-45-PLAN.md
+last_updated: "2026-08-21T15:43:00.999Z"
 last_activity: 2026-08-21
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 82
-  completed_plans: 79
+  completed_plans: 80
   percent: 56
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 45 of 47
+Plan: 46 of 47
 Status: Ready to execute
 Last activity: 2026-08-21
 
@@ -117,6 +117,7 @@ _Updated after each plan completion_
 | Phase 06 P42 | 18m | 2 tasks | 3 files |
 | Phase 06 P43 | 18m | 2 tasks | 4 files |
 | Phase 06 P44 | 18min | 2 tasks | 5 files |
+| Phase 06 P45 | 28m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -272,6 +273,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Primary manuals publish unique owned bytes before locked path compare-and-swap.
 - [Phase 06]: Catalog identities must start with the exact platform fs_slug segment and remain canonical before domain-separated hashing. — This prevents alias, unsafe, cross-platform, and ambiguous catalog rows from reconnecting.
 - [Phase 06]: Migration passes explicit locked ROM and RomFile ID sets to the database handler, and child files never inherit reachability from the parent alone. — This preserves the exact source-observed intersection across preview, migration, restart, and rollback.
+- [Phase 06]: ManualSubtab owns one singular primary-manual request and blocks all local manual mutations through authoritative refresh.
+- [Phase 06]: Same-ROM refresh updates currentRom only while its identity still matches; active-v2 coordinator removal preserves frozen v1 plural contracts.
 
 ### Blockers/Concerns
 
@@ -289,6 +292,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-21T15:11:48.660Z
-Stopped at: Completed 06-44-PLAN.md
+Last session: 2026-08-21T15:43:00.995Z
+Stopped at: Completed 06-45-PLAN.md
 Resume file: None
