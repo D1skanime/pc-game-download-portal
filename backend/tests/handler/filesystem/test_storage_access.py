@@ -649,7 +649,7 @@ def _kill_owned_writer(tmp_path: Path, method: str) -> Path:
                         signal.pause()
                         return written
 
-                    os.write = blocking_write
+                    os.write = blocking_write  # type: ignore[assignment]
                     create.create(b"complete-content")  # type: ignore[union-attr]
                 else:
                     with create.subprocess_file() as descriptor:  # type: ignore[union-attr]

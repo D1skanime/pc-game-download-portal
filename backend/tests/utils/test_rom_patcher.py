@@ -79,9 +79,9 @@ async def test_apply_patch_uses_only_inherited_capability_descriptors(
 
     async def create_process(*argv: str, **kwargs: object):
         assert all(str(value).startswith("/proc/self/fd/") for value in argv[2:])
-        assert set(kwargs["pass_fds"]) == {
-            int(value.rsplit("/", 1)[1]) for value in argv[2:]
-        }
+        pass_fds = kwargs["pass_fds"]
+        assert isinstance(pass_fds, tuple)
+        assert set(pass_fds) == {int(value.rsplit("/", 1)[1]) for value in argv[2:]}
         assert not output_path.exists()
         os.write(int(argv[-1].rsplit("/", 1)[1]), b"patched")
         assert not output_path.exists()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import hashlib
 import os
+import secrets
 import stat as stat_module
 import time
 from collections.abc import Iterator
@@ -401,49 +402,170 @@ class _OwnedMutationCapability:
             self._parent_descriptor = None
 
 
+class IndeterminateOwnedPublicationError(StorageResolutionError):
+    """Complete owned bytes may be visible, but publication was not acknowledged."""
+
+    code = "indeterminate_owned_publication"
+
+    def __init__(self) -> None:
+        super().__init__("Owned publication state is indeterminate")
+
+
+class _OwnedStagedPublication:
+    _OPEN_ATTEMPTS = 8
+
+    def __init__(self, parent_descriptor: int, final_name: str) -> None:
+        self._parent_descriptor = parent_descriptor
+        self._final_name = final_name
+        self._staging_name = ""
+        self._descriptor: int | None = None
+
+        for _attempt in range(self._OPEN_ATTEMPTS):
+            staging_name = f".{final_name}.{secrets.token_hex(16)}.tmp"
+            try:
+                descriptor = os.open(
+                    staging_name,
+                    os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+                    0o644,
+                    dir_fd=parent_descriptor,
+                )
+            except OSError as error:
+                if error.errno == errno.EEXIST:
+                    continue
+                raise _bounded_open_error(error) from error
+            self._staging_name = staging_name
+            self._descriptor = descriptor
+            return
+        raise StorageResolutionError("Owned staging file could not be created")
+
+    @property
+    def descriptor(self) -> int:
+        if self._descriptor is None:
+            raise StorageResolutionError("Owned staging file is closed")
+        return self._descriptor
+
+    def _close_descriptor(self) -> None:
+        descriptor = self.descriptor
+        self._descriptor = None
+        try:
+            os.close(descriptor)
+        except OSError:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+            raise
+
+    def abort(self) -> None:
+        descriptor = self._descriptor
+        self._descriptor = None
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+        try:
+            os.unlink(self._staging_name, dir_fd=self._parent_descriptor)
+        except OSError:
+            pass
+        try:
+            os.fsync(self._parent_descriptor)
+        except OSError:
+            pass
+
+    def _rollback_published(self) -> bool:
+        rollback_complete = True
+        try:
+            os.unlink(self._final_name, dir_fd=self._parent_descriptor)
+        except OSError:
+            rollback_complete = False
+        try:
+            os.unlink(self._staging_name, dir_fd=self._parent_descriptor)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            rollback_complete = False
+        try:
+            os.fsync(self._parent_descriptor)
+        except OSError:
+            rollback_complete = False
+        return rollback_complete
+
+    def publish(self) -> None:
+        try:
+            os.fsync(self.descriptor)
+            self._close_descriptor()
+            os.link(
+                self._staging_name,
+                self._final_name,
+                src_dir_fd=self._parent_descriptor,
+                dst_dir_fd=self._parent_descriptor,
+                follow_symlinks=False,
+            )
+        except OSError as error:
+            self.abort()
+            raise _bounded_open_error(error) from error
+
+        try:
+            os.unlink(self._staging_name, dir_fd=self._parent_descriptor)
+            os.fsync(self._parent_descriptor)
+        except OSError as error:
+            if self._rollback_published():
+                raise _bounded_open_error(error) from error
+            raise IndeterminateOwnedPublicationError() from error
+
+
 class OwnedCreate(_OwnedMutationCapability):
     @contextmanager
     def subprocess_file(self) -> Iterator[int]:
-        parent = self._require_parent()
+        publication = _OwnedStagedPublication(self._require_parent(), self._name)
         try:
-            descriptor = os.open(
-                self._name,
-                os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
-                0o644,
-                dir_fd=parent,
-            )
-        except OSError as error:
-            raise _bounded_open_error(error) from error
-        try:
-            yield descriptor
-        finally:
-            os.close(descriptor)
+            yield publication.descriptor
+        except BaseException:
+            publication.abort()
+            raise
+        publication.publish()
 
-    def create(self, content: bytes) -> None:
-        parent = self._require_parent()
+    @contextmanager
+    def binary_file(self) -> Iterator[BinaryIO]:
+        publication = _OwnedStagedPublication(self._require_parent(), self._name)
         try:
-            descriptor = os.open(
-                self._name,
-                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
-                0o644,
-                dir_fd=parent,
-            )
+            file = os.fdopen(publication.descriptor, "w+b", closefd=False)
         except OSError as error:
+            publication.abort()
             raise _bounded_open_error(error) from error
-        active_descriptor: int | None = descriptor
         try:
-            _write_all(descriptor, content)
-        except OSError as error:
-            os.close(descriptor)
-            active_descriptor = None
+            yield file
+        except BaseException:
             try:
-                os.unlink(self._name, dir_fd=parent)
+                file.close()
             except OSError:
                 pass
+            publication.abort()
+            raise
+        try:
+            file.flush()
+            file.close()
+        except OSError as error:
+            try:
+                file.close()
+            except OSError:
+                pass
+            publication.abort()
             raise _bounded_open_error(error) from error
-        finally:
-            if active_descriptor is not None:
-                os.close(active_descriptor)
+        publication.publish()
+
+    def create(self, content: bytes) -> None:
+        publication = _OwnedStagedPublication(self._require_parent(), self._name)
+        try:
+            _write_all(publication.descriptor, content)
+        except OSError as error:
+            publication.abort()
+            raise _bounded_open_error(error) from error
+        publication.publish()
 
 
 class OwnedReplace(_OwnedMutationCapability):

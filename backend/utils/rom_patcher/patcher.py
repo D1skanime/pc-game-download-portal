@@ -66,15 +66,15 @@ async def apply_patch(
                     f"Patching timed out after {ROM_PATCHER_TIMEOUT}s"
                 ) from e
 
-    if proc.returncode != 0:
-        message = "Patching failed"
-        try:
-            err_data = json.loads(stderr.decode())
-            message = err_data.get("error", message)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            if stderr:
-                message = stderr.decode(errors="replace").strip()
-        raise PatcherError(message)
+            if proc.returncode != 0:
+                message = "Patching failed"
+                try:
+                    err_data = json.loads(stderr.decode())
+                    message = err_data.get("error", message)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    if stderr:
+                        message = stderr.decode(errors="replace").strip()
+                raise PatcherError(message)
 
     # The script reports source-checksum validation in its JSON stdout.
     try:
