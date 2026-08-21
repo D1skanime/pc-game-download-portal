@@ -36,6 +36,7 @@ def _asset_manifest():
     entries = []
     for path in sorted(root.rglob("*")):
         stat = path.lstat()
+        content: bytes | str | None
         if path.is_symlink():
             content = os.readlink(path)
         elif path.is_file():
