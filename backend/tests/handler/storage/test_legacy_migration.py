@@ -598,6 +598,7 @@ def test_detection_identity_evidence_is_bounded_and_private(
         private_name,
         str(tmp_path),
         "private-token-host.example",
+        access_token,
         exact.source_fingerprint,
         *(digest.hex() for digest in identity_digests),
         *(repr(digest) for digest in identity_digests),
