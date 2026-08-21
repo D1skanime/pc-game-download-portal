@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 from fastapi import HTTPException, status
@@ -7,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from config import RESOURCES_BASE_PATH
 from endpoints.storage_policy import authorize_api_storage_operation
-from handler.database import db_rom_handler
+from handler.database import db_primary_manual_handler, db_rom_handler
 from handler.filesystem import legacy_external_storage
 from handler.filesystem.storage_policy import StorageOperation
 from models.rom import Rom
@@ -56,6 +57,7 @@ def test_primary_manual_concurrent_replacement_has_one_winner(
     client: TestClient,
     access_token: str,
     rom: Rom,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     manual_dir = Path(RESOURCES_BASE_PATH, rom.fs_resources_path, "manual")
     manual_dir.mkdir(parents=True, exist_ok=True)
@@ -65,11 +67,23 @@ def test_primary_manual_concurrent_replacement_has_one_winner(
         rom.id, {"path_manual": f"{rom.fs_resources_path}/manual/prior.pdf"}
     )
 
+    barrier = Barrier(2)
+    original_cas = db_primary_manual_handler.compare_and_swap_path
+
+    def synchronized_cas(*args, **kwargs):
+        assert prior.read_bytes() == b"prior-complete"
+        barrier.wait(timeout=5)
+        return original_cas(*args, **kwargs)
+
+    monkeypatch.setattr(
+        db_primary_manual_handler, "compare_and_swap_path", synchronized_cas
+    )
+
     with ThreadPoolExecutor(max_workers=2) as executor:
         responses = list(
             executor.map(
                 lambda item: _upload_primary_manual(
-                    client, access_token, rom.id, item[0], item[1]
+                    TestClient(client.app), access_token, rom.id, item[0], item[1]
                 ),
                 (("first.pdf", b"first-complete"), ("second.pdf", b"second-complete")),
             )
