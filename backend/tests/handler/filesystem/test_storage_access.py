@@ -1,7 +1,10 @@
 import errno
 import hashlib
 import os
+import select
+import signal
 import stat
+import threading
 from pathlib import Path
 
 import pytest
@@ -623,3 +626,349 @@ def test_descriptor_hash_denies_symlinks_and_closes_on_every_failure(tmp_path):
                 monotonic=lambda: 0.0,
             )
     assert len(os.listdir("/proc/self/fd")) <= before + 1
+
+
+def _kill_owned_writer(tmp_path: Path, method: str) -> Path:
+    target = tmp_path / f"killed-{method}.bin"
+    ready_read, ready_write = os.pipe()
+    child = os.fork()
+    if child == 0:
+        os.close(ready_read)
+        real_write = os.write
+        try:
+            with open_owned_access(
+                _owned(tmp_path), StorageOperation.CREATE, target.name
+            ) as create:
+                if method == "create":
+
+                    def blocking_write(
+                        descriptor: int, data: bytes | memoryview
+                    ) -> int:
+                        written = real_write(descriptor, data[:3])
+                        real_write(ready_write, b"1")
+                        signal.pause()
+                        return written
+
+                    os.write = blocking_write
+                    create.create(b"complete-content")  # type: ignore[union-attr]
+                else:
+                    with create.subprocess_file() as descriptor:  # type: ignore[union-attr]
+                        real_write(descriptor, b"partial")
+                        real_write(ready_write, b"1")
+                        signal.pause()
+        finally:
+            os._exit(3)
+
+    os.close(ready_write)
+    waited = False
+    try:
+        readable, _, _ = select.select((ready_read,), (), (), 5)
+        assert readable, "writer did not reach its partial-write barrier"
+        assert os.read(ready_read, 1) == b"1"
+        os.kill(child, signal.SIGKILL)
+        _, status = os.waitpid(child, 0)
+        waited = True
+        assert os.WIFSIGNALED(status)
+        assert os.WTERMSIG(status) == signal.SIGKILL
+    finally:
+        os.close(ready_read)
+        if not waited:
+            try:
+                os.kill(child, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            os.waitpid(child, 0)
+    return target
+
+
+def test_owned_create_process_crash_never_publishes_final(tmp_path):
+    target = _kill_owned_writer(tmp_path, "create")
+
+    assert not target.exists()
+    staging = tuple(tmp_path.glob(f".{target.name}.*.tmp"))
+    assert len(staging) == 1
+    assert staging[0].read_bytes() == b"com"
+
+
+def test_owned_create_subprocess_killed_writer_never_publishes_final(tmp_path):
+    target = _kill_owned_writer(tmp_path, "subprocess")
+
+    assert not target.exists()
+    staging = tuple(tmp_path.glob(f".{target.name}.*.tmp"))
+    assert len(staging) == 1
+    assert staging[0].read_bytes() == b"partial"
+
+
+def _capture_staging_descriptors(monkeypatch, target_name: str) -> set[int]:
+    descriptors: set[int] = set()
+    real_open = os.open
+
+    def tracking_open(path, flags, *args, **kwargs):
+        descriptor = real_open(path, flags, *args, **kwargs)
+        if (
+            isinstance(path, str)
+            and path.startswith(f".{target_name}.")
+            and path.endswith(".tmp")
+        ):
+            descriptors.add(descriptor)
+        return descriptor
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.open", tracking_open)
+    return descriptors
+
+
+@pytest.mark.parametrize("method", ["create", "subprocess"])
+def test_owned_create_close_failure_still_cleans_exact_staging(
+    tmp_path, monkeypatch, method
+):
+    target = tmp_path / f"close-{method}.bin"
+    staged = _capture_staging_descriptors(monkeypatch, target.name)
+    real_close = os.close
+    failed = False
+
+    def failing_close(descriptor: int) -> None:
+        nonlocal failed
+        if descriptor in staged and not failed:
+            failed = True
+            real_close(descriptor)
+            raise OSError(errno.EIO, "simulated close failure")
+        real_close(descriptor)
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.close", failing_close)
+    with pytest.raises(StorageResolutionError):
+        with open_owned_access(
+            _owned(tmp_path), StorageOperation.CREATE, target.name
+        ) as create:
+            if method == "create":
+                create.create(b"complete")  # type: ignore[union-attr]
+            else:
+                with create.subprocess_file() as descriptor:  # type: ignore[union-attr]
+                    os.write(descriptor, b"complete")
+
+    assert failed
+    assert not target.exists()
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+
+
+@pytest.mark.parametrize("method", ["create", "subprocess"])
+def test_owned_create_file_fsync_failure_cleans_staging(tmp_path, monkeypatch, method):
+    target = tmp_path / f"fsync-{method}.bin"
+    staged = _capture_staging_descriptors(monkeypatch, target.name)
+    real_fsync = os.fsync
+
+    def failing_fsync(descriptor: int) -> None:
+        if descriptor in staged:
+            raise OSError(errno.EIO, "simulated file fsync failure")
+        real_fsync(descriptor)
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.fsync", failing_fsync)
+    with pytest.raises(StorageResolutionError):
+        with open_owned_access(
+            _owned(tmp_path), StorageOperation.CREATE, target.name
+        ) as create:
+            if method == "create":
+                create.create(b"complete")  # type: ignore[union-attr]
+            else:
+                with create.subprocess_file() as descriptor:  # type: ignore[union-attr]
+                    os.write(descriptor, b"complete")
+
+    assert not target.exists()
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+
+
+@pytest.mark.parametrize("method", ["create", "subprocess"])
+def test_owned_create_collision_preserves_existing_target(tmp_path, method):
+    target = tmp_path / f"collision-{method}.bin"
+    target.write_bytes(b"existing")
+
+    with pytest.raises(StorageResolutionError):
+        with open_owned_access(
+            _owned(tmp_path), StorageOperation.CREATE, target.name
+        ) as create:
+            if method == "create":
+                create.create(b"replacement")  # type: ignore[union-attr]
+            else:
+                with create.subprocess_file() as descriptor:  # type: ignore[union-attr]
+                    os.write(descriptor, b"replacement")
+
+    assert target.read_bytes() == b"existing"
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+
+
+@pytest.mark.parametrize("method", ["create", "subprocess"])
+def test_owned_create_success_orders_durable_no_replace_publication(
+    tmp_path, monkeypatch, method
+):
+    target = tmp_path / f"ordered-{method}.bin"
+    events: list[str] = []
+    staged = _capture_staging_descriptors(monkeypatch, target.name)
+    real_write = os.write
+    real_fsync = os.fsync
+    real_close = os.close
+    real_link = os.link
+    real_unlink = os.unlink
+
+    def tracking_write(descriptor: int, data: bytes | memoryview) -> int:
+        if descriptor in staged:
+            events.append("write")
+        return real_write(descriptor, data)
+
+    def tracking_fsync(descriptor: int) -> None:
+        events.append("file_fsync" if descriptor in staged else "parent_fsync")
+        real_fsync(descriptor)
+
+    def tracking_close(descriptor: int) -> None:
+        if descriptor in staged:
+            events.append("close")
+        real_close(descriptor)
+
+    def tracking_link(*args, **kwargs) -> None:
+        events.append("publish")
+        real_link(*args, **kwargs)
+
+    def tracking_unlink(path, *args, **kwargs) -> None:
+        if isinstance(path, str) and path.startswith(f".{target.name}."):
+            events.append("staging_unlink")
+        real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.write", tracking_write)
+    monkeypatch.setattr("handler.filesystem.storage_access.os.fsync", tracking_fsync)
+    monkeypatch.setattr("handler.filesystem.storage_access.os.close", tracking_close)
+    monkeypatch.setattr("handler.filesystem.storage_access.os.link", tracking_link)
+    monkeypatch.setattr("handler.filesystem.storage_access.os.unlink", tracking_unlink)
+
+    with open_owned_access(
+        _owned(tmp_path), StorageOperation.CREATE, target.name
+    ) as create:
+        if method == "create":
+            create.create(b"complete")  # type: ignore[union-attr]
+        else:
+            with create.subprocess_file() as descriptor:  # type: ignore[union-attr]
+                os.write(descriptor, b"complete")
+
+    assert target.read_bytes() == b"complete"
+    assert events[:6] == [
+        "write",
+        "file_fsync",
+        "close",
+        "publish",
+        "staging_unlink",
+        "parent_fsync",
+    ]
+
+
+def test_owned_create_binary_file_publishes_only_after_success(tmp_path):
+    target = tmp_path / "streamed.bin"
+    with open_owned_access(
+        _owned(tmp_path), StorageOperation.CREATE, target.name
+    ) as create:
+        with create.binary_file() as file:  # type: ignore[union-attr]
+            file.write(b"streamed")
+            file.flush()
+            assert not target.exists()
+
+    assert target.read_bytes() == b"streamed"
+
+
+def test_owned_create_parent_fsync_failure_durably_rolls_back(tmp_path, monkeypatch):
+    target = tmp_path / "parent-fsync.bin"
+    staged = _capture_staging_descriptors(monkeypatch, target.name)
+    real_fsync = os.fsync
+    parent_calls = 0
+
+    def failing_first_parent_fsync(descriptor: int) -> None:
+        nonlocal parent_calls
+        if descriptor not in staged:
+            parent_calls += 1
+            if parent_calls == 1:
+                raise OSError(errno.EIO, "simulated parent fsync failure")
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(
+        "handler.filesystem.storage_access.os.fsync", failing_first_parent_fsync
+    )
+    with pytest.raises(StorageResolutionError) as error:
+        with open_owned_access(
+            _owned(tmp_path), StorageOperation.CREATE, target.name
+        ) as create:
+            create.create(b"complete")  # type: ignore[union-attr]
+
+    assert error.value.__class__.__name__ != "IndeterminateOwnedPublicationError"
+    assert parent_calls == 2
+    assert not target.exists()
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+
+
+def test_owned_create_parent_fsync_rollback_failure_is_indeterminate_complete(
+    tmp_path, monkeypatch
+):
+    target = tmp_path / "indeterminate.bin"
+    staged = _capture_staging_descriptors(monkeypatch, target.name)
+    real_fsync = os.fsync
+    real_unlink = os.unlink
+
+    def failing_parent_fsync(descriptor: int) -> None:
+        if descriptor not in staged:
+            raise OSError(errno.EIO, "simulated parent fsync failure")
+        real_fsync(descriptor)
+
+    def failing_final_unlink(path, *args, **kwargs) -> None:
+        if path == target.name:
+            raise OSError(errno.EIO, "simulated rollback unlink failure")
+        real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(
+        "handler.filesystem.storage_access.os.fsync", failing_parent_fsync
+    )
+    monkeypatch.setattr(
+        "handler.filesystem.storage_access.os.unlink", failing_final_unlink
+    )
+    with pytest.raises(StorageResolutionError, match="state") as error:
+        with open_owned_access(
+            _owned(tmp_path), StorageOperation.CREATE, target.name
+        ) as create:
+            create.create(b"complete")  # type: ignore[union-attr]
+
+    assert error.value.__class__.__name__ == "IndeterminateOwnedPublicationError"
+    assert target.read_bytes() == b"complete"
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+
+
+def test_owned_create_concurrent_calls_use_unique_staging_names(tmp_path):
+    target = "concurrent.bin"
+    barrier = threading.Barrier(2, timeout=5)
+    staging_names: list[str] = []
+    errors: list[BaseException] = []
+
+    class AbortPublication(Exception):
+        pass
+
+    def hold_staging() -> None:
+        try:
+            with open_owned_access(
+                _owned(tmp_path), StorageOperation.CREATE, target
+            ) as create:
+                try:
+                    with create.subprocess_file() as descriptor:  # type: ignore[union-attr]
+                        staging_names.append(
+                            Path(os.readlink(f"/proc/self/fd/{descriptor}")).name
+                        )
+                        barrier.wait()
+                        raise AbortPublication()
+                except AbortPublication:
+                    pass
+        except BaseException as error:
+            errors.append(error)
+
+    threads = [threading.Thread(target=hold_staging) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=7)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert errors == []
+    assert len(staging_names) == 2
+    assert len(set(staging_names)) == 2
+    assert not (tmp_path / target).exists()
+    assert tuple(tmp_path.glob(f".{target}.*.tmp")) == ()
