@@ -337,6 +337,200 @@ def _approve_external_read_only(monkeypatch):
     )
 
 
+def test_migration_reconnects_only_source_observed_rom_and_sidecar(
+    tmp_path: Path, admin_user
+):
+    from dataclasses import asdict
+
+    from handler.filesystem.storage_policy import _create_external_descriptor
+    from handler.storage.legacy_migration import detect_legacy_storage
+    from models.storage import LegacyDetectionSourceIdentity
+
+    fs_slug = "exact-observed"
+    canonical = tmp_path / "roms" / fs_slug
+    (canonical / "art").mkdir(parents=True)
+    (canonical / "present.gb").write_bytes(b"present")
+    (canonical / "art" / "manual.txt").write_bytes(b"manual")
+    before = _manifest(tmp_path)
+
+    with sync_session.begin() as session:
+        platform = Platform(
+            name="Exact observed",
+            slug="exact-observed",
+            fs_slug=fs_slug,
+        )
+        other_platform = Platform(
+            name="Exact observed other",
+            slug="exact-observed-other",
+            fs_slug="exact-observed-other",
+        )
+        root = StorageRoot(name="Exact observed archive", container_path=str(tmp_path))
+        session.add_all([platform, other_platform, root])
+        session.flush()
+
+        def add_rom(
+            name: str,
+            *,
+            path: str = fs_slug,
+            owner_id: int = platform.id,
+        ) -> Rom:
+            rom = Rom(
+                platform_id=owner_id,
+                fs_name=name,
+                fs_name_no_tags=name.rsplit(".", 1)[0],
+                fs_name_no_ext=name.rsplit(".", 1)[0],
+                fs_extension=name.rsplit(".", 1)[-1],
+                fs_path=path,
+                fs_size_bytes=1,
+                name=name,
+                missing_from_fs=True,
+            )
+            session.add(rom)
+            session.flush()
+            return rom
+
+        present = add_rom("present.gb")
+        absent = add_rom("absent.gb")
+        ambiguous_one = add_rom("folder/duplicate.gb")
+        ambiguous_two = add_rom("duplicate.gb", path=f"{fs_slug}/folder")
+        unsafe = add_rom("unsafe.gb", path=f"{fs_slug}/..")
+        case_distinct = add_rom("case/Present.gb")
+        unicode_distinct = add_rom("unicode/présent.gb")
+        cross_platform = add_rom(
+            "present.gb", path=other_platform.fs_slug, owner_id=other_platform.id
+        )
+        present_child = RomFile(
+            rom_id=present.id,
+            file_name="manual.txt",
+            file_path=f"{fs_slug}/art",
+            file_size_bytes=6,
+            missing_from_fs=True,
+        )
+        absent_child = RomFile(
+            rom_id=present.id,
+            file_name="absent.txt",
+            file_path=f"{fs_slug}/art",
+            file_size_bytes=1,
+            missing_from_fs=True,
+        )
+        session.add_all([present_child, absent_child])
+        session.flush()
+        platform_id = platform.id
+        root_id = root.id
+        ids = {
+            "present": present.id,
+            "absent": absent.id,
+            "ambiguous_one": ambiguous_one.id,
+            "ambiguous_two": ambiguous_two.id,
+            "unsafe": unsafe.id,
+            "case_distinct": case_distinct.id,
+            "unicode_distinct": unicode_distinct.id,
+            "cross_platform": cross_platform.id,
+            "present_child": present_child.id,
+            "absent_child": absent_child.id,
+        }
+
+    handler = DBLegacyMigrationHandler()
+    context = handler.get_detection_context(platform_id, root_id)
+    detected = detect_legacy_storage(
+        _create_external_descriptor(root_id, tmp_path),
+        platform_id=platform_id,
+        storage_root_id=root_id,
+        fs_slug=fs_slug,
+    )
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    result = handler.save_detection_result(
+        context, detected, actor_user_id=admin_user.id, now=now
+    )
+    impact = handler.preview_migration_impact(
+        result.id,
+        platform_id=platform_id,
+        expected_result_version=1,
+        now=now,
+    )
+
+    assert impact.state == "ready"
+    assert impact.reconnectable_catalog_count == 1
+    assert impact.unmatched_catalog_count == 6
+    assert impact.planned_owned_effects.catalog_reconnect_count == 1
+    assert impact.planned_owned_effects.catalog_preserve_unmatched_count == 6
+    public_preview = str(asdict(impact))
+    for private_value in (
+        "present.gb",
+        "manual.txt",
+        "absent.gb",
+        "absent.txt",
+        detected.source_identity_digests[0].hex(),
+    ):
+        assert private_value not in public_preview
+
+    outcome = handler.migrate_platform(
+        impact.confirmation,
+        actor_user_id=admin_user.id,
+        actor_display_name=admin_user.username,
+        now=now,
+    )
+    assert outcome.reconnected_catalog_count == 1
+    assert outcome.unmatched_catalog_count == 6
+
+    restarted = DBLegacyMigrationHandler()
+    with sync_session() as session:
+        rom_states = {
+            key: session.get(Rom, row_id).missing_from_fs
+            for key, row_id in ids.items()
+            if not key.endswith("child")
+        }
+        file_states = {
+            key: session.get(RomFile, ids[key]).missing_from_fs
+            for key in ("present_child", "absent_child")
+        }
+        changes = list(
+            session.scalars(
+                select(LegacyMigrationCatalogChange)
+                .where(
+                    LegacyMigrationCatalogChange.migration_id == outcome.migration_id
+                )
+                .order_by(
+                    LegacyMigrationCatalogChange.entity_kind,
+                    LegacyMigrationCatalogChange.entity_id,
+                )
+            )
+        )
+        persisted_digests = tuple(
+            row.identity_digest
+            for row in session.scalars(
+                select(LegacyDetectionSourceIdentity)
+                .where(LegacyDetectionSourceIdentity.detection_result_id == result.id)
+                .order_by(LegacyDetectionSourceIdentity.identity_digest)
+            )
+        )
+    assert rom_states["present"] is False
+    assert all(state is True for key, state in rom_states.items() if key != "present")
+    assert file_states == {"present_child": False, "absent_child": True}
+    assert [(change.entity_kind, change.entity_id) for change in changes] == [
+        (LegacyCatalogEntityKind.ROM.value, ids["present"]),
+        (LegacyCatalogEntityKind.ROM_FILE.value, ids["present_child"]),
+    ]
+    assert persisted_digests == tuple(
+        digest.hex() for digest in detected.source_identity_digests
+    )
+
+    rollback = restarted.rollback_migration(
+        outcome.migration_id,
+        platform_id=platform_id,
+        expected_version=1,
+        actor_user_id=admin_user.id,
+        actor_display_name=admin_user.username,
+        now=now,
+    )
+    assert rollback.state == "rolled_back"
+    with sync_session() as session:
+        assert session.get(Rom, ids["present"]).missing_from_fs is True
+        assert session.get(RomFile, ids["present_child"]).missing_from_fs is True
+        assert session.get(RomFile, ids["absent_child"]).missing_from_fs is True
+    assert _manifest(tmp_path) == before
+
+
 @pytest.mark.parametrize(
     ("operation", "relative_path", "expected_marker"),
     [
