@@ -104,10 +104,18 @@ completed: 2026-08-21
 - **Files modified:** frontend/src/services/api/rom.test.ts
 - **Commit:** 995b90fd2
 
+**3. [Rule 1 - Tracking Bug] Corrected handler output while preserving the earliest incomplete plan**
+
+- **Found during:** Plan closeout tracking
+- **Issue:** The approved progress handlers reported 74 of 82 plans and 90 percent but wrote 56 percent in STATE frontmatter, left the body at 89 percent, collapsed the ROADMAP row spacing, and did not mark this out-of-order plan complete.
+- **Fix:** Aligned both STATE progress representations to 90 percent, restored ROADMAP formatting, marked 06-40 complete, and recorded 39 of 47 summaries. Per orchestrator direction, state.advance-plan was deliberately omitted so Plan 39 remains the earliest incomplete plan.
+- **Files modified:** .planning/STATE.md, .planning/ROADMAP.md, .planning/phases/06-safe-lifecycle-and-legacy-migration/06-40-SUMMARY.md
+- **Commit:** Plan tracking commit
+
 ---
 
-**Total deviations:** 2 auto-fixed blocking issues.
-**Impact on plan:** Both adjustments are test-harness compatibility fixes. Product scope and the pinned behavioral contract are unchanged.
+**Total deviations:** 3 auto-fixed issues.
+**Impact on plan:** Product scope and the pinned behavioral contract are unchanged. Tracking accurately records out-of-order Plan 40 completion while keeping Plan 39 as the next executable plan.
 
 ## Issues Encountered
 

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-38-PLAN.md
-last_updated: "2026-08-21T12:21:30.721Z"
+stopped_at: Completed 06-40-PLAN.md
+last_updated: "2026-08-21T12:53:19.441Z"
 last_activity: 2026-08-21
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 82
-  completed_plans: 73
-  percent: 89
+  completed_plans: 74
+  percent: 90
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 39 of 47
 Status: Ready to execute
 Last activity: 2026-08-21
 
-Progress: [#########-] 89%
+Progress: [#########-] 90%
 
 ## Performance Metrics
 
@@ -111,6 +111,7 @@ _Updated after each plan completion_
 | Phase 06 P36 | 29min | 2 tasks | 1 files |
 | Phase 06 P37 | 25min | 2 tasks | 2 files |
 | Phase 06 P38 | 8m | 2 tasks | 9 files |
+| Phase 06 P40 | 23m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -255,6 +256,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Primary manual copy names RomM resources and keeps game-library files unchanged in every first-batch locale.
 - [Phase 06]: Pre-success replacement failure preserves the existing manual; post-success refresh failure directs the user to reload.
 - [Phase 06]: Plan 38 owns the first nine locale files and Plan 39 owns the complementary nine-file parity batch.
+- [Phase 06]: Primary manual operations use stable primary-manual:{romId} identity while filenames remain display data. — Retries replace only stale state for the same ROM-purpose operation.
+- [Phase 06]: Legacy upload records omit operationKey so screenshot filename matching and toast labels remain unchanged. — The operation-keyed API is additive and cannot alter frozen v1 consumers.
+- [Phase 06]: Keep uploadManuals and its emitter contract available through Phase 8. — Plan 45 removes only the active-v2 coordinator.
 
 ### Blockers/Concerns
 
@@ -272,6 +276,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-21T12:21:30.717Z
-Stopped at: Completed 06-38-PLAN.md
+Last session: 2026-08-21T12:53:19.437Z
+Stopped at: Completed 06-40-PLAN.md
 Resume file: None
