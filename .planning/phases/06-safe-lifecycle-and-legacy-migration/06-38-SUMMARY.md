@@ -94,7 +94,21 @@ The project-level TDD mode and MVP mode were both disabled. These JSON-only task
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Tracking Bug] Corrected inconsistent SDK progress and roadmap formatting**
+
+- **Found during:** Plan closeout tracking
+- **Issue:** The SDK reported 73 of 82 completed plans and 89 percent, but retained 56 percent in STATE frontmatter, 88 percent in the body, and collapsed ROADMAP table spacing.
+- **Fix:** Aligned both STATE progress representations to the SDK count and restored the ROADMAP row formatting.
+- **Files modified:** .planning/STATE.md, .planning/ROADMAP.md
+- **Verification:** STATE frontmatter and body now show 89 percent, while the phase row shows 38 of 47 summaries.
+- **Committed in:** Plan tracking commit
+
+---
+
+**Total deviations:** 1 auto-fixed tracking bug.
+**Impact on plan:** Tracking now reflects the committed summary count. Locale scope and product behavior are unchanged.
 
 ## Issues Encountered
 

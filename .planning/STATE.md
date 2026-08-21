@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-37-PLAN.md
-last_updated: "2026-08-21T12:06:53.070Z"
+stopped_at: Completed 06-38-PLAN.md
+last_updated: "2026-08-21T12:21:30.721Z"
 last_activity: 2026-08-21
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 82
-  completed_plans: 72
-  percent: 56
+  completed_plans: 73
+  percent: 89
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 38 of 47
+Plan: 39 of 47
 Status: Ready to execute
 Last activity: 2026-08-21
 
-Progress: [#########-] 88%
+Progress: [#########-] 89%
 
 ## Performance Metrics
 
@@ -110,6 +110,7 @@ _Updated after each plan completion_
 | Phase 06 P35 | 18min | 2 tasks | 3 files |
 | Phase 06 P36 | 29min | 2 tasks | 1 files |
 | Phase 06 P37 | 25min | 2 tasks | 2 files |
+| Phase 06 P38 | 8m | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -251,6 +252,9 @@ Recent decisions affecting current work:
 - [Phase 06]: The live play-session keepalive POST is CONTROL_PLANE/database authority, not a source-library mutation. — The endpoint records RomM session state and does not write the external library.
 - [Phase 06]: Source membership keys use strict canonical relative POSIX text hashed as a length-delimited UTF-8 record under a versioned purpose tag.
 - [Phase 06]: Identity evidence remains a sorted immutable bytes tuple excluded from repr and every public detection surface.
+- [Phase 06]: Primary manual copy names RomM resources and keeps game-library files unchanged in every first-batch locale.
+- [Phase 06]: Pre-success replacement failure preserves the existing manual; post-success refresh failure directs the user to reload.
+- [Phase 06]: Plan 38 owns the first nine locale files and Plan 39 owns the complementary nine-file parity batch.
 
 ### Blockers/Concerns
 
@@ -268,6 +272,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-21T12:05:54.305Z
-Stopped at: Completed 06-37-PLAN.md
+Last session: 2026-08-21T12:21:30.717Z
+Stopped at: Completed 06-38-PLAN.md
 Resume file: None
