@@ -188,6 +188,8 @@ async def update_screenshot(
             detail="Screenshot not found",
         )
 
+    assert_rom_visible(request, screenshot.rom, not_found_detail="Screenshot not found")
+
     updated = db_screenshot_handler.update_screenshot(id, {"is_public": is_public})
     return ScreenshotSchema.model_validate(updated)
 
@@ -209,6 +211,8 @@ async def delete_screenshot(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Screenshot not found",
         )
+
+    assert_rom_visible(request, screenshot.rom, not_found_detail="Screenshot not found")
 
     authorize_api_storage_operation(
         StorageOperation.DELETE,
