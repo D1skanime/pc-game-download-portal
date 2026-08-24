@@ -466,6 +466,7 @@ class DBLegacyMigrationHandler(DBBaseHandler):
 
         digest_set = frozenset(persisted_identity_digests)
         identities: dict[str, list[tuple[Rom, str]]] = {}
+        observed_files: list[tuple[RomFile, str]] = []
         unsafe = 0
         for rom in roms:
             identity = cls._catalog_source_identity(fs_slug, rom.fs_path, rom.fs_name)
@@ -474,25 +475,31 @@ class DBLegacyMigrationHandler(DBBaseHandler):
                 continue
             relative_identity, digest = identity
             identities.setdefault(relative_identity, []).append((rom, digest))
+        for rom_file in rom_files:
+            identity = cls._catalog_source_identity(
+                fs_slug, rom_file.file_path, rom_file.file_name
+            )
+            if identity is not None and identity[1] in digest_set:
+                observed_files.append((rom_file, identity[0]))
         ambiguous = sum(
             len(matches) for matches in identities.values() if len(matches) > 1
         )
         selected_rom_ids = frozenset(
-            matches[0][0].id
-            for matches in identities.values()
-            if len(matches) == 1 and matches[0][1] in digest_set
+            rom.id
+            for relative_identity, matches in identities.items()
+            if len(matches) == 1
+            for rom, digest in matches
+            if digest in digest_set
+            or any(
+                rom_file.rom_id == rom.id
+                and child_identity.startswith(f"{relative_identity}/")
+                for rom_file, child_identity in observed_files
+            )
         )
         selected_file_ids = frozenset(
             rom_file.id
-            for rom_file in rom_files
+            for rom_file, _relative_identity in observed_files
             if rom_file.rom_id in selected_rom_ids
-            and (
-                identity := cls._catalog_source_identity(
-                    fs_slug, rom_file.file_path, rom_file.file_name
-                )
-            )
-            is not None
-            and identity[1] in digest_set
         )
         problems = []
         if unsafe:

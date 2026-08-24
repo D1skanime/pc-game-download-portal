@@ -8,7 +8,6 @@ import stat
 from dataclasses import asdict
 from datetime import timedelta
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -69,69 +68,70 @@ def _detect(root: Path, fs_slug: str = "gb", **kwargs):
 
 def test_catalog_selection_derives_unique_folder_parent_from_exact_children():
     from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
+    from models.rom import Rom, RomFile
 
     subject = _subject()
     fs_slug = "folder-select"
     roms = [
-        SimpleNamespace(id=1, fs_path=fs_slug, fs_name="folder"),
-        SimpleNamespace(id=2, fs_path=fs_slug, fs_name="flat.bin"),
-        SimpleNamespace(id=3, fs_path=fs_slug, fs_name="no-child"),
-        SimpleNamespace(id=4, fs_path=fs_slug, fs_name="prefix"),
-        SimpleNamespace(id=5, fs_path=fs_slug, fs_name="duplicate/game"),
-        SimpleNamespace(id=6, fs_path=f"{fs_slug}/duplicate", fs_name="game"),
-        SimpleNamespace(id=7, fs_path=f"{fs_slug}/..", fs_name="unsafe"),
-        SimpleNamespace(id=8, fs_path=fs_slug, fs_name="similar"),
+        Rom(id=1, fs_path=fs_slug, fs_name="folder"),
+        Rom(id=2, fs_path=fs_slug, fs_name="flat.bin"),
+        Rom(id=3, fs_path=fs_slug, fs_name="no-child"),
+        Rom(id=4, fs_path=fs_slug, fs_name="prefix"),
+        Rom(id=5, fs_path=fs_slug, fs_name="duplicate/game"),
+        Rom(id=6, fs_path=f"{fs_slug}/duplicate", fs_name="game"),
+        Rom(id=7, fs_path=f"{fs_slug}/..", fs_name="unsafe"),
+        Rom(id=8, fs_path=fs_slug, fs_name="similar"),
     ]
     rom_files = [
-        SimpleNamespace(
+        RomFile(
             id=101,
             rom_id=1,
             file_path=f"{fs_slug}/folder",
             file_name="disc1.bin",
         ),
-        SimpleNamespace(
+        RomFile(
             id=102,
             rom_id=1,
             file_path=f"{fs_slug}/folder",
             file_name="disc2.bin",
         ),
-        SimpleNamespace(
+        RomFile(
             id=103,
             rom_id=1,
             file_path=f"{fs_slug}/folder",
             file_name="absent.txt",
         ),
-        SimpleNamespace(
+        RomFile(
             id=104,
             rom_id=3,
             file_path=f"{fs_slug}/elsewhere",
             file_name="wrong.bin",
         ),
-        SimpleNamespace(
+        RomFile(
             id=105,
             rom_id=4,
             file_path=f"{fs_slug}/prefix-extra",
             file_name="foreign.bin",
         ),
-        SimpleNamespace(
+        RomFile(
             id=106,
             rom_id=5,
             file_path=f"{fs_slug}/duplicate/game",
             file_name="disc.bin",
         ),
-        SimpleNamespace(
+        RomFile(
             id=107,
             rom_id=6,
             file_path=f"{fs_slug}/duplicate/game",
             file_name="disc.bin",
         ),
-        SimpleNamespace(
+        RomFile(
             id=108,
             rom_id=8,
             file_path=f"{fs_slug}/elsewhere",
             file_name="similar",
         ),
-        SimpleNamespace(
+        RomFile(
             id=109,
             rom_id=2,
             file_path=fs_slug,
