@@ -1,13 +1,14 @@
 ---
 phase: 06-safe-lifecycle-and-legacy-migration
-reviewed: 2026-08-20T14:11:45Z
+reviewed: 2026-08-24T08:45:09Z
 depth: standard
-files_reviewed: 115
+files_reviewed: 132
 files_reviewed_list:
   - backend/alembic/versions/0110_mapping_preview_results.py
   - backend/alembic/versions/0111_safe_lifecycle_legacy_migration.py
   - backend/alembic/versions/0112_phase6_gap_closure.py
   - backend/alembic/versions/0113_legacy_change_lineage.py
+  - backend/alembic/versions/0114_legacy_source_identities.py
   - backend/endpoints/firmware.py
   - backend/endpoints/heartbeat.py
   - backend/endpoints/responses/assets.py
@@ -20,8 +21,10 @@ files_reviewed_list:
   - backend/endpoints/screenshots.py
   - backend/endpoints/sockets/scan.py
   - backend/endpoints/storage.py
+  - backend/handler/database/__init__.py
   - backend/handler/database/catalog_lifecycle_handler.py
   - backend/handler/database/legacy_migration_handler.py
+  - backend/handler/database/manual_handler.py
   - backend/handler/database/roms_handler.py
   - backend/handler/database/storage_handler.py
   - backend/handler/filesystem/storage_access.py
@@ -37,6 +40,8 @@ files_reviewed_list:
   - backend/tasks/manual/cleanup_catalog_assets.py
   - backend/tasks/manual/detect_legacy_storage.py
   - backend/tests/endpoints/roms/test_catalog_removal.py
+  - backend/tests/endpoints/roms/test_files.py
+  - backend/tests/endpoints/roms/test_manual.py
   - backend/tests/endpoints/sockets/test_scan.py
   - backend/tests/endpoints/test_saves.py
   - backend/tests/endpoints/test_screenshots.py
@@ -50,10 +55,14 @@ files_reviewed_list:
   - backend/tests/integration/__init__.py
   - backend/tests/integration/test_legacy_migration.py
   - backend/tests/models/test_safe_lifecycle.py
+  - backend/tests/tools/test_verify_phase6_acceptance.py
   - backend/tests/tools/test_verify_phase6_contracts.py
   - backend/tests/tools/test_verify_storage_migrations.py
+  - backend/tests/utils/test_rom_patcher.py
+  - backend/tools/verify_phase6_acceptance.py
   - backend/tools/verify_phase6_contracts.py
   - backend/tools/verify_storage_migrations.py
+  - backend/utils/rom_patcher/patcher.py
   - frontend/src/__generated__/index.ts
   - frontend/src/__generated__/models/CatalogRemovalRequest.ts
   - frontend/src/__generated__/models/CatalogRemovalResponse.ts
@@ -98,20 +107,28 @@ files_reviewed_list:
   - frontend/src/locales/zh_TW/rom.json
   - frontend/src/services/api/firmware.ts
   - frontend/src/services/api/platform.ts
+  - frontend/src/services/api/rom.test.ts
   - frontend/src/services/api/rom.ts
+  - frontend/src/services/api/screenshot.test.ts
   - frontend/src/services/api/setup.ts
+  - frontend/src/stores/upload.test.ts
+  - frontend/src/stores/upload.ts
   - frontend/src/v2/components/Auth/SetupStepPlatforms.vue
   - frontend/src/v2/components/Dialogs/DeleteManualDialog.vue
   - frontend/src/v2/components/Dialogs/EditRomDialog.vue
-  - frontend/src/v2/components/Dialogs/ManualUploadTargetDialog.vue
+  - frontend/src/v2/components/Dialogs/GlobalDialogs.vue
   - frontend/src/v2/components/Dialogs/MatchRomDialog.vue
   - frontend/src/v2/components/Gallery/DeleteFirmwareDialog.vue
   - frontend/src/v2/components/Gallery/FirmwareTab.test.ts
   - frontend/src/v2/components/Gallery/FirmwareTab.vue
   - frontend/src/v2/components/GameDetails/FilesTab/FilesTab.vue
+  - frontend/src/v2/components/GameDetails/ManualSubtab.test.ts
   - frontend/src/v2/components/GameDetails/ManualSubtab.vue
+  - frontend/src/v2/components/GameDetails/ManualViewerControls.test.ts
+  - frontend/src/v2/components/GameDetails/MarkdownViewer.vue
   - frontend/src/v2/components/GameDetails/MediaTab.vue
   - frontend/src/v2/components/GameDetails/PatcherTab.vue
+  - frontend/src/v2/components/GameDetails/PdfViewer.vue
   - frontend/src/v2/components/GameDetails/ScreenshotsSubtab.vue
   - frontend/src/v2/components/MatchRom/MatchRomBodyGrid.vue
   - frontend/src/v2/components/MatchRom/MatchRomBodyList.vue
@@ -121,87 +138,71 @@ files_reviewed_list:
   - frontend/src/v2/views/Upload.vue
 findings:
   critical: 4
-  warning: 3
+  warning: 1
   info: 0
-  total: 7
+  total: 5
 status: issues_found
 ---
 
 # Phase 06: Code Review Report
 
-**Reviewed:** 2026-08-20T14:11:45Z
+**Reviewed:** 2026-08-24T08:45:09Z
 **Depth:** standard
-**Files Reviewed:** 115
+**Files Reviewed:** 132
 **Status:** issues_found
 
 ## Summary
 
-The 115-file Phase 06 source scope was reviewed against current HEAD `f7420c24ed0b47cb4a9e1d4067b8670f3b394123`, including endpoint-to-handler call chains, storage authority boundaries, migration upgrade/downgrade logic, generated contracts, active-v2 controls, and the submitted tests. Four blockers and three warnings remain.
+The 132-file final Phase 06 source scope was derived from all 47 summary frontmatters and reviewed at current HEAD `02d1a50930d60a0feb4bf2316f999bbda4c22023`. Two deleted paths were excluded. Current endpoint, storage, migration, model, verifier, generated contract, frontend, locale, and test code were reviewed, with called helpers inspected where necessary.
 
-The historical late rename guard, mutable ORM incarnation token, incorrect lower-bound flag, dynamic element-access inventory gap, and single-short-write issues are closed at this HEAD and are not repeated below. The findings below are separate current defects. No tests were executed during this read-only review; current code and test coverage were inspected directly.
+Four blockers and one warning remain. Earlier stale-confirmation, blanket-rollback, HEAD first-use, unsafe-header, short-write, and crash-publication defects are closed and not repeated. No tests or services were run during this read-only static review.
 
 ## Critical Issues
 
-### CR-01 [BLOCKER]: Migration reconnects catalog rows without proving the source files exist
+### CR-01 [BLOCKER]: File-only evidence makes folder and multi-file ROMs permanently unmatched
 
-**File:** `backend/handler/database/roms_handler.py:2673-2697`
+**File:** `backend/handler/database/legacy_migration_handler.py:467-496`
 
-**Issue:** `reconnect_legacy_catalog` treats every catalog ROM whose database logical path is unique as reconnectable, then clears `missing_from_fs` on that ROM and every child `RomFile`. It never intersects those catalog identities with the files actually observed under the detected legacy mapping. The impact preview uses the same catalog-only uniqueness rule in `backend/handler/database/legacy_migration_handler.py:350-378`. A canonical directory containing only `one.gb` therefore causes a unique but absent `two.gb` catalog row, plus all of its sidecars, to be reported and persisted as reachable. This violates D-19: missing source entries must remain preserved and unreachable.
+**Issue:** Detection persists digests only for regular files (`backend/handler/storage/legacy_migration.py:287-348`), but selection requires a ROM's own `fs_path/fs_name` digest before selecting it or any child. A folder game is represented by a ROM whose `fs_name` is the directory, while evidence contains only files below it. Its directory digest can never occur, so every folder or multi-file ROM stays `missing_from_fs` despite exact observed children. Tests cover only a flat ROM.
 
-**Fix:** Bind detection to a private, bounded inventory of normalized source identities, such as persisted SHA-256 path identities that are never exposed by the API. Compute preview counts and migration updates from the exact source/catalog intersection, and update only child files whose own identities were observed. Add an integration case with one present file, one uniquely named absent catalog ROM, and an absent child sidecar; only the present identity may become reachable.
+**Fix:** Persist typed directory and file identities, selecting the folder ROM by exact directory identity and children by file identity, or derive an exact unambiguous folder boundary from children. Test migration and rollback for nested folder ROMs with present and absent children.
 
-### CR-02 [BLOCKER]: Failed or concurrent manual uploads can destroy the existing manual
+### CR-02 [BLOCKER]: Newly uploaded primary manuals cannot be found or deleted
 
-**File:** `backend/endpoints/roms/manual.py:97-127`, `frontend/src/services/api/rom.ts:499-524`
+**File:** `backend/endpoints/roms/manual.py:115-119, 418-430`
 
-**Issue:** The backend deletes every prior manual with a different extension before it has received the replacement, then streams directly into the final filename. A disconnect or parser/write failure removes the partial destination but cannot restore the prior manual. Re-uploading the same extension can truncate the current manual before the request succeeds. The frontend also starts every selected manual upload concurrently with `Promise.allSettled`; same-extension requests can write the same destination concurrently, while different-extension requests race while deleting each other's files and updating `path_manual`. This is direct owned-data loss and can leave the database pointing at a deleted or nondeterministic file.
+**Issue:** Upload stores a random token path, but discovery recognizes only `{rom.id}.pdf/.md` (`backend/handler/filesystem/resources_handler.py:499-510, 581-600`). Thus upload followed by `DELETE /{id}/manuals` returns 404 without deleting or clearing the database. Redownload discovery also ignores the upload. The visible primary manual is not manageable through its API.
 
-**Fix:** Accept one primary manual per operation, stage it under a unique owned temporary name, fsync it, atomically publish it, commit the new `path_manual`, and only then remove the superseded extension. Serialize or reject multi-file primary-manual uploads. Add disconnect, mid-write, same-extension retry, different-extension replacement, and concurrent-request tests proving the previous manual remains byte-identical unless the replacement fully succeeds.
+**Fix:** Make validated `rom.path_manual` authoritative for existence and deletion. Remove the competing fixed-name convention or migrate legacy files. Test upload-delete and restart for random PDF/Markdown paths with no orphan.
 
-### CR-03 [BLOCKER]: Screenshot upload bypasses hidden ROM and platform visibility
+### CR-03 [BLOCKER]: Redownload bypasses CAS and can orphan a successful upload
 
-**File:** `backend/endpoints/screenshots.py:53-94`
+**File:** `backend/endpoints/roms/manual.py:182-218`, `frontend/src/v2/components/GameDetails/ManualSubtab.vue:112-114, 186-190, 267-275`
 
-**Issue:** `add_screenshot` loads the requested ROM and immediately derives its platform slug and writes the asset, but never calls `assert_rom_visible`. Any authenticated principal with `ASSETS_WRITE` can submit the ID of a ROM or platform hidden from that user and create a file and database relationship against it. Download correctly applies the hidden-resource boundary at lines 149-151, so upload is inconsistent with the same endpoint module and with other ROM-scoped mutation routes. The submitted screenshot tests cover hidden downloads but no hidden upload.
+**Issue:** Upload uses CAS, but redownload writes fixed `{rom.id}.pdf` and unconditionally updates `path_manual`. Frontend pending state excludes `redownloadingManual`, so Replace remains enabled. If upload wins CAS first, later redownload overwrites the path and orphans that committed upload. A failed redownload can also clear the reference to a valid random-path upload.
 
-**Fix:** Call `assert_rom_visible(request, rom, not_found_detail="ROM not found")` immediately after the ROM lookup and before path derivation or any write. Add hidden-ROM and hidden-platform upload tests that assert 404 masking, zero filesystem calls, and no database row.
+**Fix:** Use the same staging, durability, CAS, and cleanup primitive for redownload, preserving the old path on every failure. Include redownload in UI pending state and enforce backend serialization. Test both race orderings and failed downloads.
 
-### CR-04 [BLOCKER]: Owned create publishes a partial final file across process failure
+### CR-04 [BLOCKER]: Hidden-ROM screenshots remain mutable through update and delete
 
-**File:** `backend/handler/filesystem/storage_access.py:422-446`
+**File:** `backend/endpoints/screenshots.py:178-226`
 
-**Issue:** The new write-all loop closes the normal short-write defect, but `OwnedCreate.create` still opens the final destination before writing and never fsyncs it. A worker crash, forced termination, or host failure during the write leaves the partial final filename visible; a crash after the method returns can also lose acknowledged data. Exception cleanup only covers Python-visible `OSError`, and even that cleanup is skipped if `os.close` itself raises at line 437. This does not meet the advertised complete-or-no-publication owned-write contract.
+**Issue:** Upload/download enforce visibility, but update/delete mutate an owner screenshot by ID without checking its now-hidden ROM/platform. Hidden entities must read as nonexistent. Retained IDs still allow public-state changes or owned file/row deletion, an authorization bypass untested for hidden update/delete.
 
-**Fix:** Write and fsync a uniquely named descriptor-relative temporary file, close it safely, then publish with an atomic no-replace operation and fsync the parent directory. Cleanup must run independently of close errors. Add a subprocess crash test that terminates during write and proves the final name is absent, plus close-error and durability-path tests.
+**Fix:** Call `assert_rom_visible(request, screenshot.rom, not_found_detail="Screenshot not found")` before all effects in both routes. Test hidden ROM/platform update/delete for indistinguishable 404 and zero effects.
 
 ## Warnings
 
-### WR-01 [WARNING]: HEAD requests permanently consume migration rollback eligibility
+### WR-01 [WARNING]: Close-error cleanup can close an unrelated descriptor
 
-**File:** `backend/endpoints/roms/files.py:225-250`
+**File:** `backend/handler/filesystem/storage_access.py:447-469`
 
-**Issue:** GET and HEAD share `get_romfile_content`. Both call `preflight_mapped_download`, which opens `StorageOperation.DOWNLOAD`; `MappingReadContext.open` marks that as first productive use before the method-specific HEAD branch closes the descriptor without transferring content. A health probe, link checker, or browser HEAD request therefore makes direct rollback permanently ineligible even though no download occurred. That contradicts D-15's "first used productively" boundary.
+**Issue:** `_close_descriptor` and `abort` retry `os.close` after it raises. Linux can report a close error after releasing the number; another thread can reuse it before retry, which then closes an unrelated file/socket. The test simulates a consumed descriptor but not concurrent reuse.
 
-**Fix:** Separate metadata-only HEAD preflight from productive download preflight, or add an explicit `mark_first_use=False` path for HEAD that still validates the mapping and opens/stat-checks the descriptor. Mark first use only when a GET/stream will commit content. Add an integration test proving HEAD preserves eligibility while GET or the first emitted byte consumes it.
-
-### WR-02 [WARNING]: The semantic inventory still ignores direct fetch and callable-client mutations
-
-**File:** `frontend/src/v2/sourceMutationInventory.test.ts:307-328, 396-443`
-
-**Issue:** Client discovery recognizes imported Axios/API objects, and call extraction immediately skips call expressions whose callee is not property or element access. Direct `fetch(url, { method: "POST" })`, callable `axios(config)`, `api.request({ method, url })`, and equivalent wrappers are therefore omitted instead of failing closed. A reachable live service already contains a direct keepalive POST via `fetch("/api/play-sessions", ...)`; the inventory sees the sibling `api.post` but silently omits this second mutation path. The gate still cannot support its claim that every active-v2 mutation call is inventoried.
-
-**Fix:** Extract global `fetch`, callable Axios clients, and `.request(config)`; resolve or fail closed on their method and URL fields. Add negative fixtures through `finalInventorySource` for each syntax and assert that an unresolved transport call fails the test rather than returning an empty inventory.
-
-### WR-03 [WARNING]: Raw catalog filenames can break or corrupt download response headers
-
-**File:** `backend/endpoints/roms/files.py:196-241`
-
-**Issue:** The response correctly ignores the client-supplied path parameter, but it inserts the source-derived database filename directly into a quoted `Content-Disposition` header. External library filenames may contain quotes, control characters, or non-Latin Unicode. Quotes produce an invalid filename parameter, CR/LF can reach the server's header validation path, and non-Latin names can raise during Starlette's Latin-1 header encoding, turning valid Japanese or other Unicode ROM downloads into 500 responses.
-
-**Fix:** Build Content-Disposition with a vetted helper that emits an escaped ASCII fallback and RFC 5987 `filename*=UTF-8''...` value, rejects control characters, and never interpolates a raw source filename. Add tests for quotes, CR/LF, and non-Latin filenames.
+**Fix:** Treat the descriptor as consumed after one close call; never retry its number. Continue name cleanup and preserve the original error. Test reuse with a sentinel descriptor.
 
 ---
 
-_Reviewed: 2026-08-20T14:11:45Z_
+_Reviewed: 2026-08-24T08:45:09Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
