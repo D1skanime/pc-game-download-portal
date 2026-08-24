@@ -159,6 +159,7 @@ function deferred<T>() {
 function mountManual(rom = baseRom) {
   const emitter = mitt<Events>();
   emitter.on("showManualUploadTargetDialog", mocks.emitterEvents);
+  emitter.on("showDeleteManualDialog", mocks.emitterEvents);
   return shallowMount(ManualSubtab, {
     props: { rom: rom as never },
     global: {
@@ -197,6 +198,83 @@ beforeEach(() => {
 });
 
 describe("ManualSubtab", () => {
+  it("redownload_blocks_every_competing_manual_gesture", async () => {
+    const redownload = deferred<unknown>();
+    const refresh = deferred<{ data: typeof refreshedRom }>();
+    mocks.romApi.redownloadManual.mockReturnValueOnce(redownload.promise);
+    mocks.romApi.getRom.mockReturnValueOnce(refresh.promise);
+
+    const wrapper = mountManual();
+    await flushPromises();
+    const overlay = findDropzone(wrapper, true);
+    const viewer = wrapper.getComponent(ViewerStub);
+    const replaceButton = wrapper
+      .findAll("button")
+      .find((button) => button.text() === "rom.replace-manual");
+    const file = new File(["replacement"], "replacement.pdf", {
+      type: "application/pdf",
+    });
+    const originalUrl = viewer.attributes("data-url");
+
+    viewer.vm.$emit("redownload");
+    await nextTick();
+
+    expect(mocks.romApi.redownloadManual).toHaveBeenCalledTimes(1);
+    expect(wrapper.get(".r-v2-manual").attributes("aria-busy")).toBe("true");
+    expect(overlay.attributes("data-disabled")).toBe("true");
+    expect(replaceButton?.attributes().disabled).toBeDefined();
+    expect(viewer.attributes("data-mutation-disabled")).toBe("true");
+    expect(viewer.attributes("data-url")).toBe(originalUrl);
+
+    overlay.vm.$emit("files", [file]);
+    viewer.vm.$emit("delete");
+    viewer.vm.$emit("redownload");
+    await replaceButton?.trigger("click");
+    await nextTick();
+
+    expect(mocks.romApi.uploadManual).not.toHaveBeenCalled();
+    expect(mocks.romApi.redownloadManual).toHaveBeenCalledTimes(1);
+    expect(mocks.emitterEvents).not.toHaveBeenCalled();
+    expect(
+      (overlay.vm as { open: ReturnType<typeof vi.fn> }).open,
+    ).not.toHaveBeenCalled();
+
+    redownload.resolve({});
+    await flushPromises();
+    expect(mocks.romApi.getRom).toHaveBeenCalledWith({ romId: baseRom.id });
+    expect(mocks.snackbar.success).not.toHaveBeenCalled();
+    expect(viewer.attributes("data-url")).toBe(originalUrl);
+
+    refresh.resolve({ data: refreshedRom });
+    await flushPromises();
+    expect(mocks.romsStore.currentRom).toBe(refreshedRom);
+    expect(mocks.snackbar.success).toHaveBeenCalledWith(
+      "rom.manual-redownloaded",
+      { icon: "mdi-check-bold" },
+    );
+
+    mocks.romApi.redownloadManual.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409 },
+    });
+    const conflict = mountManual();
+    await flushPromises();
+    const conflictViewer = conflict.getComponent(ViewerStub);
+    const conflictUrl = conflictViewer.attributes("data-url");
+    conflictViewer.vm.$emit("redownload");
+    await flushPromises();
+
+    expect(conflict.get(".r-v2-manual").attributes("aria-busy")).toBe("false");
+    expect(conflictViewer.attributes("data-url")).toBe(conflictUrl);
+    expect(mocks.snackbar.error).toHaveBeenCalled();
+
+    mocks.romApi.redownloadManual.mockResolvedValueOnce({});
+    mocks.romApi.getRom.mockResolvedValueOnce({ data: refreshedRom });
+    conflictViewer.vm.$emit("redownload");
+    await flushPromises();
+    expect(mocks.romApi.redownloadManual).toHaveBeenCalledTimes(3);
+  });
+
   it("one_manual_gesture_sends_one_post_and_preserves_viewer_while_pending", async () => {
     const violations: string[] = [];
     const check = (condition: unknown, message: string) => {
