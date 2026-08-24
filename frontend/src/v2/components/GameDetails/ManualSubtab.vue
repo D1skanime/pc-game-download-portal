@@ -110,7 +110,10 @@ const uploadingManual = ref(false);
 const refreshingManual = ref(false);
 const replacingManual = ref(false);
 const manualMutationPending = computed(
-  () => uploadingManual.value || refreshingManual.value,
+  () =>
+    redownloadingManual.value ||
+    uploadingManual.value ||
+    refreshingManual.value,
 );
 
 async function refreshRom(romId: number) {
@@ -184,7 +187,7 @@ async function handleManualFiles(files: File[]) {
 }
 
 async function redownloadManual() {
-  if (redownloadingManual.value || manualMutationPending.value) return;
+  if (manualMutationPending.value) return;
   redownloadingManual.value = true;
   try {
     await romApi.redownloadManual({ romId: props.rom.id });
@@ -205,6 +208,7 @@ async function redownloadManual() {
 }
 
 function requestDeleteManual() {
+  if (!canEdit.value || manualMutationPending.value) return;
   const entry = selectedManual.value;
   if (!entry) return;
   emitter?.emit("showDeleteManualDialog", {
@@ -214,6 +218,11 @@ function requestDeleteManual() {
       ? undefined
       : Number(entry.id.replace(/^file-/, "")),
   });
+}
+
+function openManualReplacement() {
+  if (manualMutationPending.value) return;
+  manualDz.value?.open();
 }
 </script>
 
@@ -311,7 +320,7 @@ function requestDeleteManual() {
         :loading="manualMutationPending"
         :disabled="manualMutationPending"
         :aria-busy="manualMutationPending"
-        @click="manualDz?.open()"
+        @click="openManualReplacement"
       >
         {{ t("rom.replace-manual") }}
       </RBtn>
