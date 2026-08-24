@@ -5,192 +5,133 @@ nyquist_validation: enabled
 requirements:
   [CAT-01, CAT-02, CAT-03, CAT-04, MIG-01, MIG-02, MIG-03, MIG-04, MIG-05]
 created: 2026-08-12
-validated: 2026-08-20
+validated: 2026-08-24
+acceptance_record: 06-47-ACCEPTANCE.json
 ---
 
 # Phase 6: Safe Lifecycle and Legacy Migration - Validation
 
-## Objective
-
-Prove that catalog removal and legacy layout migration change only explicit
-RomM-owned state, preserve external source content and structure, fail closed
-under races and conflicts, and remain portable across MariaDB, MySQL, and
-PostgreSQL.
-
 ## Final Verdict
 
-Plan 06-32 passed every acceptance gate on Linux checkout
-`/home/d1sk/romm`, branch `codex/pc-module-analysis`, at source HEAD
-`bd4ffd10b`. All 28 observable must-haves and all nine Phase 6 requirements
-have current behavioral evidence. No deployment, service restart, branch
-change, source-content mutation, or persistent runtime change occurred.
+Plan 06-47 passed the checked-in complete acceptance gate in the canonical Linux checkout. The run used isolated nonce-owned databases, principals, basetemps, containers, and Node volume resources. It did not deploy, restart `romm-dev`, publish a port, or mutate external source content.
 
-The failures recorded in the previous `06-VERIFICATION.md` are superseded by
-Plans 06-27 through 06-31 and the fresh Plan 06-32 execution below.
+Run ID: `0525ee9a9a51ae4fad34e5791398cd40`
 
-## Requirement Matrix
+Run Digest: `f4b45a758dd5950caaee1f479220cb617aab1a053d7e5fa052ec0c72a47d94ff`
 
-| Req    | Fresh executable evidence                                                                                                    |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| CAT-01 | The IDs-only catalog removal request, API contract, and source-delete rejection pass in the complete backend set.            |
-| CAT-02 | Catalog removal preserves retained saves, states, and play history; scan reconnection and owned-write integrity pass.        |
-| CAT-03 | Mapping removal, lifecycle revision, audit, retention, cleanup intent, and cancellation behavior pass atomically.            |
-| CAT-04 | Changed names are denied before every effect; active-v2 element, dynamic, alias, namespace, and route forms are fail-closed. |
-| MIG-01 | Only `roms/{fs_slug}` and `{fs_slug}/roms` are automatically detected; custom names remain manual.                           |
-| MIG-02 | MariaDB, MySQL, and PostgreSQL pass pristine, seeded, rollback, restart, re-upgrade, collision, and immutable-token probes.  |
-| MIG-03 | Unsafe, ambiguous, incomplete, and budget-limited observations remain unselectable with truthful bounded metadata.           |
-| MIG-04 | Mapping, migration, rollback lineage, and incarnation identity survive database restart on every dialect.                    |
-| MIG-05 | Detection status is explicit, expiring, lower-bound aware, path-safe, and cannot become fallback authority.                  |
+Prior modules: 29
 
-## Fresh Execution Results
+Prior outcomes: 843
 
-| Gate                                      | Result                                                                                                                                                                 |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fail-closed environment preflight         | Linux; exact root, branch, origin, project identity, and clean tracked baseline verified                                                                               |
-| Focused remaining-gap matrix              | 43 passed, 130 deselected, 2 inherited warnings, exit 0                                                                                                                |
-| Complete deduplicated Phase 6 backend set | 577 passed, 4 inherited warnings, 184.55 seconds, exit 0                                                                                                               |
-| MariaDB lifecycle verifier                | Pristine, seeded 0110/0111, 0113 lineage, guarded downgrade, rollback, restart, re-upgrade, collision, and bulk forms passed; 59 handler/model tests passed            |
-| MySQL lifecycle verifier                  | Same lifecycle and immutable-token matrix passed; handler tests correctly skipped on the minimal 0107 baseline                                                         |
-| PostgreSQL lifecycle verifier             | Same lifecycle matrix passed; 59 handler/model tests passed                                                                                                            |
-| Controlled generated-contract verifier    | Exact checkout/image/network/user/allowlist/port contract passed, exit 0, all owned resources removed                                                                  |
-| Generated frontend contract               | 257 tracked generated files byte-identical before and after cleanup                                                                                                    |
-| Focused active-v2 inventory and controls  | 2 files, 26 tests passed, exit 0                                                                                                                                       |
-| Full frontend suite                       | 53 files, 659 tests passed, exit 0                                                                                                                                     |
-| Frontend typecheck                        | `NODE_OPTIONS=--max-old-space-size=4096`, exit 0                                                                                                                       |
-| Production build                          | 4,463 modules, 744 PWA entries, 790 output files, trapped output removed, exit 0                                                                                       |
-| Locale parity and sorting                 | 17 peer locales complete and sorted, exit 0                                                                                                                            |
-| Active-v2 inventory                       | 436 production modules, 19 reachable services, 13 external mutation operations, 10 owned descriptor kinds, 19 reviewed route families, zero forbidden live authorities |
-| Plans 27-31 backend static scope          | 9 files, Trunk reported no issues                                                                                                                                      |
-| Plans 27-31 frontend static scope         | Repository-topology ESLint reported zero errors                                                                                                                        |
-| Repository diff gate                      | `git diff --check` passed                                                                                                                                              |
-| Cleanup and normal access                 | Every exact task-owned resource absent; normal application `SELECT 1` returned 1 before and after                                                                      |
+The canonical JSON digest recomputes successfully from the structured acceptance record. All required source IDs are bound through the companion source audit.
 
-## Commands and Exit Status
+## Environment and Integrity
 
-### Focused gap regressions
+| Check                | Fresh result                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| Host and checkout    | Linux; `/home/d1sk/romm`; branch `codex/pc-module-analysis`                                    |
+| Origin and project   | `https://github.com/rommapp/romm.git`; `RomM PC Library`                                       |
+| Required ancestor    | `3e0b278cf3e71fe84f1e7b20b354f94728fc9531` present                                             |
+| Source service       | `romm-dev` remained `exited`                                                                   |
+| Normal database      | `SELECT 1` returned 1 before and after the complete run                                        |
+| Untracked baseline   | 28 entries; SHA-256 `4d4264efbb75049e71230f2417667c867656f6dd5054640e7aa6b8af391c81e1`         |
+| Source manifest      | 2,746 entries; before/after `1181a7adf53c5c9b004d6f818c38ec8ceb9c1d0ac813f7f47a37b007be452483` |
+| Generated manifest   | 257 files; before/after `dc4ecf6f1cc2b71cac62c9490ae30fa2f82ff7c669ecf68eda4dcea26ac2fb5d`     |
+| Repository diff gate | `git diff --check` exit 0                                                                      |
+| Cleanup              | 0 containers, databases, principals, basetemps, and volumes owned by Plan 47                   |
 
-Run in the existing application container with task-only database
-`romm_test_0632`, `-p no:env`, and `-p no:cacheprovider`:
+## Fresh Backend Results
+
+Every module ran without `-k`, with `-p no:env`, `-p no:cacheprovider`, `ROMM_BASE_PATH=romm_test`, and its own exact database, principal, password, basetemp, and disposable runner.
+
+### Prior contract
+
+| Module                                                   | Passed | Skipped | Exit |
+| -------------------------------------------------------- | -----: | ------: | ---: |
+| tests/alembic/test_mapping_preview_migration.py          |      1 |       0 |    0 |
+| tests/endpoints/roms/test_files.py                       |     16 |       7 |    0 |
+| tests/endpoints/roms/test_rom.py                         |     76 |       0 |    0 |
+| tests/endpoints/storage/test_mapping_preview.py          |      2 |       0 |    0 |
+| tests/endpoints/test_storage.py                          |     62 |       0 |    0 |
+| tests/endpoints/test_storage_policy_denials.py           |     55 |       0 |    0 |
+| tests/handler/database/test_storage_handler.py           |     28 |       0 |    0 |
+| tests/handler/filesystem/test_external_read_consumers.py |      9 |       0 |    0 |
+| tests/handler/filesystem/test_owned_storage.py           |      6 |       0 |    0 |
+| tests/handler/filesystem/test_storage_access.py          |     61 |       0 |    0 |
+| tests/handler/filesystem/test_storage_inventory.py       |     12 |       0 |    0 |
+| tests/handler/filesystem/test_storage_policy.py          |    263 |       0 |    0 |
+| tests/handler/filesystem/test_storage_resolver.py        |     57 |       0 |    0 |
+| tests/handler/filesystem/test_sync_handler.py            |     20 |       0 |    0 |
+| tests/handler/storage/test_preview.py                    |      3 |       0 |    0 |
+| tests/handler/test_scan_command.py                       |      4 |       0 |    0 |
+| tests/integration/test_mapped_scan.py                    |      3 |       0 |    0 |
+| tests/integration/test_scan_source_immutability.py       |      2 |       0 |    0 |
+| tests/models/test_storage.py                             |     12 |       0 |    0 |
+| tests/tasks/test_mapping_revision_jobs.py                |      2 |       0 |    0 |
+| tests/tasks/test_storage_policy.py                       |      4 |       0 |    0 |
+| tests/test_sync_watcher.py                               |     11 |       0 |    0 |
+| tests/test_watcher.py                                    |      2 |       0 |    0 |
+| tests/tools/test_verify_storage_migrations.py            |     23 |       0 |    0 |
+| tests/utils/test_archives.py                             |     24 |       0 |    0 |
+| tests/utils/test_audio_tags.py                           |     28 |       0 |    0 |
+| tests/utils/test_gamelist_exporter.py                    |     20 |       0 |    0 |
+| tests/utils/test_pegasus_exporter.py                     |     26 |       0 |    0 |
+| tests/utils/test_zip_cache.py                            |      4 |       0 |    0 |
+| Total                                                    |    836 |       7 |    0 |
+
+### Deduplicated Phase 6 contract
+
+| Module                                           | Passed | Skipped | Exit |
+| ------------------------------------------------ | -----: | ------: | ---: |
+| tests/endpoints/roms/test_catalog_removal.py     |     12 |       0 |    0 |
+| tests/endpoints/roms/test_manual.py              |      3 |       0 |    0 |
+| tests/endpoints/sockets/test_scan.py             |     76 |       0 |    0 |
+| tests/endpoints/test_saves.py                    |     98 |       0 |    0 |
+| tests/endpoints/test_screenshots.py              |     18 |       0 |    0 |
+| tests/endpoints/test_states.py                   |     15 |       0 |    0 |
+| tests/handler/database/test_storage_lifecycle.py |     31 |       0 |    0 |
+| tests/handler/storage/test_legacy_migration.py   |     43 |       0 |    0 |
+| tests/handler/storage/test_read_context.py       |     17 |       0 |    0 |
+| tests/integration/test_legacy_migration.py       |     37 |       0 |    0 |
+| tests/models/test_safe_lifecycle.py              |     12 |       0 |    0 |
+| tests/tasks/test_detect_legacy_storage.py        |      3 |       0 |    0 |
+| tests/tools/test_verify_phase6_contracts.py      |     31 |       0 |    0 |
+| tests/utils/test_rom_patcher.py                  |      7 |       0 |    0 |
+| Total                                            |    403 |       0 |    0 |
+
+## Cross-Stack Results
+
+| Stage                               | Structured result                              |
+| ----------------------------------- | ---------------------------------------------- |
+| MariaDB migration authority         | Complete, exit 0                               |
+| MySQL migration authority           | Complete, exit 0                               |
+| PostgreSQL migration authority      | Complete, exit 0                               |
+| Controlled OpenAPI contract         | Exit 0                                         |
+| Generated frontend contract         | 257 files, exact before/after digest match     |
+| Focused frontend tests              | Exit 0                                         |
+| Full frontend tests                 | Exit 0                                         |
+| Frontend typecheck                  | Exit 0                                         |
+| Trapped production build            | Exit 0                                         |
+| Locale parity and sorting           | Exit 0                                         |
+| Repository-topology static checks   | Exit 0                                         |
+| Complete backend/frontend manifests | 2,746 entries, exact before/after digest match |
+
+The generated verifier initially exposed three generator-owned terminal blank-line differences. Commit `22b983dcb` synchronized that exact output without changing schema semantics. The final bound run then produced identical generated manifests.
+
+## UI Evidence
+
+Plan 47 did not restart the intentionally stopped application service and did not claim a fresh interactive UI run. The approved Plan 45 matrix remains valid because its relevant implementation and test files did not drift after commit `364bb2764`. The bound acceptance record therefore marks `fresh_run=false` and `status=previously_validated_no_drift` for both themes, 320px through 4K, mouse/touch/keyboard/gamepad, focus, announcements, slow/failure/retry/conflict/refresh, and stable viewer behavior.
+
+## Evidence Corrections and Infrastructure Note
+
+The exact fresh prior-module result is 836 passed plus 7 skipped, or 843 outcomes. An earlier narrative claimed 931 passed plus 8 skipped, or 939 outcomes. No stored raw historical output exists to reconcile the 96-outcome difference. The user approved binding Plan 47 to the reproducible 843 result. This corrects an unsupported historical count and does not, by itself, establish a functional regression.
+
+A separate Wave 4 diagnostic that attempted 61 tests exited 137 during global database/Alembic setup. Per the user decision, that event is recorded as an infrastructure-only warning. It was not rerun or represented as fresh Plan 47 evidence. Plan 47 instead uses the successful isolated module and dialect results listed above.
+
+## Canonical Command
 
 ```text
-docker exec -e DB_NAME=romm_test_0632 -e ROMM_AUTH_SECRET_KEY=[test-only] --workdir /app/backend romm-dev /app/.venv/bin/pytest -p no:env -p no:cacheprovider tests/endpoints/test_storage_policy_denials.py tests/handler/database/test_storage_lifecycle.py tests/handler/storage/test_legacy_migration.py tests/handler/filesystem/test_storage_access.py -k "changed_fs_name or incarnation_tokens or lower_bound or deadline or owned_create_retries_short_write or owned_replace_retries_short_write or owned_writes_retry_interrupted or owned_writes_reject_invalid_progress or owned_writes_rollback_after_partial_failure" -x
+python3 backend/tools/verify_phase6_acceptance.py --checkout /home/d1sk/romm --base-commit 3e0b278cf3e71fe84f1e7b20b354f94728fc9531 --branch codex/pc-module-analysis --origin https://github.com/rommapp/romm.git --project "RomM PC Library" --source-container romm-dev --db-container romm-db-dev --expected-source-image romm-romm-dev --network romm_default --node-image node:24-bookworm --contract-port 39006 --baseline-untracked-count 28 --prior-outcomes-min 843 --evidence-json .planning/phases/06-safe-lifecycle-and-legacy-migration/06-47-ACCEPTANCE.json --run-complete
 ```
 
-Exit 0. The 43 selected cases prove:
-
-- changed `fs_name` denial precedes unmatch, provider, database, cache,
-  collection, response, owned-resource, and filesystem effects;
-- unchanged `fs_name` retains metadata and owned-resource behavior;
-- Rom and RomFile tokens reject instance flush, statement values, query update,
-  ORM executemany, bulk mapping, and bulk save forms;
-- entry, time, file, aggregate, descriptor deadline, and returned-byte budget
-  exits expose `lower_bound=true` through persistence and public serialization;
-- owned create and replace retry short and interrupted writes, reject invalid
-  progress, clean failed creates, and preserve replace targets on failure.
-
-### Complete backend regression
-
-```text
-docker exec -e DB_NAME=romm_test_0632 -e ROMM_AUTH_SECRET_KEY=[test-only] --workdir /app/backend romm-dev /app/.venv/bin/pytest -p no:env -p no:cacheprovider tests/endpoints/roms/test_catalog_removal.py tests/endpoints/sockets/test_scan.py tests/endpoints/test_saves.py tests/endpoints/test_screenshots.py tests/endpoints/test_states.py tests/endpoints/test_storage.py tests/endpoints/test_storage_policy_denials.py tests/handler/database/test_storage_lifecycle.py tests/handler/filesystem/test_storage_access.py tests/handler/filesystem/test_storage_inventory.py tests/handler/storage/test_legacy_migration.py tests/handler/storage/test_read_context.py tests/integration/test_legacy_migration.py tests/models/test_safe_lifecycle.py tests/tasks/test_detect_legacy_storage.py tests/tools/test_verify_phase6_contracts.py tests/tools/test_verify_storage_migrations.py -x
-```
-
-Exit 0, 577 passed. No restrictive `-k` selector was used.
-
-### Three-dialect lifecycle authority
-
-The quoted in-container launcher failed before resource creation because the
-application image intentionally has no Docker client. The same checked-in
-standard-library verifier was then run with the already proven host launcher:
-
-```text
-cd backend && python3 tools/verify_storage_migrations.py --dialects mariadb mysql postgresql --handler-tests --handler-test-repetitions 1
-```
-
-Exit 0. MariaDB, MySQL, and PostgreSQL each passed pristine upgrade, seeded
-0110 and 0111 upgrade, bounded 0112 normalization, 0113 lineage, guarded
-downgrade refusal, exact rollback, restart, re-upgrade, timestamp-collision
-substitution rejection, and the complete ORM mutation matrix. The displayed
-downgrade tracebacks are expected negative evidence. MariaDB and PostgreSQL
-each passed 59 handler/model tests; MySQL handler tests were skipped only for
-the declared minimal 0107 baseline.
-
-### Controlled contract and generated tree
-
-```text
-cd backend && python3 tools/verify_phase6_contracts.py --source-container romm-dev --checkout /home/d1sk/romm --expected-image romm-romm-dev --network romm_default --user 1000:1000 --entrypoint /bin/sleep --command infinity --env-allowlist DB_HOST,DB_NAME,DB_PASSWD,DB_PORT,DB_USER,REDIS_DB,REDIS_HOST,REDIS_PORT,REDIS_SSL,ROMM_BASE_PATH --port 39006
-```
-
-Exit 0. The generator emitted one terminal blank line in each of three legacy
-generated models. A checked exact reverse patch removed only those task-owned
-formatting side effects. SHA-256 manifests for all 257 generated files then
-matched the preflight baseline byte for byte. No OpenAPI or frontend contract
-change remains.
-
-### Frontend and static gates
-
-```text
-docker exec --workdir /app/frontend romm-dev npm run test -- src/v2/sourceMutationInventory.test.ts src/v2/sourceMutationControls.test.ts
-docker exec --workdir /app/frontend romm-dev npm run test
-docker exec -e NODE_OPTIONS=--max-old-space-size=4096 --workdir /app/frontend romm-dev npm run typecheck
-docker exec --workdir /app/frontend romm-dev npm run build -- --outDir /tmp/romm-p0632-build.<nonce>
-docker exec --workdir /app/frontend romm-dev python3 src/locales/check_i18n_locales.py
-docker exec --workdir /app/frontend romm-dev python3 src/locales/check_i18n_sorted.py
-```
-
-All exited 0. The build used a `mktemp` directory guarded by an EXIT trap;
-the exact output directory was absent afterward.
-
-Trunk checked all nine Plans 27-31 backend files with no issues. Its temporary
-frontend checkout could not resolve `@eslint/js` and reported a runner
-failure, not a code finding. The repository-owned ESLint dependency topology
-then checked `frontend/src/v2/sourceMutationInventory.test.ts` with exit 0.
-No lint rule was disabled or weakened.
-
-## Source Manifest Proof
-
-Before every source-sensitive flow, its test fixture records a sorted manifest.
-Every comparison uses the complete tuple below, not hashes alone:
-
-- normalized root-relative path;
-- entry type;
-- permission mode;
-- byte size;
-- SHA-256 digest for every regular file;
-- symlink identity and exact symlink target;
-- atime intentionally excluded until Phase 9.
-
-Writable and read-only fixtures retain the same tuple across catalog removal,
-mapping removal, detection, preview, confirmation, migration, injected failure,
-retry, first use, rollback, restart, filename denial, owned cleanup, and scan
-reconnection. All corresponding assertions passed in the 577-test set. Source
-content and structure were unchanged.
-
-## Inventory Closure
-
-The live extractor and inventory entry point directly cover property access,
-string element access, default/named/aliased/namespace/nested clients, literal
-and immutable concatenated routes, and shared-service calls. Mutable methods,
-mutable routes, conditional receivers, and non-reducible expressions fail
-closed with bounded importer-only diagnostics. The live repository inventory
-found zero forbidden active-v2 authorities.
-
-## Cleanup Proof
-
-Cleanup used only exact task-owned identities and never broad discovery for
-deletion:
-
-- database `romm_test_0632`: 0;
-- task database grants: 0;
-- exact dialect containers: 0;
-- contract-labeled containers and Node volumes: 0;
-- contract environment, log, and PID files: 0;
-- trapped build directories: 0;
-- verifier and contract processes: 0;
-- generated contract differences: 0 across 257 files;
-- tracked differences before evidence write: 0;
-- pre-existing untracked status entries: 28, exact baseline preserved;
-- normal application `SELECT 1`: 1 before and 1 after cleanup.
-
-No credentials were printed or persisted. No normal application grant, service,
-deployment, published port, branch, source tree, or persistent runtime was
-changed.
+Exit 0. The acceptance JSON was written atomically only after every structured stage and cleanup assertion passed.
