@@ -447,14 +447,7 @@ class _OwnedStagedPublication:
     def _close_descriptor(self) -> None:
         descriptor = self.descriptor
         self._descriptor = None
-        try:
-            os.close(descriptor)
-        except OSError:
-            try:
-                os.close(descriptor)
-            except OSError:
-                pass
-            raise
+        os.close(descriptor)
 
     def abort(self) -> None:
         descriptor = self._descriptor
@@ -463,10 +456,7 @@ class _OwnedStagedPublication:
             try:
                 os.close(descriptor)
             except OSError:
-                try:
-                    os.close(descriptor)
-                except OSError:
-                    pass
+                pass
         try:
             os.unlink(self._staging_name, dir_fd=self._parent_descriptor)
         except OSError:

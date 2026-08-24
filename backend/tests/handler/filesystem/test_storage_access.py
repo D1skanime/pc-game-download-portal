@@ -776,11 +776,11 @@ def test_owned_create_close_error_never_closes_reused_descriptor(
         if reused_descriptor is not None:
             try:
                 real_close(reused_descriptor)
-            except OSError as error:
-                assert error.errno == errno.EBADF
-            with pytest.raises(OSError) as error:
+            except OSError as close_error:
+                assert close_error.errno == errno.EBADF
+            with pytest.raises(OSError) as fstat_error:
                 os.fstat(reused_descriptor)
-            assert error.value.errno == errno.EBADF
+            assert fstat_error.value.errno == errno.EBADF
 
 
 def test_owned_create_abort_closes_unpublished_descriptor_once(tmp_path, monkeypatch):
