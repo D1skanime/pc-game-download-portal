@@ -317,7 +317,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 3. Mapping Administration Contracts     | 6/6            | Complete    | 2026-08-11 |
 | 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
 | 5. Preview and Read-path Cutover        | 8/8            | Complete    | 2026-08-12 |
-| 6. Safe Lifecycle and Legacy Migration  | 46/47          | In Progress |            |
+| 6. Safe Lifecycle and Legacy Migration  | 48/54          | In Progress |            |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
 | 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |
