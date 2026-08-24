@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-52-PLAN.md out of order; next incomplete 06-50-PLAN.md
-last_updated: "2026-08-24T15:50:48.954Z"
-last_activity: 2026-08-24 -- Completed Plan 06-52 out of order; Plan 06-50 remains next
+stopped_at: Completed 06-50-PLAN.md; next incomplete 06-53-PLAN.md
+last_updated: "2026-08-24T16:30:21.016Z"
+last_activity: 2026-08-24
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 89
-  completed_plans: 86
+  completed_plans: 87
   percent: 56
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 50 of 54
+Plan: 51 of 54
 Status: Ready to execute
-Last activity: 2026-08-24 -- Completed Plan 06-52 out of order; Plan 06-50 remains next
+Last activity: 2026-08-24
 
 Progress: [██████████] 97%
 
@@ -123,6 +123,7 @@ _Updated after each plan completion_
 | Phase 06 P49 | 28min | 2 tasks | 5 files |
 | Phase 06 P51 | 14min | 2 tasks | 2 files |
 | Phase 06 P52 | 48min | 2 tasks | 2 files |
+| Phase 06 P50 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -291,6 +292,7 @@ Recent decisions affecting current work:
 - [Phase 06]: Screenshot owner mutations require static parent visibility masking before every database, storage, filesystem, or logging effect.
 - [Phase 06]: Staged descriptor numbers are consumed after one os.close call regardless of its result.
 - [Phase 06]: Abort continues exact staging unlink and parent fsync without retrying a consumed descriptor number.
+- [Phase 06]: Redownload shares manualMutationPending with upload and refresh, with handler guards for stale gestures.
 
 ### Blockers/Concerns
 
@@ -308,6 +310,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-24T15:49:47.403Z
-Stopped at: Completed 06-52-PLAN.md out of order; next incomplete 06-50-PLAN.md
-Resume file: .planning/phases/06-safe-lifecycle-and-legacy-migration/06-50-PLAN.md
+Last session: 2026-08-24T16:30:21.011Z
+Stopped at: Completed 06-50-PLAN.md; next incomplete 06-53-PLAN.md
+Resume file: None
