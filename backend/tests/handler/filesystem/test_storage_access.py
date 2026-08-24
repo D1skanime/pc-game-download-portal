@@ -717,6 +717,103 @@ def _capture_staging_descriptors(monkeypatch, target_name: str) -> set[int]:
     return descriptors
 
 
+@pytest.mark.parametrize(
+    "publication_path",
+    [
+        pytest.param("binary_file", id="binary_file"),
+        pytest.param("subprocess_file", id="subprocess_file"),
+    ],
+)
+def test_owned_create_close_error_never_closes_reused_descriptor(
+    tmp_path, monkeypatch, publication_path
+):
+    target = tmp_path / f"reused-{publication_path}.bin"
+    sentinel = tmp_path / f"sentinel-{publication_path}.bin"
+    sentinel.write_bytes(b"sentinel")
+    sentinel_inode = sentinel.stat().st_ino
+    staged = _capture_staging_descriptors(monkeypatch, target.name)
+    real_close = os.close
+    first_error = OSError(errno.EIO, "simulated consumed close failure")
+    reused_descriptor: int | None = None
+    later_closes: list[int] = []
+
+    def consuming_close(descriptor: int) -> None:
+        nonlocal reused_descriptor
+        if descriptor in staged and reused_descriptor is None:
+            real_close(descriptor)
+            sentinel_descriptor = os.open(sentinel, os.O_RDONLY | os.O_CLOEXEC)
+            if sentinel_descriptor != descriptor:
+                os.dup2(sentinel_descriptor, descriptor, inheritable=False)
+                real_close(sentinel_descriptor)
+            reused_descriptor = descriptor
+            raise first_error
+        if descriptor == reused_descriptor:
+            later_closes.append(descriptor)
+        real_close(descriptor)
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.close", consuming_close)
+    try:
+        with pytest.raises(StorageResolutionError) as error:
+            with open_owned_access(
+                _owned(tmp_path), StorageOperation.CREATE, target.name
+            ) as create:
+                if publication_path == "binary_file":
+                    with create.binary_file() as file:  # type: ignore[union-attr]
+                        file.write(b"complete")
+                else:
+                    with create.subprocess_file() as descriptor:  # type: ignore[union-attr]
+                        os.write(descriptor, b"complete")
+
+        assert error.value.__cause__ is first_error
+        assert reused_descriptor is not None
+        assert os.fstat(reused_descriptor).st_ino == sentinel_inode
+        os.lseek(reused_descriptor, 0, os.SEEK_SET)
+        assert os.read(reused_descriptor, len(b"sentinel")) == b"sentinel"
+        assert later_closes == []
+        assert not target.exists()
+        assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+    finally:
+        if reused_descriptor is not None:
+            try:
+                real_close(reused_descriptor)
+            except OSError as error:
+                assert error.errno == errno.EBADF
+            with pytest.raises(OSError) as error:
+                os.fstat(reused_descriptor)
+            assert error.value.errno == errno.EBADF
+
+
+def test_owned_create_abort_closes_unpublished_descriptor_once(tmp_path, monkeypatch):
+    target = tmp_path / "aborted-subprocess.bin"
+    staged = _capture_staging_descriptors(monkeypatch, target.name)
+    real_close = os.close
+    staging_closes: list[int] = []
+
+    class AbortPublication(Exception):
+        pass
+
+    def tracking_close(descriptor: int) -> None:
+        if descriptor in staged:
+            staging_closes.append(descriptor)
+        real_close(descriptor)
+
+    monkeypatch.setattr("handler.filesystem.storage_access.os.close", tracking_close)
+    with pytest.raises(AbortPublication):
+        with open_owned_access(
+            _owned(tmp_path), StorageOperation.CREATE, target.name
+        ) as create:
+            with create.subprocess_file() as descriptor:  # type: ignore[union-attr]
+                os.write(descriptor, b"partial")
+                raise AbortPublication()
+
+    assert staging_closes == [descriptor]
+    with pytest.raises(OSError) as error:
+        os.fstat(descriptor)
+    assert error.value.errno == errno.EBADF
+    assert not target.exists()
+    assert tuple(tmp_path.glob(f".{target.name}.*.tmp")) == ()
+
+
 @pytest.mark.parametrize("method", ["create", "subprocess"])
 def test_owned_create_close_failure_still_cleans_exact_staging(
     tmp_path, monkeypatch, method
