@@ -337,8 +337,8 @@ def _approve_external_read_only(monkeypatch):
     )
 
 
-def test_migration_reconnects_only_source_observed_rom_and_sidecar(
-    tmp_path: Path, admin_user
+def test_folder_rom_parent_reconnects_from_exact_observed_children(
+    tmp_path: Path, admin_user, caplog
 ):
     from dataclasses import asdict
 
@@ -346,11 +346,21 @@ def test_migration_reconnects_only_source_observed_rom_and_sidecar(
     from handler.storage.legacy_migration import detect_legacy_storage
     from models.storage import LegacyDetectionSourceIdentity
 
-    fs_slug = "exact-observed"
+    fs_slug = "folder-observed"
     canonical = tmp_path / "roms" / fs_slug
-    (canonical / "art").mkdir(parents=True)
-    (canonical / "present.gb").write_bytes(b"present")
-    (canonical / "art" / "manual.txt").write_bytes(b"manual")
+    folder = canonical / "Folder Game"
+    folder.mkdir(parents=True)
+    (folder / "disc1.bin").write_bytes(b"disc one")
+    (folder / "disc2.bin").write_bytes(b"disc two")
+    prefix = canonical / "Prefix Extra"
+    prefix.mkdir()
+    (prefix / "foreign.bin").write_bytes(b"foreign")
+    duplicate = canonical / "duplicate" / "game"
+    duplicate.mkdir(parents=True)
+    (duplicate / "disc.bin").write_bytes(b"duplicate")
+    elsewhere = canonical / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "Similar").write_bytes(b"similar")
     before = _manifest(tmp_path)
 
     with sync_session.begin() as session:
@@ -389,31 +399,70 @@ def test_migration_reconnects_only_source_observed_rom_and_sidecar(
             session.flush()
             return rom
 
-        present = add_rom("present.gb")
-        absent = add_rom("absent.gb")
-        ambiguous_one = add_rom("folder/duplicate.gb")
-        ambiguous_two = add_rom("duplicate.gb", path=f"{fs_slug}/folder")
+        present = add_rom("Folder Game")
+        absent = add_rom("Absent Folder")
+        ambiguous_one = add_rom("duplicate/game")
+        ambiguous_two = add_rom("game", path=f"{fs_slug}/duplicate")
         unsafe = add_rom("unsafe.gb", path=f"{fs_slug}/..")
         case_distinct = add_rom("case/Present.gb")
         unicode_distinct = add_rom("unicode/présent.gb")
+        prefix_only = add_rom("Prefix")
+        basename_similar = add_rom("Similar")
         cross_platform = add_rom(
-            "present.gb", path=other_platform.fs_slug, owner_id=other_platform.id
+            "Folder Game", path=other_platform.fs_slug, owner_id=other_platform.id
         )
-        present_child = RomFile(
+        disc_one = RomFile(
             rom_id=present.id,
-            file_name="manual.txt",
-            file_path=f"{fs_slug}/art",
-            file_size_bytes=6,
+            file_name="disc1.bin",
+            file_path=f"{fs_slug}/Folder Game",
+            file_size_bytes=8,
+            missing_from_fs=True,
+        )
+        disc_two = RomFile(
+            rom_id=present.id,
+            file_name="disc2.bin",
+            file_path=f"{fs_slug}/Folder Game",
+            file_size_bytes=8,
             missing_from_fs=True,
         )
         absent_child = RomFile(
             rom_id=present.id,
             file_name="absent.txt",
-            file_path=f"{fs_slug}/art",
+            file_path=f"{fs_slug}/Folder Game",
             file_size_bytes=1,
             missing_from_fs=True,
         )
-        session.add_all([present_child, absent_child])
+        prefix_child = RomFile(
+            rom_id=prefix_only.id,
+            file_name="foreign.bin",
+            file_path=f"{fs_slug}/Prefix Extra",
+            file_size_bytes=7,
+            missing_from_fs=True,
+        )
+        ambiguous_child = RomFile(
+            rom_id=ambiguous_one.id,
+            file_name="disc.bin",
+            file_path=f"{fs_slug}/duplicate/game",
+            file_size_bytes=9,
+            missing_from_fs=True,
+        )
+        similar_child = RomFile(
+            rom_id=basename_similar.id,
+            file_name="Similar",
+            file_path=f"{fs_slug}/elsewhere",
+            file_size_bytes=7,
+            missing_from_fs=True,
+        )
+        session.add_all(
+            [
+                disc_one,
+                disc_two,
+                absent_child,
+                prefix_child,
+                ambiguous_child,
+                similar_child,
+            ]
+        )
         session.flush()
         platform_id = platform.id
         root_id = root.id
@@ -425,9 +474,15 @@ def test_migration_reconnects_only_source_observed_rom_and_sidecar(
             "unsafe": unsafe.id,
             "case_distinct": case_distinct.id,
             "unicode_distinct": unicode_distinct.id,
+            "prefix_only": prefix_only.id,
+            "basename_similar": basename_similar.id,
             "cross_platform": cross_platform.id,
-            "present_child": present_child.id,
+            "disc_one_child": disc_one.id,
+            "disc_two_child": disc_two.id,
             "absent_child": absent_child.id,
+            "prefix_child": prefix_child.id,
+            "ambiguous_child": ambiguous_child.id,
+            "similar_child": similar_child.id,
         }
 
     handler = DBLegacyMigrationHandler()
@@ -451,18 +506,23 @@ def test_migration_reconnects_only_source_observed_rom_and_sidecar(
 
     assert impact.state == "ready"
     assert impact.reconnectable_catalog_count == 1
-    assert impact.unmatched_catalog_count == 6
+    assert impact.unmatched_catalog_count == 8
     assert impact.planned_owned_effects.catalog_reconnect_count == 1
-    assert impact.planned_owned_effects.catalog_preserve_unmatched_count == 6
+    assert impact.planned_owned_effects.catalog_preserve_unmatched_count == 8
     public_preview = str(asdict(impact))
     for private_value in (
-        "present.gb",
-        "manual.txt",
-        "absent.gb",
+        "Folder Game",
+        "disc1.bin",
+        "disc2.bin",
+        "Absent Folder",
         "absent.txt",
-        detected.source_identity_digests[0].hex(),
     ):
         assert private_value not in public_preview
+    for digest in detected.source_identity_digests:
+        assert all(
+            digest.hex() not in surface
+            for surface in (repr(detected), repr(result), public_preview, caplog.text)
+        )
 
     outcome = handler.migrate_platform(
         impact.confirmation,
@@ -471,7 +531,7 @@ def test_migration_reconnects_only_source_observed_rom_and_sidecar(
         now=now,
     )
     assert outcome.reconnected_catalog_count == 1
-    assert outcome.unmatched_catalog_count == 6
+    assert outcome.unmatched_catalog_count == 8
 
     restarted = DBLegacyMigrationHandler()
     with sync_session() as session:
@@ -482,7 +542,14 @@ def test_migration_reconnects_only_source_observed_rom_and_sidecar(
         }
         file_states = {
             key: session.get(RomFile, ids[key]).missing_from_fs
-            for key in ("present_child", "absent_child")
+            for key in (
+                "disc_one_child",
+                "disc_two_child",
+                "absent_child",
+                "prefix_child",
+                "ambiguous_child",
+                "similar_child",
+            )
         }
         changes = list(
             session.scalars(
@@ -506,10 +573,18 @@ def test_migration_reconnects_only_source_observed_rom_and_sidecar(
         )
     assert rom_states["present"] is False
     assert all(state is True for key, state in rom_states.items() if key != "present")
-    assert file_states == {"present_child": False, "absent_child": True}
+    assert file_states == {
+        "disc_one_child": False,
+        "disc_two_child": False,
+        "absent_child": True,
+        "prefix_child": True,
+        "ambiguous_child": True,
+        "similar_child": True,
+    }
     assert [(change.entity_kind, change.entity_id) for change in changes] == [
         (LegacyCatalogEntityKind.ROM.value, ids["present"]),
-        (LegacyCatalogEntityKind.ROM_FILE.value, ids["present_child"]),
+        (LegacyCatalogEntityKind.ROM_FILE.value, ids["disc_one_child"]),
+        (LegacyCatalogEntityKind.ROM_FILE.value, ids["disc_two_child"]),
     ]
     assert persisted_digests == tuple(
         digest.hex() for digest in detected.source_identity_digests
@@ -526,8 +601,12 @@ def test_migration_reconnects_only_source_observed_rom_and_sidecar(
     assert rollback.state == "rolled_back"
     with sync_session() as session:
         assert session.get(Rom, ids["present"]).missing_from_fs is True
-        assert session.get(RomFile, ids["present_child"]).missing_from_fs is True
+        assert session.get(RomFile, ids["disc_one_child"]).missing_from_fs is True
+        assert session.get(RomFile, ids["disc_two_child"]).missing_from_fs is True
         assert session.get(RomFile, ids["absent_child"]).missing_from_fs is True
+        assert session.get(RomFile, ids["prefix_child"]).missing_from_fs is True
+        assert session.get(RomFile, ids["ambiguous_child"]).missing_from_fs is True
+        assert session.get(RomFile, ids["similar_child"]).missing_from_fs is True
     assert _manifest(tmp_path) == before
 
 

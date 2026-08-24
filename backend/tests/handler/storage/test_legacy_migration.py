@@ -8,6 +8,7 @@ import stat
 from dataclasses import asdict
 from datetime import timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -64,6 +65,104 @@ def _detect(root: Path, fs_slug: str = "gb", **kwargs):
         fs_slug=fs_slug,
         **kwargs,
     )
+
+
+def test_catalog_selection_derives_unique_folder_parent_from_exact_children():
+    from handler.database.legacy_migration_handler import DBLegacyMigrationHandler
+
+    subject = _subject()
+    fs_slug = "folder-select"
+    roms = [
+        SimpleNamespace(id=1, fs_path=fs_slug, fs_name="folder"),
+        SimpleNamespace(id=2, fs_path=fs_slug, fs_name="flat.bin"),
+        SimpleNamespace(id=3, fs_path=fs_slug, fs_name="no-child"),
+        SimpleNamespace(id=4, fs_path=fs_slug, fs_name="prefix"),
+        SimpleNamespace(id=5, fs_path=fs_slug, fs_name="duplicate/game"),
+        SimpleNamespace(id=6, fs_path=f"{fs_slug}/duplicate", fs_name="game"),
+        SimpleNamespace(id=7, fs_path=f"{fs_slug}/..", fs_name="unsafe"),
+        SimpleNamespace(id=8, fs_path=fs_slug, fs_name="similar"),
+    ]
+    rom_files = [
+        SimpleNamespace(
+            id=101,
+            rom_id=1,
+            file_path=f"{fs_slug}/folder",
+            file_name="disc1.bin",
+        ),
+        SimpleNamespace(
+            id=102,
+            rom_id=1,
+            file_path=f"{fs_slug}/folder",
+            file_name="disc2.bin",
+        ),
+        SimpleNamespace(
+            id=103,
+            rom_id=1,
+            file_path=f"{fs_slug}/folder",
+            file_name="absent.txt",
+        ),
+        SimpleNamespace(
+            id=104,
+            rom_id=3,
+            file_path=f"{fs_slug}/elsewhere",
+            file_name="wrong.bin",
+        ),
+        SimpleNamespace(
+            id=105,
+            rom_id=4,
+            file_path=f"{fs_slug}/prefix-extra",
+            file_name="foreign.bin",
+        ),
+        SimpleNamespace(
+            id=106,
+            rom_id=5,
+            file_path=f"{fs_slug}/duplicate/game",
+            file_name="disc.bin",
+        ),
+        SimpleNamespace(
+            id=107,
+            rom_id=6,
+            file_path=f"{fs_slug}/duplicate/game",
+            file_name="disc.bin",
+        ),
+        SimpleNamespace(
+            id=108,
+            rom_id=8,
+            file_path=f"{fs_slug}/elsewhere",
+            file_name="similar",
+        ),
+        SimpleNamespace(
+            id=109,
+            rom_id=2,
+            file_path=fs_slug,
+            file_name="flat.bin",
+        ),
+    ]
+    observed = tuple(
+        sorted(
+            subject._source_identity_digest(identity).hex()
+            for identity in (
+                "folder/disc1.bin",
+                "folder/disc2.bin",
+                "prefix-extra/foreign.bin",
+                "duplicate/game/disc.bin",
+                "elsewhere/similar",
+                "flat.bin",
+            )
+        )
+    )
+
+    selection = DBLegacyMigrationHandler._select_catalog(
+        fs_slug, roms, rom_files, observed
+    )
+
+    assert selection.rom_ids == frozenset({1, 2})
+    assert selection.rom_file_ids == frozenset({101, 102, 109})
+    assert selection.unmatched_rom_count == 6
+    assert [(problem.code, problem.count) for problem in selection.problems] == [
+        ("unsafe_catalog_identity", 1),
+        ("ambiguous_catalog_identity", 2),
+    ]
 
 
 def test_exact_candidate_grammars_are_literal_and_bounded():
