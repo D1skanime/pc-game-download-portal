@@ -9,7 +9,11 @@ from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
 
 from adapters.services.screenscraper import media_download_slot
-from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
+from config import (
+    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+    LAUNCHBOX_BASE_PATH,
+    RESOURCES_BASE_PATH,
+)
 from config.config_manager import MetadataMediaType
 from logger.logger import log
 from models.collection import Collection
@@ -32,15 +36,19 @@ def _resolve_local_file_uri(uri: str) -> Path | None:
     under the LaunchBox data root, since LaunchBox metadata produces paths
     relative to `/romm/launchbox`, which is not the same as the library root.
     """
-    from handler.filesystem import fs_rom_handler, get_fs_launchbox_handler
+    from handler.filesystem import fs_rom_handler
 
     if uri.startswith("launchbox-file://"):
+        relative = Path(uri[len("launchbox-file://") :])
+        if relative.is_absolute() or ".." in relative.parts:
+            return None
+        base_path = Path(LAUNCHBOX_BASE_PATH).resolve()
         try:
-            return get_fs_launchbox_handler().validate_path(
-                uri[len("launchbox-file://") :]
-            )
+            resolved = (base_path / relative).resolve()
+            resolved.relative_to(base_path)
         except ValueError:
             return None
+        return resolved
 
     if uri.startswith("file://"):
         try:
@@ -496,6 +504,51 @@ class FSResourcesHandler(FSHandler):
         return path_screenshots
 
     # Manuals
+    def _validated_manual_path(self, rom: Rom) -> str | None:
+        """Return a safe authoritative primary-manual reference.
+
+        A persisted reference must identify one direct PDF or Markdown child of
+        this ROM's resources/manual directory. Discovery deliberately rejects
+        symlinks and never widens an invalid reference into a legacy search.
+        """
+        reference = rom.path_manual
+        if not isinstance(reference, str) or not reference:
+            return None
+
+        reference_path = Path(reference)
+        manual_dir = Path(rom.fs_resources_path) / "manual"
+        if (
+            reference_path.suffix.lower() not in ALLOWED_MANUAL_EXTENSIONS
+            or reference_path.parent != manual_dir
+        ):
+            return None
+
+        try:
+            full_path = self.validate_path(reference)
+            full_manual_dir = self.validate_path(manual_dir.as_posix())
+        except (TypeError, ValueError):
+            return None
+        if full_path.parent != full_manual_dir:
+            return None
+
+        cursor = full_path
+        while cursor != self.base_path:
+            if cursor.is_symlink():
+                return None
+            cursor = cursor.parent
+
+        return reference_path.as_posix()
+
+    def _legacy_manual_candidates(self, rom: Rom) -> list[Path]:
+        """Return the bounded pre-token primary-manual candidates."""
+        full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
+        return [
+            candidate
+            for ext in ALLOWED_MANUAL_EXTENSIONS
+            if (candidate := full_path / f"{rom.id}{ext}").is_file()
+            and not candidate.is_symlink()
+        ]
+
     def manual_exists(self, rom: Rom) -> bool:
         """Check if rom manual exists in filesystem
 
@@ -504,11 +557,15 @@ class FSResourcesHandler(FSHandler):
         Returns
             True if manual exists in filesystem else False
         """
-        full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
-        return any(
-            (full_path / f"{rom.id}{ext}").is_file()
-            for ext in ALLOWED_MANUAL_EXTENSIONS
-        )
+        reference = rom.path_manual
+        if isinstance(reference, str) and reference:
+            validated = self._validated_manual_path(rom)
+            if validated is None:
+                return False
+            candidate = self.validate_path(validated)
+            return candidate.is_file() and not candidate.is_symlink()
+
+        return bool(self._legacy_manual_candidates(rom))
 
     async def _store_manual(self, rom: Rom, url_manual: str):
         manual_path = f"{rom.fs_resources_path}/manual"
@@ -584,12 +641,17 @@ class FSResourcesHandler(FSHandler):
         Args:
             rom: Rom object
         """
-        full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
-        candidates = [
-            candidate
-            for ext in ALLOWED_MANUAL_EXTENSIONS
-            if (candidate := full_path / f"{rom.id}{ext}").is_file()
-        ]
+        reference = rom.path_manual
+        if isinstance(reference, str) and reference:
+            validated = self._validated_manual_path(rom)
+            if validated is None:
+                return None
+            candidate = self.validate_path(validated)
+            if candidate.is_file() and not candidate.is_symlink():
+                return validated
+            return None
+
+        candidates = self._legacy_manual_candidates(rom)
         if not candidates:
             return None
 
