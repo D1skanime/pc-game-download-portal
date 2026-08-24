@@ -44,6 +44,42 @@ EXPECTED_PRIOR_MODULES = (
     "tests/utils/test_zip_cache.py",
 )
 
+EXPECTED_ROUND4_TEST_IDS = (
+    "pytest::tests/integration/test_legacy_migration.py::test_folder_rom_parent_reconnects_from_exact_observed_children",
+    "pytest::tests/endpoints/roms/test_manual.py::test_uploaded_token_manual_survives_restart_and_deletes_exactly",
+    "pytest::tests/handler/filesystem/test_resources_handler.py::test_validated_token_manual_path_is_authoritative_after_restart",
+    "pytest::tests/endpoints/roms/test_manual.py::test_missing_owned_token_manual_clears_exact_authoritative_reference",
+    "pytest::tests/endpoints/roms/test_manual.py::test_primary_manual_cas_failure_preserves_prior_path_and_cleans_candidate",
+    "pytest::tests/endpoints/roms/test_manual.py::test_upload_first_redownload_race_has_one_winner_and_no_orphan",
+    "pytest::tests/endpoints/roms/test_manual.py::test_redownload_first_upload_race_has_one_winner_and_no_orphan",
+    "pytest::tests/endpoints/roms/test_manual.py::test_local_uri_redownload_uses_staged_cas_and_preserves_source[file]",
+    "pytest::tests/endpoints/roms/test_manual.py::test_local_uri_redownload_uses_staged_cas_and_preserves_source[launchbox-file]",
+    "pytest::tests/endpoints/test_screenshots.py::test_hidden_rom_screenshot_update_is_masked_before_effects",
+    "pytest::tests/endpoints/test_screenshots.py::test_hidden_platform_screenshot_update_is_masked_before_effects",
+    "pytest::tests/endpoints/test_screenshots.py::test_hidden_rom_screenshot_delete_is_masked_before_effects",
+    "pytest::tests/endpoints/test_screenshots.py::test_hidden_platform_screenshot_delete_is_masked_before_effects",
+    "pytest::tests/handler/filesystem/test_storage_access.py::test_owned_create_close_error_never_closes_reused_descriptor[binary_file]",
+    "pytest::tests/handler/filesystem/test_storage_access.py::test_owned_create_close_error_never_closes_reused_descriptor[subprocess_file]",
+    "vitest::src/v2/components/GameDetails/ManualSubtab.test.ts::ManualSubtab > redownload_blocks_every_competing_manual_gesture",
+    "vitest::src/v2/components/GameDetails/ManualViewerControls.test.ts::ManualViewerControls > pdf_controls_stay_visible_and_disabled_while_pending",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > light > mobile-320 > mouse",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > light > mobile-320 > touch",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > light > mobile-320 > keyboard",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > light > mobile-320 > gamepad",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > light > desktop > mouse",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > light > desktop > touch",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > light > desktop > keyboard",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > light > desktop > gamepad",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > dark > mobile-320 > mouse",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > dark > mobile-320 > touch",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > dark > mobile-320 > keyboard",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > dark > mobile-320 > gamepad",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > dark > desktop > mouse",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > dark > desktop > touch",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > dark > desktop > keyboard",
+    "playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > dark > desktop > gamepad",
+)
+
 EXPECTED_PHASE6_MODULES = (
     "tests/endpoints/roms/test_catalog_removal.py",
     "tests/endpoints/roms/test_files.py",
@@ -56,6 +92,7 @@ EXPECTED_PHASE6_MODULES = (
     "tests/endpoints/test_storage_policy_denials.py",
     "tests/handler/database/test_storage_lifecycle.py",
     "tests/handler/filesystem/test_storage_access.py",
+    "tests/handler/filesystem/test_resources_handler.py",
     "tests/handler/filesystem/test_storage_inventory.py",
     "tests/handler/storage/test_legacy_migration.py",
     "tests/handler/storage/test_read_context.py",
@@ -259,6 +296,40 @@ def test_module_lifecycle_cleans_exact_resources_after_failure() -> None:
         ("execute", identity.container),
         ("cleanup", identity.database),
     ]
+
+
+def test_required_round4_test_ids_reject_omission_rename_and_same_module_substitution() -> (
+    None
+):
+    verifier = load_verifier()
+    assert verifier.REQUIRED_ROUND4_TEST_IDS == EXPECTED_ROUND4_TEST_IDS
+    assert len(verifier.REQUIRED_ROUND4_TEST_IDS) == 33
+    assert len(set(verifier.REQUIRED_ROUND4_TEST_IDS)) == 33
+    results = [
+        {"id": identifier, "outcome": "passed"}
+        for identifier in EXPECTED_ROUND4_TEST_IDS
+    ]
+    verifier.validate_round4_results(results)
+    mutations = (
+        results[:-1],
+        [
+            {**results[0], "id": results[0]["id"].replace("children", "child")},
+            *results[1:],
+        ],
+        [
+            {
+                **results[0],
+                "id": "pytest::tests/integration/test_legacy_migration.py::test_other",
+            },
+            *results[1:],
+        ],
+        [*results, results[0]],
+        [*results[1:], results[0]],
+        [{**results[0], "outcome": "skipped"}, *results[1:]],
+    )
+    for mutation in mutations:
+        with pytest.raises(verifier.EvidenceError):
+            verifier.validate_round4_results(mutation)
 
 
 def test_command_graph_contains_every_required_gate_and_forbids_service_mutation() -> (
