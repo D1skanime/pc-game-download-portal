@@ -65,6 +65,7 @@ PHASE6_MODULES = (
     "tests/endpoints/test_storage_policy_denials.py",
     "tests/handler/database/test_storage_lifecycle.py",
     "tests/handler/filesystem/test_storage_access.py",
+    "tests/handler/filesystem/test_resources_handler.py",
     "tests/handler/filesystem/test_storage_inventory.py",
     "tests/handler/storage/test_legacy_migration.py",
     "tests/handler/storage/test_read_context.py",
@@ -74,6 +75,32 @@ PHASE6_MODULES = (
     "tests/tools/test_verify_phase6_contracts.py",
     "tests/tools/test_verify_storage_migrations.py",
     "tests/utils/test_rom_patcher.py",
+)
+
+REQUIRED_ROUND4_TEST_IDS = (
+    "pytest::tests/integration/test_legacy_migration.py::test_folder_rom_parent_reconnects_from_exact_observed_children",
+    "pytest::tests/endpoints/roms/test_manual.py::test_uploaded_token_manual_survives_restart_and_deletes_exactly",
+    "pytest::tests/handler/filesystem/test_resources_handler.py::test_validated_token_manual_path_is_authoritative_after_restart",
+    "pytest::tests/endpoints/roms/test_manual.py::test_missing_owned_token_manual_clears_exact_authoritative_reference",
+    "pytest::tests/endpoints/roms/test_manual.py::test_primary_manual_cas_failure_preserves_prior_path_and_cleans_candidate",
+    "pytest::tests/endpoints/roms/test_manual.py::test_upload_first_redownload_race_has_one_winner_and_no_orphan",
+    "pytest::tests/endpoints/roms/test_manual.py::test_redownload_first_upload_race_has_one_winner_and_no_orphan",
+    "pytest::tests/endpoints/roms/test_manual.py::test_local_uri_redownload_uses_staged_cas_and_preserves_source[file]",
+    "pytest::tests/endpoints/roms/test_manual.py::test_local_uri_redownload_uses_staged_cas_and_preserves_source[launchbox-file]",
+    "pytest::tests/endpoints/test_screenshots.py::test_hidden_rom_screenshot_update_is_masked_before_effects",
+    "pytest::tests/endpoints/test_screenshots.py::test_hidden_platform_screenshot_update_is_masked_before_effects",
+    "pytest::tests/endpoints/test_screenshots.py::test_hidden_rom_screenshot_delete_is_masked_before_effects",
+    "pytest::tests/endpoints/test_screenshots.py::test_hidden_platform_screenshot_delete_is_masked_before_effects",
+    "pytest::tests/handler/filesystem/test_storage_access.py::test_owned_create_close_error_never_closes_reused_descriptor[binary_file]",
+    "pytest::tests/handler/filesystem/test_storage_access.py::test_owned_create_close_error_never_closes_reused_descriptor[subprocess_file]",
+    "vitest::src/v2/components/GameDetails/ManualSubtab.test.ts::ManualSubtab > redownload_blocks_every_competing_manual_gesture",
+    "vitest::src/v2/components/GameDetails/ManualViewerControls.test.ts::ManualViewerControls > pdf_controls_stay_visible_and_disabled_while_pending",
+    *(
+        f"playwright::chromium::e2e/manual-mutation-pending.spec.ts::manual mutation pending matrix > {theme} > {viewport} > {modality}"
+        for theme in ("light", "dark")
+        for viewport in ("mobile-320", "desktop")
+        for modality in ("mouse", "touch", "keyboard", "gamepad")
+    ),
 )
 
 FOCUSED_UI_TESTS = (
@@ -136,6 +163,24 @@ class StageFailure(RuntimeError):
 
 class EvidenceError(ValueError):
     pass
+
+
+def validate_round4_results(results: Sequence[object]) -> None:
+    normalized: list[tuple[str, str]] = []
+    for result in results:
+        if not isinstance(result, dict):
+            raise EvidenceError("Round 4 result must be an object")
+        identifier = result.get("id")
+        outcome = result.get("outcome")
+        if not isinstance(identifier, str) or not isinstance(outcome, str):
+            raise EvidenceError("Round 4 result is malformed")
+        normalized.append((identifier, outcome))
+    if tuple(identifier for identifier, _ in normalized) != REQUIRED_ROUND4_TEST_IDS:
+        raise EvidenceError(
+            "Round 4 result identifiers are not the exact ordered inventory"
+        )
+    if any(outcome != "passed" for _, outcome in normalized):
+        raise EvidenceError("Round 4 result outcome is not passed")
 
 
 class ResourceIdentity(NamedTuple):
