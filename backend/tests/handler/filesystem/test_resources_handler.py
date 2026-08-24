@@ -15,13 +15,13 @@ from adapters.services.screenscraper import (
 from config import RESOURCES_BASE_PATH
 from handler.filesystem import storage_composition
 from handler.filesystem.base_handler import CoverSize
-from handler.filesystem.storage_policy import OwnedStorageKind
 from handler.filesystem.resources_handler import (
     FSResourcesHandler,
     _check_content_type,
     _content_type_essence,
     _is_chroma_key_placeholder,
 )
+from handler.filesystem.storage_policy import OwnedStorageKind
 from models.collection import Collection
 from models.rom import Rom
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
@@ -1081,3 +1081,81 @@ class TestScreenScraperMediaThrottling:
         assert client.calls == [
             {"timeout": SS_DEFAULT_MEDIA_TIMEOUT, "in_flight": 0},
         ]
+
+
+def _manual_rom(path_manual: str) -> Mock:
+    rom = Mock(spec=Rom)
+    rom.id = 73
+    rom.platform_id = 17
+    rom.fs_resources_path = "roms/17/73"
+    rom.path_manual = path_manual
+    return rom
+
+
+def test_validated_token_manual_path_is_authoritative_after_restart(tmp_path: Path):
+    manual_dir = tmp_path / "roms/17/73/manual"
+    manual_dir.mkdir(parents=True)
+
+    for extension in (".pdf", ".md"):
+        token_path = f"roms/17/73/manual/token-{extension[1:]}{extension}"
+        token = tmp_path / token_path
+        legacy = manual_dir / f"73{extension}"
+        token.write_bytes(b"token-manual")
+        legacy.write_bytes(b"legacy-manual")
+        rom = _manual_rom(token_path)
+
+        restarted = FSResourcesHandler(
+            storage_composition.owned[OwnedStorageKind.RESOURCES]
+        )
+        restarted.base_path = tmp_path
+
+        assert restarted.manual_exists(rom)
+        assert restarted._get_manual_path(rom) == token_path
+
+        token.unlink()
+        assert not restarted.manual_exists(rom)
+        assert restarted._get_manual_path(rom) is None
+        legacy.unlink()
+
+
+@pytest.mark.parametrize(
+    "path_manual",
+    [
+        pytest.param("../escape.pdf", id="parent-escape"),
+        pytest.param("/absolute.pdf", id="absolute"),
+        pytest.param("roms/17/74/manual/cross-rom.pdf", id="cross-rom"),
+        pytest.param("roms/17/73/cover/wrong-dir.pdf", id="wrong-directory"),
+        pytest.param("roms/17/73/manual/nested/manual.pdf", id="nested"),
+        pytest.param("roms/17/73/manual/manual.txt", id="extension"),
+    ],
+)
+def test_invalid_manual_authority_never_falls_back_or_opens(
+    tmp_path: Path, path_manual: str
+):
+    manual_dir = tmp_path / "roms/17/73/manual"
+    manual_dir.mkdir(parents=True)
+    (manual_dir / "73.pdf").write_bytes(b"legacy-must-not-win")
+    handler = FSResourcesHandler(storage_composition.owned[OwnedStorageKind.RESOURCES])
+    handler.base_path = tmp_path
+    rom = _manual_rom(path_manual)
+
+    assert not handler.manual_exists(rom)
+    assert handler._get_manual_path(rom) is None
+
+
+@pytest.mark.parametrize("extension", [".pdf", ".md"])
+def test_legacy_fixed_manual_is_bounded_compatibility(tmp_path: Path, extension: str):
+    manual_dir = tmp_path / "roms/17/73/manual"
+    manual_dir.mkdir(parents=True)
+    legacy_path = f"roms/17/73/manual/73{extension}"
+    (tmp_path / legacy_path).write_bytes(b"legacy")
+    handler = FSResourcesHandler(storage_composition.owned[OwnedStorageKind.RESOURCES])
+    handler.base_path = tmp_path
+
+    empty_reference = _manual_rom("")
+    assert handler.manual_exists(empty_reference)
+    assert handler._get_manual_path(empty_reference) == legacy_path
+
+    fixed_reference = _manual_rom(legacy_path)
+    assert handler.manual_exists(fixed_reference)
+    assert handler._get_manual_path(fixed_reference) == legacy_path
