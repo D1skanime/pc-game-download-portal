@@ -1204,7 +1204,7 @@ def parse_source_audit(markdown: str) -> frozenset[str]:
         if not line.startswith("|"):
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) < 5 or cells[1] in {"ID", "---"}:
+        if len(cells) < 5 or cells[1] == "ID" or re.fullmatch(r"-{3,}", cells[1]):
             continue
         source_id = cells[1]
         if source_id not in REQUIRED_SOURCE_IDS:

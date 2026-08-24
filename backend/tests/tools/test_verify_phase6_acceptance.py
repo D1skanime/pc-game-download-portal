@@ -340,6 +340,11 @@ def test_source_audit_parser_requires_exact_unique_covered_current_set() -> None
     verifier = load_verifier()
     valid = source_audit_text(verifier)
     assert verifier.parse_source_audit(valid) == verifier.REQUIRED_SOURCE_IDS
+    formatted = valid.replace(
+        "| --- | --- | --- | --- | --- |",
+        "| ------------ | ------- | ---------------- | ------------- | ------- |",
+    )
+    assert verifier.parse_source_audit(formatted) == verifier.REQUIRED_SOURCE_IDS
     first_id = sorted(verifier.REQUIRED_SOURCE_IDS)[0]
     cases = (
         valid.replace(f"| CURRENT | {first_id} |", "", 1),
