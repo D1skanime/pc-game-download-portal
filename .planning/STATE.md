@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-48-PLAN.md
-last_updated: "2026-08-24T13:55:48.666Z"
-last_activity: 2026-08-24 -- Completed Plan 06-48
+stopped_at: Completed 06-49-PLAN.md
+last_updated: "2026-08-24T14:29:20.327Z"
+last_activity: 2026-08-24 -- Completed Plan 06-49
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 89
-  completed_plans: 83
+  completed_plans: 84
   percent: 56
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-10)
 ## Current Position
 
 Phase: 06 (safe-lifecycle-and-legacy-migration) — EXECUTING
-Plan: 49 of 54
-Status: Executing Phase 06
-Last activity: 2026-08-24 -- Completed Plan 06-48
+Plan: 50 of 54
+Status: Ready to execute
+Last activity: 2026-08-24 -- Completed Plan 06-49
 
 Progress: [#########-] 91%
 
@@ -120,6 +120,7 @@ _Updated after each plan completion_
 | Phase 06 P45 | 28m | 2 tasks | 5 files |
 | Phase 06 P46 | 53m | 2 tasks | 2 files |
 | Phase 06 P48 | 43min | 2 tasks | 3 files |
+| Phase 06 P49 | 28min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -282,6 +283,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Subprocess failures expose bounded exit and selector evidence only.
 - [Phase 06]: Unique directory-backed ROMs derive parent authority only from exact observed children below the canonical slash boundary.
 - [Phase 06]: Every RomFile still requires its own exact observed digest; parent selection never bulk-selects children.
+- [Phase 06]: A non-empty path_manual is authoritative only when it is one direct PDF or Markdown child of the exact ROM resources/manual directory.
+- [Phase 06]: Upload and redownload publish unique candidates before expected-path CAS; cleanup is bounded to the loser or validated superseded generation.
+- [Phase 06]: Primary manual deletion clears both metadata fields only while the locked exact expected path still matches.
 
 ### Blockers/Concerns
 
@@ -299,6 +303,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-24T13:55:48.662Z
-Stopped at: Completed 06-48-PLAN.md
+Last session: 2026-08-24T14:29:20.323Z
+Stopped at: Completed 06-49-PLAN.md
 Resume file: None
