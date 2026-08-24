@@ -16,3 +16,4 @@ export type LegacyImpactConfirmationSchema_Input = {
     catalog_fingerprint: string;
     expires_at: string;
 };
+

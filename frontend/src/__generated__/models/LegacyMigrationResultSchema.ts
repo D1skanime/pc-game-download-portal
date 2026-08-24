@@ -15,3 +15,4 @@ export type LegacyMigrationResultSchema = {
     source_immutable?: boolean;
     legacy_fallback_enabled?: boolean;
 };
+
