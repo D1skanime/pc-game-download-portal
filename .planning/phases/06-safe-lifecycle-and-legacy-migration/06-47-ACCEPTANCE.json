@@ -1,0 +1,528 @@
+{
+  "checkout": {
+    "branch": "codex/pc-module-analysis",
+    "origin": "https://github.com/rommapp/romm.git",
+    "project": "RomM PC Library",
+    "root": "/home/d1sk/romm",
+    "source_service_state": "exited"
+  },
+  "command_identity": "python3 backend/tools/verify_phase6_acceptance.py --checkout /home/d1sk/romm --base-commit 3e0b278cf3e71fe84f1e7b20b354f94728fc9531 --branch codex/pc-module-analysis --origin https://github.com/rommapp/romm.git --project RomM PC Library --source-container romm-dev --db-container romm-db-dev --expected-source-image romm-romm-dev --network romm_default --node-image node:24-bookworm --contract-port 39006 --baseline-untracked-count 28 --prior-outcomes-min 843 --run-complete",
+  "run_digest": "f4b45a758dd5950caaee1f479220cb617aab1a053d7e5fa052ec0c72a47d94ff",
+  "run_id": "0525ee9a9a51ae4fad34e5791398cd40",
+  "schema_version": 1,
+  "stages": {
+    "baseline": {
+      "untracked_count": 28,
+      "untracked_sha256": "4d4264efbb75049e71230f2417667c867656f6dd5054640e7aa6b8af391c81e1"
+    },
+    "cleanup": {
+      "basetemps": 0,
+      "containers": 0,
+      "databases": 0,
+      "exit_code": 0,
+      "principals": 0,
+      "volumes": 0
+    },
+    "contracts": {
+      "exit_code": 0,
+      "generated_after": "dc4ecf6f1cc2b71cac62c9490ae30fa2f82ff7c669ecf68eda4dcea26ac2fb5d",
+      "generated_before": "dc4ecf6f1cc2b71cac62c9490ae30fa2f82ff7c669ecf68eda4dcea26ac2fb5d",
+      "generated_files": 257
+    },
+    "db_continuity": {
+      "after": 1,
+      "before": 1,
+      "exit_code": 0
+    },
+    "dialects": {
+      "mariadb": {
+        "authority": "complete",
+        "exit_code": 0
+      },
+      "mysql": {
+        "authority": "complete",
+        "exit_code": 0
+      },
+      "postgresql": {
+        "authority": "complete",
+        "exit_code": 0
+      }
+    },
+    "frontend": {
+      "build": {
+        "exit_code": 0
+      },
+      "focused": {
+        "exit_code": 0
+      },
+      "full": {
+        "exit_code": 0
+      },
+      "locales": {
+        "exit_code": 0
+      },
+      "static": {
+        "exit_code": 0
+      },
+      "typecheck": {
+        "exit_code": 0
+      }
+    },
+    "git": {
+      "diff_check": 0
+    },
+    "manifests": {
+      "after": "1181a7adf53c5c9b004d6f818c38ec8ceb9c1d0ac813f7f47a37b007be452483",
+      "before": "1181a7adf53c5c9b004d6f818c38ec8ceb9c1d0ac813f7f47a37b007be452483",
+      "entries": 2746,
+      "equal": true
+    },
+    "manual_ui": {
+      "evidence": "06-45-SUMMARY.md",
+      "fresh_run": false,
+      "matrix": "both themes; 320px; xs/sm/md/lg/xl/4K; mouse/touch/keyboard/gamepad; focus; announcements; slow/failure/retry/conflict/refresh",
+      "status": "previously_validated_no_drift"
+    },
+    "phase6_backend": {
+      "exit_code": 0,
+      "modules": [
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/roms/test_catalog_removal.py",
+          "passed": 12,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/roms/test_manual.py",
+          "passed": 3,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/sockets/test_scan.py",
+          "passed": 76,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/test_saves.py",
+          "passed": 98,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/test_screenshots.py",
+          "passed": 18,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/test_states.py",
+          "passed": 15,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/database/test_storage_lifecycle.py",
+          "passed": 31,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/storage/test_legacy_migration.py",
+          "passed": 43,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/storage/test_read_context.py",
+          "passed": 17,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/integration/test_legacy_migration.py",
+          "passed": 37,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/models/test_safe_lifecycle.py",
+          "passed": 12,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/tasks/test_detect_legacy_storage.py",
+          "passed": 3,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/tools/test_verify_phase6_contracts.py",
+          "passed": 31,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/utils/test_rom_patcher.py",
+          "passed": 7,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        }
+      ]
+    },
+    "prior_backend": {
+      "exit_code": 0,
+      "modules": [
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/alembic/test_mapping_preview_migration.py",
+          "passed": 1,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/roms/test_files.py",
+          "passed": 16,
+          "skipped": 7,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/roms/test_rom.py",
+          "passed": 76,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/storage/test_mapping_preview.py",
+          "passed": 2,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/test_storage.py",
+          "passed": 62,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/endpoints/test_storage_policy_denials.py",
+          "passed": 55,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/database/test_storage_handler.py",
+          "passed": 28,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/filesystem/test_external_read_consumers.py",
+          "passed": 9,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/filesystem/test_owned_storage.py",
+          "passed": 6,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/filesystem/test_storage_access.py",
+          "passed": 61,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/filesystem/test_storage_inventory.py",
+          "passed": 12,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/filesystem/test_storage_policy.py",
+          "passed": 263,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/filesystem/test_storage_resolver.py",
+          "passed": 57,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/filesystem/test_sync_handler.py",
+          "passed": 20,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/storage/test_preview.py",
+          "passed": 3,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/handler/test_scan_command.py",
+          "passed": 4,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/integration/test_mapped_scan.py",
+          "passed": 3,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/integration/test_scan_source_immutability.py",
+          "passed": 2,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/models/test_storage.py",
+          "passed": 12,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/tasks/test_mapping_revision_jobs.py",
+          "passed": 2,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/tasks/test_storage_policy.py",
+          "passed": 4,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/test_sync_watcher.py",
+          "passed": 11,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/test_watcher.py",
+          "passed": 2,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/tools/test_verify_storage_migrations.py",
+          "passed": 23,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/utils/test_archives.py",
+          "passed": 24,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/utils/test_audio_tags.py",
+          "passed": 28,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/utils/test_gamelist_exporter.py",
+          "passed": 20,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/utils/test_pegasus_exporter.py",
+          "passed": 26,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        },
+        {
+          "errors": 0,
+          "exit_code": 0,
+          "failed": 0,
+          "module": "tests/utils/test_zip_cache.py",
+          "passed": 4,
+          "skipped": 0,
+          "xfailed": 0,
+          "xpassed": 0
+        }
+      ],
+      "outcomes": 843
+    }
+  }
+}

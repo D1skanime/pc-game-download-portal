@@ -5,6 +5,7 @@ import json
 import subprocess
 from pathlib import Path
 from types import ModuleType
+from typing import Protocol
 
 import pytest
 
@@ -67,6 +68,10 @@ EXPECTED_PHASE6_MODULES = (
 )
 
 
+class Resource(Protocol):
+    database: str
+
+
 def load_verifier() -> ModuleType:
     assert HARNESS_PATH.exists(), "acceptance harness is not implemented"
     spec = importlib.util.spec_from_file_location(
@@ -83,7 +88,7 @@ def valid_record(verifier: ModuleType) -> dict[str, object]:
         {"module": module, "passed": 33, "failed": 0, "errors": 0, "exit_code": 0}
         for module in verifier.PRIOR_PHASE_MODULES
     ]
-    prior[0]["passed"] = 939 - 33 * (len(prior) - 1)
+    prior[0]["passed"] = 843 - 33 * (len(prior) - 1)
     phase6 = [
         {"module": module, "passed": 1, "failed": 0, "errors": 0, "exit_code": 0}
         for module in verifier.deduplicated_phase6_modules()
@@ -100,7 +105,7 @@ def valid_record(verifier: ModuleType) -> dict[str, object]:
         },
         "stages": {
             "db_continuity": {"before": 1, "after": 1, "exit_code": 0},
-            "prior_backend": {"modules": prior, "outcomes": 939, "exit_code": 0},
+            "prior_backend": {"modules": prior, "outcomes": 843, "exit_code": 0},
             "phase6_backend": {"modules": phase6, "exit_code": 0},
             "dialects": {
                 name: {"exit_code": 0, "authority": "complete"}
@@ -163,7 +168,7 @@ def validation_text(record: dict[str, object]) -> str:
         "# Phase 6 Validation\n\n"
         f"Run ID: `{record['run_id']}`\n\n"
         f"Run Digest: `{record['run_digest']}`\n\n"
-        "Prior modules: 29\n\nPrior outcomes: 939\n"
+        "Prior modules: 29\n\nPrior outcomes: 843\n"
     )
 
 
@@ -173,7 +178,7 @@ def test_harness_pins_29_prior_modules_and_isolates_each() -> None:
     assert len(verifier.PRIOR_PHASE_MODULES) == 29
     assert len(set(verifier.PRIOR_PHASE_MODULES)) == 29
     assert all((BACKEND_ROOT / path).is_file() for path in verifier.PRIOR_PHASE_MODULES)
-    assert verifier.PRIOR_OUTCOMES_MIN == 939
+    assert verifier.PRIOR_OUTCOMES_MIN == 843
 
     identities = [
         verifier.ResourceIdentity.create(index)
@@ -203,6 +208,7 @@ def test_harness_pins_29_prior_modules_and_isolates_each() -> None:
         assert "--network romm_default" in rendered
         assert "--entrypoint /bin/sh" in rendered
         assert "--publish" not in command
+        assert "mkdir -p /app/backend/romm_test/library" in rendered
 
 
 def test_phase6_inventory_is_exact_deduplicated_and_unfiltered() -> None:
@@ -229,14 +235,14 @@ def test_module_lifecycle_cleans_exact_resources_after_failure() -> None:
     calls: list[tuple[str, str]] = []
     identity = verifier.ResourceIdentity.create(3)
 
-    def create(resource: object) -> None:
+    def create(resource: Resource) -> None:
         calls.append(("create", resource.database))
 
     def execute(_command: list[str]) -> subprocess.CompletedProcess[str]:
         calls.append(("execute", identity.container))
         return subprocess.CompletedProcess([], 7, "1 failed", "")
 
-    def cleanup(resource: object) -> None:
+    def cleanup(resource: Resource) -> None:
         calls.append(("cleanup", resource.database))
 
     with pytest.raises(verifier.StageFailure, match="backend module"):
@@ -363,7 +369,7 @@ def test_validation_binding_rejects_stale_or_digest_mismatched_run() -> None:
     with pytest.raises(verifier.EvidenceError, match="run_id"):
         verifier.verify_evidence_record(record, stale, source_audit)
 
-    stale_counts = validation.replace("Prior outcomes: 939", "Prior outcomes: 940")
+    stale_counts = validation.replace("Prior outcomes: 843", "Prior outcomes: 844")
     with pytest.raises(verifier.EvidenceError, match="structured stage"):
         verifier.verify_evidence_record(record, stale_counts, source_audit)
 
