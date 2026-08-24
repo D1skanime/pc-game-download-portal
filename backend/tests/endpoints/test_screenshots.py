@@ -10,8 +10,10 @@ from sqlalchemy import select
 
 from config import ASSETS_BASE_PATH
 from endpoints.responses.assets import ScreenshotSchema, UserScreenshotSchema
+from endpoints.storage_policy import authorize_api_storage_operation
 from handler.database import db_screenshot_handler
 from handler.database.base_handler import sync_session
+from handler.filesystem import fs_asset_handler
 from models.assets import Screenshot
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -57,6 +59,19 @@ def _screenshot_ids_for_rom(rom_id: int) -> tuple[int, ...]:
                 .where(Screenshot.rom_id == rom_id)
                 .order_by(Screenshot.id)
             ).all()
+        )
+
+
+def _screenshot_row_state(
+    screenshot_id: int,
+) -> tuple[tuple[str, object], ...] | None:
+    with sync_session() as session:
+        screenshot = session.get(Screenshot, screenshot_id)
+        if screenshot is None:
+            return None
+        return tuple(
+            (column.name, getattr(screenshot, column.name))
+            for column in Screenshot.__table__.columns
         )
 
 
@@ -266,6 +281,146 @@ def test_hidden_platform_screenshot_upload_is_masked_before_effects(
 # ---------- PUT /api/screenshots/{id} (visibility) ----------
 
 
+def _assert_hidden_screenshot_mutation_is_masked_before_effects(
+    *,
+    client,
+    token: str,
+    user: User,
+    rom: Rom,
+    platform: Platform,
+    method: str,
+) -> None:
+    file_name = f"hidden-{method.lower()}-{rom.id}-{user.id}.png"
+    file_path = (
+        Path("users")
+        / user.fs_safe_folder_name
+        / "screenshots"
+        / platform.fs_slug
+        / str(rom.id)
+    )
+    screenshot = db_screenshot_handler.add_screenshot(
+        Screenshot(
+            rom_id=rom.id,
+            user_id=user.id,
+            file_name=file_name,
+            file_name_no_tags=Path(file_name).stem,
+            file_name_no_ext=Path(file_name).stem,
+            file_extension="png",
+            file_path=file_path.as_posix(),
+            file_size_bytes=18,
+            is_gallery=True,
+            is_public=False,
+        )
+    )
+    asset_file = Path(ASSETS_BASE_PATH, file_path, file_name)
+    asset_file.parent.mkdir(parents=True, exist_ok=True)
+    asset_file.write_bytes(b"hidden screenshot")
+
+    before_row = _screenshot_row_state(screenshot.id)
+    before_assets = _asset_manifest()
+    real_update = db_screenshot_handler.update_screenshot
+    real_delete = db_screenshot_handler.delete_screenshot
+    real_remove = fs_asset_handler.remove_file
+
+    with (
+        mock.patch(
+            "endpoints.screenshots.db_screenshot_handler.update_screenshot",
+            side_effect=real_update,
+        ) as mock_update,
+        mock.patch(
+            "endpoints.screenshots.db_screenshot_handler.delete_screenshot",
+            side_effect=real_delete,
+        ) as mock_delete,
+        mock.patch(
+            "endpoints.screenshots.authorize_api_storage_operation",
+            wraps=authorize_api_storage_operation,
+        ) as mock_authorize,
+        mock.patch(
+            "endpoints.screenshots.fs_asset_handler.remove_file",
+            new_callable=mock.AsyncMock,
+            side_effect=real_remove,
+        ) as mock_remove,
+        mock.patch("endpoints.screenshots.log.info") as mock_info,
+        mock.patch("endpoints.screenshots.log.warning") as mock_warning,
+    ):
+        if method == "PUT":
+            response = client.put(
+                f"/api/screenshots/{screenshot.id}",
+                json={"is_public": True},
+                headers=_auth(token),
+            )
+        else:
+            response = client.delete(
+                f"/api/screenshots/{screenshot.id}",
+                headers=_auth(token),
+            )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Screenshot not found"}
+    for hidden_detail in (
+        rom.id,
+        rom.name,
+        rom.fs_path,
+        platform.id,
+        platform.name,
+        platform.fs_slug,
+        screenshot.id,
+        screenshot.file_name,
+        screenshot.full_path,
+        user.id,
+        user.username,
+        "permission",
+    ):
+        assert str(hidden_detail).lower() not in response.text.lower()
+
+    mock_update.assert_not_called()
+    mock_delete.assert_not_called()
+    mock_authorize.assert_not_called()
+    mock_remove.assert_not_awaited()
+    mock_info.assert_not_called()
+    mock_warning.assert_not_called()
+    assert _screenshot_row_state(screenshot.id) == before_row
+    assert _asset_manifest() == before_assets
+
+
+def test_hidden_rom_screenshot_update_is_masked_before_effects(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    _assert_hidden_screenshot_mutation_is_masked_before_effects(
+        client=client,
+        token=viewer_access_token,
+        user=viewer_user,
+        rom=rom,
+        platform=platform,
+        method="PUT",
+    )
+
+
+def test_hidden_platform_screenshot_update_is_masked_before_effects(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+
+    _assert_hidden_screenshot_mutation_is_masked_before_effects(
+        client=client,
+        token=viewer_access_token,
+        user=viewer_user,
+        rom=rom,
+        platform=platform,
+        method="PUT",
+    )
+
+
 def test_update_visibility_owner(client, access_token: str, screenshot: Screenshot):
     response = client.put(
         f"/api/screenshots/{screenshot.id}",
@@ -328,6 +483,44 @@ def test_delete_screenshot_owner(
 
     assert response.status_code == status.HTTP_200_OK
     assert db_screenshot_handler.get_screenshot_by_id(screenshot.id) is None
+
+
+def test_hidden_rom_screenshot_delete_is_masked_before_effects(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    _assert_hidden_screenshot_mutation_is_masked_before_effects(
+        client=client,
+        token=viewer_access_token,
+        user=viewer_user,
+        rom=rom,
+        platform=platform,
+        method="DELETE",
+    )
+
+
+def test_hidden_platform_screenshot_delete_is_masked_before_effects(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+    platform: Platform,
+):
+    _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
+
+    _assert_hidden_screenshot_mutation_is_masked_before_effects(
+        client=client,
+        token=viewer_access_token,
+        user=viewer_user,
+        rom=rom,
+        platform=platform,
+        method="DELETE",
+    )
 
 
 @mock.patch(
