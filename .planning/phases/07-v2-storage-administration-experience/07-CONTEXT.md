@@ -23,7 +23,7 @@ Deliver the active v2 administrator interface for viewing existing storage roots
 - **D-04:** Use a compact root list with activity, health, last check, and a short safe explanation in every row.
 - **D-05:** Phase 7 uses existing backend roots only; it neither creates nor imports root sources or infrastructure configuration.
 - **D-06:** Root details show mapped platforms with their relative folder, test status, and preview summary.
-- **D-07:** Mapping removal is a spatially separated destructive action. A direct trash-button click removes the RomM mapping immediately without confirmation; the UI must say that original files remain unchanged.
+- **D-07:** Mapping removal is a spatially separated destructive action with a short confirmation that says original files remain unchanged.
 
 ### Mapping Workflow
 
