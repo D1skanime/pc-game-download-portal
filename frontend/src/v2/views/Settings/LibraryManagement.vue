@@ -11,6 +11,7 @@ import storeConfig from "@/stores/config";
 import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
 import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
 import MissingGamesSection from "@/v2/components/Settings/MissingGamesSection.vue";
+import StorageRootsSection from "@/v2/components/Settings/StorageRootsSection.vue";
 
 const { t } = useI18n();
 const route = useRoute();

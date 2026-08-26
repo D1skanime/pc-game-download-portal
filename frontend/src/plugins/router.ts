@@ -26,6 +26,7 @@ export const ROUTES = {
   HOME: "home",
   SEARCH: "search",
   PLATFORM: "platform",
+  PLATFORM_STORAGE_MAPPING: "platform-storage-mapping",
   COLLECTION: "collection",
   VIRTUAL_COLLECTION: "virtual-collection",
   SMART_COLLECTION: "smart-collection",
@@ -186,12 +187,27 @@ const routes = [
           v2: v2For(ROUTES.SEARCH),
         },
       },
+
       {
         path: "platform/:platform",
         name: ROUTES.PLATFORM,
         components: {
           default: () => import("@/views/Gallery/Platform.vue"),
           v2: v2For(ROUTES.PLATFORM),
+        },
+      },
+      {
+        path: "platforms/:platformId/storage",
+        name: ROUTES.PLATFORM_STORAGE_MAPPING,
+        meta: {
+          title: i18n.global.t(
+            "storage.administration",
+            "Storage administration",
+          ),
+        },
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.PLATFORM_STORAGE_MAPPING),
         },
       },
       {

@@ -15,6 +15,7 @@
 import { RBtn, RForm, RIcon, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { formatBytes } from "@/utils";
@@ -39,6 +40,7 @@ const snackbar = useSnackbar();
 const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const canEdit = useCan("platform.edit");
+const canAdmin = useCan("app.admin");
 const hasDeleteGrant = useCan("platform.delete");
 // `DELETE /platforms/{id}` gates on PLATFORMS_WRITE
 const canDelete = computed(() => hasDeleteGrant.value && canEdit.value);
@@ -228,6 +230,32 @@ const details = computed<DetailRow[]>(() => {
         </div>
       </section>
 
+      <section v-if="canAdmin" class="r-v2-plat-settings__section">
+        <header class="r-v2-plat-settings__section-head">
+          <RIcon icon="mdi-folder-cog-outline" size="14" />
+          <span>{{
+            t("storage.administration", "Storage administration")
+          }}</span>
+        </header>
+        <p class="r-v2-plat-settings__storage-hint">
+          {{
+            t(
+              "storage.platform-entry",
+              "Review the safe storage folder mapped to this platform.",
+            )
+          }}
+        </p>
+        <RBtn
+          :to="{
+            name: ROUTES.PLATFORM_STORAGE_MAPPING,
+            params: { platformId: platform.id },
+          }"
+          variant="outlined"
+          prepend-icon="mdi-folder-arrow-right-outline"
+          >{{ t("storage.open", "Open storage mapping") }}</RBtn
+        >
+      </section>
+
       <!-- Danger zone — destructive actions kept visually separated
            with a brand-warning header band, matching the pattern v1
            used in PlatformInfoDrawer. The delete itself routes through
@@ -287,6 +315,12 @@ const details = computed<DetailRow[]>(() => {
   flex-direction: column;
   gap: 18px;
   min-width: 0;
+}
+
+.r-v2-plat-settings__storage-hint {
+  margin: 0 0 12px;
+  color: var(--r-color-fg-muted);
+  font-size: 12px;
 }
 
 .r-v2-plat-settings__section-head {
