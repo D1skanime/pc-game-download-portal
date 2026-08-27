@@ -1,6 +1,6 @@
 import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
-import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
+import type { BoxartStyleOption } from "@/types/gallery";
 
 const currentViewStorage = useLocalStorage("ui.currentView", 0);
 const boxartStyleStorage = useLocalStorage<BoxartStyleOption>(

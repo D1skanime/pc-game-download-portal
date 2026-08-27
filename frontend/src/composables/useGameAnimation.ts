@@ -5,9 +5,9 @@
 import { useLocalStorage } from "@vueuse/core";
 import { computed, ref, watch, type Ref, type ShallowRef } from "vue";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
-import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom, SearchRom } from "@/stores/roms";
+import type { BoxartStyleOption } from "@/types/gallery";
 import { isCDBasedSystem } from "@/utils";
 
 export const ANIMATION_DELAY = 500;

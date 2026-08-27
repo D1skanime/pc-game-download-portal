@@ -52,18 +52,18 @@ import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { installIOSFullscreenShim } from "@/v2/utils/emulatorjs";
 import {
   resolveBezelHost,
   resolveBezelUrl,
   resolveStoredBezelVisible,
 } from "@/v2/utils/playerBezel";
 import { resolveStoredDisc } from "@/v2/utils/playerDisc";
-import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
-// Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
-// bundle doesn't pull in the EJS shims until we actually mount the player.
+// Lazy-load the v2-owned EmulatorJS integration so the
+// bundle does not pull in the EJS shims until we actually mount the player.
 const Player = defineAsyncComponent(
-  () => import("@/views/Player/EmulatorJS/Player.vue"),
+  () => import("@/v2/views/Player/EmulatorJSPlayer.vue"),
 );
 
 const { t } = useI18n();
