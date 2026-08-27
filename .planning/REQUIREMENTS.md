@@ -75,11 +75,11 @@
 
 ### V1 Removal
 
-- [ ] **V2-01**: The fork has one frontend mode and boots directly into UI v2 without a `uiVersion` preference or v1/v2 switch.
-- [ ] **V2-02**: Frozen v1 views, components, layouts, console surfaces, banners, fallbacks, and v1-only routing are removed.
-- [ ] **V2-03**: Pairing, authentication, theme, router, shared stores, API services, generated types, and overlays required by v2 continue to work after v1 removal.
-- [ ] **V2-04**: Every supported route either has a real v2 view or is deliberately removed; no `NotReady` fallback sends users to v1.
-- [ ] **V2-05**: The v1 removal is isolated and regression-tested separately from storage-domain changes.
+- [x] **V2-01**: The fork has one frontend mode and boots directly into UI v2 without a `uiVersion` preference or v1/v2 switch.
+- [x] **V2-02**: Frozen v1 views, components, layouts, console surfaces, banners, fallbacks, and v1-only routing are removed.
+- [x] **V2-03**: Pairing, authentication, theme, router, shared stores, API services, generated types, and overlays required by v2 continue to work after v1 removal.
+- [x] **V2-04**: Every supported route either has a real v2 view or is deliberately removed; no `NotReady` fallback sends users to v1.
+- [x] **V2-05**: The v1 removal is isolated and regression-tested separately from storage-domain changes.
 
 ### Legacy Migration and Compatibility
 
@@ -186,11 +186,11 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | UI-04       | Phase 7 | Pending  |
 | UI-05       | Phase 4 | Complete |
 | UI-06       | Phase 7 | Pending  |
-| V2-01       | Phase 8 | Pending  |
-| V2-02       | Phase 8 | Pending  |
-| V2-03       | Phase 8 | Pending  |
-| V2-04       | Phase 8 | Pending  |
-| V2-05       | Phase 8 | Pending  |
+| V2-01       | Phase 8 | Complete |
+| V2-02       | Phase 8 | Complete |
+| V2-03       | Phase 8 | Complete |
+| V2-04       | Phase 8 | Complete |
+| V2-05       | Phase 8 | Complete |
 | MIG-01      | Phase 6 | Complete |
 | MIG-02      | Phase 6 | Blocked  |
 | MIG-03      | Phase 6 | Complete |
