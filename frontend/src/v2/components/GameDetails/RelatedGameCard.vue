@@ -9,7 +9,7 @@
 // "a tile that looks like a game".
 //
 // IGDB → RomM cross-reference (per v1's
-// `frontend/src/components/common/Game/Card/Related.vue`): on mount
+// the related-game contract: on mount
 // the card asks the backend whether the IGDB id resolves to a local
 // ROM. If it does, the click jumps to the internal detail page via
 // the router; otherwise the click opens the IGDB game page in a new

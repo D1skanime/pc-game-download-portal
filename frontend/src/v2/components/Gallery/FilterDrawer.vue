@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // FilterDrawer (v2) — gallery filter side panel. v2-native replacement
-// for `src/components/Gallery/AppBar/common/FilterDrawer/Base.vue`.
+// for the gallery filter controls.
 //
 // Surface area (matches v1 1:1 so URLs stay compatible):
 //   • Tri-state boolean filters: matched / favourites / duplicates /

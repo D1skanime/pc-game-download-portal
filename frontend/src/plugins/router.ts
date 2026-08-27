@@ -3,6 +3,7 @@ import {
   createRouter,
   createWebHistory,
   type NavigationGuardWithThis,
+  type RouteLocationGeneric,
 } from "vue-router";
 import i18n from "@/locales";
 import { startViewTransition } from "@/plugins/transition";
@@ -379,46 +380,63 @@ const routes = [
     name: ROUTES.PAIR,
     component: () => import("@/v2/views/PairDispatcher.vue"),
   },
-  // Console mode (separate UI namespace under /console) — v1 only; v2 merges
-  // console behavior into the main UI via the universal input system.
+  // Old console links retain their destination through explicit v2 redirects.
   {
     path: "/console",
-    component: () => import("@/console/Layout.vue"),
+    redirect: { name: ROUTES.HOME },
     children: [
       {
         path: "",
         name: ROUTES.CONSOLE_HOME,
-        component: () => import("@/console/views/Home.vue"),
+        redirect: { name: ROUTES.HOME },
       },
       {
         path: "platform/:id",
         name: ROUTES.CONSOLE_PLATFORM,
-        component: () => import("@/console/views/GamesList.vue"),
+        redirect: (to: RouteLocationGeneric) => ({
+          name: ROUTES.PLATFORM,
+          params: { platform: to.params.id },
+        }),
       },
       {
         path: "collection/:id",
         name: ROUTES.CONSOLE_COLLECTION,
-        component: () => import("@/console/views/GamesList.vue"),
+        redirect: (to: RouteLocationGeneric) => ({
+          name: ROUTES.COLLECTION,
+          params: { collection: to.params.id },
+        }),
       },
       {
         path: "collection/smart/:id",
         name: ROUTES.CONSOLE_SMART_COLLECTION,
-        component: () => import("@/console/views/GamesList.vue"),
+        redirect: (to: RouteLocationGeneric) => ({
+          name: ROUTES.SMART_COLLECTION,
+          params: { collection: to.params.id },
+        }),
       },
       {
         path: "collection/virtual/:id",
         name: ROUTES.CONSOLE_VIRTUAL_COLLECTION,
-        component: () => import("@/console/views/GamesList.vue"),
+        redirect: (to: RouteLocationGeneric) => ({
+          name: ROUTES.VIRTUAL_COLLECTION,
+          params: { collection: to.params.id },
+        }),
       },
       {
         path: "rom/:rom",
         name: ROUTES.CONSOLE_ROM,
-        component: () => import("@/console/views/Game.vue"),
+        redirect: (to: RouteLocationGeneric) => ({
+          name: ROUTES.ROM,
+          params: to.params,
+        }),
       },
       {
         path: "rom/:rom/play",
         name: ROUTES.CONSOLE_PLAY,
-        component: () => import("@/console/views/Play.vue"),
+        redirect: (to: RouteLocationGeneric) => ({
+          name: ROUTES.EMULATORJS,
+          params: to.params,
+        }),
       },
     ],
   },

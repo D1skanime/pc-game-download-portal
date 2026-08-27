@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useIdle, useLocalStorage } from "@vueuse/core";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -11,7 +11,6 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
-import storeConsole from "@/stores/console";
 import storeLanguage from "@/stores/language";
 
 // Lazy-loaded: RomM.vue is the first module main.ts evaluates, and the banner
@@ -24,9 +23,7 @@ const BackendStatusBanner = defineAsyncComponent(
 
 const { locale } = useI18n();
 const languageStore = storeLanguage();
-const consoleStore = storeConsole();
 const vuetifyTheme = useTheme();
-const { consoleMode } = storeToRefs(consoleStore);
 const { languages } = storeToRefs(languageStore);
 const storedLocale = useLocalStorage("settings.locale", "");
 const selectedLanguage = ref(
@@ -43,10 +40,6 @@ const themeSetting = useLocalStorage<"auto" | "dark" | "light">(
   "settings.theme",
   "dark",
 );
-
-const { idle: mouseIdle } = useIdle(100, {
-  events: ["mousemove", "mousedown", "wheel", "touchstart"],
-});
 
 // Centralized theme resolution — Vuetify only knows the "dark" / "light"
 // pair (used by v1 surfaces and any remaining v1 components rendered
@@ -105,7 +98,7 @@ watch(
 </script>
 
 <template>
-  <v-app id="application" :class="{ 'mouse-hidden': consoleMode && mouseIdle }">
+  <v-app id="application">
     <v-main id="main" class="no-transition">
       <router-view />
     </v-main>
@@ -119,11 +112,6 @@ watch(
 <style scoped>
 #main.no-transition {
   transition: none;
-}
-
-#application.mouse-hidden,
-#application.mouse-hidden * {
-  cursor: none !important;
 }
 
 .fade-enter-active,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // EmulatorJS — v2 shell around the v1 <Player> component. The emulator
 // integration (EJS_* globals, loader fallback, save/state sync, firmware
-// resolution) is ported verbatim from `src/views/Player/EmulatorJS/Base.vue`
+// resolution) retains the established player behavior
 // so behaviour stays identical; only the chrome is v2.
 //
 // Layout — three columns:

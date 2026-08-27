@@ -552,23 +552,4 @@ describe("ManualSubtab", () => {
       throw error;
     }
   });
-
-  it("preserves frozen v1 upload service, emitter, and consumers", () => {
-    const service = source("src/services/api/rom.ts");
-    const emitter = source("src/types/emitter.d.ts");
-    const layout = source("src/layouts/Main.vue");
-    const media = source("src/components/Details/MediaTab.vue");
-    const target = source(
-      "src/components/common/Game/Dialog/ManualUploadTarget.vue",
-    );
-    const edit = source("src/components/common/Game/Dialog/EditRom.vue");
-
-    expect(service).toMatch(/async function uploadManuals\s*\(/);
-    expect(service).toMatch(/\buploadManuals,\s*\n/);
-    expect(emitter).toContain("showManualUploadTargetDialog");
-    expect(layout).toContain("ManualUploadTargetDialog");
-    expect(media).toContain("showManualUploadTargetDialog");
-    expect(target).toContain("romApi.uploadManuals");
-    expect(edit).toMatch(/romApi\s*\.\s*uploadManuals/);
-  });
 });

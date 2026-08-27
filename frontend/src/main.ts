@@ -1,6 +1,5 @@
 import { createApp } from "vue";
 import App from "@/RomM.vue";
-import "@/console/index.css";
 import { registerPlugins } from "@/plugins";
 import router from "@/plugins/router";
 import storeAuth from "@/stores/auth";
