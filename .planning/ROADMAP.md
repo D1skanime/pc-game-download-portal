@@ -13,7 +13,7 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 - [x] **Phase 5: Preview and Read-path Cutover** - Make preview, scanning, watching, hashing, streaming, and downloading mapping-aware and non-mutating. (completed 2026-08-12)
 - [ ] **Phase 6: Safe Lifecycle and Legacy Migration** - Make catalog removal and legacy-layout migration explicit, reversible, and source-safe.
 - [ ] **Phase 7: V2 Storage Administration Experience** - Deliver accessible root, browser, mapping, and preview workflows in the sole active UI.
-- [ ] **Phase 8: Bounded V1 Removal** - Remove the frozen frontend and compatibility paths behind a dedicated v2 regression gate.
+- [x] **Phase 8: Bounded V1 Removal** - Remove the frozen frontend and compatibility paths behind a dedicated v2 regression gate. (completed 2026-08-27)
 - [ ] **Phase 9: Operational Immutability Proof** - Prove the complete boundary in production-like conditions and document safe NAS operation.
 
 ## Phase Details
@@ -276,7 +276,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 4. The interface explains that RomM indexes but never changes original files and presents accessible loading, empty, error, forbidden, unreachable, and pending states.
 5. The complete workflow is usable with mouse, touch, keyboard, and gamepad across supported responsive layouts.
 
-**Plans**: TBD
+**Plans**: 4/4 complete
 **UI hint**: yes
 
 ### Phase 8: Bounded V1 Removal
@@ -319,5 +319,5 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 5. Preview and Read-path Cutover        | 8/8            | Complete    | 2026-08-12 |
 | 6. Safe Lifecycle and Legacy Migration  | 52/54          | In Progress |            |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
-| 8. Bounded V1 Removal                   | 0/TBD          | Not started | -          |
+| 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
 | 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |
