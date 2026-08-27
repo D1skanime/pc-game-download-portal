@@ -13,10 +13,6 @@ export const UI_SETTINGS_KEYS = {
   // Theme
   theme: { key: "settings.theme", default: "auto" },
 
-  // NOTE: uiVersion is intentionally NOT tracked here. It's owned by the
-  // singleton in composables/useUiVersion.ts so a write propagates reactively
-  // to the RomM.vue gate without a reload.
-
   // Home section
   showStats: { key: "settings.showStats", default: true },
   showRecentRoms: { key: "settings.showRecentRoms", default: true },

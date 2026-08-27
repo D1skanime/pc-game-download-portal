@@ -21,7 +21,7 @@ onMounted(installInputModality);
   <div class="r-v2-auth">
     <div class="r-v2-auth__bg" />
     <main class="r-v2-auth__stage">
-      <router-view name="v2" />
+      <router-view />
     </main>
     <!-- Bottom bar: language selector pinned left, version tag right. A
          single row so the "one on each side" split holds at every width

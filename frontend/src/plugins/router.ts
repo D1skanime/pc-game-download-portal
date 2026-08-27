@@ -11,11 +11,7 @@ import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
-import {
-  fallbackComponent,
-  v2Layouts,
-  v2RouteComponents,
-} from "@/v2/router/routes";
+import { v2Layouts, v2RouteComponents } from "@/v2/router/routes";
 
 export const ROUTES = {
   SETUP: "setup",
@@ -63,20 +59,15 @@ export const ROUTES = {
   NOT_FOUND: "404",
 } as const;
 
-// Resolve the v2 component for a given route name, falling back to the
-// "not ready yet" screen so every route at least renders something when the
-// user is on uiVersion=v2.
 function v2For(routeName: string) {
-  return v2RouteComponents[routeName] ?? fallbackComponent;
+  const component = v2RouteComponents[routeName];
+  if (!component) throw new Error("Missing v2 route component: " + routeName);
+  return component;
 }
-
 const routes = [
   {
     path: "/setup",
-    components: {
-      default: () => import("@/layouts/Auth.vue"),
-      v2: v2Layouts.auth,
-    },
+    component: v2Layouts.auth,
     children: [
       {
         path: "",
@@ -84,19 +75,13 @@ const routes = [
         meta: {
           title: i18n.global.t("login.setup-wizard"),
         },
-        components: {
-          default: () => import("@/views/Auth/Setup.vue"),
-          v2: v2For(ROUTES.SETUP),
-        },
+        component: v2For(ROUTES.SETUP),
       },
     ],
   },
   {
     path: "/login",
-    components: {
-      default: () => import("@/layouts/Auth.vue"),
-      v2: v2Layouts.auth,
-    },
+    component: v2Layouts.auth,
     children: [
       {
         path: "",
@@ -104,19 +89,13 @@ const routes = [
         meta: {
           title: i18n.global.t("login.login"),
         },
-        components: {
-          default: () => import("@/views/Auth/Login.vue"),
-          v2: v2For(ROUTES.LOGIN),
-        },
+        component: v2For(ROUTES.LOGIN),
       },
     ],
   },
   {
     path: "/reset-password",
-    components: {
-      default: () => import("@/layouts/Auth.vue"),
-      v2: v2Layouts.auth,
-    },
+    component: v2Layouts.auth,
     children: [
       {
         path: "",
@@ -124,19 +103,13 @@ const routes = [
         meta: {
           title: i18n.global.t("login.reset-password"),
         },
-        components: {
-          default: () => import("@/views/Auth/ResetPassword.vue"),
-          v2: v2For(ROUTES.RESET_PASSWORD),
-        },
+        component: v2For(ROUTES.RESET_PASSWORD),
       },
     ],
   },
   {
     path: "/register",
-    components: {
-      default: () => import("@/layouts/Auth.vue"),
-      v2: v2Layouts.auth,
-    },
+    component: v2Layouts.auth,
     children: [
       {
         path: "",
@@ -144,10 +117,7 @@ const routes = [
         meta: {
           title: i18n.global.t("login.register"),
         },
-        components: {
-          default: () => import("@/views/Auth/Register.vue"),
-          v2: v2For(ROUTES.REGISTER),
-        },
+        component: v2For(ROUTES.REGISTER),
       },
     ],
   },
@@ -157,13 +127,7 @@ const routes = [
     meta: {
       title: "RomM",
     },
-    // Named views let v1 and v2 coexist at the same URL. The v2 layout owns
-    // its own <router-view name="v2"> so child routes with a `v2` component
-    // render inside the v2 shell.
-    components: {
-      default: () => import("@/layouts/Main.vue"),
-      v2: v2Layouts.main,
-    },
+    component: v2Layouts.main,
     children: [
       {
         path: "",
@@ -171,10 +135,7 @@ const routes = [
         meta: {
           title: i18n.global.t("settings.home"),
         },
-        components: {
-          default: () => import("@/views/Home.vue"),
-          v2: v2For(ROUTES.HOME),
-        },
+        component: v2For(ROUTES.HOME),
       },
       {
         path: "search",
@@ -182,19 +143,13 @@ const routes = [
         meta: {
           title: i18n.global.t("common.search"),
         },
-        components: {
-          default: () => import("@/views/Gallery/Search.vue"),
-          v2: v2For(ROUTES.SEARCH),
-        },
+        component: v2For(ROUTES.SEARCH),
       },
 
       {
         path: "platform/:platform",
         name: ROUTES.PLATFORM,
-        components: {
-          default: () => import("@/views/Gallery/Platform.vue"),
-          v2: v2For(ROUTES.PLATFORM),
-        },
+        component: v2For(ROUTES.PLATFORM),
       },
       {
         path: "platforms/:platformId/storage",
@@ -205,44 +160,27 @@ const routes = [
             "Storage administration",
           ),
         },
-        components: {
-          default: () => import("@/views/Home.vue"),
-          v2: v2For(ROUTES.PLATFORM_STORAGE_MAPPING),
-        },
+        component: v2For(ROUTES.PLATFORM_STORAGE_MAPPING),
       },
       {
         path: "collection/:collection",
         name: ROUTES.COLLECTION,
-        components: {
-          default: () => import("@/views/Gallery/Collection/Collection.vue"),
-          v2: v2For(ROUTES.COLLECTION),
-        },
+        component: v2For(ROUTES.COLLECTION),
       },
       {
         path: "collection/virtual/:collection",
         name: ROUTES.VIRTUAL_COLLECTION,
-        components: {
-          default: () =>
-            import("@/views/Gallery/Collection/VirtualCollection.vue"),
-          v2: v2For(ROUTES.VIRTUAL_COLLECTION),
-        },
+        component: v2For(ROUTES.VIRTUAL_COLLECTION),
       },
       {
         path: "collection/smart/:collection",
         name: ROUTES.SMART_COLLECTION,
-        components: {
-          default: () =>
-            import("@/views/Gallery/Collection/SmartCollection.vue"),
-          v2: v2For(ROUTES.SMART_COLLECTION),
-        },
+        component: v2For(ROUTES.SMART_COLLECTION),
       },
       {
         path: "rom/:rom",
         name: ROUTES.ROM,
-        components: {
-          default: () => import("@/views/GameDetails.vue"),
-          v2: v2For(ROUTES.ROM),
-        },
+        component: v2For(ROUTES.ROM),
         beforeEnter: (async (to, _from, next) => {
           const romsStore = storeRoms();
 
@@ -265,34 +203,22 @@ const routes = [
       {
         path: "rom/:rom/ejs",
         name: ROUTES.EMULATORJS,
-        components: {
-          default: () => import("@/views/Player/EmulatorJS/Base.vue"),
-          v2: v2For(ROUTES.EMULATORJS),
-        },
+        component: v2For(ROUTES.EMULATORJS),
       },
       {
         path: "rom/:rom/ruffle",
         name: ROUTES.RUFFLE,
-        components: {
-          default: () => import("@/views/Player/RuffleRS/Base.vue"),
-          v2: v2For(ROUTES.RUFFLE),
-        },
+        component: v2For(ROUTES.RUFFLE),
       },
       {
         path: "april-fools",
         name: ROUTES.APRIL_FOOLS,
-        components: {
-          default: () => import("@/views/Player/AprilFools.vue"),
-          v2: v2For(ROUTES.APRIL_FOOLS),
-        },
+        component: v2For(ROUTES.APRIL_FOOLS),
       },
       {
         path: "rom/:rom/stream",
         name: ROUTES.STREAM,
-        components: {
-          default: () => import("@/views/Home.vue"),
-          v2: v2For(ROUTES.STREAM),
-        },
+        component: v2For(ROUTES.STREAM),
       },
       // Settings group — every settings route shares the same v2
       // sub-layout (sidebar + content panel). Library Tools (Scan /
@@ -301,10 +227,7 @@ const routes = [
       // `passthrough` default named view.
       {
         path: "",
-        components: {
-          default: v2Layouts.passthrough,
-          v2: v2Layouts.settings,
-        },
+        component: v2Layouts.settings,
         children: [
           {
             path: "scan",
@@ -313,10 +236,7 @@ const routes = [
               title: i18n.global.t("scan.scan"),
               bare: true,
             },
-            components: {
-              default: () => import("@/views/Scan.vue"),
-              v2: v2For(ROUTES.SCAN),
-            },
+            component: v2For(ROUTES.SCAN),
           },
           {
             path: "upload",
@@ -324,13 +244,7 @@ const routes = [
             meta: {
               title: i18n.global.t("common.upload-roms", "Upload ROMs"),
             },
-            components: {
-              // v1 has no Upload view (the dialog was its only entry
-              // point); the v2-only view is the single owner. Fall
-              // back to Scan on v1 so deep-linking doesn't 404 there.
-              default: () => import("@/views/Scan.vue"),
-              v2: v2For(ROUTES.UPLOAD),
-            },
+            component: v2For(ROUTES.UPLOAD),
           },
           {
             path: "activity",
@@ -339,21 +253,13 @@ const routes = [
               title: i18n.global.t("activity.active-sessions"),
               bare: true,
             },
-            components: {
-              // v2-only view; v1 has no activity concept so it redirects
-              // home if a v1 user deep-links here.
-              default: () => import("@/views/Home.vue"),
-              v2: v2For(ROUTES.ACTIVITY),
-            },
+            component: v2For(ROUTES.ACTIVITY),
           },
           {
             path: "user/:user",
             name: ROUTES.USER_PROFILE,
             meta: { bare: true },
-            components: {
-              default: () => import("@/views/Settings/UserProfile.vue"),
-              v2: v2For(ROUTES.USER_PROFILE),
-            },
+            component: v2For(ROUTES.USER_PROFILE),
           },
           {
             path: "user-interface",
@@ -362,10 +268,7 @@ const routes = [
               title: i18n.global.t("common.user-interface"),
               bare: true,
             },
-            components: {
-              default: () => import("@/views/Settings/UserInterface.vue"),
-              v2: v2For(ROUTES.USER_INTERFACE),
-            },
+            component: v2For(ROUTES.USER_INTERFACE),
           },
           {
             path: "library-management",
@@ -374,10 +277,7 @@ const routes = [
               title: i18n.global.t("common.library-management"),
               bare: true,
             },
-            components: {
-              default: () => import("@/views/Settings/LibraryManagement.vue"),
-              v2: v2For(ROUTES.LIBRARY_MANAGEMENT),
-            },
+            component: v2For(ROUTES.LIBRARY_MANAGEMENT),
           },
           {
             path: "scan-settings",
@@ -386,10 +286,7 @@ const routes = [
               title: i18n.global.t("settings.scan-settings"),
               bare: true,
             },
-            components: {
-              default: () => import("@/views/Home.vue"),
-              v2: v2For(ROUTES.SCAN_SETTINGS),
-            },
+            component: v2For(ROUTES.SCAN_SETTINGS),
           },
           {
             path: "metadata-sources",
@@ -398,10 +295,7 @@ const routes = [
               title: i18n.global.t("scan.metadata-sources"),
               bare: true,
             },
-            components: {
-              default: () => import("@/views/Settings/MetadataSources.vue"),
-              v2: v2For(ROUTES.METADATA_SOURCES),
-            },
+            component: v2For(ROUTES.METADATA_SOURCES),
           },
           {
             path: "client-api-tokens",
@@ -410,10 +304,7 @@ const routes = [
               title: i18n.global.t("settings.client-api-tokens"),
               bare: true,
             },
-            components: {
-              default: () => import("@/views/Settings/ClientApiTokens.vue"),
-              v2: v2For(ROUTES.CLIENT_API_TOKENS),
-            },
+            component: v2For(ROUTES.CLIENT_API_TOKENS),
           },
           {
             path: "administration",
@@ -422,10 +313,7 @@ const routes = [
               title: i18n.global.t("common.administration"),
               bare: true,
             },
-            components: {
-              default: () => import("@/views/Settings/Administration.vue"),
-              v2: v2For(ROUTES.ADMINISTRATION),
-            },
+            component: v2For(ROUTES.ADMINISTRATION),
           },
           {
             path: "server-stats",
@@ -434,10 +322,7 @@ const routes = [
               title: i18n.global.t("common.server-stats"),
               bare: true,
             },
-            components: {
-              default: () => import("@/views/Settings/ServerStats.vue"),
-              v2: v2For(ROUTES.SERVER_STATS),
-            },
+            component: v2For(ROUTES.SERVER_STATS),
           },
           {
             path: "logs",
@@ -449,11 +334,7 @@ const routes = [
               // instead of growing the document — see SettingsLayout `fill`.
               fill: true,
             },
-            components: {
-              // v2-only admin view; v1 has no equivalent so it redirects home.
-              default: () => import("@/views/Home.vue"),
-              v2: v2For(ROUTES.LOGS),
-            },
+            component: v2For(ROUTES.LOGS),
           },
           {
             // Controller-debug lives outside the Settings sidebar
@@ -463,12 +344,7 @@ const routes = [
             path: "controller-debug",
             name: ROUTES.CONTROLLER_DEBUG,
             meta: { title: "Controller debug", bare: true },
-            components: {
-              // v1 has no equivalent; redirect to home if a v1 user
-              // somehow lands here.
-              default: () => import("@/views/Home.vue"),
-              v2: v2For(ROUTES.CONTROLLER_DEBUG),
-            },
+            component: v2For(ROUTES.CONTROLLER_DEBUG),
           },
         ],
       },
@@ -478,37 +354,25 @@ const routes = [
         path: "platforms",
         name: ROUTES.PLATFORMS_INDEX,
         meta: { title: i18n.global.t("common.platforms") },
-        components: {
-          default: () => import("@/views/Home.vue"),
-          v2: v2For(ROUTES.PLATFORMS_INDEX),
-        },
+        component: v2For(ROUTES.PLATFORMS_INDEX),
       },
       {
         path: "collections",
         name: ROUTES.COLLECTIONS_INDEX,
         meta: { title: i18n.global.t("common.collections") },
-        components: {
-          default: () => import("@/views/Home.vue"),
-          v2: v2For(ROUTES.COLLECTIONS_INDEX),
-        },
+        component: v2For(ROUTES.COLLECTIONS_INDEX),
       },
       {
         path: ":pathMatch(.*)*",
         name: ROUTES.NOT_FOUND,
-        components: {
-          default: () => import("@/views/404.vue"),
-          v2: v2For(ROUTES.NOT_FOUND),
-        },
+        component: v2For(ROUTES.NOT_FOUND),
       },
     ],
   },
   {
     path: "/pair/device",
     name: ROUTES.PAIR_DEVICE,
-    components: {
-      default: () => import("@/v2/views/DevicePairShell.vue"),
-      v2: () => import("@/v2/views/DevicePairShell.vue"),
-    },
+    component: () => import("@/v2/views/DevicePairShell.vue"),
   },
   {
     path: "/pair",

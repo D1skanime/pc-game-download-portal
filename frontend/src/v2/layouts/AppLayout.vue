@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
     <div class="r-v2-shell__app">
       <AppNav />
       <main id="r-v2-main" class="r-v2-shell__main" tabindex="-1">
-        <router-view name="v2" />
+        <router-view />
       </main>
       <BottomNav />
     </div>

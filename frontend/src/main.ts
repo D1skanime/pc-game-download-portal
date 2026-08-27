@@ -11,6 +11,8 @@ import "@/styles/fonts.css";
 import "@/styles/scrollbar.css";
 import "@/v2/styles/global.css";
 
+localStorage.removeItem("settings.uiVersion");
+
 // Recover from stale chunks after a redeploy: hashed asset names change, so
 // a tab opened before the deploy 404s (or gets HTML) on its next lazy import
 // and the page goes blank. One reload picks up the new asset manifest; the

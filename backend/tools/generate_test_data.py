@@ -868,7 +868,6 @@ def main() -> int:
                 "ra_progression": {},
                 "ui_settings": {
                     "theme": rng.choice(["dark", "light"]),
-                    "uiVersion": rng.choice(["v1", "v2"]),
                 },
                 "created_at": created,
                 "updated_at": created,

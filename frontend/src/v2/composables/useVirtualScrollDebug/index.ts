@@ -1,7 +1,7 @@
 // useVirtualScrollDebug — shared diagnostics bridge from the active
 // virtualised scroller to the DebugOverlay.
 //
-// Module-level singleton (mirrors the useDebugMode / useUiVersion pattern):
+// Module-level singleton mirrors the useDebugMode pattern:
 // the virtualised gallery publishes its window stats here on each scroll and
 // the globally-mounted DebugOverlay reads them. `stats` is null whenever no
 // virtual scroller is reporting (non-gallery routes, or debug mode off), so

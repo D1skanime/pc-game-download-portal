@@ -244,7 +244,7 @@ function bulkRefresh() {
   if (selection.count === 0) return;
   // The v2 dialog listens to both single + bulk events; v1 only sees
   // the single one. Emitting the bulk variant keeps the v1 dialog
-  // (still mounted under uiVersion === "v1") out of this flow.
+  // outside this flow.
   emitter?.emit("showRefreshMetadataDialogBulk", selection.roms);
 }
 
