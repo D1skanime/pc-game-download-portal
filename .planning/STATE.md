@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 08 complete (4/4) — ready to discuss Phase 9
-last_updated: 2026-08-27T07:35:16.310Z
-last_activity: 2026-08-27 -- Phase 08 execution started
+status: executing
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-08-28T07:57:34.469Z"
+last_activity: 2026-08-28
 progress:
   total_phases: 9
-  completed_phases: 6
-  total_plans: 96
-  completed_plans: 94
-  percent: 67
+  completed_phases: 7
+  total_plans: 100
+  completed_plans: 95
+  percent: 78
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-10)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 9 — operational immutability proof
+**Current focus:** Phase 09 — operational-immutability-proof
 
 ## Current Position
 
-Phase: 9
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-08-27
+Phase: 09 (operational-immutability-proof) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-08-28
 
-Progress: [██████████] 97%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -125,6 +125,7 @@ _Updated after each plan completion_
 | Phase 06 P51 | 14min | 2 tasks | 2 files |
 | Phase 06 P52 | 48min | 2 tasks | 2 files |
 | Phase 06 P50 | 6min | 2 tasks | 2 files |
+| Phase 09 P01 | 20min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -294,6 +295,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Staged descriptor numbers are consumed after one os.close call regardless of its result.
 - [Phase 06]: Abort continues exact staging unlink and parent fsync without retrying a consumed descriptor number.
 - [Phase 06]: Redownload shares manualMutationPending with upload and refresh, with handler guards for stale gestures.
+- [Phase 09]: Standalone Python harness gates Phase 9 before workflow execution — Keeps manifest and topology enforcement centralized for later plans.
+- [Phase 09]: Cleanup authority is label-bound, not path-guessed — Only Phase 9-owned Docker resources with explicit labels can be removed.
 
 ### Blockers/Concerns
 
@@ -311,6 +314,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-25T12:13:57.612Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-v2-storage-administration-experience/07-CONTEXT.md
+Last session: 2026-08-28T07:57:34.457Z
+Stopped at: Completed 09-01-PLAN.md
+Resume file: .planning/phases/09-operational-immutability-proof/09-02-PLAN.md

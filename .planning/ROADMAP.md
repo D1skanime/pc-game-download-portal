@@ -320,4 +320,4 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 6. Safe Lifecycle and Legacy Migration  | 52/54          | In Progress |            |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
-| 9. Operational Immutability Proof       | 0/TBD          | Not started | -          |
+| 9. Operational Immutability Proof       | 1/4            | In Progress |            |
