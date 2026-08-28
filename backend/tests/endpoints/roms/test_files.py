@@ -281,6 +281,23 @@ def test_content_disposition_uses_database_name_not_client_path_parameter(
     assert "private" not in value
 
 
+def test_content_disposition_ignores_traversal_like_client_path_parameter(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, "archive.bin", RomFileCategory.GAME)
+
+    response = client.head(
+        f"/api/roms/{file.id}/files/content/..%2F..%2Fsecret.txt",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.headers.get("content-disposition") is None
+    assert "secret" not in response.text
+    assert ".." not in response.text
+
+
 @pytest.mark.parametrize(
     "file_name",
     [
