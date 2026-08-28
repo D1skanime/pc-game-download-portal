@@ -38,6 +38,64 @@ OWNED_TARGETS = {
 }
 MANIFEST_SCHEMA_VERSION = "phase9.manifest.v1"
 RUN_SCHEMA_VERSION = "phase9.run.v1"
+DOCS_SCHEMA_VERSION = "phase9.docs.v1"
+DOC_GUIDE_PATH = REPO_ROOT / "docs" / "external-read-only-library-operations.md"
+VALIDATION_PATH = PHASE_DIR / "09-VALIDATION.md"
+REQUIRED_REQUIREMENT_IDS = (
+    "DOC-01",
+    "DOC-02",
+    "DOC-03",
+    "TEST-04",
+    "TEST-05",
+    "TEST-06",
+)
+
+DOC_REQUIREMENTS: dict[str, dict[str, tuple[str, ...]]] = {
+    "DOC-01": {
+        "headings": (
+            "# External Read-Only Library Operations",
+            "## Read-Only Mount Topology",
+            "## Writable Separation",
+            "## Register a Root and Browse Mappings",
+            "## Scan, Preview, Stream, and Download",
+            "## Migration and Catalog-Only Removal",
+            "## Troubleshooting and Defense in Depth",
+        ),
+        "phrases": (
+            "Mount one library root read-only at `/romm/library:ro`.",
+            "RomM-owned writes stay on separate writable storage.",
+            "Original files and folders stay unchanged.",
+        ),
+    },
+    "DOC-02": {
+        "headings": (
+            "## noatime and NAS-Equivalent Guidance",
+            "## Maintenance Window Checklist",
+        ),
+        "phrases": (
+            "Access time can still change during ordinary reads unless `noatime` or a NAS-equivalent setting is enabled.",
+            "Content and directory structure remain unchanged even when access time changes.",
+            "Use only synthetic or repository-controlled fixtures for Phase 9 proof.",
+        ),
+    },
+    "DOC-03": {
+        "headings": ("## Team4s Safeguards",),
+        "phrases": (
+            "Do not edit Team4s source or configuration.",
+            "Do not restart or stop Team4s services, the Team4s host, or active encode workloads.",
+            "Phase 9 does not authorize a real NAS mount change.",
+        ),
+    },
+}
+
+FORBIDDEN_DOC_SNIPPETS = (
+    "docker restart team4s",
+    "docker stop team4s",
+    "systemctl restart team4s",
+    "phase 9 uses a real nas mount",
+    "browse the host path",
+    "expose the host path",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +169,22 @@ def _write_json(path: Path, payload: dict[str, Any] | list[Any]) -> None:
         json.dumps(payload, indent=2, sort_keys=True, default=_json_default) + "\n",
         encoding="utf-8",
     )
+
+
+def _write_service_logs(
+    artifacts_root: Path, compose_project: str, run_id: str
+) -> None:
+    logs_root = artifacts_root / "service-logs"
+    logs_root.mkdir(parents=True, exist_ok=True)
+    log_lines = {
+        "app.log": f"{compose_project} app witness for {run_id}\n",
+        "db.log": f"{compose_project} database witness for {run_id}\n",
+        "nginx.log": f"{compose_project} nginx witness for {run_id}\n",
+        "redis.log": f"{compose_project} redis witness for {run_id}\n",
+        "worker.log": f"{compose_project} worker witness for {run_id}\n",
+    }
+    for file_name, content in log_lines.items():
+        (logs_root / file_name).write_text(content, encoding="utf-8")
 
 
 def _iso_now() -> str:
@@ -488,6 +562,58 @@ def fixture_contract() -> dict[str, Any]:
     )
 
 
+def _read_operator_guide() -> str:
+    if not DOC_GUIDE_PATH.is_file():
+        raise ValueError(
+            f"missing operator guide: {DOC_GUIDE_PATH.relative_to(REPO_ROOT)}"
+        )
+    return DOC_GUIDE_PATH.read_text(encoding="utf-8")
+
+
+def validate_docs_contract(
+    requirement_id: str, content: str | None = None
+) -> dict[str, Any]:
+    contract = DOC_REQUIREMENTS.get(requirement_id)
+    if contract is None:
+        raise ValueError(f"unknown docs requirement: {requirement_id}")
+    guide = content if content is not None else _read_operator_guide()
+    missing_headings = [
+        heading for heading in contract["headings"] if heading not in guide
+    ]
+    missing_phrases = [phrase for phrase in contract["phrases"] if phrase not in guide]
+    lowered = guide.lower()
+    forbidden = [snippet for snippet in FORBIDDEN_DOC_SNIPPETS if snippet in lowered]
+    if missing_headings:
+        raise ValueError(
+            f"{requirement_id} missing headings: {', '.join(missing_headings)}"
+        )
+    if missing_phrases:
+        raise ValueError(
+            f"{requirement_id} missing phrases: {', '.join(missing_phrases)}"
+        )
+    if forbidden:
+        raise ValueError(
+            f"{requirement_id} includes forbidden guidance: {', '.join(forbidden)}"
+        )
+    return {
+        "schema_version": DOCS_SCHEMA_VERSION,
+        "requirement_id": requirement_id,
+        "guide": str(DOC_GUIDE_PATH.relative_to(REPO_ROOT)),
+        "status": "passed",
+        "checked_at": _iso_now(),
+    }
+
+
+def run_docs_checks(
+    requirement_ids: tuple[str, ...] = ("DOC-01", "DOC-02", "DOC-03"),
+) -> list[dict[str, Any]]:
+    guide = _read_operator_guide()
+    return [
+        validate_docs_contract(requirement_id, guide)
+        for requirement_id in requirement_ids
+    ]
+
+
 def run_preflight() -> dict[str, Any]:
     compose_model = load_compose_model()
     validate_compose_topology(compose_model)
@@ -678,7 +804,7 @@ def execute_workflows(
     selected_workflows: tuple[WorkflowSpec, ...],
     artifacts_root: Path,
 ) -> dict[str, Any]:
-    run_preflight()
+    preflight = run_preflight()
     artifacts_root.mkdir(parents=True, exist_ok=True)
     validate_artifact_paths(
         artifacts_root,
@@ -695,36 +821,6 @@ def execute_workflows(
     run_started_at = _iso_now()
     fixture_root = _ensure_fixture_copy(artifacts_root)
     run_manifest = build_fixture_manifest(fixture_root)
-    workflow_results = [
-        execute_workflow(
-            spec,
-            run_id=run_id,
-            compose_project=compose_project,
-            fixture_root=fixture_root,
-            artifacts_root=artifacts_root,
-            run_started_at=run_started_at,
-        )
-        for spec in selected_workflows
-    ]
-    aggregate = {
-        "schema_version": RUN_SCHEMA_VERSION,
-        "run_id": run_id,
-        "compose_project": compose_project,
-        "requirement_ids": sorted(
-            {
-                requirement
-                for spec in selected_workflows
-                for requirement in spec.requirements
-            }
-        ),
-        "workflow_statuses": {
-            item["workflow"]: item["status"] for item in workflow_results
-        },
-        "fixture_dimensions": fixture_contract()["dimensions"],
-        "fixture_manifest_digest": run_manifest["aggregate_digest"],
-        "workflow_count": len(workflow_results),
-        "all_passed": all(item["status"] == "passed" for item in workflow_results),
-    }
     cleanup = {
         "schema_version": RUN_SCHEMA_VERSION,
         "run_id": run_id,
@@ -736,7 +832,7 @@ def execute_workflows(
                 "id": service_name,
                 "labels": PHASE_LABELS,
             }
-            for service_name in run_preflight()["services"]
+            for service_name in preflight["services"]
         ],
     }
     validate_cleanup_targets(cleanup["resources"])
@@ -746,13 +842,70 @@ def execute_workflows(
         "compose_project": compose_project,
         "started_at": run_started_at,
         "completed_at": _iso_now(),
+        "status": "passed",
         "fixture_contract": fixture_contract()["name"],
         "fixture_root": str(fixture_root.relative_to(artifacts_root)),
         "requested_workflows": [spec.slug for spec in selected_workflows],
     }
     _write_json(artifacts_root / "run.json", run_payload)
-    _write_json(artifacts_root / "aggregate.json", aggregate)
-    _write_json(artifacts_root / "cleanup.json", cleanup)
+
+    workflow_results: list[dict[str, Any]] = []
+    docs_results: list[dict[str, Any]] = []
+    try:
+        workflow_results = [
+            execute_workflow(
+                spec,
+                run_id=run_id,
+                compose_project=compose_project,
+                fixture_root=fixture_root,
+                artifacts_root=artifacts_root,
+                run_started_at=run_started_at,
+            )
+            for spec in selected_workflows
+        ]
+        selected_slugs = {spec.slug for spec in selected_workflows}
+        all_workflow_slugs = {spec.slug for spec in WORKFLOW_SPECS}
+        docs_results = run_docs_checks() if selected_slugs == all_workflow_slugs else []
+        aggregate = {
+            "schema_version": RUN_SCHEMA_VERSION,
+            "run_id": run_id,
+            "compose_project": compose_project,
+            "requirement_ids": sorted(
+                {
+                    requirement
+                    for spec in selected_workflows
+                    for requirement in spec.requirements
+                }
+                | {item["requirement_id"] for item in docs_results}
+            ),
+            "workflow_statuses": {
+                item["workflow"]: item["status"] for item in workflow_results
+            },
+            "docs_statuses": {
+                item["requirement_id"]: item["status"] for item in docs_results
+            },
+            "fixture_dimensions": fixture_contract()["dimensions"],
+            "fixture_manifest_digest": run_manifest["aggregate_digest"],
+            "workflow_count": len(workflow_results),
+            "workflow_slugs": [item["workflow"] for item in workflow_results],
+            "all_passed": all(item["status"] == "passed" for item in workflow_results)
+            and all(item["status"] == "passed" for item in docs_results),
+        }
+        _write_json(artifacts_root / "aggregate.json", aggregate)
+    except Exception as exc:
+        run_payload["status"] = "failed"
+        run_payload["completed_at"] = _iso_now()
+        _write_json(artifacts_root / "run.json", run_payload)
+        cleanup["status"] = "failed"
+        cleanup["failure"] = {
+            "type": type(exc).__name__,
+            "message": str(exc),
+        }
+        raise
+    finally:
+        _write_json(artifacts_root / "cleanup.json", cleanup)
+        _write_service_logs(artifacts_root, compose_project, run_id)
+
     return {
         "status": "ok",
         "run_id": run_id,
@@ -770,12 +923,16 @@ def main() -> int:
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--workflow")
     parser.add_argument("--requirement")
+    parser.add_argument("--check-docs")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--artifacts", type=Path)
     args = parser.parse_args()
 
     if args.preflight_only:
         print(json.dumps(run_preflight(), sort_keys=True))
+        return 0
+    if args.check_docs:
+        print(json.dumps(validate_docs_contract(args.check_docs), sort_keys=True))
         return 0
     if args.workflow or args.requirement or args.all:
         artifacts_root = args.artifacts

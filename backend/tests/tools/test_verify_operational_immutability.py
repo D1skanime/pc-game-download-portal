@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -31,6 +33,7 @@ def _load_module():
     )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -224,3 +227,94 @@ def test_preflight_rejects_writable_source_mount_and_overlap():
 
     with pytest.raises(ValueError, match="read-only|overlap"):
         module.validate_compose_topology(compose_model)
+
+
+def test_docs_contract_checks_pass_for_repository_guide():
+    module = _load_module()
+
+    result = module.validate_docs_contract("DOC-01")
+
+    assert result["status"] == "passed"
+    assert result["requirement_id"] == "DOC-01"
+
+
+def test_docs_contract_rejects_forbidden_team4s_guidance():
+    module = _load_module()
+    content = """
+# External Read-Only Library Operations
+## Read-Only Mount Topology
+## Writable Separation
+## Register a Root and Browse Mappings
+## Scan, Preview, Stream, and Download
+## Migration and Catalog-Only Removal
+## noatime and NAS-Equivalent Guidance
+## Troubleshooting and Defense in Depth
+## Maintenance Window Checklist
+## Team4s Safeguards
+Mount one library root read-only at `/romm/library:ro`.
+RomM-owned writes stay on separate writable storage.
+Original files and folders stay unchanged.
+Access time can still change during ordinary reads unless `noatime` or a NAS-equivalent setting is enabled.
+Content and directory structure remain unchanged even when access time changes.
+Use only synthetic or repository-controlled fixtures for Phase 9 proof.
+Do not edit Team4s source or configuration.
+Do not restart or stop Team4s services, the Team4s host, or active encode workloads.
+Phase 9 does not authorize a real NAS mount change.
+docker restart team4s
+"""
+
+    with pytest.raises(ValueError, match="forbidden guidance"):
+        module.validate_docs_contract("DOC-03", content)
+
+
+def test_execute_workflows_records_complete_aggregate(tmp_path: Path):
+    module = _load_module()
+
+    result = module.execute_workflows(
+        selected_workflows=module._workflow_selection(None, None, True),
+        artifacts_root=tmp_path / "artifacts",
+    )
+
+    aggregate = copy.deepcopy(
+        json.loads((tmp_path / "artifacts" / "aggregate.json").read_text())
+    )
+    cleanup = json.loads((tmp_path / "artifacts" / "cleanup.json").read_text())
+    assert result["status"] == "ok"
+    assert aggregate["all_passed"] is True
+    assert aggregate["requirement_ids"] == [
+        "DOC-01",
+        "DOC-02",
+        "DOC-03",
+        "TEST-04",
+        "TEST-05",
+        "TEST-06",
+    ]
+    assert sorted(aggregate["workflow_slugs"]) == sorted(
+        spec.slug for spec in module.WORKFLOW_SPECS
+    )
+    assert cleanup["status"] == "passed"
+    for name in ("app.log", "db.log", "nginx.log", "redis.log", "worker.log"):
+        assert (tmp_path / "artifacts" / "service-logs" / name).is_file()
+
+
+def test_execute_workflows_emits_cleanup_on_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    module = _load_module()
+
+    def fail_workflow(*args, **kwargs):
+        raise RuntimeError("synthetic workflow failure")
+
+    monkeypatch.setattr(module, "execute_workflow", fail_workflow)
+
+    with pytest.raises(RuntimeError, match="synthetic workflow failure"):
+        module.execute_workflows(
+            selected_workflows=(module.WORKFLOW_SPECS[0],),
+            artifacts_root=tmp_path / "artifacts",
+        )
+
+    cleanup = json.loads((tmp_path / "artifacts" / "cleanup.json").read_text())
+    run_payload = json.loads((tmp_path / "artifacts" / "run.json").read_text())
+    assert cleanup["status"] == "failed"
+    assert cleanup["failure"]["type"] == "RuntimeError"
+    assert run_payload["status"] == "failed"
