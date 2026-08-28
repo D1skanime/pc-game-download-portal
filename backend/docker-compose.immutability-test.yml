@@ -1,0 +1,146 @@
+services:
+  app:
+    image: romm-romm-dev:latest
+    working_dir: /workspace/backend
+    labels:
+      romm.phase: "09"
+      romm.phase.slug: operational-immutability-proof
+    environment:
+      ROMM_AUTH_SECRET_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      DB_HOST: database
+      DB_PORT: "3306"
+      DB_NAME: romm
+      DB_USER: romm
+      DB_PASSWD: romm
+      REDIS_HOST: queue
+      REDIS_PORT: "6379"
+      ROMM_BASE_PATH: /romm
+    volumes:
+      - type: bind
+        source: ${PHASE9_REPO_ROOT:?set PHASE9_REPO_ROOT}
+        target: /workspace
+        read_only: true
+      - type: bind
+        source: ${PHASE9_FIXTURE_SOURCE:?set PHASE9_FIXTURE_SOURCE}
+        target: /romm/library
+        read_only: true
+      - type: volume
+        source: phase9-assets
+        target: /romm/assets
+      - type: volume
+        source: phase9-cache
+        target: /romm/cache
+      - type: volume
+        source: phase9-config
+        target: /romm/config
+      - type: volume
+        source: phase9-database
+        target: /romm/database
+      - type: volume
+        source: phase9-resources
+        target: /romm/resources
+      - type: volume
+        source: phase9-tmp
+        target: /romm/tmp
+      - type: bind
+        source: ${PHASE9_ARTIFACTS:?set PHASE9_ARTIFACTS}
+        target: /phase9-artifacts
+  worker:
+    image: romm-romm-dev:latest
+    working_dir: /workspace/backend
+    labels:
+      romm.phase: "09"
+      romm.phase.slug: operational-immutability-proof
+    environment:
+      ROMM_AUTH_SECRET_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      DB_HOST: database
+      DB_PORT: "3306"
+      DB_NAME: romm
+      DB_USER: romm
+      DB_PASSWD: romm
+      REDIS_HOST: queue
+      REDIS_PORT: "6379"
+      ROMM_BASE_PATH: /romm
+    volumes:
+      - type: bind
+        source: ${PHASE9_REPO_ROOT:?set PHASE9_REPO_ROOT}
+        target: /workspace
+        read_only: true
+      - type: bind
+        source: ${PHASE9_FIXTURE_SOURCE:?set PHASE9_FIXTURE_SOURCE}
+        target: /romm/library
+        read_only: true
+      - type: volume
+        source: phase9-assets
+        target: /romm/assets
+      - type: volume
+        source: phase9-cache
+        target: /romm/cache
+      - type: volume
+        source: phase9-config
+        target: /romm/config
+      - type: volume
+        source: phase9-database
+        target: /romm/database
+      - type: volume
+        source: phase9-resources
+        target: /romm/resources
+      - type: volume
+        source: phase9-tmp
+        target: /romm/tmp
+      - type: bind
+        source: ${PHASE9_ARTIFACTS:?set PHASE9_ARTIFACTS}
+        target: /phase9-artifacts
+  nginx:
+    image: nginx:1.29-alpine
+    labels:
+      romm.phase: "09"
+      romm.phase.slug: operational-immutability-proof
+    volumes:
+      - type: bind
+        source: ${PHASE9_FIXTURE_SOURCE:?set PHASE9_FIXTURE_SOURCE}
+        target: /romm/library
+        read_only: true
+      - type: volume
+        source: phase9-cache
+        target: /romm/cache
+      - type: volume
+        source: phase9-assets
+        target: /romm/assets
+      - type: volume
+        source: phase9-resources
+        target: /romm/resources
+      - type: bind
+        source: ${PHASE9_ARTIFACTS:?set PHASE9_ARTIFACTS}
+        target: /phase9-artifacts
+  database:
+    image: mariadb:11
+    labels:
+      romm.phase: "09"
+      romm.phase.slug: operational-immutability-proof
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: romm
+      MARIADB_USER: romm
+      MARIADB_PASSWORD: romm
+    volumes:
+      - type: volume
+        source: phase9-database
+        target: /romm/database
+  queue:
+    image: redis:7-alpine
+    labels:
+      romm.phase: "09"
+      romm.phase.slug: operational-immutability-proof
+    volumes:
+      - type: volume
+        source: phase9-cache
+        target: /romm/cache
+
+volumes:
+  phase9-assets:
+  phase9-cache:
+  phase9-config:
+  phase9-database:
+  phase9-resources:
+  phase9-tmp:

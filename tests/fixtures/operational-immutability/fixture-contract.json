@@ -1,0 +1,14 @@
+{
+  "name": "phase9-operational-immutability",
+  "schema_version": 1,
+  "source_root": "source-library",
+  "mappings": ["arcade", "pc"],
+  "dimensions": {
+    "unicode_paths": true,
+    "nested_directories": true,
+    "empty_directories": true,
+    "zero_byte_files": true,
+    "multi_file_content": true,
+    "synthetic_rejection_cases": ["symlink", "traversal"]
+  }
+}

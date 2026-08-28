@@ -98,7 +98,13 @@ def _sample_manifest() -> dict:
                 "atime_ns": 5,
             },
         ],
-        "counts": {"directories": 2, "files": 1, "symlinks": 1, "total_entries": 4},
+        "counts": {
+            "directories": 2,
+            "files": 1,
+            "symlinks": 1,
+            "total_entries": 4,
+            "empty_directories": 1,
+        },
         "aggregate_digest": "1" * 64,
     }
 
@@ -135,6 +141,7 @@ def test_manifest_validation_rejects_missing_empty_directory():
     ]
     manifest["counts"]["directories"] = 1
     manifest["counts"]["total_entries"] = 3
+    manifest["counts"]["empty_directories"] = 0
 
     with pytest.raises(ValueError, match="empty"):
         module.validate_manifest(manifest)
@@ -188,3 +195,32 @@ def test_cleanup_targets_require_owned_phase9_labels():
 
     with pytest.raises(ValueError, match="owned|label"):
         module.validate_cleanup_targets(resources)
+
+
+def test_preflight_rejects_writable_source_mount_and_overlap():
+    module = _load_module()
+    compose_model = {
+        "services": {
+            "app": {
+                "volumes": [
+                    {
+                        "type": "bind",
+                        "source": "/tmp/source",
+                        "target": "/romm/library",
+                    },
+                    {
+                        "type": "bind",
+                        "source": "/tmp/owned",
+                        "target": "/romm/library/cache",
+                    },
+                ],
+                "labels": {
+                    "romm.phase": "09",
+                    "romm.phase.slug": "operational-immutability-proof",
+                },
+            }
+        }
+    }
+
+    with pytest.raises(ValueError, match="read-only|overlap"):
+        module.validate_compose_topology(compose_model)
