@@ -247,6 +247,9 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 - v1 requirements: 63 total
 - Mapped to phases: 63
 - Unmapped: 0
+- v1.1 PC integration requirements: 11 total
+- v1.1 mapped to Phase 10: 11
+- v1.1 unmapped: 0
 
 ---
 
