@@ -14,7 +14,8 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 - [ ] **Phase 6: Safe Lifecycle and Legacy Migration** - Make catalog removal and legacy-layout migration explicit, reversible, and source-safe.
 - [ ] **Phase 7: V2 Storage Administration Experience** - Deliver accessible root, browser, mapping, and preview workflows in the sole active UI.
 - [x] **Phase 8: Bounded V1 Removal** - Remove the frozen frontend and compatibility paths behind a dedicated v2 regression gate. (completed 2026-08-27)
-- [ ] **Phase 9: Operational Immutability Proof** - Prove the complete boundary in production-like conditions and document safe NAS operation.
+- [x] **Phase 9: Operational Immutability Proof** - Functionally accepted after completed isolated UAT (2026-08-31). The optional synthetic-harness replacement is deferred from this milestone.
+- [ ] **Phase 10: PC Integration Model** - Model immutable PC game components and manifests, then enrich recognized games through safe metadata sources.
 
 ## Phase Details
 
@@ -292,7 +293,6 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 4. Frozen v1 views, components, layouts, console surfaces, banners, fallbacks, and v1-only compatibility code are absent from the shipped frontend.
 
 **Plans**: TBD
-**UI hint**: yes
 
 ### Phase 9: Operational Immutability Proof
 
@@ -308,6 +308,22 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 
 **Plans**: TBD
 
+### Phase 10: PC Integration Model
+
+**Goal**: Operators can model existing PC games as immutable component sets and enrich recognized games without changing any source library.
+**Depends on**: Phase 9
+**Requirements**: PCMOD-01, PCMOD-02, PCMOD-03, PCMOD-04, PCMETA-01, PCMETA-02, PCLB-01, PCLB-02, PCRP-01, PCSAFE-01, PCTEST-01
+**Success Criteria** (what must be TRUE):
+
+1. An operator can inspect one PC game as a base game with explicitly classified updates, DLCs, hotfixes, language packs, and extras.
+2. Each component has a stable manifest of contained relative files, byte sizes, and strong digests, while the read-only source root remains unchanged.
+3. A recognized PC game can be matched against configured IGDB, SteamGridDB, MobyGames, and a read-only local LaunchBox library, with the selected metadata and eligible media visible in v2.
+4. Ambiguous component layouts, unavailable providers, and unsupported media sources fail clearly and never create, rename, move, or modify source files.
+5. RiotPixels is only enabled after documented API, rights, and operational constraints have passed a dedicated provider evaluation.
+
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 | Phase                                   | Plans Complete | Status      | Completed  |
@@ -321,3 +337,4 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
 | 9. Operational Immutability Proof       | 1/4            | In Progress |            |
+| 10. PC Integration Model                | 0/TBD          | Not started | -          |

@@ -101,7 +101,29 @@
 - [ ] **DOC-02**: Documentation explains the defense-in-depth policy, symlink/traversal behavior, troubleshooting, known limitations, and `noatime` or NAS-specific access-time guidance.
 - [ ] **DOC-03**: Operational instructions require a safe maintenance window for real NAS mount changes and prohibit changes or restarts to Team4s during active encode work.
 
-## v2 Requirements
+## v1.1 Requirements
+
+### PC Game Model
+
+- [ ] **PCMOD-01**: A user can view one logical PC game with base game, update, DLC, hotfix, language-pack, and extras components.
+- [ ] **PCMOD-02**: Each component retains a contained relative source path and never grants write authority to the external root.
+- [ ] **PCMOD-03**: A scan recognizes configured PC component folders and associates them with their logical game without guessing ambiguous layouts.
+- [ ] **PCMOD-04**: Each recognized component has an immutable manifest of its files, including relative path, byte size, and strong digest.
+
+### PC Metadata and Media
+
+- [ ] **PCMETA-01**: After recognizing a PC game, an operator can start metadata matching and review the selected result before applying it.
+- [ ] **PCMETA-02**: Configured IGDB, SteamGridDB, and MobyGames sources can provide PC metadata and artwork using their existing provider contracts.
+- [ ] **PCLB-01**: An administrator can connect a deployment-mounted local LaunchBox library read-only as a PC metadata and media source.
+- [ ] **PCLB-02**: A matched PC game can use eligible local LaunchBox descriptions, cover art, fan art, logos, screenshots, and videos without modifying the LaunchBox library.
+- [ ] **PCRP-01**: RiotPixels is evaluated for documented API access, terms, rate limits, and supported still or animated media before any provider integration is enabled.
+
+### PC Safety and Verification
+
+- [ ] **PCSAFE-01**: Component recognition, manifest generation, metadata matching, and local LaunchBox reads leave every source root unchanged.
+- [ ] **PCTEST-01**: Tests cover nested PC components, ambiguous layouts, immutable manifests, provider failures, and source-unchanged evidence.
+
+## Future Requirements
 
 ### PC Components
 
@@ -133,6 +155,9 @@
 | PC components in milestone 1                 | Depends on the verified storage boundary                                   |
 | Manifest downloads and resume in milestone 1 | Depends on stable immutable file identity                                  |
 | Windows downloader in milestone 1            | Depends on component and manifest contracts                                |
+| Windows downloader and install planner       | Deliberately deferred to its own milestone after the PC model is verified  |
+| Direct LaunchBox account or cloud connection | No documented public OAuth/API contract is currently available             |
+| Automated RiotPixels media import            | Requires a verified API and explicit usage permission                      |
 | Full v2 visual redesign in milestone 1       | New storage surfaces establish direction; broader redesign is deferred     |
 | Copying Team4s React components              | Team4s is a design reference, not a code or runtime dependency             |
 
@@ -140,71 +165,82 @@
 
 Roadmap creation populates this table. Every v1 requirement must map to exactly one phase.
 
-| Requirement | Phase   | Status   |
-| ----------- | ------- | -------- |
-| ROOT-01     | Phase 1 | Complete |
-| ROOT-02     | Phase 1 | Complete |
-| ROOT-03     | Phase 1 | Complete |
-| ROOT-04     | Phase 1 | Complete |
-| ROOT-05     | Phase 2 | Complete |
-| PATH-01     | Phase 1 | Complete |
-| PATH-02     | Phase 1 | Complete |
-| PATH-03     | Phase 1 | Complete |
-| PATH-04     | Phase 1 | Complete |
-| PATH-05     | Phase 1 | Complete |
-| MAP-01      | Phase 3 | Complete |
-| MAP-02      | Phase 3 | Complete |
-| MAP-03      | Phase 3 | Complete |
-| MAP-04      | Phase 3 | Complete |
-| MAP-05      | Phase 3 | Complete |
-| MAP-06      | Phase 3 | Complete |
-| SAFE-01     | Phase 2 | Complete |
-| SAFE-02     | Phase 2 | Complete |
-| SAFE-03     | Phase 2 | Complete |
-| SAFE-04     | Phase 2 | Complete |
-| SAFE-05     | Phase 2 | Complete |
-| SAFE-06     | Phase 2 | Complete |
-| SCAN-01     | Phase 5 | Complete |
-| SCAN-02     | Phase 5 | Complete |
-| SCAN-03     | Phase 5 | Complete |
-| SCAN-04     | Phase 5 | Complete |
-| SCAN-05     | Phase 5 | Complete |
-| SCAN-06     | Phase 5 | Complete |
-| CAT-01      | Phase 6 | Complete |
-| CAT-02      | Phase 6 | Complete |
-| CAT-03      | Phase 6 | Complete |
-| CAT-04      | Phase 6 | Complete |
-| API-01      | Phase 3 | Complete |
-| API-02      | Phase 3 | Complete |
-| API-03      | Phase 3 | Complete |
-| API-04      | Phase 3 | Complete |
-| AUD-01      | Phase 3 | Complete |
-| AUD-02      | Phase 3 | Complete |
-| UI-01       | Phase 7 | Pending  |
-| UI-02       | Phase 7 | Pending  |
-| UI-03       | Phase 7 | Pending  |
-| UI-04       | Phase 7 | Pending  |
-| UI-05       | Phase 4 | Complete |
-| UI-06       | Phase 7 | Pending  |
-| V2-01       | Phase 8 | Complete |
-| V2-02       | Phase 8 | Complete |
-| V2-03       | Phase 8 | Complete |
-| V2-04       | Phase 8 | Complete |
-| V2-05       | Phase 8 | Complete |
-| MIG-01      | Phase 6 | Complete |
-| MIG-02      | Phase 6 | Blocked  |
-| MIG-03      | Phase 6 | Complete |
-| MIG-04      | Phase 6 | Complete |
-| MIG-05      | Phase 6 | Complete |
-| TEST-01     | Phase 1 | Complete |
-| TEST-02     | Phase 3 | Complete |
-| TEST-03     | Phase 2 | Complete |
-| TEST-04     | Phase 9 | Pending  |
-| TEST-05     | Phase 9 | Pending  |
-| TEST-06     | Phase 9 | Pending  |
-| DOC-01      | Phase 9 | Pending  |
-| DOC-02      | Phase 9 | Pending  |
-| DOC-03      | Phase 9 | Pending  |
+| Requirement | Phase    | Status   |
+| ----------- | -------- | -------- |
+| ROOT-01     | Phase 1  | Complete |
+| ROOT-02     | Phase 1  | Complete |
+| ROOT-03     | Phase 1  | Complete |
+| ROOT-04     | Phase 1  | Complete |
+| ROOT-05     | Phase 2  | Complete |
+| PATH-01     | Phase 1  | Complete |
+| PATH-02     | Phase 1  | Complete |
+| PATH-03     | Phase 1  | Complete |
+| PATH-04     | Phase 1  | Complete |
+| PATH-05     | Phase 1  | Complete |
+| MAP-01      | Phase 3  | Complete |
+| MAP-02      | Phase 3  | Complete |
+| MAP-03      | Phase 3  | Complete |
+| MAP-04      | Phase 3  | Complete |
+| MAP-05      | Phase 3  | Complete |
+| MAP-06      | Phase 3  | Complete |
+| SAFE-01     | Phase 2  | Complete |
+| SAFE-02     | Phase 2  | Complete |
+| SAFE-03     | Phase 2  | Complete |
+| SAFE-04     | Phase 2  | Complete |
+| SAFE-05     | Phase 2  | Complete |
+| SAFE-06     | Phase 2  | Complete |
+| SCAN-01     | Phase 5  | Complete |
+| SCAN-02     | Phase 5  | Complete |
+| SCAN-03     | Phase 5  | Complete |
+| SCAN-04     | Phase 5  | Complete |
+| SCAN-05     | Phase 5  | Complete |
+| SCAN-06     | Phase 5  | Complete |
+| CAT-01      | Phase 6  | Complete |
+| CAT-02      | Phase 6  | Complete |
+| CAT-03      | Phase 6  | Complete |
+| CAT-04      | Phase 6  | Complete |
+| API-01      | Phase 3  | Complete |
+| API-02      | Phase 3  | Complete |
+| API-03      | Phase 3  | Complete |
+| API-04      | Phase 3  | Complete |
+| AUD-01      | Phase 3  | Complete |
+| AUD-02      | Phase 3  | Complete |
+| UI-01       | Phase 7  | Pending  |
+| UI-02       | Phase 7  | Pending  |
+| UI-03       | Phase 7  | Pending  |
+| UI-04       | Phase 7  | Pending  |
+| UI-05       | Phase 4  | Complete |
+| UI-06       | Phase 7  | Pending  |
+| V2-01       | Phase 8  | Complete |
+| V2-02       | Phase 8  | Complete |
+| V2-03       | Phase 8  | Complete |
+| V2-04       | Phase 8  | Complete |
+| V2-05       | Phase 8  | Complete |
+| MIG-01      | Phase 6  | Complete |
+| MIG-02      | Phase 6  | Blocked  |
+| MIG-03      | Phase 6  | Complete |
+| MIG-04      | Phase 6  | Complete |
+| MIG-05      | Phase 6  | Complete |
+| TEST-01     | Phase 1  | Complete |
+| TEST-02     | Phase 3  | Complete |
+| TEST-03     | Phase 2  | Complete |
+| TEST-04     | Phase 9  | Pending  |
+| TEST-05     | Phase 9  | Pending  |
+| TEST-06     | Phase 9  | Pending  |
+| DOC-01      | Phase 9  | Pending  |
+| DOC-02      | Phase 9  | Pending  |
+| DOC-03      | Phase 9  | Pending  |
+| PCMOD-01    | Phase 10 | Pending  |
+| PCMOD-02    | Phase 10 | Pending  |
+| PCMOD-03    | Phase 10 | Pending  |
+| PCMOD-04    | Phase 10 | Pending  |
+| PCMETA-01   | Phase 10 | Pending  |
+| PCMETA-02   | Phase 10 | Pending  |
+| PCLB-01     | Phase 10 | Pending  |
+| PCLB-02     | Phase 10 | Pending  |
+| PCRP-01     | Phase 10 | Pending  |
+| PCSAFE-01   | Phase 10 | Pending  |
+| PCTEST-01   | Phase 10 | Pending  |
 
 **Coverage:**
 
@@ -215,4 +251,4 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 ---
 
 _Requirements defined: 2026-08-04_
-_Last updated: 2026-08-10 after Phase 2 completion_
+_Last updated: 2026-08-31 after defining milestone v1.1 requirements_

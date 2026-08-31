@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-08-28T07:57:34.469Z"
-last_activity: 2026-08-28
+milestone: v1.1
+milestone_name: PC integration
+status: planning
+stopped_at: New milestone started
+last_updated: "2026-08-31T20:00:00Z"
+last_activity: 2026-08-31
 progress:
-  total_phases: 9
-  completed_phases: 7
-  total_plans: 100
-  completed_plans: 95
-  percent: 78
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-10)
+See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 09 — operational-immutability-proof
+**Current focus:** Phase 10 — PC Integration Model
 
 ## Current Position
 
-Phase: 09 (operational-immutability-proof) — EXECUTING
-Plan: 2 of 4
-Status: Ready to execute
-Last activity: 2026-08-28
+Phase: 10 (PC Integration Model)
+Plan: —
+Status: Defining requirements and architecture
+Last activity: 2026-08-31, milestone v1.1 started
 
-Progress: [██████████] 95%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 

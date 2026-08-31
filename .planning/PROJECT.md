@@ -10,6 +10,17 @@ The first milestone delivers only the secure NAS integration and removes the leg
 
 RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
 
+## Current Milestone: v1.1 PC integration
+
+**Goal:** Model existing PC games and their immutable component files while enriching each recognized game through safe, configured metadata sources.
+
+**Target features:**
+
+- PC game components and immutable per-game file manifests.
+- Automatic metadata matching after PC-game recognition.
+- Read-only use of an existing local LaunchBox library and its media.
+- Provider evaluation for RiotPixels before any automated use.
+
 ## Requirements
 
 ### Validated
@@ -108,4 +119,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-08-10 after Phase 2 completion_
+_Last updated: 2026-08-31 after starting milestone v1.1 PC integration_
