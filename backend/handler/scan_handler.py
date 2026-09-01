@@ -33,6 +33,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, FlashpointRom
 from handler.metadata.gamelist_handler import GamelistRom
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
@@ -62,7 +63,7 @@ from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomComponentKind, RomFile, RomFileCategory
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
@@ -506,6 +507,16 @@ async def scan_rom(
 
     _added_rom = db_rom_handler.add_rom(Rom(**rom_attrs))
     _added_rom.is_identifying = True
+
+    if platform.slug == UPS.WIN and fs_rom["nested"]:
+        pc_components = await fs_rom_handler.get_pc_components(_added_rom)
+        for component in pc_components:
+            if component.kind == RomComponentKind.UNRESOLVED:
+                log.warning(
+                    f"unresolved PC component layout: {component.relative_path}",
+                    extra=LOGGER_MODULE_NAME,
+                )
+        db_rom_handler.sync_rom_components(_added_rom.id, pc_components)
 
     if socket_manager:
         await socket_manager.emit(

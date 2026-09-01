@@ -28,7 +28,13 @@ from handler.scan_handler import (
     scan_rom,
 )
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import (
+    Rom,
+    RomComponent,
+    RomComponentKind,
+    RomComponentManifestMember,
+    RomFile,
+)
 from utils.context import initialize_context
 
 
@@ -118,6 +124,139 @@ async def test_scan_rom():
     # assert rom.hasheous_id == 4872
     # assert rom.fs_size_bytes == 23175094
     # assert rom.tags == []
+
+
+def test_pc_component_reconciliation_preserves_unchanged_member_identity(rom: Rom):
+    """Replacing unchanged rows would invalidate durable manifest references."""
+    first = db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="base",
+                kind=RomComponentKind.BASE,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="base/game.exe",
+                        size_bytes=4,
+                        sha256="a" * 64,
+                    ),
+                    RomComponentManifestMember(
+                        relative_path="base/data.bin",
+                        size_bytes=8,
+                        sha256="b" * 64,
+                    ),
+                ],
+            )
+        ],
+    )
+    component_id = first[0].id
+    member_ids = {
+        member.relative_path: member.id for member in first[0].manifest_members
+    }
+
+    unchanged = db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="base",
+                kind=RomComponentKind.BASE,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="base/game.exe",
+                        size_bytes=4,
+                        sha256="a" * 64,
+                    ),
+                    RomComponentManifestMember(
+                        relative_path="base/data.bin",
+                        size_bytes=8,
+                        sha256="b" * 64,
+                    ),
+                ],
+            )
+        ],
+    )
+    assert unchanged[0].id == component_id
+    assert {
+        member.relative_path: member.id for member in unchanged[0].manifest_members
+    } == member_ids
+
+    changed = db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="base",
+                kind=RomComponentKind.BASE,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="base/game.exe",
+                        size_bytes=5,
+                        sha256="c" * 64,
+                    ),
+                    RomComponentManifestMember(
+                        relative_path="base/data.bin",
+                        size_bytes=8,
+                        sha256="b" * 64,
+                    ),
+                ],
+            )
+        ],
+    )
+    changed_members = {
+        member.relative_path: member for member in changed[0].manifest_members
+    }
+    assert changed[0].id == component_id
+    assert changed_members["base/game.exe"].id == member_ids["base/game.exe"]
+    assert changed_members["base/game.exe"].sha256 == "c" * 64
+    assert changed_members["base/data.bin"].id == member_ids["base/data.bin"]
+
+
+async def test_scan_rom_logs_unresolved_pc_component_layout():
+    """Ambiguous PC folders must remain visible instead of receiving a guessed type."""
+    platform = db_platform_handler.add_platform(
+        Platform(name="Windows", slug="win", fs_slug="win")
+    )
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Example Game",
+        fs_path="roms/win",
+        tags=[],
+    )
+    unresolved = RomComponent(
+        relative_path="mods",
+        kind=RomComponentKind.UNRESOLVED,
+    )
+
+    with (
+        patch(
+            "handler.scan_handler.fs_rom_handler.get_pc_components",
+            new_callable=AsyncMock,
+            return_value=[unresolved],
+        ),
+        patch("handler.scan_handler.log.warning") as warning,
+    ):
+        async with initialize_context():
+            await scan_rom(
+                platform=platform,
+                scan_type=ScanType.QUICK,
+                rom=rom,
+                fs_rom={
+                    "fs_name": "Example Game",
+                    "flat": False,
+                    "nested": True,
+                    "files": [],
+                    "crc_hash": "",
+                    "md5_hash": "",
+                    "sha1_hash": "",
+                    "ra_hash": "",
+                },
+                metadata_sources=[],
+                newly_added=True,
+            )
+
+    warning.assert_any_call(
+        "unresolved PC component layout: mods",
+        extra={"module_name": "scan"},
+    )
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)

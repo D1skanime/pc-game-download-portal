@@ -54,6 +54,8 @@ from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
     Rom,
+    RomComponent,
+    RomComponentManifestMember,
     RomFacets,
     RomFile,
     RomFileCategory,
@@ -2056,6 +2058,81 @@ class DBRomsHandler(DBBaseHandler):
 
         session.flush()
         return SyncedRomFiles(files=saved, orphaned_cover_paths=orphaned_cover_paths)
+
+    @begin_session
+    def sync_rom_components(
+        self,
+        rom_id: int,
+        scanned_components: Sequence[RomComponent],
+        session: Session = None,  # type: ignore
+    ) -> list[RomComponent]:
+        """Reconcile read-only PC component manifests without replacing stable rows."""
+        existing = (
+            session.scalars(
+                select(RomComponent)
+                .options(selectinload(RomComponent.manifest_members))
+                .where(RomComponent.rom_id == rom_id)
+            )
+            .unique()
+            .all()
+        )
+        unmatched = {component.relative_path: component for component in existing}
+        saved: list[RomComponent] = []
+
+        for scanned_component in scanned_components:
+            component = unmatched.pop(scanned_component.relative_path, None)
+            if component is None:
+                component = RomComponent(
+                    rom_id=rom_id,
+                    relative_path=scanned_component.relative_path,
+                    kind=scanned_component.kind,
+                    manifest_members=[
+                        RomComponentManifestMember(
+                            relative_path=member.relative_path,
+                            size_bytes=member.size_bytes,
+                            sha256=member.sha256,
+                        )
+                        for member in scanned_component.manifest_members
+                    ],
+                )
+                session.add(component)
+                saved.append(component)
+                continue
+            elif component.kind != scanned_component.kind:
+                component.kind = scanned_component.kind
+
+            unmatched_members = {
+                member.relative_path: member for member in component.manifest_members
+            }
+            for scanned_member in scanned_component.manifest_members:
+                member = unmatched_members.pop(scanned_member.relative_path, None)
+                if member is None:
+                    session.add(
+                        RomComponentManifestMember(
+                            component_id=component.id,
+                            relative_path=scanned_member.relative_path,
+                            size_bytes=scanned_member.size_bytes,
+                            sha256=scanned_member.sha256,
+                        )
+                    )
+                elif (
+                    member.size_bytes != scanned_member.size_bytes
+                    or member.sha256 != scanned_member.sha256
+                ):
+                    member.size_bytes = scanned_member.size_bytes
+                    member.sha256 = scanned_member.sha256
+
+            for member in unmatched_members.values():
+                session.delete(member)
+            saved.append(component)
+
+        for component in unmatched.values():
+            session.delete(component)
+
+        session.flush()
+        for component in saved:
+            session.refresh(component, attribute_names=["manifest_members"])
+        return saved
 
     @begin_session
     def get_rom_file_by_id(
