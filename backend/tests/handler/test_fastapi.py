@@ -32,6 +32,7 @@ from models.rom import (
     Rom,
     RomComponent,
     RomComponentKind,
+    RomComponentLocalMediaRole,
     RomComponentManifestMember,
     RomFile,
 )
@@ -208,6 +209,60 @@ def test_pc_component_reconciliation_preserves_unchanged_member_identity(rom: Ro
     assert changed_members["base/game.exe"].id == member_ids["base/game.exe"]
     assert changed_members["base/game.exe"].sha256 == "c" * 64
     assert changed_members["base/data.bin"].id == member_ids["base/data.bin"]
+
+
+def test_pc_component_reconciliation_discards_changed_local_media(rom: Rom):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="dlc/phantom-liberty/poster.png",
+                        size_bytes=4,
+                        sha256="a" * 64,
+                    )
+                ],
+            )
+        ],
+    )
+    persisted = db_rom_handler.get_rom(rom.id)
+    assert persisted is not None
+    component = persisted.components[0]
+    member = component.manifest_members[0]
+    applied = db_rom_handler.apply_pc_local_media(
+        rom.id,
+        persisted.updated_at,
+        component.id,
+        member.id,
+        RomComponentLocalMediaRole.GALLERY,
+        "roms/1/1/pc-media/poster.png",
+        "png",
+        member.sha256,
+    )
+    assert applied is not None
+
+    changed = db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="dlc/phantom-liberty/poster.png",
+                        size_bytes=5,
+                        sha256="b" * 64,
+                    )
+                ],
+            )
+        ],
+    )
+
+    assert changed.orphaned_owned_paths == ["roms/1/1/pc-media/poster.png"]
+    assert changed[0].local_media == []
 
 
 async def test_scan_rom_logs_unresolved_pc_component_layout():

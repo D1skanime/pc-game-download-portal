@@ -266,11 +266,16 @@ class FSRomsHandler(ExternalFSHandler):
         """
         rom_path = f"{rom.fs_path}/{rom.fs_name}"
         components: list[RomComponent] = []
-        for component_name in sorted(await self.list_directories(rom_path)):
-            kind = parse_pc_component_layout(component_name)
-            component_path = f"{rom_path}/{component_name}"
+
+        async def build_component(
+            component_path: str,
+            relative_path: str,
+            kind: RomComponentKind,
+            *,
+            recursive: bool,
+        ) -> RomComponent:
             manifest_members: list[RomComponentManifestMember] = []
-            pending_directories = [component_path]
+            pending_directories = [component_path] if recursive else []
 
             while pending_directories:
                 directory = pending_directories.pop()
@@ -291,11 +296,53 @@ class FSRomsHandler(ExternalFSHandler):
                         )
                     )
 
+            if not recursive:
+                for file_name in sorted(await self.list_files(component_path)):
+                    file_path = f"{component_path}/{file_name}"
+                    manifest_path = file_path.removeprefix(f"{rom_path}/")
+                    with self.open_rom_hash(file_path) as source:
+                        sha256 = source.hash("sha256")
+                    manifest_members.append(
+                        RomComponentManifestMember(
+                            relative_path=manifest_path,
+                            size_bytes=await self.get_file_size(file_path),
+                            sha256=sha256,
+                        )
+                    )
+
+            return RomComponent(
+                relative_path=relative_path,
+                kind=kind,
+                manifest_members=manifest_members,
+            )
+
+        for component_name in sorted(await self.list_directories(rom_path)):
+            kind = parse_pc_component_layout(component_name)
+            component_path = f"{rom_path}/{component_name}"
+            nested_directories = sorted(await self.list_directories(component_path))
+            if kind == RomComponentKind.DLC and nested_directories:
+                if await self.list_files(component_path):
+                    components.append(
+                        await build_component(
+                            component_path,
+                            component_name,
+                            kind,
+                            recursive=False,
+                        )
+                    )
+                for nested_name in nested_directories:
+                    components.append(
+                        await build_component(
+                            f"{component_path}/{nested_name}",
+                            f"{component_name}/{nested_name}",
+                            kind,
+                            recursive=True,
+                        )
+                    )
+                continue
             components.append(
-                RomComponent(
-                    relative_path=component_name,
-                    kind=kind,
-                    manifest_members=manifest_members,
+                await build_component(
+                    component_path, component_name, kind, recursive=True
                 )
             )
 

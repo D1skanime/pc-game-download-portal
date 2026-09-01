@@ -12,6 +12,7 @@ from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import (
     fs_asset_handler,
     fs_firmware_handler,
+    fs_resource_handler,
     fs_rom_handler,
     legacy_external_storage,
     open_storage_access,
@@ -226,6 +227,8 @@ async def scan_platform(
     with open_storage_access(
         legacy_external_storage, StorageOperation.SCAN, ""
     ) as access:
+        if not hasattr(access, "scan"):
+            raise TypeError("scan storage access is unavailable")
         access.scan()
     platform_attrs: dict[str, Any] = {}
     platform_attrs["fs_slug"] = fs_slug
@@ -516,7 +519,14 @@ async def scan_rom(
                     f"unresolved PC component layout: {component.relative_path}",
                     extra=LOGGER_MODULE_NAME,
                 )
-        db_rom_handler.sync_rom_components(_added_rom.id, pc_components)
+        synced_components = db_rom_handler.sync_rom_components(
+            _added_rom.id, pc_components
+        )
+        for owned_path in synced_components.orphaned_owned_paths:
+            try:
+                await fs_resource_handler.remove_file(owned_path)
+            except FileNotFoundError:
+                pass
 
     if socket_manager:
         await socket_manager.emit(

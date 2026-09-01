@@ -27,6 +27,10 @@ from models.platform import Platform
 from models.rom import Rom, RomComponentKind, RomFile, RomFileCategory
 from utils.archives import extract_chd_hash
 
+PC_INTEGRATION_FIXTURE_ROOT = (
+    Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "pc-integration-model"
+)
+
 
 def _fixture_tree_digest(root: Path) -> str:
     return hashlib.sha256(
@@ -1710,12 +1714,7 @@ class TestPcComponentManifests:
     async def test_committed_pc_library_fixture_keeps_unknown_folders_unresolved(
         self,
     ):
-        fixture_root = (
-            Path(__file__).resolve().parents[4]
-            / "tests"
-            / "fixtures"
-            / "pc-integration-model"
-        )
+        fixture_root = PC_INTEGRATION_FIXTURE_ROOT
         source_root = fixture_root / "source-library"
         source_digest_before = await asyncio.to_thread(
             _fixture_tree_digest, source_root
@@ -1801,16 +1800,23 @@ class TestPcComponentManifests:
 
         components = await handler.get_pc_components(rom)
 
+        expected_components = {
+            **{name: kind for name, kind in expected.items() if name != "dlc"},
+            "dlc/nested": RomComponentKind.DLC,
+        }
         assert [
             (component.relative_path, component.kind) for component in components
-        ] == sorted(expected.items())
+        ] == sorted(expected_components.items())
         for component in components:
             member = component.manifest_members[0]
-            expected_bytes = f"{component.relative_path}-bytes".encode()
-            assert (
-                member.relative_path
-                == f"{component.relative_path}/nested/{component.relative_path}.bin"
+            source_folder = component.relative_path.split("/", 1)[0]
+            expected_bytes = f"{source_folder}-bytes".encode()
+            member_path = (
+                f"{component.relative_path}/{source_folder}.bin"
+                if component.relative_path.startswith("dlc/")
+                else f"{component.relative_path}/nested/{source_folder}.bin"
             )
+            assert member.relative_path == member_path
             assert member.size_bytes == len(expected_bytes)
             assert member.sha256 == hashlib.sha256(expected_bytes).hexdigest()
 
@@ -1825,6 +1831,33 @@ class TestPcComponentManifests:
                 b"".join(f"{folder}-bytes".encode() for folder in sorted(expected))
             ).hexdigest()
         )
+
+    @pytest.mark.asyncio
+    async def test_named_dlc_directories_become_individual_components(
+        self, tmp_path: Path
+    ):
+        root = tmp_path / "roms" / "win" / "Example Game" / "dlc"
+        for name in ("phantom-liberty", "bonus-pack"):
+            path = root / name / "content.bin"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(name.encode())
+
+        handler = FSRomsHandler(_create_external_descriptor(1, tmp_path, mapping_id=1))
+        rom = Rom(
+            id=1,
+            fs_name="Example Game",
+            fs_path="roms/win",
+            platform=Platform(name="Windows", slug="win", fs_slug="win"),
+        )
+
+        components = await handler.get_pc_components(rom)
+
+        assert [
+            (component.relative_path, component.kind) for component in components
+        ] == [
+            ("dlc/bonus-pack", RomComponentKind.DLC),
+            ("dlc/phantom-liberty", RomComponentKind.DLC),
+        ]
 
     def test_ambiguous_or_traversal_component_paths_are_not_classified(self):
         """Weak names and traversal must not become component authority."""

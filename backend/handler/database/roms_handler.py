@@ -252,6 +252,14 @@ class AppliedPcLocalMedia(NamedTuple):
     replaced_owned_paths: list[str]
 
 
+class SyncedRomComponents(list[RomComponent]):
+    def __init__(
+        self, components: Sequence[RomComponent], orphaned_owned_paths: list[str]
+    ):
+        super().__init__(components)
+        self.orphaned_owned_paths = orphaned_owned_paths
+
+
 def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
     """Identity of a file by content, or None when it can't be identified.
 
@@ -2172,12 +2180,15 @@ class DBRomsHandler(DBBaseHandler):
         rom_id: int,
         scanned_components: Sequence[RomComponent],
         session: Session = None,  # type: ignore
-    ) -> list[RomComponent]:
+    ) -> SyncedRomComponents:
         """Reconcile read-only PC component manifests without replacing stable rows."""
         existing = (
             session.scalars(
                 select(RomComponent)
-                .options(selectinload(RomComponent.manifest_members))
+                .options(
+                    selectinload(RomComponent.manifest_members),
+                    selectinload(RomComponent.local_media),
+                )
                 .where(RomComponent.rom_id == rom_id)
             )
             .unique()
@@ -2185,6 +2196,34 @@ class DBRomsHandler(DBBaseHandler):
         )
         unmatched = {component.relative_path: component for component in existing}
         saved: list[RomComponent] = []
+        scanned_evidence = {
+            component.relative_path: {
+                member.relative_path: member.sha256
+                for member in component.manifest_members
+            }
+            for component in scanned_components
+        }
+        orphaned_owned_paths: list[str] = []
+        rom = session.get(Rom, rom_id)
+        for component in existing:
+            expected_members = scanned_evidence.get(component.relative_path, {})
+            for media in list(component.local_media):
+                if (
+                    expected_members.get(media.source_relative_path)
+                    == media.source_sha256
+                ):
+                    continue
+                orphaned_owned_paths.append(media.owned_path)
+                if (
+                    media.role == RomComponentLocalMediaRole.COVER
+                    and rom is not None
+                    and rom.path_cover_l == media.owned_path
+                ):
+                    if rom.path_cover_s:
+                        orphaned_owned_paths.append(rom.path_cover_s)
+                    rom.path_cover_l = None
+                    rom.path_cover_s = None
+                session.delete(media)
 
         for scanned_component in scanned_components:
             component = unmatched.pop(scanned_component.relative_path, None)
@@ -2238,8 +2277,10 @@ class DBRomsHandler(DBBaseHandler):
 
         session.flush()
         for component in saved:
-            session.refresh(component, attribute_names=["manifest_members"])
-        return saved
+            session.refresh(
+                component, attribute_names=["manifest_members", "local_media"]
+            )
+        return SyncedRomComponents(saved, list(dict.fromkeys(orphaned_owned_paths)))
 
     @begin_session
     def get_rom_file_by_id(
