@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ManualMetadata } from './ManualMetadata';
+import type { PcComponentSchema } from './PcComponentSchema';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomGamelistMetadata } from './RomGamelistMetadata';
@@ -88,6 +89,7 @@ export type SimpleRomSchema = {
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
     files: Array<RomFileSchema>;
+    components?: Array<PcComponentSchema>;
     sibling_roms: Array<SiblingRomSchema>;
     screenshot_path?: (string | null);
 };

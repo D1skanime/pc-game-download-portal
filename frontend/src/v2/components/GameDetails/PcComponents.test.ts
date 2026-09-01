@@ -1,0 +1,70 @@
+import { mount } from "@vue/test-utils";
+import { describe, expect, it, vi } from "vitest";
+import type { PcComponentSchema } from "@/__generated__";
+import PcComponents from "./PcComponents.vue";
+
+vi.mock("vue-i18n", () => ({
+  useI18n: () => ({
+    t: (key: string) =>
+      ({
+        "rom.pc-components": "PC components",
+        "rom.pc-base-game": "Base game",
+        "rom.pc-updates": "Updates",
+        "rom.category-dlc": "DLC",
+        "rom.pc-hotfixes": "Hotfixes",
+        "rom.pc-language-packs": "Language packs",
+        "rom.pc-extras": "Extras",
+        "rom.pc-needs-classification": "Needs classification",
+      })[key] ?? key,
+  }),
+}));
+
+const componentGroups = [
+  {
+    relative_path: "Game",
+    kind: "base",
+    manifest_members: [
+      {
+        relative_path: "Game/game.exe",
+        size_bytes: 1024,
+        sha256: "a".repeat(64),
+      },
+    ],
+  },
+  { relative_path: "Updates", kind: "update", manifest_members: [] },
+  { relative_path: "DLC", kind: "dlc", manifest_members: [] },
+  { relative_path: "Hotfix", kind: "hotfix", manifest_members: [] },
+  { relative_path: "Language", kind: "language_pack", manifest_members: [] },
+  { relative_path: "Extras", kind: "extra", manifest_members: [] },
+  { relative_path: "Unknown", kind: "unresolved", manifest_members: [] },
+] satisfies PcComponentSchema[];
+
+describe("PcComponents", () => {
+  it("renders PC component groups in the operator review order", async () => {
+    const wrapper = mount(PcComponents, {
+      props: { components: componentGroups },
+      global: { stubs: { RCollapsible: false } },
+    });
+
+    expect(wrapper.text()).toContain("Base game");
+    expect(wrapper.text()).toContain("Needs classification");
+    expect(
+      wrapper
+        .findAll("[data-testid='pc-component-group']")
+        .map((group) => group.get(".pc-components__group-heading").text()),
+    ).toEqual([
+      "Base game",
+      "Updates",
+      "DLC",
+      "Hotfixes",
+      "Language packs",
+      "Extras",
+      "Needs classification",
+    ]);
+
+    await wrapper.get("[data-testid='pc-component-Game']").trigger("click");
+    expect(wrapper.text()).toContain("Game/game.exe");
+    expect(wrapper.text()).toContain("1 KB");
+    expect(wrapper.text()).toContain("a".repeat(64));
+  });
+});

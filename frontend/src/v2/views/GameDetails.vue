@@ -25,6 +25,8 @@ import MetadataTab from "@/v2/components/GameDetails/MetadataTab.vue";
 import NotesTab from "@/v2/components/GameDetails/NotesTab.vue";
 import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
+import PcComponents from "@/v2/components/GameDetails/PcComponents.vue";
+import PcMetadataReview from "@/v2/components/GameDetails/PcMetadataReview.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
@@ -226,6 +228,21 @@ const statesCount = computed(() => currentRom.value?.user_states?.length ?? 0);
 const saveDataCount = computed(() => savesCount.value + statesCount.value);
 
 const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
+const PC_PLATFORM_SLUGS = new Set(["dos", "win", "win3x", "win9x"]);
+const isPcRom = computed(
+  () =>
+    currentRom.value && PC_PLATFORM_SLUGS.has(currentRom.value.platform_slug),
+);
+
+async function refreshPcDetails() {
+  if (!currentRom.value) return;
+  try {
+    const { data } = await romApi.getRom({ romId: currentRom.value.id });
+    romsStore.setCurrentRom(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 // The patcher tab is always available: a base game file can be patched with
 // one of the ROM's bundled patch files or with a patch uploaded from disk, so
@@ -233,6 +250,9 @@ const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: t("rom.tab-overview") },
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
+  ...(isPcRom.value
+    ? [{ id: "pc-components", label: t("rom.pc-components") }]
+    : []),
   { id: "patcher", label: t("common.patcher") },
   { id: "media", label: t("rom.media") },
   { id: "notes", label: t("rom.tab-notes") },
@@ -288,6 +308,13 @@ const tabs = computed<RTabNavItem[]>(() => [
             :similar-games="similarGames"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />
+          <template v-if="tab === 'pc-components' && isPcRom">
+            <PcMetadataReview
+              :rom-id="currentRom.id"
+              @applied="refreshPcDetails"
+            />
+            <PcComponents :components="currentRom.components ?? []" />
+          </template>
           <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
           <MediaTab v-if="tab === 'media'" :rom="currentRom" />
           <NotesTab v-if="tab === 'notes'" :rom="currentRom" />

@@ -26,7 +26,14 @@ from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.collection import Collection, SmartCollection
-from models.rom import Rom, RomArchiveMember, RomFile, RomFileCategory, RomUserStatus
+from models.rom import (
+    Rom,
+    RomArchiveMember,
+    RomComponentKind,
+    RomFile,
+    RomFileCategory,
+    RomUserStatus,
+)
 
 from .base import BaseModel, UTCDatetime
 
@@ -279,6 +286,22 @@ class RomFileSchema(BaseModel):
         return self
 
 
+class PcComponentManifestMemberSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    relative_path: str
+    size_bytes: int
+    sha256: str
+
+
+class PcComponentSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    relative_path: str
+    kind: RomComponentKind
+    manifest_members: list[PcComponentManifestMemberSchema]
+
+
 class SoundtrackTrackMetaSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -423,6 +446,7 @@ class RomSchema(BaseModel):
     merged_ra_metadata: RomRAMetadata | None
 
     files: list[RomFileSchema] = Field(validation_alias="included_files")
+    components: list[PcComponentSchema] = Field(default_factory=list)
     sibling_roms: list[SiblingRomSchema] = Field(
         validation_alias="included_sibling_roms"
     )
@@ -617,6 +641,10 @@ class DetailedRomSchema(RomSchema):
         )
         db_rom.included_sibling_roms = sorted_siblings  # type: ignore[assignment]
         db_rom.included_files = sorted(db_rom.files, key=lambda x: x.file_name)  # type: ignore[assignment]
+        db_rom.components = sorted(  # type: ignore[assignment]
+            db_rom.components,
+            key=lambda component: component.relative_path,
+        )
 
         db_rom.user_saves = [  # type: ignore[assignment]
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id

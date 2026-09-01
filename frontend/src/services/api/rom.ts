@@ -12,6 +12,9 @@ import type {
   SoundtrackTrackMetaSchema,
   UserNoteSchema,
   RomFiltersDict,
+  PcMetadataCandidatesResponse,
+  PcMetadataSelectionRequest,
+  PcMetadataSelectionResponse,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
@@ -300,6 +303,25 @@ async function getRomSimple({
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).
   return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
+}
+
+async function getPcMetadataCandidates({ romId }: { romId: number }) {
+  return api.get<PcMetadataCandidatesResponse>(
+    `/roms/${romId}/pc-metadata-candidates`,
+  );
+}
+
+async function selectPcMetadataCandidate({
+  romId,
+  selection,
+}: {
+  romId: number;
+  selection: PcMetadataSelectionRequest;
+}) {
+  return api.post<PcMetadataSelectionResponse>(
+    `/roms/${romId}/pc-metadata-selection`,
+    selection,
+  );
 }
 
 async function getRomByMetadataProvider({
@@ -675,6 +697,8 @@ export default {
   getRecentPlayedRoms,
   getRom,
   getRomSimple,
+  getPcMetadataCandidates,
+  selectPcMetadataCandidate,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,
