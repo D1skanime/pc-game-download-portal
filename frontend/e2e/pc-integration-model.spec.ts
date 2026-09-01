@@ -6,7 +6,7 @@ import { gotoHydrated, seedUiState, STORAGE_STATE } from "./fixtures/auth";
 
 const fixtureRoot = path.resolve(
   import.meta.dirname,
-  "../../tests/fixtures/pc-integration-model/source-library/ExamplePCGame",
+  "../../tests/fixtures/pc-integration-model/source-library/Cyberpunk2077",
 );
 
 async function fixtureDigest(directory = fixtureRoot): Promise<string> {
@@ -41,9 +41,10 @@ test.describe("PC integration model", () => {
       `/rom/${process.env.PC_E2E_ROM_ID}?tab=pc-components`,
     );
     await expect(page.getByText("Base game")).toBeVisible();
-    await expect(page.getByText("Updates")).toBeVisible();
     await expect(page.getByText("DLC")).toBeVisible();
-    await page.getByTestId("pc-component-ExamplePCGame").click();
+    await expect(page.getByText("Extras")).toBeVisible();
+    await expect(page.getByText("Needs classification")).toBeVisible();
+    await page.getByTestId("pc-component-base").click();
     await expect(page.getByText("SHA-256")).toBeVisible();
     await page.getByTestId("find-pc-metadata").click();
     const apply = page.getByTestId("apply-pc-metadata");

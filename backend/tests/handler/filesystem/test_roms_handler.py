@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import os
 import shutil
@@ -25,6 +26,14 @@ from handler.filesystem.storage_policy import _create_external_descriptor
 from models.platform import Platform
 from models.rom import Rom, RomComponentKind, RomFile, RomFileCategory
 from utils.archives import extract_chd_hash
+
+
+def _fixture_tree_digest(root: Path) -> str:
+    return hashlib.sha256(
+        b"".join(
+            path.read_bytes() for path in sorted(root.rglob("*")) if path.is_file()
+        )
+    ).hexdigest()
 
 
 class TestFSRomsHandler:
@@ -1696,6 +1705,73 @@ class TestParseTagsProperties:
 
 class TestPcComponentManifests:
     """The parser must not infer component intent from arbitrary folder names."""
+
+    @pytest.mark.asyncio
+    async def test_committed_pc_library_fixture_keeps_unknown_folders_unresolved(
+        self,
+    ):
+        fixture_root = (
+            Path(__file__).resolve().parents[4]
+            / "tests"
+            / "fixtures"
+            / "pc-integration-model"
+        )
+        source_root = fixture_root / "source-library"
+        source_digest_before = await asyncio.to_thread(
+            _fixture_tree_digest, source_root
+        )
+        handler = FSRomsHandler(
+            _create_external_descriptor(1, fixture_root, mapping_id=1)
+        )
+        cases = {
+            "Cyberpunk2077": [
+                ("base", RomComponentKind.BASE, 28),
+                ("dlc", RomComponentKind.DLC, 2),
+                ("extra", RomComponentKind.EXTRA, 4),
+                ("redmod", RomComponentKind.UNRESOLVED, 1),
+            ],
+            "KingdomComeDeliverance": [
+                ("update", RomComponentKind.UPDATE, 3),
+            ],
+            "KingdomComeDeliveranceII": [
+                ("base", RomComponentKind.BASE, 2),
+                ("update", RomComponentKind.UPDATE, 3),
+            ],
+            "ClairObscurExpedition33": [
+                ("base", RomComponentKind.BASE, 1),
+                ("update", RomComponentKind.UPDATE, 3),
+            ],
+        }
+        scanned_components = {}
+        for name, expected in cases.items():
+            rom = Rom(
+                id=1,
+                fs_name=name,
+                fs_path="source-library",
+                platform=Platform(name="Windows", slug="win", fs_slug="win"),
+            )
+            scanned_components[name] = await handler.get_pc_components(rom)
+            assert [
+                (
+                    component.relative_path,
+                    component.kind,
+                    len(component.manifest_members),
+                )
+                for component in scanned_components[name]
+            ] == expected
+
+        assert {
+            member.relative_path
+            for component in scanned_components["Cyberpunk2077"]
+            if component.relative_path == "base"
+            for member in component.manifest_members
+        } >= {
+            "base/setup_cyberpunk_2077_2.31a_(64bit)_(85116).exe",
+            "base/setup_cyberpunk_2077_2.31a_(64bit)_(85116)-1.bin",
+            "base/setup_cyberpunk_2077_2.31a_(64bit)_(85116)-27.bin",
+        }
+        source_digest_after = await asyncio.to_thread(_fixture_tree_digest, source_root)
+        assert source_digest_after == source_digest_before
 
     @pytest.mark.asyncio
     async def test_explicit_component_folders_build_exact_read_only_manifests(
