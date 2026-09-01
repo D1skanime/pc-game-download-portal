@@ -21,22 +21,29 @@ vi.mock("vue-i18n", () => ({
 
 const componentGroups = [
   {
+    id: 1,
     relative_path: "Game",
     kind: "base",
     manifest_members: [
       {
+        id: 1,
         relative_path: "Game/game.exe",
         size_bytes: 1024,
         sha256: "a".repeat(64),
       },
     ],
   },
-  { relative_path: "Updates", kind: "update", manifest_members: [] },
-  { relative_path: "DLC", kind: "dlc", manifest_members: [] },
-  { relative_path: "Hotfix", kind: "hotfix", manifest_members: [] },
-  { relative_path: "Language", kind: "language_pack", manifest_members: [] },
-  { relative_path: "Extras", kind: "extra", manifest_members: [] },
-  { relative_path: "Unknown", kind: "unresolved", manifest_members: [] },
+  { id: 2, relative_path: "Updates", kind: "update", manifest_members: [] },
+  { id: 3, relative_path: "DLC", kind: "dlc", manifest_members: [] },
+  { id: 4, relative_path: "Hotfix", kind: "hotfix", manifest_members: [] },
+  {
+    id: 5,
+    relative_path: "Language",
+    kind: "language_pack",
+    manifest_members: [],
+  },
+  { id: 6, relative_path: "Extras", kind: "extra", manifest_members: [] },
+  { id: 7, relative_path: "Unknown", kind: "unresolved", manifest_members: [] },
 ] satisfies PcComponentSchema[];
 
 describe("PcComponents", () => {

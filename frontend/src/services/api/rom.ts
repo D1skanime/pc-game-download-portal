@@ -15,6 +15,10 @@ import type {
   PcMetadataCandidatesResponse,
   PcMetadataSelectionRequest,
   PcMetadataSelectionResponse,
+  PcComponentMetadataSelectionResponse,
+  PcLocalMediaCandidatesResponse,
+  PcLocalMediaSelectionRequest,
+  PcLocalMediaSelectionResponse,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
@@ -320,6 +324,52 @@ async function selectPcMetadataCandidate({
 }) {
   return api.post<PcMetadataSelectionResponse>(
     `/roms/${romId}/pc-metadata-selection`,
+    selection,
+  );
+}
+
+async function getPcComponentMetadataCandidates({
+  romId,
+  componentId,
+}: {
+  romId: number;
+  componentId: number;
+}) {
+  return api.get<PcMetadataCandidatesResponse>(
+    `/roms/${romId}/pc-components/${componentId}/metadata-candidates`,
+  );
+}
+
+async function selectPcComponentMetadataCandidate({
+  romId,
+  componentId,
+  selection,
+}: {
+  romId: number;
+  componentId: number;
+  selection: PcMetadataSelectionRequest;
+}) {
+  return api.post<PcComponentMetadataSelectionResponse>(
+    `/roms/${romId}/pc-components/${componentId}/metadata-selection`,
+    selection,
+  );
+}
+
+async function getPcLocalMediaCandidates({ romId }: { romId: number }) {
+  return api.get<PcLocalMediaCandidatesResponse>(
+    `/roms/${romId}/pc-local-media-candidates`,
+  );
+}
+
+async function selectPcLocalMedia({
+  romId,
+  selection,
+}: {
+  romId: number;
+  selection: PcLocalMediaSelectionRequest;
+}) {
+  return api.post<PcLocalMediaSelectionResponse>(
+    `/roms/${romId}/pc-local-media-selection`,
     selection,
   );
 }
@@ -699,6 +749,10 @@ export default {
   getRomSimple,
   getPcMetadataCandidates,
   selectPcMetadataCandidate,
+  getPcComponentMetadataCandidates,
+  selectPcComponentMetadataCandidate,
+  getPcLocalMediaCandidates,
+  selectPcLocalMedia,
   getRomByMetadataProvider,
   downloadRom,
   bulkDownloadRoms,

@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type PcComponentManifestMemberSchema = {
+    id: number;
     relative_path: string;
     size_bytes: number;
     sha256: string;
