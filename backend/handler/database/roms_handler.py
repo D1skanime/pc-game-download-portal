@@ -344,7 +344,9 @@ def with_details(func):
                 selectinload(RomFile.track_meta),
             ),
             selectinload(Rom.components).options(
-                selectinload(RomComponent.manifest_members)
+                selectinload(RomComponent.manifest_members),
+                selectinload(RomComponent.component_metadata),
+                selectinload(RomComponent.local_media),
             ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
@@ -394,7 +396,9 @@ def with_simple_details(func):
                 selectinload(RomFile.track_meta),
             ),
             selectinload(Rom.components).options(
-                selectinload(RomComponent.manifest_members)
+                selectinload(RomComponent.manifest_members),
+                selectinload(RomComponent.component_metadata),
+                selectinload(RomComponent.local_media),
             ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),

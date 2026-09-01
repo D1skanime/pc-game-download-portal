@@ -103,6 +103,12 @@ class RomComponentKind(enum.StrEnum):
     UNRESOLVED = "unresolved"
 
 
+class RomComponentLocalMediaRole(enum.StrEnum):
+    COVER = "cover"
+    BACKGROUND = "background"
+    GALLERY = "gallery"
+
+
 class SiblingRom(BaseModel):
     __tablename__ = "sibling_roms"
 
@@ -237,6 +243,18 @@ class RomComponent(BaseModel):
         cascade="all, delete-orphan",
         order_by="RomComponentManifestMember.relative_path",
     )
+    component_metadata: Mapped[RomComponentMetadata | None] = relationship(
+        lazy="raise",
+        back_populates="component",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    local_media: Mapped[list[RomComponentLocalMedia]] = relationship(
+        lazy="raise",
+        back_populates="component",
+        cascade="all, delete-orphan",
+        order_by="RomComponentLocalMedia.id",
+    )
 
 
 class RomComponentManifestMember(BaseModel):
@@ -261,6 +279,59 @@ class RomComponentManifestMember(BaseModel):
     sha256: Mapped[str] = mapped_column(String(length=64), nullable=False)
 
     component: Mapped[RomComponent] = relationship(back_populates="manifest_members")
+
+
+class RomComponentMetadata(BaseModel):
+    __tablename__ = "rom_component_metadata"
+
+    component_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_components.id", ondelete="CASCADE"), primary_key=True
+    )
+    igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    moby_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    sgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    name: Mapped[str | None] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    summary: Mapped[str | None] = mapped_column(Text())
+    metadata_source: Mapped[str | None] = mapped_column(String(length=100))
+    provider_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=None
+    )
+
+    component: Mapped[RomComponent] = relationship(back_populates="component_metadata")
+
+
+class RomComponentLocalMedia(BaseModel):
+    __tablename__ = "rom_component_local_media"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "component_id",
+            "source_relative_path",
+            "role",
+            name="uq_rom_component_local_media_source_role",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    component_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_components.id", ondelete="CASCADE")
+    )
+    source_relative_path: Mapped[str] = mapped_column(
+        String(length=PC_COMPONENT_PATH_MAX_LENGTH)
+    )
+    source_sha256: Mapped[str] = mapped_column(String(length=64))
+    owned_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
+    image_type: Mapped[str] = mapped_column(String(length=20))
+    role: Mapped[RomComponentLocalMediaRole] = mapped_column(
+        Enum(
+            RomComponentLocalMediaRole,
+            values_callable=lambda roles: [role.value for role in roles],
+            name="romcomponentlocalmediarole",
+        )
+    )
+
+    component: Mapped[RomComponent] = relationship(back_populates="local_media")
 
 
 class TrackMeta(BaseModel):

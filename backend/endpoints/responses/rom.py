@@ -30,6 +30,7 @@ from models.rom import (
     Rom,
     RomArchiveMember,
     RomComponentKind,
+    RomComponentLocalMediaRole,
     RomFile,
     RomFileCategory,
     RomUserStatus,
@@ -294,12 +295,39 @@ class PcComponentManifestMemberSchema(BaseModel):
     sha256: str
 
 
+class PcComponentMetadataSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    igdb_id: int | None
+    moby_id: int | None
+    sgdb_id: int | None
+    launchbox_id: int | None
+    name: str | None
+    summary: str | None
+    metadata_source: str | None
+    provider_metadata: dict[str, object] | None
+
+
+class PcComponentLocalMediaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source_relative_path: str
+    source_sha256: str
+    owned_path: str
+    image_type: str
+    role: RomComponentLocalMediaRole
+
+
 class PcComponentSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: int
     relative_path: str
     kind: RomComponentKind
     manifest_members: list[PcComponentManifestMemberSchema]
+    component_metadata: PcComponentMetadataSchema | None = None
+    local_media: list[PcComponentLocalMediaSchema] = Field(default_factory=list)
 
 
 class SoundtrackTrackMetaSchema(BaseModel):
