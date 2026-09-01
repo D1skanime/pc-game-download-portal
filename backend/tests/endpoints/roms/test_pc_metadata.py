@@ -77,6 +77,47 @@ def test_get_rom_serializes_pc_component_manifest(client, access_token, rom):
     ]
 
 
+def test_get_roms_serializes_pc_components(client, access_token, rom):
+    """Gallery requests must serialize PC components instead of failing lazily."""
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="base",
+                kind=RomComponentKind.BASE,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="base/setup.exe",
+                        size_bytes=4,
+                        sha256="a" * 64,
+                    )
+                ],
+            )
+        ],
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers=_headers(access_token),
+        params={"platform_id": rom.platform_id},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["items"][0]["components"] == [
+        {
+            "relative_path": "base",
+            "kind": "base",
+            "manifest_members": [
+                {
+                    "relative_path": "base/setup.exe",
+                    "size_bytes": 4,
+                    "sha256": "a" * 64,
+                }
+            ],
+        }
+    ]
+
+
 def test_get_pc_metadata_candidates_is_read_only(
     client, access_token, rom, monkeypatch
 ):

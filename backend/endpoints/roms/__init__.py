@@ -28,6 +28,7 @@ from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from fastapi_pagination.types import GreaterEqualZero
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
@@ -94,7 +95,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.permission import PermAction, PermEntity
-from models.rom import Rom, RomUserStatus, compute_name_sort_key
+from models.rom import Rom, RomComponent, RomUserStatus, compute_name_sort_key
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
@@ -988,10 +989,17 @@ def get_roms(
             )
 
         params = resolve_params()
+        page_query = query.options(
+            selectinload(Rom.components).options(
+                selectinload(RomComponent.manifest_members)
+            )
+        )
         if with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])
             if page_ids:
-                page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
+                page_rows = session.scalars(
+                    page_query.where(Rom.id.in_(page_ids))
+                ).all()
                 rows_by_id = {rom.id: rom for rom in page_rows}
                 page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
             else:
@@ -1000,7 +1008,9 @@ def get_roms(
             # Let the database serve the page from the sort index instead of
             # walking the whole primary key to build a full id list.
             page_items = list(
-                session.scalars(query.offset(params.offset).limit(params.limit)).all()
+                session.scalars(
+                    page_query.offset(params.offset).limit(params.limit)
+                ).all()
             )
 
         return CustomLimitOffsetPage.create(

@@ -393,6 +393,9 @@ def with_simple_details(func):
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
                 selectinload(RomFile.track_meta),
             ),
+            selectinload(Rom.components).options(
+                selectinload(RomComponent.manifest_members)
+            ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
                 noload(Rom.metadatum),
