@@ -122,8 +122,6 @@ class PcMetadataMatchHandler:
                 "launchbox_id",
                 "name",
                 "summary",
-                "url_cover",
-                "url_screenshots",
                 "igdb_metadata",
                 "moby_metadata",
                 "launchbox_metadata",

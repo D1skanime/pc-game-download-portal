@@ -39,6 +39,7 @@ async def test_collect_candidates_attributes_results_to_their_provider():
     assert candidate.media == [
         {"kind": "cover", "url": "https://images.igdb.com/cover.jpg"}
     ]
+    assert "url_cover" not in candidate.fields
     assert candidate.id
 
 
