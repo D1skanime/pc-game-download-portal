@@ -300,6 +300,10 @@ Recent decisions affecting current work:
 - [Phase 09]: Standalone Python harness gates Phase 9 before workflow execution — Keeps manifest and topology enforcement centralized for later plans.
 - [Phase 09]: Cleanup authority is label-bound, not path-guessed — Only Phase 9-owned Docker resources with explicit labels can be removed.
 
+### Roadmap Evolution
+
+- Phase 11 added: Local PC Media and DLC Navigation
+
 ### Blockers/Concerns
 
 - [Phase 1]: Point-in-time resolution rejects configured-root and target-component symlinks; descriptor-relative no-follow opens and residual long-read race enforcement remain Phase 2 consumer-policy work.

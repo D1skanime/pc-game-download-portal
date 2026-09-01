@@ -338,3 +338,14 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
 | 9. Operational Immutability Proof       | 1/4            | In Progress |            |
 | 10. PC Integration Model                | 2/3            | In Progress |            |
+
+### Phase 11: Local PC Media and DLC Navigation
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 10
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 11 to break down)
