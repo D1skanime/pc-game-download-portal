@@ -80,12 +80,17 @@ def test_select_pc_metadata_candidate_updates_once(
         AsyncMock(return_value=_candidate_results()),
     )
 
+    review = client.get(
+        f"/api/roms/{rom.id}/pc-metadata-candidates", headers=_headers(access_token)
+    )
+    assert review.status_code == status.HTTP_200_OK
+
     response = client.post(
         f"/api/roms/{rom.id}/pc-metadata-selection",
         headers=_headers(access_token),
         json={
             "candidate_id": _candidate().id,
-            "expected_version": rom.updated_at.isoformat(),
+            "expected_version": review.json()["expected_version"],
         },
     )
 

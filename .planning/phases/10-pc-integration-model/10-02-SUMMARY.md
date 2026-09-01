@@ -101,7 +101,8 @@ completed: 2026-09-01
 
 ## Issues Encountered
 
-- Focused pytest suites could not run because the local MariaDB test service at `127.0.0.1:3306` was unavailable before test collection. This was an environment failure, not a test assertion failure.
+- The host test process cannot reach the Docker-network-only MariaDB service. The focused suites were subsequently run in the local development container and passed: `9 passed`.
+- The selection test initially supplied the fixture object's timestamp directly and received `409` because it did not reflect the database's serialized timestamp precision. The test now performs the actual review-then-apply flow and uses the review response's `expected_version` value.
 - OpenAPI generation could not be run because no local backend service was available. The new response schemas passed targeted Trunk validation.
 
 ## Known Stubs
@@ -114,7 +115,7 @@ None - no external service configuration was added.
 
 ## Next Phase Readiness
 
-Phase 10-03 can consume the candidate-review API and display provider availability, candidate metadata, and eligible local LaunchBox media. Database-backed endpoint verification remains pending until the local test database is available.
+Phase 10-03 can consume the candidate-review API and display provider availability, candidate metadata, and eligible local LaunchBox media. Database-backed endpoint verification passed in the local isolated development container.
 
 ## Self-Check: PASSED
 
