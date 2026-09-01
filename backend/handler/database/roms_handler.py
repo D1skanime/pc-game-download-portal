@@ -58,6 +58,7 @@ from models.rom import (
     RomComponentLocalMedia,
     RomComponentLocalMediaRole,
     RomComponentManifestMember,
+    RomComponentMetadata,
     RomFacets,
     RomFile,
     RomFileCategory,
@@ -1763,6 +1764,56 @@ class DBRomsHandler(DBBaseHandler):
         session.flush()
         session.expire_all()
         return session.query(Rom).filter_by(id=id).one()
+
+    @begin_session
+    def apply_pc_component_metadata_candidate(
+        self,
+        rom_id: int,
+        component_id: int,
+        expected_updated_at: datetime,
+        provider: str,
+        data: dict[str, Any],
+        session: Session = None,  # type: ignore
+    ) -> RomComponent | None:
+        component = session.scalar(
+            select(RomComponent)
+            .options(selectinload(RomComponent.component_metadata))
+            .where(
+                and_(
+                    RomComponent.id == component_id,
+                    RomComponent.rom_id == rom_id,
+                    RomComponent.kind == "dlc",
+                    RomComponent.updated_at == expected_updated_at,
+                )
+            )
+        )
+        if component is None:
+            return None
+
+        metadata = component.component_metadata
+        if metadata is None:
+            metadata = RomComponentMetadata(component_id=component.id)
+            component.component_metadata = metadata
+        for field in (
+            "igdb_id",
+            "moby_id",
+            "sgdb_id",
+            "launchbox_id",
+            "name",
+            "summary",
+        ):
+            if field in data:
+                setattr(metadata, field, data[field])
+        metadata.metadata_source = provider
+        metadata.provider_metadata = {
+            key: value
+            for key, value in data.items()
+            if key.endswith("_metadata") and value is not None
+        }
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        session.refresh(component, attribute_names=["component_metadata"])
+        return component
 
     @begin_session
     def apply_pc_local_media(

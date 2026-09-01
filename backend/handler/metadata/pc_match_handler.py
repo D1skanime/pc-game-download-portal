@@ -14,7 +14,7 @@ from handler.metadata import (
     meta_moby_handler,
     meta_sgdb_handler,
 )
-from models.rom import Rom
+from models.rom import Rom, RomComponent
 
 COMPACT_TITLE_BOUNDARY = re.compile(
     r"(?<=[a-z])(?=[A-Z])|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])"
@@ -59,6 +59,20 @@ class PcMetadataMatchHandler:
         title = rom.fs_name_no_ext or rom.fs_name
         if " " not in title:
             title = COMPACT_TITLE_BOUNDARY.sub(" ", title)
+        return await self._collect_for_title(rom, title)
+
+    async def collect_component_candidates(
+        self, rom: Rom, component: RomComponent
+    ) -> dict[str, PcMetadataProviderResult]:
+        base_title = rom.name or rom.fs_name_no_ext or rom.fs_name
+        component_title = component.relative_path.rsplit("/", 1)[-1]
+        component_title = component_title.replace("-", " ").replace("_", " ")
+        title = f"{base_title} {component_title}".strip()
+        return await self._collect_for_title(rom, title)
+
+    async def _collect_for_title(
+        self, rom: Rom, title: str
+    ) -> dict[str, PcMetadataProviderResult]:
         results: dict[str, PcMetadataProviderResult] = {}
         for provider_name, provider in self.providers.items():
             if not provider.is_enabled():

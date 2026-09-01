@@ -118,6 +118,10 @@ class PcMetadataSelectionResponse(BaseModel):
     expected_version: UTCDatetime
 
 
+class PcComponentMetadataSelectionResponse(PcMetadataSelectionResponse):
+    component_id: int
+
+
 class UserNoteSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

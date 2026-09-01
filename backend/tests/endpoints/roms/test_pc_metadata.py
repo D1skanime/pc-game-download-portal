@@ -264,6 +264,52 @@ def test_pc_local_media_selection_rejects_changed_manifest_bytes(
     store.assert_not_awaited()
 
 
+def test_dlc_metadata_selection_only_updates_the_component(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    persisted = db_rom_handler.get_rom(rom.id)
+    assert persisted is not None
+    component = persisted.components[0]
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates",
+        AsyncMock(return_value=_candidate_results()),
+    )
+
+    review = client.get(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-candidates",
+        headers=_headers(access_token),
+    )
+    assert review.status_code == status.HTTP_200_OK
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": _candidate().id,
+            "expected_version": review.json()["expected_version"],
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert saved.igdb_id is None
+    assert saved.components[0].component_metadata is not None
+    assert saved.components[0].component_metadata.igdb_id == 101
+    assert saved.components[0].component_metadata.name == "Selected PC Game"
+
+
 def test_get_pc_metadata_candidates_is_read_only(
     client, access_token, rom, monkeypatch
 ):

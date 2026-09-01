@@ -7,6 +7,7 @@ from fastapi import HTTPException, Path, Request, Response, status
 from decorators.auth import protected_route
 from endpoints.responses.rom import (
     PcComponentLocalMediaSchema,
+    PcComponentMetadataSelectionResponse,
     PcLocalMediaCandidateSchema,
     PcLocalMediaCandidatesResponse,
     PcLocalMediaSelectionRequest,
@@ -30,6 +31,97 @@ from models.rom import RomComponentKind
 from utils.router import APIRouter
 
 router = APIRouter()
+
+
+def _dlc_component(rom_id: int, component_id: int):
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+    component = next((item for item in rom.components if item.id == component_id), None)
+    if component is None or component.kind != RomComponentKind.DLC:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return rom, component
+
+
+@protected_route(
+    router.get,
+    "/{id}/pc-components/{component_id}/metadata-candidates",
+    [Scope.ROMS_READ],
+)
+async def get_pc_component_metadata_candidates(
+    request: Request,
+    id: Annotated[int, Path(description="Rom internal id.", ge=1)],
+    component_id: Annotated[int, Path(ge=1)],
+) -> PcMetadataCandidatesResponse:
+    rom, component = _dlc_component(id, component_id)
+    assert_rom_visible(request, rom)
+    results = await pc_metadata_match_handler.collect_component_candidates(
+        rom, component
+    )
+    return PcMetadataCandidatesResponse(
+        expected_version=component.updated_at,
+        providers={
+            name: PcMetadataProviderResultSchema(
+                provider=result.provider,
+                available=result.available,
+                candidates=[
+                    _candidate_schema(candidate) for candidate in result.candidates
+                ],
+                reason=result.reason,
+            )
+            for name, result in results.items()
+        },
+    )
+
+
+@protected_route(
+    router.post,
+    "/{id}/pc-components/{component_id}/metadata-selection",
+    [Scope.ROMS_WRITE],
+)
+async def select_pc_component_metadata_candidate(
+    request: Request,
+    id: Annotated[int, Path(description="Rom internal id.", ge=1)],
+    component_id: Annotated[int, Path(ge=1)],
+    selection: PcMetadataSelectionRequest,
+) -> PcComponentMetadataSelectionResponse:
+    rom, component = _dlc_component(id, component_id)
+    assert_rom_visible(request, rom)
+    results = await pc_metadata_match_handler.collect_component_candidates(
+        rom, component
+    )
+    candidate = next(
+        (
+            item
+            for result in results.values()
+            if result.available
+            for item in result.candidates
+            if item.id == selection.candidate_id
+        ),
+        None,
+    )
+    if candidate is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Unknown or unavailable PC component metadata candidate",
+        )
+    updated = db_rom_handler.apply_pc_component_metadata_candidate(
+        id,
+        component_id,
+        selection.expected_version,
+        candidate.provider,
+        candidate.fields,
+    )
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The PC component metadata changed before this selection was applied",
+        )
+    return PcComponentMetadataSelectionResponse(
+        candidate_id=candidate.id,
+        component_id=component_id,
+        expected_version=updated.updated_at,
+    )
 
 
 @protected_route(router.get, "/{id}/pc-local-media-candidates", [Scope.ROMS_READ])
