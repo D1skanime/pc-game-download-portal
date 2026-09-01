@@ -57,6 +57,7 @@ NAME_SORT_KEY_MAX_LENGTH = 500
 INCARNATION_TOKEN_LENGTH = 32
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
+PC_COMPONENT_PATH_MAX_LENGTH = 700
 ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
@@ -90,6 +91,16 @@ class RomFileCategory(enum.StrEnum):
     CHEAT = "cheat"
     SOUNDTRACK = "soundtrack"
     SCREENSHOT = "screenshot"
+
+
+class RomComponentKind(enum.StrEnum):
+    BASE = "base"
+    UPDATE = "update"
+    DLC = "dlc"
+    HOTFIX = "hotfix"
+    LANGUAGE_PACK = "language_pack"
+    EXTRA = "extra"
+    UNRESOLVED = "unresolved"
 
 
 class SiblingRom(BaseModel):
@@ -195,6 +206,61 @@ class RomFile(BaseModel):
 
     def __repr__(self) -> str:
         return f"{self.file_name} ({self.id} -> {self.rom_id})"
+
+
+class RomComponent(BaseModel):
+    __tablename__ = "rom_components"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "rom_id", "relative_path", name="uq_rom_components_rom_relative_path"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    relative_path: Mapped[str] = mapped_column(
+        String(length=PC_COMPONENT_PATH_MAX_LENGTH)
+    )
+    kind: Mapped[RomComponentKind] = mapped_column(
+        Enum(
+            RomComponentKind,
+            values_callable=lambda kinds: [kind.value for kind in kinds],
+            name="romcomponentkind",
+        )
+    )
+
+    rom: Mapped[Rom] = relationship(back_populates="components")
+    manifest_members: Mapped[list[RomComponentManifestMember]] = relationship(
+        lazy="raise",
+        back_populates="component",
+        cascade="all, delete-orphan",
+        order_by="RomComponentManifestMember.relative_path",
+    )
+
+
+class RomComponentManifestMember(BaseModel):
+    __tablename__ = "rom_component_manifest_members"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "component_id",
+            "relative_path",
+            name="uq_rom_component_manifest_members_component_relative_path",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    component_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_components.id", ondelete="CASCADE")
+    )
+    relative_path: Mapped[str] = mapped_column(
+        String(length=PC_COMPONENT_PATH_MAX_LENGTH)
+    )
+    size_bytes: Mapped[int] = mapped_column(BigInteger(), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(length=64), nullable=False)
+
+    component: Mapped[RomComponent] = relationship(back_populates="manifest_members")
 
 
 class TrackMeta(BaseModel):
@@ -458,6 +524,12 @@ class Rom(BaseModel):
         lazy="raise",
     )
     files: Mapped[list[RomFile]] = relationship(lazy="raise", back_populates="rom")
+    components: Mapped[list[RomComponent]] = relationship(
+        lazy="raise",
+        back_populates="rom",
+        cascade="all, delete-orphan",
+        order_by="RomComponent.relative_path",
+    )
     saves: Mapped[list[Save]] = relationship(lazy="raise", back_populates="rom")
     states: Mapped[list[State]] = relationship(lazy="raise", back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(
