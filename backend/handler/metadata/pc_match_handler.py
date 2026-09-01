@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -14,6 +15,10 @@ from handler.metadata import (
     meta_sgdb_handler,
 )
 from models.rom import Rom
+
+COMPACT_TITLE_BOUNDARY = re.compile(
+    r"(?<=[a-z])(?=[A-Z])|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])"
+)
 
 
 class PcMetadataProvider(Protocol):
@@ -52,6 +57,8 @@ class PcMetadataMatchHandler:
 
     async def collect_candidates(self, rom: Rom) -> dict[str, PcMetadataProviderResult]:
         title = rom.fs_name_no_ext or rom.fs_name
+        if " " not in title:
+            title = COMPACT_TITLE_BOUNDARY.sub(" ", title)
         results: dict[str, PcMetadataProviderResult] = {}
         for provider_name, provider in self.providers.items():
             if not provider.is_enabled():
