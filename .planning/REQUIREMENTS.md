@@ -112,11 +112,11 @@
 
 ### PC Metadata and Media
 
-- [ ] **PCMETA-01**: After recognizing a PC game, an operator can start metadata matching and review the selected result before applying it.
-- [ ] **PCMETA-02**: Configured IGDB, SteamGridDB, and MobyGames sources can provide PC metadata and artwork using their existing provider contracts.
-- [ ] **PCLB-01**: An administrator can connect a deployment-mounted local LaunchBox library read-only as a PC metadata and media source.
-- [ ] **PCLB-02**: A matched PC game can use eligible local LaunchBox descriptions, cover art, fan art, logos, screenshots, and videos without modifying the LaunchBox library.
-- [ ] **PCRP-01**: RiotPixels is evaluated for documented API access, terms, rate limits, and supported still or animated media before any provider integration is enabled.
+- [x] **PCMETA-01**: After recognizing a PC game, an operator can start metadata matching and review the selected result before applying it.
+- [x] **PCMETA-02**: Configured IGDB, SteamGridDB, and MobyGames sources can provide PC metadata and artwork using their existing provider contracts.
+- [x] **PCLB-01**: An administrator can connect a deployment-mounted local LaunchBox library read-only as a PC metadata and media source.
+- [x] **PCLB-02**: A matched PC game can use eligible local LaunchBox descriptions, cover art, fan art, logos, screenshots, and videos without modifying the LaunchBox library.
+- [x] **PCRP-01**: RiotPixels is evaluated for documented API access, terms, rate limits, and supported still or animated media before any provider integration is enabled.
 
 ### PC Safety and Verification
 
@@ -234,11 +234,11 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | PCMOD-02    | Phase 10 | Complete |
 | PCMOD-03    | Phase 10 | Complete |
 | PCMOD-04    | Phase 10 | Complete |
-| PCMETA-01   | Phase 10 | Pending  |
-| PCMETA-02   | Phase 10 | Pending  |
-| PCLB-01     | Phase 10 | Pending  |
-| PCLB-02     | Phase 10 | Pending  |
-| PCRP-01     | Phase 10 | Pending  |
+| PCMETA-01   | Phase 10 | Complete |
+| PCMETA-02   | Phase 10 | Complete |
+| PCLB-01     | Phase 10 | Complete |
+| PCLB-02     | Phase 10 | Complete |
+| PCRP-01     | Phase 10 | Complete |
 | PCSAFE-01   | Phase 10 | Complete |
 | PCTEST-01   | Phase 10 | Complete |
 
