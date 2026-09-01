@@ -96,57 +96,60 @@ async function applySelection() {
       {{ t("rom.pc-find-metadata") }}
     </RBtn>
 
-    <RDialog v-model="dialogOpen" :title="t('rom.pc-find-metadata')">
-      <div class="pc-metadata-review__body">
-        <RAlert
-          v-for="provider in providerFailures"
-          :key="provider.provider"
-          tone="warning"
-        >
-          {{ t("rom.pc-metadata-source-unavailable") }}
-        </RAlert>
-
-        <REmptyState
-          v-if="!loading && candidates.length === 0"
-          icon="mdi-database-search-outline"
-          :title="t('rom.pc-no-metadata-matches')"
-        />
-
-        <div v-else class="pc-metadata-review__candidates">
-          <button
-            v-for="candidate in candidates"
-            :key="candidate.id"
-            :data-testid="`pc-candidate-${candidate.id}`"
-            class="pc-metadata-review__candidate"
-            :class="{
-              'pc-metadata-review__candidate--selected':
-                candidate.id === selectedCandidateId,
-            }"
-            type="button"
-            @click="selectedCandidateId = candidate.id"
+    <RDialog v-model="dialogOpen">
+      <template #header>{{ t("rom.pc-find-metadata") }}</template>
+      <template #content>
+        <div class="pc-metadata-review__body">
+          <RAlert
+            v-for="provider in providerFailures"
+            :key="provider.provider"
+            tone="warning"
           >
-            <span>{{ candidate.title }}</span>
-            <RTag :text="candidate.provider" />
-          </button>
-        </div>
+            {{ t("rom.pc-metadata-source-unavailable") }}
+          </RAlert>
 
-        <div v-if="selectedLaunchboxMedia" class="pc-metadata-review__media">
-          <RImg
-            :src="selectedLaunchboxMedia.url"
-            :alt="appliedCandidate?.title"
+          <REmptyState
+            v-if="!loading && candidates.length === 0"
+            icon="mdi-database-search-outline"
+            :title="t('rom.pc-no-metadata-matches')"
           />
-          <RTag text="LaunchBox" />
-        </div>
 
-        <RBtn
-          data-testid="apply-pc-metadata"
-          :disabled="!selectedCandidate || applying"
-          :loading="applying"
-          @click="applySelection"
-        >
-          {{ t("rom.pc-apply-selected-metadata") }}
-        </RBtn>
-      </div>
+          <div v-else class="pc-metadata-review__candidates">
+            <button
+              v-for="candidate in candidates"
+              :key="candidate.id"
+              :data-testid="`pc-candidate-${candidate.id}`"
+              class="pc-metadata-review__candidate"
+              :class="{
+                'pc-metadata-review__candidate--selected':
+                  candidate.id === selectedCandidateId,
+              }"
+              type="button"
+              @click="selectedCandidateId = candidate.id"
+            >
+              <span>{{ candidate.title }}</span>
+              <RTag :text="candidate.provider" />
+            </button>
+          </div>
+
+          <div v-if="selectedLaunchboxMedia" class="pc-metadata-review__media">
+            <RImg
+              :src="selectedLaunchboxMedia.url"
+              :alt="appliedCandidate?.title"
+            />
+            <RTag text="LaunchBox" />
+          </div>
+
+          <RBtn
+            data-testid="apply-pc-metadata"
+            :disabled="!selectedCandidate || applying"
+            :loading="applying"
+            @click="applySelection"
+          >
+            {{ t("rom.pc-apply-selected-metadata") }}
+          </RBtn>
+        </div>
+      </template>
     </RDialog>
   </div>
 </template>

@@ -57,7 +57,9 @@ describe("PcMetadataReview", () => {
 
     const wrapper = mount(PcMetadataReview, {
       props: { romId: 1 },
-      global: { stubs: { RDialog: { template: "<div><slot /></div>" } } },
+      global: {
+        stubs: { RDialog: { template: "<div><slot name='content' /></div>" } },
+      },
     });
     await wrapper.get("[data-testid='find-pc-metadata']").trigger("click");
     await vi.waitFor(() =>
@@ -100,7 +102,9 @@ describe("PcMetadataReview", () => {
 
     const wrapper = mount(PcMetadataReview, {
       props: { romId: 1 },
-      global: { stubs: { RDialog: { template: "<div><slot /></div>" } } },
+      global: {
+        stubs: { RDialog: { template: "<div><slot name='content' /></div>" } },
+      },
     });
     await wrapper.get("[data-testid='find-pc-metadata']").trigger("click");
     await vi.waitFor(() => expect(getCandidates).toHaveBeenCalled());

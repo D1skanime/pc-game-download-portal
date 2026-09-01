@@ -11,6 +11,7 @@ from handler.metadata.pc_match_handler import (
     PcMetadataProviderResult,
 )
 from models.permission import HiddenEntity, PermEntity
+from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
 
 
 def _candidate() -> PcMetadataCandidate:
@@ -38,6 +39,42 @@ def _candidate_results() -> dict[str, PcMetadataProviderResult]:
 
 def _headers(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
+
+
+def test_get_rom_serializes_pc_component_manifest(client, access_token, rom):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="base",
+                kind=RomComponentKind.BASE,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="base/setup.exe",
+                        size_bytes=4,
+                        sha256="a" * 64,
+                    )
+                ],
+            )
+        ],
+    )
+
+    response = client.get(f"/api/roms/{rom.id}", headers=_headers(access_token))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["components"] == [
+        {
+            "relative_path": "base",
+            "kind": "base",
+            "manifest_members": [
+                {
+                    "relative_path": "base/setup.exe",
+                    "size_bytes": 4,
+                    "sha256": "a" * 64,
+                }
+            ],
+        }
+    ]
 
 
 def test_get_pc_metadata_candidates_is_read_only(

@@ -1,0 +1,120 @@
+services:
+  app:
+    image: romm-romm-dev:latest
+    working_dir: /app
+    depends_on:
+      database:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
+    labels:
+      romm.phase: "10"
+      romm.phase.slug: pc-integration-model
+    environment:
+      ROMM_AUTH_SECRET_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      DB_HOST: database
+      DB_PORT: "3306"
+      DB_NAME: romm
+      DB_USER: romm
+      DB_PASSWD: romm
+      REDIS_HOST: queue
+      REDIS_PORT: "6379"
+      ROMM_BASE_PATH: /romm
+      DEV_HOST: 0.0.0.0
+      PYTHONDONTWRITEBYTECODE: "1"
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+        set -euo pipefail
+        mkdir -p /app/frontend/assets/romm
+        ln -sfn /romm/resources /app/frontend/assets/romm/resources
+        cd /app/backend
+        PYTHONPATH=/app/backend uv run python main.py &
+        cd /app/frontend
+        npx vite --host 0.0.0.0 --port 3000 --strictPort &
+        wait
+    volumes:
+      - type: bind
+        source: ${PHASE10_REPO_ROOT:?set PHASE10_REPO_ROOT}
+        target: /workspace
+        read_only: true
+      - type: bind
+        source: ${PHASE10_REPO_ROOT:?set PHASE10_REPO_ROOT}/backend
+        target: /app/backend
+        read_only: true
+      - type: bind
+        source: ${PHASE10_REPO_ROOT:?set PHASE10_REPO_ROOT}/frontend
+        target: /app/frontend
+        read_only: true
+      - type: bind
+        source: ${PHASE10_FIXTURE_SOURCE:?set PHASE10_FIXTURE_SOURCE}/roms
+        target: /romm/library/roms
+        read_only: true
+      - phase10-frontend-assets:/app/frontend/assets/romm
+      - phase10-frontend-node-modules:/app/frontend/node_modules
+      - phase10-assets:/romm/assets
+      - phase10-cache:/romm/cache
+      - phase10-config:/romm/config
+      - phase10-database:/romm/database
+      - phase10-resources:/romm/resources
+      - phase10-tmp:/romm/tmp
+      - type: bind
+        source: ${PHASE10_ARTIFACTS:?set PHASE10_ARTIFACTS}
+        target: /phase10-artifacts
+  nginx:
+    image: nginx:1.29-alpine
+    depends_on:
+      - app
+    labels:
+      romm.phase: "10"
+      romm.phase.slug: pc-integration-model
+    volumes:
+      - type: bind
+        source: ${PHASE10_REPO_ROOT:?set PHASE10_REPO_ROOT}/backend/nginx.phase10.conf
+        target: /etc/nginx/conf.d/default.conf
+        read_only: true
+    ports:
+      - "127.0.0.1:${PHASE10_HOST_PORT:-0}:80"
+  database:
+    image: mariadb:11
+    labels:
+      romm.phase: "10"
+      romm.phase.slug: pc-integration-model
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: romm
+      MARIADB_USER: romm
+      MARIADB_PASSWORD: romm
+    healthcheck:
+      test:
+        ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    volumes:
+      - phase10-database:/romm/database
+  queue:
+    image: redis:7-alpine
+    labels:
+      romm.phase: "10"
+      romm.phase.slug: pc-integration-model
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 2s
+    volumes:
+      - phase10-cache:/romm/cache
+
+volumes:
+  phase10-assets:
+  phase10-cache:
+  phase10-config:
+  phase10-database:
+  phase10-frontend-assets:
+  phase10-frontend-node-modules:
+  phase10-resources:
+  phase10-tmp:
