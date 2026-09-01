@@ -6,12 +6,18 @@ from fastapi import status
 from endpoints.roms.pc_metadata import pc_metadata_match_handler
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
+from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.metadata.pc_match_handler import (
     PcMetadataCandidate,
     PcMetadataProviderResult,
 )
 from models.permission import HiddenEntity, PermEntity
-from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
+from models.rom import (
+    RomComponent,
+    RomComponentKind,
+    RomComponentLocalMediaRole,
+    RomComponentManifestMember,
+)
 
 
 def _candidate() -> PcMetadataCandidate:
@@ -62,19 +68,18 @@ def test_get_rom_serializes_pc_component_manifest(client, access_token, rom):
     response = client.get(f"/api/roms/{rom.id}", headers=_headers(access_token))
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json()["components"] == [
-        {
-            "relative_path": "base",
-            "kind": "base",
-            "manifest_members": [
-                {
-                    "relative_path": "base/setup.exe",
-                    "size_bytes": 4,
-                    "sha256": "a" * 64,
-                }
-            ],
-        }
-    ]
+    component = response.json()["components"][0]
+    assert component["id"] > 0
+    assert component["relative_path"] == "base"
+    assert component["kind"] == "base"
+    assert component["component_metadata"] is None
+    assert component["local_media"] == []
+    assert component["manifest_members"][0] == {
+        "id": component["manifest_members"][0]["id"],
+        "relative_path": "base/setup.exe",
+        "size_bytes": 4,
+        "sha256": "a" * 64,
+    }
 
 
 def test_get_roms_serializes_pc_components(client, access_token, rom):
@@ -103,19 +108,160 @@ def test_get_roms_serializes_pc_components(client, access_token, rom):
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json()["items"][0]["components"] == [
-        {
-            "relative_path": "base",
-            "kind": "base",
-            "manifest_members": [
-                {
-                    "relative_path": "base/setup.exe",
-                    "size_bytes": 4,
-                    "sha256": "a" * 64,
-                }
-            ],
-        }
-    ]
+    component = response.json()["items"][0]["components"][0]
+    assert component["id"] > 0
+    assert component["relative_path"] == "base"
+    assert component["kind"] == "base"
+    assert component["component_metadata"] is None
+    assert component["local_media"] == []
+    assert component["manifest_members"][0] == {
+        "id": component["manifest_members"][0]["id"],
+        "relative_path": "base/setup.exe",
+        "size_bytes": 4,
+        "sha256": "a" * 64,
+    }
+
+
+def test_pc_local_media_review_only_lists_direct_dlc_images(client, access_token, rom):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="dlc/phantom-liberty/poster.png",
+                        size_bytes=4,
+                        sha256="a" * 64,
+                    ),
+                    RomComponentManifestMember(
+                        relative_path="dlc/phantom-liberty/guide.pdf",
+                        size_bytes=4,
+                        sha256="b" * 64,
+                    ),
+                    RomComponentManifestMember(
+                        relative_path="dlc/phantom-liberty/archive.zip",
+                        size_bytes=4,
+                        sha256="c" * 64,
+                    ),
+                ],
+            )
+        ],
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}/pc-local-media-candidates",
+        headers=_headers(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    candidates = response.json()["candidates"]
+    assert len(candidates) == 1
+    assert candidates[0]["relative_path"] == "dlc/phantom-liberty/poster.png"
+    assert candidates[0]["image_type"] == "png"
+
+
+def test_pc_local_media_selection_copies_verified_image_to_owned_storage(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="extra/artwork",
+                kind=RomComponentKind.EXTRA,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="extra/artwork/wallpaper.webp",
+                        size_bytes=4,
+                        sha256="d" * 64,
+                    )
+                ],
+            )
+        ],
+    )
+    persisted = db_rom_handler.get_rom(rom.id)
+    assert persisted is not None
+    component = persisted.components[0]
+    member = component.manifest_members[0]
+
+    def read(*_args):
+        return (b"verified-image", "webp")
+
+    store = AsyncMock(
+        return_value=(
+            "roms/1/1/pc-media/1-1-background.webp",
+            None,
+            None,
+        )
+    )
+    monkeypatch.setattr(fs_rom_handler, "read_pc_component_image", read)
+    monkeypatch.setattr(fs_resource_handler, "store_pc_component_image", store)
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-local-media-selection",
+        headers=_headers(access_token),
+        json={
+            "component_id": component.id,
+            "member_id": member.id,
+            "role": RomComponentLocalMediaRole.BACKGROUND.value,
+            "expected_version": persisted.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["media"]["owned_path"].endswith("background.webp")
+    store.assert_awaited_once()
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert saved.components[0].local_media[0].source_sha256 == "d" * 64
+
+
+def test_pc_local_media_selection_rejects_changed_manifest_bytes(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="dlc/phantom-liberty/poster.png",
+                        size_bytes=4,
+                        sha256="e" * 64,
+                    )
+                ],
+            )
+        ],
+    )
+    persisted = db_rom_handler.get_rom(rom.id)
+    assert persisted is not None
+    component = persisted.components[0]
+    member = component.manifest_members[0]
+    store = AsyncMock()
+
+    def changed(*_args):
+        raise ValueError("PC local media source changed since the last scan")
+
+    monkeypatch.setattr(fs_rom_handler, "read_pc_component_image", changed)
+    monkeypatch.setattr(fs_resource_handler, "store_pc_component_image", store)
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-local-media-selection",
+        headers=_headers(access_token),
+        json={
+            "component_id": component.id,
+            "member_id": member.id,
+            "role": RomComponentLocalMediaRole.GALLERY.value,
+            "expected_version": persisted.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    store.assert_not_awaited()
 
 
 def test_get_pc_metadata_candidates_is_read_only(

@@ -7,10 +7,12 @@ import re
 import zipfile
 import zlib
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from anyio import Path as AnyioPath
+from PIL import Image, UnidentifiedImageError
 
 from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
@@ -67,6 +69,12 @@ if TYPE_CHECKING:
 
 # PICO-8 cartridges are often stored as PNG files
 PICO8_CARTRIDGE_EXTENSION = ".p8.png"
+PC_LOCAL_IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".webp"})
+PC_LOCAL_IMAGE_FORMATS = {
+    "PNG": "png",
+    "JPEG": "jpg",
+    "WEBP": "webp",
+}
 
 
 NON_HASHABLE_PLATFORMS = frozenset(
@@ -216,6 +224,39 @@ class FSRomsHandler(ExternalFSHandler):
 
     def open_rom_hash(self, relative_path: str):
         return self.open_access(StorageOperation.HASH, relative_path)
+
+    @staticmethod
+    def is_pc_component_image(member: RomComponentManifestMember) -> bool:
+        return (
+            PurePosixPath(member.relative_path).suffix.lower()
+            in PC_LOCAL_IMAGE_EXTENSIONS
+        )
+
+    def read_pc_component_image(
+        self, rom: Rom, member: RomComponentManifestMember
+    ) -> tuple[bytes, str]:
+        """Read and validate one direct manifest image without modifying its source."""
+        if not self.is_pc_component_image(member):
+            raise ValueError("PC local media must be a direct PNG, JPEG, or WebP file")
+        relative_path = PurePosixPath(member.relative_path)
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            raise ValueError("PC local media path is invalid")
+
+        source_path = f"{rom.fs_path}/{rom.fs_name}/{relative_path.as_posix()}"
+        with self.open_rom_read(source_path) as source:
+            content = source.read()
+        if hashlib.sha256(content).hexdigest() != member.sha256:
+            raise ValueError("PC local media source changed since the last scan")
+
+        try:
+            with Image.open(BytesIO(content)) as image:
+                image.verify()
+                image_type = PC_LOCAL_IMAGE_FORMATS.get(image.format or "")
+        except (UnidentifiedImageError, OSError, ValueError) as exc:
+            raise ValueError("PC local media is not a decodable image") from exc
+        if image_type is None:
+            raise ValueError("PC local media is not a PNG, JPEG, or WebP image")
+        return content, image_type
 
     async def get_pc_components(self, rom: Rom) -> list[RomComponent]:
         """Build immutable component manifests for one directory-backed PC ROM.

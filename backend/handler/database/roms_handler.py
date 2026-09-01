@@ -3,7 +3,7 @@ import hashlib
 import json
 import re
 from collections.abc import Iterable, Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, NamedTuple
 
 from redis.exceptions import WatchError
@@ -55,6 +55,8 @@ from models.rom import (
     METADATA_SOURCE_COLUMNS,
     Rom,
     RomComponent,
+    RomComponentLocalMedia,
+    RomComponentLocalMediaRole,
     RomComponentManifestMember,
     RomFacets,
     RomFile,
@@ -242,6 +244,12 @@ def _copy_scanned_columns(
 class SyncedRomFiles(NamedTuple):
     files: list[RomFile]
     orphaned_cover_paths: list[str]
+
+
+class AppliedPcLocalMedia(NamedTuple):
+    rom: Rom
+    media: RomComponentLocalMedia
+    replaced_owned_paths: list[str]
 
 
 def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
@@ -1747,6 +1755,74 @@ class DBRomsHandler(DBBaseHandler):
         session.flush()
         session.expire_all()
         return session.query(Rom).filter_by(id=id).one()
+
+    @begin_session
+    def apply_pc_local_media(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        component_id: int,
+        member_id: int,
+        role: RomComponentLocalMediaRole,
+        owned_path: str,
+        image_type: str,
+        source_sha256: str,
+        cover_small_path: str | None = None,
+        session: Session = None,  # type: ignore
+    ) -> AppliedPcLocalMedia | None:
+        """Persist a reviewed image only when its manifest evidence remains current."""
+        rom = session.scalar(
+            select(Rom)
+            .options(
+                selectinload(Rom.components).options(
+                    selectinload(RomComponent.manifest_members),
+                    selectinload(RomComponent.local_media),
+                )
+            )
+            .where(and_(Rom.id == rom_id, Rom.updated_at == expected_updated_at))
+        )
+        if rom is None:
+            return None
+
+        component = next(
+            (item for item in rom.components if item.id == component_id), None
+        )
+        member = (
+            next(
+                (item for item in component.manifest_members if item.id == member_id),
+                None,
+            )
+            if component
+            else None
+        )
+        if member is None or member.sha256 != source_sha256:
+            return None
+        assert component is not None
+
+        replaced_owned_paths: list[str] = []
+        if role != RomComponentLocalMediaRole.GALLERY:
+            for existing_component in rom.components:
+                for existing_media in existing_component.local_media:
+                    if existing_media.role == role:
+                        if role != RomComponentLocalMediaRole.COVER:
+                            replaced_owned_paths.append(existing_media.owned_path)
+                        session.delete(existing_media)
+
+        media = RomComponentLocalMedia(
+            component_id=component.id,
+            source_relative_path=member.relative_path,
+            source_sha256=source_sha256,
+            owned_path=owned_path,
+            image_type=image_type,
+            role=role,
+        )
+        session.add(media)
+        if role == RomComponentLocalMediaRole.COVER:
+            rom.path_cover_l = owned_path
+            rom.path_cover_s = cover_small_path
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return AppliedPcLocalMedia(rom, media, replaced_owned_paths)
 
     @begin_session
     def convert_rom_to_folder(

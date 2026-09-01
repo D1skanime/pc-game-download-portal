@@ -17,7 +17,7 @@ from config import (
 from config.config_manager import MetadataMediaType
 from logger.logger import log
 from models.collection import Collection
-from models.rom import Rom
+from models.rom import Rom, RomComponentLocalMediaRole
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
 
@@ -123,6 +123,29 @@ class FSResourcesHandler(FSHandler):
 
     def get_platform_resources_path(self, platform_id: int) -> str:
         return os.path.join("roms", str(platform_id))
+
+    async def store_pc_component_image(
+        self,
+        rom: Rom,
+        component_id: int,
+        member_id: int,
+        role: RomComponentLocalMediaRole,
+        content: bytes,
+        image_type: str,
+    ) -> tuple[str, str | None, str | None]:
+        """Store reviewed PC media below the RomM-owned resource root only."""
+        if role == RomComponentLocalMediaRole.COVER:
+            path_cover_l, path_cover_s = await self.store_artwork(
+                rom, BytesIO(content), image_type
+            )
+            if path_cover_l is None:
+                raise ValueError("Unable to store the selected cover image")
+            return path_cover_l, path_cover_s, path_cover_l
+
+        media_path = f"{rom.fs_resources_path}/pc-media"
+        filename = f"{component_id}-{member_id}-{role.value}.{image_type}"
+        await self.write_file(content, media_path, filename)
+        return f"{media_path}/{filename}", None, None
 
     # Cover art
     def cover_exists(self, entity: Rom | Collection, size: CoverSize) -> bool:

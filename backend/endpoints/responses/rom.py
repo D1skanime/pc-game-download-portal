@@ -290,6 +290,7 @@ class RomFileSchema(BaseModel):
 class PcComponentManifestMemberSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: int
     relative_path: str
     size_bytes: int
     sha256: str
@@ -317,6 +318,33 @@ class PcComponentLocalMediaSchema(BaseModel):
     owned_path: str
     image_type: str
     role: RomComponentLocalMediaRole
+
+
+class PcLocalMediaCandidateSchema(BaseModel):
+    component_id: int
+    member_id: int
+    relative_path: str
+    source_sha256: str
+    image_type: str
+
+
+class PcLocalMediaCandidatesResponse(BaseModel):
+    expected_version: UTCDatetime
+    candidates: list[PcLocalMediaCandidateSchema]
+
+
+class PcLocalMediaSelectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    component_id: int = Field(ge=1)
+    member_id: int = Field(ge=1)
+    role: RomComponentLocalMediaRole
+    expected_version: UTCDatetime
+
+
+class PcLocalMediaSelectionResponse(BaseModel):
+    expected_version: UTCDatetime
+    media: PcComponentLocalMediaSchema
 
 
 class PcComponentSchema(BaseModel):
