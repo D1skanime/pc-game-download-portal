@@ -337,4 +337,4 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
 | 9. Operational Immutability Proof       | 1/4            | In Progress |            |
-| 10. PC Integration Model                | 0/TBD          | Not started | -          |
+| 10. PC Integration Model                | 1/3            | In Progress |            |

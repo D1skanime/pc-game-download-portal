@@ -105,10 +105,10 @@
 
 ### PC Game Model
 
-- [ ] **PCMOD-01**: A user can view one logical PC game with base game, update, DLC, hotfix, language-pack, and extras components.
-- [ ] **PCMOD-02**: Each component retains a contained relative source path and never grants write authority to the external root.
-- [ ] **PCMOD-03**: A scan recognizes configured PC component folders and associates them with their logical game without guessing ambiguous layouts.
-- [ ] **PCMOD-04**: Each recognized component has an immutable manifest of its files, including relative path, byte size, and strong digest.
+- [x] **PCMOD-01**: A user can view one logical PC game with base game, update, DLC, hotfix, language-pack, and extras components.
+- [x] **PCMOD-02**: Each component retains a contained relative source path and never grants write authority to the external root.
+- [x] **PCMOD-03**: A scan recognizes configured PC component folders and associates them with their logical game without guessing ambiguous layouts.
+- [x] **PCMOD-04**: Each recognized component has an immutable manifest of its files, including relative path, byte size, and strong digest.
 
 ### PC Metadata and Media
 
@@ -120,8 +120,8 @@
 
 ### PC Safety and Verification
 
-- [ ] **PCSAFE-01**: Component recognition, manifest generation, metadata matching, and local LaunchBox reads leave every source root unchanged.
-- [ ] **PCTEST-01**: Tests cover nested PC components, ambiguous layouts, immutable manifests, provider failures, and source-unchanged evidence.
+- [x] **PCSAFE-01**: Component recognition, manifest generation, metadata matching, and local LaunchBox reads leave every source root unchanged.
+- [x] **PCTEST-01**: Tests cover nested PC components, ambiguous layouts, immutable manifests, provider failures, and source-unchanged evidence.
 
 ## Future Requirements
 
@@ -230,17 +230,17 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | DOC-01      | Phase 9  | Pending  |
 | DOC-02      | Phase 9  | Pending  |
 | DOC-03      | Phase 9  | Pending  |
-| PCMOD-01    | Phase 10 | Pending  |
-| PCMOD-02    | Phase 10 | Pending  |
-| PCMOD-03    | Phase 10 | Pending  |
-| PCMOD-04    | Phase 10 | Pending  |
+| PCMOD-01    | Phase 10 | Complete |
+| PCMOD-02    | Phase 10 | Complete |
+| PCMOD-03    | Phase 10 | Complete |
+| PCMOD-04    | Phase 10 | Complete |
 | PCMETA-01   | Phase 10 | Pending  |
 | PCMETA-02   | Phase 10 | Pending  |
 | PCLB-01     | Phase 10 | Pending  |
 | PCLB-02     | Phase 10 | Pending  |
 | PCRP-01     | Phase 10 | Pending  |
-| PCSAFE-01   | Phase 10 | Pending  |
-| PCTEST-01   | Phase 10 | Pending  |
+| PCSAFE-01   | Phase 10 | Complete |
+| PCTEST-01   | Phase 10 | Complete |
 
 **Coverage:**
 
