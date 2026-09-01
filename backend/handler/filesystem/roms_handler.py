@@ -7,7 +7,7 @@ import re
 import zipfile
 import zlib
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from anyio import Path as AnyioPath
@@ -24,7 +24,15 @@ from exceptions.fs_exceptions import (
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
+from models.rom import (
+    Rom,
+    RomComponent,
+    RomComponentKind,
+    RomComponentManifestMember,
+    RomFile,
+    RomFileCategory,
+    TrackMeta,
+)
 from utils.archives import (
     ArchiveReadError,
     detect_mime_type,
@@ -132,6 +140,30 @@ ARCHIVE_READERS = {
     ".rar": read_rar_archive_files,
 }
 
+PC_COMPONENT_LAYOUTS = {
+    "base": RomComponentKind.BASE,
+    "update": RomComponentKind.UPDATE,
+    "dlc": RomComponentKind.DLC,
+    "hotfix": RomComponentKind.HOTFIX,
+    "language-pack": RomComponentKind.LANGUAGE_PACK,
+    "extra": RomComponentKind.EXTRA,
+}
+
+
+def parse_pc_component_layout(relative_path: str) -> RomComponentKind:
+    """Classify only exact, configured PC component directory names.
+
+    Layout inference is intentionally constrained to the top-level component
+    directory. Unknown and nested paths remain unresolved instead of granting
+    meaning to weak directory names.
+    """
+    path = PurePosixPath(relative_path)
+    if path.is_absolute() or ".." in path.parts or not relative_path:
+        raise ValueError("PC component path must be a non-empty relative path")
+    if len(path.parts) != 1 or path.parts[0] in {".", ""}:
+        return RomComponentKind.UNRESOLVED
+    return PC_COMPONENT_LAYOUTS.get(path.parts[0].lower(), RomComponentKind.UNRESOLVED)
+
 
 def _make_file_hash(
     crc_c: int, md5_h: Any, sha1_h: Any, chd_sha1_hash: str = ""
@@ -184,6 +216,49 @@ class FSRomsHandler(ExternalFSHandler):
 
     def open_rom_hash(self, relative_path: str):
         return self.open_access(StorageOperation.HASH, relative_path)
+
+    async def get_pc_components(self, rom: Rom) -> list[RomComponent]:
+        """Build immutable component manifests for one directory-backed PC ROM.
+
+        All filesystem work goes through the external read capabilities. This
+        method neither creates nor mutates source-library entries.
+        """
+        rom_path = f"{rom.fs_path}/{rom.fs_name}"
+        components: list[RomComponent] = []
+        for component_name in sorted(await self.list_directories(rom_path)):
+            kind = parse_pc_component_layout(component_name)
+            component_path = f"{rom_path}/{component_name}"
+            manifest_members: list[RomComponentManifestMember] = []
+            pending_directories = [component_path]
+
+            while pending_directories:
+                directory = pending_directories.pop()
+                for directory_name in reversed(
+                    sorted(await self.list_directories(directory))
+                ):
+                    pending_directories.append(f"{directory}/{directory_name}")
+                for file_name in sorted(await self.list_files(directory)):
+                    file_path = f"{directory}/{file_name}"
+                    manifest_path = file_path.removeprefix(f"{rom_path}/")
+                    with self.open_rom_hash(file_path) as source:
+                        sha256 = source.hash("sha256")
+                    manifest_members.append(
+                        RomComponentManifestMember(
+                            relative_path=manifest_path,
+                            size_bytes=await self.get_file_size(file_path),
+                            sha256=sha256,
+                        )
+                    )
+
+            components.append(
+                RomComponent(
+                    relative_path=component_name,
+                    kind=kind,
+                    manifest_members=manifest_members,
+                )
+            )
+
+        return components
 
     @staticmethod
     def open_mapped_scan(context: "MappingReadContext", relative_path: str = ""):

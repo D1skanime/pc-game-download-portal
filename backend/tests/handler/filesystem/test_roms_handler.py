@@ -19,9 +19,11 @@ from handler.filesystem.base_handler import (
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
+    parse_pc_component_layout,
 )
+from handler.filesystem.storage_policy import _create_external_descriptor
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomComponentKind, RomFile, RomFileCategory
 from utils.archives import extract_chd_hash
 
 
@@ -1690,6 +1692,70 @@ class TestParseTagsProperties:
         # Every supplied code resolves to its mapped full name.
         assert {REGIONS_BY_SHORTCODE[c] for c in regions} <= set(parsed.regions)
         assert {LANGUAGES_BY_SHORTCODE[c] for c in languages} <= set(parsed.languages)
+
+
+class TestPcComponentManifests:
+    """The parser must not infer component intent from arbitrary folder names."""
+
+    @pytest.mark.asyncio
+    async def test_explicit_component_folders_build_exact_read_only_manifests(
+        self, tmp_path: Path
+    ):
+        root = tmp_path / "roms" / "win" / "Example Game"
+        expected = {
+            "base": RomComponentKind.BASE,
+            "update": RomComponentKind.UPDATE,
+            "dlc": RomComponentKind.DLC,
+            "hotfix": RomComponentKind.HOTFIX,
+            "language-pack": RomComponentKind.LANGUAGE_PACK,
+            "extra": RomComponentKind.EXTRA,
+        }
+        for folder in expected:
+            path = root / folder / "nested" / f"{folder}.bin"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(f"{folder}-bytes".encode())
+
+        handler = FSRomsHandler(_create_external_descriptor(1, tmp_path, mapping_id=1))
+        rom = Rom(
+            id=1,
+            fs_name="Example Game",
+            fs_path="roms/win",
+            platform=Platform(name="Windows", slug="win", fs_slug="win"),
+        )
+
+        components = await handler.get_pc_components(rom)
+
+        assert [
+            (component.relative_path, component.kind) for component in components
+        ] == sorted(expected.items())
+        for component in components:
+            member = component.manifest_members[0]
+            expected_bytes = f"{component.relative_path}-bytes".encode()
+            assert (
+                member.relative_path
+                == f"{component.relative_path}/nested/{component.relative_path}.bin"
+            )
+            assert member.size_bytes == len(expected_bytes)
+            assert member.sha256 == hashlib.sha256(expected_bytes).hexdigest()
+
+        source_digest_after = hashlib.sha256(
+            b"".join(
+                path.read_bytes() for path in sorted(root.rglob("*")) if path.is_file()
+            )
+        ).hexdigest()
+        assert (
+            source_digest_after
+            == hashlib.sha256(
+                b"".join(f"{folder}-bytes".encode() for folder in sorted(expected))
+            ).hexdigest()
+        )
+
+    def test_ambiguous_or_traversal_component_paths_are_not_classified(self):
+        """Weak names and traversal must not become component authority."""
+        assert parse_pc_component_layout("mods") == RomComponentKind.UNRESOLVED
+        assert parse_pc_component_layout("update/nested") == RomComponentKind.UNRESOLVED
+        with pytest.raises(ValueError, match="relative"):
+            parse_pc_component_layout("../update")
 
 
 def _chd_header_bytes(version: int, sha1: bytes) -> bytes:
