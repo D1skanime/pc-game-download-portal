@@ -72,6 +72,44 @@ class CatalogRemovalResponse(BaseModel):
     retained_user_data: bool = True
 
 
+class PcMetadataMediaSchema(BaseModel):
+    kind: str
+    url: str
+
+
+class PcMetadataCandidateSchema(BaseModel):
+    id: str
+    provider: str
+    title: str
+    provider_ids: dict[str, int | str]
+    description_available: bool
+    media: list[PcMetadataMediaSchema]
+
+
+class PcMetadataProviderResultSchema(BaseModel):
+    provider: str
+    available: bool
+    candidates: list[PcMetadataCandidateSchema]
+    reason: str | None = None
+
+
+class PcMetadataCandidatesResponse(BaseModel):
+    expected_version: UTCDatetime
+    providers: dict[str, PcMetadataProviderResultSchema]
+
+
+class PcMetadataSelectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: str = Field(min_length=1)
+    expected_version: UTCDatetime
+
+
+class PcMetadataSelectionResponse(BaseModel):
+    candidate_id: str
+    expected_version: UTCDatetime
+
+
 class UserNoteSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -1718,6 +1718,27 @@ class DBRomsHandler(DBBaseHandler):
         return session.query(Rom).filter_by(id=id).one()
 
     @begin_session
+    def apply_pc_metadata_candidate(
+        self,
+        id: int,
+        expected_updated_at: datetime,
+        data: dict[str, Any],
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        """Apply a reviewed PC metadata candidate only at the expected version."""
+        result = session.execute(
+            update(Rom)
+            .where(and_(Rom.id == id, Rom.updated_at == expected_updated_at))
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+        if result.rowcount != 1:
+            return None
+        session.flush()
+        session.expire_all()
+        return session.query(Rom).filter_by(id=id).one()
+
+    @begin_session
     def convert_rom_to_folder(
         self,
         id: int,
