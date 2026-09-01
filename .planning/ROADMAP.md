@@ -341,11 +341,14 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 
 ### Phase 11: Local PC Media and DLC Navigation
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Let an operator select safe local PC artwork, match DLC independently,
+and open locally owned DLC files from Overview without leaving RomM.
+**Requirements**: PCLM-01, PCLM-02, PCDLC-01, PCDLC-02, PCSAFE-01, PCTEST-01
 **Depends on:** Phase 10
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 11 to break down)
+- [ ] 11-01-PLAN.md: Persist and reconcile manifest-bound local media safely.
+- [ ] 11-02-PLAN.md: Add independent DLC review and internal v2 navigation.
+- [ ] 11-03-PLAN.md: Prove the isolated end-to-end flow and record UAT.

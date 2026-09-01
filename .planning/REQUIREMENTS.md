@@ -118,6 +118,13 @@
 - [x] **PCLB-02**: A matched PC game can use eligible local LaunchBox descriptions, cover art, fan art, logos, screenshots, and videos without modifying the LaunchBox library.
 - [x] **PCRP-01**: RiotPixels is evaluated for documented API access, terms, rate limits, and supported still or animated media before any provider integration is enabled.
 
+### PC Local Media and DLC Navigation
+
+- [ ] **PCLM-01**: An operator can explicitly select a verified direct PNG, JPEG, or WebP from a recognized PC DLC or extra component as owned cover, background, or gallery media without altering the source file.
+- [ ] **PCLM-02**: A selected local-media role survives a rescan only while its component-relative source path and SHA-256 digest are unchanged; PDFs and archive contents are never promoted to artwork.
+- [ ] **PCDLC-01**: An operator can review and apply configured-provider metadata for each recognized DLC component independently from the base game.
+- [ ] **PCDLC-02**: A locally identified overview DLC or expansion opens the same game's files view filtered to that local DLC component and does not open IGDB.
+
 ### PC Safety and Verification
 
 - [x] **PCSAFE-01**: Component recognition, manifest generation, metadata matching, and local LaunchBox reads leave every source root unchanged.
@@ -241,14 +248,19 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | PCRP-01     | Phase 10 | Complete |
 | PCSAFE-01   | Phase 10 | Complete |
 | PCTEST-01   | Phase 10 | Complete |
+| PCLM-01     | Phase 11 | Pending  |
+| PCLM-02     | Phase 11 | Pending  |
+| PCDLC-01    | Phase 11 | Pending  |
+| PCDLC-02    | Phase 11 | Pending  |
 
 **Coverage:**
 
 - v1 requirements: 63 total
 - Mapped to phases: 63
 - Unmapped: 0
-- v1.1 PC integration requirements: 11 total
+- v1.1 PC integration requirements: 15 total
 - v1.1 mapped to Phase 10: 11
+- v1.1 mapped to Phase 11: 4
 - v1.1 unmapped: 0
 
 ---
