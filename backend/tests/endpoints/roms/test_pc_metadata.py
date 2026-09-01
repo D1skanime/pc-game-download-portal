@@ -160,6 +160,10 @@ def test_pc_local_media_review_only_lists_direct_dlc_images(client, access_token
     assert len(candidates) == 1
     assert candidates[0]["relative_path"] == "dlc/phantom-liberty/poster.png"
     assert candidates[0]["image_type"] == "png"
+    assert candidates[0]["preview_url"] == (
+        f"/api/roms/{rom.id}/pc-local-media-preview/"
+        f"{candidates[0]['component_id']}/{candidates[0]['member_id']}"
+    )
 
 
 def test_pc_local_media_selection_copies_verified_image_to_owned_storage(

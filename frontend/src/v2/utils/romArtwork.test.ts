@@ -37,6 +37,36 @@ function makeRom(files: RomFileSchema[]): DetailedRom {
 }
 
 describe("resolveRomArtwork — library media files", () => {
+  it("includes selected owned local gallery media without exposing its source path", () => {
+    const rom = makeRom([]);
+    rom.components = [
+      {
+        id: 7,
+        relative_path: "Extras",
+        kind: "extra",
+        manifest_members: [],
+        local_media: [
+          {
+            id: 4,
+            source_relative_path: "Extras/wallpaper.png",
+            source_sha256: "a".repeat(64),
+            owned_path: "roms/1/1/pc-media/7-4-gallery.png",
+            image_type: "png",
+            role: "gallery",
+          },
+        ],
+      },
+    ];
+
+    expect(resolveRomArtwork(rom)).toEqual([
+      expect.objectContaining({
+        key: "local-gallery-4",
+        label: "Artwork",
+        url: expect.stringContaining("pc-media/7-4-gallery.png"),
+      }),
+    ]);
+  });
+
   it("includes image files as non-video entries pointing at the content endpoint", () => {
     const rom = makeRom([makeFile({ id: 7, file_name: "artwork.png" })]);
     const entries = resolveRomArtwork(rom);

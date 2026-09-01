@@ -14,6 +14,8 @@ defineOptions({ inheritAttrs: false });
 defineProps<{
   title?: string;
   items: IGDBRelatedGame[];
+  isDlc?: boolean;
+  localComponentIds?: Record<number, number>;
 }>();
 </script>
 
@@ -23,7 +25,13 @@ defineProps<{
       {{ title }}
     </h3>
     <div class="r-v2-related__grid">
-      <RelatedGameCard v-for="g in items" :key="g.id" :game="g" />
+      <RelatedGameCard
+        v-for="g in items"
+        :key="g.id"
+        :game="g"
+        :is-dlc="isDlc"
+        :local-component-id="localComponentIds?.[g.id]"
+      />
     </div>
   </section>
 </template>

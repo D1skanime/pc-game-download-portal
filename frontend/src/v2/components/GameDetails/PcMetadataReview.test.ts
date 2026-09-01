@@ -2,15 +2,24 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import PcMetadataReview from "./PcMetadataReview.vue";
 
-const { getCandidates, selectCandidate } = vi.hoisted(() => ({
+const {
+  getCandidates,
+  selectCandidate,
+  getComponentCandidates,
+  selectComponentCandidate,
+} = vi.hoisted(() => ({
   getCandidates: vi.fn(),
   selectCandidate: vi.fn(),
+  getComponentCandidates: vi.fn(),
+  selectComponentCandidate: vi.fn(),
 }));
 
 vi.mock("@/services/api/rom", () => ({
   default: {
     getPcMetadataCandidates: getCandidates,
     selectPcMetadataCandidate: selectCandidate,
+    getPcComponentMetadataCandidates: getComponentCandidates,
+    selectPcComponentMetadataCandidate: selectComponentCandidate,
   },
 }));
 
@@ -163,5 +172,55 @@ describe("PcMetadataReview", () => {
     expect(wrapper.text()).toContain(
       "This metadata source is unavailable. Try again or choose another source.",
     );
+  });
+
+  it("keeps a DLC metadata selection scoped to its component", async () => {
+    getComponentCandidates.mockResolvedValue({
+      data: {
+        expected_version: "2026-09-01T10:00:00Z",
+        providers: {
+          igdb: {
+            provider: "igdb",
+            available: true,
+            candidates: [
+              {
+                id: "igdb:123",
+                provider: "igdb",
+                title: "Phantom Liberty",
+                provider_ids: { igdb_id: 123 },
+                description_available: true,
+                media: [],
+              },
+            ],
+          },
+        },
+      },
+    });
+    selectComponentCandidate.mockResolvedValue({ data: {} });
+
+    const wrapper = mount(PcMetadataReview, {
+      props: { romId: 1, componentId: 7 },
+      global: {
+        stubs: { RDialog: { template: "<div><slot name='content' /></div>" } },
+      },
+    });
+    await wrapper.get("[data-testid='find-pc-metadata']").trigger("click");
+    await vi.waitFor(() =>
+      expect(getComponentCandidates).toHaveBeenCalledWith({
+        romId: 1,
+        componentId: 7,
+      }),
+    );
+    await wrapper.get("[data-testid='pc-candidate-igdb:123']").trigger("click");
+    await wrapper.get("[data-testid='apply-pc-metadata']").trigger("click");
+
+    expect(selectComponentCandidate).toHaveBeenCalledWith({
+      romId: 1,
+      componentId: 7,
+      selection: {
+        candidate_id: "igdb:123",
+        expected_version: "2026-09-01T10:00:00Z",
+      },
+    });
   });
 });

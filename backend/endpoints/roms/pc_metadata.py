@@ -141,6 +141,9 @@ async def get_pc_local_media_candidates(
             relative_path=member.relative_path,
             source_sha256=member.sha256,
             image_type=member.relative_path.rsplit(".", 1)[-1].lower(),
+            preview_url=(
+                f"/api/roms/{id}/pc-local-media-preview/{component.id}/{member.id}"
+            ),
         )
         for component in rom.components
         if component.kind in {RomComponentKind.DLC, RomComponentKind.EXTRA}

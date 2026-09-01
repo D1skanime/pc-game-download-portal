@@ -8,4 +8,5 @@ export type PcLocalMediaCandidateSchema = {
     relative_path: string;
     source_sha256: string;
     image_type: string;
+    preview_url: string;
 };

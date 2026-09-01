@@ -4,10 +4,12 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PcComponentSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
+import PcMetadataReview from "./PcMetadataReview.vue";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ components: PcComponentSchema[] }>();
+const props = defineProps<{ components: PcComponentSchema[]; romId: number }>();
+const emit = defineEmits<{ (event: "applied"): void }>();
 const { t } = useI18n();
 
 const GROUPS: Array<{ kind: PcComponentSchema["kind"]; label: string }> = [
@@ -57,6 +59,12 @@ const groupedComponents = computed(() =>
         icon="mdi-folder-outline"
       >
         <div class="pc-components__manifest">
+          <PcMetadataReview
+            v-if="component.kind === 'dlc'"
+            :rom-id="romId"
+            :component-id="component.id"
+            @applied="emit('applied')"
+          />
           <div
             v-for="member in component.manifest_members"
             :key="member.relative_path"

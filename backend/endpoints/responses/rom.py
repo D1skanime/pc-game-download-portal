@@ -330,6 +330,7 @@ class PcLocalMediaCandidateSchema(BaseModel):
     relative_path: str
     source_sha256: str
     image_type: str
+    preview_url: str
 
 
 class PcLocalMediaCandidatesResponse(BaseModel):

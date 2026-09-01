@@ -28,6 +28,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type {
   DetailedRomSchema,
+  PcComponentSchema,
   RomFileCategory,
   RomFileSchema,
 } from "@/__generated__";
@@ -260,6 +261,29 @@ function readSubtabFromRoute(): Subtab {
 
 const subTab = ref<Subtab>(readSubtabFromRoute());
 
+const selectedComponent = computed<PcComponentSchema | null>(() => {
+  const raw = route.query.component;
+  if (typeof raw !== "string") return null;
+  const id = Number.parseInt(raw, 10);
+  if (!Number.isSafeInteger(id)) return null;
+  return props.rom.components?.find((component) => component.id === id) ?? null;
+});
+
+const selectedComponentPaths = computed(
+  () =>
+    new Set(
+      selectedComponent.value?.manifest_members.map(
+        (member) => member.relative_path,
+      ) ?? [],
+    ),
+);
+
+function clearComponentFilter() {
+  const query = { ...route.query };
+  delete query.component;
+  void router.replace({ path: route.path, query });
+}
+
 // If the currently-selected subtab no longer has files (e.g. after a
 // rom refresh dropped that category), snap back to "all" so the user
 // isn't staring at an empty pane.
@@ -298,9 +322,10 @@ watch(
 watch(
   () => route.query.tab,
   (value) => {
-    if (value !== "files" && route.query.subtab) {
+    if (value !== "files" && (route.query.subtab || route.query.component)) {
       const rest = { ...route.query };
       delete rest.subtab;
+      delete rest.component;
       router.replace({ path: route.path, query: rest });
     }
   },
@@ -312,19 +337,24 @@ watch(
 // order from `files`. Folder-specific subtabs inherit that order
 // directly from `filesByFolder`.
 const filteredFiles = computed<RomFileSchema[]>(() => {
+  let subtabFiles: RomFileSchema[];
   if (subTab.value !== "all") {
-    return filesByFolder.value.get(subTab.value as string) ?? [];
+    subtabFiles = filesByFolder.value.get(subTab.value as string) ?? [];
+  } else {
+    subtabFiles = [];
+    const rootList = filesByFolder.value.get(ROOT);
+    if (rootList) subtabFiles.push(...rootList);
+    const folders = [...filesByFolder.value.keys()]
+      .filter((f) => f !== ROOT)
+      .sort((a, b) => folderLabel(a).localeCompare(folderLabel(b)));
+    for (const folder of folders) {
+      subtabFiles.push(...(filesByFolder.value.get(folder) ?? []));
+    }
   }
-  const out: RomFileSchema[] = [];
-  const rootList = filesByFolder.value.get(ROOT);
-  if (rootList) out.push(...rootList);
-  const folders = [...filesByFolder.value.keys()]
-    .filter((f) => f !== ROOT)
-    .sort((a, b) => folderLabel(a).localeCompare(folderLabel(b)));
-  for (const folder of folders) {
-    out.push(...(filesByFolder.value.get(folder) ?? []));
-  }
-  return out;
+  if (!selectedComponent.value) return subtabFiles;
+  return subtabFiles.filter((file) =>
+    selectedComponentPaths.value.has(relativePath(file)),
+  );
 });
 
 // ---------- Selection ----------
@@ -461,6 +491,14 @@ async function copySelectedLink() {
     </aside>
 
     <div class="r-v2-files__content">
+      <div v-if="selectedComponent" class="r-v2-files__component-filter">
+        <strong
+          >{{ t("rom.files") }}: {{ selectedComponent.relative_path }}</strong
+        >
+        <RBtn variant="text" size="small" @click="clearComponentFilter">
+          {{ t("common.clear") }}
+        </RBtn>
+      </div>
       <FilesSummary :rom="rom" />
 
       <!-- Selection toolbar — pinned above the list. Always visible
@@ -658,10 +696,19 @@ async function copySelectedLink() {
      through and pushed `.r-v2-det__panel` into showing its outer
      scrollbar. Rows: summary, selection toolbar, list. */
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   gap: var(--r-space-3);
   min-height: 0;
   overflow: hidden;
+}
+
+.r-v2-files__component-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-sm);
 }
 
 /* (Summary card + hash chip styles moved to FilesSummary / HashChip

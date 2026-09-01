@@ -29,7 +29,11 @@ import GameCard from "@/v2/components/GameCard/GameCard.vue";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ game: IGDBRelatedGame }>();
+const props = defineProps<{
+  game: IGDBRelatedGame;
+  isDlc?: boolean;
+  localComponentId?: number;
+}>();
 
 const { t } = useI18n();
 const router = useRouter();
@@ -37,6 +41,7 @@ const romId = ref<number | null>(null);
 const inLibrary = computed(() => romId.value !== null);
 
 onMounted(async () => {
+  if (props.isDlc) return;
   try {
     const res = await romApi.getRomByMetadataProvider({
       field: "igdb_id",
@@ -160,6 +165,19 @@ const syntheticRom = computed<SimpleRom>(() => ({
 // Static-mode GameCard emits @click for the consumer. Resolve the
 // destination based on the IGDB → RomM lookup result.
 function onClick(e: MouseEvent) {
+  if (props.isDlc) {
+    if (props.localComponentId) {
+      void router.push({
+        path: router.currentRoute.value.path,
+        query: {
+          ...router.currentRoute.value.query,
+          tab: "files",
+          component: String(props.localComponentId),
+        },
+      });
+    }
+    return;
+  }
   if (inLibrary.value) {
     void router.push(`/rom/${romId.value}`);
     return;

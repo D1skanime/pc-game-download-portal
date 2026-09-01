@@ -49,8 +49,17 @@ const componentGroups = [
 describe("PcComponents", () => {
   it("renders PC component groups in the operator review order", async () => {
     const wrapper = mount(PcComponents, {
-      props: { components: componentGroups },
-      global: { stubs: { RCollapsible: false } },
+      props: { components: componentGroups, romId: 1 },
+      global: {
+        stubs: {
+          RCollapsible: false,
+          PcMetadataReview: {
+            props: ["romId", "componentId"],
+            template:
+              "<div :data-testid='`dlc-review-${componentId}`'><slot /></div>",
+          },
+        },
+      },
     });
 
     expect(wrapper.text()).toContain("Base game");
@@ -73,5 +82,7 @@ describe("PcComponents", () => {
     expect(wrapper.text()).toContain("Game/game.exe");
     expect(wrapper.text()).toContain("1 KB");
     expect(wrapper.text()).toContain("a".repeat(64));
+    await wrapper.get("[data-testid='pc-component-DLC']").trigger("click");
+    expect(wrapper.find("[data-testid='dlc-review-3']").exists()).toBe(true);
   });
 });

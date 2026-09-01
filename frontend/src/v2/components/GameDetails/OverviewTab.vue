@@ -57,6 +57,7 @@ const props = defineProps<{
   screenshots: string[];
   expansions: IGDBRelatedGame[];
   dlcs: IGDBRelatedGame[];
+  localDlcComponentIds: Record<number, number>;
   remakes: IGDBRelatedGame[];
   remasters: IGDBRelatedGame[];
   similarGames: IGDBRelatedGame[];
@@ -291,14 +292,24 @@ const coverSource = computed(() => {
           <RIcon icon="mdi-puzzle-outline" size="14" />
           Expansions
         </h4>
-        <RelatedGamesGrid title="" :items="expansions" />
+        <RelatedGamesGrid
+          title=""
+          :items="expansions"
+          is-dlc
+          :local-component-ids="localDlcComponentIds"
+        />
       </div>
       <div v-if="dlcs.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-package-variant-closed" size="14" />
           DLC
         </h4>
-        <RelatedGamesGrid title="" :items="dlcs" />
+        <RelatedGamesGrid
+          title=""
+          :items="dlcs"
+          is-dlc
+          :local-component-ids="localDlcComponentIds"
+        />
       </div>
       <div v-if="remakes.length" class="overview-tab__section">
         <h4 class="overview-tab__section-heading">

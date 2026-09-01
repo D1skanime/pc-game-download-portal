@@ -14,7 +14,7 @@ import type { IGDBRelatedGame } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
-import { toBrowserLocale } from "@/utils";
+import { FRONTEND_RESOURCES_PATH, toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
 import FilesTab from "@/v2/components/GameDetails/FilesTab/FilesTab.vue";
@@ -26,6 +26,7 @@ import NotesTab from "@/v2/components/GameDetails/NotesTab.vue";
 import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
 import PcComponents from "@/v2/components/GameDetails/PcComponents.vue";
+import PcLocalMediaReview from "@/v2/components/GameDetails/PcLocalMediaReview.vue";
 import PcMetadataReview from "@/v2/components/GameDetails/PcMetadataReview.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
@@ -148,11 +149,19 @@ const coverPath = computed(() => {
 
 const coverFallback = computed(() => currentRom.value?.url_cover ?? null);
 const resolvedCover = computed(() => coverPath.value ?? coverFallback.value);
+const selectedBackground = computed(() => {
+  const media = currentRom.value?.components
+    ?.flatMap((component) => component.local_media ?? [])
+    .find((entry) => entry.role === "background");
+  return media
+    ? `${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${currentRom.value?.updated_at}`
+    : null;
+});
 
 watch(
-  resolvedCover,
-  (url) => {
-    if (url) setBgArt(url);
+  [resolvedCover, selectedBackground],
+  ([cover, background]) => {
+    if (cover || background) setBgArt(background ?? cover);
   },
   { immediate: true },
 );
@@ -222,6 +231,19 @@ const expansions = computed<IGDBRelatedGame[]>(
   () => igdb.value?.expansions ?? [],
 );
 const dlcs = computed<IGDBRelatedGame[]>(() => igdb.value?.dlcs ?? []);
+const localDlcComponentIds = computed<Record<number, number>>(() =>
+  Object.fromEntries(
+    (currentRom.value?.components ?? [])
+      .filter(
+        (component) =>
+          component.kind === "dlc" && component.component_metadata?.igdb_id,
+      )
+      .map((component) => [
+        component.component_metadata!.igdb_id!,
+        component.id,
+      ]),
+  ),
+);
 
 const savesCount = computed(() => currentRom.value?.user_saves?.length ?? 0);
 const statesCount = computed(() => currentRom.value?.user_states?.length ?? 0);
@@ -303,6 +325,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :screenshots="currentRom.merged_screenshots ?? []"
             :expansions="expansions"
             :dlcs="dlcs"
+            :local-dlc-component-ids="localDlcComponentIds"
             :remakes="remakes"
             :remasters="remasters"
             :similar-games="similarGames"
@@ -313,7 +336,15 @@ const tabs = computed<RTabNavItem[]>(() => [
               :rom-id="currentRom.id"
               @applied="refreshPcDetails"
             />
-            <PcComponents :components="currentRom.components ?? []" />
+            <PcLocalMediaReview
+              :rom-id="currentRom.id"
+              @applied="refreshPcDetails"
+            />
+            <PcComponents
+              :rom-id="currentRom.id"
+              :components="currentRom.components ?? []"
+              @applied="refreshPcDetails"
+            />
           </template>
           <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
           <MediaTab v-if="tab === 'media'" :rom="currentRom" />

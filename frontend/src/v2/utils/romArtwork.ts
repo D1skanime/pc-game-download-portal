@@ -146,6 +146,16 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
     // Images before videos; sort is stable so original order holds within each group.
     .sort((a, b) => Number(a.isVideo) - Number(b.isVideo));
 
+  const localGalleryMedia = (rom.components ?? []).flatMap((component) =>
+    (component.local_media ?? [])
+      .filter((media) => media.role === "gallery")
+      .map((media) => ({
+        key: `local-gallery-${media.id}`,
+        label: i18n.global.t("rom.artwork"),
+        url: `${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${cacheBust}`,
+      })),
+  );
+
   for (const def of artworkDefs) {
     if (!def.url || seen.has(def.url)) continue;
     seen.add(def.url);
@@ -157,5 +167,5 @@ export function resolveRomArtwork(rom: DetailedRom): RomArtworkEntry[] {
     });
   }
 
-  return [...out, ...libraryMedia];
+  return [...out, ...localGalleryMedia, ...libraryMedia];
 }

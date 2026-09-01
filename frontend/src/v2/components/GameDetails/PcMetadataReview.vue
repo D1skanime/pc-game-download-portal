@@ -11,7 +11,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ romId: number }>();
+const props = defineProps<{ romId: number; componentId?: number }>();
 const emit = defineEmits<{ (event: "applied"): void }>();
 
 const { t } = useI18n();
@@ -52,9 +52,12 @@ async function findMetadata() {
   selectedCandidateId.value = null;
   appliedCandidate.value = null;
   try {
-    const { data } = await romApi.getPcMetadataCandidates({
-      romId: props.romId,
-    });
+    const { data } = props.componentId
+      ? await romApi.getPcComponentMetadataCandidates({
+          romId: props.romId,
+          componentId: props.componentId,
+        })
+      : await romApi.getPcMetadataCandidates({ romId: props.romId });
     response.value = data;
   } catch (error) {
     console.error(error);
@@ -68,13 +71,19 @@ async function applySelection() {
   if (!selectedCandidate.value || !response.value) return;
   applying.value = true;
   try {
-    await romApi.selectPcMetadataCandidate({
-      romId: props.romId,
-      selection: {
-        candidate_id: selectedCandidate.value.id,
-        expected_version: response.value.expected_version,
-      },
-    });
+    const selection = {
+      candidate_id: selectedCandidate.value.id,
+      expected_version: response.value.expected_version,
+    };
+    if (props.componentId) {
+      await romApi.selectPcComponentMetadataCandidate({
+        romId: props.romId,
+        componentId: props.componentId,
+        selection,
+      });
+    } else {
+      await romApi.selectPcMetadataCandidate({ romId: props.romId, selection });
+    }
     appliedCandidate.value = selectedCandidate.value;
     dialogOpen.value = false;
     emit("applied");
