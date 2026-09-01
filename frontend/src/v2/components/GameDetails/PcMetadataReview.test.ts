@@ -85,6 +85,56 @@ describe("PcMetadataReview", () => {
     });
   });
 
+  it("closes the review after successfully applying a candidate", async () => {
+    getCandidates.mockResolvedValue({
+      data: {
+        expected_version: "2026-09-01T10:00:00Z",
+        providers: {
+          igdb: {
+            provider: "igdb",
+            available: true,
+            candidates: [
+              {
+                id: "igdb:1877",
+                provider: "igdb",
+                title: "Cyberpunk 2077",
+                provider_ids: { igdb_id: 1877 },
+                description_available: true,
+                media: [],
+              },
+            ],
+          },
+        },
+      },
+    });
+    selectCandidate.mockResolvedValue({ data: {} });
+
+    const wrapper = mount(PcMetadataReview, {
+      props: { romId: 1 },
+      global: {
+        stubs: {
+          RDialog: {
+            props: ["modelValue"],
+            template: "<div v-if='modelValue'><slot name='content' /></div>",
+          },
+        },
+      },
+    });
+    await wrapper.get("[data-testid='find-pc-metadata']").trigger("click");
+    await vi.waitFor(() => expect(getCandidates).toHaveBeenCalled());
+    await wrapper
+      .get("[data-testid='pc-candidate-igdb:1877']")
+      .trigger("click");
+
+    await wrapper.get("[data-testid='apply-pc-metadata']").trigger("click");
+    await vi.waitFor(() => expect(selectCandidate).toHaveBeenCalled());
+
+    expect(wrapper.emitted("applied")).toHaveLength(1);
+    expect(wrapper.find("[data-testid='apply-pc-metadata']").exists()).toBe(
+      false,
+    );
+  });
+
   it("shows the approved empty and provider-error copy", async () => {
     getCandidates.mockResolvedValue({
       data: {

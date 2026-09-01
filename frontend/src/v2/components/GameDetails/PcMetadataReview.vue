@@ -76,6 +76,7 @@ async function applySelection() {
       },
     });
     appliedCandidate.value = selectedCandidate.value;
+    dialogOpen.value = false;
     emit("applied");
   } catch (error) {
     console.error(error);
