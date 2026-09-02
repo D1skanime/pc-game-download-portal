@@ -1,7 +1,15 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { PcComponentSchema } from "@/__generated__";
+import { ROUTES } from "@/plugins/router";
 import PcComponents from "./PcComponents.vue";
+
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRouter: () => ({ push }),
+}));
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({
@@ -47,6 +55,8 @@ const componentGroups = [
 ] satisfies PcComponentSchema[];
 
 describe("PcComponents", () => {
+  beforeEach(() => push.mockReset());
+
   it("uses the main game label instead of the technical base folder name", () => {
     const wrapper = mount(PcComponents, {
       props: {
@@ -112,5 +122,29 @@ describe("PcComponents", () => {
     expect(wrapper.text()).toContain("a".repeat(64));
     await wrapper.get("[data-testid='pc-component-DLC']").trigger("click");
     expect(wrapper.find("[data-testid='dlc-review-3']").exists()).toBe(true);
+  });
+
+  it("opens only DLC components at their parent-owned detail routes", async () => {
+    const wrapper = mount(PcComponents, {
+      props: { components: componentGroups, romId: 42 },
+      global: {
+        stubs: {
+          RCollapsible: { template: "<section><slot /></section>" },
+          RBtn: {
+            template: "<button @click='$emit(\"click\")'><slot /></button>",
+          },
+        },
+      },
+    });
+
+    const controls = wrapper.findAll("[data-testid='open-pc-dlc-details']");
+    expect(controls).toHaveLength(1);
+    await controls[0].trigger("click");
+
+    expect(push).toHaveBeenCalledWith({
+      name: ROUTES.PC_DLC,
+      params: { rom: 42, component: 3 },
+    });
+    expect(wrapper.text()).not.toContain("DetailsUpdates");
   });
 });
