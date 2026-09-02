@@ -67,7 +67,7 @@ const badges = computed<Badge[]>(() => {
     ssRatings.map((r) => [String(r.rating).trim(), r]),
   );
 
-  return ratings.map<Badge>((entry) => {
+  const resolved = ratings.map<Badge>((entry) => {
     // Manually entered "CATEGORY:RATING" — reconstruct the icon URL
     // by convention since there's no provider object to look up.
     if (entry.includes(":")) {
@@ -97,6 +97,12 @@ const badges = computed<Badge[]>(() => {
 
     return { rating: entry, category: "", rating_cover_url: undefined };
   });
+
+  return [
+    ...new Map(
+      resolved.map((badge) => [`${badge.category}:${badge.rating}`, badge]),
+    ).values(),
+  ];
 });
 </script>
 

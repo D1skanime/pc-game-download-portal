@@ -2,20 +2,16 @@
 // PrevNextNav: step to the previous / next game without going back to
 // the gallery.
 //
-// Order comes from the gallery store's `romIdIndex`, so it always matches
-// what the gallery the user came from is showing (search term, filters,
-// order-by, grouping).
-//
-// Two conditions gate the arrows, and both are needed. The ROM has to be
-// in that list, and the user has to have arrived from the gallery that
-// built it (see useGalleryProvenance) — the store keeps its index alive
-// after the gallery is left, so membership alone would hand a stale list
-// to a ROM opened from Home, Activity or a scan result.
+// A gallery arrival keeps that gallery's ordering, filters, and grouping.
+// A directly opened ROM receives an alphabetical list for its platform.
+// Provenance prevents an old gallery index from becoming the direct page's
+// neighbour list.
 import { RBtn } from "@v2/lib";
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
+import romApi from "@/services/api/rom";
 import { useGalleryProvenance } from "@/v2/composables/useGalleryProvenance";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -23,6 +19,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
   romId: number;
+  platformId: number;
 }>();
 
 const { t } = useI18n();
@@ -30,20 +27,57 @@ const route = useRoute();
 const router = useRouter();
 const galleryRoms = storeGalleryRoms();
 const { enteredFromGallery } = useGalleryProvenance();
+const directPlatformRomIds = ref<number[]>([]);
+let directLoadVersion = 0;
 
-const position = computed(() =>
-  enteredFromGallery.value ? galleryRoms.romIdIndex.indexOf(props.romId) : -1,
+const romIdIndex = computed(() =>
+  enteredFromGallery.value
+    ? galleryRoms.romIdIndex
+    : directPlatformRomIds.value,
 );
 
+watch(
+  () => [enteredFromGallery.value, props.platformId] as const,
+  async ([fromGallery]) => {
+    const loadVersion = ++directLoadVersion;
+    if (fromGallery) {
+      directPlatformRomIds.value = [];
+      return;
+    }
+
+    try {
+      const { data } = await romApi.getRoms({
+        platformIds: [props.platformId],
+        limit: 1,
+        orderBy: "name",
+        orderDir: "asc",
+        groupByMetaId: true,
+        withCharIndex: false,
+        withFilterValues: false,
+        withTotal: false,
+      });
+      if (loadVersion === directLoadVersion) {
+        directPlatformRomIds.value = data.rom_id_index ?? [];
+      }
+    } catch (error) {
+      if (loadVersion === directLoadVersion) directPlatformRomIds.value = [];
+      console.error("[PrevNextNav] unable to load platform neighbours", error);
+    }
+  },
+  { immediate: true },
+);
+
+const position = computed(() => romIdIndex.value.indexOf(props.romId));
+
 const visible = computed(
-  () => position.value >= 0 && galleryRoms.romIdIndex.length > 1,
+  () => position.value >= 0 && romIdIndex.value.length > 1,
 );
 
 const prevPosition = computed(() =>
   position.value > 0 ? position.value - 1 : null,
 );
 const nextPosition = computed(() =>
-  position.value >= 0 && position.value < galleryRoms.romIdIndex.length - 1
+  position.value >= 0 && position.value < romIdIndex.value.length - 1
     ? position.value + 1
     : null,
 );
@@ -68,7 +102,7 @@ function go(position: number | null) {
   if (position === null) return;
   router.push({
     name: ROUTES.ROM,
-    params: { rom: galleryRoms.romIdIndex[position] },
+    params: { rom: romIdIndex.value[position] },
     // Keep `?tab=` and friends so stepping through a list doesn't drop
     // the user back to Overview on every hop.
     query: route.query,
@@ -81,25 +115,27 @@ function go(position: number | null) {
     <RBtn
       variant="outlined"
       size="small"
-      density="compact"
-      icon="mdi-chevron-left"
+      prepend-icon="mdi-chevron-left"
       :disabled="prevPosition === null"
       :aria-label="t('rom.previous-game')"
       :tooltip="prevTooltip"
       tooltip-location="top"
       @click="go(prevPosition)"
-    />
+    >
+      {{ t("rom.previous-game") }}
+    </RBtn>
     <RBtn
       variant="outlined"
       size="small"
-      density="compact"
-      icon="mdi-chevron-right"
+      append-icon="mdi-chevron-right"
       :disabled="nextPosition === null"
       :aria-label="t('rom.next-game')"
       :tooltip="nextTooltip"
       tooltip-location="top"
       @click="go(nextPosition)"
-    />
+    >
+      {{ t("rom.next-game") }}
+    </RBtn>
   </div>
 </template>
 

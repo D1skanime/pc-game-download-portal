@@ -242,18 +242,14 @@ html.r-v2-reduced-motion *::after {
     );
 }
 
-/* Light theme overlay — a stronger, near-even light wash so content always
-   sits on a calm off-white field. The dark default dips to 0-30% bg in the
-   centre (right where the home rows live), which on light reads as the muddy
-   bleed-through. Here the field never drops below ~74% bg: a faint cover
-   tint survives mid-page for some life, and the top/bottom rise so titles
-   and dense list rows land on a stable, legible ground. */
+/* Light theme overlay keeps a calm off-white field while leaving enough of
+   the backdrop visible to identify the current game at a glance. */
 .r-v2-light .r-v2-bg__overlay {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--r-color-bg) 76%, transparent) 0%,
-    color-mix(in srgb, var(--r-color-bg) 64%, transparent) 40%,
-    color-mix(in srgb, var(--r-color-bg) 86%, transparent) 100%
+    color-mix(in srgb, var(--r-color-bg) 58%, transparent) 0%,
+    color-mix(in srgb, var(--r-color-bg) 44%, transparent) 40%,
+    color-mix(in srgb, var(--r-color-bg) 58%, transparent) 100%
   );
 }
 

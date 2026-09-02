@@ -41,7 +41,7 @@ const actions = useGameActions(() => props.rom);
       <h1 class="r-v2-det-header__title">
         {{ title }}
       </h1>
-      <PrevNextNav :rom-id="rom.id" />
+      <PrevNextNav :rom-id="rom.id" :platform-id="rom.platform_id" />
     </div>
 
     <div class="r-v2-det-header__meta">
