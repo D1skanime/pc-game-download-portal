@@ -95,8 +95,11 @@ describe("PcDlcDetails", () => {
     await flushPromises();
 
     expect(getRom).toHaveBeenCalledWith({ romId: 1 });
-    expect(wrapper.get("[data-testid='pc-dlc-handoff']").text()).toContain(
-      "DLC/expansion",
+    expect(wrapper.getComponent({ name: "PcDlcDetail" }).props()).toMatchObject(
+      {
+        parent,
+        component: dlc,
+      },
     );
     expect(wrapper.text()).not.toContain("Updates/1.1");
   });
