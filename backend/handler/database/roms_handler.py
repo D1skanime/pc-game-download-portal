@@ -1859,13 +1859,23 @@ class DBRomsHandler(DBBaseHandler):
         assert component is not None
 
         replaced_owned_paths: list[str] = []
-        if role != RomComponentLocalMediaRole.GALLERY:
-            for existing_component in rom.components:
-                for existing_media in existing_component.local_media:
-                    if existing_media.role == role:
-                        if role != RomComponentLocalMediaRole.COVER:
-                            replaced_owned_paths.append(existing_media.owned_path)
-                        session.delete(existing_media)
+        removed_existing_media = False
+        for existing_component in rom.components:
+            for existing_media in existing_component.local_media:
+                replaces_role = role != RomComponentLocalMediaRole.GALLERY or (
+                    existing_component.id == component.id
+                    and existing_media.source_relative_path == member.relative_path
+                )
+                if existing_media.role == role and replaces_role:
+                    if (
+                        role != RomComponentLocalMediaRole.COVER
+                        and existing_media.owned_path != owned_path
+                    ):
+                        replaced_owned_paths.append(existing_media.owned_path)
+                    session.delete(existing_media)
+                    removed_existing_media = True
+        if removed_existing_media:
+            session.flush()
 
         media = RomComponentLocalMedia(
             component_id=component.id,

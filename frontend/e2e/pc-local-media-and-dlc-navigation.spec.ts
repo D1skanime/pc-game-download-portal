@@ -139,6 +139,26 @@ test.describe("PC local media and DLC navigation", () => {
       await expect(candidate).toBeHidden();
     }
 
+    await page.evaluate(() => localStorage.setItem("settings.theme", "light"));
+    await page.reload();
+    const activeBackground = page.locator(".r-v2-bg__layer--active");
+    await expect
+      .poll(() =>
+        activeBackground.evaluate((element) => element.getAttribute("style")),
+      )
+      .toContain("pc-media");
+    const lightOverlayOpacity = await page
+      .locator(".r-v2-bg__overlay")
+      .evaluate((element) => {
+        const matches = [
+          ...getComputedStyle(element).backgroundImage.matchAll(
+            /\/ ([\d.]+)\)/g,
+          ),
+        ];
+        return Math.max(...matches.map((match) => Number(match[1])));
+      });
+    expect(lightOverlayOpacity).toBeLessThanOrEqual(0.86);
+
     const dlc = page.getByTestId("pc-component-dlc");
     await dlc.getByRole("button", { name: "dlc" }).click();
     await dlc.getByTestId("find-pc-metadata").click();

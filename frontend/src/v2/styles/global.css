@@ -251,9 +251,9 @@ html.r-v2-reduced-motion *::after {
 .r-v2-light .r-v2-bg__overlay {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--r-color-bg) 88%, transparent) 0%,
-    color-mix(in srgb, var(--r-color-bg) 84%, transparent) 40%,
-    color-mix(in srgb, var(--r-color-bg) 93%, transparent) 100%
+    color-mix(in srgb, var(--r-color-bg) 76%, transparent) 0%,
+    color-mix(in srgb, var(--r-color-bg) 64%, transparent) 40%,
+    color-mix(in srgb, var(--r-color-bg) 86%, transparent) 100%
   );
 }
 

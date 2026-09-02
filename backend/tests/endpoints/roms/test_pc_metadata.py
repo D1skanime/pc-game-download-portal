@@ -1,6 +1,7 @@
 from datetime import timedelta
 from unittest.mock import AsyncMock
 
+import pytest
 from fastapi import status
 
 from endpoints.roms.pc_metadata import pc_metadata_match_handler
@@ -234,6 +235,68 @@ def test_pc_local_media_selection_copies_verified_image_to_owned_storage(
     saved = db_rom_handler.get_rom(rom.id)
     assert saved is not None
     assert saved.components[0].local_media[0].source_sha256 == "d" * 64
+
+
+@pytest.mark.parametrize(
+    "role",
+    [
+        RomComponentLocalMediaRole.BACKGROUND,
+        RomComponentLocalMediaRole.GALLERY,
+    ],
+)
+def test_pc_local_media_selection_replaces_an_existing_role_without_duplicates(
+    rom, role
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="extra/artwork",
+                kind=RomComponentKind.EXTRA,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="extra/artwork/wallpaper.webp",
+                        size_bytes=4,
+                        sha256="e" * 64,
+                    )
+                ],
+            )
+        ],
+    )
+    persisted = db_rom_handler.get_rom(rom.id)
+    assert persisted is not None
+    component = persisted.components[0]
+    member = component.manifest_members[0]
+    first = db_rom_handler.apply_pc_local_media(
+        rom.id,
+        persisted.updated_at,
+        component.id,
+        member.id,
+        role,
+        "roms/1/1/pc-media/background.webp",
+        "webp",
+        member.sha256,
+    )
+    assert first is not None
+    updated = db_rom_handler.get_rom(rom.id)
+    assert updated is not None
+
+    second = db_rom_handler.apply_pc_local_media(
+        rom.id,
+        updated.updated_at,
+        component.id,
+        member.id,
+        role,
+        "roms/1/1/pc-media/background.webp",
+        "webp",
+        member.sha256,
+    )
+
+    assert second is not None
+    assert second.replaced_owned_paths == []
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert len(saved.components[0].local_media) == 1
 
 
 def test_pc_local_media_selection_rejects_changed_manifest_bytes(

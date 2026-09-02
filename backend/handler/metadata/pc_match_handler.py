@@ -19,6 +19,12 @@ from models.rom import Rom, RomComponent
 COMPACT_TITLE_BOUNDARY = re.compile(
     r"(?<=[a-z])(?=[A-Z])|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])"
 )
+GENERIC_DLC_COMPONENT_NAMES = frozenset({"dlc", "dlcs", "expansion", "expansions"})
+INSTALLER_PREFIX = re.compile(r"^(?:setup|install|installer)[_. -]+", re.IGNORECASE)
+PARENTHESIZED_SUFFIX = re.compile(r"\([^)]*\)")
+VERSION_SUFFIX = re.compile(
+    r"(?:[._ -]+v?\d+(?:[._]\d+)+[a-z]*(?:[._ -]+\d+)*)$", re.IGNORECASE
+)
 
 
 class PcMetadataProvider(Protocol):
@@ -66,15 +72,77 @@ class PcMetadataMatchHandler:
     ) -> dict[str, PcMetadataProviderResult]:
         base_title = rom.name or rom.fs_name_no_ext or rom.fs_name
         component_title = component.relative_path.rsplit("/", 1)[-1]
-        component_title = component_title.replace("-", " ").replace("_", " ")
-        title = f"{base_title} {component_title}".strip()
-        return await self._collect_for_title(rom, title)
+        if component_title.casefold() in GENERIC_DLC_COMPONENT_NAMES:
+            title = self._title_from_setup_file(base_title, component)
+        else:
+            title = f"{base_title} {component_title}".strip()
+        title = title.replace("-", " ").replace("_", " ")
+        related_candidates = self._related_igdb_candidates(rom, title)
+        overrides = (
+            {"igdb": PcMetadataProviderResult("igdb", True, related_candidates)}
+            if related_candidates
+            else None
+        )
+        return await self._collect_for_title(rom, title, overrides)
+
+    @staticmethod
+    def _title_from_setup_file(base_title: str, component: RomComponent) -> str:
+        base_words = re.findall(r"[a-z0-9]+", base_title.casefold())
+        for member in component.manifest_members:
+            file_name = member.relative_path.rsplit("/", 1)[-1]
+            stem = file_name.rsplit(".", 1)[0]
+            stem = PARENTHESIZED_SUFFIX.sub("", stem).strip("._- ")
+            stem = VERSION_SUFFIX.sub("", stem).strip("._- ")
+            stem = INSTALLER_PREFIX.sub("", stem)
+            words = re.findall(r"[a-z0-9]+", stem.casefold())
+            if words[: len(base_words)] == base_words:
+                words = words[len(base_words) :]
+            if words:
+                return " ".join([base_title, *[word.capitalize() for word in words]])
+        return base_title
+
+    def _related_igdb_candidates(
+        self, rom: Rom, title: str
+    ) -> list[PcMetadataCandidate]:
+        metadata = rom.igdb_metadata
+        if not isinstance(metadata, dict):
+            return []
+        title_words = re.findall(r"[a-z0-9]+", title.casefold())
+        candidates: list[PcMetadataCandidate] = []
+        for relationship in ("expansions", "dlcs"):
+            for related_game in metadata.get(relationship, []):
+                if not isinstance(related_game, dict):
+                    continue
+                name = related_game.get("name")
+                igdb_id = related_game.get("id")
+                if not isinstance(name, str) or not isinstance(igdb_id, int):
+                    continue
+                related_words = re.findall(r"[a-z0-9]+", name.casefold())
+                if related_words != title_words:
+                    continue
+                candidates.append(
+                    self._candidate(
+                        "igdb",
+                        {
+                            "igdb_id": igdb_id,
+                            "name": name,
+                            "url_cover": related_game.get("cover_url"),
+                        },
+                    )
+                )
+        return candidates
 
     async def _collect_for_title(
-        self, rom: Rom, title: str
+        self,
+        rom: Rom,
+        title: str,
+        overrides: dict[str, PcMetadataProviderResult] | None = None,
     ) -> dict[str, PcMetadataProviderResult]:
         results: dict[str, PcMetadataProviderResult] = {}
         for provider_name, provider in self.providers.items():
+            if overrides and provider_name in overrides:
+                results[provider_name] = overrides[provider_name]
+                continue
             if not provider.is_enabled():
                 results[provider_name] = PcMetadataProviderResult(
                     provider_name, False, [], "disabled"

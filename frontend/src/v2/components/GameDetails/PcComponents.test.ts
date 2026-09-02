@@ -8,7 +8,7 @@ vi.mock("vue-i18n", () => ({
     t: (key: string) =>
       ({
         "rom.pc-components": "PC components",
-        "rom.pc-base-game": "Base game",
+        "rom.pc-base-game": "Main game",
         "rom.pc-updates": "Updates",
         "rom.category-dlc": "DLC",
         "rom.pc-hotfixes": "Hotfixes",
@@ -62,14 +62,14 @@ describe("PcComponents", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("Base game");
+    expect(wrapper.text()).toContain("Main game");
     expect(wrapper.text()).toContain("Needs classification");
     expect(
       wrapper
         .findAll("[data-testid='pc-component-group']")
         .map((group) => group.get(".pc-components__group-heading").text()),
     ).toEqual([
-      "Base game",
+      "Main game",
       "Updates",
       "DLC",
       "Hotfixes",
