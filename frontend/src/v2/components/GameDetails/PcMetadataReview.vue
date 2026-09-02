@@ -106,7 +106,7 @@ async function applySelection() {
       {{ t("rom.pc-find-metadata") }}
     </RBtn>
 
-    <RDialog v-model="dialogOpen">
+    <RDialog v-model="dialogOpen" scroll-content>
       <template #header>{{ t("rom.pc-find-metadata") }}</template>
       <template #content>
         <div class="pc-metadata-review__body">
@@ -149,16 +149,17 @@ async function applySelection() {
             />
             <RTag text="LaunchBox" />
           </div>
-
-          <RBtn
-            data-testid="apply-pc-metadata"
-            :disabled="!selectedCandidate || applying"
-            :loading="applying"
-            @click="applySelection"
-          >
-            {{ t("rom.pc-apply-selected-metadata") }}
-          </RBtn>
         </div>
+      </template>
+      <template #footer>
+        <RBtn
+          data-testid="apply-pc-metadata"
+          :disabled="!selectedCandidate || applying"
+          :loading="applying"
+          @click="applySelection"
+        >
+          {{ t("rom.pc-apply-selected-metadata") }}
+        </RBtn>
       </template>
     </RDialog>
   </div>

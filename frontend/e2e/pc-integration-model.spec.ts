@@ -32,6 +32,40 @@ async function fixtureDigest(directory = fixtureRoot): Promise<string> {
 test.describe("PC integration model", () => {
   test.use({ storageState: STORAGE_STATE.admin });
 
+  test("keeps the metadata apply action visible with many matches", async ({
+    page,
+  }) => {
+    test.skip(!process.env.PC_E2E_ROM_ID, "isolated PC fixture is required");
+    const romId = process.env.PC_E2E_ROM_ID;
+    const candidates = Array.from({ length: 26 }, (_, index) => ({
+      id: `many-matches-${index}`,
+      provider: "igdb",
+      title: `Metadata match ${index + 1}`,
+      provider_ids: { igdb_id: index + 1 },
+      description_available: true,
+      media: [],
+    }));
+    await page.route(`**/api/roms/${romId}/pc-metadata-candidates`, (route) =>
+      route.fulfill({
+        json: {
+          expected_version: "2026-09-02T00:00:00Z",
+          providers: {
+            igdb: { provider: "igdb", available: true, candidates },
+          },
+        },
+      }),
+    );
+
+    await seedUiState(page, "light");
+    await gotoHydrated(page, `/rom/${romId}?tab=pc-components`);
+    await page.getByTestId("find-pc-metadata").first().click();
+    await page.getByTestId("pc-candidate-many-matches-0").click();
+
+    const apply = page.getByTestId("apply-pc-metadata");
+    await expect(apply).toBeEnabled();
+    await expect(apply).toBeInViewport();
+  });
+
   test("reviews PC metadata without mutating the isolated source fixture", async ({
     page,
   }) => {
@@ -110,6 +144,7 @@ test.describe("PC integration model", () => {
       loadedRomResponse.ok(),
       `could not load the scanned PC ROM: ${loadedRomResponse.status()} ${await loadedRomResponse.text()}`,
     ).toBe(true);
+    const baseComponent = page.getByTestId("pc-component-base");
     await expect(
       page.getByRole("heading", { name: "Base game", exact: true }),
     ).toBeVisible();
@@ -122,7 +157,6 @@ test.describe("PC integration model", () => {
     await expect(
       page.getByRole("heading", { name: "Needs classification", exact: true }),
     ).toBeVisible();
-    const baseComponent = page.getByTestId("pc-component-base");
     const baseToggle = baseComponent.getByRole("button", { name: "base" });
     await baseToggle.click();
     await expect(

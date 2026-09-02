@@ -67,7 +67,12 @@ describe("PcMetadataReview", () => {
     const wrapper = mount(PcMetadataReview, {
       props: { romId: 1 },
       global: {
-        stubs: { RDialog: { template: "<div><slot name='content' /></div>" } },
+        stubs: {
+          RDialog: {
+            template:
+              "<div><slot name='content' /><slot name='footer' /></div>",
+          },
+        },
       },
     });
     await wrapper.get("[data-testid='find-pc-metadata']").trigger("click");
@@ -124,7 +129,8 @@ describe("PcMetadataReview", () => {
         stubs: {
           RDialog: {
             props: ["modelValue"],
-            template: "<div v-if='modelValue'><slot name='content' /></div>",
+            template:
+              "<div v-if='modelValue'><slot name='content' /><slot name='footer' /></div>",
           },
         },
       },
@@ -162,7 +168,12 @@ describe("PcMetadataReview", () => {
     const wrapper = mount(PcMetadataReview, {
       props: { romId: 1 },
       global: {
-        stubs: { RDialog: { template: "<div><slot name='content' /></div>" } },
+        stubs: {
+          RDialog: {
+            template:
+              "<div><slot name='content' /><slot name='footer' /></div>",
+          },
+        },
       },
     });
     await wrapper.get("[data-testid='find-pc-metadata']").trigger("click");
@@ -201,7 +212,12 @@ describe("PcMetadataReview", () => {
     const wrapper = mount(PcMetadataReview, {
       props: { romId: 1, componentId: 7 },
       global: {
-        stubs: { RDialog: { template: "<div><slot name='content' /></div>" } },
+        stubs: {
+          RDialog: {
+            template:
+              "<div><slot name='content' /><slot name='footer' /></div>",
+          },
+        },
       },
     });
     await wrapper.get("[data-testid='find-pc-metadata']").trigger("click");
