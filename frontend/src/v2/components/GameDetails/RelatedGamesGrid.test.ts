@@ -8,7 +8,7 @@ const game = {
   name: "Phantom Liberty",
   slug: "cyberpunk-2077-phantom-liberty",
   type: "dlc",
-  cover_url: null,
+  cover_url: "",
 } satisfies IGDBRelatedGame;
 
 describe("RelatedGamesGrid", () => {

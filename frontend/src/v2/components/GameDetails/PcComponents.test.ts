@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import PcComponents from "./PcComponents.vue";
