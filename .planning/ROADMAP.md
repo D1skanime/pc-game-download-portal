@@ -352,3 +352,14 @@ Plans:
 - [ ] 11-01-PLAN.md: Persist and reconcile manifest-bound local media safely.
 - [ ] 11-02-PLAN.md: Add independent DLC review and internal v2 navigation.
 - [ ] 11-03-PLAN.md: Prove the isolated end-to-end flow and record UAT.
+
+### Phase 12: DLC detail pages for local PC components
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 11
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 12 to break down)

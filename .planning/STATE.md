@@ -303,6 +303,7 @@ Recent decisions affecting current work:
 ### Roadmap Evolution
 
 - Phase 11 added: Local PC Media and DLC Navigation
+- Phase 12 added: DLC detail pages for local PC components
 
 ### Blockers/Concerns
 
