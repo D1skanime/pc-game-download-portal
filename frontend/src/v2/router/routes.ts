@@ -23,6 +23,7 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   "smart-collection": () => import("@/v2/views/Gallery/Collection.vue"),
   // Wave 4 — Game details
   rom: () => import("@/v2/views/GameDetails.vue"),
+  "pc-dlc": () => import("@/v2/views/PcDlcDetails.vue"),
   // Wave 5 — Players
   emulatorjs: () => import("@/v2/views/Player/EmulatorJS.vue"),
   ruffle: () => import("@/v2/views/Player/Ruffle.vue"),

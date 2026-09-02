@@ -28,6 +28,7 @@ export const ROUTES = {
   VIRTUAL_COLLECTION: "virtual-collection",
   SMART_COLLECTION: "smart-collection",
   ROM: "rom",
+  PC_DLC: "pc-dlc",
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
   STREAM: "stream",
@@ -64,6 +65,17 @@ function v2For(routeName: string) {
   const component = v2RouteComponents[routeName];
   if (!component) throw new Error("Missing v2 route component: " + routeName);
   return component;
+}
+
+const DECIMAL_ROUTE_PARAM = /^(?:0|[1-9]\d*)$/;
+
+function parseSafeRouteId(value: unknown): number | null {
+  if (typeof value !== "string" || !DECIMAL_ROUTE_PARAM.test(value)) {
+    return null;
+  }
+
+  const id = Number(value);
+  return Number.isSafeInteger(id) ? id : null;
 }
 const routes = [
   {
@@ -194,6 +206,30 @@ const routes = [
                 romId: parseInt(to.params.rom as string),
               });
               romsStore.setCurrentRom(data.data);
+            } catch (error) {
+              console.error(error);
+            }
+          }
+          next();
+        }) as NavigationGuardWithThis<undefined>,
+      },
+      {
+        path: "rom/:rom/dlc/:component",
+        name: ROUTES.PC_DLC,
+        component: v2For(ROUTES.PC_DLC),
+        beforeEnter: (async (to, _from, next) => {
+          const romId = parseSafeRouteId(to.params.rom);
+          const componentId = parseSafeRouteId(to.params.component);
+          if (romId === null || componentId === null) {
+            next();
+            return;
+          }
+
+          const romsStore = storeRoms();
+          if (!romsStore.currentRom || romsStore.currentRom.id !== romId) {
+            try {
+              const { data } = await romApi.getRom({ romId });
+              romsStore.setCurrentRom(data);
             } catch (error) {
               console.error(error);
             }

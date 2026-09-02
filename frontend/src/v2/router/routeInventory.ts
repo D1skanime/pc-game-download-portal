@@ -26,6 +26,7 @@ export const routeInventory = {
     component: "Gallery/Collection.vue",
   },
   rom: { kind: "view", component: "GameDetails.vue" },
+  "pc-dlc": { kind: "view", component: "PcDlcDetails.vue" },
   emulatorjs: { kind: "view", component: "Player/EmulatorJS.vue" },
   ruffle: { kind: "view", component: "Player/Ruffle.vue" },
   stream: { kind: "view", component: "Player/Stream.vue" },

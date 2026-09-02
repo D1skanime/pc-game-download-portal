@@ -54,7 +54,7 @@ const parent = {
       manifest_members: [],
     },
   ],
-} as DetailedRomSchema;
+} satisfies Pick<DetailedRomSchema, "id" | "name" | "components">;
 
 function mountView() {
   return mount(PcDlcDetails, {
