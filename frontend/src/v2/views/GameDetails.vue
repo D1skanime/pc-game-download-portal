@@ -315,6 +315,7 @@ const tabs = computed<RTabNavItem[]>(() => [
           <OverviewTab
             v-if="tab === 'overview'"
             :rom="currentRom"
+            :parent-rom-id="currentRom.id"
             :summary="currentRom.summary ?? null"
             :sections="overviewSections"
             :player-count="playerCount"

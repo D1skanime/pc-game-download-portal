@@ -23,6 +23,7 @@ import type {
   RomMetadataSchema,
   RomUserSchema,
 } from "@/__generated__";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
@@ -32,6 +33,7 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{
   game: IGDBRelatedGame;
   isDlc?: boolean;
+  parentRomId?: number;
   localComponentId?: number;
 }>();
 
@@ -167,14 +169,10 @@ const syntheticRom = computed<SimpleRom>(() => ({
 // destination based on the IGDB → RomM lookup result.
 function onClick(e: MouseEvent) {
   if (props.isDlc) {
-    if (props.localComponentId) {
+    if (props.localComponentId && props.parentRomId) {
       void router.push({
-        path: router.currentRoute.value.path,
-        query: {
-          ...router.currentRoute.value.query,
-          tab: "files",
-          component: String(props.localComponentId),
-        },
+        name: ROUTES.PC_DLC,
+        params: { rom: props.parentRomId, component: props.localComponentId },
       });
     }
     return;

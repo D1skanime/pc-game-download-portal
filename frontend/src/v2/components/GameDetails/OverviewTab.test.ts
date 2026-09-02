@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import type { DetailedRom, SimpleRom } from "@/stores/roms";
+import type { IGDBRelatedGame } from "@/__generated__";
+import type { DetailedRom } from "@/stores/roms";
 import OverviewTab from "./OverviewTab.vue";
 
 vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
@@ -11,17 +12,24 @@ vi.mock("@/v2/composables/useWebpSupport", () => ({
 
 const rom = {
   id: 42,
-  metadatum: null,
+  metadatum: undefined,
   url_cover: null,
+  fs_name: "parent-game",
+  fs_size_bytes: 0,
+  crc_hash: null,
+  md5_hash: null,
+  sha1_hash: null,
+  ra_hash: null,
+  has_simple_single_file: false,
   files: [],
-} as DetailedRom;
+} as Partial<DetailedRom> as DetailedRom;
 const dlc = {
   id: 123,
   name: "Phantom Liberty",
   slug: "cyberpunk-2077-phantom-liberty",
   type: "dlc",
-  cover_url: null,
-} as SimpleRom;
+  cover_url: "",
+} as IGDBRelatedGame;
 
 describe("OverviewTab", () => {
   it("passes its parent ROM id to the local DLC grid", () => {

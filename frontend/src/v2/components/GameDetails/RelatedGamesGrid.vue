@@ -15,6 +15,7 @@ defineProps<{
   title?: string;
   items: IGDBRelatedGame[];
   isDlc?: boolean;
+  parentRomId?: number;
   localComponentIds?: Record<number, number>;
 }>();
 </script>
@@ -30,6 +31,7 @@ defineProps<{
         :key="g.id"
         :game="g"
         :is-dlc="isDlc"
+        :parent-rom-id="parentRomId"
         :local-component-id="localComponentIds?.[g.id]"
       />
     </div>

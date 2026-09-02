@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { RCollapsible, REmptyState, RTag } from "@v2/lib";
+import { RBtn, RCollapsible, REmptyState, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import type { PcComponentSchema } from "@/__generated__";
+import { ROUTES } from "@/plugins/router";
 import { formatBytes } from "@/utils";
 import PcMetadataReview from "./PcMetadataReview.vue";
 
@@ -11,6 +13,14 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{ components: PcComponentSchema[]; romId: number }>();
 const emit = defineEmits<{ (event: "applied"): void }>();
 const { t } = useI18n();
+const router = useRouter();
+
+function openDlcDetails(componentId: number) {
+  void router.push({
+    name: ROUTES.PC_DLC,
+    params: { rom: props.romId, component: componentId },
+  });
+}
 
 const GROUPS: Array<{ kind: PcComponentSchema["kind"]; label: string }> = [
   { kind: "base", label: "rom.pc-base-game" },
@@ -61,6 +71,15 @@ const groupedComponents = computed(() =>
         icon="mdi-folder-outline"
       >
         <div class="pc-components__manifest">
+          <RBtn
+            v-if="component.kind === 'dlc'"
+            data-testid="open-pc-dlc-details"
+            size="small"
+            variant="text"
+            @click="openDlcDetails(component.id)"
+          >
+            {{ t("common.details") }}
+          </RBtn>
           <PcMetadataReview
             v-if="component.kind === 'dlc'"
             :rom-id="romId"

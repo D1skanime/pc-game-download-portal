@@ -47,6 +47,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
   rom: DetailedRom;
+  parentRomId: number;
   summary: string | null | undefined;
   sections: InfoGridSection[];
   playerCount: string | null;
@@ -296,6 +297,7 @@ const coverSource = computed(() => {
           title=""
           :items="expansions"
           is-dlc
+          :parent-rom-id="parentRomId"
           :local-component-ids="localDlcComponentIds"
         />
       </div>
@@ -308,6 +310,7 @@ const coverSource = computed(() => {
           title=""
           :items="dlcs"
           is-dlc
+          :parent-rom-id="parentRomId"
           :local-component-ids="localDlcComponentIds"
         />
       </div>
