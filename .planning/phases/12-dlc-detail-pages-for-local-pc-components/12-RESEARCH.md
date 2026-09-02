@@ -308,22 +308,27 @@ const gallery = computed(() =>
 
 All recommendations are based on inspected repository code and locked context. No `[ASSUMED]` claims remain. [VERIFIED: codebase inspection]
 
-## Open Questions
+## Resolved Architecture Decisions
 
-1. **Which exact route spelling should be canonical?**
-   - What we know: existing details URLs use `rom/:rom`, and the page needs both parent and component identifiers. [VERIFIED: frontend/src/plugins/router.ts]
-   - What's unclear: no locked URL spelling is specified.
-   - Recommendation: use `rom/:rom/dlc/:component`, register `ROUTES.PC_DLC`, and add it to `v2RouteComponents` plus `routeInventory`; it is readable, nested, and cannot conflict with current player subroutes. [VERIFIED: frontend/src/plugins/router.ts, frontend/src/v2/router/routes.ts]
+The following discretionary choices are fixed for Phase 12 implementation. They
+are no longer open questions.
 
-2. **How should an unmatched DLC title render?**
-   - What we know: `component_metadata.name` is optional, while `relative_path` is always persisted. [VERIFIED: backend/endpoints/responses/rom.py, backend/models/rom.py]
-   - What's unclear: the context leaves fallback discretionary.
-   - Recommendation: use selected metadata name when present, otherwise a localized DLC label plus the component relative path, with no inferred provider title. [VERIFIED: 12-CONTEXT.md, frontend/src/locales/en_US/rom.json]
+1. **Canonical route:** `rom/:rom/dlc/:component`, named `ROUTES.PC_DLC`.
+   It is a parent-owned nested route, registered in the router, v2 lazy-route
+   registry, and route inventory. [VERIFIED: frontend/src/plugins/router.ts,
+   frontend/src/v2/router/routes.ts]
 
-3. **Should existing FilesTab be extracted or a DLC manifest section built?**
-   - What we know: FilesTab already filters parent files by an exact component manifest, but it also owns parent-tab URL state and multi-file selection behavior. [VERIFIED: frontend/src/v2/components/GameDetails/FilesTab/FilesTab.vue]
-   - What's unclear: whether Phase 12 needs all parent file-tool affordances or only readable local-file evidence.
-   - Recommendation: first reuse a presentational child from FilesTab only if it can accept a prevalidated component without route-query coupling; otherwise make a small read-only `PcDlcFiles` feature composite driven by `manifest_members`, preserving exact filename, size, and SHA-256 evidence. [VERIFIED: frontend/src/v2/components/GameDetails/FilesTab/FilesTab.vue, frontend/src/v2/components/GameDetails/PcComponents.vue]
+2. **Missing metadata title:** render the localized `DLC: {relativePath}`
+   fallback. `relative_path` is persisted evidence, while no provider-derived
+   or parent-game title may be inferred. [VERIFIED:
+   backend/endpoints/responses/rom.py, backend/models/rom.py, 12-CONTEXT.md]
+
+3. **Local files:** use a dedicated, read-only `PcDlcFiles` feature composite
+   that receives the already validated DLC and renders its exact
+   `manifest_members`. Do not extract `FilesTab`, because its parent-tab URL
+   state and multi-file controls do not belong on this component detail page.
+   [VERIFIED: frontend/src/v2/components/GameDetails/FilesTab/FilesTab.vue,
+   frontend/src/v2/components/GameDetails/PcComponents.vue]
 
 ## Environment Availability
 

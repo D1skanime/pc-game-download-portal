@@ -2,7 +2,7 @@
 phase: 12
 slug: dlc-detail-pages-for-local-pc-components
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-09-02
 ---
@@ -36,12 +36,14 @@ created: 2026-09-02
 
 ## Per-Task Verification Map
 
-| Task ID  | Plan | Wave | Requirement      | Threat Ref                | Secure Behavior                                                                                  | Test Type | Automated Command                                                                                                                         | File Exists | Status     |
-| -------- | ---- | ---- | ---------------- | ------------------------- | ------------------------------------------------------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
-| 12-01-01 | 01   | 1    | D-01, D-02       | T-12-01                   | Both local-DLC entry points use the canonical nested parent-ROM route.                           | unit      | `cd frontend && npm run test -- src/v2/components/GameDetails/RelatedGameCard.test.ts src/v2/components/GameDetails/PcComponents.test.ts` | ✅          | ⬜ pending |
-| 12-02-01 | 02   | 1    | D-01, D-03       | T-12-01, T-12-02          | The route accepts only a DLC contained by its fetched and authorized parent ROM.                 | unit      | `cd frontend && npm run test -- src/v2/views/PcDlcDetails.test.ts`                                                                        | ❌ W0       | ⬜ pending |
-| 12-02-02 | 02   | 1    | D-03, D-04, D-05 | T-12-02, T-12-03, T-12-04 | The page renders only selected component metadata, owned media, and immutable manifest evidence. | unit      | `cd frontend && npm run test -- src/v2/components/GameDetails/PcDlcDetail.test.ts src/v2/components/GameDetails/PcDlcFiles.test.ts`       | ❌ W0       | ⬜ pending |
-| 12-03-01 | 03   | 2    | D-04             | T-12-03, T-12-04          | Loading or navigating to the page issues no provider, selection, or source-mutating request.     | unit      | `cd frontend && npm run test -- src/v2/sourceMutationControls.test.ts src/v2/views/PcDlcDetails.test.ts`                                  | ✅ / ❌ W0  | ⬜ pending |
+| Task ID  | Plan | Wave | Requirement      | Threat Ref                | Secure Behavior                                                                                  | Test Type | Automated Command                                                                                                                                                                                                                                                                   | File Exists | Status     |
+| -------- | ---- | ---- | ---------------- | ------------------------- | ------------------------------------------------------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
+| 12-02-01 | 02   | 1    | D-01, D-02       | T-12-01                   | Strict scalar parsing resolves only a DLC contained by the fetched visible parent ROM.           | unit      | `cd frontend && npm run test -- src/v2/views/PcDlcDetails.test.ts src/v2/router/routeInventory.test.ts`                                                                                                                                                                             | ❌ W0       | ⬜ pending |
+| 12-04-01 | 04   | 1    | D-03, D-04, D-05 | T-12-04                   | First locale batch supplies the DLC detail copy contract.                                        | locale    | `cd frontend && python3 src/locales/check_i18n_sorted.py`                                                                                                                                                                                                                           | ✅          | ⬜ pending |
+| 12-05-01 | 05   | 1    | D-03, D-04, D-05 | T-12-04                   | Second locale batch completes global DLC detail copy parity.                                     | locale    | `cd frontend && python3 src/locales/check_i18n_locales.py && python3 src/locales/check_i18n_sorted.py`                                                                                                                                                                              | ✅          | ⬜ pending |
+| 12-01-01 | 01   | 2    | D-01, D-02       | T-12-01                   | Both local-DLC entry points use the canonical nested parent-ROM route.                           | unit      | `cd frontend && npm run test -- src/v2/views/GameDetails.test.ts src/v2/components/GameDetails/OverviewTab.test.ts src/v2/components/GameDetails/RelatedGamesGrid.test.ts src/v2/components/GameDetails/RelatedGameCard.test.ts src/v2/components/GameDetails/PcComponents.test.ts` | ✅ / ❌ W0  | ⬜ pending |
+| 12-03-01 | 03   | 2    | D-03, D-04, D-05 | T-12-02, T-12-03, T-12-04 | The page renders only selected component metadata, owned media, and immutable manifest evidence. | unit      | `cd frontend && npm run test -- src/v2/components/GameDetails/PcDlcDetail.test.ts src/v2/components/GameDetails/PcDlcFiles.test.ts src/v2/views/PcDlcDetails.test.ts`                                                                                                               | ❌ W0       | ⬜ pending |
+| 12-06-01 | 06   | 3    | D-04             | T-12-03, T-12-04          | Loading or navigating to the page issues no provider, selection, or source-mutating request.     | unit      | `cd frontend && npm run test -- src/v2/sourceMutationControls.test.ts src/v2/views/PcDlcDetails.test.ts`                                                                                                                                                                            | ✅ / ❌ W0  | ⬜ pending |
 
 _Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky_
 
@@ -52,6 +54,7 @@ _Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky_
 - [ ] `frontend/src/v2/views/PcDlcDetails.test.ts` — direct route, invalid identifier, stale component, and non-DLC rejection coverage.
 - [ ] `frontend/src/v2/components/GameDetails/PcDlcDetail.test.ts` — component title, summary, owned-media isolation, and cover fallback coverage.
 - [ ] `frontend/src/v2/components/GameDetails/PcDlcFiles.test.ts` — manifest member, byte-size, and SHA-256 rendering coverage if the plan creates a dedicated file composite.
+- [ ] `frontend/src/v2/components/GameDetails/OverviewTab.test.ts` and `RelatedGamesGrid.test.ts` — parent-ROM ID propagation to the local DLC card.
 - [ ] Route-inventory test update if `frontend/src/v2/router/routeInventory.ts` is covered by an existing test.
 
 ---
@@ -72,6 +75,6 @@ _Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky_
 - [ ] Wave 0 covers all missing references.
 - [ ] No watch-mode flags.
 - [ ] Focused feedback latency is below 60 seconds.
-- [ ] `nyquist_compliant: true` set in frontmatter.
+- [x] `nyquist_compliant: true` set in frontmatter.
 
 **Approval:** pending

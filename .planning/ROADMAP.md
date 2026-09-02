@@ -345,7 +345,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 and open locally owned DLC files from Overview without leaving RomM.
 **Requirements**: PCLM-01, PCLM-02, PCDLC-01, PCDLC-02, PCSAFE-01, PCTEST-01
 **Depends on:** Phase 10
-**Plans:** 3 plans
+**Plans:** 6 plans
 
 Plans:
 
@@ -355,11 +355,16 @@ Plans:
 
 ### Phase 12: DLC detail pages for local PC components
 
-**Goal:** [To be planned]
+**Goal:** Each locally present, independently matched PC DLC has a dedicated, parent-owned v2 detail page that presents its selected local identity, media, and immutable files without changing the source library.
 **Requirements**: TBD
 **Depends on:** Phase 11
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 12 to break down)
+- [ ] 12-02-PLAN.md: Register the canonical route and strict parent-owned resolver.
+- [ ] 12-04-PLAN.md: Localize the first bounded DLC-detail locale batch.
+- [ ] 12-05-PLAN.md: Complete DLC-detail locale parity.
+- [ ] 12-01-PLAN.md: Route both parent-detail DLC entry points to the canonical page.
+- [ ] 12-03-PLAN.md: Render selected component detail evidence and immutable files.
+- [ ] 12-06-PLAN.md: Prove source safety and complete visual and input validation.
