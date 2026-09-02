@@ -51,4 +51,21 @@ test.describe("PC local background visibility", () => {
     await navigation.locator("button:not([disabled])").first().click();
     await expect.poll(() => page.url()).not.toBe(before);
   });
+
+  test("keeps selected artwork visible when reduced motion is enabled", async ({
+    page,
+  }) => {
+    test.skip(!process.env.PC_E2E_ROM_ID, "isolated PC fixture is required");
+    await page.addInitScript(() => {
+      localStorage.setItem("settings.v2.reducedMotion", "true");
+    });
+    await seedUiState(page, "light");
+    await gotoHydrated(page, `/rom/${process.env.PC_E2E_ROM_ID}`);
+
+    await expect(page.locator(".r-v2-bg")).toBeVisible();
+    await expect(page.locator(".r-v2-bg__layer--active")).toHaveAttribute(
+      "style",
+      /pc-media/,
+    );
+  });
 });

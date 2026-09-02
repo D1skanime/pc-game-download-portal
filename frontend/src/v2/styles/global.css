@@ -197,6 +197,16 @@ html.r-v2-reduced-motion .r-v2-bg__overlay {
   display: none;
 }
 
+/* Light backdrops have no blur, so reduced-motion can keep the selected
+   artwork as a static, low-cost image instead of replacing it with grey. */
+html.r-v2-reduced-motion.r-v2-light .r-v2-bg,
+html.r-v2-reduced-motion.r-v2-light .r-v2-bg__overlay {
+  display: block;
+}
+html.r-v2-reduced-motion.r-v2-light .r-v2-bg__layer {
+  transition: none;
+}
+
 /* The OS `prefers-reduced-motion` query is honored per-component (each R*
    primitive / overlay carries its own tuned fallback), but a CSS class cannot
    trigger those media blocks, and this toggle must also work when the user
