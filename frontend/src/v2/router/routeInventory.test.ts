@@ -5,6 +5,13 @@ import { routeInventory } from "@/v2/router/routeInventory";
 import { v2RouteComponents } from "@/v2/router/routes";
 
 describe("v2 route inventory", () => {
+  it("registers the canonical parent-owned PC DLC route", () => {
+    expect(ROUTES).toHaveProperty("PC_DLC", "pc-dlc");
+
+    const record = router.getRoutes().find((route) => route.name === "pc-dlc");
+    expect(record?.path).toBe("/rom/:rom/dlc/:component");
+  });
+
   it("classifies every public route", () => {
     expect(Object.keys(routeInventory).sort()).toEqual(
       Object.values(ROUTES).sort(),
