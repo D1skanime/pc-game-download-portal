@@ -157,16 +157,25 @@ describe("PcDlcDetails", () => {
     expect(wrapper.text()).toBe("Library");
   });
 
-  it("rejects invalid route updates before fetching parent data", async () => {
-    getRom.mockResolvedValue({ data: parent });
-    mountView();
-    await flushPromises();
-    getRom.mockClear();
+  it.each([
+    { rom: "1x", component: "2" },
+    { rom: "1", component: "2x" },
+    { rom: ["1"], component: "2" },
+    { rom: "1", component: ["2"] },
+  ])(
+    "rejects invalid route updates before fetching parent data: %o",
+    async (params) => {
+      getRom.mockResolvedValue({ data: parent });
+      const wrapper = mountView();
+      await flushPromises();
+      getRom.mockClear();
 
-    await updateRoute({ rom: "1", component: ["2"] });
+      await updateRoute(params);
 
-    expect(getRom).not.toHaveBeenCalled();
-  });
+      expect(getRom).not.toHaveBeenCalled();
+      expect(wrapper.text()).toBe("Library");
+    },
+  );
 
   it("renders no child data for stale or non-DLC components", async () => {
     getRom.mockResolvedValue({ data: parent });
