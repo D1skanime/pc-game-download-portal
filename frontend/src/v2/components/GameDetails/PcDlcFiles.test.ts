@@ -46,7 +46,7 @@ describe("PcDlcFiles", () => {
     expect(wrapper.text()).toContain("1.5 KB");
     expect(wrapper.text()).toContain("a".repeat(64));
     expect(wrapper.text()).toContain("readme.txt");
-    expect(wrapper.text()).toContain("512 Bytes");
+    expect(wrapper.text()).toContain("512 B");
     expect(wrapper.text()).toContain("b".repeat(64));
     expect(wrapper.findAll("button, a")).toHaveLength(0);
   });

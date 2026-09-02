@@ -19,8 +19,14 @@ const selectedDlc = {
   relative_path: "DLC/Expansion",
   kind: "dlc",
   component_metadata: {
+    igdb_id: null,
+    moby_id: null,
+    sgdb_id: null,
+    launchbox_id: null,
     name: "Selected expansion",
     summary: "Only selected DLC metadata is visible.",
+    metadata_source: "local",
+    provider_metadata: null,
   },
   local_media: [
     {
@@ -77,9 +83,9 @@ const parent = {
   path_cover_large: string;
 };
 
-function mountDetail(component = selectedDlc) {
+function mountDetail(component: PcComponentSchema = selectedDlc) {
   return mount(PcDlcDetail, {
-    props: { parent, component },
+    props: { parent: parent as DetailedRomSchema, component },
     global: {
       stubs: {
         RBtn: { template: "<a><slot /></a>" },

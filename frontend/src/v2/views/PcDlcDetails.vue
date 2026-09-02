@@ -7,6 +7,7 @@ import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
+import PcDlcDetail from "@/v2/components/GameDetails/PcDlcDetail.vue";
 
 type PageState = "loading" | "ready" | "unavailable";
 
@@ -88,12 +89,11 @@ onBeforeRouteUpdate(async (to) => {
     <p>{{ t("rom.loading-rom") }}</p>
   </section>
 
-  <section
+  <PcDlcDetail
     v-else-if="state === 'ready' && parentRom && component"
-    data-testid="pc-dlc-handoff"
-  >
-    <h1>{{ component.relative_path }}</h1>
-  </section>
+    :parent="parentRom"
+    :component="component"
+  />
 
   <REmptyState v-else>
     <RBtn :to="{ name: ROUTES.HOME }">
