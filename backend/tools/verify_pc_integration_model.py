@@ -134,18 +134,23 @@ def _run_browser(*, base_url: str, fixture_root: Path, rom_id: int) -> None:
             "PC_E2E_FIXTURE_ROOT": str(fixture_root),
         }
     )
-    _run(
-        [
-            "npx",
-            "playwright",
-            "test",
-            "e2e/pc-integration-model.spec.ts",
-            "--project=chromium",
-            "--workers=1",
-        ],
-        cwd=REPO_ROOT / "frontend",
-        env=environment,
-    )
+    command = [
+        "npx",
+        "playwright",
+        "test",
+        "e2e/pc-integration-model.spec.ts",
+        "e2e/pc-local-media-and-dlc-navigation.spec.ts",
+        "--project=chromium",
+        "--workers=1",
+    ]
+    try:
+        _run(command, cwd=REPO_ROOT / "frontend", env=environment)
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(
+            "PC browser verification failed:\n"
+            f"stdout:\n{error.stdout}\n"
+            f"stderr:\n{error.stderr}"
+        ) from error
 
 
 def _cleanup(environment: dict[str, str]) -> None:

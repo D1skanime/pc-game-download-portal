@@ -134,22 +134,30 @@ async def get_pc_local_media_candidates(
         raise RomNotFoundInDatabaseException(id)
     assert_rom_visible(request, rom)
 
-    candidates = [
-        PcLocalMediaCandidateSchema(
-            component_id=component.id,
-            member_id=member.id,
-            relative_path=member.relative_path,
-            source_sha256=member.sha256,
-            image_type=member.relative_path.rsplit(".", 1)[-1].lower(),
-            preview_url=(
-                f"/api/roms/{id}/pc-local-media-preview/{component.id}/{member.id}"
-            ),
-        )
-        for component in rom.components
-        if component.kind in {RomComponentKind.DLC, RomComponentKind.EXTRA}
-        for member in component.manifest_members
-        if fs_rom_handler.is_pc_component_image(member)
-    ]
+    candidates: list[PcLocalMediaCandidateSchema] = []
+    for component in rom.components:
+        if component.kind not in {RomComponentKind.DLC, RomComponentKind.EXTRA}:
+            continue
+        for member in component.manifest_members:
+            if not fs_rom_handler.is_pc_component_image(member):
+                continue
+            try:
+                _, image_type = fs_rom_handler.read_pc_component_image(rom, member)
+            except ValueError:
+                continue
+            candidates.append(
+                PcLocalMediaCandidateSchema(
+                    component_id=component.id,
+                    member_id=member.id,
+                    relative_path=member.relative_path,
+                    source_sha256=member.sha256,
+                    image_type=image_type,
+                    preview_url=(
+                        f"/api/roms/{id}/pc-local-media-preview/"
+                        f"{component.id}/{member.id}"
+                    ),
+                )
+            )
     return PcLocalMediaCandidatesResponse(
         expected_version=rom.updated_at, candidates=candidates
     )

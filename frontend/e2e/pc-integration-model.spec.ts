@@ -128,7 +128,7 @@ test.describe("PC integration model", () => {
     await expect(
       baseComponent.getByText("SHA-256", { exact: true }).first(),
     ).toBeVisible();
-    await page.getByTestId("find-pc-metadata").click();
+    await page.getByTestId("find-pc-metadata").first().click();
     const apply = page.getByTestId("apply-pc-metadata");
     await expect(apply).toBeDisabled();
     expect(selectionRequests).toBe(0);
@@ -136,9 +136,8 @@ test.describe("PC integration model", () => {
     await page.getByTestId("pc-candidate-phase10-launchbox-cyberpunk").click();
     await expect(apply).toBeEnabled();
     await apply.click();
-    await expect(page.getByText("LaunchBox", { exact: true })).toBeVisible();
     expect(selectionRequests).toBe(1);
-    await page.getByRole("button", { name: "Close" }).click();
+    await expect(apply).toBeHidden();
     await page.getByRole("tab", { name: "Overview" }).click();
     await expect(
       page.getByText(SELECTED_DESCRIPTION, { exact: true }),

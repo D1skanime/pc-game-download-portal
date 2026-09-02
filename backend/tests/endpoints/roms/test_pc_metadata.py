@@ -122,7 +122,9 @@ def test_get_roms_serializes_pc_components(client, access_token, rom):
     }
 
 
-def test_pc_local_media_review_only_lists_direct_dlc_images(client, access_token, rom):
+def test_pc_local_media_review_only_lists_direct_dlc_images(
+    client, access_token, rom, monkeypatch
+):
     db_rom_handler.sync_rom_components(
         rom.id,
         [
@@ -145,10 +147,22 @@ def test_pc_local_media_review_only_lists_direct_dlc_images(client, access_token
                         size_bytes=4,
                         sha256="c" * 64,
                     ),
+                    RomComponentManifestMember(
+                        relative_path="dlc/phantom-liberty/not-an-image.png",
+                        size_bytes=4,
+                        sha256="d" * 64,
+                    ),
                 ],
             )
         ],
     )
+
+    def read_image(_rom, member):
+        if member.relative_path.endswith("poster.png"):
+            return b"valid-image", "png"
+        raise ValueError("PC local media is not a decodable image")
+
+    monkeypatch.setattr(fs_rom_handler, "read_pc_component_image", read_image)
 
     response = client.get(
         f"/api/roms/{rom.id}/pc-local-media-candidates",
