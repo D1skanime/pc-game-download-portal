@@ -3,10 +3,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import PcDlcDetails from "./PcDlcDetails.vue";
 
-const { getRom, setCurrentRom, onBeforeRouteUpdate } = vi.hoisted(() => ({
+const {
+  getRom,
+  setCurrentRom,
+  onBeforeRouteUpdate,
+  lookupProviderMetadata,
+  applyProviderMetadata,
+  selectLocalMedia,
+  uploadLocalMedia,
+  downloadIntoSource,
+  deleteFromSource,
+  mutateFilesystem,
+} = vi.hoisted(() => ({
   getRom: vi.fn(),
   setCurrentRom: vi.fn(),
   onBeforeRouteUpdate: vi.fn(),
+  lookupProviderMetadata: vi.fn(),
+  applyProviderMetadata: vi.fn(),
+  selectLocalMedia: vi.fn(),
+  uploadLocalMedia: vi.fn(),
+  downloadIntoSource: vi.fn(),
+  deleteFromSource: vi.fn(),
+  mutateFilesystem: vi.fn(),
 }));
 
 const route = {
@@ -29,7 +47,18 @@ vi.mock("vue-router", async (importOriginal) => ({
   useRoute: () => route,
 }));
 
-vi.mock("@/services/api/rom", () => ({ default: { getRom } }));
+vi.mock("@/services/api/rom", () => ({
+  default: {
+    getRom,
+    lookupProviderMetadata,
+    applyProviderMetadata,
+    selectLocalMedia,
+    uploadLocalMedia,
+    downloadIntoSource,
+    deleteFromSource,
+    mutateFilesystem,
+  },
+}));
 
 vi.mock("@/stores/roms", () => ({
   default: () => ({ currentRom: null, setCurrentRom }),
@@ -85,6 +114,13 @@ describe("PcDlcDetails", () => {
     getRom.mockReset();
     setCurrentRom.mockReset();
     onBeforeRouteUpdate.mockReset();
+    lookupProviderMetadata.mockReset();
+    applyProviderMetadata.mockReset();
+    selectLocalMedia.mockReset();
+    uploadLocalMedia.mockReset();
+    downloadIntoSource.mockReset();
+    deleteFromSource.mockReset();
+    mutateFilesystem.mockReset();
     route.params = { rom: "1", component: "2" };
   });
 
@@ -201,5 +237,25 @@ describe("PcDlcDetails", () => {
     await flushPromises();
 
     expect(wrapper.text()).toBe("Library");
+  });
+
+  it("uses only the parent read while loading and navigating between DLC routes", async () => {
+    getRom.mockResolvedValue({ data: parent });
+
+    mountView();
+    await flushPromises();
+    await updateRoute({ rom: "1", component: "2" });
+
+    expect(getRom).toHaveBeenCalledTimes(2);
+    expect(getRom).toHaveBeenLastCalledWith({ romId: 1 });
+    [
+      lookupProviderMetadata,
+      applyProviderMetadata,
+      selectLocalMedia,
+      uploadLocalMedia,
+      downloadIntoSource,
+      deleteFromSource,
+      mutateFilesystem,
+    ].forEach((mock) => expect(mock).not.toHaveBeenCalled());
   });
 });

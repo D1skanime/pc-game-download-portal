@@ -485,4 +485,20 @@ describe("external source mutation authority inventory", () => {
     );
     expect(patcher).toMatch(/URL\.createObjectURL|downloadPatchedFile/);
   });
+
+  it("keeps the PC DLC route and its detail composites free of provider and source-mutation seams", () => {
+    const files = {
+      route: source("src/v2/views/PcDlcDetails.vue"),
+      detail: source("src/v2/components/GameDetails/PcDlcDetail.vue"),
+      manifest: source("src/v2/components/GameDetails/PcDlcFiles.vue"),
+    };
+
+    expect(files.route).toContain("romApi.getRom({ romId })");
+    const forbiddenSeams =
+      /\b(?:lookupProviderMetadata|applyProviderMetadata|selectLocalMedia|uploadLocalMedia|downloadIntoSource|deleteFromSource|mutateFilesystem)\b/;
+
+    expect(files.route).not.toMatch(forbiddenSeams);
+    expect(files.detail).not.toMatch(forbiddenSeams);
+    expect(files.manifest).not.toMatch(forbiddenSeams);
+  });
 });
