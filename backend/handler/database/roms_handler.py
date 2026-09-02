@@ -1835,6 +1835,7 @@ class DBRomsHandler(DBBaseHandler):
             .options(
                 selectinload(Rom.components).options(
                     selectinload(RomComponent.manifest_members),
+                    selectinload(RomComponent.component_metadata),
                     selectinload(RomComponent.local_media),
                 )
             )
@@ -2339,7 +2340,12 @@ class DBRomsHandler(DBBaseHandler):
         session.flush()
         for component in saved:
             session.refresh(
-                component, attribute_names=["manifest_members", "local_media"]
+                component,
+                attribute_names=[
+                    "manifest_members",
+                    "component_metadata",
+                    "local_media",
+                ],
             )
         return SyncedRomComponents(saved, list(dict.fromkeys(orphaned_owned_paths)))
 

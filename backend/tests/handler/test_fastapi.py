@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import HTTPException, status
@@ -24,6 +24,7 @@ from handler.metadata.ss_handler import (
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    auto_link_pc_dlc_components,
     scan_platform,
     scan_rom,
 )
@@ -263,6 +264,43 @@ def test_pc_component_reconciliation_discards_changed_local_media(rom: Rom):
 
     assert changed.orphaned_owned_paths == ["roms/1/1/pc-media/poster.png"]
     assert changed[0].local_media == []
+
+
+def test_scan_auto_links_an_unambiguous_local_dlc(monkeypatch):
+    rom = Mock(id=1)
+    rom.name = "Kingdom Come: Deliverance"
+    rom.igdb_metadata = {
+        "dlcs": [
+            {
+                "id": 119899,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+                "cover_url": "",
+            }
+        ]
+    }
+    component = Mock(
+        id=7,
+        kind=RomComponentKind.DLC,
+        relative_path="dlc/a-woman-s-lot",
+        manifest_members=[],
+        component_metadata=None,
+        updated_at="2026-09-02T00:00:00+00:00",
+    )
+    apply = Mock()
+    monkeypatch.setattr(db_rom_handler, "apply_pc_component_metadata_candidate", apply)
+
+    auto_link_pc_dlc_components(rom, [component])
+
+    apply.assert_called_once_with(
+        1,
+        7,
+        "2026-09-02T00:00:00+00:00",
+        "igdb",
+        {
+            "igdb_id": 119899,
+            "name": "Kingdom Come: Deliverance - A Woman's Lot",
+        },
+    )
 
 
 async def test_scan_rom_logs_unresolved_pc_component_layout():

@@ -154,6 +154,51 @@ async def test_collect_component_candidates_offers_a_matching_parent_expansion()
     igdb.get_matched_roms_by_name.assert_not_awaited()
 
 
+def test_unique_related_dlc_match_requires_exactly_one_parent_match():
+    handler = PcMetadataMatchHandler(providers={})
+    rom = Mock()
+    rom.name = "Kingdom Come: Deliverance"
+    rom.igdb_metadata = {
+        "dlcs": [
+            {
+                "id": 119899,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+                "cover_url": "https://images.igdb.com/womans-lot.jpg",
+            }
+        ]
+    }
+    component = Mock(relative_path="dlc/a-woman-s-lot", manifest_members=[])
+
+    candidate = handler.find_unique_related_igdb_candidate(rom, component)
+
+    assert candidate is not None
+    assert candidate.provider == "igdb"
+    assert candidate.provider_ids == {"igdb_id": 119899}
+
+
+def test_unique_related_dlc_match_refuses_ambiguous_parent_matches():
+    handler = PcMetadataMatchHandler(providers={})
+    rom = Mock()
+    rom.name = "Kingdom Come: Deliverance"
+    rom.igdb_metadata = {
+        "dlcs": [
+            {
+                "id": 119899,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+                "cover_url": "",
+            },
+            {
+                "id": 119900,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+                "cover_url": "",
+            },
+        ]
+    }
+    component = Mock(relative_path="dlc/a-woman-s-lot", manifest_members=[])
+
+    assert handler.find_unique_related_igdb_candidate(rom, component) is None
+
+
 @pytest.mark.asyncio
 async def test_collect_candidates_returns_typed_unavailable_provider_result():
     failing = Mock(is_enabled=Mock(return_value=True))

@@ -70,13 +70,7 @@ class PcMetadataMatchHandler:
     async def collect_component_candidates(
         self, rom: Rom, component: RomComponent
     ) -> dict[str, PcMetadataProviderResult]:
-        base_title = rom.name or rom.fs_name_no_ext or rom.fs_name
-        component_title = component.relative_path.rsplit("/", 1)[-1]
-        if component_title.casefold() in GENERIC_DLC_COMPONENT_NAMES:
-            title = self._title_from_setup_file(base_title, component)
-        else:
-            title = f"{base_title} {component_title}".strip()
-        title = title.replace("-", " ").replace("_", " ")
+        title = self._component_search_title(rom, component)
         related_candidates = self._related_igdb_candidates(rom, title)
         overrides = (
             {"igdb": PcMetadataProviderResult("igdb", True, related_candidates)}
@@ -84,6 +78,26 @@ class PcMetadataMatchHandler:
             else None
         )
         return await self._collect_for_title(rom, title, overrides)
+
+    def find_unique_related_igdb_candidate(
+        self, rom: Rom, component: RomComponent
+    ) -> PcMetadataCandidate | None:
+        """Return a safe automatic DLC link from the parent's cached IGDB data."""
+        candidates = self._related_igdb_candidates(
+            rom, self._component_search_title(rom, component)
+        )
+        return candidates[0] if len(candidates) == 1 else None
+
+    @staticmethod
+    def _component_search_title(rom: Rom, component: RomComponent) -> str:
+        base_title = rom.name or rom.fs_name_no_ext or rom.fs_name
+        component_title = component.relative_path.rsplit("/", 1)[-1]
+        if component_title.casefold() in GENERIC_DLC_COMPONENT_NAMES:
+            title = PcMetadataMatchHandler._title_from_setup_file(base_title, component)
+        else:
+            title = f"{base_title} {component_title}".strip()
+        title = title.replace("-", " ").replace("_", " ")
+        return title
 
     @staticmethod
     def _title_from_setup_file(base_title: str, component: RomComponent) -> str:

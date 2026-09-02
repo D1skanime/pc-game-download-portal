@@ -39,6 +39,7 @@ const { t } = useI18n();
 const router = useRouter();
 const romId = ref<number | null>(null);
 const inLibrary = computed(() => romId.value !== null);
+const availableLocally = computed(() => props.localComponentId !== undefined);
 
 onMounted(async () => {
   if (props.isDlc) return;
@@ -200,11 +201,11 @@ function onClick(e: MouseEvent) {
     :cover-src="game.cover_url"
     @click="onClick"
   >
-    <!-- "Owned" tag at the top of the cover — signals the game is
-         already in the user's library. Mirrors the top-left chip
+    <!-- "Available" tag at the top of the cover, signals the content is
+         present locally. Mirrors the top-left chip
          pattern v1 used for the related-game `type` overlay (DLC /
          Remake / …) so the visual rhythm matches across the app. -->
-    <template v-if="inLibrary" #overlay>
+    <template v-if="inLibrary || availableLocally" #overlay>
       <span class="related-card__owned">
         <RIcon icon="mdi-check" size="11" />
         {{ t("common.owned") }}

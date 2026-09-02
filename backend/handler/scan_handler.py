@@ -45,6 +45,7 @@ from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST, LibretroRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
+from handler.metadata.pc_match_handler import pc_metadata_match_handler
 from handler.metadata.playmatch_handler import (
     PLAYMATCH_SUPPORTED_SOURCES,
     PlaymatchRomMatch,
@@ -64,7 +65,7 @@ from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomComponentKind, RomFile, RomFileCategory
+from models.rom import Rom, RomComponent, RomComponentKind, RomFile, RomFileCategory
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
@@ -84,6 +85,28 @@ class ScanType(enum.StrEnum):
 
 class MappedScanCommand(_MappedScanCommand):
     """Canonical scan command re-exported at the orchestration boundary."""
+
+
+def auto_link_pc_dlc_components(rom: Rom, components: list[RomComponent]) -> None:
+    """Persist only unambiguous DLC links from the parent's cached IGDB relations."""
+    for component in components:
+        if (
+            component.kind != RomComponentKind.DLC
+            or component.component_metadata is not None
+        ):
+            continue
+        candidate = pc_metadata_match_handler.find_unique_related_igdb_candidate(
+            rom, component
+        )
+        if candidate is None:
+            continue
+        db_rom_handler.apply_pc_component_metadata_candidate(
+            rom.id,
+            component.id,
+            component.updated_at,
+            candidate.provider,
+            candidate.fields,
+        )
 
 
 async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
@@ -522,6 +545,10 @@ async def scan_rom(
         synced_components = db_rom_handler.sync_rom_components(
             _added_rom.id, pc_components
         )
+        # Keep the pre-rescan parent relation: a complete scan clears metadata
+        # before it asks providers again, while this link is deliberately based
+        # only on the already cached, exact IGDB relation.
+        auto_link_pc_dlc_components(rom, synced_components)
         for owned_path in synced_components.orphaned_owned_paths:
             try:
                 await fs_resource_handler.remove_file(owned_path)

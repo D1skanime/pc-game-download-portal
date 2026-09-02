@@ -31,6 +31,17 @@ const game = {
 } satisfies IGDBRelatedGame;
 
 describe("RelatedGameCard", () => {
+  it("marks a locally matched DLC as available", () => {
+    const wrapper = mount(RelatedGameCard, {
+      props: { game, localComponentId: 7, isDlc: true },
+      global: {
+        stubs: { GameCard: { template: "<div><slot name='overlay' /></div>" } },
+      },
+    });
+
+    expect(wrapper.get(".related-card__owned").text()).toBe("common.owned");
+  });
+
   it("opens a locally matched DLC in the current game's filtered Files tab", async () => {
     const open = vi.spyOn(window, "open");
     const wrapper = mount(RelatedGameCard, {
