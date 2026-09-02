@@ -55,7 +55,9 @@ const groupedComponents = computed(() =>
         v-for="component in group.components"
         :key="component.relative_path"
         :data-testid="`pc-component-${component.relative_path}`"
-        :title="component.relative_path"
+        :title="
+          component.kind === 'base' ? group.label : component.relative_path
+        "
         icon="mdi-folder-outline"
       >
         <div class="pc-components__manifest">

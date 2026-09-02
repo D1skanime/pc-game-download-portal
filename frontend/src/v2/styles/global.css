@@ -181,7 +181,8 @@ html[data-input="pad"] .r-v2 * {
    light, and lean on a stronger, more even overlay (below) to keep it a
    soft frosted backdrop rather than a busy field. */
 .r-v2-light .r-v2-bg__layer {
-  filter: blur(28px) brightness(1.12) saturate(0.7);
+  filter: brightness(1.05) saturate(0.7);
+  transform: none;
 }
 
 /* Reduced-motion mode (Settings, per device; defaults to the OS

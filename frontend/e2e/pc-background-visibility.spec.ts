@@ -15,6 +15,13 @@ test.describe("PC local background visibility", () => {
       "style",
       /pc-media/,
     );
+    await expect
+      .poll(() =>
+        page
+          .locator(".r-v2-bg__layer--active")
+          .evaluate((element) => getComputedStyle(element).filter),
+      )
+      .not.toContain("blur");
     const strongestLightWash = await page
       .locator(".r-v2-bg__overlay")
       .evaluate((element) => {

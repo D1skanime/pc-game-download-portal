@@ -47,6 +47,34 @@ const componentGroups = [
 ] satisfies PcComponentSchema[];
 
 describe("PcComponents", () => {
+  it("uses the main game label instead of the technical base folder name", () => {
+    const wrapper = mount(PcComponents, {
+      props: {
+        components: [
+          {
+            id: 1,
+            relative_path: "base",
+            kind: "base",
+            manifest_members: [],
+          },
+        ],
+        romId: 1,
+      },
+      global: {
+        stubs: {
+          RCollapsible: {
+            props: ["title"],
+            template: "<section :data-title='title'><slot /></section>",
+          },
+        },
+      },
+    });
+
+    expect(
+      wrapper.get("[data-testid='pc-component-base']").attributes("data-title"),
+    ).toBe("Main game");
+  });
+
   it("renders PC component groups in the operator review order", async () => {
     const wrapper = mount(PcComponents, {
       props: { components: componentGroups, romId: 1 },
