@@ -17,7 +17,8 @@
     "discuss_mode": "discuss",
     "skip_discuss": false,
     "use_worktrees": false,
-    "_auto_chain_active": false
+    "_auto_chain_active": false,
+    "human_verify_mode": "mid-flight"
   },
   "hooks": {
     "context_warnings": true
