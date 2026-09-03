@@ -534,27 +534,6 @@ async def scan_rom(
     _added_rom = db_rom_handler.add_rom(Rom(**rom_attrs))
     _added_rom.is_identifying = True
 
-    if platform.slug == UPS.WIN and fs_rom["nested"]:
-        pc_components = await fs_rom_handler.get_pc_components(_added_rom)
-        for component in pc_components:
-            if component.kind == RomComponentKind.UNRESOLVED:
-                log.warning(
-                    f"unresolved PC component layout: {component.relative_path}",
-                    extra=LOGGER_MODULE_NAME,
-                )
-        synced_components = db_rom_handler.sync_rom_components(
-            _added_rom.id, pc_components
-        )
-        # Keep the pre-rescan parent relation: a complete scan clears metadata
-        # before it asks providers again, while this link is deliberately based
-        # only on the already cached, exact IGDB relation.
-        auto_link_pc_dlc_components(rom, synced_components)
-        for owned_path in synced_components.orphaned_owned_paths:
-            try:
-                await fs_resource_handler.remove_file(owned_path)
-            except FileNotFoundError:
-                pass
-
     if socket_manager:
         await socket_manager.emit(
             "scan:scanning_rom",
@@ -571,6 +550,33 @@ async def scan_rom(
                 ),
             },
         )
+
+    if platform.slug == UPS.WIN and fs_rom["nested"]:
+        try:
+            pc_components = await fs_rom_handler.get_pc_components(_added_rom)
+            for component in pc_components:
+                if component.kind == RomComponentKind.UNRESOLVED:
+                    log.warning(
+                        f"unresolved PC component layout: {component.relative_path}",
+                        extra=LOGGER_MODULE_NAME,
+                    )
+            synced_components = db_rom_handler.sync_rom_components(
+                _added_rom.id, pc_components
+            )
+            # Keep the pre-rescan parent relation: a complete scan clears metadata
+            # before it asks providers again, while this link is deliberately based
+            # only on the already cached, exact IGDB relation.
+            auto_link_pc_dlc_components(rom, synced_components)
+            for owned_path in synced_components.orphaned_owned_paths:
+                try:
+                    await fs_resource_handler.remove_file(owned_path)
+                except FileNotFoundError:
+                    pass
+        except Exception:
+            log.exception(
+                f"Failed to reconcile PC components for {_added_rom.fs_name}",
+                extra=LOGGER_MODULE_NAME,
+            )
 
     # Run hash fetches concurrently
     (

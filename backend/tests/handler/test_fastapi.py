@@ -352,6 +352,61 @@ async def test_scan_rom_logs_unresolved_pc_component_layout():
     )
 
 
+async def test_nested_pc_component_reconciliation_failure_still_emits_parent_rom():
+    """A component-side failure must not hide an already persisted PC parent."""
+    platform = db_platform_handler.add_platform(
+        Platform(name="Windows", slug="win", fs_slug="win")
+    )
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Example Game",
+        fs_path="roms/win",
+        regions=[],
+        languages=[],
+        tags=[],
+    )
+    socket_manager = AsyncMock()
+
+    with (
+        patch(
+            "handler.scan_handler.fs_rom_handler.get_pc_components",
+            new_callable=AsyncMock,
+            return_value=[],
+        ),
+        patch(
+            "handler.scan_handler.db_rom_handler.sync_rom_components",
+            side_effect=RuntimeError("component reconciliation failed"),
+        ),
+        patch("handler.scan_handler.log.exception") as log_exception,
+    ):
+        async with initialize_context():
+            await scan_rom(
+                platform=platform,
+                scan_type=ScanType.QUICK,
+                rom=rom,
+                fs_rom={
+                    "fs_name": "Example Game",
+                    "flat": False,
+                    "nested": True,
+                    "files": [],
+                    "crc_hash": "",
+                    "md5_hash": "",
+                    "sha1_hash": "",
+                    "ra_hash": "",
+                },
+                metadata_sources=[],
+                newly_added=True,
+                socket_manager=socket_manager,
+            )
+
+    socket_manager.emit.assert_awaited_once()
+    event, payload = socket_manager.emit.await_args.args
+    assert event == "scan:scanning_rom"
+    assert payload["fs_name"] == "Example Game"
+    assert db_rom_handler.get_roms_by_fs_name(platform.id, {"Example Game"})
+    log_exception.assert_called_once()
+
+
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
 @patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
