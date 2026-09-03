@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: PC integration
 status: executing
-stopped_at: Phase 12 context gathered
-last_updated: "2026-09-02T13:47:24.657Z"
-last_activity: 2026-09-01
+stopped_at: Phase 12 context updated for expanded DLC detail scope
+last_updated: "2026-09-03T09:17:15.775Z"
+last_activity: 2026-09-02 -- Phase 12 execution started
 progress:
   total_phases: 12
   completed_phases: 8
-  total_plans: 107
-  completed_plans: 101
+  total_plans: 113
+  completed_plans: 106
   percent: 67
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 10 — pc-integration-model
+**Current focus:** Phase 12 — dlc-detail-pages-for-local-pc-components
 
 ## Current Position
 
-Phase: 10 (pc-integration-model) — EXECUTING
-Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-09-01
+Phase: 12 (dlc-detail-pages-for-local-pc-components) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 12
+Last activity: 2026-09-02 -- Phase 12 execution started
 
 Progress: [██████████] 96%
 
@@ -321,6 +321,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-02T13:47:24.641Z
-Stopped at: Phase 12 context gathered
+Last session: 2026-09-03T09:17:15.757Z
+Stopped at: Phase 12 context updated for expanded DLC detail scope
 Resume file: .planning/phases/12-dlc-detail-pages-for-local-pc-components/12-CONTEXT.md
