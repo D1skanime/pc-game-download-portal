@@ -74,6 +74,7 @@ def test_classified_pc_component_metadata_candidates_use_explicit_query(
     )
 
     assert response.status_code == status.HTTP_200_OK
+    assert collect.await_args is not None
     assert collect.await_args.args[2] == "Selected PC Game"
 
 
@@ -142,6 +143,7 @@ def test_pc_component_metadata_selection_recomputes_submitted_query(
     )
 
     assert response.status_code == status.HTTP_200_OK
+    assert collect.await_args is not None
     assert collect.await_args.args[2] == "Phantom Liberty"
 
 
