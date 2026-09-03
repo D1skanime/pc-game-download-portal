@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 
-from endpoints.roms.pc_metadata import pc_metadata_match_handler
+from endpoints.roms.pc_metadata import _candidate_media_id, pc_metadata_match_handler
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
@@ -143,6 +143,83 @@ def test_pc_component_metadata_selection_recomputes_submitted_query(
 
     assert response.status_code == status.HTTP_200_OK
     assert collect.await_args.args[2] == "Phantom Liberty"
+
+
+def test_dlc_metadata_selection_imports_only_selected_candidate_media(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates",
+        AsyncMock(return_value=_candidate_results()),
+    )
+    store = AsyncMock(
+        return_value=("roms/1/1/pc-media/provider-cover.webp", "image/webp")
+    )
+    monkeypatch.setattr(fs_resource_handler, "store_pc_component_provider_image", store)
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": _candidate().id,
+            "query": "Phantom Liberty",
+            "selected_media_ids": [
+                _candidate_media_id(_candidate(), _candidate().media[0])
+            ],
+            "expected_version": component.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    store.assert_awaited_once()
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved.components[0].owned_media[0].provider == "igdb"
+
+
+def test_non_dlc_component_rejects_provider_media_selection(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="base",
+                kind=RomComponentKind.BASE,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates",
+        AsyncMock(return_value=_candidate_results()),
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": _candidate().id,
+            "query": "Selected PC Game",
+            "selected_media_ids": ["unknown"],
+            "expected_version": component.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def _headers(access_token: str) -> dict[str, str]:
