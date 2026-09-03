@@ -101,123 +101,171 @@ function showMedia() {
 </script>
 
 <template>
-  <main class="pc-dlc-detail">
-    <RBtn
-      class="pc-dlc-detail__back"
-      :to="{ name: ROUTES.ROM, params: { rom: parent.id } }"
-      variant="text"
-    >
-      {{ t("rom.pc-dlc-back-to-game", { game: parent.name ?? "" }) }}
-    </RBtn>
+  <main class="r-v2-det pc-dlc-detail">
+    <div class="r-v2-det__body">
+      <aside class="pc-dlc-detail__cover-column">
+        <RBtn
+          class="pc-dlc-detail__back"
+          :to="{ name: ROUTES.ROM, params: { rom: parent.id } }"
+          variant="text"
+        >
+          {{ t("rom.pc-dlc-back-to-game", { game: parent.name ?? "" }) }}
+        </RBtn>
+        <RImg
+          v-if="cover"
+          class="pc-dlc-detail__cover"
+          :src="ownedMediaUrl(cover.owned_path)"
+          :alt="title"
+          width="240"
+          height="324"
+          cover
+        />
+        <div
+          v-else
+          data-testid="pc-dlc-cover-placeholder"
+          class="pc-dlc-detail__cover pc-dlc-detail__cover--placeholder"
+          role="img"
+          :aria-label="title"
+        />
+      </aside>
 
-    <section v-if="tab === 'overview'" class="pc-dlc-detail__hero">
-      <RImg
-        v-if="cover"
-        class="pc-dlc-detail__cover"
-        :src="ownedMediaUrl(cover.owned_path)"
-        :alt="title"
-        width="240"
-        height="324"
-        cover
-      />
-      <div
-        v-else
-        data-testid="pc-dlc-cover-placeholder"
-        class="pc-dlc-detail__cover pc-dlc-detail__cover--placeholder"
-        role="img"
-        :aria-label="title"
-      />
+      <div class="r-v2-det__info">
+        <section class="pc-dlc-detail__hero">
+          <RTag :text="t('rom.category-dlc')" tone="brand" />
+          <h1 class="pc-dlc-detail__title">{{ title }}</h1>
+          <p v-if="summary" class="pc-dlc-detail__summary">{{ summary }}</p>
+          <dl class="pc-dlc-detail__facts">
+            <div class="pc-dlc-detail__fact">
+              <dt>{{ t("rom.file") }}</dt>
+              <dd>{{ component.relative_path }}</dd>
+            </div>
+            <div class="pc-dlc-detail__fact">
+              <dt>{{ t("rom.files") }}</dt>
+              <dd>{{ component.manifest_members.length }}</dd>
+            </div>
+            <div class="pc-dlc-detail__fact">
+              <dt>{{ t("common.size") }}</dt>
+              <dd>{{ formatBytes(manifestSize) }}</dd>
+            </div>
+          </dl>
+        </section>
 
-      <div class="pc-dlc-detail__identity">
-        <RTag :text="t('rom.category-dlc')" tone="brand" />
-        <h1 class="pc-dlc-detail__title">{{ title }}</h1>
-        <p v-if="summary" class="pc-dlc-detail__summary">{{ summary }}</p>
-        <dl class="pc-dlc-detail__facts">
-          <div class="pc-dlc-detail__fact">
-            <dt>{{ t("rom.file") }}</dt>
-            <dd>{{ component.relative_path }}</dd>
-          </div>
-          <div class="pc-dlc-detail__fact">
-            <dt>{{ t("rom.files") }}</dt>
-            <dd>{{ component.manifest_members.length }}</dd>
-          </div>
-          <div class="pc-dlc-detail__fact">
-            <dt>{{ t("common.size") }}</dt>
-            <dd>{{ formatBytes(manifestSize) }}</dd>
-          </div>
-        </dl>
-      </div>
-    </section>
+        <div class="pc-dlc-detail__tab-bar">
+          <RTabNav v-model="tab" :items="tabs" class="r-v2-det__tabs" />
+          <RMenu location="bottom end">
+            <template #activator="{ props: menuProps }">
+              <RBtn
+                v-bind="menuProps"
+                icon="mdi-dots-vertical"
+                :aria-label="t('common.actions')"
+              />
+            </template>
+            <RMenuItem
+              :label="t('rom.pc-find-metadata')"
+              icon="mdi-magnify"
+              @click="openMatcher"
+            />
+            <RMenuItem
+              :label="t('rom.artwork')"
+              icon="mdi-image-plus-outline"
+              @click="showMedia"
+            />
+            <RMenuItem
+              :label="t('rom.download')"
+              icon="mdi-download"
+              @click="tab = 'files'"
+            />
+          </RMenu>
+        </div>
 
-    <section
-      v-if="tab === 'overview' && media.length > 0"
-      data-testid="pc-dlc-media"
-      class="pc-dlc-detail__media"
-    >
-      <RImg
-        v-for="item in media"
-        :key="item.id"
-        :src="ownedMediaUrl(item.owned_path)"
-        :alt="title"
-        class="pc-dlc-detail__media-image"
-        aspect-ratio="16/9"
-        cover
-      />
-    </section>
+        <div class="r-v2-det__panel">
+          <section
+            v-if="tab === 'overview' && media.length > 0"
+            data-testid="pc-dlc-media"
+            class="pc-dlc-detail__media"
+          >
+            <RImg
+              v-for="item in media"
+              :key="item.id"
+              :src="ownedMediaUrl(item.owned_path)"
+              :alt="title"
+              class="pc-dlc-detail__media-image"
+              aspect-ratio="16/9"
+              cover
+            />
+          </section>
 
-    <div class="pc-dlc-detail__tab-bar">
-      <RTabNav v-model="tab" :items="tabs" />
-      <RMenu location="bottom end">
-        <template #activator="{ props: menuProps }">
-          <RBtn
-            v-bind="menuProps"
-            icon="mdi-dots-vertical"
-            :aria-label="t('common.actions')"
+          <PcDlcFiles
+            v-if="tab === 'files'"
+            :rom-id="parent.id"
+            :component="component"
           />
-        </template>
-        <RMenuItem
-          :label="t('rom.pc-find-metadata')"
-          icon="mdi-magnify"
-          @click="openMatcher"
-        />
-        <RMenuItem
-          :label="t('rom.artwork')"
-          icon="mdi-image-plus-outline"
-          @click="showMedia"
-        />
-        <RMenuItem
-          :label="t('rom.download')"
-          icon="mdi-download"
-          @click="tab = 'files'"
-        />
-      </RMenu>
+          <PcDlcMediaTab
+            v-if="tab === 'media'"
+            :rom-id="parent.id"
+            :component="component"
+            @refresh="emit('refresh')"
+          />
+          <PcDlcNotesTab
+            v-if="tab === 'notes'"
+            :rom-id="parent.id"
+            :component="component"
+          />
+        </div>
+      </div>
     </div>
-
-    <PcDlcFiles
-      v-if="tab === 'files'"
-      :rom-id="parent.id"
-      :component="component"
-    />
-    <PcDlcMediaTab
-      v-if="tab === 'media'"
-      :rom-id="parent.id"
-      :component="component"
-      @refresh="emit('refresh')"
-    />
-    <PcDlcNotesTab
-      v-if="tab === 'notes'"
-      :rom-id="parent.id"
-      :component="component"
-    />
   </main>
 </template>
 
 <style scoped>
 .pc-dlc-detail {
+  height: calc(100vh - var(--r-nav-h));
   display: flex;
   flex-direction: column;
-  gap: var(--r-space-8);
-  padding: var(--r-space-6) var(--r-row-pad);
+  padding-top: 20px;
+}
+
+.pc-dlc-detail .r-v2-det__body {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  padding: 0 var(--r-row-pad) 32px;
+  gap: 52px;
+  min-height: 0;
+  max-width: var(--r-page-max-w);
+  width: 100%;
+  margin: 0 auto;
+}
+
+.pc-dlc-detail .r-v2-det__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pc-dlc-detail .r-v2-det__tabs {
+  margin: 14px 0 16px;
+}
+
+.pc-dlc-detail .r-v2-det__panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--r-color-border-strong) transparent;
+  margin-top: 10px;
+  padding-right: 6px;
+}
+
+.pc-dlc-detail__cover-column {
+  width: 240px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-3);
 }
 
 .pc-dlc-detail__back {
@@ -233,9 +281,10 @@ function showMedia() {
 }
 
 .pc-dlc-detail__hero {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: var(--r-space-8);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--r-space-4);
 }
 
 .pc-dlc-detail__cover {
@@ -308,11 +357,30 @@ function showMedia() {
   border-radius: var(--r-radius-md);
 }
 
-html[data-bp~="sm-and-down"] .pc-dlc-detail__hero {
-  grid-template-columns: minmax(0, 1fr);
+html[data-bp~="sm-and-down"] .pc-dlc-detail {
+  height: auto;
+  padding-top: 8px;
 }
 
-html[data-bp~="sm-and-down"] .pc-dlc-detail__cover {
-  justify-self: center;
+html[data-bp~="sm-and-down"] .pc-dlc-detail .r-v2-det__body {
+  flex: none;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px var(--r-row-pad) 16px;
+}
+
+html[data-bp~="sm-and-down"] .pc-dlc-detail .r-v2-det__info,
+html[data-bp~="sm-and-down"] .pc-dlc-detail .r-v2-det__panel {
+  flex: none;
+  min-height: 0;
+}
+
+html[data-bp~="sm-and-down"] .pc-dlc-detail .r-v2-det__panel {
+  overflow: visible;
+  padding-right: 0;
+}
+
+html[data-bp~="sm-and-down"] .pc-dlc-detail__cover-column {
+  align-self: center;
 }
 </style>
