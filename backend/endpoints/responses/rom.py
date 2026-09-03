@@ -424,6 +424,7 @@ class PcComponentSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    updated_at: UTCDatetime | None = None
     relative_path: str
     kind: RomComponentKind
     manifest_members: list[PcComponentManifestMemberSchema]

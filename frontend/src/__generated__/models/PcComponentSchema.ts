@@ -9,6 +9,7 @@ import type { PcComponentOwnedMediaSchema } from './PcComponentOwnedMediaSchema'
 import type { RomComponentKind } from './RomComponentKind';
 export type PcComponentSchema = {
     id: number;
+    updated_at?: (string | null);
     relative_path: string;
     kind: RomComponentKind;
     manifest_members: Array<PcComponentManifestMemberSchema>;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { REmptyState, RTag } from "@v2/lib";
+import { RBtn, REmptyState, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PcComponentSchema } from "@/__generated__";
@@ -7,10 +7,18 @@ import { formatBytes } from "@/utils";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ component: PcComponentSchema }>();
+const props = defineProps<{ romId: number; component: PcComponentSchema }>();
 
 const { t } = useI18n();
 const manifestMembers = computed(() => props.component.manifest_members);
+
+function manifestDownloadUrl(memberId: number) {
+  return `/api/roms/${props.romId}/pc-components/${props.component.id}/manifest-members/${memberId}/content`;
+}
+
+function ownedMediaDownloadUrl(mediaId: number) {
+  return `/api/roms/${props.romId}/pc-components/${props.component.id}/media/${mediaId}/content`;
+}
 </script>
 
 <template>
@@ -38,6 +46,11 @@ const manifestMembers = computed(() => props.component.manifest_members);
               {{ member.relative_path }}
             </dd>
           </div>
+          <RBtn
+            :href="manifestDownloadUrl(member.id)"
+            icon="mdi-download"
+            :aria-label="t('rom.download')"
+          />
           <div class="pc-dlc-files__field">
             <dt>{{ t("common.size") }}</dt>
             <dd>{{ formatBytes(member.size_bytes) }}</dd>
@@ -49,6 +62,25 @@ const manifestMembers = computed(() => props.component.manifest_members);
             </dd>
           </div>
         </dl>
+      </li>
+    </ul>
+
+    <ul
+      v-if="component.owned_media?.length"
+      data-testid="pc-dlc-owned-media-downloads"
+      class="pc-dlc-files__list"
+    >
+      <li
+        v-for="media in component.owned_media"
+        :key="media.id"
+        class="pc-dlc-files__member"
+      >
+        <RBtn
+          :href="ownedMediaDownloadUrl(media.id)"
+          prepend-icon="mdi-download"
+        >
+          {{ t("rom.download") }}
+        </RBtn>
       </li>
     </ul>
   </section>
