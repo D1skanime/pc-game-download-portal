@@ -4,79 +4,81 @@ slug: dlc-detail-pages-for-local-pc-components
 status: draft
 nyquist_compliant: true
 wave_0_complete: false
-created: 2026-09-02
+created: 2026-09-03
 ---
 
 # Phase 12: DLC detail pages for local PC components - Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
 
----
-
 ## Test Infrastructure
 
-| Property               | Value                                                                                            |
-| ---------------------- | ------------------------------------------------------------------------------------------------ |
-| **Framework**          | Vitest with Vue Test Utils                                                                       |
-| **Config file**        | `frontend/vitest.config.ts`                                                                      |
-| **Quick run command**  | `cd frontend && npm run test -- src/v2/components/GameDetails src/v2/views/PcDlcDetails.test.ts` |
-| **Full suite command** | `cd frontend && npm run typecheck && npm run test && npm run build`                              |
-| **Estimated runtime**  | ~180 seconds                                                                                     |
-
----
+| Property               | Value                                                                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend framework** | Vitest with Vue Test Utils (`frontend/vitest.config.ts`)                                                                                              |
+| **Backend framework**  | pytest (`backend/tests/endpoints/roms/test_pc_metadata.py`)                                                                                           |
+| **Quick frontend run** | `cd frontend && npm run test -- src/v2/components/GameDetails src/v2/components/Dialogs src/v2/components/MatchRom src/v2/views/PcDlcDetails.test.ts` |
+| **Quick backend run**  | `cd backend && uv run pytest tests/endpoints/roms/test_pc_metadata.py tests/handler/metadata/test_pc_match_handler.py -q`                             |
+| **Static checks**      | `cd frontend && npm run typecheck`; `trunk fmt --no-fix` and `trunk check --no-fix` for touched files                                                 |
 
 ## Sampling Rate
 
-- **After every task commit:** Run the focused Vitest command and `cd frontend && npm run typecheck`.
-- **After every plan wave:** Run `cd frontend && npm run test`.
-- **Before `/gsd:verify-work`:** The full frontend typecheck, test suite, and build must be green.
-- **Max feedback latency:** 60 seconds for focused tests, excluding typecheck.
-
----
+- **After every task commit:** Run the task's focused frontend or backend
+  command plus its static check.
+- **After every plan wave:** Run both quick commands and frontend typecheck.
+- **Before `/gsd:verify-work`:** When models change, run migration upgrade and
+  downgrade checks, regenerate OpenAPI frontend types, then run full typecheck,
+  test suite, and build.
+- **Max feedback latency:** 60 seconds for focused checks, excluding migration
+  and type generation.
 
 ## Per-Task Verification Map
 
-| Task ID  | Plan | Wave | Requirement      | Threat Ref                | Secure Behavior                                                                                  | Test Type | Automated Command                                                                                                                                                                                                                                                                   | File Exists | Status     |
-| -------- | ---- | ---- | ---------------- | ------------------------- | ------------------------------------------------------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
-| 12-02-01 | 02   | 1    | D-01, D-02       | T-12-01                   | Strict scalar parsing resolves only a DLC contained by the fetched visible parent ROM.           | unit      | `cd frontend && npm run test -- src/v2/views/PcDlcDetails.test.ts src/v2/router/routeInventory.test.ts`                                                                                                                                                                             | ❌ W0       | ⬜ pending |
-| 12-04-01 | 04   | 1    | D-03, D-04, D-05 | T-12-04                   | First locale batch supplies the DLC detail copy contract.                                        | locale    | `cd frontend && python3 src/locales/check_i18n_sorted.py`                                                                                                                                                                                                                           | ✅          | ✅ green   |
-| 12-05-01 | 05   | 1    | D-03, D-04, D-05 | T-12-04                   | Second locale batch supplies its complete DLC detail copy contract.                              | locale    | `cd frontend && python3 src/locales/check_i18n_sorted.py`                                                                                                                                                                                                                           | ✅          | ✅ green   |
-| 12-01-01 | 01   | 2    | D-01, D-02       | T-12-01                   | Both local-DLC entry points use the canonical nested parent-ROM route.                           | unit      | `cd frontend && npm run test -- src/v2/views/GameDetails.test.ts src/v2/components/GameDetails/OverviewTab.test.ts src/v2/components/GameDetails/RelatedGamesGrid.test.ts src/v2/components/GameDetails/RelatedGameCard.test.ts src/v2/components/GameDetails/PcComponents.test.ts` | ✅ / ❌ W0  | ⬜ pending |
-| 12-03-01 | 03   | 2    | D-03, D-04, D-05 | T-12-02, T-12-03, T-12-04 | The page renders only selected component metadata, owned media, and immutable manifest evidence. | unit      | `cd frontend && npm run test -- src/v2/components/GameDetails/PcDlcDetail.test.ts src/v2/components/GameDetails/PcDlcFiles.test.ts src/v2/views/PcDlcDetails.test.ts`                                                                                                               | ❌ W0       | ⬜ pending |
-| 12-06-01 | 06   | 3    | D-04             | T-12-03, T-12-04          | Loading or navigating to the page issues no provider, selection, or source-mutating request.     | unit      | `cd frontend && npm run test -- src/v2/sourceMutationControls.test.ts src/v2/views/PcDlcDetails.test.ts`                                                                                                                                                                            | ✅ / ❌ W0  | ✅ green   |
-| 12-06-02 | 06   | 3    | D-03, D-04, D-05 | T-12-04                   | Both completed locale batches have a matching, sorted global DLC-detail key set.                 | locale    | `cd frontend && python3 src/locales/check_i18n_locales.py && python3 src/locales/check_i18n_sorted.py`                                                                                                                                                                              | ✅          | ✅ green   |
-| 12-06-03 | 06   | 3    | D-02, D-03       | T-12-02, T-12-04          | Both entries meet the responsive, theme, and universal-input contract.                           | manual    | `cd frontend && npm run typecheck && npm run test && npm run build`                                                                                                                                                                                                                 | ✅          | ⬜ pending |
+| Work area                              | Requirement                   | Secure behavior                                                                                                                           | Test type                  | Required proof                                                                                                                       | File Exists | Status     |
+| -------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------- | ---------- |
+| Shared parent/component matcher target | D-07, D-08, D-09              | A component match never calls generic `updateRom`; confirmation targets only the nested component API.                                    | Vue unit                   | Parent and DLC entries mount the same matcher with different typed targets; component confirmation calls only the component adapter. | ❌ W0       | ⬜ pending |
+| Candidate search and confirmation      | D-07, D-09, D-10              | Server recomputes candidate data from the explicit request and accepts only selected candidate/media references belonging to that result. | pytest endpoint/handler    | Query/selection mismatch is rejected; cancel and preview leave metadata/media unchanged.                                             | ❌ W0       | ⬜ pending |
+| Owned component media                  | D-04, D-05, D-10, D-11        | Uploads and provider-media imports enter only RomM-owned storage; parent, sibling, and source tree remain unchanged.                      | pytest endpoint + Vue unit | MIME, size, ownership, and containment tests pass; source mutation inventory stays clean.                                            | ❌ W0       | ⬜ pending |
+| Component-scoped notes                 | D-03, D-06                    | A DLC note is visible and mutable only for that component under normal permission rules.                                                  | pytest endpoint + Vue unit | Parent and sibling notes never appear; unauthorised or foreign-component writes fail.                                                | ❌ W0       | ⬜ pending |
+| DLC detail tabs and actions            | D-01 through D-06, D-11, D-12 | Route renders Overview, Files, Media, Notes only. It exposes no DLC save-data tab, parent media, or parent downloads.                     | Vue unit                   | Invalid/stale/foreign/non-DLC routes have only an escape state; tabs and overflow actions are component-bounded.                     | ❌ W0       | ⬜ pending |
+| Component files and downloads          | D-04, D-11, D-12              | Downloads resolve only a selected component manifest member through authorised endpoints.                                                 | Vue unit + endpoint        | Parent files and raw paths cannot be requested; rendered hash/size evidence matches the selected component.                          | ❌ W0       | ⬜ pending |
+| Locale and generated contracts         | D-03, D-08, D-11              | All copy is translated and API schemas/types agree.                                                                                       | static                     | Locale parity/sort, OpenAPI generation, and typecheck exit zero.                                                                     | ❌ W0       | ⬜ pending |
 
 _Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky_
 
----
-
 ## Wave 0 Requirements
 
-- [ ] `frontend/src/v2/views/PcDlcDetails.test.ts` — direct route, invalid identifier, stale component, and non-DLC rejection coverage.
-- [ ] `frontend/src/v2/components/GameDetails/PcDlcDetail.test.ts` — component title, summary, owned-media isolation, and cover fallback coverage.
-- [ ] `frontend/src/v2/components/GameDetails/PcDlcFiles.test.ts` — manifest member, byte-size, and SHA-256 rendering coverage if the plan creates a dedicated file composite.
-- [ ] `frontend/src/v2/components/GameDetails/OverviewTab.test.ts` and `RelatedGamesGrid.test.ts` — parent-ROM ID propagation to the local DLC card.
-- [ ] Route-inventory test update if `frontend/src/v2/router/routeInventory.ts` is covered by an existing test.
-
----
+- [ ] Add or extend tests for the typed shared matcher, `PcComponents`, DLC
+      overflow action, and four-tab DLC page.
+- [ ] Add endpoint and handler tests for explicit component matching,
+      media-reference confirmation, owned-media containment, notes, and bounded
+      file downloads.
+- [ ] Add migration tests when component-owned media or notes require models.
+- [ ] Extend `frontend/src/v2/sourceMutationControls.test.ts` for all new
+      matching, upload, import, note, and download seams.
 
 ## Manual-Only Verifications
 
-| Behavior                                                                                              | Requirement | Why Manual                                                      | Test Instructions                                                                                                                            |
-| ----------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| The DLC page remains legible at 320px through 4K in both themes.                                      | D-03        | Responsive visual composition needs browser inspection.         | Visit a DLC route at each viewport in light and dark themes, verify cover fallback, title, summary, media, manifest, and parent back action. |
-| Mouse, touch, keyboard, and gamepad navigation reach both entry points and return to the parent page. | D-02        | Input modality behavior requires an interactive v2 environment. | Navigate from the overview card and PC Components list using each modality, then activate back navigation.                                   |
+| Behavior                                                                                                     | Requirement             | Why manual                                                            | Test instructions                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The same `ROM zuordnen` dialog appears from PC-parent search, PC-component search, and DLC overflow actions. | D-07, D-08              | Interaction equivalence and visual hierarchy need browser inspection. | In light and dark themes, open every entry point, change provider filters, choose grid/list, inspect description and cover selection, then cancel and confirm independently. |
+| DLC tabs work at xs, sm, md, and xl with every input mode.                                                   | D-03 through D-06, D-11 | Responsive composition and gamepad focus require a running app.       | Use mouse, touch, keyboard, and gamepad through tab changes, overflow menu, uploads, notes, and owned-media deletion confirmation.                                           |
+| Explicit confirmation is required before provider-media import.                                              | D-10                    | Browser flow proves no side effect while browsing/cancelling.         | Compare media before opening, filtering, previewing, and cancelling the matcher, then confirm and verify only that DLC changes.                                              |
 
----
+## Database and Type Generation Gate
+
+If models or endpoint schemas change, run migration upgrade and downgrade checks
+for MariaDB and PostgreSQL, regenerate `frontend/src/__generated__/` from
+OpenAPI, then run frontend typecheck. Pre-generated types alone cannot pass
+this phase.
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verification or Wave 0 dependencies.
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verification.
-- [ ] Wave 0 covers all missing references.
-- [ ] No watch-mode flags.
-- [ ] Focused feedback latency is below 60 seconds.
-- [x] `nyquist_compliant: true` set in frontmatter.
+- [ ] All planned tasks have focused automated verification or Wave 0 tests.
+- [ ] Sampling continuity has no three consecutive tasks without automated checks.
+- [ ] Wave 0 covers every missing test seam above.
+- [ ] No watch-mode flags are used.
+- [ ] Feedback latency is below 60 seconds for focused checks.
+- [x] `nyquist_compliant: true` is set in frontmatter.
 
 **Approval:** pending
