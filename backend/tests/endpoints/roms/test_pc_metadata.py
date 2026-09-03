@@ -44,6 +44,107 @@ def _candidate_results() -> dict[str, PcMetadataProviderResult]:
     }
 
 
+@pytest.mark.parametrize(
+    "kind",
+    [
+        RomComponentKind.BASE,
+        RomComponentKind.UPDATE,
+        RomComponentKind.DLC,
+        RomComponentKind.HOTFIX,
+        RomComponentKind.LANGUAGE_PACK,
+        RomComponentKind.EXTRA,
+    ],
+)
+def test_classified_pc_component_metadata_candidates_use_explicit_query(
+    client, access_token, rom, monkeypatch, kind
+):
+    db_rom_handler.sync_rom_components(
+        rom.id, [RomComponent(relative_path=kind.value, kind=kind, manifest_members=[])]
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    collect = AsyncMock(return_value=_candidate_results())
+    monkeypatch.setattr(
+        pc_metadata_match_handler, "collect_component_candidates", collect
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-candidates",
+        headers=_headers(access_token),
+        params={"query": "Selected PC Game"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert collect.await_args.args[2] == "Selected PC Game"
+
+
+def test_unresolved_pc_component_metadata_routes_return_404(client, access_token, rom):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="unknown",
+                kind=RomComponentKind.UNRESOLVED,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+
+    for route, method, body in (
+        ("metadata-candidates", client.get, {"params": {"query": "Anything"}}),
+        (
+            "metadata-selection",
+            client.post,
+            {
+                "json": {
+                    "candidate_id": _candidate().id,
+                    "query": "Anything",
+                    "expected_version": component.updated_at.isoformat(),
+                }
+            },
+        ),
+    ):
+        response = method(
+            f"/api/roms/{rom.id}/pc-components/{component.id}/{route}",
+            headers=_headers(access_token),
+            **body,
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_pc_component_metadata_selection_recomputes_submitted_query(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    collect = AsyncMock(return_value=_candidate_results())
+    monkeypatch.setattr(
+        pc_metadata_match_handler, "collect_component_candidates", collect
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": _candidate().id,
+            "query": "Phantom Liberty",
+            "expected_version": component.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert collect.await_args.args[2] == "Phantom Liberty"
+
+
 def _headers(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
 
@@ -370,6 +471,7 @@ def test_dlc_metadata_selection_only_updates_the_component(
     review = client.get(
         f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-candidates",
         headers=_headers(access_token),
+        params={"query": "Phantom Liberty"},
     )
     assert review.status_code == status.HTTP_200_OK
 
@@ -378,6 +480,7 @@ def test_dlc_metadata_selection_only_updates_the_component(
         headers=_headers(access_token),
         json={
             "candidate_id": _candidate().id,
+            "query": "Phantom Liberty",
             "expected_version": review.json()["expected_version"],
         },
     )
@@ -441,6 +544,7 @@ def test_select_pc_metadata_candidate_updates_once(
         headers=_headers(access_token),
         json={
             "candidate_id": _candidate().id,
+            "query": "Selected PC Game",
             "expected_version": review.json()["expected_version"],
         },
     )
@@ -466,7 +570,11 @@ def test_select_pc_metadata_candidate_rejects_stale_version(
     response = client.post(
         f"/api/roms/{rom.id}/pc-metadata-selection",
         headers=_headers(access_token),
-        json={"candidate_id": _candidate().id, "expected_version": stale_version},
+        json={
+            "candidate_id": _candidate().id,
+            "query": "Selected PC Game",
+            "expected_version": stale_version,
+        },
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
@@ -514,6 +622,7 @@ def test_unavailable_provider_does_not_update_existing_metadata(
         headers=_headers(access_token),
         json={
             "candidate_id": "missing",
+            "query": "Selected PC Game",
             "expected_version": rom.updated_at.isoformat(),
         },
     )
