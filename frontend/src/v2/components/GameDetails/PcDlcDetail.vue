@@ -63,13 +63,16 @@ const title = computed(
     }),
 );
 const summary = computed(() => props.component.component_metadata?.summary);
-const cover = computed(() =>
-  props.component.local_media?.find((media) => media.role === "cover"),
+const cover = computed(
+  () =>
+    props.component.owned_media?.find((media) => media.role === "cover") ??
+    props.component.local_media?.find((media) => media.role === "cover"),
 );
 const media = computed(() =>
-  (props.component.local_media ?? []).filter(
-    (item) => item.role === "background" || item.role === "gallery",
-  ),
+  [
+    ...(props.component.owned_media ?? []),
+    ...(props.component.local_media ?? []),
+  ].filter((item) => item.role === "background" || item.role === "gallery"),
 );
 const manifestSize = computed(() =>
   props.component.manifest_members.reduce(
