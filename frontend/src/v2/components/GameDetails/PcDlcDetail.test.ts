@@ -169,4 +169,31 @@ describe("PcDlcDetail", () => {
     ).toContain("DLC: DLC/Expansion");
     expect(wrapper.find("[data-testid='pc-dlc-media']").exists()).toBe(false);
   });
+
+  it("renders a provider-owned cover when no local cover is available", () => {
+    const wrapper = mountDetail({
+      ...selectedDlc,
+      local_media: [],
+      owned_media: [
+        {
+          id: 42,
+          role: "cover",
+          mime_type: "image/jpeg",
+          owned_path: "roms/1/pc-owned-media/2/provider-cover.jpg",
+          origin: "provider",
+          provider: "igdb",
+          provider_media_id: "provider-cover",
+          created_at: "2026-09-03T00:00:00+00:00",
+          updated_at: "2026-09-03T00:00:00+00:00",
+        },
+      ],
+    });
+
+    expect(wrapper.get("img").attributes("src")).toBe(
+      "/assets/romm/resources/roms/1/pc-owned-media/2/provider-cover.jpg",
+    );
+    expect(
+      wrapper.find("[data-testid='pc-dlc-cover-placeholder']").exists(),
+    ).toBe(false);
+  });
 });
