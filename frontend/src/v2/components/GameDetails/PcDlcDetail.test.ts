@@ -1,4 +1,5 @@
 import { mount } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import PcDlcDetail from "./PcDlcDetail.vue";
@@ -104,6 +105,19 @@ function mountDetail(component: PcComponentSchema = selectedDlc) {
 }
 
 describe("PcDlcDetail", () => {
+  it("limits the query-synced detail shell to DLC-specific tabs", () => {
+    const source = readFileSync(
+      "src/v2/components/GameDetails/PcDlcDetail.vue",
+      "utf8",
+    );
+
+    expect(source).toContain('id: "overview"');
+    expect(source).toContain('id: "files"');
+    expect(source).toContain('id: "media"');
+    expect(source).toContain('id: "notes"');
+    expect(source).not.toContain("save-data");
+  });
+
   it("renders selected DLC identity and owned media without parent or sibling artwork", () => {
     const wrapper = mountDetail();
 

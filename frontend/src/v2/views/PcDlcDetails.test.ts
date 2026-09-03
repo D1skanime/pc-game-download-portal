@@ -1,4 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import PcDlcDetails from "./PcDlcDetails.vue";
@@ -110,6 +111,13 @@ async function updateRoute(params: Record<string, unknown>) {
 }
 
 describe("PcDlcDetails", () => {
+  it("provides a contained refresh callback after component actions", () => {
+    const source = readFileSync("src/v2/views/PcDlcDetails.vue", "utf8");
+
+    expect(source).toContain("async function refreshDlc()");
+    expect(source).toContain('@refresh="refreshDlc"');
+  });
+
   beforeEach(() => {
     getRom.mockReset();
     setCurrentRom.mockReset();
