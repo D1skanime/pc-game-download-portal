@@ -28,7 +28,13 @@ def _candidate() -> PcMetadataCandidate:
         title="Selected PC Game",
         provider_ids={"igdb_id": 101},
         description_available=True,
-        media=[{"kind": "cover", "url": "https://images.igdb.com/cover.jpg"}],
+        media=[
+            {"kind": "cover", "url": "https://images.igdb.com/cover.jpg"},
+            {
+                "kind": "screenshot",
+                "url": "https://images.igdb.com/screenshot.jpg",
+            },
+        ],
         fields={
             "igdb_id": 101,
             "name": "Selected PC Game",
@@ -188,6 +194,55 @@ def test_dlc_metadata_selection_imports_only_selected_candidate_media(
     store.assert_awaited_once()
     saved = db_rom_handler.get_rom(rom.id)
     assert saved.components[0].owned_media[0].provider == "igdb"
+
+
+def test_pc_parent_metadata_selection_imports_confirmed_cover_and_screenshots(
+    client, access_token, rom, monkeypatch
+):
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_candidates",
+        AsyncMock(return_value=_candidate_results()),
+    )
+    cover = AsyncMock(return_value=("roms/1/cover/s.jpg", "roms/1/cover/l.jpg"))
+    screenshots = AsyncMock(return_value=["roms/1/screenshots/0.jpg"])
+    monkeypatch.setattr(fs_resource_handler, "get_cover", cover)
+    monkeypatch.setattr(fs_resource_handler, "get_rom_screenshots", screenshots)
+
+    review = client.get(
+        f"/api/roms/{rom.id}/pc-metadata-candidates", headers=_headers(access_token)
+    )
+    assert review.status_code == status.HTTP_200_OK
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": _candidate().id,
+            "query": "Selected PC Game",
+            "selected_media_ids": [
+                _candidate_media_id(_candidate(), _candidate().media[0]),
+                _candidate_media_id(_candidate(), _candidate().media[1]),
+            ],
+            "expected_version": review.json()["expected_version"],
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    cover.assert_awaited_once()
+    assert cover.await_args.kwargs == {
+        "overwrite": True,
+        "url_cover": _candidate().media[0]["url"],
+    }
+    screenshots.assert_awaited_once()
+    assert screenshots.await_args.kwargs["overwrite"] is True
+    assert screenshots.await_args.kwargs["url_screenshots"] == [
+        _candidate().media[1]["url"]
+    ]
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved.path_cover_s == "roms/1/cover/s.jpg"
+    assert saved.path_cover_l == "roms/1/cover/l.jpg"
+    assert saved.path_screenshots == ["roms/1/screenshots/0.jpg"]
 
 
 def test_non_dlc_component_rejects_provider_media_selection(
