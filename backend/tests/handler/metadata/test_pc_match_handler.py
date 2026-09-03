@@ -115,6 +115,14 @@ async def test_collect_component_candidates_derives_a_dlc_title_from_setup_files
 async def test_collect_component_candidates_offers_a_matching_parent_expansion():
     igdb = Mock(is_enabled=Mock(return_value=True))
     igdb.get_matched_roms_by_name = AsyncMock(return_value=[])
+    igdb.get_matched_rom_by_id = AsyncMock(
+        return_value={
+            "igdb_id": 215769,
+            "name": "Cyberpunk 2077: Phantom Liberty",
+            "summary": "A spy-thriller expansion for Cyberpunk 2077.",
+            "url_cover": "https://images.igdb.com/phantom-liberty.jpg",
+        }
+    )
     disabled = Mock(is_enabled=Mock(return_value=False))
     handler = PcMetadataMatchHandler(
         providers={
@@ -151,6 +159,9 @@ async def test_collect_component_candidates_offers_a_matching_parent_expansion()
     candidate = results["igdb"].candidates[0]
     assert candidate.title == "Cyberpunk 2077: Phantom Liberty"
     assert candidate.provider_ids == {"igdb_id": 215769}
+    assert candidate.description_available is True
+    assert candidate.fields["summary"] == "A spy-thriller expansion for Cyberpunk 2077."
+    igdb.get_matched_rom_by_id.assert_awaited_once_with(rom, 215769)
     igdb.get_matched_roms_by_name.assert_not_awaited()
 
 

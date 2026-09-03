@@ -71,7 +71,7 @@ class PcMetadataMatchHandler:
         self, rom: Rom, component: RomComponent
     ) -> dict[str, PcMetadataProviderResult]:
         title = self._component_search_title(rom, component)
-        related_candidates = self._related_igdb_candidates(rom, title)
+        related_candidates = await self._enrich_related_igdb_candidates(rom, title)
         overrides = (
             {"igdb": PcMetadataProviderResult("igdb", True, related_candidates)}
             if related_candidates
@@ -145,6 +145,28 @@ class PcMetadataMatchHandler:
                     )
                 )
         return candidates
+
+    async def _enrich_related_igdb_candidates(
+        self, rom: Rom, title: str
+    ) -> list[PcMetadataCandidate]:
+        candidates = self._related_igdb_candidates(rom, title)
+        igdb = self.providers.get("igdb")
+        if not candidates or igdb is None:
+            return candidates
+
+        get_by_id = getattr(igdb, "get_matched_rom_by_id", None)
+        if get_by_id is None:
+            return candidates
+
+        enriched: list[PcMetadataCandidate] = []
+        for candidate in candidates:
+            igdb_id = candidate.provider_ids["igdb_id"]
+            try:
+                details = await get_by_id(rom, igdb_id)
+            except Exception:
+                details = None
+            enriched.append(self._candidate("igdb", details) if details else candidate)
+        return enriched
 
     async def _collect_for_title(
         self,
