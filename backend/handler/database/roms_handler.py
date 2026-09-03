@@ -59,6 +59,10 @@ from models.rom import (
     RomComponentLocalMediaRole,
     RomComponentManifestMember,
     RomComponentMetadata,
+    RomComponentNote,
+    RomComponentOwnedMedia,
+    RomComponentOwnedMediaOrigin,
+    RomComponentOwnedMediaRole,
     RomFacets,
     RomFile,
     RomFileCategory,
@@ -69,6 +73,7 @@ from models.rom import (
     TrackMeta,
     compute_name_sort_key,
 )
+from models.user import User
 from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
@@ -253,6 +258,11 @@ class AppliedPcLocalMedia(NamedTuple):
     replaced_owned_paths: list[str]
 
 
+class AppliedPcComponentOwnedMedia(NamedTuple):
+    media: RomComponentOwnedMedia
+    replaced_owned_paths: list[str]
+
+
 class SyncedRomComponents(list[RomComponent]):
     def __init__(
         self, components: Sequence[RomComponent], orphaned_owned_paths: list[str]
@@ -364,6 +374,7 @@ def with_details(func):
                 selectinload(RomComponent.manifest_members),
                 selectinload(RomComponent.component_metadata),
                 selectinload(RomComponent.local_media),
+                selectinload(RomComponent.owned_media),
             ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
@@ -416,6 +427,7 @@ def with_simple_details(func):
                 selectinload(RomComponent.manifest_members),
                 selectinload(RomComponent.component_metadata),
                 selectinload(RomComponent.local_media),
+                selectinload(RomComponent.owned_media),
             ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
@@ -1893,6 +1905,304 @@ class DBRomsHandler(DBBaseHandler):
         rom.updated_at = datetime.now(timezone.utc)
         session.flush()
         return AppliedPcLocalMedia(rom, media, replaced_owned_paths)
+
+    @staticmethod
+    def _get_pc_dlc_component(
+        session: Session,
+        rom_id: int,
+        component_id: int,
+        expected_updated_at: datetime | None = None,
+        *,
+        with_owned_media: bool = False,
+        with_notes: bool = False,
+    ) -> RomComponent | None:
+        options = []
+        if with_owned_media:
+            options.append(selectinload(RomComponent.owned_media))
+        if with_notes:
+            options.append(selectinload(RomComponent.notes))
+        predicates = [
+            RomComponent.id == component_id,
+            RomComponent.rom_id == rom_id,
+            RomComponent.kind == "dlc",
+        ]
+        if expected_updated_at is not None:
+            predicates.append(RomComponent.updated_at == expected_updated_at)
+        return session.scalar(
+            select(RomComponent).options(*options).where(and_(*predicates))
+        )
+
+    @begin_session
+    def get_pc_component_by_id(
+        self,
+        rom_id: int,
+        component_id: int,
+        session: Session = None,  # type: ignore
+    ) -> RomComponent | None:
+        return self._get_pc_dlc_component(session, rom_id, component_id)
+
+    @begin_session
+    def get_pc_component_owned_media(
+        self,
+        rom_id: int,
+        component_id: int,
+        user_id: int,
+        session: Session = None,  # type: ignore
+    ) -> list[RomComponentOwnedMedia]:
+        if session.get(User, user_id) is None:
+            return []
+        component = self._get_pc_dlc_component(
+            session, rom_id, component_id, with_owned_media=True
+        )
+        return list(component.owned_media) if component is not None else []
+
+    @begin_session
+    def create_pc_component_owned_media(
+        self,
+        rom_id: int,
+        component_id: int,
+        user_id: int,
+        expected_updated_at: datetime,
+        role: RomComponentOwnedMediaRole,
+        mime_type: str,
+        owned_path: str,
+        origin: RomComponentOwnedMediaOrigin,
+        provider: str | None = None,
+        provider_media_id: str | None = None,
+        session: Session = None,  # type: ignore
+    ) -> AppliedPcComponentOwnedMedia | None:
+        if session.get(User, user_id) is None:
+            return None
+        component = self._get_pc_dlc_component(
+            session,
+            rom_id,
+            component_id,
+            expected_updated_at,
+            with_owned_media=True,
+        )
+        if component is None:
+            return None
+
+        replaced_owned_paths: list[str] = []
+        if role != RomComponentOwnedMediaRole.GALLERY:
+            for existing in component.owned_media:
+                if existing.role != role:
+                    continue
+                if existing.owned_path != owned_path:
+                    replaced_owned_paths.append(existing.owned_path)
+                session.delete(existing)
+            session.flush()
+
+        media = RomComponentOwnedMedia(
+            component_id=component.id,
+            role=role,
+            mime_type=mime_type,
+            owned_path=owned_path,
+            origin=origin,
+            provider=provider,
+            provider_media_id=provider_media_id,
+        )
+        session.add(media)
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return AppliedPcComponentOwnedMedia(media, replaced_owned_paths)
+
+    @begin_session
+    def update_pc_component_owned_media(
+        self,
+        rom_id: int,
+        component_id: int,
+        user_id: int,
+        media_id: int,
+        expected_updated_at: datetime,
+        role: RomComponentOwnedMediaRole,
+        mime_type: str,
+        owned_path: str,
+        origin: RomComponentOwnedMediaOrigin,
+        provider: str | None = None,
+        provider_media_id: str | None = None,
+        session: Session = None,  # type: ignore
+    ) -> AppliedPcComponentOwnedMedia | None:
+        if session.get(User, user_id) is None:
+            return None
+        component = self._get_pc_dlc_component(
+            session,
+            rom_id,
+            component_id,
+            expected_updated_at,
+            with_owned_media=True,
+        )
+        if component is None:
+            return None
+        media = next(
+            (item for item in component.owned_media if item.id == media_id), None
+        )
+        if media is None:
+            return None
+
+        replaced_owned_paths = (
+            [media.owned_path] if media.owned_path != owned_path else []
+        )
+        media.role = role
+        media.mime_type = mime_type
+        media.owned_path = owned_path
+        media.origin = origin
+        media.provider = provider
+        media.provider_media_id = provider_media_id
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return AppliedPcComponentOwnedMedia(media, replaced_owned_paths)
+
+    @begin_session
+    def delete_pc_component_owned_media(
+        self,
+        rom_id: int,
+        component_id: int,
+        user_id: int,
+        media_id: int,
+        expected_updated_at: datetime,
+        session: Session = None,  # type: ignore
+    ) -> str | None:
+        if session.get(User, user_id) is None:
+            return None
+        component = self._get_pc_dlc_component(
+            session,
+            rom_id,
+            component_id,
+            expected_updated_at,
+            with_owned_media=True,
+        )
+        if component is None:
+            return None
+        media = next(
+            (item for item in component.owned_media if item.id == media_id), None
+        )
+        if media is None:
+            return None
+        owned_path = media.owned_path
+        session.delete(media)
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return owned_path
+
+    @begin_session
+    def get_pc_component_notes(
+        self,
+        rom_id: int,
+        component_id: int,
+        user_id: int,
+        session: Session = None,  # type: ignore
+    ) -> list[RomComponentNote]:
+        if session.get(User, user_id) is None:
+            return []
+        component = self._get_pc_dlc_component(
+            session, rom_id, component_id, with_notes=True
+        )
+        if component is None:
+            return []
+        return [
+            note
+            for note in component.notes
+            if note.user_id == user_id or note.is_public
+        ]
+
+    @begin_session
+    def create_pc_component_note(
+        self,
+        rom_id: int,
+        component_id: int,
+        user_id: int,
+        expected_updated_at: datetime,
+        title: str,
+        content: str = "",
+        is_public: bool = False,
+        tags: list[str] | None = None,
+        session: Session = None,  # type: ignore
+    ) -> RomComponentNote | None:
+        if session.get(User, user_id) is None:
+            return None
+        component = self._get_pc_dlc_component(
+            session, rom_id, component_id, expected_updated_at
+        )
+        if component is None:
+            return None
+        note = RomComponentNote(
+            component_id=component.id,
+            user_id=user_id,
+            title=title,
+            content=content,
+            is_public=is_public,
+            tags=tags or [],
+        )
+        session.add(note)
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return note
+
+    @begin_session
+    def update_pc_component_note(
+        self,
+        rom_id: int,
+        component_id: int,
+        user_id: int,
+        note_id: int,
+        expected_updated_at: datetime,
+        session: Session = None,  # type: ignore
+        **fields: Any,
+    ) -> RomComponentNote | None:
+        component = self._get_pc_dlc_component(
+            session, rom_id, component_id, expected_updated_at
+        )
+        if component is None:
+            return None
+        note = session.scalar(
+            select(RomComponentNote).where(
+                and_(
+                    RomComponentNote.id == note_id,
+                    RomComponentNote.component_id == component.id,
+                    RomComponentNote.user_id == user_id,
+                )
+            )
+        )
+        if note is None:
+            return None
+        for field in ("title", "content", "is_public", "tags"):
+            if field in fields:
+                setattr(note, field, fields[field])
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return note
+
+    @begin_session
+    def delete_pc_component_note(
+        self,
+        rom_id: int,
+        component_id: int,
+        user_id: int,
+        note_id: int,
+        expected_updated_at: datetime,
+        session: Session = None,  # type: ignore
+    ) -> bool:
+        component = self._get_pc_dlc_component(
+            session, rom_id, component_id, expected_updated_at
+        )
+        if component is None:
+            return False
+        note = session.scalar(
+            select(RomComponentNote).where(
+                and_(
+                    RomComponentNote.id == note_id,
+                    RomComponentNote.component_id == component.id,
+                    RomComponentNote.user_id == user_id,
+                )
+            )
+        )
+        if note is None:
+            return False
+        session.delete(note)
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return True
 
     @begin_session
     def convert_rom_to_folder(

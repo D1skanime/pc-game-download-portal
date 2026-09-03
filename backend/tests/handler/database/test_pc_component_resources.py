@@ -25,7 +25,11 @@ def _create_components(rom_id: int) -> tuple[RomComponent, RomComponent]:
     with session.begin() as db:
         db.add_all((component, sibling))
         db.flush()
-    return component, sibling
+    saved_component = db_rom_handler.get_pc_component_by_id(rom_id, component.id)
+    saved_sibling = db_rom_handler.get_pc_component_by_id(rom_id, sibling.id)
+    assert saved_component is not None
+    assert saved_sibling is not None
+    return saved_component, saved_sibling
 
 
 def test_owned_media_mutations_are_component_scoped_and_version_guarded(
@@ -33,7 +37,9 @@ def test_owned_media_mutations_are_component_scoped_and_version_guarded(
 ):
     component, sibling = _create_components(rom.id)
     original_component_version = component.updated_at
-    original_parent_version = rom.updated_at
+    persisted_parent = db_rom_handler.get_rom(rom.id)
+    assert persisted_parent is not None
+    original_parent_version = persisted_parent.updated_at
 
     created = db_rom_handler.create_pc_component_owned_media(
         rom_id=rom.id,

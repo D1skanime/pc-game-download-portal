@@ -31,6 +31,8 @@ from models.rom import (
     RomArchiveMember,
     RomComponentKind,
     RomComponentLocalMediaRole,
+    RomComponentOwnedMediaOrigin,
+    RomComponentOwnedMediaRole,
     RomFile,
     RomFileCategory,
     RomUserStatus,
@@ -324,6 +326,69 @@ class PcComponentLocalMediaSchema(BaseModel):
     role: RomComponentLocalMediaRole
 
 
+class PcComponentOwnedMediaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: RomComponentOwnedMediaRole
+    mime_type: str
+    owned_path: str
+    origin: RomComponentOwnedMediaOrigin
+    provider: str | None
+    provider_media_id: str | None
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
+
+
+class PcComponentOwnedMediaCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: RomComponentOwnedMediaRole
+    mime_type: str = Field(min_length=1, max_length=100)
+    owned_path: str = Field(min_length=1, max_length=1000)
+    origin: RomComponentOwnedMediaOrigin
+    provider: str | None = Field(default=None, max_length=100)
+    provider_media_id: str | None = Field(default=None, max_length=450)
+    expected_version: UTCDatetime
+
+
+class PcComponentOwnedMediaUpdateRequest(PcComponentOwnedMediaCreateRequest):
+    pass
+
+
+class PcComponentNoteSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    content: str
+    is_public: bool
+    tags: list[str] | None = None
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
+    user_id: int
+
+
+class PcComponentNoteCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=400)
+    content: str = ""
+    is_public: bool = False
+    tags: list[str] | None = None
+    expected_version: UTCDatetime
+
+
+class PcComponentNoteUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=1, max_length=400)
+    content: str | None = None
+    is_public: bool | None = None
+    tags: list[str] | None = None
+    expected_version: UTCDatetime
+
+
 class PcLocalMediaCandidateSchema(BaseModel):
     component_id: int
     member_id: int
@@ -361,6 +426,7 @@ class PcComponentSchema(BaseModel):
     manifest_members: list[PcComponentManifestMemberSchema]
     component_metadata: PcComponentMetadataSchema | None = None
     local_media: list[PcComponentLocalMediaSchema] = Field(default_factory=list)
+    owned_media: list[PcComponentOwnedMediaSchema] = Field(default_factory=list)
 
 
 class SoundtrackTrackMetaSchema(BaseModel):
