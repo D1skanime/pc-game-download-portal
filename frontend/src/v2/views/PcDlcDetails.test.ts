@@ -97,6 +97,11 @@ function mountView() {
           props: ["title"],
           template: "<section><h1>{{ title }}</h1><slot /></section>",
         },
+        PcDlcDetail: {
+          name: "PcDlcDetail",
+          props: ["parent", "component"],
+          template: "<section />",
+        },
       },
     },
   });

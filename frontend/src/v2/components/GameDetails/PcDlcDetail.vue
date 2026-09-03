@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { RBtn, RImg, RTag } from "@v2/lib";
-import { computed } from "vue";
+import { RBtn, RImg, RMenu, RMenuItem, RTabNav, RTag } from "@v2/lib";
+import type { Emitter } from "mitt";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
+import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH, formatBytes } from "@/utils";
-import PcDlcFiles from "./PcDlcFiles.vue";
+import PcDlcFiles from "@/v2/components/GameDetails/PcDlcFiles.vue";
+import PcDlcMediaTab from "@/v2/components/GameDetails/PcDlcMediaTab.vue";
+import PcDlcNotesTab from "@/v2/components/GameDetails/PcDlcNotesTab.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -13,8 +18,42 @@ const props = defineProps<{
   parent: DetailedRomSchema;
   component: PcComponentSchema;
 }>();
+const emit = defineEmits<{ (event: "refresh"): void }>();
 
 const { t } = useI18n();
+const route = useRoute();
+const router = useRouter();
+const emitter = inject<Emitter<Events>>("emitter");
+const validTabs = ["overview", "files", "media", "notes"] as const;
+type DlcTab = (typeof validTabs)[number];
+const tab = ref<DlcTab>(
+  validTabs.includes(route.query.tab as DlcTab)
+    ? (route.query.tab as DlcTab)
+    : "overview",
+);
+const tabs = computed(() => [
+  { id: "overview", label: t("rom.tab-overview") },
+  { id: "files", label: t("rom.tab-files") },
+  { id: "media", label: t("rom.media") },
+  { id: "notes", label: t("rom.tab-notes") },
+]);
+
+watch(tab, (value) => {
+  if (route.query.tab !== value) {
+    void router.replace({
+      path: route.path,
+      query: { ...route.query, tab: value },
+    });
+  }
+});
+watch(
+  () => route.query.tab,
+  (value) => {
+    if (typeof value === "string" && validTabs.includes(value as DlcTab)) {
+      tab.value = value as DlcTab;
+    }
+  },
+);
 
 const title = computed(
   () =>
@@ -42,6 +81,23 @@ const manifestSize = computed(() =>
 function ownedMediaUrl(ownedPath: string) {
   return `${FRONTEND_RESOURCES_PATH}/${ownedPath}`;
 }
+
+function openMatcher() {
+  emitter?.emit("showPcMatchRomDialog", {
+    target: {
+      kind: "component",
+      romId: props.parent.id,
+      componentId: props.component.id,
+      componentKind: "dlc",
+      label: title.value,
+    },
+    refresh: () => emit("refresh"),
+  });
+}
+
+function showMedia() {
+  tab.value = "media";
+}
 </script>
 
 <template>
@@ -54,7 +110,7 @@ function ownedMediaUrl(ownedPath: string) {
       {{ t("rom.pc-dlc-back-to-game", { game: parent.name ?? "" }) }}
     </RBtn>
 
-    <section class="pc-dlc-detail__hero">
+    <section v-if="tab === 'overview'" class="pc-dlc-detail__hero">
       <RImg
         v-if="cover"
         class="pc-dlc-detail__cover"
@@ -94,7 +150,7 @@ function ownedMediaUrl(ownedPath: string) {
     </section>
 
     <section
-      v-if="media.length > 0"
+      v-if="tab === 'overview' && media.length > 0"
       data-testid="pc-dlc-media"
       class="pc-dlc-detail__media"
     >
@@ -109,7 +165,50 @@ function ownedMediaUrl(ownedPath: string) {
       />
     </section>
 
-    <PcDlcFiles :component="component" />
+    <div class="pc-dlc-detail__tab-bar">
+      <RTabNav v-model="tab" :items="tabs" />
+      <RMenu location="bottom end">
+        <template #activator="{ props: menuProps }">
+          <RBtn
+            v-bind="menuProps"
+            icon="mdi-dots-vertical"
+            :aria-label="t('common.actions')"
+          />
+        </template>
+        <RMenuItem
+          :label="t('rom.pc-find-metadata')"
+          icon="mdi-magnify"
+          @click="openMatcher"
+        />
+        <RMenuItem
+          :label="t('rom.artwork')"
+          icon="mdi-image-plus-outline"
+          @click="showMedia"
+        />
+        <RMenuItem
+          :label="t('rom.download')"
+          icon="mdi-download"
+          @click="tab = 'files'"
+        />
+      </RMenu>
+    </div>
+
+    <PcDlcFiles
+      v-if="tab === 'files'"
+      :rom-id="parent.id"
+      :component="component"
+    />
+    <PcDlcMediaTab
+      v-if="tab === 'media'"
+      :rom-id="parent.id"
+      :component="component"
+      @refresh="emit('refresh')"
+    />
+    <PcDlcNotesTab
+      v-if="tab === 'notes'"
+      :rom-id="parent.id"
+      :component="component"
+    />
   </main>
 </template>
 
@@ -124,6 +223,13 @@ function ownedMediaUrl(ownedPath: string) {
 .pc-dlc-detail__back {
   align-self: flex-start;
   min-height: var(--r-touch-target);
+}
+
+.pc-dlc-detail__tab-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
 }
 
 .pc-dlc-detail__hero {

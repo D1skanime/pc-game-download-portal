@@ -77,6 +77,10 @@ async function loadDlc(params: Record<string, unknown>) {
   }
 }
 
+async function refreshDlc() {
+  await loadDlc(route.params);
+}
+
 void loadDlc(route.params);
 
 onBeforeRouteUpdate(async (to) => {
@@ -93,6 +97,7 @@ onBeforeRouteUpdate(async (to) => {
     v-else-if="state === 'ready' && parentRom && component"
     :parent="parentRom"
     :component="component"
+    @refresh="refreshDlc"
   />
 
   <REmptyState v-else>

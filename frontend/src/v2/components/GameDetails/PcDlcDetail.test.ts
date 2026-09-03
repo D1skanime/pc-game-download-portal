@@ -4,6 +4,15 @@ import { describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import PcDlcDetail from "./PcDlcDetail.vue";
 
+const route = { path: "/roms/1/dlc/2", query: {} as Record<string, string> };
+const replace = vi.fn();
+
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRoute: () => route,
+  useRouter: () => ({ replace }),
+}));
+
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({
     t: (key: string, values?: Record<string, string>) =>
