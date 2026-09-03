@@ -10,3 +10,4 @@ export type PcLocalMediaCandidateSchema = {
     image_type: string;
     preview_url: string;
 };
+

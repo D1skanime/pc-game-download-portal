@@ -7,3 +7,4 @@ export type PcLocalMediaCandidatesResponse = {
     expected_version: string;
     candidates: Array<PcLocalMediaCandidateSchema>;
 };
+

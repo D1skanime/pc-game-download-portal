@@ -36,6 +36,7 @@ export type { Body_update_screenshot_api_screenshots__id__put } from './models/B
 export type { Body_update_smart_collection_api_collections_smart__id__put } from './models/Body_update_smart_collection_api_collections_smart__id__put';
 export type { Body_update_state_api_states__id__put } from './models/Body_update_state_api_states__id__put';
 export type { Body_update_state_visibility_api_states__id__visibility_put } from './models/Body_update_state_visibility_api_states__id__visibility_put';
+export type { Body_upload_component_media_api_roms__id__pc_components__component_id__media_post } from './models/Body_upload_component_media_api_roms__id__pc_components__component_id__media_post';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
 export type { CatalogRemovalErrorSchema } from './models/CatalogRemovalErrorSchema';
 export type { CatalogRemovalItemSchema } from './models/CatalogRemovalItemSchema';
@@ -142,6 +143,10 @@ export type { PcComponentLocalMediaSchema } from './models/PcComponentLocalMedia
 export type { PcComponentManifestMemberSchema } from './models/PcComponentManifestMemberSchema';
 export type { PcComponentMetadataSchema } from './models/PcComponentMetadataSchema';
 export type { PcComponentMetadataSelectionResponse } from './models/PcComponentMetadataSelectionResponse';
+export type { PcComponentNoteCreateRequest } from './models/PcComponentNoteCreateRequest';
+export type { PcComponentNoteSchema } from './models/PcComponentNoteSchema';
+export type { PcComponentNoteUpdateRequest } from './models/PcComponentNoteUpdateRequest';
+export type { PcComponentOwnedMediaSchema } from './models/PcComponentOwnedMediaSchema';
 export type { PcComponentSchema } from './models/PcComponentSchema';
 export type { PcLocalMediaCandidateSchema } from './models/PcLocalMediaCandidateSchema';
 export type { PcLocalMediaCandidatesResponse } from './models/PcLocalMediaCandidatesResponse';
@@ -176,6 +181,8 @@ export type { Role } from './models/Role';
 export type { RomArchiveMember } from './models/RomArchiveMember';
 export type { RomComponentKind } from './models/RomComponentKind';
 export type { RomComponentLocalMediaRole } from './models/RomComponentLocalMediaRole';
+export type { RomComponentOwnedMediaOrigin } from './models/RomComponentOwnedMediaOrigin';
+export type { RomComponentOwnedMediaRole } from './models/RomComponentOwnedMediaRole';
 export type { RomFileCategory } from './models/RomFileCategory';
 export type { RomFileSchema } from './models/RomFileSchema';
 export type { RomFiltersDict } from './models/RomFiltersDict';

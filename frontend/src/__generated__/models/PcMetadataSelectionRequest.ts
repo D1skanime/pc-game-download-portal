@@ -4,6 +4,8 @@
 /* eslint-disable */
 export type PcMetadataSelectionRequest = {
     candidate_id: string;
+    query: string;
+    selected_media_ids?: Array<string>;
     expected_version: string;
 };
 

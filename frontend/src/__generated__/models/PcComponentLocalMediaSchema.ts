@@ -11,3 +11,4 @@ export type PcComponentLocalMediaSchema = {
     image_type: string;
     role: RomComponentLocalMediaRole;
 };
+

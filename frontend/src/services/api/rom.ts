@@ -13,6 +13,7 @@ import type {
   UserNoteSchema,
   RomFiltersDict,
   PcMetadataCandidatesResponse,
+  PcMetadataCandidateSchema,
   PcMetadataSelectionRequest,
   PcMetadataSelectionResponse,
   PcComponentMetadataSelectionResponse,
@@ -30,6 +31,34 @@ export const romApi = api;
 type DetailedRom = DetailedRomSchema;
 type SimpleRom = SimpleRomSchema;
 type SearchRom = SearchRomSchema;
+
+export type PcMatchableComponentKind =
+  "base" | "update" | "dlc" | "hotfix" | "language_pack" | "extra";
+
+export type PcMatcherCandidate = PcMetadataCandidateSchema & {
+  provider: string;
+};
+
+export interface PcMatcherSearchResult {
+  expectedVersion: string;
+  candidates: PcMatcherCandidate[];
+}
+
+function normalizePcMatcherCandidates(
+  response: PcMetadataCandidatesResponse,
+): PcMatcherSearchResult {
+  return {
+    expectedVersion: response.expected_version,
+    candidates: Object.values(response.providers).flatMap((provider) =>
+      provider.available
+        ? provider.candidates.map((candidate) => ({
+            ...candidate,
+            provider: provider.provider,
+          }))
+        : [],
+    ),
+  };
+}
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
 export interface GetRomsParams {
@@ -315,6 +344,20 @@ async function getPcMetadataCandidates({ romId }: { romId: number }) {
   );
 }
 
+async function searchPcMetadataCandidates({
+  romId,
+  query,
+}: {
+  romId: number;
+  query: string;
+}) {
+  const response = await api.get<PcMetadataCandidatesResponse>(
+    `/roms/${romId}/pc-metadata-candidates`,
+    { params: { query } },
+  );
+  return normalizePcMatcherCandidates(response.data);
+}
+
 async function selectPcMetadataCandidate({
   romId,
   selection,
@@ -338,6 +381,22 @@ async function getPcComponentMetadataCandidates({
   return api.get<PcMetadataCandidatesResponse>(
     `/roms/${romId}/pc-components/${componentId}/metadata-candidates`,
   );
+}
+
+async function searchPcComponentMetadataCandidates({
+  romId,
+  componentId,
+  query,
+}: {
+  romId: number;
+  componentId: number;
+  query: string;
+}) {
+  const response = await api.get<PcMetadataCandidatesResponse>(
+    `/roms/${romId}/pc-components/${componentId}/metadata-candidates`,
+    { params: { query } },
+  );
+  return normalizePcMatcherCandidates(response.data);
 }
 
 async function selectPcComponentMetadataCandidate({
@@ -748,8 +807,10 @@ export default {
   getRom,
   getRomSimple,
   getPcMetadataCandidates,
+  searchPcMetadataCandidates,
   selectPcMetadataCandidate,
   getPcComponentMetadataCandidates,
+  searchPcComponentMetadataCandidates,
   selectPcComponentMetadataCandidate,
   getPcLocalMediaCandidates,
   selectPcLocalMedia,

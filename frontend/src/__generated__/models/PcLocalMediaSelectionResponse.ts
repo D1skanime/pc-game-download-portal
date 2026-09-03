@@ -7,3 +7,4 @@ export type PcLocalMediaSelectionResponse = {
     expected_version: string;
     media: PcComponentLocalMediaSchema;
 };
+

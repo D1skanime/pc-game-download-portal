@@ -12,3 +12,4 @@ export type PcComponentMetadataSchema = {
     metadata_source: (string | null);
     provider_metadata: (Record<string, any> | null);
 };
+

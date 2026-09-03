@@ -27,7 +27,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
-    "generate": "openapi --input http://127.0.0.1:3000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false",
+    "generate": "openapi --input http://127.0.0.1:3344/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

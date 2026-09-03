@@ -7,3 +7,4 @@ export type PcComponentMetadataSelectionResponse = {
     expected_version: string;
     component_id: number;
 };
+

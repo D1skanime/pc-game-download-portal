@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type PcMetadataMediaSchema = {
+    id: string;
     kind: string;
     url: string;
 };

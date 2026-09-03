@@ -9,3 +9,4 @@ export type PcLocalMediaSelectionRequest = {
     role: RomComponentLocalMediaRole;
     expected_version: string;
 };
+
