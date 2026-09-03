@@ -134,8 +134,10 @@ function showMedia() {
 
       <div class="r-v2-det__info">
         <section class="pc-dlc-detail__hero">
-          <RTag :text="t('rom.category-dlc')" tone="brand" />
-          <h1 class="pc-dlc-detail__title">{{ title }}</h1>
+          <div class="pc-dlc-detail__title-row">
+            <h1 class="pc-dlc-detail__title">{{ title }}</h1>
+            <RTag :text="t('rom.category-dlc')" tone="brand" />
+          </div>
           <p v-if="summary" class="pc-dlc-detail__summary">{{ summary }}</p>
           <dl class="pc-dlc-detail__facts">
             <div class="pc-dlc-detail__fact">
@@ -290,6 +292,13 @@ function showMedia() {
   gap: var(--r-space-4);
 }
 
+.pc-dlc-detail__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--r-space-3);
+  min-width: 0;
+}
+
 .pc-dlc-detail__cover {
   width: 240px;
   height: 324px;
@@ -311,6 +320,7 @@ function showMedia() {
 
 .pc-dlc-detail__title {
   margin: 0;
+  min-width: 0;
   color: var(--r-color-fg);
   font-size: var(--r-font-size-3xl);
   font-weight: var(--r-font-weight-semibold);

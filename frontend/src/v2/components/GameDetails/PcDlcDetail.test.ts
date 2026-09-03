@@ -154,6 +154,24 @@ describe("PcDlcDetail", () => {
     );
   });
 
+  it("keeps the DLC tag on the title row without displacing the title", () => {
+    const wrapper = mountDetail();
+    const hero = wrapper.get(".pc-dlc-detail__hero");
+    const titleRow = wrapper.get(".pc-dlc-detail__title-row");
+    const title = titleRow.get("h1");
+    const tag = titleRow.get("span");
+    const summary = hero.get(".pc-dlc-detail__summary");
+
+    expect(hero.element.firstElementChild).toBe(titleRow.element);
+    expect(title.text()).toBe("Selected expansion");
+    expect(title.element.compareDocumentPosition(tag.element)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(tag.attributes("text")).toBe("DLC");
+    expect(titleRow.element.nextElementSibling).toBe(summary.element);
+    expect(summary.text()).toBe("Only selected DLC metadata is visible.");
+  });
+
   it("uses a localized path title and neutral cover placeholder when selected media is absent", () => {
     const wrapper = mountDetail({
       ...selectedDlc,
