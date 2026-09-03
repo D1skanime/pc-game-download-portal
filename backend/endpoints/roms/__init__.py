@@ -126,6 +126,7 @@ from .files import router as files_router
 from .manual import router as manual_router
 from .notes import router as notes_router
 from .patch import router as patch_router
+from .pc_component_resources import router as pc_component_resources_router
 from .pc_metadata import router as pc_metadata_router
 from .screenshot import router as screenshot_router
 from .soundtrack import router as soundtrack_router
@@ -243,6 +244,7 @@ router.include_router(screenshot_router)
 router.include_router(notes_router)
 router.include_router(patch_router)
 router.include_router(pc_metadata_router)
+router.include_router(pc_component_resources_router)
 
 
 # RomUser fields the statuses filter branches on.

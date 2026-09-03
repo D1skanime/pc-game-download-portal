@@ -189,6 +189,20 @@ class FSResourcesHandler(FSHandler):
         await self.write_file(response_content, media_path, filename)
         return f"{media_path}/{filename}", mime_type
 
+    async def store_pc_component_upload(
+        self,
+        rom: Rom,
+        component_id: int,
+        role: RomComponentOwnedMediaRole,
+        content: bytes,
+        extension: str,
+    ) -> str:
+        """Store validated uploaded component media in RomM-owned storage."""
+        media_path = f"{rom.fs_resources_path}/pc-owned-media"
+        filename = f"{component_id}-upload-{role.value}.{extension}"
+        await self.write_file(content, media_path, filename)
+        return f"{media_path}/{filename}"
+
     # Cover art
     def cover_exists(self, entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem
