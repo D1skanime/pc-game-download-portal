@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import HTTPException, Path, Request, Response, status
+from fastapi import HTTPException, Path, Query, Request, Response, status
 
 from decorators.auth import protected_route
 from endpoints.responses.rom import (
@@ -33,12 +33,24 @@ from utils.router import APIRouter
 router = APIRouter()
 
 
-def _dlc_component(rom_id: int, component_id: int):
+MATCHABLE_PC_COMPONENT_KINDS = frozenset(
+    {
+        RomComponentKind.BASE,
+        RomComponentKind.UPDATE,
+        RomComponentKind.DLC,
+        RomComponentKind.HOTFIX,
+        RomComponentKind.LANGUAGE_PACK,
+        RomComponentKind.EXTRA,
+    }
+)
+
+
+def _pc_component(rom_id: int, component_id: int):
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
     component = next((item for item in rom.components if item.id == component_id), None)
-    if component is None or component.kind != RomComponentKind.DLC:
+    if component is None or component.kind not in MATCHABLE_PC_COMPONENT_KINDS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return rom, component
 
@@ -52,11 +64,12 @@ async def get_pc_component_metadata_candidates(
     request: Request,
     id: Annotated[int, Path(description="Rom internal id.", ge=1)],
     component_id: Annotated[int, Path(ge=1)],
+    query: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
 ) -> PcMetadataCandidatesResponse:
-    rom, component = _dlc_component(id, component_id)
+    rom, component = _pc_component(id, component_id)
     assert_rom_visible(request, rom)
     results = await pc_metadata_match_handler.collect_component_candidates(
-        rom, component
+        rom, component, query
     )
     return PcMetadataCandidatesResponse(
         expected_version=component.updated_at,
@@ -85,10 +98,10 @@ async def select_pc_component_metadata_candidate(
     component_id: Annotated[int, Path(ge=1)],
     selection: PcMetadataSelectionRequest,
 ) -> PcComponentMetadataSelectionResponse:
-    rom, component = _dlc_component(id, component_id)
+    rom, component = _pc_component(id, component_id)
     assert_rom_visible(request, rom)
     results = await pc_metadata_match_handler.collect_component_candidates(
-        rom, component
+        rom, component, selection.query
     )
     candidate = next(
         (
@@ -302,13 +315,14 @@ def _candidate_schema(candidate: PcMetadataCandidate) -> PcMetadataCandidateSche
 async def get_pc_metadata_candidates(
     request: Request,
     id: Annotated[int, Path(description="Rom internal id.", ge=1)],
+    query: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
 ) -> PcMetadataCandidatesResponse:
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
     assert_rom_visible(request, rom)
 
-    results = await pc_metadata_match_handler.collect_candidates(rom)
+    results = await pc_metadata_match_handler.collect_candidates(rom, query)
     return PcMetadataCandidatesResponse(
         expected_version=rom.updated_at,
         providers={
@@ -336,7 +350,7 @@ async def select_pc_metadata_candidate(
         raise RomNotFoundInDatabaseException(id)
     assert_rom_visible(request, rom)
 
-    results = await pc_metadata_match_handler.collect_candidates(rom)
+    results = await pc_metadata_match_handler.collect_candidates(rom, selection.query)
     candidate = next(
         (
             item

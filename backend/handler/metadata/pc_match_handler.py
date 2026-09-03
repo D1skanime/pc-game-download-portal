@@ -61,16 +61,18 @@ class PcMetadataMatchHandler:
             "launchbox": meta_launchbox_handler,
         }
 
-    async def collect_candidates(self, rom: Rom) -> dict[str, PcMetadataProviderResult]:
-        title = rom.fs_name_no_ext or rom.fs_name
+    async def collect_candidates(
+        self, rom: Rom, query: str | None = None
+    ) -> dict[str, PcMetadataProviderResult]:
+        title = query or rom.fs_name_no_ext or rom.fs_name
         if " " not in title:
             title = COMPACT_TITLE_BOUNDARY.sub(" ", title)
         return await self._collect_for_title(rom, title)
 
     async def collect_component_candidates(
-        self, rom: Rom, component: RomComponent
+        self, rom: Rom, component: RomComponent, query: str | None = None
     ) -> dict[str, PcMetadataProviderResult]:
-        title = self._component_search_title(rom, component)
+        title = query or self._component_search_title(rom, component)
         related_candidates = await self._enrich_related_igdb_candidates(rom, title)
         overrides = (
             {"igdb": PcMetadataProviderResult("igdb", True, related_candidates)}

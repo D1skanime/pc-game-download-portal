@@ -993,6 +993,7 @@ def get_roms(
             selectinload(Rom.components).options(
                 selectinload(RomComponent.manifest_members),
                 selectinload(RomComponent.component_metadata),
+                selectinload(RomComponent.owned_media),
                 selectinload(RomComponent.local_media),
             )
         )

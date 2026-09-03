@@ -112,6 +112,7 @@ class PcMetadataSelectionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     candidate_id: str = Field(min_length=1)
+    query: str = Field(min_length=1, max_length=200)
     expected_version: UTCDatetime
 
 

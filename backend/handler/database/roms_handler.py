@@ -55,6 +55,7 @@ from models.rom import (
     METADATA_SOURCE_COLUMNS,
     Rom,
     RomComponent,
+    RomComponentKind,
     RomComponentLocalMedia,
     RomComponentLocalMediaRole,
     RomComponentManifestMember,
@@ -1794,7 +1795,16 @@ class DBRomsHandler(DBBaseHandler):
                 and_(
                     RomComponent.id == component_id,
                     RomComponent.rom_id == rom_id,
-                    RomComponent.kind == "dlc",
+                    RomComponent.kind.in_(
+                        (
+                            RomComponentKind.BASE,
+                            RomComponentKind.UPDATE,
+                            RomComponentKind.DLC,
+                            RomComponentKind.HOTFIX,
+                            RomComponentKind.LANGUAGE_PACK,
+                            RomComponentKind.EXTRA,
+                        )
+                    ),
                     RomComponent.updated_at == expected_updated_at,
                 )
             )
