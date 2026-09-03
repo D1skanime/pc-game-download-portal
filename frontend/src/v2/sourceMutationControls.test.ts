@@ -501,4 +501,44 @@ describe("external source mutation authority inventory", () => {
     expect(files.detail).not.toMatch(forbiddenSeams);
     expect(files.manifest).not.toMatch(forbiddenSeams);
   });
+
+  it("keeps PC matcher confirmation and DLC resource launchers target-contained", () => {
+    const files = {
+      matcher: source("src/v2/components/Dialogs/MatchRomDialog.vue"),
+      service: source("src/services/api/rom.ts"),
+      detail: source("src/v2/components/GameDetails/PcDlcDetail.vue"),
+      files: source("src/v2/components/GameDetails/PcDlcFiles.vue"),
+      media: source("src/v2/components/GameDetails/PcDlcMediaTab.vue"),
+      notes: source("src/v2/components/GameDetails/PcDlcNotesTab.vue"),
+    };
+
+    expect(files.matcher).toContain("selectPcComponentMetadataCandidate");
+    expect(files.matcher).toContain("selected_media_ids: selectedMedia");
+    expect(files.matcher).toContain('componentKind === "dlc"');
+    expect(files.service).toContain(
+      "/pc-components/${componentId}/metadata-selection",
+    );
+    expect(files.service).not.toMatch(
+      /updateRom\(\{[^}]*componentId|pc-components\/\$\{componentId\}\/update/,
+    );
+
+    expect(files.detail).toContain('componentKind: "dlc"');
+    expect(files.detail).toContain("componentId: props.component.id");
+
+    for (const componentSurface of [files.files, files.media, files.notes]) {
+      expect(componentSurface).toContain(
+        "/pc-components/${props.component.id}/",
+      );
+      expect(componentSurface).not.toContain("source_relative_path");
+      expect(componentSurface).not.toMatch(
+        /archive\/(?:write|upload)|writeArchive/,
+      );
+    }
+
+    expect(files.files).toContain("/manifest-members/${memberId}/content");
+    expect(files.files).toContain("/media/${mediaId}/content");
+    expect(files.media).toContain('body.append("expected_version"');
+    expect(files.notes).toContain("expected_version: componentVersion.value");
+    expect(files.notes).not.toContain("/roms/${props.romId}/notes");
+  });
 });
