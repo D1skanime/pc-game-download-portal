@@ -358,13 +358,13 @@ Plans:
 **Goal:** Each locally present, independently matched PC DLC has a dedicated, parent-owned v2 detail page that presents its selected local identity, media, and immutable files without changing the source library.
 **Requirements**: TBD
 **Depends on:** Phase 11
-**Plans:** 3 plans
+**Plans:** 6/12 plans executed
 
 Plans:
 
-- [ ] 12-02-PLAN.md: Register the canonical route and strict parent-owned resolver.
-- [ ] 12-04-PLAN.md: Localize the first bounded DLC-detail locale batch.
-- [ ] 12-05-PLAN.md: Complete DLC-detail locale parity.
-- [ ] 12-01-PLAN.md: Route both parent-detail DLC entry points to the canonical page.
-- [ ] 12-03-PLAN.md: Render selected component detail evidence and immutable files.
-- [ ] 12-06-PLAN.md: Prove source safety and complete visual and input validation.
+- [x] 12-02-PLAN.md: Register the canonical route and strict parent-owned resolver.
+- [x] 12-04-PLAN.md: Localize the first bounded DLC-detail locale batch.
+- [x] 12-05-PLAN.md: Complete DLC-detail locale parity.
+- [x] 12-01-PLAN.md: Route both parent-detail DLC entry points to the canonical page.
+- [x] 12-03-PLAN.md: Render selected component detail evidence and immutable files.
+- [x] 12-06-PLAN.md: Prove source safety and complete visual and input validation.
