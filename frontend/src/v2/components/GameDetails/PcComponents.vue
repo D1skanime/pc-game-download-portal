@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { RBtn, RCollapsible, REmptyState, RTag } from "@v2/lib";
-import { computed } from "vue";
+import type { Emitter } from "mitt";
+import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
+import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import PcMetadataReview from "./PcMetadataReview.vue";
+import type { PcMatchableComponentKind } from "@/v2/components/MatchRom/types";
 
 defineOptions({ inheritAttrs: false });
 
@@ -14,6 +16,21 @@ const props = defineProps<{ components: PcComponentSchema[]; romId: number }>();
 const emit = defineEmits<{ (event: "applied"): void }>();
 const { t } = useI18n();
 const router = useRouter();
+const emitter = inject<Emitter<Events>>("emitter");
+
+function openComponentMatcher(component: PcComponentSchema) {
+  if (component.kind === "unresolved") return;
+  emitter?.emit("showPcMatchRomDialog", {
+    target: {
+      kind: "component",
+      romId: props.romId,
+      componentId: component.id,
+      componentKind: component.kind as PcMatchableComponentKind,
+      label: component.relative_path,
+    },
+    refresh: () => emit("applied"),
+  });
+}
 
 function openDlcDetails(componentId: number) {
   void router.push({
@@ -80,12 +97,16 @@ const groupedComponents = computed(() =>
           >
             {{ t("common.details") }}
           </RBtn>
-          <PcMetadataReview
-            v-if="component.kind === 'dlc'"
-            :rom-id="romId"
-            :component-id="component.id"
-            @applied="emit('applied')"
-          />
+          <RBtn
+            v-if="component.kind !== 'unresolved'"
+            :data-testid="`find-pc-component-metadata-${component.id}`"
+            size="small"
+            variant="text"
+            prepend-icon="mdi-magnify"
+            @click="openComponentMatcher(component)"
+          >
+            {{ t("rom.pc-find-metadata") }}
+          </RBtn>
           <div
             v-for="member in component.manifest_members"
             :key="member.relative_path"

@@ -1,4 +1,5 @@
 import { mount } from "@vue/test-utils";
+import mitt from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
@@ -85,17 +86,16 @@ describe("PcComponents", () => {
     ).toBe("Main game");
   });
 
-  it("renders PC component groups in the operator review order", async () => {
+  it("opens the shared matcher only for classified component targets", async () => {
+    const emitter = mitt();
+    const showMatcher = vi.fn();
+    emitter.on("showPcMatchRomDialog", showMatcher);
     const wrapper = mount(PcComponents, {
       props: { components: componentGroups, romId: 1 },
       global: {
+        provide: { emitter },
         stubs: {
           RCollapsible: false,
-          PcMetadataReview: {
-            props: ["romId", "componentId"],
-            template:
-              "<div :data-testid='`dlc-review-${componentId}`'><slot /></div>",
-          },
         },
       },
     });
@@ -120,8 +120,24 @@ describe("PcComponents", () => {
     expect(wrapper.text()).toContain("Game/game.exe");
     expect(wrapper.text()).toContain("1 KB");
     expect(wrapper.text()).toContain("a".repeat(64));
-    await wrapper.get("[data-testid='pc-component-DLC']").trigger("click");
-    expect(wrapper.find("[data-testid='dlc-review-3']").exists()).toBe(true);
+    const launchers = wrapper.findAll(
+      "[data-testid^='find-pc-component-metadata-']",
+    );
+    expect(launchers).toHaveLength(6);
+    expect(
+      wrapper.find("[data-testid='find-pc-component-metadata-7']").exists(),
+    ).toBe(false);
+    await launchers[2].trigger("click");
+    expect(showMatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({
+          kind: "component",
+          romId: 1,
+          componentId: 3,
+          componentKind: "dlc",
+        }),
+      }),
+    );
   });
 
   it("opens only DLC components at their parent-owned detail routes", async () => {

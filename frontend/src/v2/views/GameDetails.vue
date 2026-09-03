@@ -5,15 +5,17 @@
 // tabs, tab panel) stacked in a flex-1 column on the right. Thin
 // orchestrator — data + tab state live here, every visual piece is a
 // sub-component under components/GameDetails/.
-import { RTabNav, type RTabNavItem } from "@v2/lib";
+import { RBtn, RTabNav, type RTabNavItem } from "@v2/lib";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH, toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
@@ -27,7 +29,6 @@ import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import PatcherTab from "@/v2/components/GameDetails/PatcherTab.vue";
 import PcComponents from "@/v2/components/GameDetails/PcComponents.vue";
 import PcLocalMediaReview from "@/v2/components/GameDetails/PcLocalMediaReview.vue";
-import PcMetadataReview from "@/v2/components/GameDetails/PcMetadataReview.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
@@ -42,6 +43,7 @@ const authStore = storeAuth();
 const { currentRom } = storeToRefs(romsStore);
 const { toWebp } = useWebpSupport();
 const { locale, t } = useI18n();
+const emitter = inject<Emitter<Events>>("emitter");
 
 const setBgArt = useBackgroundArt();
 
@@ -266,6 +268,18 @@ async function refreshPcDetails() {
   }
 }
 
+function openPcParentMatcher() {
+  if (!currentRom.value) return;
+  emitter?.emit("showPcMatchRomDialog", {
+    target: {
+      kind: "rom",
+      romId: currentRom.value.id,
+      label: currentRom.value.name ?? currentRom.value.fs_name_no_tags,
+    },
+    refresh: refreshPcDetails,
+  });
+}
+
 // The patcher tab is always available: a base game file can be patched with
 // one of the ROM's bundled patch files or with a patch uploaded from disk, so
 // users don't have to store patches in the library until they need them.
@@ -333,10 +347,13 @@ const tabs = computed<RTabNavItem[]>(() => [
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />
           <template v-if="tab === 'pc-components' && isPcRom">
-            <PcMetadataReview
-              :rom-id="currentRom.id"
-              @applied="refreshPcDetails"
-            />
+            <RBtn
+              data-testid="find-pc-parent-metadata"
+              prepend-icon="mdi-magnify"
+              @click="openPcParentMatcher"
+            >
+              {{ t("rom.pc-find-metadata") }}
+            </RBtn>
             <PcLocalMediaReview
               :rom-id="currentRom.id"
               @applied="refreshPcDetails"
