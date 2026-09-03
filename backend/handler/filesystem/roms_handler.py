@@ -258,6 +258,14 @@ class FSRomsHandler(ExternalFSHandler):
             raise ValueError("PC local media is not a PNG, JPEG, or WebP image")
         return content, image_type
 
+    @staticmethod
+    def pc_component_member_path(rom: Rom, member: RomComponentManifestMember) -> str:
+        """Return a manifest-bound source path without accepting browser paths."""
+        relative_path = PurePosixPath(member.relative_path)
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            raise ValueError("PC component manifest path is invalid")
+        return f"{rom.fs_path}/{rom.fs_name}/{relative_path.as_posix()}"
+
     async def get_pc_components(self, rom: Rom) -> list[RomComponent]:
         """Build immutable component manifests for one directory-backed PC ROM.
 

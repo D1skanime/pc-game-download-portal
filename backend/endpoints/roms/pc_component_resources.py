@@ -25,7 +25,7 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
-from handler.filesystem import fs_resource_handler, storage_composition
+from handler.filesystem import fs_resource_handler, fs_rom_handler, storage_composition
 from handler.filesystem.storage_access import OwnedRead, open_owned_access
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from models.rom import RomComponentOwnedMediaOrigin, RomComponentOwnedMediaRole
@@ -248,20 +248,23 @@ async def download_component_manifest_member(
     )
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    relative = PurePosixPath(member.relative_path)
-    if relative.is_absolute() or ".." in relative.parts:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    try:
+        full_path = fs_rom_handler.pc_component_member_path(rom, member)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from None
     file = type(
         "ManifestFile",
         (),
-        {"full_path": f"{rom.fs_path}/{rom.fs_name}/{relative.as_posix()}"},
+        {"full_path": full_path},
     )()
     context, access, size = preflight_mapped_download(rom, file)
     return StreamingResponse(
         _mapped_chunks(context, access, 0, size),
         media_type="application/octet-stream",
         headers={
-            "Content-Disposition": _content_disposition("attachment", relative.name),
+            "Content-Disposition": _content_disposition(
+                "attachment", PurePosixPath(member.relative_path).name
+            ),
             "Content-Length": str(size),
         },
     )

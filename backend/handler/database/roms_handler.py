@@ -1949,7 +1949,17 @@ class DBRomsHandler(DBBaseHandler):
         component_id: int,
         session: Session = None,  # type: ignore
     ) -> RomComponent | None:
-        return self._get_pc_dlc_component(session, rom_id, component_id)
+        return session.scalar(
+            select(RomComponent)
+            .options(selectinload(RomComponent.manifest_members))
+            .where(
+                and_(
+                    RomComponent.id == component_id,
+                    RomComponent.rom_id == rom_id,
+                    RomComponent.kind == "dlc",
+                )
+            )
+        )
 
     @begin_session
     def get_pc_component_owned_media(
