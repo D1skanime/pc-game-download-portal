@@ -301,7 +301,15 @@ async function onBodyConfirm(payload: ConfirmPayload) {
           ? candidate.media
               .filter((media) => media.url === payload.cover?.url_cover)
               .map((media) => media.id)
-          : undefined;
+          : pcTarget.value.kind === "rom"
+            ? candidate.media
+                .filter(
+                  (media) =>
+                    media.url === payload.cover?.url_cover ||
+                    media.kind === "screenshot",
+                )
+                .map((media) => media.id)
+            : undefined;
       const selection = {
         candidate_id: candidate.id,
         expected_version: expectedVersion,

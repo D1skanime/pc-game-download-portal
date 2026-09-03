@@ -439,6 +439,17 @@ async def select_pc_metadata_candidate(
             detail="Unknown or unavailable PC metadata candidate",
         )
 
+    selected_media = {
+        _candidate_media_id(candidate, media): media
+        for media in candidate.media
+        if media.get("kind") in {"cover", "screenshot"}
+    }
+    if any(media_id not in selected_media for media_id in selection.selected_media_ids):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Unknown PC metadata provider media selection",
+        )
+
     updated = db_rom_handler.apply_pc_metadata_candidate(
         id, selection.expected_version, candidate.fields
     )
@@ -447,6 +458,42 @@ async def select_pc_metadata_candidate(
             status_code=status.HTTP_409_CONFLICT,
             detail="The ROM metadata changed before this selection was applied",
         )
+    confirmed_media = [
+        selected_media[media_id] for media_id in selection.selected_media_ids
+    ]
+    selected_cover = next(
+        (media["url"] for media in confirmed_media if media["kind"] == "cover"),
+        None,
+    )
+    selected_screenshots = [
+        media["url"] for media in confirmed_media if media["kind"] == "screenshot"
+    ]
+    media_updates = {}
+    if selected_cover:
+        path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
+            updated, overwrite=True, url_cover=selected_cover
+        )
+        media_updates.update(
+            {
+                "url_cover": selected_cover,
+                "path_cover_s": path_cover_s,
+                "path_cover_l": path_cover_l,
+            }
+        )
+    if selected_screenshots:
+        media_updates.update(
+            {
+                "url_screenshots": [],
+                "path_screenshots": await fs_resource_handler.get_rom_screenshots(
+                    rom=updated,
+                    overwrite=True,
+                    url_screenshots=selected_screenshots,
+                ),
+            }
+        )
+    if media_updates:
+        db_rom_handler.update_rom(id, media_updates)
+
     return PcMetadataSelectionResponse(
         candidate_id=candidate.id, expected_version=updated.updated_at
     )

@@ -114,7 +114,7 @@ class PcMetadataSelectionRequest(BaseModel):
 
     candidate_id: str = Field(min_length=1)
     query: str = Field(min_length=1, max_length=200)
-    selected_media_ids: list[str] = Field(default_factory=list, max_length=1)
+    selected_media_ids: list[str] = Field(default_factory=list, max_length=20)
     expected_version: UTCDatetime
 
 
