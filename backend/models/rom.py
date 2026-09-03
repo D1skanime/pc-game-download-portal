@@ -109,6 +109,21 @@ class RomComponentLocalMediaRole(enum.StrEnum):
     GALLERY = "gallery"
 
 
+class RomComponentOwnedMediaRole(enum.StrEnum):
+    COVER = "cover"
+    BACKGROUND = "background"
+    GALLERY = "gallery"
+    SCREENSHOT = "screenshot"
+    ARTWORK = "artwork"
+    SOUNDTRACK = "soundtrack"
+    VIDEO = "video"
+
+
+class RomComponentOwnedMediaOrigin(enum.StrEnum):
+    UPLOAD = "upload"
+    PROVIDER = "provider"
+
+
 class SiblingRom(BaseModel):
     __tablename__ = "sibling_roms"
 
@@ -255,6 +270,18 @@ class RomComponent(BaseModel):
         cascade="all, delete-orphan",
         order_by="RomComponentLocalMedia.id",
     )
+    owned_media: Mapped[list[RomComponentOwnedMedia]] = relationship(
+        lazy="raise",
+        back_populates="component",
+        cascade="all, delete-orphan",
+        order_by="RomComponentOwnedMedia.id",
+    )
+    notes: Mapped[list[RomComponentNote]] = relationship(
+        lazy="raise",
+        back_populates="component",
+        cascade="all, delete-orphan",
+        order_by="RomComponentNote.updated_at.desc()",
+    )
 
 
 class RomComponentManifestMember(BaseModel):
@@ -332,6 +359,75 @@ class RomComponentLocalMedia(BaseModel):
     )
 
     component: Mapped[RomComponent] = relationship(back_populates="local_media")
+
+
+class RomComponentOwnedMedia(BaseModel):
+    __tablename__ = "rom_component_owned_media"
+
+    __table_args__ = (
+        Index("idx_rom_component_owned_media_component", "component_id"),
+        Index("idx_rom_component_owned_media_origin", "origin"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    component_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_components.id", ondelete="CASCADE")
+    )
+    role: Mapped[RomComponentOwnedMediaRole] = mapped_column(
+        Enum(
+            RomComponentOwnedMediaRole,
+            values_callable=lambda roles: [role.value for role in roles],
+            name="romcomponentownedmediarole",
+            native_enum=False,
+            create_constraint=True,
+        )
+    )
+    mime_type: Mapped[str] = mapped_column(String(length=100))
+    owned_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
+    origin: Mapped[RomComponentOwnedMediaOrigin] = mapped_column(
+        Enum(
+            RomComponentOwnedMediaOrigin,
+            values_callable=lambda origins: [origin.value for origin in origins],
+            name="romcomponentownedmediaorigin",
+            native_enum=False,
+            create_constraint=True,
+        )
+    )
+    provider: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    provider_media_id: Mapped[str | None] = mapped_column(
+        String(length=450), default=None
+    )
+
+    component: Mapped[RomComponent] = relationship(back_populates="owned_media")
+
+
+class RomComponentNote(BaseModel):
+    __tablename__ = "rom_component_notes"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "component_id",
+            "user_id",
+            "title",
+            name="uq_rom_component_notes_component_user_title",
+        ),
+        Index("idx_rom_component_notes_public", "is_public"),
+        Index("idx_rom_component_notes_component_user", "component_id", "user_id"),
+        Index("idx_rom_component_notes_title", "title"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(length=400))
+    content: Mapped[str] = mapped_column(Text)
+    is_public: Mapped[bool] = mapped_column(default=False)
+    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=list)
+    component_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_components.id", ondelete="CASCADE")
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+
+    component: Mapped[RomComponent] = relationship(back_populates="notes")
+    user: Mapped[User] = relationship(lazy="joined")
 
 
 class TrackMeta(BaseModel):
