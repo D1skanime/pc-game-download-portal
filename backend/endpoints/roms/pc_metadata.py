@@ -1,5 +1,6 @@
 """Review-first endpoints for selecting PC metadata candidates."""
 
+import hashlib
 from typing import Annotated
 
 from fastapi import HTTPException, Path, Query, Request, Response, status
@@ -27,7 +28,11 @@ from handler.metadata.pc_match_handler import (
     PcMetadataCandidate,
     pc_metadata_match_handler,
 )
-from models.rom import RomComponentKind
+from models.rom import (
+    RomComponentKind,
+    RomComponentOwnedMediaOrigin,
+    RomComponentOwnedMediaRole,
+)
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -43,6 +48,12 @@ MATCHABLE_PC_COMPONENT_KINDS = frozenset(
         RomComponentKind.EXTRA,
     }
 )
+MEDIA_ROLES = {
+    "cover": RomComponentOwnedMediaRole.COVER,
+    "fan_art": RomComponentOwnedMediaRole.BACKGROUND,
+    "screenshot": RomComponentOwnedMediaRole.SCREENSHOT,
+    "logo": RomComponentOwnedMediaRole.ARTWORK,
+}
 
 
 def _pc_component(rom_id: int, component_id: int):
@@ -118,6 +129,21 @@ async def select_pc_component_metadata_candidate(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Unknown or unavailable PC component metadata candidate",
         )
+    selected_media = {
+        _candidate_media_id(candidate, media): media
+        for media in candidate.media
+        if media.get("kind") in MEDIA_ROLES
+    }
+    if selection.selected_media_ids and component.kind != RomComponentKind.DLC:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provider media import is available only for DLC components",
+        )
+    if any(media_id not in selected_media for media_id in selection.selected_media_ids):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Unknown PC component provider media selection",
+        )
     updated = db_rom_handler.apply_pc_component_metadata_candidate(
         id,
         component_id,
@@ -130,6 +156,44 @@ async def select_pc_component_metadata_candidate(
             status_code=status.HTTP_409_CONFLICT,
             detail="The PC component metadata changed before this selection was applied",
         )
+    confirmed_component = db_rom_handler.get_pc_component_by_id(id, component_id)
+    if confirmed_component is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT)
+    for media_id in selection.selected_media_ids:
+        media = selected_media[media_id]
+        owned_path: str | None = None
+        try:
+            owned_path, mime_type = (
+                await fs_resource_handler.store_pc_component_provider_image(
+                    rom,
+                    component_id,
+                    media_id,
+                    MEDIA_ROLES[media["kind"]],
+                    media["url"],
+                )
+            )
+            applied = db_rom_handler.create_pc_component_owned_media(
+                id,
+                component_id,
+                request.user.id,
+                confirmed_component.updated_at,
+                MEDIA_ROLES[media["kind"]],
+                mime_type,
+                owned_path,
+                RomComponentOwnedMediaOrigin.PROVIDER,
+                candidate.provider,
+                media_id,
+            )
+            if applied is None:
+                raise ValueError(
+                    "The PC component changed before provider media was stored"
+                )
+        except ValueError as exc:
+            if owned_path is not None:
+                await fs_resource_handler.remove_file(owned_path)
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            ) from exc
     return PcComponentMetadataSelectionResponse(
         candidate_id=candidate.id,
         component_id=component_id,
@@ -307,8 +371,16 @@ def _candidate_schema(candidate: PcMetadataCandidate) -> PcMetadataCandidateSche
         title=candidate.title,
         provider_ids=candidate.provider_ids,
         description_available=candidate.description_available,
-        media=candidate.media,
+        media=[
+            {"id": _candidate_media_id(candidate, media), **media}
+            for media in candidate.media
+        ],
     )
+
+
+def _candidate_media_id(candidate: PcMetadataCandidate, media: dict[str, str]) -> str:
+    value = f"{candidate.id}:{media.get('kind', '')}:{media.get('url', '')}"
+    return hashlib.sha256(value.encode()).hexdigest()
 
 
 @protected_route(router.get, "/{id}/pc-metadata-candidates", [Scope.ROMS_READ])

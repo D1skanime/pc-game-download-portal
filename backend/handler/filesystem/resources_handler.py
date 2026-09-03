@@ -17,7 +17,7 @@ from config import (
 from config.config_manager import MetadataMediaType
 from logger.logger import log
 from models.collection import Collection
-from models.rom import Rom, RomComponentLocalMediaRole
+from models.rom import Rom, RomComponentLocalMediaRole, RomComponentOwnedMediaRole
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
 
@@ -146,6 +146,48 @@ class FSResourcesHandler(FSHandler):
         filename = f"{component_id}-{member_id}-{role.value}.{image_type}"
         await self.write_file(content, media_path, filename)
         return f"{media_path}/{filename}", None, None
+
+    async def store_pc_component_provider_image(
+        self,
+        rom: Rom,
+        component_id: int,
+        provider_media_id: str,
+        role: RomComponentOwnedMediaRole,
+        url: str,
+    ) -> tuple[str, str]:
+        """Download one reviewed HTTPS provider image into owned component storage."""
+        if not url.startswith("https://"):
+            raise ValueError("Provider media must use HTTPS")
+        response_content: bytes
+        httpx_client = ctx_httpx_client.get()
+        async with httpx_client.stream("GET", url, timeout=30) as response:
+            if response.status_code != status.HTTP_200_OK or not _check_content_type(
+                response, ("image/",), "PC component provider media"
+            ):
+                raise ValueError("Provider media response is not an image")
+            chunks: list[bytes] = []
+            size = 0
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > 10 * 1024 * 1024:
+                    raise ValueError("Provider media exceeds the 10 MiB limit")
+                chunks.append(chunk)
+            response_content = b"".join(chunks)
+            mime_type = _content_type_essence(response.headers.get("content-type", ""))
+        try:
+            with Image.open(BytesIO(response_content)) as image:
+                image.verify()
+        except (UnidentifiedImageError, OSError, ValueError) as exc:
+            raise ValueError("Provider media is not a valid image") from exc
+        extension = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}.get(
+            mime_type
+        )
+        if extension is None:
+            raise ValueError("Provider media type is not supported")
+        media_path = f"{rom.fs_resources_path}/pc-owned-media"
+        filename = f"{component_id}-{provider_media_id}-{role.value}.{extension}"
+        await self.write_file(response_content, media_path, filename)
+        return f"{media_path}/{filename}", mime_type
 
     # Cover art
     def cover_exists(self, entity: Rom | Collection, size: CoverSize) -> bool:
