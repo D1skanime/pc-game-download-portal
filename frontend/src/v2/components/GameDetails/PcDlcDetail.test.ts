@@ -143,6 +143,17 @@ describe("PcDlcDetail", () => {
     expect(wrapper.html()).not.toContain("components/3/cover.webp");
   });
 
+  it("uses the parent detail canvas so tabs and content share its fixed panel", () => {
+    const wrapper = mountDetail();
+
+    expect(wrapper.classes()).toContain("r-v2-det");
+    const tabs = wrapper.get(".r-v2-det__tabs");
+    const panel = wrapper.get(".r-v2-det__panel");
+    expect(tabs.element.compareDocumentPosition(panel.element)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
   it("uses a localized path title and neutral cover placeholder when selected media is absent", () => {
     const wrapper = mountDetail({
       ...selectedDlc,
