@@ -19,7 +19,7 @@ import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
-import romApi from "@/services/api/rom";
+import romApi, { type PcMatcherCandidate } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -29,6 +29,7 @@ import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFil
 import type {
   ConfirmPayload,
   MatchVariant,
+  PcMatchTarget,
 } from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -55,6 +56,10 @@ const { t } = useI18n();
 const { lgAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
+const pcTarget = ref<PcMatchTarget | null>(null);
+const pcRefresh = ref<(() => void | Promise<void>) | null>(null);
+const pcExpectedVersion = ref<string | null>(null);
+const pcCandidates = ref(new Map<number, PcMatcherCandidate>());
 const romsStore = storeRoms();
 const searching = ref(false);
 // In-flight flag for the post-pick `updateRom` call. v1 leaned on the
@@ -182,6 +187,10 @@ const filteredMatchedRoms = computed(() =>
 );
 
 const openHandler = (romToSearch: SimpleRom) => {
+  pcTarget.value = null;
+  pcRefresh.value = null;
+  pcExpectedVersion.value = null;
+  pcCandidates.value = new Map();
   rom.value = romToSearch;
   show.value = true;
   matchedRoms.value = [];
@@ -191,22 +200,78 @@ const openHandler = (romToSearch: SimpleRom) => {
     : romToSearch.fs_name_no_tags;
 };
 emitter?.on("showMatchRomDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showMatchRomDialog", openHandler));
+const openPcHandler = ({ target, refresh }: Events["showPcMatchRomDialog"]) => {
+  pcTarget.value = target;
+  pcRefresh.value = refresh;
+  pcExpectedVersion.value = null;
+  pcCandidates.value = new Map();
+  rom.value = null;
+  show.value = true;
+  matchedRoms.value = [];
+  searched.value = false;
+  searchText.value = target.label;
+};
+emitter?.on("showPcMatchRomDialog", openPcHandler);
+onBeforeUnmount(() => {
+  emitter?.off("showMatchRomDialog", openHandler);
+  emitter?.off("showPcMatchRomDialog", openPcHandler);
+});
 
 async function searchRom() {
-  if (!rom.value || searching.value) return;
+  if ((!rom.value && !pcTarget.value) || searching.value) return;
 
   const inputElement = document.getElementById("r-v2-match-search");
   inputElement?.blur();
 
   searching.value = true;
   try {
-    const response = await romApi.searchRom({
-      romId: rom.value.id,
-      searchTerm: searchText.value,
-      searchBy: searchBy.value,
-    });
-    matchedRoms.value = response.data;
+    if (pcTarget.value) {
+      const result =
+        pcTarget.value.kind === "component"
+          ? await romApi.searchPcComponentMetadataCandidates({
+              romId: pcTarget.value.romId,
+              componentId: pcTarget.value.componentId,
+              query: searchText.value,
+            })
+          : await romApi.searchPcMetadataCandidates({
+              romId: pcTarget.value.romId,
+              query: searchText.value,
+            });
+      pcExpectedVersion.value = result.expectedVersion;
+      pcCandidates.value = new Map(
+        result.candidates.map((candidate, index) => [index + 1, candidate]),
+      );
+      matchedRoms.value = result.candidates.map((candidate, index) => ({
+        id: index + 1,
+        platform_id: 0,
+        name: candidate.title,
+        summary: candidate.description_available ? candidate.title : undefined,
+        is_unidentified: false,
+        is_identified: true,
+        ...(candidate.provider === "igdb" ? { igdb_id: index + 1 } : {}),
+        ...(candidate.provider === "moby" ? { moby_id: index + 1 } : {}),
+        ...(candidate.provider === "screenscraper" ? { ss_id: index + 1 } : {}),
+        ...(candidate.provider === "launchbox"
+          ? { launchbox_id: index + 1 }
+          : {}),
+        ...(candidate.provider === "flashpoint"
+          ? { flashpoint_id: String(index + 1) }
+          : {}),
+        ...(candidate.provider === "libretro"
+          ? { libretro_id: String(index + 1) }
+          : {}),
+        ...(candidate.media[0]?.url
+          ? { igdb_url_cover: candidate.media[0].url }
+          : {}),
+      }));
+    } else if (rom.value) {
+      const response = await romApi.searchRom({
+        romId: rom.value.id,
+        searchTerm: searchText.value,
+        searchBy: searchBy.value,
+      });
+      matchedRoms.value = response.data;
+    }
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(axiosErr.response?.data?.detail ?? t("rom.search-failed"), {
@@ -219,12 +284,69 @@ async function searchRom() {
 }
 
 async function onBodyConfirm(payload: ConfirmPayload) {
-  if (!rom.value || matching.value) return;
+  if ((!rom.value && !pcTarget.value) || matching.value) return;
   matching.value = true;
 
+  if (pcTarget.value) {
+    const candidate = pcCandidates.value.get(payload.matchedRom.id ?? -1);
+    const expectedVersion = pcExpectedVersion.value;
+    if (!candidate || !expectedVersion) {
+      matching.value = false;
+      return;
+    }
+    try {
+      const selectedMedia =
+        pcTarget.value.kind === "component" &&
+        pcTarget.value.componentKind === "dlc"
+          ? candidate.media
+              .filter((media) => media.url === payload.cover?.url_cover)
+              .map((media) => media.id)
+          : undefined;
+      const selection = {
+        candidate_id: candidate.id,
+        expected_version: expectedVersion,
+        query: searchText.value,
+        selected_media_ids: selectedMedia,
+      };
+      if (pcTarget.value.kind === "component") {
+        await romApi.selectPcComponentMetadataCandidate({
+          romId: pcTarget.value.romId,
+          componentId: pcTarget.value.componentId,
+          selection,
+        });
+      } else {
+        await romApi.selectPcMetadataCandidate({
+          romId: pcTarget.value.romId,
+          selection,
+        });
+      }
+      await pcRefresh.value?.();
+      snackbar.success(t("rom.rom-updated-successfully"), {
+        icon: "mdi-check-bold",
+      });
+      closeDialog();
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { detail?: string } } };
+      snackbar.error(
+        axiosErr.response?.data?.detail ?? t("rom.update-failed"),
+        {
+          icon: "mdi-close-circle",
+        },
+      );
+    } finally {
+      matching.value = false;
+    }
+    return;
+  }
+
+  const targetRom = rom.value;
+  if (!targetRom) {
+    matching.value = false;
+    return;
+  }
   const { matchedRom, cover } = payload;
   rom.value = {
-    ...rom.value,
+    ...targetRom,
     igdb_id: matchedRom.igdb_id || null,
     ss_id: matchedRom.ss_id || null,
     moby_id: matchedRom.moby_id || null,
@@ -245,12 +367,16 @@ async function onBodyConfirm(payload: ConfirmPayload) {
       null,
   };
 
-  if (rom.value.url_cover) {
-    rom.value.url_cover = rom.value.url_cover.replace("t_cover_big", "t_1080p");
+  const updatedRom = rom.value;
+  if (updatedRom.url_cover) {
+    updatedRom.url_cover = updatedRom.url_cover.replace(
+      "t_cover_big",
+      "t_1080p",
+    );
   }
 
   try {
-    const { data } = await romApi.updateRom({ rom: rom.value });
+    const { data } = await romApi.updateRom({ rom: updatedRom });
     snackbar.success(t("rom.rom-updated-successfully"), {
       icon: "mdi-check-bold",
     });
@@ -291,8 +417,12 @@ function closeDialog() {
         <span>{{ t("rom.match-rom") }}</span>
         <!-- The file name is the ground truth for a mismatched game, so it
              stays visible while the dialog covers the gallery card. -->
-        <span v-if="rom" class="r-v2-match__header-file" :title="rom.fs_name">
-          {{ rom.fs_name }}
+        <span
+          v-if="rom || pcTarget"
+          class="r-v2-match__header-file"
+          :title="rom?.fs_name ?? pcTarget?.label"
+        >
+          {{ rom?.fs_name ?? pcTarget?.label }}
         </span>
       </div>
     </template>

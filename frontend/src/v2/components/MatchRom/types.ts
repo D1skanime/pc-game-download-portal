@@ -4,6 +4,24 @@
 // its own visual language.
 import type { SearchRom } from "@/stores/roms";
 
+export type PcMatchableComponentKind =
+  "base" | "update" | "dlc" | "hotfix" | "language_pack" | "extra";
+
+export type PcMatchTarget =
+  | { kind: "rom"; romId: number; label: string }
+  | {
+      kind: "component";
+      romId: number;
+      componentId: number;
+      componentKind: PcMatchableComponentKind;
+      label: string;
+    };
+
+export function isPcMatchTarget(value: unknown): value is PcMatchTarget {
+  if (!value || typeof value !== "object" || !("kind" in value)) return false;
+  return value.kind === "rom" || value.kind === "component";
+}
+
 export type SourceName =
   | "IGDB"
   | "Mobygames"

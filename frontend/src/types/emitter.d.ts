@@ -8,6 +8,7 @@ import type { Collection, SmartCollection } from "@/stores/collections";
 import type { Platform } from "@/stores/platforms";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
+import type { PcMatchTarget } from "@/v2/components/MatchRom/types";
 
 export type SnackbarStatus = {
   id?: number;
@@ -35,6 +36,10 @@ export type Events = {
   showDeleteCollectionDialog: Collection;
   showDeleteSmartCollectionDialog: SmartCollection;
   showMatchRomDialog: SimpleRom;
+  showPcMatchRomDialog: {
+    target: PcMatchTarget;
+    refresh: () => void | Promise<void>;
+  };
   /** v2 — `rom` is optional; when provided, the dialog also fetches
    *  per-provider covers via `/search/roms` so the user can pick the
    *  IGDB / MobyGames / Screenscraper / … artwork without going
