@@ -230,15 +230,17 @@ def test_pc_parent_metadata_selection_imports_confirmed_cover_and_screenshots(
 
     assert response.status_code == status.HTTP_200_OK
     cover.assert_awaited_once()
-    assert cover.await_args.kwargs == {
+    cover_call = cover.await_args
+    assert cover_call is not None
+    assert cover_call.kwargs == {
         "overwrite": True,
         "url_cover": _candidate().media[0]["url"],
     }
     screenshots.assert_awaited_once()
-    assert screenshots.await_args.kwargs["overwrite"] is True
-    assert screenshots.await_args.kwargs["url_screenshots"] == [
-        _candidate().media[1]["url"]
-    ]
+    screenshot_call = screenshots.await_args
+    assert screenshot_call is not None
+    assert screenshot_call.kwargs["overwrite"] is True
+    assert screenshot_call.kwargs["url_screenshots"] == [_candidate().media[1]["url"]]
     saved = db_rom_handler.get_rom(rom.id)
     assert saved.path_cover_s == "roms/1/cover/s.jpg"
     assert saved.path_cover_l == "roms/1/cover/l.jpg"

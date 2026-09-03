@@ -1,7 +1,7 @@
 """Review-first endpoints for selecting PC metadata candidates."""
 
 import hashlib
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import HTTPException, Path, Query, Request, Response, status
 
@@ -468,7 +468,7 @@ async def select_pc_metadata_candidate(
     selected_screenshots = [
         media["url"] for media in confirmed_media if media["kind"] == "screenshot"
     ]
-    media_updates = {}
+    media_updates: dict[str, Any] = {}
     if selected_cover:
         path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
             updated, overwrite=True, url_cover=selected_cover
