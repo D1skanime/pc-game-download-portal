@@ -532,6 +532,9 @@ describe("external source mutation authority inventory", () => {
     expect(files.matcher).toContain("selectPcComponentMetadataCandidate");
     expect(files.matcher).toContain("selected_media_ids: selectedMedia");
     expect(files.matcher).toContain('componentKind === "dlc"');
+    expect(files.matcher).toContain(
+      'componentKind === "dlc"\n          ? candidate.media.map((media) => media.id)',
+    );
     expect(files.service).toContain(
       "/pc-components/${componentId}/metadata-selection",
     );

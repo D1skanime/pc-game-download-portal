@@ -298,9 +298,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
       const selectedMedia =
         pcTarget.value.kind === "component" &&
         pcTarget.value.componentKind === "dlc"
-          ? candidate.media
-              .filter((media) => media.url === payload.cover?.url_cover)
-              .map((media) => media.id)
+          ? candidate.media.map((media) => media.id)
           : pcTarget.value.kind === "rom"
             ? candidate.media
                 .filter(
