@@ -324,6 +324,10 @@ class RomComponentMetadata(BaseModel):
     provider_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=None
     )
+    main_developer: Mapped[str | None] = mapped_column(String(length=255), default=None)
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=list)
+    themes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=list)
+    pc_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
 
     component: Mapped[RomComponent] = relationship(back_populates="component_metadata")
 
@@ -478,10 +482,14 @@ class RomMetadata(BaseModel):
     franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    main_developer: Mapped[str | None] = mapped_column(String(length=255), default=None)
+    publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=list)
+    themes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=list)
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
     first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
+    pc_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
     average_rating: Mapped[float | None] = mapped_column(default=None)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")

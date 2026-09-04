@@ -316,6 +316,10 @@ class PcComponentMetadataSchema(BaseModel):
     summary: str | None
     metadata_source: str | None
     provider_metadata: dict[str, object] | None
+    main_developer: str | None
+    publishers: list[str] = Field(default_factory=list)
+    themes: list[str] = Field(default_factory=list)
+    pc_release_date: int | None
 
 
 class PcComponentLocalMediaSchema(BaseModel):
@@ -450,10 +454,14 @@ class RomMetadataSchema(BaseModel):
     franchises: list[str]
     collections: list[str]
     companies: list[str]
+    main_developer: str | None
+    publishers: list[str] = Field(default_factory=list)
+    themes: list[str] = Field(default_factory=list)
     game_modes: list[str]
     age_ratings: list[str]
     player_count: str
     first_release_date: int | None
+    pc_release_date: int | None
     average_rating: float | None
 
     @field_validator("genres")
