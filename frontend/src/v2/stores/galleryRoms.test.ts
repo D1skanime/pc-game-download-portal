@@ -168,6 +168,27 @@ describe("galleryRoms windowed fetch", () => {
     expect(params.withTotal).toBeUndefined();
   });
 
+  it("retries a transient initial metadata failure before showing an empty platform", async () => {
+    vi.useFakeTimers();
+    getRoms
+      .mockRejectedValueOnce(new Error("backend is restarting"))
+      .mockResolvedValueOnce({
+        data: { total: 4, items: [], char_index: {}, rom_id_index: [] },
+      });
+    const store = storeGalleryRoms();
+
+    const bootstrap = store.fetchInitialMetadata();
+    await flushPromises();
+    expect(getRoms).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await bootstrap;
+
+    expect(getRoms).toHaveBeenCalledTimes(2);
+    expect(store.total).toBe(4);
+    expect(store.metadataLoaded).toBe(true);
+  });
+
   it("does not clobber the filter drawer when filter values are skipped", async () => {
     const galleryFilter = storeGalleryFilter();
     galleryFilter.setFilterGenres(["RPG", "Shooter"]);

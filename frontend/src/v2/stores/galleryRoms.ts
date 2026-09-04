@@ -79,8 +79,10 @@ const inFlightControllers = new Map<string, AbortController>();
 // on any gallery-context switch so we never retry against a stale context.
 const RETRY_BACKOFF_MS = 2000;
 const MAX_WINDOW_RETRIES = 3;
+const BOOTSTRAP_RETRY_DELAYS_MS = [1000, 2000, 4000];
 const retryTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const retryCounts = new Map<number, number>();
+let bootstrapRetryEpoch = 0;
 
 function clearRetry(offset: number) {
   const timer = retryTimers.get(offset);
@@ -104,6 +106,7 @@ function clearQueue() {
 }
 
 function abortAllInFlight() {
+  bootstrapRetryEpoch++;
   for (const ctrl of inFlightControllers.values()) ctrl.abort();
   inFlightControllers.clear();
   for (const timer of retryTimers.values()) clearTimeout(timer);
@@ -450,35 +453,53 @@ export default defineStore("v2GalleryRoms", {
       const platformsStore = storePlatforms();
       const params = this._buildRequestParams(galleryFilter, 0);
       const ctrlKey = "bootstrap";
-      const controller = new AbortController();
-      inFlightControllers.set(ctrlKey, controller);
+      const retryEpoch = bootstrapRetryEpoch;
 
       try {
-        const response = await romApi.getRoms({
-          ...params,
-          ...sidecars,
-          limit: 1,
-          signal: controller.signal,
-        });
-        // Re-check that this bootstrap is still the relevant one —
-        // invalidateWindows / resetGallery may have aborted us and a
-        // newer bootstrap may have replaced our entry under the same key.
-        // Identity comparison avoids applying stale metadata in that race.
-        if (inFlightControllers.get(ctrlKey) !== controller) return;
-        this._applyMetadata(
-          response.data,
-          galleryFilter,
-          platformsStore,
-          sidecars,
-        );
-      } catch (err) {
-        if (axios.isCancel(err)) return;
-        console.error("[v2GalleryRoms] bootstrap fetch failed", err);
-      } finally {
-        if (inFlightControllers.get(ctrlKey) === controller) {
-          inFlightControllers.delete(ctrlKey);
-          this.initialFetching = false;
+        for (
+          let attempt = 0;
+          attempt <= BOOTSTRAP_RETRY_DELAYS_MS.length;
+          attempt++
+        ) {
+          const controller = new AbortController();
+          inFlightControllers.set(ctrlKey, controller);
+          try {
+            const response = await romApi.getRoms({
+              ...params,
+              ...sidecars,
+              limit: 1,
+              signal: controller.signal,
+            });
+            // Re-check that this bootstrap is still the relevant one —
+            // invalidateWindows / resetGallery may have aborted us and a
+            // newer bootstrap may have replaced our entry under the same key.
+            // Identity comparison avoids applying stale metadata in that race.
+            if (inFlightControllers.get(ctrlKey) !== controller) return;
+            this._applyMetadata(
+              response.data,
+              galleryFilter,
+              platformsStore,
+              sidecars,
+            );
+            return;
+          } catch (err) {
+            if (axios.isCancel(err)) return;
+            if (attempt === BOOTSTRAP_RETRY_DELAYS_MS.length) {
+              console.error("[v2GalleryRoms] bootstrap fetch failed", err);
+              return;
+            }
+            await new Promise<void>((resolve) => {
+              setTimeout(resolve, BOOTSTRAP_RETRY_DELAYS_MS[attempt]);
+            });
+            if (bootstrapRetryEpoch !== retryEpoch) return;
+          } finally {
+            if (inFlightControllers.get(ctrlKey) === controller) {
+              inFlightControllers.delete(ctrlKey);
+            }
+          }
         }
+      } finally {
+        if (bootstrapRetryEpoch === retryEpoch) this.initialFetching = false;
       }
     },
 
