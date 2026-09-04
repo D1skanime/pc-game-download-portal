@@ -286,9 +286,13 @@ class PcMetadataMatchHandler:
         media: list[dict[str, str]] = []
         if cover := item.get("url_cover"):
             media.append({"kind": "cover", "url": str(cover)})
+        artwork_urls = [str(artwork) for artwork in item.get("url_artworks", [])]
+        artwork_url_set = set(artwork_urls)
         for screenshot in item.get("url_screenshots", []):
+            if str(screenshot) in artwork_url_set:
+                continue
             media.append({"kind": "screenshot", "url": str(screenshot)})
-        for artwork in item.get("url_artworks", []):
+        for artwork in artwork_urls:
             media.append({"kind": "artwork", "url": str(artwork)})
         if provider == "sgdb":
             for resource in item.get("resources", []):

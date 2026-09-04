@@ -442,7 +442,7 @@ async def select_pc_metadata_candidate(
     selected_media = {
         _candidate_media_id(candidate, media): media
         for media in candidate.media
-        if media.get("kind") in {"cover", "screenshot"}
+        if media.get("kind") in {"cover", "screenshot", "artwork"}
     }
     if any(media_id not in selected_media for media_id in selection.selected_media_ids):
         raise HTTPException(
@@ -466,7 +466,9 @@ async def select_pc_metadata_candidate(
         None,
     )
     selected_screenshots = [
-        media["url"] for media in confirmed_media if media["kind"] == "screenshot"
+        media["url"]
+        for media in confirmed_media
+        if media["kind"] in {"screenshot", "artwork"}
     ]
     media_updates: dict[str, Any] = {}
     if selected_cover:

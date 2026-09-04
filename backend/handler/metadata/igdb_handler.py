@@ -511,6 +511,11 @@ def build_igdb_rom(
     assert mark_list_expanded(rom_artworks)
 
     localized_name, localized_cover = extract_localized_data(rom, preferred_locale)
+    artwork_urls = [
+        handler.normalize_cover_url(artwork.get("url", "")).replace("t_thumb", "t_720p")
+        for artwork in rom_artworks
+        if artwork.get("url")
+    ]
 
     return IGDBRom(
         igdb_id=rom["id"],
@@ -524,14 +529,9 @@ def build_igdb_rom(
             handler.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
             for s in rom_screenshots
             if s.get("url")
-        ],
-        url_artworks=[
-            handler.normalize_cover_url(artwork.get("url", "")).replace(
-                "t_thumb", "t_720p"
-            )
-            for artwork in rom_artworks
-            if artwork.get("url")
-        ],
+        ]
+        + artwork_urls,
+        url_artworks=artwork_urls,
         igdb_metadata=extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id),
     )
 
