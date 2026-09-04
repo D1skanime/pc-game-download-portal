@@ -1,7 +1,15 @@
 services:
   app:
     image: romm-romm-dev:latest
-    working_dir: /workspace/backend
+    working_dir: /app
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      database:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
     labels:
       romm.phase: "09"
       romm.phase.slug: operational-immutability-proof
@@ -15,15 +23,43 @@ services:
       REDIS_HOST: queue
       REDIS_PORT: "6379"
       ROMM_BASE_PATH: /romm
+      DEV_HOST: 0.0.0.0
+      PYTHONDONTWRITEBYTECODE: "1"
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+        set -euo pipefail
+        mkdir -p /app/frontend/assets/romm
+        ln -sfn /romm/resources /app/frontend/assets/romm/resources
+        cd /app/backend
+        PYTHONPATH=/app/backend uv run python main.py &
+        cd /app/frontend
+        npx vite --host 0.0.0.0 --port 3000 --strictPort &
+        wait
     volumes:
       - type: bind
         source: ${PHASE9_REPO_ROOT:?set PHASE9_REPO_ROOT}
         target: /workspace
         read_only: true
       - type: bind
-        source: ${PHASE9_FIXTURE_SOURCE:?set PHASE9_FIXTURE_SOURCE}
-        target: /romm/library
+        source: ${PHASE9_REPO_ROOT:?set PHASE9_REPO_ROOT}/backend
+        target: /app/backend
         read_only: true
+      - type: bind
+        source: ${PHASE9_REPO_ROOT:?set PHASE9_REPO_ROOT}/frontend
+        target: /app/frontend
+        read_only: true
+      - type: bind
+        source: ${PHASE9_FIXTURE_SOURCE:?set PHASE9_FIXTURE_SOURCE}
+        target: /romm/library/roms
+        read_only: true
+      - type: volume
+        source: phase9-frontend-assets
+        target: /app/frontend/assets/romm
+      - type: volume
+        source: phase9-frontend-node-modules
+        target: /app/frontend/node_modules
       - type: volume
         source: phase9-assets
         target: /romm/assets
@@ -47,7 +83,15 @@ services:
         target: /phase9-artifacts
   worker:
     image: romm-romm-dev:latest
-    working_dir: /workspace/backend
+    working_dir: /app/backend
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      database:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
     labels:
       romm.phase: "09"
       romm.phase.slug: operational-immutability-proof
@@ -61,14 +105,32 @@ services:
       REDIS_HOST: queue
       REDIS_PORT: "6379"
       ROMM_BASE_PATH: /romm
+      PYTHONDONTWRITEBYTECODE: "1"
+      RQ_REDIS_URL: redis://queue:6379/0
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+        set -euo pipefail
+        cd /app/backend
+        PYTHONPATH=/app/backend rq worker \
+          --path /app/backend \
+          --worker-class handler.rq_worker.RomMWorker \
+          --pid /tmp/rq_worker.pid \
+          --logging_level INFO \
+          high default low
     volumes:
       - type: bind
         source: ${PHASE9_REPO_ROOT:?set PHASE9_REPO_ROOT}
         target: /workspace
         read_only: true
       - type: bind
+        source: ${PHASE9_REPO_ROOT:?set PHASE9_REPO_ROOT}/backend
+        target: /app/backend
+        read_only: true
+      - type: bind
         source: ${PHASE9_FIXTURE_SOURCE:?set PHASE9_FIXTURE_SOURCE}
-        target: /romm/library
+        target: /romm/library/roms
         read_only: true
       - type: volume
         source: phase9-assets
@@ -96,10 +158,16 @@ services:
     labels:
       romm.phase: "09"
       romm.phase.slug: operational-immutability-proof
+    depends_on:
+      - app
     volumes:
       - type: bind
+        source: ${PHASE9_REPO_ROOT:?set PHASE9_REPO_ROOT}/backend/nginx.phase9.conf
+        target: /etc/nginx/conf.d/default.conf
+        read_only: true
+      - type: bind
         source: ${PHASE9_FIXTURE_SOURCE:?set PHASE9_FIXTURE_SOURCE}
-        target: /romm/library
+        target: /romm/library/roms
         read_only: true
       - type: volume
         source: phase9-cache
@@ -113,6 +181,8 @@ services:
       - type: bind
         source: ${PHASE9_ARTIFACTS:?set PHASE9_ARTIFACTS}
         target: /phase9-artifacts
+    ports:
+      - "127.0.0.1:${PHASE9_HOST_PORT:-0}:80"
   database:
     image: mariadb:11
     labels:
@@ -123,6 +193,14 @@ services:
       MARIADB_DATABASE: romm
       MARIADB_USER: romm
       MARIADB_PASSWORD: romm
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mariadb-admin ping -h 127.0.0.1 -uroot -proot --silent
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
     volumes:
       - type: volume
         source: phase9-database
@@ -132,6 +210,15 @@ services:
     labels:
       romm.phase: "09"
       romm.phase.slug: operational-immutability-proof
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 2s
     volumes:
       - type: volume
         source: phase9-cache
@@ -142,5 +229,7 @@ volumes:
   phase9-cache:
   phase9-config:
   phase9-database:
+  phase9-frontend-assets:
+  phase9-frontend-node-modules:
   phase9-resources:
   phase9-tmp:

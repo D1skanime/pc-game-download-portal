@@ -574,6 +574,35 @@ def test_get_rom_content_single_file(
     assert response.headers["content-disposition"].startswith("attachment")
 
 
+def test_get_rom_content_resolves_a_file_inside_the_relative_mapping(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    rom_file: RomFile,
+    mapped_rom_storage: Path,
+):
+    with sync_session.begin() as session:
+        file = session.get(RomFile, rom_file.id)
+        assert file is not None
+        file.file_path = "roms/arcade"
+        file.file_name = "game-list.txt"
+        mapping = session.query(PlatformStorageMapping).one()
+        mapping.relative_path = "arcade"
+
+    source = mapped_rom_storage / "arcade" / "game-list.txt"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("fixture", encoding="utf-8")
+
+    response = client.get(
+        f"/api/roms/{rom.id}/content/game-list.txt",
+        headers={"Authorization": f"Bearer {access_token}"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.content == b"fixture"
+
+
 def test_get_rom_content_single_file_missing_on_disk_is_redacted(
     client: TestClient,
     access_token: str,

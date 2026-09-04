@@ -42,8 +42,14 @@ class MappedContentResponse(StreamingResponse):
     """A response bound to one authorized descriptor for its whole transfer."""
 
 
-def _mapped_relative_path(full_path: str) -> str:
+def _mapped_relative_path(full_path: str, mapping_relative_path: str) -> str:
     parts = PurePath(full_path).parts
+    mapping_parts = PurePath(mapping_relative_path).parts
+    if mapping_parts:
+        for start in (0, 1):
+            end = start + len(mapping_parts)
+            if parts[start:end] == mapping_parts:
+                return PurePath(*parts[end:]).as_posix()
     if len(parts) < 2:
         return parts[0] if parts else ""
     return PurePath(*parts[1:]).as_posix()
@@ -70,7 +76,7 @@ def preflight_mapped_download(rom, file, *, first_use_operation: str = "download
     context = MappingReadContext(mapping.id, mapping.version)
     access = context.open(
         StorageOperation.DOWNLOAD,
-        _mapped_relative_path(file.full_path),
+        _mapped_relative_path(file.full_path, mapping.relative_path),
         first_use_operation=first_use_operation,
     )
     try:
@@ -87,7 +93,8 @@ def preflight_mapped_stat(rom, file) -> int:
     mapping = db_storage_handler.get_active_mapping(rom.platform_id)
     context = MappingReadContext(mapping.id, mapping.version)
     with context.open(
-        StorageOperation.STAT, _mapped_relative_path(file.full_path)
+        StorageOperation.STAT,
+        _mapped_relative_path(file.full_path, mapping.relative_path),
     ) as access:
         metadata = access.stat()
         if not stat_lib.S_ISREG(metadata.st_mode):

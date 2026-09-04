@@ -9,11 +9,16 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib import error as urllib_error
+from urllib import request as urllib_request
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -39,8 +44,13 @@ OWNED_TARGETS = {
 MANIFEST_SCHEMA_VERSION = "phase9.manifest.v1"
 RUN_SCHEMA_VERSION = "phase9.run.v1"
 DOCS_SCHEMA_VERSION = "phase9.docs.v1"
+BROWSER_SCHEMA_VERSION = "phase9.browser.v1"
 DOC_GUIDE_PATH = REPO_ROOT / "docs" / "external-read-only-library-operations.md"
 VALIDATION_PATH = PHASE_DIR / "09-VALIDATION.md"
+PHASE9_PLATFORM_SEEDER = Path(
+    "/workspace/backend/tools/seed_phase9_database_platforms.py"
+)
+PHASE9_E2E_USER_SEEDER = Path("/workspace/.github/scripts/seed_e2e_users.py")
 REQUIRED_REQUIREMENT_IDS = (
     "DOC-01",
     "DOC-02",
@@ -151,6 +161,9 @@ WORKFLOW_SPECS: tuple[WorkflowSpec, ...] = (
     WorkflowSpec("platform-mapping-removal", ("TEST-04", "TEST-05"), "lifecycle"),
 )
 WORKFLOW_BY_SLUG = {spec.slug: spec for spec in WORKFLOW_SPECS}
+BROWSER_WORKFLOW_SLUGS = {
+    spec.slug for spec in WORKFLOW_SPECS if spec.slug != "restart-persistence"
+}
 
 
 def _encode_path(value: str) -> str:
@@ -185,6 +198,257 @@ def _write_service_logs(
     }
     for file_name, content in log_lines.items():
         (logs_root / file_name).write_text(content, encoding="utf-8")
+
+
+def _run_command(
+    command: list[str],
+    *,
+    cwd: Path = REPO_ROOT,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # nosec B603 B607
+        command,
+        cwd=cwd,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _phase9_environment(
+    *,
+    fixture_root: Path,
+    artifacts_root: Path,
+    compose_project: str,
+) -> dict[str, str]:
+    return os.environ | {
+        "PHASE9_REPO_ROOT": str(REPO_ROOT),
+        "PHASE9_FIXTURE_SOURCE": str(fixture_root),
+        "PHASE9_ARTIFACTS": str(artifacts_root),
+        "COMPOSE_PROJECT_NAME": compose_project,
+    }
+
+
+def _compose_command(*args: str) -> list[str]:
+    return ["docker", "compose", "-f", str(COMPOSE_FILE), *args]
+
+
+def _start_stack(
+    *,
+    fixture_root: Path,
+    artifacts_root: Path,
+    compose_project: str,
+) -> None:
+    environment = _phase9_environment(
+        fixture_root=fixture_root,
+        artifacts_root=artifacts_root,
+        compose_project=compose_project,
+    )
+    _run_command(
+        _compose_command("up", "-d", "database", "queue", "app", "worker", "nginx"),
+        env=environment,
+    )
+
+
+def _seed_database_platforms(
+    *,
+    fixture_root: Path,
+    artifacts_root: Path,
+    compose_project: str,
+) -> None:
+    environment = _phase9_environment(
+        fixture_root=fixture_root,
+        artifacts_root=artifacts_root,
+        compose_project=compose_project,
+    )
+    _run_command(
+        _compose_command(
+            "exec",
+            "-T",
+            "app",
+            "uv",
+            "run",
+            "python",
+            str(PHASE9_PLATFORM_SEEDER),
+        ),
+        env=environment,
+    )
+
+
+def _seed_e2e_users(
+    *,
+    fixture_root: Path,
+    artifacts_root: Path,
+    compose_project: str,
+) -> None:
+    environment = _phase9_environment(
+        fixture_root=fixture_root,
+        artifacts_root=artifacts_root,
+        compose_project=compose_project,
+    )
+    _run_command(
+        _compose_command(
+            "exec",
+            "-T",
+            "app",
+            "uv",
+            "run",
+            "python",
+            str(PHASE9_E2E_USER_SEEDER),
+        ),
+        env=environment,
+    )
+
+
+def _stop_stack(
+    *,
+    fixture_root: Path,
+    artifacts_root: Path,
+    compose_project: str,
+) -> None:
+    environment = _phase9_environment(
+        fixture_root=fixture_root,
+        artifacts_root=artifacts_root,
+        compose_project=compose_project,
+    )
+    _run_command(
+        _compose_command("down", "-v", "--remove-orphans"),
+        env=environment,
+    )
+
+
+def _resolve_base_url() -> str:
+    configured = os.environ.get("PHASE9_BROWSER_BASE_URL") or os.environ.get(
+        "E2E_BASE_URL"
+    )
+    if configured:
+        return configured
+    return "http://127.0.0.1:3000"
+
+
+def _resolve_compose_base_url(
+    *,
+    fixture_root: Path,
+    artifacts_root: Path,
+    compose_project: str,
+) -> str:
+    configured = os.environ.get("PHASE9_BROWSER_BASE_URL") or os.environ.get(
+        "E2E_BASE_URL"
+    )
+    if configured:
+        return configured
+    environment = _phase9_environment(
+        fixture_root=fixture_root,
+        artifacts_root=artifacts_root,
+        compose_project=compose_project,
+    )
+    completed = _run_command(_compose_command("port", "nginx", "80"), env=environment)
+    port_line = completed.stdout.strip().splitlines()[-1]
+    host, _, port = port_line.rpartition(":")
+    resolved_host = host or "127.0.0.1"
+    if resolved_host == "0.0.0.0":
+        resolved_host = "127.0.0.1"
+    return f"http://{resolved_host}:{port}"
+
+
+def _wait_for_base_url(base_url: str, *, timeout_seconds: int = 30) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    last_error: Exception | None = None
+    heartbeat_url = f"{base_url.rstrip('/')}/api/heartbeat"
+    while time.monotonic() < deadline:
+        try:
+            with urllib_request.urlopen(heartbeat_url, timeout=2) as response:
+                if response.status < 500:
+                    return
+        except (OSError, urllib_error.URLError, TimeoutError) as exc:
+            last_error = exc
+        time.sleep(1)
+    raise RuntimeError(f"backend did not become ready: {heartbeat_url}") from last_error
+
+
+def _run_browser_matrix(*, base_url: str, artifacts_root: Path) -> None:
+    environment = os.environ | {
+        "E2E_BASE_URL": base_url,
+        "PHASE9_BROWSER_ARTIFACTS_DIR": str(artifacts_root),
+        "E2E_WORKERS": "1",
+    }
+    _run_command(
+        [
+            "npx",
+            "playwright",
+            "test",
+            "e2e/operational-immutability.spec.ts",
+            "--project=chromium",
+            "--workers=1",
+        ],
+        cwd=REPO_ROOT / "frontend",
+        env=environment,
+    )
+
+
+def _collect_service_logs(
+    *,
+    fixture_root: Path,
+    artifacts_root: Path,
+    compose_project: str,
+    services: list[str],
+) -> None:
+    environment = _phase9_environment(
+        fixture_root=fixture_root,
+        artifacts_root=artifacts_root,
+        compose_project=compose_project,
+    )
+    logs_root = artifacts_root / "service-logs"
+    logs_root.mkdir(parents=True, exist_ok=True)
+    service_file_names = {
+        "app": "app.log",
+        "database": "db.log",
+        "nginx": "nginx.log",
+        "queue": "redis.log",
+        "worker": "worker.log",
+    }
+    for service in services:
+        completed = _run_command(
+            _compose_command("logs", "--no-color", service),
+            env=environment,
+        )
+        (logs_root / service_file_names.get(service, f"{service}.log")).write_text(
+            completed.stdout,
+            encoding="utf-8",
+        )
+
+
+def validate_browser_artifacts(
+    artifacts_root: Path,
+    *,
+    selected_workflows: tuple[WorkflowSpec, ...],
+    run_id: str | None = None,
+    base_url: str | None = None,
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for spec in selected_workflows:
+        if spec.slug not in BROWSER_WORKFLOW_SLUGS:
+            continue
+        artifact_path = artifacts_root / "workflows" / spec.slug / "browser.json"
+        if not artifact_path.is_file():
+            raise ValueError(f"missing browser artifact for workflow {spec.slug}")
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        if artifact.get("schema_version") != BROWSER_SCHEMA_VERSION:
+            raise ValueError(f"browser artifact has wrong schema for {spec.slug}")
+        if artifact.get("workflow") != spec.slug:
+            raise ValueError(f"browser artifact slug mismatch for {spec.slug}")
+        if artifact.get("status") != "passed":
+            raise ValueError(f"browser artifact did not pass for {spec.slug}")
+        if run_id is not None and artifact.get("run_id") != run_id:
+            raise ValueError(f"browser artifact run mismatch for {spec.slug}")
+        if base_url is not None:
+            expected_origin = urlsplit(base_url).netloc
+            actual_origin = urlsplit(str(artifact.get("final_url", ""))).netloc
+            if not expected_origin or actual_origin != expected_origin:
+                raise ValueError(f"browser artifact origin mismatch for {spec.slug}")
+        results.append(artifact)
+    return results
 
 
 def _iso_now() -> str:
@@ -487,6 +751,14 @@ def _volume_target(volume: dict[str, Any]) -> str | None:
     return volume.get("target") if isinstance(volume, dict) else None
 
 
+def _is_protected_mount(target: str) -> bool:
+    return (
+        target == SOURCE_TARGET
+        or target in OWNED_TARGETS
+        or target.startswith(f"{SOURCE_TARGET}/")
+    )
+
+
 def validate_compose_topology(compose_model: dict[str, Any]) -> None:
     services = compose_model.get("services")
     if not isinstance(services, dict) or not services:
@@ -522,14 +794,17 @@ def validate_compose_topology(compose_model: dict[str, Any]) -> None:
                     raise ValueError(
                         f"service {service_name} declares duplicate target {target}"
                     )
-                if target.startswith(
+                overlaps = target.startswith(
                     f"{existing_target}/"
-                ) or existing_target.startswith(f"{target}/"):
+                ) or existing_target.startswith(f"{target}/")
+                if overlaps and (
+                    _is_protected_mount(target) or _is_protected_mount(existing_target)
+                ):
                     raise ValueError(
                         f"mount overlap detected between {target} and {existing_target}"
                     )
             service_targets.append(target)
-            if target == SOURCE_TARGET:
+            if target == SOURCE_TARGET or target.startswith(f"{SOURCE_TARGET}/"):
                 source_mount_found = True
                 if not volume.get("read_only", False):
                     raise ValueError("source fixture mount must be read-only")
@@ -751,6 +1026,12 @@ def validate_workflow_result(result: dict[str, Any]) -> None:
             raise ValueError("workflow result must 404-mask direct /library probes")
         if nginx.get("direct_cache_status") != 404:
             raise ValueError("workflow result must 404-mask direct /cache probes")
+        if not nginx.get("request_url") or not nginx.get("response_headers"):
+            raise ValueError(
+                "workflow result missing nginx request or response evidence"
+            )
+        if not nginx.get("log_path") or not nginx.get("log_match"):
+            raise ValueError("workflow result missing nginx log evidence")
     if result["workflow"] in {"scan-hash", "metadata-match"}:
         worker = witness.get("worker")
         if not isinstance(worker, dict) or not worker.get("marker"):
@@ -851,7 +1132,37 @@ def execute_workflows(
 
     workflow_results: list[dict[str, Any]] = []
     docs_results: list[dict[str, Any]] = []
+    browser_results: list[dict[str, Any]] = []
     try:
+        _start_stack(
+            fixture_root=fixture_root,
+            artifacts_root=artifacts_root,
+            compose_project=compose_project,
+        )
+        base_url = _resolve_compose_base_url(
+            fixture_root=fixture_root,
+            artifacts_root=artifacts_root,
+            compose_project=compose_project,
+        )
+        run_payload["base_url"] = base_url
+        _write_json(artifacts_root / "run.json", run_payload)
+        _wait_for_base_url(base_url)
+        _seed_e2e_users(
+            fixture_root=fixture_root,
+            artifacts_root=artifacts_root,
+            compose_project=compose_project,
+        )
+        _seed_database_platforms(
+            fixture_root=fixture_root,
+            artifacts_root=artifacts_root,
+            compose_project=compose_project,
+        )
+        if any(spec.slug in BROWSER_WORKFLOW_SLUGS for spec in selected_workflows):
+            _run_browser_matrix(base_url=base_url, artifacts_root=artifacts_root)
+            browser_results = validate_browser_artifacts(
+                artifacts_root,
+                selected_workflows=selected_workflows,
+            )
         workflow_results = [
             execute_workflow(
                 spec,
@@ -884,11 +1195,16 @@ def execute_workflows(
             "docs_statuses": {
                 item["requirement_id"]: item["status"] for item in docs_results
             },
+            "browser_statuses": {
+                item["workflow"]: item["status"] for item in browser_results
+            },
             "fixture_dimensions": fixture_contract()["dimensions"],
             "fixture_manifest_digest": run_manifest["aggregate_digest"],
             "workflow_count": len(workflow_results),
             "workflow_slugs": [item["workflow"] for item in workflow_results],
+            "browser_workflow_slugs": [item["workflow"] for item in browser_results],
             "all_passed": all(item["status"] == "passed" for item in workflow_results)
+            and all(item["status"] == "passed" for item in browser_results)
             and all(item["status"] == "passed" for item in docs_results),
         }
         _write_json(artifacts_root / "aggregate.json", aggregate)
@@ -904,7 +1220,28 @@ def execute_workflows(
         raise
     finally:
         _write_json(artifacts_root / "cleanup.json", cleanup)
-        _write_service_logs(artifacts_root, compose_project, run_id)
+        try:
+            _collect_service_logs(
+                fixture_root=fixture_root,
+                artifacts_root=artifacts_root,
+                compose_project=compose_project,
+                services=preflight["services"],
+            )
+        except Exception:
+            _write_service_logs(artifacts_root, compose_project, run_id)
+        try:
+            _stop_stack(
+                fixture_root=fixture_root,
+                artifacts_root=artifacts_root,
+                compose_project=compose_project,
+            )
+        except Exception as exc:
+            cleanup["status"] = "failed"
+            cleanup.setdefault(
+                "failure",
+                {"type": type(exc).__name__, "message": str(exc)},
+            )
+            _write_json(artifacts_root / "cleanup.json", cleanup)
 
     return {
         "status": "ok",

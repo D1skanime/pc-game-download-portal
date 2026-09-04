@@ -112,6 +112,76 @@ def _sample_manifest() -> dict:
     }
 
 
+def _fake_workflow_result(module, spec, artifacts_root: Path) -> dict:
+    workflow_root = artifacts_root / "workflows" / spec.slug
+    payload = {
+        "schema_version": module.RUN_SCHEMA_VERSION,
+        "run_id": "phase9-run",
+        "compose_project": "phase9-project",
+        "workflow": spec.slug,
+        "category": spec.category,
+        "requirements": list(spec.requirements),
+        "fixture_root": "source-library",
+        "run_started_at": "2026-08-28T15:00:00+00:00",
+        "completed_at": "2026-08-28T15:00:01+00:00",
+        "status": "passed",
+        "before_manifest_digest": "a" * 64,
+        "after_manifest_digest": "a" * 64,
+        "diff_status": "unchanged",
+        "service_witness": {
+            "app": {"marker": f"app:{spec.slug}", "status": "observed"},
+        },
+    }
+    if spec.needs_nginx_witness:
+        payload["service_witness"]["nginx"] = {
+            "marker": f"nginx:{spec.slug}",
+            "authorized_status": 200,
+            "direct_library_status": 404,
+            "direct_cache_status": 404,
+            "internal_redirect_path": f"/library/{spec.slug}.bin",
+        }
+    if spec.needs_worker_witness:
+        payload["service_witness"]["worker"] = {
+            "marker": f"worker:{spec.slug}",
+            "queue": "default",
+            "job_name": spec.slug.replace("-", "_"),
+            "status": "observed",
+        }
+    if spec.needs_restart_witness:
+        payload["service_witness"]["restart"] = {
+            "marker": f"restart:{spec.slug}",
+            "preserved_mapping_id": 41,
+            "preserved_mapping_version": 2,
+            "post_restart_resolution": "mapping-create",
+            "mounts_reattested": True,
+        }
+    workflow_root.mkdir(parents=True, exist_ok=True)
+    for name in ("before.json", "after.json", "diff.json", "result.json"):
+        (workflow_root / name).write_text("{}\n", encoding="utf-8")
+    return payload
+
+
+def _write_browser_artifacts(module, artifacts_root: Path) -> None:
+    for spec in module.WORKFLOW_SPECS:
+        workflow_root = artifacts_root / "workflows" / spec.slug
+        workflow_root.mkdir(parents=True, exist_ok=True)
+        (workflow_root / "browser.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "phase9.browser.v1",
+                    "workflow": spec.slug,
+                    "status": "passed",
+                    "route_hint": f"/{spec.slug}",
+                    "started_at": "2026-08-28T15:00:00+00:00",
+                    "completed_at": "2026-08-28T15:00:01+00:00",
+                    "final_url": f"http://127.0.0.1:39009/{spec.slug}",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+
 def test_validation_rows_reference_exact_plan_tasks():
     validation = (
         REPO_ROOT
@@ -238,6 +308,62 @@ def test_docs_contract_checks_pass_for_repository_guide():
     assert result["requirement_id"] == "DOC-01"
 
 
+def test_wait_for_base_url_checks_the_backend_heartbeat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    requested: list[str] = []
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+    def open_url(url, timeout):
+        requested.append(url)
+        return Response()
+
+    monkeypatch.setattr(module.urllib_request, "urlopen", open_url)
+
+    module._wait_for_base_url("http://127.0.0.1:39009", timeout_seconds=1)
+
+    assert requested == ["http://127.0.0.1:39009/api/heartbeat"]
+
+
+def test_wait_for_base_url_retries_after_connection_reset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    attempts = 0
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+    def open_url(url, timeout):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise ConnectionResetError("connection reset by peer")
+        return Response()
+
+    monkeypatch.setattr(module.urllib_request, "urlopen", open_url)
+    monkeypatch.setattr(module.time, "sleep", lambda _: None)
+
+    module._wait_for_base_url("http://127.0.0.1:39009", timeout_seconds=1)
+
+    assert attempts == 2
+
+
 def test_docs_contract_rejects_forbidden_team4s_guidance():
     module = _load_module()
     content = """
@@ -267,18 +393,61 @@ docker restart team4s
         module.validate_docs_contract("DOC-03", content)
 
 
-def test_execute_workflows_records_complete_aggregate(tmp_path: Path):
+def test_execute_workflows_records_complete_aggregate(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
     module = _load_module()
+    artifacts_root = tmp_path / "artifacts"
+
+    monkeypatch.setattr(
+        module,
+        "execute_workflow",
+        lambda spec, **kwargs: _fake_workflow_result(module, spec, artifacts_root),
+    )
+    monkeypatch.setattr(
+        module,
+        "_resolve_compose_base_url",
+        lambda **kwargs: "http://127.0.0.1:39009",
+    )
+    monkeypatch.setattr(
+        module, "_start_stack", lambda *args, **kwargs: None, raising=False
+    )
+    monkeypatch.setattr(
+        module, "_wait_for_base_url", lambda *args, **kwargs: None, raising=False
+    )
+    monkeypatch.setattr(
+        module, "_seed_database_platforms", lambda *args, **kwargs: None, raising=False
+    )
+    monkeypatch.setattr(
+        module, "_seed_e2e_users", lambda *args, **kwargs: None, raising=False
+    )
+    monkeypatch.setattr(
+        module,
+        "_run_browser_matrix",
+        lambda *args, **kwargs: _write_browser_artifacts(module, artifacts_root),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        module,
+        "_collect_service_logs",
+        lambda *args, **kwargs: module._write_service_logs(
+            artifacts_root, "phase9-project", "phase9-run"
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        module, "_stop_stack", lambda *args, **kwargs: None, raising=False
+    )
 
     result = module.execute_workflows(
         selected_workflows=module._workflow_selection(None, None, True),
-        artifacts_root=tmp_path / "artifacts",
+        artifacts_root=artifacts_root,
     )
 
     aggregate = copy.deepcopy(
-        json.loads((tmp_path / "artifacts" / "aggregate.json").read_text())
+        json.loads((artifacts_root / "aggregate.json").read_text())
     )
-    cleanup = json.loads((tmp_path / "artifacts" / "cleanup.json").read_text())
+    cleanup = json.loads((artifacts_root / "cleanup.json").read_text())
     assert result["status"] == "ok"
     assert aggregate["all_passed"] is True
     assert aggregate["requirement_ids"] == [
@@ -301,20 +470,254 @@ def test_execute_workflows_emits_cleanup_on_failure(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     module = _load_module()
+    artifacts_root = tmp_path / "artifacts"
 
     def fail_workflow(*args, **kwargs):
         raise RuntimeError("synthetic workflow failure")
 
     monkeypatch.setattr(module, "execute_workflow", fail_workflow)
+    monkeypatch.setattr(
+        module,
+        "_resolve_compose_base_url",
+        lambda **kwargs: "http://127.0.0.1:39009",
+    )
+    monkeypatch.setattr(
+        module, "_start_stack", lambda *args, **kwargs: None, raising=False
+    )
+    monkeypatch.setattr(
+        module, "_wait_for_base_url", lambda *args, **kwargs: None, raising=False
+    )
+    monkeypatch.setattr(
+        module, "_seed_database_platforms", lambda *args, **kwargs: None, raising=False
+    )
+    monkeypatch.setattr(
+        module, "_seed_e2e_users", lambda *args, **kwargs: None, raising=False
+    )
+    monkeypatch.setattr(
+        module, "_run_browser_matrix", lambda *args, **kwargs: None, raising=False
+    )
+    monkeypatch.setattr(
+        module,
+        "validate_browser_artifacts",
+        lambda *args, **kwargs: [],
+    )
+    monkeypatch.setattr(
+        module,
+        "_collect_service_logs",
+        lambda *args, **kwargs: module._write_service_logs(
+            artifacts_root, "phase9-project", "phase9-run"
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        module, "_stop_stack", lambda *args, **kwargs: None, raising=False
+    )
 
     with pytest.raises(RuntimeError, match="synthetic workflow failure"):
         module.execute_workflows(
             selected_workflows=(module.WORKFLOW_SPECS[0],),
-            artifacts_root=tmp_path / "artifacts",
+            artifacts_root=artifacts_root,
         )
 
-    cleanup = json.loads((tmp_path / "artifacts" / "cleanup.json").read_text())
-    run_payload = json.loads((tmp_path / "artifacts" / "run.json").read_text())
+    cleanup = json.loads((artifacts_root / "cleanup.json").read_text())
+    run_payload = json.loads((artifacts_root / "run.json").read_text())
     assert cleanup["status"] == "failed"
     assert cleanup["failure"]["type"] == "RuntimeError"
     assert run_payload["status"] == "failed"
+
+
+def test_validate_browser_artifacts_requires_all_workflow_browser_outputs(
+    tmp_path: Path,
+):
+    module = _load_module()
+    artifacts_root = tmp_path / "artifacts"
+    _write_browser_artifacts(module, artifacts_root)
+    (
+        artifacts_root / "workflows" / module.WORKFLOW_SPECS[0].slug / "browser.json"
+    ).unlink()
+
+    with pytest.raises(ValueError, match="browser artifact"):
+        module.validate_browser_artifacts(
+            artifacts_root, selected_workflows=module.WORKFLOW_SPECS
+        )
+
+
+def test_browser_artifacts_require_the_live_run_and_nginx_origin(tmp_path: Path):
+    module = _load_module()
+    artifacts_root = tmp_path / "artifacts"
+    _write_browser_artifacts(module, artifacts_root)
+    artifact_path = (
+        artifacts_root / "workflows" / module.WORKFLOW_SPECS[0].slug / "browser.json"
+    )
+    artifact = json.loads(artifact_path.read_text())
+    artifact["run_id"] = "another-run"
+    artifact["final_url"] = "http://unrelated.example.invalid/storage"
+    artifact_path.write_text(json.dumps(artifact))
+
+    with pytest.raises(ValueError, match="run|origin"):
+        module.validate_browser_artifacts(
+            artifacts_root,
+            selected_workflows=(module.WORKFLOW_SPECS[0],),
+            run_id="phase9-run",
+            base_url="http://127.0.0.1:39009",
+        )
+
+
+def test_delivery_result_rejects_static_status_without_live_request_evidence():
+    module = _load_module()
+    result = _fake_workflow_result(
+        module,
+        module.WORKFLOW_BY_SLUG["single-download"],
+        Path("/tmp/unused"),
+    )
+
+    with pytest.raises(ValueError, match="request|response|log"):
+        module.validate_workflow_result(result)
+
+
+def test_seed_database_platforms_executes_app_container_seeder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    module = _load_module()
+    commands: list[list[str]] = []
+
+    def fake_run(command, *, cwd=None, env=None):
+        commands.append(command)
+        return None
+
+    monkeypatch.setattr(module, "_run_command", fake_run)
+
+    module._seed_database_platforms(
+        fixture_root=tmp_path / "fixture",
+        artifacts_root=tmp_path / "artifacts",
+        compose_project="phase9-project",
+    )
+
+    assert commands == [
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(module.COMPOSE_FILE),
+            "exec",
+            "-T",
+            "app",
+            "uv",
+            "run",
+            "python",
+            str(module.PHASE9_PLATFORM_SEEDER),
+        ]
+    ]
+
+
+def test_seed_e2e_users_executes_isolated_app_container_seeder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    module = _load_module()
+    commands: list[list[str]] = []
+
+    def fake_run(command, *, cwd=None, env=None):
+        commands.append(command)
+        return None
+
+    monkeypatch.setattr(module, "_run_command", fake_run)
+
+    module._seed_e2e_users(
+        fixture_root=tmp_path / "fixture",
+        artifacts_root=tmp_path / "artifacts",
+        compose_project="phase9-project",
+    )
+
+    assert commands == [
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(module.COMPOSE_FILE),
+            "exec",
+            "-T",
+            "app",
+            "uv",
+            "run",
+            "python",
+            str(module.PHASE9_E2E_USER_SEEDER),
+        ]
+    ]
+
+
+def test_execute_workflows_runs_stack_browser_and_log_collection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    module = _load_module()
+    artifacts_root = tmp_path / "artifacts"
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        module,
+        "execute_workflow",
+        lambda spec, **kwargs: _fake_workflow_result(module, spec, artifacts_root),
+    )
+    monkeypatch.setattr(
+        module,
+        "_resolve_compose_base_url",
+        lambda **kwargs: "http://127.0.0.1:39009",
+    )
+    monkeypatch.setattr(
+        module,
+        "_start_stack",
+        lambda *args, **kwargs: calls.append("start"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        module,
+        "_wait_for_base_url",
+        lambda *args, **kwargs: calls.append("wait"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        module,
+        "_seed_database_platforms",
+        lambda *args, **kwargs: calls.append("seed"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        module,
+        "_seed_e2e_users",
+        lambda *args, **kwargs: calls.append("users"),
+        raising=False,
+    )
+
+    def fake_browser(*args, **kwargs):
+        calls.append("browser")
+        _write_browser_artifacts(module, artifacts_root)
+
+    monkeypatch.setattr(
+        module,
+        "_run_browser_matrix",
+        fake_browser,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        module,
+        "_collect_service_logs",
+        lambda *args, **kwargs: calls.append("logs"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        module,
+        "_stop_stack",
+        lambda *args, **kwargs: calls.append("stop"),
+        raising=False,
+    )
+
+    result = module.execute_workflows(
+        selected_workflows=module._workflow_selection(None, None, True),
+        artifacts_root=artifacts_root,
+    )
+
+    aggregate = json.loads((artifacts_root / "aggregate.json").read_text())
+    assert result["status"] == "ok"
+    assert calls == ["start", "wait", "users", "seed", "browser", "logs", "stop"]
+    assert sorted(aggregate["browser_workflow_slugs"]) == sorted(
+        module.BROWSER_WORKFLOW_SLUGS
+    )

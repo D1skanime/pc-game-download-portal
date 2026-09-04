@@ -1,0 +1,29 @@
+services:
+  romm-dev:
+    ports: !override
+      - "127.0.0.1:3100:3000"
+    depends_on: !override
+      romm-db-dev:
+        condition: service_started
+      romm-valkey-dev:
+        condition: service_started
+
+  romm-db-dev:
+    ports: !reset []
+
+  romm-valkey-dev:
+    ports: !reset []
+
+  romm-postgres-dev:
+    profiles:
+      - authentik
+    ports: !reset []
+
+  romm-authentik-server:
+    profiles:
+      - authentik
+    ports: !reset []
+
+  romm-authentik-worker:
+    profiles:
+      - authentik

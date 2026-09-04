@@ -6,6 +6,7 @@ from anyio import Path as AnyioPath
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from exceptions.storage_exceptions import MissingStorageTargetError
 from logger.logger import log
 
 from .base_handler import ExternalFSHandler, LibraryStructure
@@ -110,7 +111,7 @@ class FSPlatformsHandler(ExternalFSHandler):
 
         try:
             platforms = await self.list_directories(path=self.get_platforms_directory())
-        except FileNotFoundError:
+        except (FileNotFoundError, MissingStorageTargetError):
             # The platforms directory does not exist, which means no library
             # structure has been set up yet. Bootstrap Structure A so the
             # filesystem is in a valid state and report an empty library.

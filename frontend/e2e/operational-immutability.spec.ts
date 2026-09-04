@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { gotoHydrated, seedUiState, STORAGE_STATE } from "./fixtures/auth";
 import {
   expectHeading,
-  firstFilesystemPlatform,
+  firstStoragePlatform,
   firstPlayableRom,
   firstRom,
   listStorageRoots,
@@ -27,10 +27,9 @@ test("browse-test covers login, hydration, and storage administration shells", a
         page.getByRole("tab", { name: /folder mappings/i }),
       ).toBeVisible();
 
-      const platform = await firstFilesystemPlatform(page);
+      const platform = await firstStoragePlatform(page);
       await gotoHydrated(page, `/platforms/${platform.id}/storage`);
       await expect(page.getByText("Storage administration")).toBeVisible();
-      await expectHeading(page, /storage/i);
       await expect(
         page
           .getByRole("button", { name: "Map storage" })
@@ -47,7 +46,7 @@ test.describe("operational immutability workflows", () => {
     page,
   }) => {
     await seedUiState(page, "dark");
-    const platform = await firstFilesystemPlatform(page);
+    const platform = await firstStoragePlatform(page);
     const roots = await listStorageRoots(page);
     test.skip(roots.length === 0, "storage root fixture is required");
 
@@ -71,11 +70,9 @@ test.describe("operational immutability workflows", () => {
       WORKFLOW_SLUGS.preview,
       `/platforms/${platform.id}/storage`,
       async () => {
-        await expect(page.getByText("Preview")).toBeVisible();
+        await expect(page.getByText("Preview", { exact: true })).toBeVisible();
         await expect(
-          page
-            .getByRole("button", { name: "Refresh preview" })
-            .or(page.getByText(/no preview has been started/i)),
+          page.getByRole("button", { name: "Refresh preview" }),
         ).toBeVisible();
       },
     );
@@ -102,10 +99,7 @@ test.describe("operational immutability workflows", () => {
         const removeButton = page.getByRole("button", {
           name: "Remove mapping",
         });
-        const unchangedCopy = page.getByText(
-          /original files remain unchanged/i,
-        );
-        await expect(removeButton.or(unchangedCopy)).toBeVisible();
+        await expect(removeButton).toBeVisible();
       },
     );
   });
@@ -118,17 +112,17 @@ test.describe("operational immutability workflows", () => {
     await runWorkflow(page, WORKFLOW_SLUGS.scanHash, "/scan", async () => {
       await gotoHydrated(page, "/scan");
       await expect(
-        page.getByRole("button", { name: /scan|start scan/i }),
+        page.getByRole("button", { name: "Scan", exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText(/live progress|scan complete|scanning/i),
+        page.getByText("Live progress", { exact: true }),
       ).toBeVisible();
     });
 
     await runWorkflow(page, WORKFLOW_SLUGS.metadataMatch, "/scan", async () => {
       await expect(page.getByText(/metadata/i).first()).toBeVisible();
       await expect(page.getByText(/providers/i).first()).toBeVisible();
-      await expect(page.getByText(/hash matchers/i).first()).toBeVisible();
+      await expect(page.getByText("Proxies", { exact: true })).toBeVisible();
     });
   });
 
@@ -198,7 +192,7 @@ test.describe("operational immutability workflows", () => {
           .getByRole("button", { name: "More actions" })
           .first()
           .click();
-        await page.getByRole("menuitem", { name: /delete/i }).click();
+        await page.getByRole("button", { name: "Delete", exact: true }).click();
         await expect(
           page.getByText(/original files and folders remain unchanged/i),
         ).toBeVisible();
@@ -213,7 +207,7 @@ test.describe("operational immutability workflows", () => {
     page,
   }) => {
     await seedUiState(page, "dark");
-    const platform = await firstFilesystemPlatform(page);
+    const platform = await firstStoragePlatform(page);
     await gotoHydrated(page, `/platforms/${platform.id}/storage`);
 
     await runWorkflow(
@@ -240,9 +234,7 @@ test.describe("operational immutability workflows", () => {
       `/platforms/${platform.id}/storage`,
       async () => {
         await expect(
-          page
-            .getByRole("button", { name: "Remove mapping" })
-            .or(page.getByText(/original files remain unchanged/i)),
+          page.getByRole("button", { name: "Remove mapping" }),
         ).toBeVisible();
       },
     );

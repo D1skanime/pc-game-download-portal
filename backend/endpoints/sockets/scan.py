@@ -25,6 +25,7 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from exceptions.socket_exceptions import ScanStoppedException
+from exceptions.storage_exceptions import MissingPlatformStorageMappingError
 from handler.auth.constants import Scope
 from handler.database import (
     db_collection_handler,
@@ -1223,12 +1224,20 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
     playmatch_enabled = bool(options.get("playmatch_enabled", True))
-    commands = mapping_scan_commands(
-        platform_ids,
-        trigger=ScanTrigger.MANUAL,
-        scope=ScanScope.ROM if roms_ids else ScanScope.PLATFORM,
-        scan_type=scan_type,
-    )
+    try:
+        commands = mapping_scan_commands(
+            platform_ids,
+            trigger=ScanTrigger.MANUAL,
+            scope=ScanScope.ROM if roms_ids else ScanScope.PLATFORM,
+            scan_type=scan_type,
+        )
+    except MissingPlatformStorageMappingError:
+        await socket_handler.socket_server.emit(
+            "scan:done_ko",
+            "No active storage mapping was found for the selected platform.",
+            to=sid,
+        )
+        return
 
     if DEV_MODE:
         return await execute_mapping_scans(

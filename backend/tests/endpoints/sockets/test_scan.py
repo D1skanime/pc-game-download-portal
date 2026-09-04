@@ -16,6 +16,7 @@ from endpoints.sockets.scan import (
     stop_scan_handler,
 )
 from exceptions.fs_exceptions import FolderStructureNotMatchException
+from exceptions.storage_exceptions import MissingPlatformStorageMappingError
 from handler.auth.constants import Scope
 from handler.database.roms_handler import SyncedRomFiles
 from handler.filesystem.roms_handler import (
@@ -1145,6 +1146,24 @@ class TestScanConcurrency:
         await scan_handler("sid", {"type": "quick"})
 
         enqueue.assert_called_once()
+
+    async def test_reports_missing_mapping_to_the_requesting_client(self, mocker, emit):
+        patch_scan_jobs(mocker)
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        mocker.patch.object(
+            scan_module,
+            "mapping_scan_commands",
+            side_effect=MissingPlatformStorageMappingError(1),
+        )
+
+        await scan_handler("sid", {"platforms": [1], "type": "quick"})
+
+        enqueue.assert_not_called()
+        emit.assert_awaited_once_with(
+            "scan:done_ko",
+            "No active storage mapping was found for the selected platform.",
+            to="sid",
+        )
 
     async def test_refuses_when_a_scan_is_running(self, mocker, emit):
         patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))

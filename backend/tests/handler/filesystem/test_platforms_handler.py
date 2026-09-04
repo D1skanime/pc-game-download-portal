@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
+from exceptions.storage_exceptions import MissingStorageTargetError
 from handler.filesystem.platforms_handler import FSPlatformsHandler, LibraryStructure
 
 
@@ -255,6 +256,24 @@ class TestFSPlatformsHandler:
         ):
             with patch.object(
                 handler, "list_directories", side_effect=FileNotFoundError
+            ):
+                with patch.object(handler, "create_library_structure") as mock_create:
+                    result = await handler.get_platforms()
+
+                    assert result == []
+                    mock_create.assert_called_once()
+
+    async def test_get_platforms_bootstraps_when_storage_target_is_missing(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Missing storage targets should bootstrap Structure A and keep heartbeat healthy."""
+        config.has_structure_path_a = False
+        config.has_structure_path_b = False
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch.object(
+                handler, "list_directories", side_effect=MissingStorageTargetError
             ):
                 with patch.object(handler, "create_library_structure") as mock_create:
                     result = await handler.get_platforms()

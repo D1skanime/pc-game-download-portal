@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pickStoragePlatform } from "@/utils/operationalProof";
 import { gotoHydrated, login, seedUiState } from "./auth";
 
 export const WORKFLOW_SLUGS = {
@@ -35,6 +36,7 @@ interface JsonPage<T> {
 
 export interface FilesystemPlatform {
   id: number;
+  fs_slug?: string | null;
   display_name?: string | null;
   name?: string | null;
 }
@@ -157,6 +159,10 @@ export async function listFilesystemPlatforms(page: Page) {
   );
 }
 
+export async function listPlatforms(page: Page) {
+  return getJson<FilesystemPlatform[]>(page.request, "/api/platforms");
+}
+
 export async function listStorageRoots(page: Page) {
   return getJson<StorageRoot[]>(page.request, "/api/storage/roots");
 }
@@ -165,13 +171,14 @@ export async function listRoms(page: Page, query = "limit=10&order_by=name") {
   return getJson<JsonPage<RomSummary>>(page.request, `/api/roms?${query}`);
 }
 
-export async function firstFilesystemPlatform(page: Page) {
-  const platforms = await listFilesystemPlatforms(page);
+export async function firstStoragePlatform(page: Page) {
+  const platforms = await listPlatforms(page);
+  const platform = pickStoragePlatform(platforms);
   expect(
-    platforms.length,
-    "expected at least one filesystem platform",
-  ).toBeGreaterThan(0);
-  return platforms[0];
+    platform,
+    "expected at least one real platform with a database id",
+  ).toBeTruthy();
+  return platform as FilesystemPlatform;
 }
 
 export async function firstRom(page: Page) {
