@@ -1769,12 +1769,18 @@ async def update_rom(
             log.error(f"Invalid screenshot URL in update_rom: {str(e)}")
             raise HTTPException(status_code=400, detail=str(e)) from e
 
-    name_value = form_data.name if "name" in provided_fields else rom.name
+    name_value = (
+        form_data.name
+        if "name" in provided_fields
+        else cleaned_data.get("name", rom.name)
+    )
     cleaned_data.update(
         {
             "name": name_value,
             "summary": (
-                form_data.summary if "summary" in provided_fields else rom.summary
+                form_data.summary
+                if "summary" in provided_fields
+                else cleaned_data.get("summary", rom.summary)
             ),
         }
     )
