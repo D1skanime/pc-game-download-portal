@@ -30,7 +30,7 @@ from handler.metadata.pc_match_handler import PcMetadataCandidate
 from handler.scan_handler import MetadataSource, ScanType
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomComponent, RomComponentKind, RomComponentOwnedMediaRole
+from models.rom import Rom, RomComponentKind, RomComponentOwnedMediaRole
 
 
 def test_scan_stats():
