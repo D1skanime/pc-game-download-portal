@@ -213,6 +213,13 @@ def test_dlc_metadata_selection_accepts_response_media_ids(
     component = db_rom_handler.get_rom(rom.id).components[0]
     candidate = _candidate()
     candidate.media[1]["id"] = "igdb-screenshot-101"
+    candidate.media.append(
+        {
+            "id": "igdb-artwork-101",
+            "kind": "artwork",
+            "url": "https://images.igdb.com/artwork.jpg",
+        }
+    )
     monkeypatch.setattr(
         pc_metadata_match_handler,
         "collect_component_candidates",
@@ -220,9 +227,11 @@ def test_dlc_metadata_selection_accepts_response_media_ids(
             return_value={"igdb": PcMetadataProviderResult("igdb", True, [candidate])}
         ),
     )
-    store = AsyncMock(
-        return_value=("roms/1/1/pc-media/provider-image.webp", "image/webp")
-    )
+
+    async def store_image(_rom, _component_id, media_id, _role, _url):
+        return (f"roms/1/1/pc-media/{media_id}.webp", "image/webp")
+
+    store = AsyncMock(side_effect=store_image)
     monkeypatch.setattr(fs_resource_handler, "store_pc_component_provider_image", store)
 
     review = client.get(
@@ -247,7 +256,7 @@ def test_dlc_metadata_selection_accepts_response_media_ids(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert store.await_count == 2
+    assert store.await_count == 3
 
 
 def test_pc_parent_metadata_selection_imports_confirmed_cover_and_screenshots(

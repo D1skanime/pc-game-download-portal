@@ -52,6 +52,7 @@ MEDIA_ROLES = {
     "cover": RomComponentOwnedMediaRole.COVER,
     "fan_art": RomComponentOwnedMediaRole.BACKGROUND,
     "screenshot": RomComponentOwnedMediaRole.SCREENSHOT,
+    "artwork": RomComponentOwnedMediaRole.ARTWORK,
     "logo": RomComponentOwnedMediaRole.ARTWORK,
 }
 
