@@ -1,4 +1,5 @@
 import re
+from collections.abc import Mapping, Sequence
 from typing import Final, NotRequired, TypedDict
 
 import httpx
@@ -43,6 +44,7 @@ ARCADE_IGDB_IDS: Final = [
     IGDB_PLATFORM_LIST[UPS.NEOGEOAES]["id"],
     IGDB_PLATFORM_LIST[UPS.NEOGEOMVS]["id"],
 ]
+WINDOWS_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.WIN]["id"]
 
 # IGDB catalogues a console and its regional twin as two separate platforms.
 # A game released in only one region is filed under just one of the pair,
@@ -126,6 +128,10 @@ class IGDBMetadata(TypedDict):
     alternative_names: list[str]
     collections: list[str]
     companies: list[str]
+    main_developer: str | None
+    publishers: list[str]
+    themes: list[str]
+    pc_release_date: int | None
     game_modes: list[str]
     age_ratings: list[IGDBAgeRating]
     platforms: list[IGDBMetadataPlatform]
@@ -181,7 +187,9 @@ def extract_metadata_from_igdb_rom(
     ports = rom.get("ports", [])
     remakes = rom.get("remakes", [])
     remasters = rom.get("remasters", [])
+    release_dates = rom.get("release_dates", [])
     similar_games = rom.get("similar_games", [])
+    themes = rom.get("themes", [])
     videos = rom.get("videos", [])
 
     assert mark_expanded(franchise)
@@ -200,8 +208,45 @@ def extract_metadata_from_igdb_rom(
     assert mark_list_expanded(ports)
     assert mark_list_expanded(remakes)
     assert mark_list_expanded(remasters)
+    assert mark_list_expanded(release_dates)
     assert mark_list_expanded(similar_games)
+    assert mark_list_expanded(themes)
     assert mark_list_expanded(videos)
+
+    def named_values(
+        records: Sequence[Mapping[str, object]],
+        *,
+        role: str | None = None,
+        company: bool = False,
+    ) -> list[str]:
+        values: list[str] = []
+        for record in records:
+            if role is not None and record.get(role) is not True:
+                continue
+            value = record.get("company") if company else record
+            if not isinstance(value, dict):
+                continue
+            name = value.get("name")
+            if not isinstance(name, str) or not (normalized_name := name.strip()):
+                continue
+            if normalized_name not in values:
+                values.append(normalized_name)
+        return values
+
+    developers = named_values(involved_companies, role="developer", company=True)
+    publishers = named_values(involved_companies, role="publisher", company=True)
+    normalized_themes = named_values(themes)
+    pc_release_date = next(
+        (
+            release_date["date"]
+            for release_date in release_dates
+            if isinstance(release_date.get("date"), int)
+            and not isinstance(release_date.get("date"), bool)
+            and isinstance(release_date.get("platform"), dict)
+            and release_date["platform"].get("id") == WINDOWS_IGDB_ID
+        ),
+        None,
+    )
 
     multiplayer_modes_metadata = []
 
@@ -253,6 +298,10 @@ def extract_metadata_from_igdb_rom(
             "companies": [
                 c["company"]["name"] for c in involved_companies if c.get("company")
             ],
+            "main_developer": developers[0] if developers else None,
+            "publishers": publishers,
+            "themes": normalized_themes,
+            "pc_release_date": pc_release_date,
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p["id"], name=p.get("name", ""))
                 for p in platforms
@@ -1035,6 +1084,11 @@ GAMES_FIELDS = (
     "collections.name",
     "game_modes.name",
     "involved_companies.company.name",
+    "involved_companies.developer",
+    "involved_companies.publisher",
+    "themes.name",
+    "release_dates.date",
+    "release_dates.platform.id",
     "expansions.id",
     "expansions.slug",
     "expansions.name",

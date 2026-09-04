@@ -1,11 +1,12 @@
 """Tests for the IGDB metadata handler."""
 
 import json
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adapters.services.igdb_types import GameType
+from adapters.services.igdb_types import Game, GameType
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.igdb_handler import (
     FAMICOM_IGDB_ID,
@@ -120,7 +121,9 @@ class TestPcStructuredMetadata:
             }
         )
 
-        metadata = extract_metadata_from_igdb_rom(MagicMock(), game, WINDOWS_IGDB_ID)
+        metadata = extract_metadata_from_igdb_rom(
+            MagicMock(), cast(Game, game), WINDOWS_IGDB_ID
+        )
 
         assert metadata["main_developer"] == "First Developer"
         assert metadata["publishers"] == ["Publisher One", "Developer and Publisher"]
@@ -153,7 +156,9 @@ class TestPcStructuredMetadata:
             }
         )
 
-        metadata = extract_metadata_from_igdb_rom(MagicMock(), game, WINDOWS_IGDB_ID)
+        metadata = extract_metadata_from_igdb_rom(
+            MagicMock(), cast(Game, game), WINDOWS_IGDB_ID
+        )
 
         assert metadata["main_developer"] is None
         assert metadata["publishers"] == ["Valid Publisher"]
