@@ -149,6 +149,7 @@ class IGDBMetadata(TypedDict):
 class IGDBRom(BaseRom):
     igdb_id: int | None
     slug: NotRequired[str]
+    url_artworks: NotRequired[list[str]]
     igdb_metadata: NotRequired[IGDBMetadata]
 
 
@@ -505,7 +506,9 @@ def build_igdb_rom(
         IGDBRom with localized name/cover if available
     """
     rom_screenshots = rom.get("screenshots", [])
+    rom_artworks = rom.get("artworks", [])
     assert mark_list_expanded(rom_screenshots)
+    assert mark_list_expanded(rom_artworks)
 
     localized_name, localized_cover = extract_localized_data(rom, preferred_locale)
 
@@ -520,6 +523,14 @@ def build_igdb_rom(
         url_screenshots=[
             handler.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
             for s in rom_screenshots
+            if s.get("url")
+        ],
+        url_artworks=[
+            handler.normalize_cover_url(artwork.get("url", "")).replace(
+                "t_thumb", "t_720p"
+            )
+            for artwork in rom_artworks
+            if artwork.get("url")
         ],
         igdb_metadata=extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id),
     )
