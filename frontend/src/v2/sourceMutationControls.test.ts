@@ -502,6 +502,23 @@ describe("external source mutation authority inventory", () => {
     expect(files.manifest).not.toMatch(forbiddenSeams);
   });
 
+  it("keeps PC IGDB overview metadata and screenshots read-only and target-owned", () => {
+    const files = {
+      parentOverview: source("src/v2/components/GameDetails/OverviewTab.vue"),
+      dlcDetail: source("src/v2/components/GameDetails/PcDlcDetail.vue"),
+    };
+    const forbiddenSeams =
+      /\b(?:lookupProviderMetadata|applyProviderMetadata|selectLocalMedia|uploadLocalMedia|downloadIntoSource|deleteFromSource|mutateFilesystem)\b/;
+
+    expect(files.parentOverview).toContain(
+      "url.startsWith(`${FRONTEND_RESOURCES_PATH}/`)",
+    );
+    expect(files.parentOverview).not.toMatch(forbiddenSeams);
+    expect(files.dlcDetail).toContain("props.component.owned_media");
+    expect(files.dlcDetail).not.toContain("source_relative_path");
+    expect(files.dlcDetail).not.toMatch(forbiddenSeams);
+  });
+
   it("keeps PC matcher confirmation and DLC resource launchers target-contained", () => {
     const files = {
       matcher: source("src/v2/components/Dialogs/MatchRomDialog.vue"),
