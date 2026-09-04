@@ -90,6 +90,23 @@ class PcMetadataMatchHandler:
         )
         return candidates[0] if len(candidates) == 1 else None
 
+    async def fetch_unique_related_igdb_candidate(
+        self, rom: Rom, component: RomComponent
+    ) -> PcMetadataCandidate | None:
+        """Hydrate one already-unambiguous related IGDB candidate for scan import."""
+        candidate = self.find_unique_related_igdb_candidate(rom, component)
+        if candidate is None:
+            return None
+        igdb = self.providers.get("igdb")
+        get_by_id = getattr(igdb, "get_matched_rom_by_id", None)
+        if get_by_id is None:
+            return candidate
+        try:
+            details = await get_by_id(rom, candidate.provider_ids["igdb_id"])
+        except Exception:
+            return candidate
+        return self._candidate("igdb", details) if details else candidate
+
     @staticmethod
     def _component_search_title(rom: Rom, component: RomComponent) -> str:
         base_title = rom.name or rom.fs_name_no_ext or rom.fs_name
@@ -271,6 +288,8 @@ class PcMetadataMatchHandler:
             media.append({"kind": "cover", "url": str(cover)})
         for screenshot in item.get("url_screenshots", []):
             media.append({"kind": "screenshot", "url": str(screenshot)})
+        for artwork in item.get("url_artworks", []):
+            media.append({"kind": "artwork", "url": str(artwork)})
         if provider == "sgdb":
             for resource in item.get("resources", []):
                 if url := resource.get("url"):

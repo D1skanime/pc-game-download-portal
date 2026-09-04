@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from dataclasses import dataclass
 from itertools import batched, chain
 from typing import Any, Final, cast
@@ -51,7 +52,12 @@ from handler.filesystem.storage_access import (
     open_owned_access,
 )
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
-from handler.metadata import meta_gamelist_handler, meta_hltb_handler
+from handler.metadata import (
+    meta_gamelist_handler,
+    meta_hltb_handler,
+)
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.metadata.pc_match_handler import pc_metadata_match_handler
 from handler.metadata.ss_handler import add_ss_auth_to_url
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import get_preferred_media_types
@@ -80,7 +86,12 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import (
+    Rom,
+    RomComponent,
+    RomComponentKind,
+    RomComponentOwnedMediaRole,
+)
 from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
 from utils import emoji
 from utils.audio_tags import remove_persisted_cover
@@ -90,6 +101,82 @@ from utils.pegasus_exporter import PegasusExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 catalog_lifecycle_handler = CatalogLifecycleHandler()
+
+_PC_IGDB_MEDIA_ROLES = {
+    "cover": RomComponentOwnedMediaRole.COVER,
+    "screenshot": RomComponentOwnedMediaRole.SCREENSHOT,
+    "artwork": RomComponentOwnedMediaRole.ARTWORK,
+}
+
+
+async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
+    """Import an already-unambiguous DLC candidate into RomM-owned storage."""
+    if component.kind != RomComponentKind.DLC:
+        return
+    candidate = await pc_metadata_match_handler.fetch_unique_related_igdb_candidate(
+        rom, component
+    )
+    if candidate is None:
+        return
+
+    saved_component = db_rom_handler.apply_pc_component_metadata_candidate(
+        rom.id,
+        component.id,
+        component.updated_at,
+        candidate.provider,
+        candidate.fields,
+    )
+    if saved_component is None:
+        return
+
+    for position, media in enumerate(candidate.media):
+        role = _PC_IGDB_MEDIA_ROLES.get(media.get("kind", ""))
+        url = media.get("url")
+        if role is None or not isinstance(url, str):
+            continue
+        provider_media_id = hashlib.sha256(
+            f"{candidate.provider}:{candidate.id}:{position}:{role.value}".encode()
+        ).hexdigest()
+        try:
+            owned_path, mime_type = (
+                await fs_resource_handler.store_pc_component_provider_image(
+                    rom,
+                    saved_component.id,
+                    provider_media_id,
+                    role,
+                    url,
+                )
+            )
+        except Exception:
+            log.warning(
+                "Failed to import optional IGDB DLC media for ROM %s component %s",
+                rom.id,
+                saved_component.id,
+                exc_info=True,
+            )
+            continue
+
+        imported = db_rom_handler.import_pc_component_provider_media(
+            rom.id,
+            saved_component.id,
+            saved_component.updated_at,
+            role,
+            mime_type,
+            owned_path,
+            candidate.provider,
+            provider_media_id,
+        )
+        if imported is None:
+            try:
+                await fs_resource_handler.remove_file(owned_path)
+            except FileNotFoundError:
+                pass
+            continue
+        saved_component = db_rom_handler.get_pc_component_by_id(
+            rom.id, saved_component.id
+        )
+        if saved_component is None:
+            return
 
 
 def _scan_platforms_func_name() -> str:
@@ -504,6 +591,24 @@ async def _identify_rom(
     )
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
+
+    if platform.slug == UPS.WIN and isinstance(_added_rom.igdb_metadata, dict):
+        enriched_parent = db_rom_handler.apply_pc_igdb_enrichment(
+            _added_rom.id,
+            _added_rom.updated_at,
+            {
+                "igdb_id": _added_rom.igdb_id,
+                "name": _added_rom.name,
+                "summary": _added_rom.summary,
+                "igdb_metadata": _added_rom.igdb_metadata,
+            },
+        )
+        if enriched_parent is not None:
+            _added_rom = enriched_parent
+        scan_target = db_rom_handler.get_rom(_added_rom.id)
+        if scan_target is not None:
+            for component in scan_target.components:
+                await _enrich_pc_dlc_from_igdb(scan_target, component)
 
     catalog_lifecycle_handler.reconnect_retained_identity(
         rom_id=_added_rom.id,

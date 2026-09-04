@@ -2061,6 +2061,54 @@ class DBRomsHandler(DBBaseHandler):
         return AppliedPcComponentOwnedMedia(media, replaced_owned_paths)
 
     @begin_session
+    def import_pc_component_provider_media(
+        self,
+        rom_id: int,
+        component_id: int,
+        expected_updated_at: datetime,
+        role: RomComponentOwnedMediaRole,
+        mime_type: str,
+        owned_path: str,
+        provider: str,
+        provider_media_id: str,
+        session: Session = None,  # type: ignore
+    ) -> AppliedPcComponentOwnedMedia | None:
+        """Record one scan-imported provider asset only for its current DLC."""
+        component = self._get_pc_dlc_component(
+            session,
+            rom_id,
+            component_id,
+            expected_updated_at,
+            with_owned_media=True,
+        )
+        if component is None:
+            return None
+
+        replaced_owned_paths: list[str] = []
+        if role != RomComponentOwnedMediaRole.SCREENSHOT:
+            for existing in component.owned_media:
+                if existing.role != role:
+                    continue
+                if existing.owned_path != owned_path:
+                    replaced_owned_paths.append(existing.owned_path)
+                session.delete(existing)
+            session.flush()
+
+        media = RomComponentOwnedMedia(
+            component_id=component.id,
+            role=role,
+            mime_type=mime_type,
+            owned_path=owned_path,
+            origin=RomComponentOwnedMediaOrigin.PROVIDER,
+            provider=provider,
+            provider_media_id=provider_media_id,
+        )
+        session.add(media)
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return AppliedPcComponentOwnedMedia(media, replaced_owned_paths)
+
+    @begin_session
     def update_pc_component_owned_media(
         self,
         rom_id: int,
