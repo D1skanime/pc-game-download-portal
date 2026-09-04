@@ -23,6 +23,18 @@ const rom = {
   has_simple_single_file: false,
   files: [],
 } as Partial<DetailedRom> as DetailedRom;
+
+const pcMetadataRom = {
+  ...rom,
+  metadatum: {
+    main_developer: "CD Projekt Red",
+    publishers: ["CD Projekt"],
+    themes: ["Cyberpunk"],
+    pc_release_date: 1725148800000,
+    first_release_date: 1590969600000,
+    age_ratings: [],
+  },
+} as DetailedRom;
 const dlc = {
   id: 123,
   name: "Phantom Liberty",
@@ -67,5 +79,69 @@ describe("OverviewTab", () => {
     expect(
       wrapper.get("[data-testid='dlc-grid']").attributes("data-parent-rom-id"),
     ).toBe("42");
+  });
+
+  it("prefers the PC release and renders distinct PC metadata groups", () => {
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom: pcMetadataRom,
+        summary: null,
+        sections: [],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [],
+        expansions: [],
+        dlcs: [],
+        localDlcComponentIds: {},
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+        parentRomId: 42,
+      },
+    });
+
+    expect(wrapper.text()).toContain("rom.pc-release");
+    expect(wrapper.text()).toContain("2024");
+    expect(wrapper.text()).not.toContain("2020");
+    expect(wrapper.text()).toContain("rom.main-developer");
+    expect(wrapper.text()).toContain("CD Projekt Red");
+    expect(wrapper.text()).toContain("rom.publishers");
+    expect(wrapper.text()).toContain("CD Projekt");
+    expect(wrapper.text()).toContain("rom.themes");
+    expect(wrapper.text()).toContain("Cyberpunk");
+  });
+
+  it("renders only owned parent screenshot paths and omits absent PC metadata", () => {
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom,
+        summary: null,
+        sections: [],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [
+          "/assets/romm/resources/roms/1/screenshots/owned.webp",
+          "https://images.igdb.com/provider-only.webp",
+        ],
+        expansions: [],
+        dlcs: [],
+        localDlcComponentIds: {},
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+        parentRomId: 42,
+      },
+    });
+
+    expect(wrapper.html()).toContain("owned.webp");
+    expect(wrapper.html()).not.toContain("provider-only.webp");
+    expect(wrapper.text()).not.toContain("rom.pc-release");
+    expect(wrapper.text()).not.toContain("rom.main-developer");
   });
 });

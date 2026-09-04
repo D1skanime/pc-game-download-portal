@@ -37,6 +37,10 @@ const selectedDlc = {
     summary: "Only selected DLC metadata is visible.",
     metadata_source: "local",
     provider_metadata: null,
+    main_developer: "CD Projekt Red",
+    publishers: ["CD Projekt"],
+    themes: ["Cyberpunk"],
+    pc_release_date: 1725148800000,
   },
   local_media: [
     {
@@ -220,5 +224,56 @@ describe("PcDlcDetail", () => {
     expect(
       wrapper.find("[data-testid='pc-dlc-cover-placeholder']").exists(),
     ).toBe(false);
+  });
+
+  it("renders only this DLC's owned screenshots and structured PC metadata", () => {
+    const wrapper = mountDetail({
+      ...selectedDlc,
+      owned_media: [
+        {
+          id: 43,
+          role: "screenshot",
+          mime_type: "image/jpeg",
+          owned_path: "roms/1/pc-owned-media/2/provider-shot.jpg",
+          origin: "provider",
+          provider: "igdb",
+          provider_media_id: "provider-shot",
+          created_at: "2026-09-03T00:00:00+00:00",
+          updated_at: "2026-09-03T00:00:00+00:00",
+        },
+      ],
+    });
+
+    expect(wrapper.text()).toContain("rom.pc-release");
+    expect(wrapper.text()).toContain("2024");
+    expect(wrapper.text()).toContain("rom.main-developer");
+    expect(wrapper.text()).toContain("CD Projekt Red");
+    expect(wrapper.text()).toContain("rom.publishers");
+    expect(wrapper.text()).toContain("CD Projekt");
+    expect(wrapper.text()).toContain("rom.themes");
+    expect(wrapper.text()).toContain("Cyberpunk");
+    expect(wrapper.html()).toContain("components/2/provider-shot.jpg");
+    expect(wrapper.html()).not.toContain("components/3/cover.webp");
+    expect(wrapper.html()).not.toContain("parent-cover.webp");
+  });
+
+  it("omits PC groups and screenshots when the selected DLC has none", () => {
+    const wrapper = mountDetail({
+      ...selectedDlc,
+      component_metadata: {
+        ...selectedDlc.component_metadata,
+        main_developer: null,
+        publishers: [],
+        themes: [],
+        pc_release_date: null,
+      },
+      owned_media: [],
+    });
+
+    expect(wrapper.text()).not.toContain("rom.pc-release");
+    expect(wrapper.text()).not.toContain("rom.main-developer");
+    expect(wrapper.find("[data-testid='pc-dlc-screenshots']").exists()).toBe(
+      false,
+    );
   });
 });
