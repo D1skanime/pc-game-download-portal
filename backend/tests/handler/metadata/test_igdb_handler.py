@@ -100,6 +100,9 @@ class TestPcStructuredMetadata:
         assert result["url_artworks"] == [
             "https://images.igdb.com/igdb/image/upload/t_720p/artwork-a.jpg"
         ]
+        assert result["url_screenshots"] == [
+            "https://images.igdb.com/igdb/image/upload/t_720p/artwork-a.jpg"
+        ]
 
     def test_extracts_role_aware_metadata_and_windows_release_date(self):
         game = _make_game(1, "PC Game")
