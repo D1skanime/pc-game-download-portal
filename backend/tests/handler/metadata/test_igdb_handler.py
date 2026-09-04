@@ -18,6 +18,7 @@ from handler.metadata.igdb_handler import (
     IGDBHandler,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    build_igdb_rom,
     extract_metadata_from_igdb_rom,
     get_igdb_preferred_locale,
 )
@@ -85,6 +86,21 @@ class TestGetIGDBPreferredLocale:
 
 
 class TestPcStructuredMetadata:
+    def test_builds_owned_importable_artwork_urls(self):
+        game = _make_game(1, "PC Game")
+        game["artworks"] = [
+            {"url": "//images.igdb.com/igdb/image/upload/t_thumb/artwork-a.jpg"},
+            {"url": ""},
+        ]
+        handler = MagicMock()
+        handler.normalize_cover_url.side_effect = lambda value: f"https:{value}"
+
+        result = build_igdb_rom(handler, cast(Game, game), None, WINDOWS_IGDB_ID)
+
+        assert result["url_artworks"] == [
+            "https://images.igdb.com/igdb/image/upload/t_720p/artwork-a.jpg"
+        ]
+
     def test_extracts_role_aware_metadata_and_windows_release_date(self):
         game = _make_game(1, "PC Game")
         game.update(
