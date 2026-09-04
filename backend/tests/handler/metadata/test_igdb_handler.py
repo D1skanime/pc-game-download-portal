@@ -9,6 +9,7 @@ from adapters.services.igdb_types import GameType
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.igdb_handler import (
     FAMICOM_IGDB_ID,
+    GAMES_FIELDS,
     NES_IGDB_ID,
     PS1_IGDB_ID,
     SNES_IGDB_ID,
@@ -16,11 +17,13 @@ from handler.metadata.igdb_handler import (
     IGDBHandler,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    extract_metadata_from_igdb_rom,
     get_igdb_preferred_locale,
 )
 from handler.redis_handler import async_cache
 
 GENESIS_IGDB_ID = 29
+WINDOWS_IGDB_ID = 6
 
 
 def _make_game(
@@ -78,6 +81,91 @@ class TestGetIGDBPreferredLocale:
             locale = get_igdb_preferred_locale(rom)
 
         assert locale == "ja-JP"
+
+
+class TestPcStructuredMetadata:
+    def test_extracts_role_aware_metadata_and_windows_release_date(self):
+        game = _make_game(1, "PC Game")
+        game.update(
+            {
+                "first_release_date": 1_500_000_000,
+                "involved_companies": [
+                    {"company": {"name": "First Developer"}, "developer": True},
+                    {
+                        "company": {"name": "Publisher One"},
+                        "publisher": True,
+                    },
+                    {
+                        "company": {"name": "Publisher One"},
+                        "publisher": True,
+                    },
+                    {
+                        "company": {"name": "Developer and Publisher"},
+                        "developer": True,
+                        "publisher": True,
+                    },
+                    {"company": {"name": ""}, "publisher": True},
+                    {"developer": True, "publisher": True},
+                ],
+                "themes": [
+                    {"name": "Science fiction"},
+                    {"name": "Science fiction"},
+                    {"name": ""},
+                    {},
+                ],
+                "release_dates": [
+                    {"date": 1_400_000_000, "platform": {"id": GENESIS_IGDB_ID}},
+                    {"date": 1_600_000_000, "platform": {"id": WINDOWS_IGDB_ID}},
+                ],
+            }
+        )
+
+        metadata = extract_metadata_from_igdb_rom(MagicMock(), game, WINDOWS_IGDB_ID)
+
+        assert metadata["main_developer"] == "First Developer"
+        assert metadata["publishers"] == ["Publisher One", "Developer and Publisher"]
+        assert metadata["themes"] == ["Science fiction"]
+        assert metadata["pc_release_date"] == 1_600_000_000
+        assert metadata["companies"] == [
+            "First Developer",
+            "Publisher One",
+            "Publisher One",
+            "Developer and Publisher",
+            "",
+        ]
+        assert metadata["first_release_date"] == 1_500_000_000
+
+    def test_ignores_malformed_and_non_windows_release_data(self):
+        game = _make_game(1, "PC Game")
+        game.update(
+            {
+                "involved_companies": [
+                    {"company": {"name": "  "}, "developer": True},
+                    {"company": {"name": "Valid Publisher"}, "publisher": True},
+                ],
+                "themes": [{"name": "  "}, {"name": None}],
+                "release_dates": [
+                    {"date": 1_400_000_000, "platform": {"id": GENESIS_IGDB_ID}},
+                    {"date": "invalid", "platform": {"id": WINDOWS_IGDB_ID}},
+                    {"date": 1_600_000_000, "platform": {}},
+                    {},
+                ],
+            }
+        )
+
+        metadata = extract_metadata_from_igdb_rom(MagicMock(), game, WINDOWS_IGDB_ID)
+
+        assert metadata["main_developer"] is None
+        assert metadata["publishers"] == ["Valid Publisher"]
+        assert metadata["themes"] == []
+        assert metadata["pc_release_date"] is None
+
+    def test_requests_all_structured_pc_metadata_fields(self):
+        assert "involved_companies.developer" in GAMES_FIELDS
+        assert "involved_companies.publisher" in GAMES_FIELDS
+        assert "themes.name" in GAMES_FIELDS
+        assert "release_dates.date" in GAMES_FIELDS
+        assert "release_dates.platform.id" in GAMES_FIELDS
 
 
 class TestSearchRomGameTypeFilter:
