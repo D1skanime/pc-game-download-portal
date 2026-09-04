@@ -215,6 +215,13 @@ def test_dlc_metadata_selection_accepts_response_media_ids(
     candidate.media[1]["id"] = "igdb-screenshot-101"
     candidate.media.append(
         {
+            "id": "igdb-screenshot-102",
+            "kind": "screenshot",
+            "url": "https://images.igdb.com/screenshot-2.jpg",
+        }
+    )
+    candidate.media.append(
+        {
             "id": "igdb-artwork-101",
             "kind": "artwork",
             "url": "https://images.igdb.com/artwork.jpg",
@@ -256,7 +263,12 @@ def test_dlc_metadata_selection_accepts_response_media_ids(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert store.await_count == 3
+    assert store.await_count == 4
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert [media.role.value for media in saved.components[0].owned_media].count(
+        "screenshot"
+    ) == 2
 
 
 def test_pc_parent_metadata_selection_imports_confirmed_cover_and_screenshots(

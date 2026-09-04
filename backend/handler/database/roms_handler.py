@@ -2037,13 +2037,27 @@ class DBRomsHandler(DBBaseHandler):
             return None
 
         replaced_owned_paths: list[str] = []
-        if role != RomComponentOwnedMediaRole.GALLERY:
+        if role not in {
+            RomComponentOwnedMediaRole.GALLERY,
+            RomComponentOwnedMediaRole.SCREENSHOT,
+        }:
             for existing in component.owned_media:
                 if existing.role != role:
                     continue
                 if existing.owned_path != owned_path:
                     replaced_owned_paths.append(existing.owned_path)
                 session.delete(existing)
+            session.flush()
+        elif provider is not None and provider_media_id is not None:
+            for existing in component.owned_media:
+                if (
+                    existing.role == role
+                    and existing.provider == provider
+                    and existing.provider_media_id == provider_media_id
+                ):
+                    if existing.owned_path != owned_path:
+                        replaced_owned_paths.append(existing.owned_path)
+                    session.delete(existing)
             session.flush()
 
         media = RomComponentOwnedMedia(
