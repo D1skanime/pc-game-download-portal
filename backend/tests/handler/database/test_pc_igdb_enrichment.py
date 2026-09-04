@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from tests.conftest import session
 
 from handler.database import db_rom_handler
-from models.rom import RomComponent, RomComponentKind
+from models.rom import RomComponent, RomComponentKind, RomComponentOwnedMediaRole
 
 
 def _metadata() -> dict[str, object]:
@@ -93,6 +93,47 @@ def test_pc_igdb_enrichment_rejects_stale_parent_or_component(rom):
             target.updated_at - timedelta(seconds=1),
             "igdb",
             _metadata(),
+        )
+        is None
+    )
+
+
+def test_scan_provider_media_import_is_dlc_contained_and_version_guarded(rom):
+    component = RomComponent(
+        rom_id=rom.id,
+        relative_path="dlc/media",
+        kind=RomComponentKind.DLC,
+    )
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+
+    target = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert target is not None
+    imported = db_rom_handler.import_pc_component_provider_media(
+        rom.id,
+        target.id,
+        target.updated_at,
+        RomComponentOwnedMediaRole.ARTWORK,
+        "image/webp",
+        "roms/1/pc-owned-media/artwork.webp",
+        "igdb",
+        "stable-media-id",
+    )
+    assert imported is not None
+    assert imported.media.component_id == target.id
+    assert imported.media.provider_media_id == "stable-media-id"
+
+    assert (
+        db_rom_handler.import_pc_component_provider_media(
+            rom.id,
+            target.id,
+            target.updated_at - timedelta(seconds=1),
+            RomComponentOwnedMediaRole.ARTWORK,
+            "image/webp",
+            "roms/1/pc-owned-media/stale.webp",
+            "igdb",
+            "stale-media-id",
         )
         is None
     )

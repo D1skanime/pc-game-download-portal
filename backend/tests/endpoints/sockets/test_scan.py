@@ -26,10 +26,11 @@ from handler.filesystem.roms_handler import (
     ParsedTags,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.metadata.pc_match_handler import PcMetadataCandidate
 from handler.scan_handler import MetadataSource, ScanType
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomComponent, RomComponentKind, RomComponentOwnedMediaRole
 
 
 def test_scan_stats():
@@ -60,6 +61,93 @@ def test_scan_stats():
     assert stats.identified_roms == 1
     assert stats.scanned_firmware == 1
     assert stats.new_firmware == 1
+
+
+async def test_scan_enrichment_imports_only_trusted_dlc_media(mocker):
+    rom = MagicMock(id=7, igdb_metadata={"dlcs": []})
+    component = MagicMock(
+        id=11,
+        kind=RomComponentKind.DLC,
+        updated_at=object(),
+    )
+    candidate = PcMetadataCandidate(
+        id="candidate-id",
+        provider="igdb",
+        title="Trusted DLC",
+        provider_ids={"igdb_id": 77},
+        description_available=True,
+        fields={"igdb_id": 77, "igdb_metadata": {"themes": ["Fantasy"]}},
+        media=[
+            {"kind": "cover", "url": "https://images.example/cover.webp"},
+            {
+                "kind": "artwork",
+                "url": "https://images.example/artwork.webp",
+            },
+        ],
+    )
+    saved = MagicMock(id=11, updated_at=object())
+    db = mocker.patch.object(scan_module, "db_rom_handler")
+    db.apply_pc_component_metadata_candidate.return_value = saved
+    db.get_pc_component_by_id.return_value = saved
+    matcher = mocker.patch.object(scan_module, "pc_metadata_match_handler")
+    matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=candidate)
+    store = mocker.patch.object(
+        scan_module.fs_resource_handler,
+        "store_pc_component_provider_image",
+        AsyncMock(
+            side_effect=[
+                ("owned/cover.webp", "image/webp"),
+                ("owned/art.webp", "image/webp"),
+            ]
+        ),
+    )
+
+    await scan_module._enrich_pc_dlc_from_igdb(rom, component)
+
+    db.apply_pc_component_metadata_candidate.assert_called_once_with(
+        7, 11, component.updated_at, "igdb", candidate.fields
+    )
+    assert store.await_count == 2
+    assert db.import_pc_component_provider_media.call_count == 2
+    assert {
+        call.args[3] for call in db.import_pc_component_provider_media.call_args_list
+    } == {RomComponentOwnedMediaRole.COVER, RomComponentOwnedMediaRole.ARTWORK}
+
+
+async def test_scan_enrichment_ignores_ambiguous_dlc_and_media_failure(mocker):
+    rom = MagicMock(id=7, igdb_metadata={"dlcs": []})
+    component = MagicMock(id=11, kind=RomComponentKind.DLC, updated_at=object())
+    db = mocker.patch.object(scan_module, "db_rom_handler")
+    matcher = mocker.patch.object(scan_module, "pc_metadata_match_handler")
+    matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=None)
+
+    await scan_module._enrich_pc_dlc_from_igdb(rom, component)
+
+    db.apply_pc_component_metadata_candidate.assert_not_called()
+
+    candidate = PcMetadataCandidate(
+        id="candidate-id",
+        provider="igdb",
+        title="Trusted DLC",
+        provider_ids={"igdb_id": 77},
+        description_available=True,
+        fields={"igdb_id": 77, "igdb_metadata": {}},
+        media=[{"kind": "screenshot", "url": "https://images.example/fail.webp"}],
+    )
+    saved = MagicMock(id=11, updated_at=object())
+    matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=candidate)
+    db.apply_pc_component_metadata_candidate.return_value = saved
+    store = mocker.patch.object(
+        scan_module.fs_resource_handler,
+        "store_pc_component_provider_image",
+        AsyncMock(side_effect=ValueError("invalid image")),
+    )
+
+    await scan_module._enrich_pc_dlc_from_igdb(rom, component)
+
+    db.apply_pc_component_metadata_candidate.assert_called_once()
+    store.assert_awaited_once()
+    db.import_pc_component_provider_media.assert_not_called()
 
 
 async def test_merging_scan_stats():
