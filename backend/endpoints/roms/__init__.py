@@ -1751,6 +1751,8 @@ async def update_rom(
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
 
+    cleaned_data.pop("url_artworks", None)
+
     url_screenshots = cleaned_data.get("url_screenshots", [])
     screenshots_changed = pydash.xor(url_screenshots, rom.url_screenshots or [])
     if url_screenshots:

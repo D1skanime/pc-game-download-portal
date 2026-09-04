@@ -758,6 +758,32 @@ def test_update_rom(
     get_rom_by_id_mock.assert_not_called()
 
 
+@patch.object(
+    IGDBHandler,
+    "get_rom_by_id",
+    return_value=IGDBRom(
+        igdb_id=MOCK_IGDB_ID,
+        url_artworks=["https://images.igdb.com/igdb/image/upload/t_720p/artwork.jpg"],
+    ),
+)
+def test_update_rom_uses_igdb_artwork_without_persisting_its_url(
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """Transient IGDB artwork URLs must not become Rom table update fields."""
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"igdb_id": str(MOCK_IGDB_ID), "fs_name": rom.fs_name},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["igdb_id"] == MOCK_IGDB_ID
+    get_rom_by_id_mock.assert_awaited_once()
+
+
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_preserves_tags_with_current_fs_name_binding(
