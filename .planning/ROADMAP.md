@@ -368,3 +368,20 @@ Plans:
 - [x] 12-01-PLAN.md: Route both parent-detail DLC entry points to the canonical page.
 - [x] 12-03-PLAN.md: Render selected component detail evidence and immutable files.
 - [x] 12-06-PLAN.md: Prove source safety and complete visual and input validation.
+
+### Phase 13: PC IGDB metadata and DLC media
+
+**Goal:** Enrich Windows PC parent ROMs and unambiguously linked DLCs with
+normalized IGDB metadata and RomM-owned media, then present it in their v2
+detail views without mutating the source library.
+**Requirements**: PC-specific developer, publishers, themes, Windows release
+date, owned cover/screenshots/artwork, and parent/DLC detail presentation.
+**Depends on:** Phase 12
+**Plans:** 4 plans
+
+Plans:
+
+- [ ] 13-01-PLAN.md: Normalize and persist structured PC IGDB metadata.
+- [ ] 13-02-PLAN.md: Enrich scan-time parents and unambiguous DLCs with owned media.
+- [ ] 13-03-PLAN.md: Expose and render PC metadata/media in v2 parent and DLC details.
+- [ ] 13-04-PLAN.md: Verify safety, metadata, media, and focused UAT.
