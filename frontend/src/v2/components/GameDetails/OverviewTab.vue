@@ -186,7 +186,7 @@ const releaseDate = computed(() => {
     pcMetadata.value?.first_release_date ??
     null;
   if (!timestamp) return null;
-  return new Date(Number(timestamp)).toLocaleDateString(
+  return new Date(Number(timestamp) * 1000).toLocaleDateString(
     toBrowserLocale(locale.value),
     { day: "2-digit", month: "short", year: "numeric" },
   );

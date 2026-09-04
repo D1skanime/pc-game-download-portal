@@ -41,7 +41,7 @@ const selectedDlc = {
     main_developer: "CD Projekt Red",
     publishers: ["CD Projekt"],
     themes: ["Cyberpunk"],
-    pc_release_date: 1725148800000,
+    pc_release_date: 1725148800,
   },
   local_media: [
     {

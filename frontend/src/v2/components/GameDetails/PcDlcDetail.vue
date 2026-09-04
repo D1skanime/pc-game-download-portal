@@ -83,7 +83,7 @@ const pcMetadata = computed(() => props.component.component_metadata);
 const releaseDate = computed(() => {
   const timestamp = pcMetadata.value?.pc_release_date;
   if (!timestamp) return null;
-  return new Date(Number(timestamp)).toLocaleDateString(
+  return new Date(Number(timestamp) * 1000).toLocaleDateString(
     toBrowserLocale(locale.value),
     { day: "2-digit", month: "short", year: "numeric" },
   );

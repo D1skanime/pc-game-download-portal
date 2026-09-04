@@ -38,7 +38,7 @@ const pcMetadataRom = {
     publishers: ["CD Projekt"],
     themes: ["Cyberpunk"],
     game_modes: [],
-    pc_release_date: 1725148800000,
+    pc_release_date: 1725148800,
     first_release_date: 1590969600000,
     age_ratings: [],
     player_count: "",
