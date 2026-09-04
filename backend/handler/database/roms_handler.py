@@ -1779,6 +1779,29 @@ class DBRomsHandler(DBBaseHandler):
         return session.query(Rom).filter_by(id=id).one()
 
     @begin_session
+    def apply_pc_igdb_enrichment(
+        self,
+        id: int,
+        expected_updated_at: datetime,
+        data: dict[str, Any],
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        """Persist normalized IGDB data only while the scanned ROM is current."""
+        igdb_metadata = data.get("igdb_metadata")
+        if not isinstance(igdb_metadata, dict):
+            return None
+        values = {"igdb_metadata": igdb_metadata}
+        for field in ("igdb_id", "name", "summary"):
+            if field in data:
+                values[field] = data[field]
+        return self.apply_pc_metadata_candidate(
+            id=id,
+            expected_updated_at=expected_updated_at,
+            data=values,
+            session=session,
+        )
+
+    @begin_session
     def apply_pc_component_metadata_candidate(
         self,
         rom_id: int,
@@ -1832,6 +1855,16 @@ class DBRomsHandler(DBBaseHandler):
             for key, value in data.items()
             if key.endswith("_metadata") and value is not None
         }
+        igdb_metadata = data.get("igdb_metadata")
+        if isinstance(igdb_metadata, dict):
+            for field in (
+                "main_developer",
+                "publishers",
+                "themes",
+                "pc_release_date",
+            ):
+                if field in igdb_metadata:
+                    setattr(metadata, field, igdb_metadata[field])
         component.updated_at = datetime.now(timezone.utc)
         session.flush()
         session.refresh(component, attribute_names=["component_metadata"])
