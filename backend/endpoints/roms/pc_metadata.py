@@ -372,7 +372,7 @@ def _candidate_schema(candidate: PcMetadataCandidate) -> PcMetadataCandidateSche
         provider_ids=candidate.provider_ids,
         description_available=candidate.description_available,
         media=[
-            {"id": _candidate_media_id(candidate, media), **media}
+            {**media, "id": _candidate_media_id(candidate, media)}
             for media in candidate.media
         ],
     )

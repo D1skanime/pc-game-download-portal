@@ -197,6 +197,59 @@ def test_dlc_metadata_selection_imports_only_selected_candidate_media(
     assert saved.components[0].owned_media[0].provider == "igdb"
 
 
+def test_dlc_metadata_selection_accepts_response_media_ids(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    candidate = _candidate()
+    candidate.media[1]["id"] = "igdb-screenshot-101"
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates",
+        AsyncMock(
+            return_value={"igdb": PcMetadataProviderResult("igdb", True, [candidate])}
+        ),
+    )
+    store = AsyncMock(
+        return_value=("roms/1/1/pc-media/provider-image.webp", "image/webp")
+    )
+    monkeypatch.setattr(fs_resource_handler, "store_pc_component_provider_image", store)
+
+    review = client.get(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-candidates",
+        headers=_headers(access_token),
+        params={"query": "Phantom Liberty"},
+    )
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": candidate.id,
+            "query": "Phantom Liberty",
+            "selected_media_ids": [
+                media["id"]
+                for media in review.json()["providers"]["igdb"]["candidates"][0][
+                    "media"
+                ]
+            ],
+            "expected_version": review.json()["expected_version"],
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert store.await_count == 2
+
+
 def test_pc_parent_metadata_selection_imports_confirmed_cover_and_screenshots(
     client, access_token, rom, monkeypatch
 ):
