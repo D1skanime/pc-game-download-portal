@@ -154,22 +154,29 @@ describe("PcDlcDetail", () => {
     );
   });
 
-  it("keeps the DLC tag on the title row without displacing the title", () => {
+  it("keeps the header above tabs to the title and DLC tag, with overview details below", () => {
     const wrapper = mountDetail();
     const hero = wrapper.get(".pc-dlc-detail__hero");
     const titleRow = wrapper.get(".pc-dlc-detail__title-row");
     const title = titleRow.get("h1");
     const tag = titleRow.get("span");
-    const summary = hero.get(".pc-dlc-detail__summary");
+    const panel = wrapper.get(".r-v2-det__panel");
+    const summary = panel.get(".pc-dlc-detail__summary");
+    const facts = panel.get(".pc-dlc-detail__facts");
 
     expect(hero.element.firstElementChild).toBe(titleRow.element);
+    expect(hero.element.childElementCount).toBe(1);
     expect(title.text()).toBe("Selected expansion");
     expect(title.element.compareDocumentPosition(tag.element)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(tag.attributes("text")).toBe("DLC");
-    expect(titleRow.element.nextElementSibling).toBe(summary.element);
+    expect(hero.find(".pc-dlc-detail__summary").exists()).toBe(false);
+    expect(hero.find(".pc-dlc-detail__facts").exists()).toBe(false);
     expect(summary.text()).toBe("Only selected DLC metadata is visible.");
+    expect(facts.text()).toContain("DLC/Expansion");
+    expect(facts.text()).toContain("1");
+    expect(facts.text()).toContain("1 KB");
   });
 
   it("uses a localized path title and neutral cover placeholder when selected media is absent", () => {

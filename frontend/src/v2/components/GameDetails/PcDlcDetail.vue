@@ -138,21 +138,6 @@ function showMedia() {
             <h1 class="pc-dlc-detail__title">{{ title }}</h1>
             <RTag :text="t('rom.category-dlc')" tone="brand" />
           </div>
-          <p v-if="summary" class="pc-dlc-detail__summary">{{ summary }}</p>
-          <dl class="pc-dlc-detail__facts">
-            <div class="pc-dlc-detail__fact">
-              <dt>{{ t("rom.file") }}</dt>
-              <dd>{{ component.relative_path }}</dd>
-            </div>
-            <div class="pc-dlc-detail__fact">
-              <dt>{{ t("rom.files") }}</dt>
-              <dd>{{ component.manifest_members.length }}</dd>
-            </div>
-            <div class="pc-dlc-detail__fact">
-              <dt>{{ t("common.size") }}</dt>
-              <dd>{{ formatBytes(manifestSize) }}</dd>
-            </div>
-          </dl>
         </section>
 
         <div class="pc-dlc-detail__tab-bar">
@@ -184,20 +169,37 @@ function showMedia() {
         </div>
 
         <div class="r-v2-det__panel">
-          <section
-            v-if="tab === 'overview' && media.length > 0"
-            data-testid="pc-dlc-media"
-            class="pc-dlc-detail__media"
-          >
-            <RImg
-              v-for="item in media"
-              :key="item.id"
-              :src="ownedMediaUrl(item.owned_path)"
-              :alt="title"
-              class="pc-dlc-detail__media-image"
-              aspect-ratio="16/9"
-              cover
-            />
+          <section v-if="tab === 'overview'" class="pc-dlc-detail__overview">
+            <p v-if="summary" class="pc-dlc-detail__summary">{{ summary }}</p>
+            <dl class="pc-dlc-detail__facts">
+              <div class="pc-dlc-detail__fact">
+                <dt>{{ t("rom.file") }}</dt>
+                <dd>{{ component.relative_path }}</dd>
+              </div>
+              <div class="pc-dlc-detail__fact">
+                <dt>{{ t("rom.files") }}</dt>
+                <dd>{{ component.manifest_members.length }}</dd>
+              </div>
+              <div class="pc-dlc-detail__fact">
+                <dt>{{ t("common.size") }}</dt>
+                <dd>{{ formatBytes(manifestSize) }}</dd>
+              </div>
+            </dl>
+            <section
+              v-if="media.length > 0"
+              data-testid="pc-dlc-media"
+              class="pc-dlc-detail__media"
+            >
+              <RImg
+                v-for="item in media"
+                :key="item.id"
+                :src="ownedMediaUrl(item.owned_path)"
+                :alt="title"
+                class="pc-dlc-detail__media-image"
+                aspect-ratio="16/9"
+                cover
+              />
+            </section>
           </section>
 
           <PcDlcFiles
@@ -292,6 +294,12 @@ function showMedia() {
   gap: var(--r-space-4);
 }
 
+.pc-dlc-detail__overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-4);
+}
+
 .pc-dlc-detail__title-row {
   display: flex;
   align-items: baseline;
@@ -308,14 +316,6 @@ function showMedia() {
 .pc-dlc-detail__cover--placeholder {
   background: var(--r-color-cover-placeholder);
   border: 1px solid var(--r-color-border);
-}
-
-.pc-dlc-detail__identity {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--r-space-4);
-  min-width: 0;
 }
 
 .pc-dlc-detail__title {
