@@ -21,6 +21,7 @@ vi.mock("vue-i18n", () => ({
         "rom.pc-dlc-back-to-game": `Back to ${values?.game}`,
         "rom.pc-dlc-fallback-title": `DLC: ${values?.relativePath}`,
       })[key] ?? key,
+    locale: { value: "en-US" },
   }),
 }));
 
@@ -252,7 +253,7 @@ describe("PcDlcDetail", () => {
     expect(wrapper.text()).toContain("CD Projekt");
     expect(wrapper.text()).toContain("rom.themes");
     expect(wrapper.text()).toContain("Cyberpunk");
-    expect(wrapper.html()).toContain("components/2/provider-shot.jpg");
+    expect(wrapper.html()).toContain("pc-owned-media/2/provider-shot.jpg");
     expect(wrapper.html()).not.toContain("components/3/cover.webp");
     expect(wrapper.html()).not.toContain("parent-cover.webp");
   });

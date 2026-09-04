@@ -7,7 +7,7 @@ import { useRoute, useRouter } from "vue-router";
 import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import type { Events } from "@/types/emitter";
-import { FRONTEND_RESOURCES_PATH, formatBytes } from "@/utils";
+import { FRONTEND_RESOURCES_PATH, formatBytes, toBrowserLocale } from "@/utils";
 import PcDlcFiles from "@/v2/components/GameDetails/PcDlcFiles.vue";
 import PcDlcMediaTab from "@/v2/components/GameDetails/PcDlcMediaTab.vue";
 import PcDlcNotesTab from "@/v2/components/GameDetails/PcDlcNotesTab.vue";
@@ -20,7 +20,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ (event: "refresh"): void }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -74,6 +74,20 @@ const media = computed(() =>
     ...(props.component.local_media ?? []),
   ].filter((item) => item.role === "background" || item.role === "gallery"),
 );
+const screenshots = computed(() =>
+  (props.component.owned_media ?? []).filter(
+    (item) => item.role === "screenshot",
+  ),
+);
+const pcMetadata = computed(() => props.component.component_metadata);
+const releaseDate = computed(() => {
+  const timestamp = pcMetadata.value?.pc_release_date;
+  if (!timestamp) return null;
+  return new Date(Number(timestamp)).toLocaleDateString(
+    toBrowserLocale(locale.value),
+    { day: "2-digit", month: "short", year: "numeric" },
+  );
+});
 const manifestSize = computed(() =>
   props.component.manifest_members.reduce(
     (total, member) => total + member.size_bytes,
@@ -172,6 +186,31 @@ function showMedia() {
           <section v-if="tab === 'overview'" class="pc-dlc-detail__overview">
             <p v-if="summary" class="pc-dlc-detail__summary">{{ summary }}</p>
             <dl class="pc-dlc-detail__facts">
+              <div v-if="releaseDate" class="pc-dlc-detail__fact">
+                <dt>{{ t("rom.pc-release") }}</dt>
+                <dd>{{ releaseDate }}</dd>
+              </div>
+              <div
+                v-if="pcMetadata?.main_developer"
+                class="pc-dlc-detail__fact"
+              >
+                <dt>{{ t("rom.main-developer") }}</dt>
+                <dd>{{ pcMetadata.main_developer }}</dd>
+              </div>
+              <div
+                v-if="pcMetadata?.publishers?.length"
+                class="pc-dlc-detail__fact"
+              >
+                <dt>{{ t("rom.publishers") }}</dt>
+                <dd>{{ pcMetadata.publishers.join(", ") }}</dd>
+              </div>
+              <div
+                v-if="pcMetadata?.themes?.length"
+                class="pc-dlc-detail__fact"
+              >
+                <dt>{{ t("rom.themes") }}</dt>
+                <dd>{{ pcMetadata.themes.join(", ") }}</dd>
+              </div>
               <div class="pc-dlc-detail__fact">
                 <dt>{{ t("rom.file") }}</dt>
                 <dd>{{ component.relative_path }}</dd>
@@ -185,6 +224,21 @@ function showMedia() {
                 <dd>{{ formatBytes(manifestSize) }}</dd>
               </div>
             </dl>
+            <section
+              v-if="screenshots.length > 0"
+              data-testid="pc-dlc-screenshots"
+              class="pc-dlc-detail__media"
+            >
+              <RImg
+                v-for="item in screenshots"
+                :key="item.id"
+                :src="ownedMediaUrl(item.owned_path)"
+                :alt="title"
+                class="pc-dlc-detail__media-image"
+                aspect-ratio="16/9"
+                cover
+              />
+            </section>
             <section
               v-if="media.length > 0"
               data-testid="pc-dlc-media"

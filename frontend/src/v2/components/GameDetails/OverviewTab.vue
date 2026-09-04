@@ -28,6 +28,7 @@ import type {
 } from "@/__generated__";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
+import { FRONTEND_RESOURCES_PATH, toBrowserLocale } from "@/utils";
 import CollectionTile, {
   type Kind,
 } from "@/v2/components/Collections/CollectionTile.vue";
@@ -88,7 +89,7 @@ const hasHltb = computed(() => {
 // route, and carry the "smart" kind so the tile shows its flash badge.
 // Falls back to a bare entry if the store is empty (e.g. deep-link before
 // the AppLayout fetch resolves).
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
 
@@ -177,6 +178,31 @@ const coverSource = computed(() => {
     return null;
   }
 });
+
+const pcMetadata = computed(() => props.rom.metadatum);
+const releaseDate = computed(() => {
+  const timestamp =
+    pcMetadata.value?.pc_release_date ??
+    pcMetadata.value?.first_release_date ??
+    null;
+  if (!timestamp) return null;
+  return new Date(Number(timestamp)).toLocaleDateString(
+    toBrowserLocale(locale.value),
+    { day: "2-digit", month: "short", year: "numeric" },
+  );
+});
+const hasPcFacts = computed(
+  () =>
+    !!releaseDate.value ||
+    !!pcMetadata.value?.main_developer ||
+    !!pcMetadata.value?.publishers?.length ||
+    !!pcMetadata.value?.themes?.length,
+);
+const ownedScreenshots = computed(() =>
+  props.screenshots.filter((url) =>
+    url.startsWith(`${FRONTEND_RESOURCES_PATH}/`),
+  ),
+);
 </script>
 
 <template>
@@ -190,7 +216,11 @@ const coverSource = computed(() => {
          semantic widget instead of being flattened to a chip list. -->
     <div
       v-if="
-        revision || lastPlayed || hasQuickFacts || userCollectionTiles.length
+        revision ||
+        lastPlayed ||
+        hasQuickFacts ||
+        hasPcFacts ||
+        userCollectionTiles.length
       "
       class="overview-tab__facts"
     >
@@ -202,6 +232,34 @@ const coverSource = computed(() => {
       <div v-if="lastPlayed" class="overview-tab__row">
         <div class="overview-tab__label">{{ t("rom.last-played") }}</div>
         <div class="overview-tab__field">{{ lastPlayed }}</div>
+      </div>
+
+      <div v-if="releaseDate" class="overview-tab__row">
+        <div class="overview-tab__label">{{ t("rom.pc-release") }}</div>
+        <div class="overview-tab__field">{{ releaseDate }}</div>
+      </div>
+
+      <div v-if="pcMetadata?.main_developer" class="overview-tab__row">
+        <div class="overview-tab__label">{{ t("rom.main-developer") }}</div>
+        <div class="overview-tab__field">{{ pcMetadata.main_developer }}</div>
+      </div>
+
+      <div v-if="pcMetadata?.publishers?.length" class="overview-tab__row">
+        <div class="overview-tab__label">{{ t("rom.publishers") }}</div>
+        <div class="overview-tab__field overview-tab__field--chips">
+          <span v-for="publisher in pcMetadata.publishers" :key="publisher">
+            {{ publisher }}
+          </span>
+        </div>
+      </div>
+
+      <div v-if="pcMetadata?.themes?.length" class="overview-tab__row">
+        <div class="overview-tab__label">{{ t("rom.themes") }}</div>
+        <div class="overview-tab__field overview-tab__field--chips">
+          <span v-for="theme in pcMetadata.themes" :key="theme">
+            {{ theme }}
+          </span>
+        </div>
       </div>
 
       <div v-if="playerCount" class="overview-tab__row">
@@ -243,12 +301,12 @@ const coverSource = computed(() => {
     <InfoGrid :sections="sections" />
 
     <!-- 4. Screenshots — scraped metadata images, read-only here. -->
-    <div v-if="screenshots.length" class="overview-tab__section">
+    <div v-if="ownedScreenshots.length" class="overview-tab__section">
       <h4 class="overview-tab__section-heading">
         <RIcon icon="mdi-image-multiple-outline" size="14" />
         {{ t("rom.screenshots") }}
       </h4>
-      <ScreenshotsTab :screenshots="screenshots.map((url) => ({ url }))" />
+      <ScreenshotsTab :screenshots="ownedScreenshots.map((url) => ({ url }))" />
     </div>
 
     <!-- 4b. Videos — scraped preview clips. The rest of the art assets

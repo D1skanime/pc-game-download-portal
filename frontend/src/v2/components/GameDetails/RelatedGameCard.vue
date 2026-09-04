@@ -68,10 +68,14 @@ const EMPTY_METADATA: RomMetadataSchema = {
   franchises: [],
   collections: [],
   companies: [],
+  main_developer: null,
+  publishers: [],
+  themes: [],
   game_modes: [],
   age_ratings: [],
   player_count: "",
   first_release_date: null,
+  pc_release_date: null,
   average_rating: null,
 };
 const EMPTY_USER: RomUserSchema = {

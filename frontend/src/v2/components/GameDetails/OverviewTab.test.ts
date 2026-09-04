@@ -4,7 +4,9 @@ import type { IGDBRelatedGame } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import OverviewTab from "./OverviewTab.vue";
 
-vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock("vue-i18n", () => ({
+  useI18n: () => ({ t: (key: string) => key, locale: { value: "en-US" } }),
+}));
 vi.mock("@/stores/collections", () => ({ default: () => ({}) }));
 vi.mock("@/v2/composables/useWebpSupport", () => ({
   useWebpSupport: () => ({ toWebp: (value: string) => value }),
@@ -27,14 +29,22 @@ const rom = {
 const pcMetadataRom = {
   ...rom,
   metadatum: {
+    rom_id: 42,
+    genres: [],
+    franchises: [],
+    collections: [],
+    companies: [],
     main_developer: "CD Projekt Red",
     publishers: ["CD Projekt"],
     themes: ["Cyberpunk"],
+    game_modes: [],
     pc_release_date: 1725148800000,
     first_release_date: 1590969600000,
     age_ratings: [],
+    player_count: "",
+    average_rating: null,
   },
-} as DetailedRom;
+} as Partial<DetailedRom> as DetailedRom;
 const dlc = {
   id: 123,
   name: "Phantom Liberty",
