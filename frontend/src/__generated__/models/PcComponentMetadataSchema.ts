@@ -11,5 +11,9 @@ export type PcComponentMetadataSchema = {
     summary: (string | null);
     metadata_source: (string | null);
     provider_metadata: (Record<string, any> | null);
+    main_developer: (string | null);
+    publishers?: Array<string>;
+    themes?: Array<string>;
+    pc_release_date: (number | null);
 };
 

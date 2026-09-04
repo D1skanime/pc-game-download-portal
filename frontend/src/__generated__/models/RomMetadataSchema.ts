@@ -8,10 +8,14 @@ export type RomMetadataSchema = {
     franchises: Array<string>;
     collections: Array<string>;
     companies: Array<string>;
+    main_developer: (string | null);
+    publishers?: Array<string>;
+    themes?: Array<string>;
     game_modes: Array<string>;
     age_ratings: Array<string>;
     player_count: string;
     first_release_date: (number | null);
+    pc_release_date: (number | null);
     average_rating: (number | null);
 };
 

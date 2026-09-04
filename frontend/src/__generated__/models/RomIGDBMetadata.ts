@@ -16,6 +16,10 @@ export type RomIGDBMetadata = {
     alternative_names?: Array<string>;
     collections?: Array<string>;
     companies?: Array<string>;
+    main_developer?: (string | null);
+    publishers?: Array<string>;
+    themes?: Array<string>;
+    pc_release_date?: (number | null);
     game_modes?: Array<string>;
     age_ratings?: Array<IGDBAgeRating>;
     platforms?: Array<IGDBMetadataPlatform>;
