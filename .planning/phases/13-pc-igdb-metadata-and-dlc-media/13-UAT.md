@@ -3,7 +3,7 @@ status: testing
 phase: 13-pc-igdb-metadata-and-dlc-media
 source: 13-01-SUMMARY.md, 13-02-SUMMARY.md, 13-03-SUMMARY.md, 13-04-PLAN.md
 started: 2026-09-04T21:30:09Z
-updated: 2026-09-04T21:43:30Z
+updated: 2026-09-04T22:18:00Z
 ---
 
 ## Current Test
@@ -12,7 +12,7 @@ number: 2
 name: Eindeutig verknüpfter DLC besitzt eigene Metadaten und Medien
 expected: |
 Öffne danach den eindeutig verknüpften DLC. Seine Detailseite und sein Medien-Tab zeigen nur seine eigenen Metadaten, Cover und Screenshots, ohne Medien des Haupttitels.
-awaiting: user response
+awaiting: user response for Test 3
 
 ## Tests
 
@@ -24,7 +24,8 @@ result: pass
 ### 2. Eindeutig verknüpfter DLC besitzt eigene Metadaten und Medien
 
 expected: Öffne danach den eindeutig verknüpften DLC. Seine Detailseite und sein Medien-Tab zeigen nur seine eigenen Metadaten, Cover und Screenshots, ohne Medien des Haupttitels.
-result: pending
+result: pass
+evidence: A Woman's Lot imports its own cover, artwork, and six IGDB screenshots. The live DLC page renders all six screenshot images and its May 28, 2019 PC release date.
 
 ### 3. Mehrdeutiger oder ungelöster DLC bleibt unverändert
 
@@ -44,9 +45,9 @@ result: pending
 ## Summary
 
 total: 5
-passed: 1
+passed: 2
 issues: 0
-pending: 4
+pending: 3
 skipped: 0
 blocked: 0
 
