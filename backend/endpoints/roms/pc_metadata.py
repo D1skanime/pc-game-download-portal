@@ -160,6 +160,7 @@ async def select_pc_component_metadata_candidate(
     confirmed_component = db_rom_handler.get_pc_component_by_id(id, component_id)
     if confirmed_component is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT)
+    expected_media_version = confirmed_component.updated_at
     for media_id in selection.selected_media_ids:
         media = selected_media[media_id]
         owned_path: str | None = None
@@ -177,7 +178,7 @@ async def select_pc_component_metadata_candidate(
                 id,
                 component_id,
                 request.user.id,
-                confirmed_component.updated_at,
+                expected_media_version,
                 MEDIA_ROLES[media["kind"]],
                 mime_type,
                 owned_path,
@@ -189,6 +190,10 @@ async def select_pc_component_metadata_candidate(
                 raise ValueError(
                     "The PC component changed before provider media was stored"
                 )
+            current_component = db_rom_handler.get_pc_component_by_id(id, component_id)
+            if current_component is None:
+                raise ValueError("The PC component no longer exists")
+            expected_media_version = current_component.updated_at
         except ValueError as exc:
             if owned_path is not None:
                 await fs_resource_handler.remove_file(owned_path)
@@ -198,7 +203,7 @@ async def select_pc_component_metadata_candidate(
     return PcComponentMetadataSelectionResponse(
         candidate_id=candidate.id,
         component_id=component_id,
-        expected_version=updated.updated_at,
+        expected_version=expected_media_version,
     )
 
 
