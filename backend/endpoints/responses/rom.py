@@ -321,6 +321,11 @@ class PcComponentMetadataSchema(BaseModel):
     themes: list[str] = Field(default_factory=list)
     pc_release_date: int | None
 
+    @field_validator("publishers", "themes", mode="before")
+    @classmethod
+    def default_missing_list_fields(cls, value: list[str] | None) -> list[str]:
+        return value or []
+
 
 class PcComponentLocalMediaSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)

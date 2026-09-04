@@ -18,6 +18,7 @@ from models.rom import (
     RomComponentKind,
     RomComponentLocalMediaRole,
     RomComponentManifestMember,
+    RomComponentMetadata,
 )
 
 
@@ -358,6 +359,41 @@ def test_get_roms_serializes_pc_components(client, access_token, rom):
         "size_bytes": 4,
         "sha256": "a" * 64,
     }
+
+
+def test_get_roms_serializes_component_metadata_with_missing_list_fields(
+    client, access_token, rom
+):
+    """A partially enriched component must not block its parent in the gallery."""
+    components = db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/incomplete",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    with sync_session.begin() as session:
+        component = session.get(RomComponent, components[0].id)
+        assert component is not None
+        component.component_metadata = RomComponentMetadata(
+            name="Incomplete DLC",
+            publishers=None,
+            themes=None,
+        )
+
+    response = client.get(
+        "/api/roms",
+        headers=_headers(access_token),
+        params={"platform_id": rom.platform_id},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    metadata = response.json()["items"][0]["components"][0]["component_metadata"]
+    assert metadata["publishers"] == []
+    assert metadata["themes"] == []
 
 
 def test_pc_local_media_review_only_lists_direct_dlc_images(
