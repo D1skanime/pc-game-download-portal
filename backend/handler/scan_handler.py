@@ -1000,9 +1000,8 @@ async def scan_rom(
                 short_circuited = True
                 return exc.fallback
             except ScreenScraperRateLimitError:
-                # One refusal means the per-minute budget is already spent, so
-                # give up on this ROM rather than spending another retried
-                # request (and its backoff) on the fallback lookups.
+                # The per-minute budget is already spent, so give up on this ROM
+                # rather than spending a retried request on the fallback lookups.
                 note_rate_limited_rom(rom_attrs["fs_name"])
                 short_circuited = True
                 return SSRom(ss_id=None)

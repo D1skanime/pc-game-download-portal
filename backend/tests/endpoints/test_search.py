@@ -1,8 +1,7 @@
 """What one unreachable provider costs a metadata search.
 
 The providers are gathered together, so an error from any one of them used to
-take down the whole dialog: the user saw a 500 instead of the matches the other
-providers had already found.
+take the whole dialog down with it.
 """
 
 from unittest.mock import AsyncMock, patch

@@ -256,8 +256,8 @@ def _is_daily_quota_error(exc: HTTPException) -> bool:
 def _is_provider_exhausted(exc: HTTPException) -> bool:
     """True for the errors a breaker raises in ScreenScraper's place.
 
-    Both an exhausted daily quota and a refused credential set trip a breaker in
-    the service, so the request never went out and the answer is not ScreenScraper's.
+    An exhausted daily quota and a refused credential set both trip one, so the
+    request never went out and the answer is not ScreenScraper's.
     """
     return _is_daily_quota_error(exc) or isinstance(exc, ScreenScraperCredentialsError)
 
@@ -341,9 +341,8 @@ class SSRom(BaseRom):
 class ScreenScraperExhaustedError(Exception):
     """A breaker answered this lookup, so ScreenScraper itself never saw it.
 
-    Carries the match the lookup would otherwise have returned, which still holds
-    whatever the handler derived locally (a name from the Switch title database,
-    a MAME index, a PS2 OPL tag).
+    Carries the match the lookup would have returned, which still holds the name
+    the handler derived locally.
     """
 
     def __init__(self, fallback: SSRom):
