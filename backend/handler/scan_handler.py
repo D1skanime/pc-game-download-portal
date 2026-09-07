@@ -6,10 +6,7 @@ from typing import Any
 import pydash
 import socketio  # type: ignore
 
-from adapters.services.screenscraper import (
-    ScreenScraperRateLimitError,
-    is_breaker_tripped,
-)
+from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
@@ -65,6 +62,7 @@ from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAGameRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import (
     SCREENSAVER_PLATFORM_LIST,
+    ScreenScraperExhaustedError,
     SSRom,
     add_ss_auth_to_url,
     get_preferred_media_types,
@@ -592,11 +590,6 @@ async def scan_rom(
     # no id for it never enters the set, so a rescan can't clear what it can't redo.
     attempted_sources: set[MetadataSource] = set()
 
-    # Sampled where ScreenScraper is consulted, because its breaker re-checks the
-    # account and can clear itself while this rom is still gathering the other
-    # providers.
-    ss_breaker_tripped = False
-
     def resolve_fetch(source: MetadataSource, result: Any, fallback: Any) -> Any:
         """Unwrap a gathered lookup, falling back to an empty match when it failed."""
         if not isinstance(result, BaseException):
@@ -952,8 +945,6 @@ async def scan_rom(
         return MobyGamesRom(moby_id=None)
 
     async def fetch_ss_rom(playmatch_rom: PlaymatchRomMatch) -> SSRom:
-        nonlocal ss_breaker_tripped
-
         if (
             MetadataSource.SS in metadata_sources
             and platform.ss_id
@@ -969,10 +960,9 @@ async def scan_rom(
             )
         ):
             attempted_sources.add(MetadataSource.SS)
-            ss_breaker_tripped = ss_breaker_tripped or is_breaker_tripped()
-            # One refusal means the per-minute budget is already spent, so give
-            # up on this ROM rather than spending another retried request (and
-            # its backoff) on the fallback lookups.
+            # A breaker answering in ScreenScraper's place rules nothing out for
+            # this rom, whichever of the lookups below it short-circuits.
+            short_circuited = False
             try:
                 # Use the ID to refetch metadata
                 if scan_type == ScanType.UPDATE and rom.ss_id:
@@ -990,22 +980,35 @@ async def scan_rom(
                     )
 
                 # Use the file hashes for lookup
-                game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
-                    rom, platform.ss_id, get_match_files()
-                )
-                if game_by_hash.get("ss_id") or is_not_game:
-                    return game_by_hash
+                try:
+                    game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
+                        rom, platform.ss_id, get_match_files()
+                    )
+                except ScreenScraperExhaustedError:
+                    # The filename lookup below still derives a name for some
+                    # platforms, and the breaker can clear before it runs.
+                    short_circuited = True
+                else:
+                    if game_by_hash.get("ss_id") or is_not_game:
+                        return game_by_hash
 
                 # Fallback to the filename
                 return await meta_ss_handler.get_rom(
                     rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
                 )
+            except ScreenScraperExhaustedError as exc:
+                short_circuited = True
+                return exc.fallback
             except ScreenScraperRateLimitError:
+                # One refusal means the per-minute budget is already spent, so
+                # give up on this ROM rather than spending another retried
+                # request (and its backoff) on the fallback lookups.
                 note_rate_limited_rom(rom_attrs["fs_name"])
-                attempted_sources.discard(MetadataSource.SS)
+                short_circuited = True
                 return SSRom(ss_id=None)
             finally:
-                ss_breaker_tripped = ss_breaker_tripped or is_breaker_tripped()
+                if short_circuited:
+                    attempted_sources.discard(MetadataSource.SS)
 
         return SSRom(ss_id=None)
 
@@ -1161,11 +1164,6 @@ async def scan_rom(
             provider_fetches, fetch_results, strict=True
         )
     ]
-
-    # Once a ScreenScraper breaker trips, the remaining lookups answer empty
-    # without asking, so it has ruled nothing out for this rom either.
-    if ss_breaker_tripped or is_breaker_tripped():
-        attempted_sources.discard(MetadataSource.SS)
 
     (
         igdb_handler_rom,

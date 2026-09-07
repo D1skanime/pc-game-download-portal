@@ -254,12 +254,10 @@ def _is_daily_quota_error(exc: HTTPException) -> bool:
 
 
 def _is_provider_exhausted(exc: HTTPException) -> bool:
-    """True for the errors that take ScreenScraper out for the rest of the scan.
+    """True for the errors a breaker raises in ScreenScraper's place.
 
     Both an exhausted daily quota and a refused credential set trip a breaker in
-    the service, so the remaining ROMs short-circuit. The scan carries on with
-    the other providers rather than failing over a provider that has already said
-    everything it is going to say.
+    the service, so the request never went out and the answer is not ScreenScraper's.
     """
     return _is_daily_quota_error(exc) or isinstance(exc, ScreenScraperCredentialsError)
 
@@ -338,6 +336,19 @@ class SSMetadata(SSMetadataMedia):
 class SSRom(BaseRom):
     ss_id: int | None
     ss_metadata: NotRequired[SSMetadata]
+
+
+class ScreenScraperExhaustedError(Exception):
+    """A breaker answered this lookup, so ScreenScraper itself never saw it.
+
+    Carries the match the lookup would otherwise have returned, which still holds
+    whatever the handler derived locally (a name from the Switch title database,
+    a MAME index, a PS2 OPL tag).
+    """
+
+    def __init__(self, fallback: SSRom):
+        super().__init__("ScreenScraper short-circuited the lookup")
+        self.fallback = fallback
 
 
 def _get_rom_type(file: RomFile) -> str:
@@ -873,11 +884,9 @@ class SSHandler(MetadataHandler):
                 rom_type=_get_rom_type(first_file),
             )
         except HTTPException as exc:
-            # Quota exhausted or credentials refused: skip ScreenScraper for this
-            # ROM so the scan falls back to the other providers.
             if not _is_provider_exhausted(exc):
                 raise
-            return SSRom(ss_id=None), False
+            raise ScreenScraperExhaustedError(SSRom(ss_id=None)) from exc
         if not res:
             return SSRom(ss_id=None), False
 
@@ -996,11 +1005,9 @@ class SSHandler(MetadataHandler):
                     terms[-1], platform_ss_id, split_game_name=True
                 )
         except HTTPException as exc:
-            # Quota exhausted or credentials refused: fall back to the name-only
-            # match (if any).
             if not _is_provider_exhausted(exc):
                 raise
-            return fallback_rom
+            raise ScreenScraperExhaustedError(fallback_rom) from exc
 
         if not res or not res.get("id"):
             return fallback_rom
@@ -1014,11 +1021,9 @@ class SSHandler(MetadataHandler):
         try:
             res = await self.ss_service.get_game_info(game_id=ss_id)
         except HTTPException as exc:
-            # Quota exhausted or credentials refused: return an empty match rather
-            # than failing.
             if not _is_provider_exhausted(exc):
                 raise
-            return SSRom(ss_id=None)
+            raise ScreenScraperExhaustedError(SSRom(ss_id=None)) from exc
         if not res:
             return SSRom(ss_id=None)
 
@@ -1028,7 +1033,12 @@ class SSHandler(MetadataHandler):
         if not self.is_enabled():
             return None
 
-        game_rom = await self.get_rom_by_id(rom, ss_id)
+        try:
+            game_rom = await self.get_rom_by_id(rom, ss_id)
+        except ScreenScraperExhaustedError:
+            # A manual match wants the providers that can still answer, not this.
+            return None
+
         return game_rom if game_rom.get("ss_id", "") else None
 
     async def get_matched_roms_by_name(
@@ -1046,8 +1056,8 @@ class SSHandler(MetadataHandler):
                 system_id=platform_ss_id,
             )
         except HTTPException as exc:
-            # The caller gathers every provider without return_exceptions, so
-            # raising here would lose the other providers' matches too.
+            # A provider that has said everything it is going to say contributes
+            # no matches; it is not a failed search.
             if not _is_provider_exhausted(exc):
                 raise
             return []

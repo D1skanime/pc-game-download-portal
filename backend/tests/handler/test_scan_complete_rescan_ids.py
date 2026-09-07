@@ -4,7 +4,6 @@ A complete rescan clears every ID it could rematch; a provider that failed
 answered nothing, so the ID it could not check has to survive.
 """
 
-from collections.abc import Callable
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -16,7 +15,7 @@ from handler.database import db_rom_handler
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.pouet_handler import PouetRom
 from handler.metadata.sgdb_handler import SGDBRom
-from handler.metadata.ss_handler import SSRom
+from handler.metadata.ss_handler import ScreenScraperExhaustedError, SSRom
 from handler.scan_handler import MetadataSource, ScanType
 from models.rom import Rom
 
@@ -32,6 +31,8 @@ SGDB_MISS = SGDBRom(sgdb_id=None)
 POUET_MISS = PouetRom(pouet_id=None)
 MATCH = IGDBRom(igdb_id=9999, name="A Real Game")
 UNREACHABLE = HTTPException(status_code=503, detail="provider is down")
+SS_MISS = SSRom(ss_id=None)
+SS_SHORT_CIRCUITED = ScreenScraperExhaustedError(SS_MISS)
 
 
 def _lookup(result: Any) -> AsyncMock:
@@ -49,8 +50,8 @@ async def _rescan(
     sgdb_result: SGDBRom | Exception = SGDB_MISS,
     pouet_result: PouetRom | Exception = POUET_MISS,
     platform_igdb_id: int | None = 4,
-    ss_breaker_tripped: bool | Callable[[], bool] = False,
-    ss_lookup_mock: AsyncMock | None = None,
+    ss_lookup_result: tuple[SSRom, bool] | Exception = (SS_MISS, False),
+    ss_get_rom_result: SSRom | Exception = SS_MISS,
 ) -> Rom:
     """Rescan a ROM carrying hand-set IDs, and persist the result."""
     platform = add_n64_platform(igdb_id=platform_igdb_id, ss_id=14)
@@ -80,19 +81,11 @@ async def _rescan(
         patch("handler.scan_handler.meta_pouet_handler.get_rom_by_id", new=pouet_mock),
         patch(
             "handler.scan_handler.meta_ss_handler.lookup_rom",
-            new=ss_lookup_mock or AsyncMock(return_value=(SSRom(ss_id=None), False)),
+            new=_lookup(ss_lookup_result),
         ),
         patch(
             "handler.scan_handler.meta_ss_handler.get_rom",
-            new=AsyncMock(return_value=SSRom(ss_id=None)),
-        ),
-        patch(
-            "handler.scan_handler.is_breaker_tripped",
-            new=(
-                ss_breaker_tripped
-                if callable(ss_breaker_tripped)
-                else lambda: ss_breaker_tripped
-            ),
+            new=_lookup(ss_get_rom_result),
         ),
     ):
         scanned = await run_scan(
@@ -140,29 +133,23 @@ async def test_a_source_that_could_not_be_reached_keeps_its_id():
 
 
 async def test_a_screenscraper_breaker_keeps_its_id():
-    """An exhausted quota answers empty for every remaining ROM."""
+    """A breaker answers every remaining ROM, so it rules nothing out."""
     saved = await _rescan(
-        [MetadataSource.IGDB, MetadataSource.SS], ss_breaker_tripped=True
+        [MetadataSource.IGDB, MetadataSource.SS],
+        ss_lookup_result=SS_SHORT_CIRCUITED,
+        ss_get_rom_result=SS_SHORT_CIRCUITED,
     )
 
     assert saved.ss_id == STALE_SS_ID
 
 
 async def test_a_screenscraper_breaker_that_recovers_mid_rom_keeps_its_id():
-    """The breaker re-checks the account and can clear itself while a rom is
-    still gathering its other providers. ScreenScraper still refused *this*
-    rom, so its id must survive the rescan."""
-    recovered = False
-
-    async def refuse_then_recover(*args: Any, **kwargs: Any):
-        nonlocal recovered
-        recovered = True
-        return (SSRom(ss_id=None), False)
-
+    """The breaker can clear between this rom's two lookups, but the hash lookup
+    it short-circuited still ruled nothing out."""
     saved = await _rescan(
         [MetadataSource.IGDB, MetadataSource.SS],
-        ss_breaker_tripped=lambda: not recovered,
-        ss_lookup_mock=AsyncMock(side_effect=refuse_then_recover),
+        ss_lookup_result=SS_SHORT_CIRCUITED,
+        ss_get_rom_result=SS_MISS,
     )
 
     assert saved.ss_id == STALE_SS_ID

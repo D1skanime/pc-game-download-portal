@@ -82,7 +82,11 @@ from handler.metadata import (
     scene_id_or_none,
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
-from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
+from handler.metadata.ss_handler import (
+    ScreenScraperExhaustedError,
+    add_ss_auth_to_url,
+    get_preferred_media_types,
+)
 from handler.rom_conversion import promote_single_file_to_folder
 from handler.scan_handler import (
     MetadataSource,
@@ -2073,7 +2077,10 @@ async def update_rom(
         cleaned_data.update({"moby_id": None, "moby_metadata": {}})
 
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
-        ss_rom = await meta_ss_handler.get_rom_by_id(rom, cleaned_data["ss_id"])
+        try:
+            ss_rom = await meta_ss_handler.get_rom_by_id(rom, cleaned_data["ss_id"])
+        except ScreenScraperExhaustedError as exc:
+            ss_rom = exc.fallback
         if ss_rom.get("ss_id"):
             cleaned_data.update(ss_rom)
     elif rom.ss_id and not cleaned_data["ss_id"]:

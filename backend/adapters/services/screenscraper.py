@@ -6,7 +6,7 @@ import re
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import MISSING, dataclass, fields
+from dataclasses import dataclass, fields
 from math import isclose
 from typing import Final, cast
 from urllib.parse import urlparse
@@ -75,9 +75,12 @@ SS_LOW_QUOTA_FRACTION: Final[float] = 0.1
 # scrape allowance is refused this many times before the provider is taken out.
 SS_QUOTA_TRIP_THRESHOLD: Final[int] = 2
 
-# The account endpoint costs no quota, so an armed breaker can afford to re-check
-# it this often. The check is opportunistic, hence the short timeout.
-SS_QUOTA_RECHECK_SECONDS: Final[float] = 60
+# Free of the daily quota, which is what lets an armed breaker use it as a probe.
+SS_ACCOUNT_ENDPOINT: Final[str] = "ssuserInfos.php"
+
+# How often an armed breaker re-checks the account. The check is opportunistic,
+# hence the short timeout.
+SS_QUOTA_RECHECK_SECONDS: Final[int] = 60
 SS_QUOTA_RECHECK_TIMEOUT: Final[int] = 30
 
 # Whose allowance was spent is left open on purpose: a refused password gets the
@@ -232,8 +235,7 @@ class _ScanState:
 
     def reset(self) -> None:
         for f in fields(self):
-            factory = f.default_factory
-            setattr(self, f.name, f.default if factory is MISSING else factory())
+            setattr(self, f.name, f.default)
 
 
 _state = _ScanState()
@@ -324,7 +326,7 @@ def _credential_set(url: str, message: str) -> SSCredentialSet:
     if "développeur" in message.lower():
         return SSCredentialSet.DEVELOPER
 
-    if "ssuserInfos.php" in url:
+    if SS_ACCOUNT_ENDPOINT in url:
         return SSCredentialSet.USER
 
     return SSCredentialSet.DEVELOPER
@@ -507,8 +509,8 @@ def _is_low(remaining: int | None, allowance: int | None) -> bool:
 def _warn_on_low_quota(limits: SSAccountLimits) -> None:
     """Flag a daily allowance running out, rather than waiting for the refusal.
 
-    The two get their own one-shot: the submission allowance is an order of
-    magnitude smaller, so it would otherwise consume the scrape quota's advisory.
+    Each allowance gets its own one-shot, so the much smaller submission quota
+    does not consume the scrape quota's advisory.
     """
     if not _state.logged_low_quota_warning and _is_low(
         limits.remaining_requests, limits.max_requests_per_day
@@ -722,9 +724,6 @@ class ScreenScraperService:
     async def _recheck_daily_quota(self) -> bool:
         """Ask the free account endpoint whether the scrape allowance is back.
 
-        Goes through ``_attempt_request`` rather than ``_request`` so it bypasses
-        the very breaker it is checking.
-
         Returns:
             True when the breaker was cleared and the caller may proceed.
         """
@@ -736,28 +735,31 @@ class ScreenScraperService:
         # from probing at once: read-then-write with no await is atomic here.
         _state.quota_recheck_at = now + SS_QUOTA_RECHECK_SECONDS
 
-        url = str(self.url.joinpath("ssuserInfos.php"))
+        url = str(self.url.joinpath(SS_ACCOUNT_ENDPOINT))
         credentials_before = _state.credentials_rejected
         limits_before = _state.account_limits
         try:
-            await self._attempt_request(url, SS_QUOTA_RECHECK_TIMEOUT)
+            # _attempt_request rather than _request, to bypass the breaker being
+            # checked. wait_for bounds the wait for a concurrency slot too, which
+            # a media download can hold for minutes.
+            await asyncio.wait_for(
+                self._attempt_request(url, SS_QUOTA_RECHECK_TIMEOUT),
+                SS_QUOTA_RECHECK_TIMEOUT,
+            )
         except (
             HTTPException,
             TimeoutError,
             aiohttp.ClientError,
             json.JSONDecodeError,
         ) as exc:
-            # The re-check reports, but it never arms a breaker of its own: a 403
-            # here would take the provider out for good, since nothing outside a
-            # scan clears the credentials breaker.
+            # Restored because nothing outside a scan clears the credentials
+            # breaker, so a 403 here would take the provider out for good.
             _state.credentials_rejected = credentials_before
             log.debug("ScreenScraper: could not re-check the daily quota (%s)", exc)
             return False
 
-        # Only a readable reading this probe brought back is evidence. A body
-        # with no ssuser block leaves the module's limits at their pre-wall
-        # value, which still shows the headroom the account had before it ran
-        # out; one whose counters are missing or unparseable reports nothing.
+        # Only a reading this probe brought back is evidence: the pre-wall limits
+        # still show the headroom the account had before it ran out.
         limits = _state.account_limits
         remaining = limits.remaining_requests if limits is not None else None
         if limits is limits_before or not remaining:
@@ -828,7 +830,7 @@ class ScreenScraperService:
 
         Reference: https://api.screenscraper.fr/webapi2.php#ssuserInfos
         """
-        url = self.url.joinpath("ssuserInfos.php")
+        url = self.url.joinpath(SS_ACCOUNT_ENDPOINT)
         return await self._request(str(url))
 
     async def get_infra_info(self) -> dict:
