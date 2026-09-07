@@ -6,18 +6,24 @@ import { defineComponent, ref } from "vue";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { useStreamingStore, type JoinableSession } from "@/stores/streaming";
 import Home from "./Home.vue";
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-const { getLibraryInfo } = vi.hoisted(() => ({
+const { getLibraryInfo, getRecommendedRoms } = vi.hoisted(() => ({
   getLibraryInfo: vi.fn(),
+  getRecommendedRoms: vi.fn(),
 }));
 
 vi.mock("@/services/api/setup", () => ({
   default: { getLibraryInfo },
+}));
+
+vi.mock("@/services/api/rom", () => ({
+  default: { getRecommendedRoms },
 }));
 
 vi.mock("@v2/lib", () => ({
@@ -37,7 +43,14 @@ vi.mock("@/v2/components/GameCard", () => ({
 }));
 
 vi.mock("@/v2/components/shared/CardRow.vue", () => ({
-  default: defineComponent({ template: "<section><slot /></section>" }),
+  default: defineComponent({
+    props: { title: { type: String, default: "" } },
+    template: "<section><h2>{{ title }}</h2><slot /></section>",
+  }),
+}));
+
+vi.mock("@/v2/components/Home/LiveSessionCard.vue", () => ({
+  default: defineComponent({ template: "<div data-test='live' />" }),
 }));
 
 vi.mock("@/v2/components/Home/Widgets/WidgetBar.vue", () => ({
@@ -64,6 +77,7 @@ vi.mock("@/composables/useUISettings", () => ({
     showHomeWidgets: ref(true),
     showRecentRoms: ref(true),
     showContinuePlaying: ref(true),
+    showRecommendations: ref(true),
     showPlatforms: ref(true),
     showCollections: ref(true),
     showSmartCollections: ref(false),
@@ -182,6 +196,8 @@ describe("Home", () => {
     getLibraryInfo.mockResolvedValue({
       data: { detected_structure: "struct_a", existing_platforms: [] },
     });
+    getRecommendedRoms.mockReset();
+    getRecommendedRoms.mockResolvedValue({ data: [] });
   });
 
   it("never walks the filesystem for a populated library", async () => {
@@ -207,6 +223,93 @@ describe("Home", () => {
 
     expect(getLibraryInfo).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).toContain("home.empty-headline");
+  });
+
+  it("renders the recommendations row with its per-card reason", async () => {
+    stubHomeFetches(true);
+    getRecommendedRoms.mockResolvedValue({
+      data: [
+        {
+          rom: rom(7),
+          score: 0.8,
+          reasons: [{ facet: "franchise", value: "Metroid" }],
+          seed_rom_id: 1,
+          seed_rom_name: "Super Metroid",
+        },
+      ],
+    });
+
+    const wrapper = mountHome();
+    await flushPromises();
+
+    expect(getRecommendedRoms).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain("recommendations.because-you-played");
+  });
+
+  it("hides the recommendations row when the feed comes back empty", async () => {
+    stubHomeFetches(true);
+
+    const wrapper = mountHome();
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("recommendations.for-you");
+  });
+
+  it("keeps the home page usable when the feed request fails", async () => {
+    stubHomeFetches(true);
+    getRecommendedRoms.mockRejectedValue(new Error("index not built"));
+
+    const wrapper = mountHome();
+    await flushPromises();
+
+    // An unbuilt index must not surface as an error or block the rest of
+    // the dashboard from rendering.
+    expect(wrapper.text()).not.toContain("recommendations.for-you");
+    expect(wrapper.text()).not.toContain("home.empty-headline");
+  });
+
+  it("shows the live row only while someone hosts a multiplayer session", async () => {
+    stubHomeFetches(true);
+    const streaming = useStreamingStore();
+    const fetchJoinable = vi
+      .spyOn(streaming, "fetchJoinableSessions")
+      .mockResolvedValue(undefined);
+
+    const wrapper = mountHome();
+    await flushPromises();
+
+    expect(fetchJoinable).not.toHaveBeenCalled();
+    expect(wrapper.text()).not.toContain("home.live-sessions");
+
+    streaming.config.enabled = true;
+    await flushPromises();
+    expect(fetchJoinable).toHaveBeenCalledTimes(1);
+
+    streaming.joinableSessions = [
+      {
+        container: "http://box:3010",
+        label: null,
+        platform: "ps2",
+        rom_id: 7,
+        rom_name: "Game",
+        host_username: "ana",
+        claimed_at: null,
+        platform_id: 1,
+        platform_display_name: "PlayStation 2",
+        path_cover_small: null,
+        path_cover_large: null,
+        url_cover: null,
+      } satisfies JoinableSession,
+    ];
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("home.live-sessions");
+    expect(wrapper.findAll("[data-test='live']")).toHaveLength(1);
+
+    streaming.joinableSessions = [];
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("home.live-sessions");
+    wrapper.unmount();
   });
 
   it("does not render the empty state before the initial loads settle", async () => {

@@ -41,6 +41,7 @@ from config import (
 )
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
+from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFiltersDict,
@@ -87,6 +88,7 @@ from handler.metadata.ss_handler import (
     add_ss_auth_to_url,
     get_preferred_media_types,
 )
+from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
 from handler.scan_handler import (
     MetadataSource,
@@ -116,7 +118,7 @@ from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
-from utils.m3u import generate_m3u_content
+from utils.m3u import generate_m3u_content, playlist_files
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.screenshots import continue_playing_screenshot
@@ -1403,6 +1405,42 @@ def get_rom_simple(
 
 @protected_route(
     router.get,
+    "/{id}/similar",
+    [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def get_similar_roms(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    limit: Annotated[
+        int, Query(ge=1, le=50, description="Maximum similar roms to return")
+    ] = 12,
+) -> list[SimilarRomSchema]:
+    """Games in this library that resemble the given one.
+
+    Read from the precomputed similarity graph, so unlike IGDB's own related
+    games every result is a title the server actually holds.
+    """
+
+    rom = db_rom_handler.get_rom_simple(id)
+
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    assert_rom_visible(request, rom)
+
+    return [
+        SimilarRomSchema(
+            rom=SimpleRomSchema.from_orm_with_request(item.rom, request),
+            score=item.score,
+            reasons=item.reasons,  # type: ignore[arg-type]
+        )
+        for item in similar_roms(id, limit=limit, permissions=get_permissions(request))
+    ]
+
+
+@protected_route(
+    router.get,
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
@@ -1576,10 +1614,7 @@ async def get_rom_content(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
 
-    # If .cue files are present, only list those in the M3U
-    # (avoids invalid entries like raw .bin tracks)
-    cue_files = [f for f in files if f.file_extension.lower() == "cue"]
-    m3u_files = cue_files if cue_files else files
+    m3u_files = playlist_files(files)
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:

@@ -285,6 +285,15 @@ SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
     "SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+# On by default: the similarity index is what both the "Similar games" section
+# and the personalised feed read, so leaving it off silently empties them.
+ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS", "true")
+)
+SCHEDULED_BUILD_RECOMMENDATIONS_CRON: Final[str] = _get_env(
+    "SCHEDULED_BUILD_RECOMMENDATIONS_CRON",
+    "30 5 * * *",  # At 5:30 AM every day, after the nightly scan and metadata tasks
+)
 
 # SYNC
 SYNC_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/sync"
@@ -343,6 +352,18 @@ STREAMING_BROKER_SECRET: Final[str] = _get_env("STREAMING_BROKER_SECRET", "")
 STREAMING_SAVE_TIMEOUT: Final[int] = safe_int(
     _get_env("STREAMING_SAVE_TIMEOUT"), 45
 )  # 45 seconds
+# Seconds a webstation activate may take. The broker unpacks pkg and archive
+# ROMs before it can start the emulator, so this has to outlast the slowest
+# extraction rather than just a process spawn.
+STREAMING_LAUNCH_TIMEOUT: Final[int] = safe_int(
+    _get_env("STREAMING_LAUNCH_TIMEOUT"), 600
+)  # 10 minutes
+# How many save states to keep per ROM, emulator and user. Each capture is
+# kept as its own asset rather than overwriting a slot, so the oldest are
+# pruned once this many exist. 0 disables pruning.
+STREAMING_STATE_HISTORY_LIMIT: Final[int] = safe_int(
+    _get_env("STREAMING_STATE_HISTORY_LIMIT"), 50
+)
 
 # SENTRY
 SENTRY_DSN: Final[str | None] = _get_env("SENTRY_DSN")

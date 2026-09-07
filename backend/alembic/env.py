@@ -6,12 +6,19 @@ from sqlalchemy import create_engine
 
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
-from models.assets import Save, Screenshot, State  # noqa
+from models.assets import (  # noqa
+    MemoryCard,
+    MemoryCardVersion,
+    Save,
+    Screenshot,
+    State,
+)
 from models.base import BaseModel
 from models.collection import VirtualCollection
 from models.firmware import Firmware  # noqa
 from models.music import MusicFavoriteTrack, MusicPlaylist, MusicPlaylistTrack  # noqa
 from models.platform import Platform  # noqa
+from models.recommendation import RomSimilarity  # noqa
 from models.rom import Rom, RomFacets, RomMetadata, SiblingRom  # noqa
 from models.user import User  # noqa
 

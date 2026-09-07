@@ -1,6 +1,10 @@
+import errno
+import functools
 import os
 import re
+import socket
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import alembic.config
 import pytest
@@ -15,6 +19,7 @@ from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import (
     db_firmware_handler,
+    db_memory_card_handler,
     db_permission_handler,
     db_platform_handler,
     db_rom_handler,
@@ -23,8 +28,9 @@ from handler.database import (
     db_state_handler,
     db_user_handler,
 )
-from models.assets import Save, Screenshot, State
+from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.client_token import ClientToken
+from models.container_adoption import StreamingContainerAdoption
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.firmware import Firmware
@@ -40,6 +46,37 @@ session = sessionmaker(bind=engine, expire_on_commit=False)
 settings.register_profile("ci", max_examples=200, deadline=None)
 settings.register_profile("dev", max_examples=50, deadline=None)
 settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev"))
+
+# The test suite talks to nothing but the database; a connection anywhere else
+# means a mock was missed. A workstation answers those instantly, a CI runner
+# silently drops the packets and the test burns its whole socket timeout (up to
+# two minutes for a broker transfer), so refuse them outright.
+_ALLOWED_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+_real_connect = socket.socket.connect
+_real_connect_ex = socket.socket.connect_ex
+
+
+def _blocked(address: Any) -> bool:
+    # Non-tuple addresses are unix sockets, which never leave the machine.
+    return isinstance(address, tuple) and address[0] not in _ALLOWED_HOSTS
+
+
+def _guarded_connect(sock: socket.socket, address: Any) -> None:
+    if _blocked(address):
+        raise OSError(
+            errno.ENETUNREACH, f"outbound network blocked in tests: {address}"
+        )
+    _real_connect(sock, address)
+
+
+def _guarded_connect_ex(sock: socket.socket, address: Any) -> int:
+    if _blocked(address):
+        return errno.ENETUNREACH
+    return _real_connect_ex(sock, address)
+
+
+socket.socket.connect = _guarded_connect  # type: ignore[method-assign,assignment]
+socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign,assignment]
 
 
 def _ensure_database_exists() -> None:
@@ -97,6 +134,9 @@ def clear_database():
         s.query(SyncSession).delete(synchronize_session="evaluate")
         s.query(DeviceSaveSync).delete(synchronize_session="evaluate")
         s.query(Device).delete(synchronize_session="evaluate")
+        s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
+        s.query(MemoryCard).delete(synchronize_session="evaluate")
+        s.query(StreamingContainerAdoption).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
@@ -363,10 +403,47 @@ def screenshot(rom: Rom, platform: Platform, admin_user: User):
 
 
 @pytest.fixture
+def memory_card(admin_user: User, platform: Platform):
+    """A private PCSX2 memory card owned by the admin user, no versions yet."""
+    card = MemoryCard(
+        user_id=admin_user.id,
+        emulator="pcsx2",
+        platform_id=platform.id,
+        name="test_card",
+        slot=1,
+        is_public=False,
+    )
+    return db_memory_card_handler.add_card(card)
+
+
+@pytest.fixture
+def memory_card_version(memory_card: MemoryCard, platform: Platform):
+    """A single snapshot attached to the `memory_card` fixture."""
+    version = MemoryCardVersion(
+        memory_card_id=memory_card.id,
+        file_name="test_card.zip",
+        file_name_no_tags="test_card",
+        file_name_no_ext="test_card",
+        file_extension="zip",
+        file_path=f"{platform.slug}/memory_cards/pcsx2",
+        file_size_bytes=4.0,
+        content_hash="0123456789abcdef0123456789abcdef",
+    )
+    return db_memory_card_handler.add_version(version)
+
+
+@functools.cache
+def _password_hash(password: str) -> str:
+    """Memoized: bcrypt costs a quarter-second and the user fixtures below hash
+    the same three passwords for well over a thousand tests."""
+    return auth_handler.get_password_hash(password)
+
+
+@pytest.fixture
 def admin_user():
     user = User(
         username="test_admin",
-        hashed_password=auth_handler.get_password_hash("test_admin_password"),
+        hashed_password=_password_hash("test_admin_password"),
         role=Role.ADMIN,
     )
     return db_user_handler.add_user(user)
@@ -378,7 +455,7 @@ def editor_user():
     group = db_permission_handler.get_group_by_name("Editor (legacy)")
     user = User(
         username="test_editor",
-        hashed_password=auth_handler.get_password_hash("test_editor_password"),
+        hashed_password=_password_hash("test_editor_password"),
         role=Role.USER,
         permission_group_id=group.id if group else None,
     )
@@ -390,7 +467,7 @@ def viewer_user():
     group = db_permission_handler.get_group_by_name("Viewer (legacy)")
     user = User(
         username="test_viewer",
-        hashed_password=auth_handler.get_password_hash("test_viewer_password"),
+        hashed_password=_password_hash("test_viewer_password"),
         role=Role.USER,
         permission_group_id=group.id if group else None,
     )
