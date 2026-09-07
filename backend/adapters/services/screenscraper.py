@@ -75,9 +75,6 @@ SS_LOW_QUOTA_FRACTION: Final[float] = 0.1
 # scrape allowance is refused this many times before the provider is taken out.
 SS_QUOTA_TRIP_THRESHOLD: Final[int] = 2
 
-# Free of the daily quota, which is what lets an armed breaker use it as a probe.
-SS_ACCOUNT_ENDPOINT: Final[str] = "ssuserInfos.php"
-
 # How often an armed breaker re-checks the account. The check is opportunistic,
 # hence the short timeout.
 SS_QUOTA_RECHECK_SECONDS: Final[int] = 60
@@ -326,7 +323,7 @@ def _credential_set(url: str, message: str) -> SSCredentialSet:
     if "développeur" in message.lower():
         return SSCredentialSet.DEVELOPER
 
-    if SS_ACCOUNT_ENDPOINT in url:
+    if "ssuserInfos.php" in url:
         return SSCredentialSet.USER
 
     return SSCredentialSet.DEVELOPER
@@ -735,7 +732,7 @@ class ScreenScraperService:
         # from probing at once: read-then-write with no await is atomic here.
         _state.quota_recheck_at = now + SS_QUOTA_RECHECK_SECONDS
 
-        url = str(self.url.joinpath(SS_ACCOUNT_ENDPOINT))
+        url = str(self.url.joinpath("ssuserInfos.php"))
         credentials_before = _state.credentials_rejected
         limits_before = _state.account_limits
         try:
@@ -770,6 +767,12 @@ class ScreenScraperService:
         return True
 
     async def _request(self, url: str, request_timeout: int = 120) -> dict:
+        # Credentials already refused: the answer will not change until they are
+        # corrected, which takes a restart to pick up. Checked ahead of the quota
+        # so a re-check never spends a request on credentials already refused.
+        if _state.credentials_rejected:
+            raise ScreenScraperCredentialsError(_state.credentials_rejected)
+
         # Scrape allowance already spent: skip the request but still raise, so
         # callers (e.g. manual search) get a clear message rather than a miss.
         if _state.daily_quota_exhausted and not await self._recheck_daily_quota():
@@ -777,11 +780,6 @@ class ScreenScraperService:
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=SS_QUOTA_EXHAUSTED_DETAIL,
             )
-
-        # Credentials already refused: the answer will not change until they are
-        # corrected, which takes a restart to pick up.
-        if _state.credentials_rejected:
-            raise ScreenScraperCredentialsError(_state.credentials_rejected)
 
         generation = _state.quota_generation
         try:
@@ -830,7 +828,7 @@ class ScreenScraperService:
 
         Reference: https://api.screenscraper.fr/webapi2.php#ssuserInfos
         """
-        url = self.url.joinpath(SS_ACCOUNT_ENDPOINT)
+        url = self.url.joinpath("ssuserInfos.php")
         return await self._request(str(url))
 
     async def get_infra_info(self) -> dict:

@@ -12,7 +12,6 @@ from fastapi import HTTPException, status
 import adapters.services.screenscraper as ss_module
 from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
-    SS_ACCOUNT_ENDPOINT,
     SS_DEFAULT_MAX_THREADS,
     SS_DEFAULT_MEDIA_TIMEOUT,
     SS_MAX_MEDIA_TIMEOUT,
@@ -1712,7 +1711,7 @@ class TestDailyQuotaBreaker:
         assert is_daily_quota_exhausted() is False
         # The re-check itself, then the request that was asking.
         assert session.get.call_count == 2
-        assert session.get.call_args_list[0][0][0].endswith(SS_ACCOUNT_ENDPOINT)
+        assert session.get.call_args_list[0][0][0].endswith("ssuserInfos.php")
 
     @pytest.mark.asyncio
     async def test_it_stays_armed_while_the_allowance_is_still_spent(
@@ -1858,22 +1857,22 @@ class TestDailyQuotaBreaker:
         assert session.get.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_a_re_check_leaves_a_refused_credential_set_refused(self, service):
-        """Restoring what the probe found must not hand an already-refused set a
-        second chance either."""
+    async def test_a_refused_credential_set_is_not_re_checked(self, service):
+        """A probe cannot tell a refused set anything, so the credentials guard
+        runs first and the re-check spends no request on one."""
         await self._arm(service)
 
         ss_module._state.credentials_rejected = SSCredentialSet.DEVELOPER
-        _, context = _session(_forbidden_response())
+        session, context = _session(_forbidden_response())
         self._due_for_a_recheck()
 
         with patch("adapters.services.screenscraper.ctx_aiohttp_session", context):
-            # The quota guard runs first, so that is the refusal the caller sees.
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(ScreenScraperCredentialsError) as exc_info:
                 await service._request(GAME_URL)
 
-        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
         assert ss_module._state.credentials_rejected is SSCredentialSet.DEVELOPER
+        session.get.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_the_credentials_breaker_still_stands_on_its_own(self, service):
