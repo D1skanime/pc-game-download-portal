@@ -1,14 +1,18 @@
 ---
-status: complete
+status: testing
 phase: 13-pc-igdb-metadata-and-dlc-media
 source: 13-01-SUMMARY.md, 13-02-SUMMARY.md, 13-03-SUMMARY.md, 13-04-PLAN.md
 started: 2026-09-04T21:30:09Z
-updated: 2026-09-14T14:48:00Z
+updated: 2026-09-14T15:25:00Z
 ---
 
 ## Current Test
 
-[testing complete]
+number: gap-closure
+name: DLC-UX-Nachtest
+expected: |
+Die vier dokumentierten DLC-UX-Lücken sind in der laufenden UAT-Instanz behoben.
+awaiting: user response for gap closure retest
 
 ## Tests
 
@@ -57,3 +61,14 @@ blocked: 0
 - DLC media management and file downloads lack sufficient identity and preview information to tell images apart.
 - DLC Notes has missing labels and an unclear public/private control.
 - Saving a DLC note makes a later media upload fail with a stale-version conflict and an unhelpful missing-key error.
+
+## Gap Closure Retest
+
+implementation: 13-05-PLAN.md
+result: pending
+checks:
+
+- Open `Medien` for `A Woman's Lot`: every entry has a preview, role and MIME type; selecting a preview opens a fullscreen gallery with previous/next browsing.
+- Open `Dateien`: owned-media rows show their role, MIME type and image preview before their `Herunterladen` action.
+- Open `Notizen`: title, content and visibility are translated; the visibility button states `Öffentlich` or `Privat`.
+- Save a note, then immediately upload an image under `Medien`: the upload succeeds without a 409 conflict or literal `common.error` text.
