@@ -271,6 +271,7 @@ function showMedia() {
             v-if="tab === 'notes'"
             :rom-id="parent.id"
             :component="component"
+            @refresh="emit('refresh')"
           />
         </div>
       </div>

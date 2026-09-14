@@ -13,4 +13,12 @@ describe("PcDlcMediaTab", () => {
     expect(source).toContain("useConfirm");
     expect(source).not.toContain("source_relative_path");
   });
+
+  it("renders owned media previews in the parent-style fullscreen gallery", () => {
+    expect(source).toContain("import { RBtn, RCarousel, RDropzone");
+    expect(source).toContain("function mediaContentUrl(mediaId: number)");
+    expect(source).toContain("lightboxOpen");
+    expect(source).toContain("fullscreen");
+    expect(source).toContain("show-thumbnails");
+  });
 });

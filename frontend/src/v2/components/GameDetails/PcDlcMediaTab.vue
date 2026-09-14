@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RBtn, RDropzone, REmptyState, RSelect } from "@v2/lib";
+import { RBtn, RCarousel, RDropzone, REmptyState, RSelect } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
@@ -30,8 +30,26 @@ const roles: RomComponentOwnedMediaRole[] = [
   "artwork",
 ];
 const componentVersion = computed(() => props.component.updated_at ?? null);
+const mediaUrls = computed(() =>
+  media.value.map((item) => mediaContentUrl(item.id)),
+);
+const lightboxIndex = ref(0);
+const lightboxOpen = ref(false);
 
 const endpoint = `/roms/${props.romId}/pc-components/${props.component.id}/media`;
+
+function mediaContentUrl(mediaId: number) {
+  return `${endpoint}/${mediaId}/content`;
+}
+
+function openMedia(index: number) {
+  lightboxIndex.value = index;
+  lightboxOpen.value = true;
+}
+
+function closeLightbox() {
+  lightboxOpen.value = false;
+}
 
 async function load() {
   loading.value = true;
@@ -105,8 +123,23 @@ onMounted(load);
       :title="t('rom.artwork-empty')"
     />
     <ul v-else class="pc-dlc-media__list">
-      <li v-for="item in media" :key="item.id" class="pc-dlc-media__item">
-        <span>{{ item.role }}</span>
+      <li
+        v-for="(item, index) in media"
+        :key="item.id"
+        class="pc-dlc-media__item"
+      >
+        <button
+          type="button"
+          class="pc-dlc-media__preview"
+          :aria-label="`${item.role} ${index + 1}`"
+          @click="openMedia(index)"
+        >
+          <img :src="mediaContentUrl(item.id)" :alt="item.role" />
+        </button>
+        <div class="pc-dlc-media__details">
+          <strong>{{ item.role }}</strong>
+          <span>{{ item.mime_type }}</span>
+        </div>
         <RBtn
           icon="mdi-delete-outline"
           :aria-label="t('common.delete')"
@@ -114,6 +147,22 @@ onMounted(load);
         />
       </li>
     </ul>
+    <RCarousel
+      v-if="lightboxOpen"
+      v-model="lightboxIndex"
+      :items="mediaUrls"
+      fullscreen
+      show-thumbnails
+      :aria-label="t('rom.media')"
+      @close="closeLightbox"
+    >
+      <template #default="{ item, index }">
+        <img :src="item" :alt="`${t('rom.media')} ${index + 1}`" />
+      </template>
+      <template #thumbnail="{ item, index }">
+        <img :src="item" :alt="`${t('rom.media')} ${index + 1}`" />
+      </template>
+    </RCarousel>
   </section>
 </template>
 
@@ -129,8 +178,8 @@ onMounted(load);
   font-size: var(--r-font-size-2xl);
 }
 .pc-dlc-media__list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--r-space-2);
   margin: 0;
   padding: 0;
@@ -138,12 +187,43 @@ onMounted(load);
 }
 .pc-dlc-media__item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
   gap: var(--r-space-3);
   padding: var(--r-space-3);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
+}
+.pc-dlc-media__preview {
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-radius-md);
+  cursor: pointer;
+}
+.pc-dlc-media__preview img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--r-color-cover-placeholder);
+}
+.pc-dlc-media__details {
+  align-self: stretch;
+  min-width: 0;
+}
+.pc-dlc-media__details strong,
+.pc-dlc-media__details span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pc-dlc-media__details span {
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-sm);
 }
 </style>

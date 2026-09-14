@@ -13,4 +13,14 @@ describe("PcDlcNotesTab", () => {
     expect(source).not.toContain("/roms/${props.romId}/notes");
     expect(source).not.toContain("save-data");
   });
+
+  it("uses established note labels and refreshes the component after mutation", () => {
+    expect(source).toContain("t('rom.note-title')");
+    expect(source).toContain("t('rom.note-content')");
+    expect(source).toContain('t(isPublic ? "rom.public" : "rom.private")');
+    expect(source).toContain(
+      'const emit = defineEmits<{ (event: "refresh"): void }>()',
+    );
+    expect(source).toContain('emit("refresh")');
+  });
 });

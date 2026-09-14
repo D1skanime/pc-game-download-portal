@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RBtn, REmptyState, RTextField } from "@v2/lib";
+import axios from "axios";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
@@ -15,6 +16,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ romId: number; component: PcComponentSchema }>();
+const emit = defineEmits<{ (event: "refresh"): void }>();
 const { t } = useI18n();
 const authStore = storeAuth();
 const confirm = useConfirm();
@@ -40,7 +42,7 @@ async function load() {
     notes.value = (await api.get<PcComponentNoteSchema[]>(endpoint)).data;
   } catch (error) {
     console.error(error);
-    snackbar.error(t("common.error"));
+    snackbar.error(t("rom.update-failed"));
   } finally {
     loading.value = false;
   }
@@ -69,10 +71,15 @@ async function create() {
     content.value = "";
     tags.value = "";
     isPublic.value = false;
+    emit("refresh");
     snackbar.success(t("common.save"));
   } catch (error) {
     console.error(error);
-    snackbar.error(t("common.error"));
+    if (axios.isAxiosError(error) && error.response?.status === 409) {
+      snackbar.warning(t("rom.update-failed"));
+    } else {
+      snackbar.error(t("rom.notes-cant-save"));
+    }
   } finally {
     saving.value = false;
   }
@@ -86,10 +93,11 @@ async function remove(noteId: number) {
       params: { expected_version: componentVersion.value },
     });
     notes.value = notes.value.filter((note) => note.id !== noteId);
+    emit("refresh");
     snackbar.success(t("common.delete"));
   } catch (error) {
     console.error(error);
-    snackbar.error(t("common.error"));
+    snackbar.error(t("rom.update-failed"));
   }
 }
 
@@ -101,14 +109,15 @@ onMounted(load);
     <h2 id="pc-dlc-notes-heading" class="pc-dlc-notes__heading">
       {{ t("rom.tab-notes") }}
     </h2>
-    <RTextField v-model="title" :label="t('common.title')" />
-    <RTextField v-model="content" :label="t('common.description')" multiline />
+    <RTextField v-model="title" :label="t('rom.note-title')" />
+    <RTextField v-model="content" :label="t('rom.note-content')" multiline />
     <RTextField v-model="tags" :label="t('rom.tags')" />
     <RBtn
       :variant="isPublic ? 'flat' : 'outlined'"
+      :aria-pressed="isPublic"
       @click="isPublic = !isPublic"
     >
-      {{ t("common.public") }}
+      {{ t(isPublic ? "rom.public" : "rom.private") }}
     </RBtn>
     <RBtn
       :disabled="!canCreate || !componentVersion"

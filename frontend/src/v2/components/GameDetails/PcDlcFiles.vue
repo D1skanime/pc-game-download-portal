@@ -75,12 +75,33 @@ function ownedMediaDownloadUrl(mediaId: number) {
         :key="media.id"
         class="pc-dlc-files__member"
       >
-        <RBtn
-          :href="ownedMediaDownloadUrl(media.id)"
-          prepend-icon="mdi-download"
-        >
-          {{ t("rom.download") }}
-        </RBtn>
+        <dl class="pc-dlc-files__evidence">
+          <div class="pc-dlc-files__field">
+            <dt>{{ t("rom.media") }}</dt>
+            <dd>{{ media.role }}</dd>
+          </div>
+          <div class="pc-dlc-files__field">
+            <dt>MIME</dt>
+            <dd>{{ media.mime_type }}</dd>
+          </div>
+          <a
+            class="pc-dlc-files__preview"
+            :href="ownedMediaDownloadUrl(media.id)"
+            :aria-label="`${t('rom.download')}: ${media.role}`"
+          >
+            <img
+              :src="ownedMediaDownloadUrl(media.id)"
+              :alt="media.role"
+              loading="lazy"
+            />
+          </a>
+          <RBtn
+            :href="ownedMediaDownloadUrl(media.id)"
+            prepend-icon="mdi-download"
+          >
+            {{ t("rom.download") }}
+          </RBtn>
+        </dl>
       </li>
     </ul>
   </section>
@@ -143,6 +164,20 @@ function ownedMediaDownloadUrl(mediaId: number) {
 .pc-dlc-files__path,
 .pc-dlc-files__checksum {
   overflow-wrap: anywhere;
+}
+.pc-dlc-files__preview {
+  display: block;
+  width: min(100%, 12rem);
+  overflow: hidden;
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+}
+.pc-dlc-files__preview img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--r-color-cover-placeholder);
 }
 
 html[data-bp~="sm-and-down"] .pc-dlc-files__evidence {

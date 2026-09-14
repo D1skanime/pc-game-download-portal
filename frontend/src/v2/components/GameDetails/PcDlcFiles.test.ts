@@ -50,4 +50,33 @@ describe("PcDlcFiles", () => {
     expect(wrapper.text()).toContain("b".repeat(64));
     expect(wrapper.findAll("button, a")).toHaveLength(2);
   });
+
+  it("identifies owned image downloads by role and MIME type", () => {
+    const wrapper = mount(PcDlcFiles, {
+      props: {
+        component: {
+          ...component,
+          owned_media: [
+            {
+              id: 22,
+              role: "screenshot",
+              mime_type: "image/webp",
+              owned_path: "roms/1/components/2/screenshot.webp",
+              origin: "upload",
+              provider: null,
+              provider_media_id: null,
+              created_at: "2026-09-14T00:00:00Z",
+              updated_at: "2026-09-14T00:00:00Z",
+            },
+          ],
+        },
+        romId: 1,
+      },
+    });
+
+    const row = wrapper.get("[data-testid='pc-dlc-owned-media-downloads']");
+    expect(row.text()).toContain("screenshot");
+    expect(row.text()).toContain("image/webp");
+    expect(row.find("img").attributes("alt")).toContain("screenshot");
+  });
 });
