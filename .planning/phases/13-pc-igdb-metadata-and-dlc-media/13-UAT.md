@@ -1,18 +1,14 @@
 ---
-status: testing
+status: complete
 phase: 13-pc-igdb-metadata-and-dlc-media
 source: 13-01-SUMMARY.md, 13-02-SUMMARY.md, 13-03-SUMMARY.md, 13-04-PLAN.md
 started: 2026-09-04T21:30:09Z
-updated: 2026-09-14T15:25:00Z
+updated: 2026-09-14T15:36:00Z
 ---
 
 ## Current Test
 
-number: gap-closure
-name: DLC-UX-Nachtest
-expected: |
-Die vier dokumentierten DLC-UX-Lücken sind in der laufenden UAT-Instanz behoben.
-awaiting: user response for gap closure retest
+[testing complete]
 
 ## Tests
 
@@ -39,6 +35,7 @@ expected: Haupttitel- und DLC-Medien vermischen sich nicht. Der externe Quellbau
 result: pass
 evidence: The user confirmed that parent and DLC media are separated.
 issue: DLC media cannot open images in a fullscreen, browseable lightbox like parent game media. `PcDlcMediaTab.vue` renders only role labels and delete controls, without image URLs or the existing `RCarousel` lightbox. The Files tab renders owned DLC media as unlabeled Download buttons without filename, role, size, digest, or preview. The Notes tab renders missing `common.title`, `common.description`, and `common.public` keys literally, and its public/private control does not explain its state. After a successful DLC-note save, the page retains a stale component version, causing a subsequent media upload to receive 409 Conflict while showing the missing `common.error` key. Reloading the page refreshes the version and permits the upload, but the uploaded media remains indistinguishable in the current UI.
+resolution: 13-05 adds owned-media previews, fullscreen RCarousel browsing, identifiable download rows, existing note locale keys, parent refresh after note mutations, and the correct `/api` prefix for image content URLs. The user confirmed the final live-image retest.
 
 ### 5. Responsive und Eingabeprüfung
 
@@ -50,22 +47,20 @@ evidence: The user confirmed responsive layouts, light and dark themes, and keyb
 
 total: 5
 passed: 5
-issues: 4
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-- DLC images lack the parent-media fullscreen, browseable lightbox interaction.
-- DLC media management and file downloads lack sufficient identity and preview information to tell images apart.
-- DLC Notes has missing labels and an unclear public/private control.
-- Saving a DLC note makes a later media upload fail with a stale-version conflict and an unhelpful missing-key error.
+[none remaining]
 
 ## Gap Closure Retest
 
 implementation: 13-05-PLAN.md
-result: pending
+result: pass
+evidence: The user approved Files and Notes, confirmed the note-to-media upload flow, and confirmed image previews and fullscreen browsing after the API content URL correction.
 checks:
 
 - Open `Medien` for `A Woman's Lot`: every entry has a preview, role and MIME type; selecting a preview opens a fullscreen gallery with previous/next browsing.
