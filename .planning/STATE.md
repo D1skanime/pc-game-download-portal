@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: PC integration
 status: executing
-stopped_at: Phase 13 planning complete
-last_updated: "2026-09-04T14:00:00Z"
-last_activity: 2026-09-04 -- Phase 13 planning complete
+stopped_at: Phase 6 Plan 53 ready for execution
+last_updated: "2026-09-14T15:40:00Z"
+last_activity: 2026-09-14 -- Phase 13 verification and UAT completed
 progress:
   total_phases: 13
   completed_phases: 8
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 12 — dlc-detail-pages-for-local-pc-components
+**Current focus:** Phase 6 — safe-lifecycle-and-legacy-migration
 
 ## Current Position
 
-Phase: 13 (pc-igdb-metadata-and-dlc-media) — PLANNED
-Plan: 4 plans ready to execute
-Status: Ready to execute
-Last activity: 2026-09-04 -- Phase 13 planning complete
+Phase: 6 (safe-lifecycle-and-legacy-migration) — IN PROGRESS
+Plan: 53 of 54 ready to execute
+Status: Phase 13 completed and verified; Phase 6 remains the next incomplete work.
+Last activity: 2026-09-14 -- Phase 13 verification and UAT completed
 
-Progress: [□□□□□□□□□□] 0%
+Progress: [█████████□] 96% (52/54 plans summarized)
 
 ## Performance Metrics
 
@@ -305,6 +305,7 @@ Recent decisions affecting current work:
 - Phase 11 added: Local PC Media and DLC Navigation
 - Phase 12 added: DLC detail pages for local PC components
 - Phase 13 added: PC IGDB metadata and DLC media
+- [Phase 13]: Parent and DLC provider media remains RomM-owned; all DLC media previews use protected `/api` content routes.
 
 ### Blockers/Concerns
 
@@ -322,6 +323,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-04T14:00:00Z
-Stopped at: Phase 13 planning complete
-Resume file: .planning/phases/13-pc-igdb-metadata-and-dlc-media/13-CONTEXT.md
+Last session: 2026-09-14T15:40:00Z
+Stopped at: Phase 6 Plan 53 ready for execution
+Resume file: .planning/phases/06-safe-lifecycle-and-legacy-migration/06-53-PLAN.md

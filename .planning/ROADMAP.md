@@ -377,11 +377,12 @@ detail views without mutating the source library.
 **Requirements**: PC-specific developer, publishers, themes, Windows release
 date, owned cover/screenshots/artwork, and parent/DLC detail presentation.
 **Depends on:** Phase 12
-**Plans:** 4 plans
+**Plans:** 5/5 plans executed
 
 Plans:
 
-- [ ] 13-01-PLAN.md: Normalize and persist structured PC IGDB metadata.
-- [ ] 13-02-PLAN.md: Enrich scan-time parents and unambiguous DLCs with owned media.
-- [ ] 13-03-PLAN.md: Expose and render PC metadata/media in v2 parent and DLC details.
-- [ ] 13-04-PLAN.md: Verify safety, metadata, media, and focused UAT.
+- [x] 13-01-PLAN.md: Normalize and persist structured PC IGDB metadata.
+- [x] 13-02-PLAN.md: Enrich scan-time parents and unambiguous DLCs with owned media.
+- [x] 13-03-PLAN.md: Expose and render PC metadata/media in v2 parent and DLC details.
+- [x] 13-04-PLAN.md: Verify safety, metadata, media, and focused UAT.
+- [x] 13-05-PLAN.md: Close accepted DLC media and notes UX gaps. (completed 2026-09-14)
