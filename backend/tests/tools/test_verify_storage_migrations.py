@@ -26,6 +26,15 @@ def test_0110_downgrade_drops_fk_backed_index_with_the_table():
     assert "op.drop_index" not in downgrade
 
 
+def test_0117_downgrade_drops_fk_backed_index_with_the_table():
+    migration = Path(
+        "alembic/versions/0117_component_owned_media_and_notes.py"
+    ).read_text()
+    downgrade = migration.split("def downgrade() -> None:", 1)[1]
+    assert 'op.drop_table("rom_component_owned_media")' in downgrade
+    assert "idx_rom_component_owned_media_component" not in downgrade
+
+
 def test_handler_test_repetitions_must_be_positive():
     parser = verifier.build_parser()
     assert (

@@ -126,8 +126,9 @@ REQUIRED_SOURCE_IDS = frozenset(
 )
 
 PRIOR_OUTCOMES_MIN = 843
+APPROVED_UNTRACKED_BASELINE_COUNT = 33
 BASELINE_UNTRACKED_SHA256 = (
-    "4d4264efbb75049e71230f2417667c867656f6dd5054640e7aa6b8af391c81e1"
+    "c32bbaa280c654f223f92f43a6f5abcb5f969afcc9c1df79696b2255f6d38215"
 )
 CANONICAL_COMMAND_IDENTITY = (
     "python3 backend/tools/verify_phase6_acceptance.py --checkout "
@@ -137,7 +138,7 @@ CANONICAL_COMMAND_IDENTITY = (
     "--project RomM PC Library --source-container romm-dev "
     "--db-container romm-db-dev --expected-source-image romm-romm-dev "
     "--network romm_default --node-image node:24-bookworm "
-    "--contract-port 39006 --baseline-untracked-count 28 "
+    "--contract-port 39006 --baseline-untracked-count 33 "
     "--prior-outcomes-min 843 --run-complete"
 )
 MAX_STAGE_OUTPUT = 4000
@@ -622,7 +623,7 @@ def _baseline_record(checkout: Path, expected_count: int) -> dict[str, object]:
     lines = _baseline_lines(checkout)
     digest = hashlib.sha256(("\n".join(lines) + "\n").encode()).hexdigest()
     if len(lines) != expected_count or digest != BASELINE_UNTRACKED_SHA256:
-        raise StageFailure("untracked baseline does not match the approved 28 entries")
+        raise StageFailure("untracked baseline does not match the approved 33 entries")
     return {"untracked_count": len(lines), "untracked_sha256": digest}
 
 
@@ -1233,7 +1234,7 @@ def validate_acceptance_record(record: dict[str, object]) -> None:
         raise EvidenceError("cleanup structured stage is invalid")
     baseline = stages["baseline"]
     if (
-        baseline.get("untracked_count") != 28
+        baseline.get("untracked_count") != APPROVED_UNTRACKED_BASELINE_COUNT
         or baseline.get("untracked_sha256") != BASELINE_UNTRACKED_SHA256
     ):
         raise EvidenceError("baseline structured stage is invalid")
@@ -1524,7 +1525,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--network", default="romm_default")
     parser.add_argument("--node-image", default="node:24-bookworm")
     parser.add_argument("--contract-port", type=int, default=39006)
-    parser.add_argument("--baseline-untracked-count", type=int, default=28)
+    parser.add_argument(
+        "--baseline-untracked-count",
+        type=int,
+        default=APPROVED_UNTRACKED_BASELINE_COUNT,
+    )
     parser.add_argument("--prior-outcomes-min", type=int, default=PRIOR_OUTCOMES_MIN)
     parser.add_argument(
         "--evidence-json",

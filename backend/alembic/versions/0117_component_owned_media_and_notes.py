@@ -112,8 +112,4 @@ def downgrade() -> None:
         "idx_rom_component_owned_media_origin",
         table_name="rom_component_owned_media",
     )
-    op.drop_index(
-        "idx_rom_component_owned_media_component",
-        table_name="rom_component_owned_media",
-    )
     op.drop_table("rom_component_owned_media")

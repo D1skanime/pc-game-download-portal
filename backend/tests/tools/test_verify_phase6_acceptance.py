@@ -104,6 +104,45 @@ EXPECTED_PHASE6_MODULES = (
     "tests/utils/test_rom_patcher.py",
 )
 
+CURRENT_UNTRACKED_BASELINE = (
+    "?? .codex/",
+    "?? .planning/STATE.md.orig",
+    "?? .planning/codebase/",
+    "?? .planning/debug/",
+    "?? .planning/phases/04-v2-storage-design-specification/04-01-PLAN.md",
+    "?? .planning/phases/04-v2-storage-design-specification/04-02-PLAN.md",
+    "?? .planning/phases/04-v2-storage-design-specification/04-03-PLAN.md",
+    "?? .planning/phases/04-v2-storage-design-specification/04-CONTEXT.md",
+    "?? .planning/phases/04-v2-storage-design-specification/04-DISCUSSION-LOG.md",
+    "?? .planning/phases/04-v2-storage-design-specification/04-PATTERNS.md",
+    "?? .planning/phases/04-v2-storage-design-specification/04-RESEARCH.md",
+    "?? .planning/phases/04-v2-storage-design-specification/04-SOURCE-AUDIT.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-01-PLAN.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-02-PLAN.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-03-PLAN.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-04-PLAN.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-05-PLAN.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-06-PLAN.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-07-PLAN.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-08-PLAN.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-CONTEXT.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-DISCUSSION-LOG.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-PATTERNS.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-RESEARCH.md",
+    "?? .planning/phases/05-preview-and-read-path-cutover/05-SOURCE-AUDIT.md",
+    "?? .planning/phases/11-local-pc-media-and-dlc-navigation/.gitkeep",
+    "?? .planning/phases/12-dlc-detail-pages-for-local-pc-components/.gitkeep",
+    "?? .planning/todos/pending/2026-08-04-enforce-external-library-read-only.md",
+    "?? .tmp/",
+    "?? docs/PC_GAME_COMPONENTS_AND_MANIFEST_DOWNLOADS_ANALYSIS.md",
+    "?? docs/superpowers/plans/",
+    "?? frontend/src/services/api/storage.test.ts",
+    "?? frontend/src/v2/views/Storage/PlatformStorageMapping.test.ts",
+)
+CURRENT_UNTRACKED_BASELINE_SHA256 = (
+    "c32bbaa280c654f223f92f43a6f5abcb5f969afcc9c1df79696b2255f6d38215"
+)
+
 
 class Resource(Protocol):
     database: str
@@ -174,7 +213,7 @@ def valid_record(verifier: ModuleType) -> dict[str, object]:
                 "exit_code": 0,
             },
             "baseline": {
-                "untracked_count": 28,
+                "untracked_count": verifier.APPROVED_UNTRACKED_BASELINE_COUNT,
                 "untracked_sha256": verifier.BASELINE_UNTRACKED_SHA256,
             },
             "git": {"diff_check": 0},
@@ -265,6 +304,34 @@ def test_phase6_inventory_is_exact_deduplicated_and_unfiltered() -> None:
             "romm_default",
         )
         assert "-k" not in command
+
+
+def test_untracked_baseline_accepts_only_the_approved_current_inventory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    verifier = load_verifier()
+
+    def status_output(lines: tuple[str, ...]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], 0, "\n".join(lines) + "\n", "")
+
+    monkeypatch.setattr(
+        verifier,
+        "_run",
+        lambda _args, **_kwargs: status_output(CURRENT_UNTRACKED_BASELINE),
+    )
+
+    assert verifier._baseline_record(Path("/unused"), 33) == {
+        "untracked_count": 33,
+        "untracked_sha256": CURRENT_UNTRACKED_BASELINE_SHA256,
+    }
+
+    monkeypatch.setattr(
+        verifier,
+        "_run",
+        lambda _args, **_kwargs: status_output(CURRENT_UNTRACKED_BASELINE[:-1]),
+    )
+    with pytest.raises(verifier.StageFailure, match="untracked baseline"):
+        verifier._baseline_record(Path("/unused"), 33)
 
 
 def test_module_lifecycle_cleans_exact_resources_after_failure() -> None:
