@@ -39,7 +39,7 @@ const lightboxOpen = ref(false);
 const endpoint = `/roms/${props.romId}/pc-components/${props.component.id}/media`;
 
 function mediaContentUrl(mediaId: number) {
-  return `${endpoint}/${mediaId}/content`;
+  return `/api${endpoint}/${mediaId}/content`;
 }
 
 function openMedia(index: number) {

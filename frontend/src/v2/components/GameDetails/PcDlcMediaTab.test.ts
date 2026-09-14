@@ -17,6 +17,7 @@ describe("PcDlcMediaTab", () => {
   it("renders owned media previews in the parent-style fullscreen gallery", () => {
     expect(source).toContain("import { RBtn, RCarousel, RDropzone");
     expect(source).toContain("function mediaContentUrl(mediaId: number)");
+    expect(source).toContain("return `/api${endpoint}/${mediaId}/content`");
     expect(source).toContain("lightboxOpen");
     expect(source).toContain("fullscreen");
     expect(source).toContain("show-thumbnails");
