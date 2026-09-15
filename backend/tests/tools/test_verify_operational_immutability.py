@@ -373,6 +373,7 @@ def test_delivery_probe_records_observed_nginx_response_statuses(
     class Response:
         def __init__(self, status: int):
             self.status = status
+            self.headers = {"x-phase9": "test"}
 
         def __enter__(self):
             return self
@@ -392,11 +393,10 @@ def test_delivery_probe_records_observed_nginx_response_statuses(
         "single-download", base_url="http://127.0.0.1:39009"
     )
 
-    assert probes == {
-        "authorized_status": 200,
-        "direct_library_status": 404,
-        "direct_cache_status": 404,
-    }
+    assert probes["authorized_status"] == 200
+    assert probes["direct_library_status"] == 404
+    assert probes["direct_cache_status"] == 404
+    assert probes["response_headers"] == {"x-phase9": "test"}
     assert requested == [
         "http://127.0.0.1:39009/api/heartbeat",
         "http://127.0.0.1:39009/library/single-download.bin",

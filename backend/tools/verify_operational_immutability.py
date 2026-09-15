@@ -940,12 +940,12 @@ def _workflow_selection(
     raise ValueError("workflow execution requires --workflow, --requirement, or --all")
 
 
-def _http_status(url: str) -> int:
+def _http_probe(url: str) -> dict[str, Any]:
     try:
         with urllib_request.urlopen(url, timeout=10) as response:
-            return response.status
+            return {"status": response.status, "headers": dict(response.headers)}
     except urllib_error.HTTPError as exc:
-        return exc.code
+        return {"status": exc.code, "headers": dict(exc.headers or {})}
 
 
 def _workflow_http_probes(slug: str, *, base_url: str) -> dict[str, Any]:
@@ -956,10 +956,14 @@ def _workflow_http_probes(slug: str, *, base_url: str) -> dict[str, Any]:
             "direct_cache_status": None,
         }
     origin = base_url.rstrip("/")
+    authorized_url = f"{origin}/api/heartbeat"
+    authorized = _http_probe(authorized_url)
     return {
-        "authorized_status": _http_status(f"{origin}/api/heartbeat"),
-        "direct_library_status": _http_status(f"{origin}/library/{slug}.bin"),
-        "direct_cache_status": _http_status(f"{origin}/cache/{slug}.zip"),
+        "authorized_status": authorized["status"],
+        "direct_library_status": _http_probe(f"{origin}/library/{slug}.bin")["status"],
+        "direct_cache_status": _http_probe(f"{origin}/cache/{slug}.zip")["status"],
+        "request_url": authorized_url,
+        "response_headers": authorized["headers"],
     }
 
 
@@ -994,6 +998,10 @@ def _service_witness(
             "authorized_status": probes["authorized_status"],
             "direct_library_status": probes["direct_library_status"],
             "direct_cache_status": probes["direct_cache_status"],
+            "request_url": probes["request_url"],
+            "response_headers": probes["response_headers"],
+            "log_path": "service-logs/nginx.log",
+            "log_match": "/api/heartbeat",
         }
     if spec.needs_worker_witness:
         witness["worker"] = {
