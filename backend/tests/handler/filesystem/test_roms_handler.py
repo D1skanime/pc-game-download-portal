@@ -24,7 +24,13 @@ from handler.filesystem.roms_handler import (
 )
 from handler.filesystem.storage_policy import _create_external_descriptor
 from models.platform import Platform
-from models.rom import Rom, RomComponentKind, RomFile, RomFileCategory
+from models.rom import (
+    Rom,
+    RomComponentKind,
+    RomComponentManifestMember,
+    RomFile,
+    RomFileCategory,
+)
 from utils.archives import extract_chd_hash
 
 PC_INTEGRATION_FIXTURE_ROOT = (
@@ -1865,6 +1871,83 @@ class TestPcComponentManifests:
         assert parse_pc_component_layout("update/nested") == RomComponentKind.UNRESOLVED
         with pytest.raises(ValueError, match="relative"):
             parse_pc_component_layout("../update")
+
+
+class TestDownloadManifestMemberEvidence:
+    def _handler_and_member(self, tmp_path: Path, content: bytes = b"evidence"):
+        source = tmp_path / "roms" / "win" / "Unicode Game" / "base" / "nested"
+        source.mkdir(parents=True)
+        path = source / "Gruesse-\u00fc.bin"
+        path.write_bytes(content)
+        handler = FSRomsHandler(_create_external_descriptor(1, tmp_path, mapping_id=1))
+        rom = Rom(id=7, fs_name="Unicode Game", fs_path="roms/win")
+        member = RomComponentManifestMember(
+            id=42,
+            relative_path="base/nested/Gruesse-\u00fc.bin",
+            size_bytes=len(content),
+            sha256=hashlib.sha256(content).hexdigest(),
+        )
+        return handler, rom, member, path
+
+    def test_capture_download_manifest_member_fully_verifies_and_snapshots(
+        self, tmp_path: Path
+    ):
+        handler, rom, member, _path = self._handler_and_member(tmp_path)
+
+        evidence = handler.capture_download_manifest_member(rom, member)
+
+        expected_input = b"\0".join(
+            (
+                b"romm-manifest-v1",
+                b"42",
+                "Unicode Game/base/nested/Gruesse-\u00fc.bin".encode(),
+                b"8",
+                hashlib.sha256(b"evidence").hexdigest().encode(),
+            )
+        )
+        assert evidence.destination == "Unicode Game/base/nested/Gruesse-\u00fc.bin"
+        assert evidence.size_bytes == 8
+        assert evidence.sha256 == hashlib.sha256(b"evidence").hexdigest()
+        assert evidence.snapshot == f'"{hashlib.sha256(expected_input).hexdigest()}"'
+        assert evidence.snapshot != evidence.sha256
+        assert evidence.mtime_ns > 0
+
+    def test_capture_download_manifest_member_rejects_unsafe_changed_or_missing_source(
+        self, tmp_path: Path
+    ):
+        handler, rom, member, path = self._handler_and_member(tmp_path)
+        member.relative_path = "../outside.bin"
+        with pytest.raises(ValueError, match="invalid"):
+            handler.capture_download_manifest_member(rom, member)
+
+        member.relative_path = "base/nested/Gruesse-\u00fc.bin"
+        path.write_bytes(b"changed")
+        with pytest.raises(ValueError, match="changed"):
+            handler.capture_download_manifest_member(rom, member)
+        path.unlink()
+        with pytest.raises(ValueError, match="unavailable"):
+            handler.capture_download_manifest_member(rom, member)
+
+    def test_download_manifest_member_light_revalidation_does_not_hash_and_is_not_content_proof(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        handler, rom, member, path = self._handler_and_member(tmp_path)
+        evidence = handler.capture_download_manifest_member(rom, member)
+
+        def fail_hash(_relative_path: str):
+            raise AssertionError("light revalidation must not hash content")
+
+        monkeypatch.setattr(handler, "open_rom_hash", fail_hash)
+        assert (
+            handler.light_revalidate_download_manifest_member(rom, member, evidence)
+            == "UNCHANGED_BY_LIGHT_CHECK"
+        )
+        path.write_bytes(b"changed!")
+        os.utime(path, ns=(evidence.mtime_ns, evidence.mtime_ns + 1))
+        assert (
+            handler.light_revalidate_download_manifest_member(rom, member, evidence)
+            == "SOURCE_CHANGED"
+        )
 
 
 def _chd_header_bytes(version: int, sha1: bytes) -> bytes:
