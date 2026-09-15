@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: PC integration
 status: executing
-stopped_at: Phase 6 manually accepted and closed
+stopped_at: Phase 9 manually accepted and closed
 last_updated: "2026-09-15T00:00:00Z"
-last_activity: 2026-09-15 -- Phase 6 manually accepted and closed by user direction
+last_activity: 2026-09-15 -- Phase 9 manually accepted and closed by user direction
 progress:
   total_phases: 13
   completed_phases: 8
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 7 — v2-storage-administration-experience
+**Current focus:** Phase 10 — PC-integration-model
 
 ## Current Position
 
-Phase: 7 (v2-storage-administration-experience) — NEXT
-Plan: not yet planned
-Status: Phase 6 manually accepted and closed. Its final disposable full-run evidence publisher did not replace the historical JSON record; the user explicitly accepted closure after the cleanup and targeted verification gates passed.
-Last activity: 2026-09-15 -- Phase 6 manually accepted and closed by user direction
+Phase: 10 (pc-integration-model) — NEXT
+Plan: resume the remaining PC integration work
+Status: Phase 9 manually accepted and closed. Its real NAS/nginx/worker/restart proof belongs to the user's live UAT, while fast automated safety tests remain in place.
+Last activity: 2026-09-15 -- Phase 9 manually accepted and closed by user direction
 
 Progress: [██████████] 100% (54/54 plans closed)
 

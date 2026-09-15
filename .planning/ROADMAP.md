@@ -294,7 +294,9 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 3. Pairing, authentication, theme, router, shared stores, API services, generated types, and overlays required by v2 pass a dedicated regression suite after v1 files are deleted.
 4. Frozen v1 views, components, layouts, console surfaces, banners, fallbacks, and v1-only compatibility code are absent from the shipped frontend.
 
-**Plans**: TBD
+**Plans**: Closed by manual live-UAT acceptance on 2026-09-15.
+
+**Closure note**: The remaining production-like proof is intentionally delegated to the user's live UAT. Keep the fast automated safety tests; do not require the expensive full temporary-stack gate for ordinary development changes.
 
 ### Phase 9: Operational Immutability Proof
 
@@ -338,7 +340,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 6. Safe Lifecycle and Legacy Migration  | 52/54          | In Progress |            |
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
-| 9. Operational Immutability Proof       | 1/4            | In Progress |            |
+| 9. Operational Immutability Proof       | Manual UAT     | Complete    | 2026-09-15 |
 | 10. PC Integration Model                | 2/3            | In Progress |            |
 
 ### Phase 11: Local PC Media and DLC Navigation
