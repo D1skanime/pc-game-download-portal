@@ -187,7 +187,9 @@ Plans:
 4. Ambiguous legacy layouts require an explicit manual mapping rather than a guess, and any compatibility fallback is visible and time-bounded.
 5. Mappings survive restarts and normal deployment operations, with portable and practically reversible database migration behavior.
 
-**Plans**: 40/47 plans complete
+**Plans**: 54/54 plans complete, manually accepted on 2026-09-15.
+
+**Closure note**: The product and targeted acceptance checks were accepted after UAT. The final disposable full-run evidence publisher did not replace its historical JSON record, despite cleanup, stopped-service, generated-tree, and baseline audits passing. This was explicitly accepted for closure to unblock the next phase.
 
 Plans:
 
@@ -228,12 +230,12 @@ Plans:
 
 Dependency note: Plans 06-33, 06-34, 06-35, 06-36, 06-37, 06-38, 06-40, and 06-41 have no new-plan dependencies and can execute in parallel.
 
-- [ ] `06-33-PLAN.md` - Make OwnedCreate a complete-durable-content-or-no-final-publication primitive.
-- [ ] `06-34-PLAN.md` - Mask hidden screenshot-upload targets before every owned filesystem or database effect.
-- [ ] `06-35-PLAN.md` - Separate metadata-only HEAD validation from productive GET use and encode download filenames safely.
-- [ ] `06-36-PLAN.md` - Close every remaining transport-form blind spot in the active-v2 semantic mutation inventory.
-- [ ] `06-37-PLAN.md` - Define exact private source-observed identity evidence at the detector boundary.
-- [ ] `06-38-PLAN.md` - Install the approved primary-manual copy contract in en_US and the first locale batch.
+- [x] `06-33-PLAN.md` - Make OwnedCreate a complete-durable-content-or-no-final-publication primitive.
+- [x] `06-34-PLAN.md` - Mask hidden screenshot-upload targets before every owned filesystem or database effect.
+- [x] `06-35-PLAN.md` - Separate metadata-only HEAD validation from productive GET use and encode download filenames safely.
+- [x] `06-36-PLAN.md` - Close every remaining transport-form blind spot in the active-v2 semantic mutation inventory.
+- [x] `06-37-PLAN.md` - Define exact private source-observed identity evidence at the detector boundary.
+- [x] `06-38-PLAN.md` - Install the approved primary-manual copy contract in en_US and the first locale batch.
 - [x] `06-40-PLAN.md` - Create the singular request and progress contract consumed by the safe manual UI.
 - [x] `06-41-PLAN.md` - Add the viewer control contract needed to keep the existing manual visible but non-racing while replacement is pending.
 
@@ -241,28 +243,28 @@ Dependency note: Plans 06-33, 06-34, 06-35, 06-36, 06-37, 06-38, 06-40, and 06-4
 
 Dependency note: Plan 06-39 depends on 06-38; Plan 06-42 depends on 06-37; Plan 06-43 depends on 06-33.
 
-- [ ] `06-39-PLAN.md` - Complete the approved primary-manual translations and global locale parity.
-- [ ] `06-42-PLAN.md` - Persist only bounded digests of exact source-observed identities and invalidate rows that lack that evidence.
-- [ ] `06-43-PLAN.md` - Make primary-manual replacement single-file, serialized by compare-and-swap, and failure-atomic.
+- [x] `06-39-PLAN.md` - Complete the approved primary-manual translations and global locale parity.
+- [x] `06-42-PLAN.md` - Persist only bounded digests of exact source-observed identities and invalidate rows that lack that evidence.
+- [x] `06-43-PLAN.md` - Make primary-manual replacement single-file, serialized by compare-and-swap, and failure-atomic.
 
 **Wave 3 — Gap closure: migration and active-v2 integration**
 
 Dependency note: Plan 06-44 depends on 06-35 and 06-42; Plan 06-45 depends on 06-38, 06-39, 06-40, 06-41, and 06-43.
 
-- [ ] `06-44-PLAN.md` - Bind legacy preview and migration reconnection to the exact private source-observed identity set.
-- [ ] `06-45-PLAN.md` - Implement the approved single-file primary-manual interaction without redesigning Game Details or Phase 7 storage administration.
+- [x] `06-44-PLAN.md` - Bind legacy preview and migration reconnection to the exact private source-observed identity set.
+- [x] `06-45-PLAN.md` - Implement the approved single-file primary-manual interaction without redesigning Game Details or Phase 7 storage administration.
 
 **Wave 4 — Gap closure: dialect authority**
 
 Dependency note: Plan 06-46 depends on 06-44.
 
-- [ ] `06-46-PLAN.md` - Extend the authoritative migration verifier for the private source-identity revision and exact reconnection behavior.
+- [x] `06-46-PLAN.md` - Extend the authoritative migration verifier for the private source-identity revision and exact reconnection behavior.
 
 **Wave 5 — Gap closure: final adversarial integration**
 
 Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 through 06-46.
 
-- [ ] `06-47-PLAN.md` - Run the complete adversarial Phase 6 closure and update evidence only after exact cleanup.
+- [x] `06-47-PLAN.md` - Run the complete adversarial Phase 6 closure and update evidence only after exact cleanup.
 
 ### Phase 7: V2 Storage Administration Experience
 

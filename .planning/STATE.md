@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: PC integration
 status: executing
-stopped_at: Phase 6 Plan 53 ready for execution
-last_updated: "2026-09-14T15:40:00Z"
-last_activity: 2026-09-14 -- Phase 13 verification and UAT completed
+stopped_at: Phase 6 manually accepted and closed
+last_updated: "2026-09-15T00:00:00Z"
+last_activity: 2026-09-15 -- Phase 6 manually accepted and closed by user direction
 progress:
   total_phases: 13
   completed_phases: 8
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 6 — safe-lifecycle-and-legacy-migration
+**Current focus:** Phase 7 — v2-storage-administration-experience
 
 ## Current Position
 
-Phase: 6 (safe-lifecycle-and-legacy-migration) — IN PROGRESS
-Plan: 53 of 54 ready to execute
-Status: Phase 13 completed and verified; Phase 6 remains the next incomplete work.
-Last activity: 2026-09-14 -- Phase 13 verification and UAT completed
+Phase: 7 (v2-storage-administration-experience) — NEXT
+Plan: not yet planned
+Status: Phase 6 manually accepted and closed. Its final disposable full-run evidence publisher did not replace the historical JSON record; the user explicitly accepted closure after the cleanup and targeted verification gates passed.
+Last activity: 2026-09-15 -- Phase 6 manually accepted and closed by user direction
 
-Progress: [█████████□] 96% (52/54 plans summarized)
+Progress: [██████████] 100% (54/54 plans closed)
 
 ## Performance Metrics
 
@@ -324,5 +324,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-09-14T15:40:00Z
-Stopped at: Phase 6 Plan 53 ready for execution
-Resume file: .planning/phases/06-safe-lifecycle-and-legacy-migration/06-53-PLAN.md
+Stopped at: Phase 6 manually accepted and closed
+Resume file: .planning/ROADMAP.md
