@@ -310,7 +310,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 3. An operator can deploy one `:ro` root with separate writable storage and follow documented mapping, browsing, migration, catalog-removal, security, troubleshooting, limitation, and atime guidance.
 4. Operational instructions require an approved maintenance window for a real NAS mount and prohibit Team4s source, service, restart, or active-encode changes.
 
-**Plans**: TBD
+**Plans**: Manual UAT closure
 
 ### Phase 10: PC Integration Model
 
@@ -325,7 +325,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 4. Ambiguous component layouts, unavailable providers, and unsupported media sources fail clearly and never create, rename, move, or modify source files.
 5. RiotPixels is only enabled after documented API, rights, and operational constraints have passed a dedicated provider evaluation.
 
-**Plans**: TBD
+**Plans**: 3/3 plans executed
 **UI hint**: yes
 
 ## Progress
@@ -341,7 +341,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
 | 9. Operational Immutability Proof       | Manual UAT     | Complete    | 2026-09-15 |
-| 10. PC Integration Model                | 2/3            | In Progress |            |
+| 10. PC Integration Model                | 3/3            | Complete    | 2026-09-15 |
 
 ### Phase 11: Local PC Media and DLC Navigation
 
