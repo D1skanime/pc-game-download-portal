@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy import inspect
@@ -259,3 +260,19 @@ def test_manifest_status_and_named_constraints_are_portable_metadata():
         "uq_download_manifest_members_manifest_destination",
     }.issubset(constraints)
     assert inspect(DownloadManifestMember).columns.mtime_ns.nullable is False
+
+
+def test_download_manifest_migration_is_reversible_and_portable():
+    migration = Path("alembic/versions/0119_download_manifests.py").read_text()
+
+    assert 'revision = "0119_download_manifests"' in migration
+    assert 'down_revision = "0118_pc_igdb_structured_metadata"' in migration
+    assert 'op.create_table(\n        "download_manifests"' in migration
+    assert 'op.create_table(\n        "download_manifest_components"' in migration
+    assert 'op.create_table(\n        "download_manifest_members"' in migration
+    assert 'op.drop_table("download_manifest_members")' in migration
+    assert 'op.drop_table("download_manifest_components")' in migration
+    assert 'op.drop_table("download_manifests")' in migration
+    assert "sa.BigInteger()" in migration
+    assert "sa.String(length=700)" in migration
+    assert "native_enum=False" in migration
