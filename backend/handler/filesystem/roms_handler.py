@@ -4,6 +4,7 @@ import fnmatch
 import hashlib
 import os
 import re
+import stat
 import zipfile
 import zlib
 from dataclasses import dataclass
@@ -211,6 +212,54 @@ class ParsedRomFiles:
     ra_hash: str
 
 
+@dataclass(frozen=True)
+class DownloadManifestMemberEvidence:
+    """Captured, path-free evidence for one immutable download member."""
+
+    destination: str
+    size_bytes: int
+    sha256: str
+    snapshot: str
+    mtime_ns: int
+    device: int | None
+    inode: int | None
+
+
+def _download_manifest_destination(rom: Rom, member: RomComponentManifestMember) -> str:
+    """Create a client-safe destination from trusted persisted identities."""
+    relative_path = PurePosixPath(member.relative_path)
+    parts = relative_path.parts
+    if (
+        relative_path.is_absolute()
+        or not parts
+        or any(part in {"", ".", ".."} for part in parts)
+        or "\\" in member.relative_path
+        or any(ord(character) < 32 for character in member.relative_path)
+        or not rom.fs_name
+        or "/" in rom.fs_name
+        or "\\" in rom.fs_name
+        or any(ord(character) < 32 for character in rom.fs_name)
+    ):
+        raise ValueError("PC component manifest path is invalid")
+    return f"{rom.fs_name}/{relative_path.as_posix()}"
+
+
+def _download_manifest_snapshot(
+    member_id: int, destination: str, size_bytes: int, sha256: str
+) -> str:
+    """Build the versioned strong validator from immutable captured evidence."""
+    canonical = b"\0".join(
+        (
+            b"romm-manifest-v1",
+            str(member_id).encode(),
+            destination.encode(),
+            str(size_bytes).encode(),
+            sha256.encode(),
+        )
+    )
+    return f'"{hashlib.sha256(canonical).hexdigest()}"'
+
+
 class FSRomsHandler(ExternalFSHandler):
     def __init__(self, storage: ExternalStorageDescriptor | None = None) -> None:
         if storage is None:
@@ -265,6 +314,65 @@ class FSRomsHandler(ExternalFSHandler):
         if relative_path.is_absolute() or ".." in relative_path.parts:
             raise ValueError("PC component manifest path is invalid")
         return f"{rom.fs_path}/{rom.fs_name}/{relative_path.as_posix()}"
+
+    def capture_download_manifest_member(
+        self, rom: Rom, member: RomComponentManifestMember
+    ) -> DownloadManifestMemberEvidence:
+        """Fully verify one persisted source member through a HASH capability."""
+        destination = _download_manifest_destination(rom, member)
+        try:
+            source_path = self.pc_component_member_path(rom, member)
+            with self.open_rom_hash(source_path) as source:
+                before = os.fstat(source.fileno())
+                if not stat.S_ISREG(before.st_mode):
+                    raise ValueError("PC component manifest source is unavailable")
+                sha256 = source.hash("sha256").lower()
+                after = os.fstat(source.fileno())
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise ValueError("PC component manifest source is unavailable") from exc
+
+        indicators = (before.st_size, before.st_mtime_ns, before.st_dev, before.st_ino)
+        if indicators != (after.st_size, after.st_mtime_ns, after.st_dev, after.st_ino):
+            raise ValueError("PC component manifest source changed")
+        if before.st_size != member.size_bytes or sha256 != member.sha256.lower():
+            raise ValueError("PC component manifest source changed")
+        return DownloadManifestMemberEvidence(
+            destination=destination,
+            size_bytes=before.st_size,
+            sha256=sha256,
+            snapshot=_download_manifest_snapshot(
+                member.id, destination, before.st_size, sha256
+            ),
+            mtime_ns=before.st_mtime_ns,
+            device=before.st_dev if hasattr(before, "st_dev") else None,
+            inode=before.st_ino if hasattr(before, "st_ino") else None,
+        )
+
+    def light_revalidate_download_manifest_member(
+        self,
+        rom: Rom,
+        member: RomComponentManifestMember,
+        evidence: DownloadManifestMemberEvidence | Any,
+    ) -> str:
+        """Compare current cheap indicators only, without rehashing content."""
+        try:
+            source_path = self.pc_component_member_path(rom, member)
+            with self.open_access(StorageOperation.STAT, source_path) as source:
+                current = source.stat()
+        except Exception:
+            return "SOURCE_CHANGED"
+        if (
+            current.st_size != evidence.size_bytes
+            or current.st_mtime_ns != evidence.mtime_ns
+        ):
+            return "SOURCE_CHANGED"
+        if evidence.device is not None and current.st_dev != evidence.device:
+            return "SOURCE_CHANGED"
+        if evidence.inode is not None and current.st_ino != evidence.inode:
+            return "SOURCE_CHANGED"
+        return "UNCHANGED_BY_LIGHT_CHECK"
 
     async def get_pc_components(self, rom: Rom) -> list[RomComponent]:
         """Build immutable component manifests for one directory-backed PC ROM.
