@@ -130,21 +130,36 @@
 - [x] **PCSAFE-01**: Component recognition, manifest generation, metadata matching, and local LaunchBox reads leave every source root unchanged.
 - [x] **PCTEST-01**: Tests cover nested PC components, ambiguous layouts, immutable manifests, provider failures, and source-unchanged evidence.
 
+## v1.2 Cross-platform PC Downloader Requirements
+
+### Download Manifests
+
+- [ ] **DLMT-01**: A user can select a whole PC game or specific base, update, DLC, and extra components for download.
+- [ ] **DLMT-02**: A client can obtain an immutable selected-component manifest with safe relative paths, byte sizes, and SHA-256 digests for every source file.
+- [ ] **DLMT-03**: An expired, changed, or ambiguous manifest fails clearly before a client accepts mixed source versions.
+
+### Direct Large-file Transfer
+
+- [ ] **XFER-01**: The server transfers each source file directly without generating a whole-game ZIP, part ZIP, or extraction step.
+- [ ] **XFER-02**: A client can resume a partial file from its exact byte offset through authenticated HTTP range requests.
+- [ ] **XFER-03**: Resume requests bind to the exact manifest file snapshot and fail safely if the source or manifest has changed.
+- [ ] **XFER-04**: Transfer accounting, offsets, and totals remain correct for files and aggregates larger than 4 GiB, with bounded server concurrency.
+
+### Tauri Desktop Client
+
+- [ ] **CLNT-01**: A Tauri/Rust desktop client runs on Windows and Linux/Bazzite.
+- [ ] **CLNT-02**: The client persists per-file progress and resumes after a restart, pause, or network failure.
+- [ ] **CLNT-03**: The client verifies SHA-256 and atomically finalizes each completed file without replacing an existing verified file on failure.
+- [ ] **CLNT-04**: The client reconstructs only manifest-authorized directories and files below a user-chosen destination root.
+- [ ] **CLNT-05**: Insufficient disk space, missing write permission, and checksum failures retain safe partial state and clear recovery guidance.
+
+### Web Handoff and Safety
+
+- [ ] **UXDL-01**: The v2 UI securely hands a whole-game or selected-component download to the installed desktop client.
+- [ ] **SAFE-01**: Manifest preparation and every transfer leave the NAS and RomM source library read-only and unchanged.
+- [ ] **TEST-01**: Automated coverage proves resume, source changes, incorrect checksums, disk-full recovery, 4 GiB-plus values, and Windows/Linux path safety.
+
 ## Future Requirements
-
-### PC Components
-
-- **COMP-01**: A logical PC game can expose base game, update, DLC, hotfix, language, and extras components without changing its source tree.
-- **COMP-02**: Component identity and metadata remain separate from broad `RomFile` categories.
-
-### Manifest Downloads
-
-- **MANI-01**: Clients can obtain immutable versioned manifests with safe relative paths, sizes, and strong file digests.
-- **MANI-02**: Clients can resume authenticated per-file downloads and verify final integrity.
-
-### Desktop Client
-
-- **CLNT-01**: A Windows client can select components, download them safely, and reconstruct the existing relative tree under a user-selected install root.
 
 ### Broader Visual Redesign
 
@@ -161,8 +176,8 @@
 | Host-path entry in the normal UI             | Deployment owns absolute container roots; UI stores relative mappings only |
 | PC components in milestone 1                 | Depends on the verified storage boundary                                   |
 | Manifest downloads and resume in milestone 1 | Depends on stable immutable file identity                                  |
-| Windows downloader in milestone 1            | Depends on component and manifest contracts                                |
-| Windows downloader and install planner       | Deliberately deferred to its own milestone after the PC model is verified  |
+| Installer execution or game launching        | This milestone downloads verified data only                                |
+| Archive extraction or automatic packaging    | Direct per-file transfer avoids ZIP overhead for very large data           |
 | Direct LaunchBox account or cloud connection | No documented public OAuth/API contract is currently available             |
 | Automated RiotPixels media import            | Requires a verified API and explicit usage permission                      |
 | Full v2 visual redesign in milestone 1       | New storage surfaces establish direction; broader redesign is deferred     |
@@ -252,6 +267,21 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | PCLM-02     | Phase 11 | Complete |
 | PCDLC-01    | Phase 11 | Complete |
 | PCDLC-02    | Phase 11 | Complete |
+| DLMT-01     | Phase 14 | Pending  |
+| DLMT-02     | Phase 14 | Pending  |
+| DLMT-03     | Phase 14 | Pending  |
+| XFER-01     | Phase 15 | Pending  |
+| XFER-02     | Phase 15 | Pending  |
+| XFER-03     | Phase 15 | Pending  |
+| XFER-04     | Phase 15 | Pending  |
+| CLNT-01     | Phase 16 | Pending  |
+| CLNT-02     | Phase 16 | Pending  |
+| CLNT-03     | Phase 16 | Pending  |
+| CLNT-04     | Phase 16 | Pending  |
+| CLNT-05     | Phase 16 | Pending  |
+| UXDL-01     | Phase 17 | Pending  |
+| SAFE-01     | Phase 17 | Pending  |
+| TEST-01     | Phase 17 | Pending  |
 
 **Coverage:**
 
@@ -262,8 +292,11 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 - v1.1 mapped to Phase 10: 11
 - v1.1 mapped to Phase 11: 4
 - v1.1 unmapped: 0
+- v1.2 cross-platform downloader requirements: 15 total
+- v1.2 mapped to Phases 14 through 17: 15
+- v1.2 unmapped: 0
 
 ---
 
 _Requirements defined: 2026-08-04_
-_Last updated: 2026-08-31 after defining milestone v1.1 requirements_
+_Last updated: 2026-09-15 after defining milestone v1.2 requirements_
