@@ -170,7 +170,6 @@ class DBDownloadManifestsHandler(DBBaseHandler):
             )
         session.add(manifest)
         session.flush()
-        session.refresh(manifest)
         return manifest
 
     @begin_session

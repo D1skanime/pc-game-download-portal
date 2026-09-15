@@ -59,7 +59,9 @@ def _component_with_member(rom):
 def test_manifest_persists_owner_scoped_path_free_immutable_selection(admin_user, rom):
     component, source_member = _component_with_member(rom)
     expires_at = datetime.now(UTC) + timedelta(hours=1)
-    manifest = DownloadManifest(user_id=admin_user.id, expires_at=expires_at)
+    manifest = DownloadManifest(
+        user_id=admin_user.id, rom_id=rom.id, expires_at=expires_at
+    )
     selected_component = DownloadManifestComponent(
         manifest=manifest,
         component=component,
@@ -119,6 +121,7 @@ def test_manifest_member_allows_portable_nullable_device_and_inode(admin_user, r
         component=DownloadManifestComponent(
             manifest=DownloadManifest(
                 user_id=admin_user.id,
+                rom_id=rom.id,
                 expires_at=datetime.now(UTC) + timedelta(hours=1),
             ),
             component=component,
@@ -150,6 +153,7 @@ def test_manifest_constraints_reject_duplicate_selection_and_members(admin_user,
     component, source_member = _component_with_member(rom)
     manifest = DownloadManifest(
         user_id=admin_user.id,
+        rom_id=rom.id,
         expires_at=datetime.now(UTC) + timedelta(hours=1),
     )
     with session.begin() as db:
@@ -212,6 +216,7 @@ def test_manifest_owner_and_rows_cascade_without_touching_source_evidence(
         component=DownloadManifestComponent(
             manifest=DownloadManifest(
                 user_id=admin_user.id,
+                rom_id=rom.id,
                 expires_at=datetime.now(UTC) + timedelta(hours=1),
             ),
             component=component,
@@ -263,6 +268,9 @@ def test_manifest_status_and_named_constraints_are_portable_metadata():
 
 def test_download_manifest_migration_is_reversible_and_portable():
     migration = Path("alembic/versions/0119_download_manifests.py").read_text()
+    canonical_rom_migration = Path(
+        "alembic/versions/0120_download_manifest_rom.py"
+    ).read_text()
 
     assert 'revision = "0119_download_manifests"' in migration
     assert 'down_revision = "0118_pc_igdb_structured_metadata"' in migration
@@ -275,3 +283,6 @@ def test_download_manifest_migration_is_reversible_and_portable():
     assert "sa.BigInteger()" in migration
     assert "sa.String(length=700)" in migration
     assert "native_enum=False" in migration
+    assert 'revision = "0120_download_manifest_rom"' in canonical_rom_migration
+    assert 'down_revision = "0119_download_manifests"' in canonical_rom_migration
+    assert 'sa.Column("rom_id", sa.Integer(), nullable=True)' in canonical_rom_migration
