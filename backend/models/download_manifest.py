@@ -19,7 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from models.base import BaseModel
 
 if TYPE_CHECKING:
-    from models.rom import RomComponent, RomComponentManifestMember
+    from models.rom import Rom, RomComponent, RomComponentManifestMember
     from models.user import User
 
 
@@ -37,6 +37,7 @@ class DownloadManifest(BaseModel):
         String(length=36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
     status: Mapped[DownloadManifestStatus] = mapped_column(
         Enum(
@@ -52,6 +53,7 @@ class DownloadManifest(BaseModel):
     )
 
     user: Mapped[User] = relationship(lazy="joined")
+    rom: Mapped[Rom] = relationship(lazy="joined")
     components: Mapped[list[DownloadManifestComponent]] = relationship(
         back_populates="manifest",
         cascade="all, delete-orphan",

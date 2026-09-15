@@ -146,6 +146,7 @@ class DBDownloadManifestsHandler(DBBaseHandler):
 
         manifest = DownloadManifest(
             user_id=user_id,
+            rom_id=rom.id,
             expires_at=datetime.now(timezone.utc)
             + timedelta(seconds=DOWNLOAD_MANIFEST_TTL_SECONDS),
         )
@@ -169,6 +170,7 @@ class DBDownloadManifestsHandler(DBBaseHandler):
             )
         session.add(manifest)
         session.flush()
+        session.refresh(manifest)
         return manifest
 
     @begin_session
@@ -181,6 +183,7 @@ class DBDownloadManifestsHandler(DBBaseHandler):
         manifest = session.scalar(
             select(DownloadManifest)
             .options(
+                selectinload(DownloadManifest.rom),
                 selectinload(DownloadManifest.components)
                 .joinedload(DownloadManifestComponent.component)
                 .joinedload(RomComponent.rom),
