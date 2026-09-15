@@ -19,25 +19,52 @@ including 100-GB-class files, without changing the NAS library.
 
 RomM turns an authorized selection into an immutable download manifest. Each
 member has an opaque server identity, safe relative destination path, byte size,
-SHA-256 digest, and snapshot identity. A manifest becomes invalid when its source
-snapshot changes.
+SHA-256 integrity digest, and a separate strong per-file snapshot validator. The
+snapshot identifies one source version, while SHA-256 proves its final content.
+The server resolves `file_id` to the trusted source root and file internally;
+neither manifests nor client state contain a NAS path.
 
-The client saves local job state. Each incomplete original file is written to a
-sibling `.romm-part` file. The client resumes with an authenticated HTTP Range
-request and an `If-Match` snapshot condition. It verifies SHA-256 after the last
-byte and atomically renames only a verified temporary file to its final manifest
-path.
+The Tauri shell calls a testable Rust library, `romm-download-core`, containing
+`ManifestValidator`, `PathResolver`, `JobStore`, `DownloadScheduler`,
+`FileDownloader`, `HashVerifier`, and `RecoveryManager`. Each incomplete original
+file is written to a sibling `.romm-part-<manifest_member_id>` file. The client
+resumes with an authenticated HTTP Range request and `If-Match` for that member's
+snapshot validator. It verifies SHA-256 after the last byte, fsyncs the temporary
+file, then atomically renames only that verified sibling to its final path.
 
 The client accepts only safe manifest paths and creates them only below the
-chosen destination root. It uses 64-bit-safe size and offset accounting, bounded
-parallel downloads, conservative free-space checks, and clear recovery states.
+chosen destination root. It rejects traversal, POSIX/Windows absolute and UNC
+paths, drive-relative paths, reserved Windows names, control characters,
+normalization/case collisions, and symlink escapes. It uses `u64` for all size and
+offset accounting, two to four sequential per-file transfers by default, and a
+conservative remaining-bytes plus safety-margin free-space preflight.
+
+## Manifest Member Contract
+
+```json
+{
+  "file_id": "opaque-file-id",
+  "destination": "Game/Binaries/game.pak",
+  "size": 87345678901,
+  "sha256": "...",
+  "snapshot": "\"romm-abc123...\"",
+  "download": "/api/download-manifests/.../files/..."
+}
+```
+
+`snapshot` is the strong validator used with `If-Match`; it is deliberately not
+the SHA-256 field. A resume request uses `Range: bytes=<valid_partial_size>-` and
+`If-Match: <snapshot>`. A changed source returns `412 Precondition Failed`; the
+client requests a new manifest rather than accepting bytes from another version.
 
 ## Protocol
 
 1. The web UI or client submits a whole-game or selected-component request.
 2. RomM returns an immutable manifest, or a bounded preparing/changed/error state.
 3. The client validates manifest paths and saves job state.
-4. It skips completed files whose size and SHA-256 match the manifest.
+4. It classifies a final matching SHA-256 file as complete, a differing final file
+   as `LOCAL_CONFLICT`, a smaller valid part as resumable, and an oversized part as
+   corrupt local state. It never overwrites a foreign final file automatically.
 5. It resumes partial files from their local byte count using Range and If-Match.
 6. A stale manifest, changed source, invalid range, or authorization failure stops
    that file without combining versions.
@@ -55,4 +82,16 @@ parallel downloads, conservative free-space checks, and clear recovery states.
 
 Tests cover direct non-ZIP transfer, 4-GiB-plus offsets, resume after restart,
 source changes, stale If-Match, invalid checksums, disk-full and permission
-failures, Windows/Linux-safe paths, and before/after source-library evidence.
+failures, Windows/Linux-safe paths, symlink escapes, and before/after
+source-library evidence. Path tests include `../`, backslash traversal, POSIX and
+UNC roots, drive-relative forms, reserved Windows names, trailing-space/dot names,
+and Unicode normalization cases. Transfer tests use `u64` values at 5 GiB, 80 GiB,
+and 120 GiB.
+
+## Client States
+
+Normal states are `QUEUED`, `PREPARING`, `READY`, `DOWNLOADING`, `PAUSED`,
+`VERIFYING`, and `COMPLETED`. Recovery states are `AUTH_REQUIRED`,
+`SOURCE_CHANGED`, `MANIFEST_STALE`, `LOCAL_CONFLICT`, `DISK_FULL`,
+`PERMISSION_DENIED`, `NETWORK_ERROR`, and `CHECKSUM_FAILED`. A local conflict
+requires an explicit user choice to overwrite, choose another destination, or skip.
