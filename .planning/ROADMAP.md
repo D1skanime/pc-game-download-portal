@@ -424,7 +424,13 @@ hash-backed download manifest without changing the source library.
 3. Changed, expired, or unsafe snapshots fail clearly and never authorize a
    mixed source version.
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+
+- [ ] `14-01-PLAN.md` - Persist the immutable, owner-scoped download-manifest aggregate and portable 0119 migration.
+- [ ] `14-02-PLAN.md` - Capture trusted current evidence and create all-or-nothing selected manifests with explicit lifecycle states.
+- [ ] `14-03-PLAN.md` - Expose protected JSON manifest creation and retrieval APIs, then regenerate the additive OpenAPI contract.
 
 ### Phase 15: Direct Resumable Transfer
 
