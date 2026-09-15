@@ -90,6 +90,10 @@ completed: 2026-09-15
 
 None.
 
+## Deferred Issues
+
+- `TestPcComponentManifests.test_committed_pc_library_fixture_keeps_unknown_folders_unresolved` expects four Cyberpunk `extra` members but the shared fixture currently contains five. The focused manifest tests pass, but the plan's broader filesystem selector is blocked by this pre-existing fixture mismatch. The fixture was left unchanged.
+
 ## Next Phase Readiness
 
 Phase 14-03 can expose the service through an API without accepting source paths. Phase 15 must retain fresh strong per-member verification before transfer.
