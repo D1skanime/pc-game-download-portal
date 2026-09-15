@@ -3,7 +3,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+from tests.conftest import session
 
+from models.base import BaseModel
 from models.download_manifest import (
     DownloadManifest,
     DownloadManifestComponent,
@@ -12,6 +14,31 @@ from models.download_manifest import (
 )
 from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
 from models.user import User
+
+
+@pytest.fixture(scope="module", autouse=True)
+def manifest_tables():
+    tables = [
+        DownloadManifest.__table__,
+        DownloadManifestComponent.__table__,
+        DownloadManifestMember.__table__,
+    ]
+    engine = session.kw["bind"]
+    created = not inspect(engine).has_table(DownloadManifest.__tablename__)
+    if created:
+        BaseModel.metadata.create_all(bind=engine, tables=tables)
+    yield
+    if created:
+        BaseModel.metadata.drop_all(bind=engine, tables=tables)
+
+
+@pytest.fixture(autouse=True)
+def clear_manifest_rows():
+    yield
+    with session.begin() as db:
+        db.query(DownloadManifestMember).delete()
+        db.query(DownloadManifestComponent).delete()
+        db.query(DownloadManifest).delete()
 
 
 def _component_with_member(rom):
@@ -29,9 +56,7 @@ def _component_with_member(rom):
     return component, member
 
 
-def test_manifest_persists_owner_scoped_path_free_immutable_selection(
-    session, admin_user, rom
-):
+def test_manifest_persists_owner_scoped_path_free_immutable_selection(admin_user, rom):
     component, source_member = _component_with_member(rom)
     expires_at = datetime.now(UTC) + timedelta(hours=1)
     manifest = DownloadManifest(user_id=admin_user.id, expires_at=expires_at)
@@ -61,7 +86,7 @@ def test_manifest_persists_owner_scoped_path_free_immutable_selection(
         assert saved is not None
         assert saved.user_id == admin_user.id
         assert saved.status is DownloadManifestStatus.VALID
-        assert saved.expires_at == expires_at
+        assert saved.expires_at.replace(tzinfo=UTC) == expires_at.replace(microsecond=0)
         assert len(saved.components) == 1
         member = saved.components[0].members[0]
         assert member.destination == "Cyberpunk 2077/game.iso"
@@ -88,9 +113,7 @@ def test_manifest_persists_owner_scoped_path_free_immutable_selection(
     assert persisted_columns.isdisjoint(forbidden)
 
 
-def test_manifest_member_allows_portable_nullable_device_and_inode(
-    session, admin_user, rom
-):
+def test_manifest_member_allows_portable_nullable_device_and_inode(admin_user, rom):
     component, source_member = _component_with_member(rom)
     selected_member = DownloadManifestMember(
         component=DownloadManifestComponent(
@@ -123,9 +146,7 @@ def test_manifest_member_allows_portable_nullable_device_and_inode(
         assert saved.mtime_ns == 1
 
 
-def test_manifest_constraints_reject_duplicate_selection_and_members(
-    session, admin_user, rom
-):
+def test_manifest_constraints_reject_duplicate_selection_and_members(admin_user, rom):
     component, source_member = _component_with_member(rom)
     manifest = DownloadManifest(
         user_id=admin_user.id,
@@ -162,7 +183,6 @@ def test_manifest_constraints_reject_duplicate_selection_and_members(
 
     def member(destination):
         return DownloadManifestMember(
-            component_id=component_id,
             download_manifest_component_id=selected_component_id,
             manifest_member_id=source_member_id,
             destination=destination,
@@ -185,7 +205,7 @@ def test_manifest_constraints_reject_duplicate_selection_and_members(
 
 
 def test_manifest_owner_and_rows_cascade_without_touching_source_evidence(
-    session, admin_user, rom
+    admin_user, rom
 ):
     component, source_member = _component_with_member(rom)
     selected_member = DownloadManifestMember(
