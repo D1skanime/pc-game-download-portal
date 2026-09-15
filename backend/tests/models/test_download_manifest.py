@@ -14,7 +14,6 @@ from models.download_manifest import (
     DownloadManifestStatus,
 )
 from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
-from models.user import User
 
 
 @pytest.fixture(scope="module", autouse=True)
