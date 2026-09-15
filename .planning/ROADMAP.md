@@ -338,7 +338,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 4. V2 Storage Design Specification      | 3/3            | Complete    | 2026-08-12 |
 | 5. Preview and Read-path Cutover        | 8/8            | Complete    | 2026-08-12 |
 | 6. Safe Lifecycle and Legacy Migration  | 52/54          | In Progress |            |
-| 7. V2 Storage Administration Experience | 0/TBD          | Not started | -          |
+| 7. V2 Storage Administration Experience | 3/3            | Complete    | 2026-08-26 |
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
 | 9. Operational Immutability Proof       | Manual UAT     | Complete    | 2026-09-15 |
 | 10. PC Integration Model                | 3/3            | Complete    | 2026-09-15 |
