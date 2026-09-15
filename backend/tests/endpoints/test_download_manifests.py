@@ -122,13 +122,14 @@ def test_create_exact_components_rejects_invalid_or_foreign_selection(
         component.id for component in selected
     ]
 
-    for payload in (
+    invalid_payloads: tuple[dict[str, object], ...] = (
         {"component_ids": []},
         {"component_ids": [selected[0].id, selected[0].id]},
         {"component_ids": [0]},
         {"component_ids": [999999]},
         {"component_ids": None, "source_path": "/nas/private"},
-    ):
+    )
+    for payload in invalid_payloads:
         response = client.post(
             f"/api/roms/{rom.id}/download-manifests",
             headers=_headers(access_token),

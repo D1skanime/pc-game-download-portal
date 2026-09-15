@@ -1,3 +1,5 @@
+from typing import NoReturn
+
 from fastapi import HTTPException, Request, status
 
 from decorators.auth import protected_route
@@ -26,7 +28,7 @@ _STATE_ERRORS = {
 }
 
 
-def _not_found() -> None:
+def _not_found() -> NoReturn:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
 
 
