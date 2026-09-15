@@ -22,7 +22,10 @@ end-to-end hardening are Phase 17.
 ### Manifest identity and contents
 
 - A manifest represents exactly one user-authorized whole-game or selected
-  component set and has a distinct immutable manifest ID.
+  component set and has a distinct immutable manifest ID. `whole game` means
+  all currently eligible, manifest-backed PC components for that ROM (base,
+  update, DLC, and extra), not every physical file below the ROM source
+  directory. No recursive directory enumeration is authorized by this choice.
 - Every member exposes only an opaque file/member identity, safe relative
   destination, `u64` byte size, SHA-256, separate strong snapshot validator,
   and a relative future delivery URL. It never exposes a source/NAS path,
