@@ -21,6 +21,7 @@ RomM turns an authorized selection into an immutable download manifest. Each
 member has an opaque server identity, safe relative destination path, byte size,
 SHA-256 integrity digest, and a separate strong per-file snapshot validator. The
 snapshot identifies one source version, while SHA-256 proves its final content.
+The validator is always a strong ETag, never a `W/` weak ETag.
 The server resolves `file_id` to the trusted source root and file internally;
 neither manifests nor client state contain a NAS path.
 
@@ -30,7 +31,9 @@ The Tauri shell calls a testable Rust library, `romm-download-core`, containing
 file is written to a sibling `.romm-part-<manifest_member_id>` file. The client
 resumes with an authenticated HTTP Range request and `If-Match` for that member's
 snapshot validator. It verifies SHA-256 after the last byte, fsyncs the temporary
-file, then atomically renames only that verified sibling to its final path.
+file, then atomically renames only that verified sibling to a nonexistent final
+path. A separately tested cross-platform replace operation is required when an
+explicit user overwrite replaces an existing final file.
 
 The client accepts only safe manifest paths and creates them only below the
 chosen destination root. It rejects traversal, POSIX/Windows absolute and UNC
@@ -56,19 +59,30 @@ conservative remaining-bytes plus safety-margin free-space preflight.
 the SHA-256 field. A resume request uses `Range: bytes=<valid_partial_size>-` and
 `If-Match: <snapshot>`. A changed source returns `412 Precondition Failed`; the
 client requests a new manifest rather than accepting bytes from another version.
+The server rechecks authentication and manifest authorization for every member
+request. A historical download URL is never a durable authorization grant.
 
 ## Protocol
 
 1. The web UI or client submits a whole-game or selected-component request.
 2. RomM returns an immutable manifest, or a bounded preparing/changed/error state.
-3. The client validates manifest paths and saves job state.
+3. The client validates manifest paths and saves job state. A resumable part is
+   accepted only when its stored state exactly matches manifest ID, member ID,
+   expected size, SHA-256, and strong snapshot; a coincidentally named part file is
+   never resumed blindly.
 4. It classifies a final matching SHA-256 file as complete, a differing final file
    as `LOCAL_CONFLICT`, a smaller valid part as resumable, and an oversized part as
    corrupt local state. It never overwrites a foreign final file automatically.
-5. It resumes partial files from their local byte count using Range and If-Match.
-6. A stale manifest, changed source, invalid range, or authorization failure stops
-   that file without combining versions.
+5. It resumes partial files from their local byte count using Range and If-Match,
+   accepting `206` only when `Content-Range` begins at that exact offset and names
+   the expected total size. A `200` response to a resume request is never appended.
+6. A `416` response with a part exactly equal to expected size proceeds to SHA-256
+   verification; an oversized part is corrupt local state. A stale manifest,
+   changed source, invalid range, or authorization failure stops that file without
+   combining versions.
 7. A verified file is atomically completed; other files continue independently.
+   Explicit overwrite downloads and verifies a new sibling part first, then uses
+   the platform-tested replacement path rather than overwriting the final file.
 
 ## Delivery Phases
 
@@ -86,7 +100,8 @@ failures, Windows/Linux-safe paths, symlink escapes, and before/after
 source-library evidence. Path tests include `../`, backslash traversal, POSIX and
 UNC roots, drive-relative forms, reserved Windows names, trailing-space/dot names,
 and Unicode normalization cases. Transfer tests use `u64` values at 5 GiB, 80 GiB,
-and 120 GiB.
+and 120 GiB, validate every `206` response, and separately test Windows/Linux
+normal completion and explicit conflict-replacement paths.
 
 ## Client States
 
@@ -95,3 +110,5 @@ Normal states are `QUEUED`, `PREPARING`, `READY`, `DOWNLOADING`, `PAUSED`,
 `SOURCE_CHANGED`, `MANIFEST_STALE`, `LOCAL_CONFLICT`, `DISK_FULL`,
 `PERMISSION_DENIED`, `NETWORK_ERROR`, and `CHECKSUM_FAILED`. A local conflict
 requires an explicit user choice to overwrite, choose another destination, or skip.
+Manifest states are `VALID`, `EXPIRED`, `REVOKED`, and `SOURCE_CHANGED` so that a
+stale lifetime state is not confused with a changed source snapshot.
