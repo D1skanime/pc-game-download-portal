@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Cross-platform PC Downloader
-status: planning
-last_updated: "2026-09-15T10:32:52.707Z"
-last_activity: 2026-09-15
+status: executing
+stopped_at: Phase 6 manually accepted and closed
+last_updated: "2026-09-15T21:06:34.333Z"
+last_activity: 2026-09-15 -- Phase 14 execution started
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 17
+  completed_phases: 10
+  total_plans: 127
+  completed_plans: 118
+  percent: 59
 ---
 
 # Project State
@@ -20,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 14, immutable download manifests
+**Current focus:** Phase 14 — Immutable Download Manifests
 
 ## Current Position
 
-Phase: 14 (immutable-download-manifests) — NEXT
-Plan: define the implementation plan from the approved v1.2 roadmap
-Status: Requirements and roadmap are approved. No implementation has started.
-Last activity: 2026-09-15 — v1.2 roadmap created
+Phase: 14 (Immutable Download Manifests) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 14
+Last activity: 2026-09-15 -- Phase 14 execution started
 
 ## Performance Metrics
 
