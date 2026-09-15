@@ -2,7 +2,10 @@
 
 ## Overview
 
-This milestone establishes an immutable NAS storage boundary before any feature is allowed to consume it. It then exposes secured administration contracts, defines the native v2 design direction from a read-only Team4s review, cuts every read workflow over to mappings, makes lifecycle and migration behavior source-safe, delivers the new v2 storage experience, removes v1 behind an isolated regression gate, and finishes with production-like evidence and operating guidance. PC components, manifests, desktop downloads, writable libraries, and a broader visual redesign remain outside this milestone.
+Milestone v1.2 adds a cross-platform Tauri/Rust downloader to the existing
+immutable PC-library model. It delivers selected original files directly to a
+user-chosen Windows or Linux/Bazzite destination, resumes safely, verifies every
+file, and never creates a whole-game ZIP or changes the NAS library.
 
 ## Phases
 
@@ -16,6 +19,10 @@ This milestone establishes an immutable NAS storage boundary before any feature 
 - [x] **Phase 8: Bounded V1 Removal** - Remove the frozen frontend and compatibility paths behind a dedicated v2 regression gate. (completed 2026-08-27)
 - [x] **Phase 9: Operational Immutability Proof** - Functionally accepted after completed isolated UAT (2026-08-31). The optional synthetic-harness replacement is deferred from this milestone.
 - [ ] **Phase 10: PC Integration Model** - Model immutable PC game components and manifests, then enrich recognized games through safe metadata sources.
+- [ ] **Phase 14: Immutable Download Manifests** - Turn selected existing PC components into stable, hash-backed download manifests.
+- [ ] **Phase 15: Direct Resumable Transfer** - Serve manifest files directly with snapshot-bound HTTP Range resume and no ZIP packaging.
+- [ ] **Phase 16: Cross-platform Desktop Client** - Deliver the Tauri/Rust Windows and Linux/Bazzite client with safe local recovery.
+- [ ] **Phase 17: Client Handoff and Hardening** - Connect v2 selection to the client and prove large-file failure and safety behavior.
 
 ## Phase Details
 
@@ -342,6 +349,10 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
 | 9. Operational Immutability Proof       | Manual UAT     | Complete    | 2026-09-15 |
 | 10. PC Integration Model                | 3/3            | Complete    | 2026-09-15 |
+| 14. Immutable Download Manifests        | 0/TBD          | Not started | -          |
+| 15. Direct Resumable Transfer           | 0/TBD          | Not started | -          |
+| 16. Cross-platform Desktop Client       | 0/TBD          | Not started | -          |
+| 17. Client Handoff and Hardening        | 0/TBD          | Not started | -          |
 
 ### Phase 11: Local PC Media and DLC Navigation
 
@@ -396,3 +407,72 @@ Plans:
 - [x] 13-03-PLAN.md: Expose and render PC metadata/media in v2 parent and DLC details.
 - [x] 13-04-PLAN.md: Verify safety, metadata, media, and focused UAT.
 - [x] 13-05-PLAN.md: Close accepted DLC media and notes UX gaps. (completed 2026-09-14)
+
+### Phase 14: Immutable Download Manifests
+
+**Goal:** A selected whole PC game or component set has one immutable,
+hash-backed download manifest without changing the source library.
+**Depends on:** Phase 13
+**Requirements:** DLMT-01, DLMT-02, DLMT-03
+
+**Success Criteria:**
+
+1. A user can select a whole game or exact components and receive a stable,
+   server-authorized manifest.
+2. Every manifest member has a safe relative destination path, exact byte size,
+   and SHA-256 snapshot.
+3. Changed, expired, or unsafe snapshots fail clearly and never authorize a
+   mixed source version.
+
+**Plans:** TBD
+
+### Phase 15: Direct Resumable Transfer
+
+**Goal:** The server transfers each manifest file directly and safely resumes
+large partial files without packaging or extracting content.
+**Depends on:** Phase 14
+**Requirements:** XFER-01, XFER-02, XFER-03, XFER-04
+
+**Success Criteria:**
+
+1. A 100-GB-class original file is delivered as itself, never as a whole-game
+   ZIP or ZIP part.
+2. A valid Range request resumes exactly at the verified partial byte offset.
+3. A changed source snapshot fails rather than mixing data from two versions.
+4. Sizes and offsets above 4 GiB remain correct and concurrency is bounded.
+
+**Plans:** TBD
+
+### Phase 16: Cross-platform Desktop Client
+
+**Goal:** A Tauri/Rust client on Windows and Linux/Bazzite downloads selected
+manifest content safely into a user-chosen destination.
+**Depends on:** Phase 15
+**Requirements:** CLNT-01, CLNT-02, CLNT-03, CLNT-04, CLNT-05
+
+**Success Criteria:**
+
+1. The client resumes interrupted downloads after restart without re-downloading
+   verified bytes.
+2. It validates SHA-256 and atomically completes each original file.
+3. It creates only manifest-authorized paths below the selected destination and
+   clearly handles disk-full and permission failures.
+
+**Plans:** TBD
+
+### Phase 17: Client Handoff and Hardening
+
+**Goal:** RomM v2 hands the current game or component selection to the desktop
+client, with production-relevant safety and large-file evidence.
+**Depends on:** Phase 16
+**Requirements:** UXDL-01, SAFE-01, TEST-01
+
+**Success Criteria:**
+
+1. v2 passes the same whole-game or component selection the user chose to the
+   installed client.
+2. The complete flow leaves the NAS and source library unchanged.
+3. Automated checks cover resume, source change, bad checksum, disk-full,
+   large values, and Windows/Linux path safety.
+
+**Plans:** TBD
