@@ -4,22 +4,27 @@
 
 RomM PC Library is a v2-only fork of RomM for people who already maintain game collections on a NAS. It indexes an existing directory tree through one immutable library root, lets administrators map platforms to existing relative subdirectories, and keeps every RomM-owned database record, asset, cache, and temporary file outside the original collection.
 
-The first milestone delivers only the secure NAS integration and removes the legacy v1 frontend. PC component modeling, manifest downloads, and a Windows downloader belong to later milestones.
+The secure NAS boundary, v2 storage administration, PC components, DLC detail
+views, and PC metadata are complete. The current milestone adds a desktop
+downloader that transfers those existing immutable files to a user's PC without
+ever changing the NAS library.
 
 ## Core Value
 
 RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
 
-## Current Milestone: v1.1 PC integration
+## Current Milestone: v1.2 Cross-platform PC Downloader
 
-**Goal:** Model existing PC games and their immutable component files while enriching each recognized game through safe, configured metadata sources.
+**Goal:** Deliver a Tauri/Rust desktop client for Windows and Linux/Bazzite that
+reliably downloads selected PC-game components, including very large files,
+without ZIP repackaging or source-library mutation.
 
 **Target features:**
 
-- PC game components and immutable per-game file manifests.
-- Automatic metadata matching after PC-game recognition.
-- Read-only use of an existing local LaunchBox library and its media.
-- Provider evaluation for RiotPixels before any automated use.
+- Immutable, component-scoped download manifests and direct per-file delivery.
+- Resume, SHA-256 verification, local persistent progress, and atomic file completion.
+- Windows and Linux/Bazzite Tauri client releases with a safe destination chooser.
+- v2 handoff for whole-game or selected DLC/update/extra downloads.
 
 ## Requirements
 

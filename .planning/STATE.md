@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: PC integration
-status: executing
-stopped_at: Phase 7 confirmed complete from its existing implementation and accepted UAT
-last_updated: "2026-09-15T00:00:00Z"
-last_activity: 2026-09-15 -- Phase 7 planning records reconciled; no additional test run required
+milestone: v1.2
+milestone_name: Cross-platform PC Downloader
+status: planning
+last_updated: "2026-09-15T10:32:52.707Z"
+last_activity: 2026-09-15
 progress:
-  total_phases: 13
-  completed_phases: 8
-  total_plans: 123
-  completed_plans: 112
-  percent: 62
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 ## Current Position
 
-Phase: 7 (v2-storage-administration-experience) — COMPLETE
-Plan: all three storage-administration plans have summaries and recorded implementation verification
-Status: The accepted V2 storage workflow is already implemented. This closes only stale Roadmap and requirement status entries; no additional test run was performed.
-Last activity: 2026-09-15 -- Phase 7 confirmed complete from existing evidence and user UAT
-
-Progress: [██████████] 100% (54/54 plans closed)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-09-15 — Milestone v1.2 started
 
 ## Performance Metrics
 
