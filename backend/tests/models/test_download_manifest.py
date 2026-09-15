@@ -266,6 +266,56 @@ def test_manifest_status_and_named_constraints_are_portable_metadata():
     assert inspect(DownloadManifestMember).columns.mtime_ns.nullable is False
 
 
+def test_manifest_member_uses_opaque_public_identity_and_component_topology(
+    admin_user, rom
+):
+    component_a, member_a = _component_with_member(rom)
+    component_b, member_b = _component_with_member(rom)
+    component_b.relative_path = "update"
+    manifest = DownloadManifest(
+        user_id=admin_user.id,
+        rom_id=rom.id,
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+    selected_component = DownloadManifestComponent(
+        manifest=manifest, component=component_a
+    )
+
+    with session.begin() as db:
+        db.add_all([selected_component, component_b, member_a, member_b])
+        db.flush()
+        selected_component_id = selected_component.id
+        component_a_id = component_a.id
+        member_a_id = member_a.id
+        member_b_id = member_b.id
+
+    def selected_member(member_id):
+        return DownloadManifestMember(
+            download_manifest_component_id=selected_component_id,
+            manifest_member_id=member_id,
+            component_id=component_a_id,
+            destination=f"{member_id}.iso",
+            size_bytes=1,
+            sha256="e" * 64,
+            snapshot='"snapshot"',
+            mtime_ns=1,
+        )
+
+    with session.begin() as db:
+        db.add(selected_member(member_a_id))
+
+    with pytest.raises(IntegrityError), session.begin() as db:
+        db.add(selected_member(member_b_id))
+        db.flush()
+
+    with session() as db:
+        member = db.query(DownloadManifestMember).one()
+        assert member.public_id
+        assert member.public_id != str(member.id)
+        assert member.public_id != str(member.manifest_member_id)
+        assert len(member.public_id) == 36
+
+
 def test_download_manifest_migration_is_reversible_and_portable():
     migration = Path("alembic/versions/0119_download_manifests.py").read_text()
     canonical_rom_migration = Path(
