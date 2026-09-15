@@ -135,8 +135,8 @@
 ### Download Manifests
 
 - [ ] **DLMT-01**: A user can select a whole PC game or specific base, update, DLC, and extra components for download.
-- [ ] **DLMT-02**: A client can obtain an immutable selected-component manifest with safe relative paths, byte sizes, and SHA-256 digests for every source file.
-- [ ] **DLMT-03**: An expired, changed, or ambiguous manifest fails clearly before a client accepts mixed source versions.
+- [x] **DLMT-02**: A client can obtain an immutable selected-component manifest with safe relative paths, byte sizes, and SHA-256 digests for every source file.
+- [x] **DLMT-03**: An expired, changed, or ambiguous manifest fails clearly before a client accepts mixed source versions.
 
 ### Direct Large-file Transfer
 
@@ -268,8 +268,8 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | PCDLC-01    | Phase 11 | Complete |
 | PCDLC-02    | Phase 11 | Complete |
 | DLMT-01     | Phase 14 | Pending  |
-| DLMT-02     | Phase 14 | Pending  |
-| DLMT-03     | Phase 14 | Pending  |
+| DLMT-02     | Phase 14 | Complete |
+| DLMT-03     | Phase 14 | Complete |
 | XFER-01     | Phase 15 | Pending  |
 | XFER-02     | Phase 15 | Pending  |
 | XFER-03     | Phase 15 | Pending  |

@@ -349,7 +349,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
 | 9. Operational Immutability Proof       | Manual UAT     | Complete    | 2026-09-15 |
 | 10. PC Integration Model                | 3/3            | Complete    | 2026-09-15 |
-| 14. Immutable Download Manifests        | 0/TBD          | Not started | -          |
+| 14. Immutable Download Manifests        | 1/3            | In Progress |            |
 | 15. Direct Resumable Transfer           | 0/TBD          | Not started | -          |
 | 16. Cross-platform Desktop Client       | 0/TBD          | Not started | -          |
 | 17. Client Handoff and Hardening        | 0/TBD          | Not started | -          |
@@ -424,7 +424,7 @@ hash-backed download manifest without changing the source library.
 3. Changed, expired, or unsafe snapshots fail clearly and never authorize a
    mixed source version.
 
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 
