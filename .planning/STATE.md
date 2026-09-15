@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Cross-platform PC Downloader
 status: executing
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-09-15T21:14:41.774Z"
+stopped_at: Completed 14-02-PLAN.md
+last_updated: "2026-09-15T21:25:20.173Z"
 last_activity: 2026-09-15
 progress:
   total_phases: 17
   completed_phases: 10
   total_plans: 127
-  completed_plans: 119
+  completed_plans: 120
   percent: 59
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 14 (Immutable Download Manifests) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-09-15
 
@@ -127,6 +127,7 @@ _Updated after each plan completion_
 | Phase 10 P01 | 43min | 3 tasks | 8 files |
 | Phase 10 P02 | 36min | 3 tasks | 9 files |
 | Phase 14 P01 | 24m | 2 tasks | 3 files |
+| Phase 14 P02 | 24min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -299,6 +300,8 @@ Recent decisions affecting current work:
 - [Phase 09]: Standalone Python harness gates Phase 9 before workflow execution — Keeps manifest and topology enforcement centralized for later plans.
 - [Phase 09]: Cleanup authority is label-bound, not path-guessed — Only Phase 9-owned Docker resources with explicit labels can be removed.
 - [Phase 14]: Manifest members retain opaque source-member IDs, safe delivery evidence, and no source paths. — Keeps the manifest database boundary portable and prevents source-library disclosure.
+- [Phase 14]: Creation hashes through the constrained HASH capability, while ordinary GET performs STAT-only light checks. — Preserves source integrity without full rehashes during ordinary manifest retrieval.
+- [Phase 14]: Whole-game selection includes only manifest-backed base, update, DLC, and extra components. — Prevents recursive arbitrary source-directory selection.
 
 ### Roadmap Evolution
 
@@ -323,6 +326,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-15T21:14:41.765Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-09-15T21:25:20.132Z
+Stopped at: Completed 14-02-PLAN.md
 Resume file: None
