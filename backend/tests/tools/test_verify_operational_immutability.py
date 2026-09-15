@@ -364,6 +364,65 @@ def test_wait_for_base_url_retries_after_connection_reset(
     assert attempts == 2
 
 
+def test_delivery_probe_records_observed_nginx_response_statuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    requested: list[str] = []
+
+    class Response:
+        def __init__(self, status: int):
+            self.status = status
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+    def open_url(url, timeout):
+        requested.append(url)
+        if url.endswith("/api/heartbeat"):
+            return Response(200)
+        raise module.urllib_error.HTTPError(url, 404, "missing", {}, None)
+
+    monkeypatch.setattr(module.urllib_request, "urlopen", open_url)
+
+    probes = module._workflow_http_probes(
+        "single-download", base_url="http://127.0.0.1:39009"
+    )
+
+    assert probes == {
+        "authorized_status": 200,
+        "direct_library_status": 404,
+        "direct_cache_status": 404,
+    }
+    assert requested == [
+        "http://127.0.0.1:39009/api/heartbeat",
+        "http://127.0.0.1:39009/library/single-download.bin",
+        "http://127.0.0.1:39009/cache/single-download.zip",
+    ]
+
+
+def test_browser_matrix_allows_isolated_stack_startup_time(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    commands: list[list[str]] = []
+
+    def run_command(command, **_kwargs):
+        commands.append(command)
+        return type("Completed", (), {"stdout": ""})()
+
+    monkeypatch.setattr(module, "_run_command", run_command)
+
+    module._run_browser_matrix(
+        base_url="http://127.0.0.1:39009", artifacts_root=tmp_path
+    )
+
+    assert "--timeout=120000" in commands[0]
+
+
 def test_docs_contract_rejects_forbidden_team4s_guidance():
     module = _load_module()
     content = """

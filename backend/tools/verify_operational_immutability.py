@@ -381,6 +381,7 @@ def _run_browser_matrix(*, base_url: str, artifacts_root: Path) -> None:
             "e2e/operational-immutability.spec.ts",
             "--project=chromium",
             "--workers=1",
+            "--timeout=120000",
         ],
         cwd=REPO_ROOT / "frontend",
         env=environment,
@@ -939,22 +940,35 @@ def _workflow_selection(
     raise ValueError("workflow execution requires --workflow, --requirement, or --all")
 
 
-def _workflow_http_probes(slug: str) -> dict[str, Any]:
+def _http_status(url: str) -> int:
+    try:
+        with urllib_request.urlopen(url, timeout=10) as response:
+            return response.status
+    except urllib_error.HTTPError as exc:
+        return exc.code
+
+
+def _workflow_http_probes(slug: str, *, base_url: str) -> dict[str, Any]:
     if slug not in {"stream-play", "single-download", "multi-download"}:
         return {
             "authorized_status": None,
             "direct_library_status": None,
             "direct_cache_status": None,
         }
+    origin = base_url.rstrip("/")
     return {
-        "authorized_status": 200,
-        "direct_library_status": 404,
-        "direct_cache_status": 404,
+        "authorized_status": _http_status(f"{origin}/api/heartbeat"),
+        "direct_library_status": _http_status(f"{origin}/library/{slug}.bin"),
+        "direct_cache_status": _http_status(f"{origin}/cache/{slug}.zip"),
     }
 
 
 def _service_witness(
-    spec: WorkflowSpec, run_id: str, compose_project: str
+    spec: WorkflowSpec,
+    run_id: str,
+    compose_project: str,
+    *,
+    base_url: str | None = None,
 ) -> dict[str, Any]:
     app_marker = f"{compose_project}:app:{spec.slug}:{run_id}"
     witness: dict[str, Any] = {
@@ -967,7 +981,9 @@ def _service_witness(
         },
     }
     if spec.needs_nginx_witness:
-        probes = _workflow_http_probes(spec.slug)
+        if base_url is None:
+            raise ValueError("delivery witness requires the live nginx origin")
+        probes = _workflow_http_probes(spec.slug, base_url=base_url)
         witness["nginx"] = {
             "marker": f"{compose_project}:nginx:{spec.slug}:{run_id}",
             "internal_redirect_path": (
@@ -1050,12 +1066,13 @@ def execute_workflow(
     fixture_root: Path,
     artifacts_root: Path,
     run_started_at: str,
+    base_url: str,
 ) -> dict[str, Any]:
     workflow_root = artifacts_root / "workflows" / spec.slug
     before = build_fixture_manifest(fixture_root)
     after = build_fixture_manifest(fixture_root)
     diff = compare_manifests(before, after)
-    witness = _service_witness(spec, run_id, compose_project)
+    witness = _service_witness(spec, run_id, compose_project, base_url=base_url)
     result = {
         "schema_version": RUN_SCHEMA_VERSION,
         "run_id": run_id,
@@ -1171,6 +1188,7 @@ def execute_workflows(
                 fixture_root=fixture_root,
                 artifacts_root=artifacts_root,
                 run_started_at=run_started_at,
+                base_url=base_url,
             )
             for spec in selected_workflows
         ]
