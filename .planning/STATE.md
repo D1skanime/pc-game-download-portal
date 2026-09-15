@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: PC integration
 status: executing
-stopped_at: Phase 10 formally closed from its existing implementation and UAT evidence
+stopped_at: Phase 11 and Phase 12 formally closed from their existing implementation and UAT evidence
 last_updated: "2026-09-15T00:00:00Z"
-last_activity: 2026-09-15 -- Phase 10 planning record reconciled; no additional test run required
+last_activity: 2026-09-15 -- Phase 11 and Phase 12 planning records reconciled; no additional test run required
 progress:
   total_phases: 13
   completed_phases: 8
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Reconcile the remaining phase planning records before new work
+**Current focus:** Phase 7, the remaining unstarted product phase
 
 ## Current Position
 
-Phase: 10 (pc-integration-model) — COMPLETE
-Plan: all three PC integration plans and their isolated UAT evidence are complete
-Status: Formal closure reconciles the stale Roadmap 2/3 entry with Plans 10-01 through 10-03 and the recorded passing UAT. No additional test run was performed.
-Last activity: 2026-09-15 -- Phase 10 formally closed from existing evidence
+Phase: 12 (dlc-detail-pages-for-local-pc-components) — COMPLETE
+Plan: all twelve DLC detail plans have summaries; Plan 12-12 records focused automated acceptance and user UAT
+Status: Phase 11 and Phase 12 are formally closed from their existing evidence. No additional test run was performed for the documentation-only closeout.
+Last activity: 2026-09-15 -- Phase 11 and Phase 12 formally closed from existing evidence
 
 Progress: [██████████] 100% (54/54 plans closed)
 

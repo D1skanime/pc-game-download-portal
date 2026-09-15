@@ -362,7 +362,7 @@ Plans:
 **Goal:** Each locally present, independently matched PC DLC has a dedicated, parent-owned v2 detail page that presents its selected local identity, media, and immutable files without changing the source library.
 **Requirements**: TBD
 **Depends on:** Phase 11
-**Plans:** 7/12 plans executed
+**Plans:** 12/12 plans executed
 
 Plans:
 
@@ -372,6 +372,12 @@ Plans:
 - [x] 12-01-PLAN.md: Route both parent-detail DLC entry points to the canonical page.
 - [x] 12-03-PLAN.md: Render selected component detail evidence and immutable files.
 - [x] 12-06-PLAN.md: Prove source safety and complete visual and input validation.
+- [x] 12-07-PLAN.md: Persist component-owned media and notes.
+- [x] 12-08-PLAN.md: Add target-aware PC matcher APIs.
+- [x] 12-09-PLAN.md: Expose contained DLC resources and downloads.
+- [x] 12-10-PLAN.md: Route PC metadata actions through the shared matcher.
+- [x] 12-11-PLAN.md: Deliver the DLC detail experience.
+- [x] 12-12-PLAN.md: Record automated acceptance and user UAT.
 
 ### Phase 13: PC IGDB metadata and DLC media
 
