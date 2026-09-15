@@ -120,10 +120,10 @@
 
 ### PC Local Media and DLC Navigation
 
-- [ ] **PCLM-01**: An operator can explicitly select a verified direct PNG, JPEG, or WebP from a recognized PC DLC or extra component as owned cover, background, or gallery media without altering the source file.
-- [ ] **PCLM-02**: A selected local-media role survives a rescan only while its component-relative source path and SHA-256 digest are unchanged; PDFs and archive contents are never promoted to artwork.
-- [ ] **PCDLC-01**: An operator can review and apply configured-provider metadata for each recognized DLC component independently from the base game.
-- [ ] **PCDLC-02**: A locally identified overview DLC or expansion opens the same game's files view filtered to that local DLC component and does not open IGDB.
+- [x] **PCLM-01**: An operator can explicitly select a verified direct PNG, JPEG, or WebP from a recognized PC DLC or extra component as owned cover, background, or gallery media without altering the source file.
+- [x] **PCLM-02**: A selected local-media role survives a rescan only while its component-relative source path and SHA-256 digest are unchanged; PDFs and archive contents are never promoted to artwork.
+- [x] **PCDLC-01**: An operator can review and apply configured-provider metadata for each recognized DLC component independently from the base game.
+- [x] **PCDLC-02**: A locally identified overview DLC or expansion opens the same game's files view filtered to that local DLC component and does not open IGDB.
 
 ### PC Safety and Verification
 
@@ -248,10 +248,10 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | PCRP-01     | Phase 10 | Complete |
 | PCSAFE-01   | Phase 10 | Complete |
 | PCTEST-01   | Phase 10 | Complete |
-| PCLM-01     | Phase 11 | Pending  |
-| PCLM-02     | Phase 11 | Pending  |
-| PCDLC-01    | Phase 11 | Pending  |
-| PCDLC-02    | Phase 11 | Pending  |
+| PCLM-01     | Phase 11 | Complete |
+| PCLM-02     | Phase 11 | Complete |
+| PCDLC-01    | Phase 11 | Complete |
+| PCDLC-02    | Phase 11 | Complete |
 
 **Coverage:**
 
