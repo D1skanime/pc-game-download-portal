@@ -33,6 +33,12 @@ end-to-end hardening are Phase 17.
 - `snapshot` is a strong ETag/strong validator and never a weak `W/` ETag.
   It identifies the captured source version; SHA-256 remains the independent
   final-content integrity proof.
+- Snapshot input is fixed: protocol version, opaque manifest-member ID,
+  validated destination, exact size, and the fully verified SHA-256 at
+  creation. Normal manifest GET compares only persisted size, `mtime_ns`, and
+  stable device/inode identity where available; it never hashes all members. A
+  matching light check is not a content proof. Phase 15 performs the strong
+  per-member content/snapshot check before transfer.
 - Existing PC component/manifests are the sole source for member discovery;
   ambiguous, missing, unsafe, or unready file evidence must fail clearly rather
   than produce a partial or guessed manifest.

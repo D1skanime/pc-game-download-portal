@@ -25,6 +25,15 @@ The validator is always a strong ETag, never a `W/` weak ETag.
 The server resolves `file_id` to the trusted source root and file internally;
 neither manifests nor client state contain a NAS path.
 
+At creation, RomM fully reads and verifies each member's SHA-256. Its strong
+snapshot is a canonical, domain-separated serialization of protocol version,
+opaque manifest-member ID, validated destination, exact size, and that verified
+content SHA-256. Normal manifest GET performs only a cheap indicator comparison:
+size, `mtime_ns`, and a stable device/inode identity where the host exposes one.
+It never re-hashes every member, and a matching lightweight check is not a
+content proof. Phase 15 must recompute the strong per-member content snapshot
+before transfer and reject a mismatch.
+
 The Tauri shell calls a testable Rust library, `romm-download-core`, containing
 `ManifestValidator`, `PathResolver`, `JobStore`, `DownloadScheduler`,
 `FileDownloader`, `HashVerifier`, and `RecoveryManager`. Each incomplete original
