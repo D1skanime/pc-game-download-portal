@@ -52,6 +52,9 @@ ROM_UPLOAD_TMP_BASE: Final[Path] = (
     Path(ROMM_TMP_PATH) if ROMM_TMP_PATH else Path(RESOURCES_BASE_PATH)
 ) / "tmp/uploads"
 ROM_UPLOAD_TTL: Final[int] = 86400  # 24 hours
+DOWNLOAD_MANIFEST_TTL_SECONDS: Final[int] = safe_int(
+    _get_env("DOWNLOAD_MANIFEST_TTL_SECONDS"), 24 * 60 * 60
+)
 
 # SEVEN ZIP
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)

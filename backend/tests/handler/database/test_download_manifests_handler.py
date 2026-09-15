@@ -7,7 +7,7 @@ from tests.conftest import session
 from handler.database.download_manifests_handler import DBDownloadManifestsHandler
 from handler.filesystem.roms_handler import DownloadManifestMemberEvidence
 from models.download_manifest import DownloadManifest, DownloadManifestStatus
-from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
+from models.rom import Rom, RomComponent, RomComponentKind, RomComponentManifestMember
 
 
 class FakeManifestFilesystem:
@@ -92,14 +92,26 @@ def test_create_manifest_rejects_duplicate_foreign_and_empty_components(
     admin_user, viewer_user, rom
 ):
     good = _component(rom.id, RomComponentKind.BASE, "one")
-    foreign = _component(rom.id + 999, RomComponentKind.DLC, "foreign")
+    foreign_rom = Rom(
+        platform_id=rom.platform_id,
+        name="foreign",
+        slug="foreign",
+        fs_name="foreign",
+        fs_name_no_tags="foreign",
+        fs_name_no_ext="foreign",
+        fs_extension="",
+        fs_path=rom.fs_path,
+    )
     empty = RomComponent(
         rom_id=rom.id,
         relative_path="extra-empty",
         kind=RomComponentKind.EXTRA,
     )
     with session.begin() as db:
-        db.add_all([good, foreign, empty])
+        db.add_all([good, foreign_rom, empty])
+        db.flush()
+        foreign = _component(foreign_rom.id, RomComponentKind.DLC, "foreign")
+        db.add(foreign)
     handler = DBDownloadManifestsHandler(FakeManifestFilesystem())
 
     for component_ids in ([good.id, good.id], [foreign.id], [empty.id]):
@@ -141,16 +153,18 @@ def test_expiry_precedes_source_change_and_revocation_is_closed(admin_user, rom)
     filesystem = FakeManifestFilesystem()
     handler = DBDownloadManifestsHandler(filesystem)
     manifest = handler.create_manifest(admin_user.id, rom.id, [component.id])
+    manifest_id = manifest.id
     manifest.expires_at = datetime.now(UTC) - timedelta(seconds=1)
     with session.begin() as db:
         db.merge(manifest)
     assert (
-        handler.get_manifest(manifest.id, admin_user.id).status
+        handler.get_manifest(manifest_id, admin_user.id).status
         is DownloadManifestStatus.EXPIRED
     )
     assert filesystem.light_checks == []
-    assert handler.revoke_manifest(manifest.id, admin_user.id)
+    active = handler.create_manifest(admin_user.id, rom.id, [component.id])
+    assert handler.revoke_manifest(active.id, admin_user.id)
     assert (
-        handler.get_manifest(manifest.id, admin_user.id).status
+        handler.get_manifest(active.id, admin_user.id).status
         is DownloadManifestStatus.REVOKED
     )
