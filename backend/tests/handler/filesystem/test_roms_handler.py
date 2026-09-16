@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -18,11 +19,13 @@ from handler.filesystem.base_handler import (
     REGIONS_BY_SHORTCODE,
 )
 from handler.filesystem.roms_handler import (
+    DownloadManifestTransferState,
     FileHash,
     FSRomsHandler,
     parse_pc_component_layout,
 )
 from handler.filesystem.storage_policy import _create_external_descriptor
+from models.download_manifest import DownloadManifestMember
 from models.platform import Platform
 from models.rom import (
     Rom,
@@ -32,6 +35,7 @@ from models.rom import (
     RomFileCategory,
 )
 from utils.archives import extract_chd_hash
+from utils.rate_limiter import ConcurrencyLimiter
 
 PC_INTEGRATION_FIXTURE_ROOT = (
     Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "pc-integration-model"
@@ -1949,6 +1953,133 @@ class TestDownloadManifestMemberEvidence:
             handler.light_revalidate_download_manifest_member(rom, member, evidence)
             == "SOURCE_CHANGED"
         )
+
+
+class TestVerifiedDownloadManifestMember:
+    def _handler_and_persisted_member(
+        self, tmp_path: Path, content: bytes = b"verified-stream"
+    ):
+        source = tmp_path / "roms" / "win" / "Verified Game" / "base"
+        source.mkdir(parents=True)
+        path = source / "content.bin"
+        path.write_bytes(content)
+        handler = FSRomsHandler(_create_external_descriptor(1, tmp_path, mapping_id=1))
+        rom = Rom(id=7, fs_name="Verified Game", fs_path="roms/win")
+        source_member = RomComponentManifestMember(
+            id=42,
+            relative_path="base/content.bin",
+            size_bytes=len(content),
+            sha256=hashlib.sha256(content).hexdigest(),
+        )
+        public_id = "11111111-1111-4111-8111-111111111111"
+        evidence = handler.capture_download_manifest_member(
+            rom, source_member, public_id
+        )
+        persisted = DownloadManifestMember(
+            public_id=public_id,
+            manifest_member_id=source_member.id,
+            component_id=1,
+            download_manifest_component_id=1,
+            destination=evidence.destination,
+            size_bytes=evidence.size_bytes,
+            sha256=evidence.sha256,
+            snapshot=evidence.snapshot,
+            mtime_ns=evidence.mtime_ns,
+            device=evidence.device,
+            inode=evidence.inode,
+        )
+        persisted.manifest_member = source_member
+        return handler, rom, persisted, path
+
+    @pytest.mark.asyncio
+    async def test_verified_download_manifest_member_rehashes_before_streaming(
+        self, tmp_path: Path
+    ):
+        handler, rom, persisted, path = self._handler_and_persisted_member(tmp_path)
+        source_digest = _fixture_tree_digest(tmp_path)
+
+        result = await handler.open_verified_download_manifest_member(rom, persisted)
+
+        assert result.state is DownloadManifestTransferState.READY
+        assert result.lease is not None
+        assert result.lease.size_bytes == len(b"verified-stream")
+        assert b"".join(result.lease.iter_chunks(2, 8)) == b"rified-s"
+        assert _fixture_tree_digest(tmp_path) == source_digest
+        assert path.read_bytes() == b"verified-stream"
+
+    @pytest.mark.asyncio
+    async def test_verified_download_manifest_member_returns_source_changed_without_lease(
+        self, tmp_path: Path
+    ):
+        handler, rom, persisted, path = self._handler_and_persisted_member(tmp_path)
+        path.write_bytes(b"changed-stream")
+
+        result = await handler.open_verified_download_manifest_member(rom, persisted)
+
+        assert result.state is DownloadManifestTransferState.SOURCE_CHANGED
+        assert result.lease is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("size_bytes", [5 * 1024**3, 80 * 1024**3, 120 * 1024**3])
+    async def test_verified_download_manifest_member_keeps_large_totals_exact(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, size_bytes: int
+    ):
+        handler, rom, persisted, _path = self._handler_and_persisted_member(tmp_path)
+        sha256 = "a" * 64
+        persisted.size_bytes = size_bytes
+        persisted.sha256 = sha256
+        persisted.snapshot = f'"{hashlib.sha256(b"romm-manifest-v1\\0" + persisted.public_id.encode() + b"\\0" + persisted.destination.encode() + b"\\0" + str(size_bytes).encode() + b"\\0" + sha256.encode()).hexdigest()}"'
+        metadata = SimpleNamespace(
+            st_mode=0o100644,
+            st_size=size_bytes,
+            st_mtime_ns=123,
+            st_dev=45,
+            st_ino=67,
+        )
+        source = Mock()
+        source.fileno.return_value = 9
+        source.hash.return_value = sha256
+        monkeypatch.setattr(handler, "open_rom_hash", lambda _path: source)
+        monkeypatch.setattr(
+            "handler.filesystem.roms_handler.os.fstat", lambda _fd: metadata
+        )
+
+        result = await handler.open_verified_download_manifest_member(rom, persisted)
+
+        assert result.state is DownloadManifestTransferState.READY
+        assert result.lease is not None
+        assert result.lease.size_bytes == size_bytes
+        assert result.lease.iter_chunks(size_bytes - 1, 1)
+        result.lease.close()
+
+    @pytest.mark.asyncio
+    async def test_verified_download_manifest_member_releases_transfer_slot_after_early_close(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        handler, rom, persisted, _path = self._handler_and_persisted_member(tmp_path)
+        limiter = ConcurrencyLimiter(1)
+        monkeypatch.setattr(
+            "handler.filesystem.roms_handler._download_manifest_transfer_limiter",
+            limiter,
+        )
+
+        first = await handler.open_verified_download_manifest_member(rom, persisted)
+        assert first.lease is not None
+        waiter = asyncio.create_task(
+            handler.open_verified_download_manifest_member(rom, persisted)
+        )
+        await asyncio.sleep(0)
+        assert not waiter.done()
+
+        iterator = first.lease.iter_chunks(0, 1)
+        assert next(iterator) == b"v"
+        iterator.close()
+        second = await asyncio.wait_for(waiter, timeout=1)
+
+        assert second.state is DownloadManifestTransferState.READY
+        assert second.lease is not None
+        second.lease.close()
+        assert limiter.in_flight == 0
 
 
 def _chd_header_bytes(version: int, sha1: bytes) -> bytes:
