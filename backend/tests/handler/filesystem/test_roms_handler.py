@@ -1894,12 +1894,13 @@ class TestDownloadManifestMemberEvidence:
     ):
         handler, rom, member, _path = self._handler_and_member(tmp_path)
 
-        evidence = handler.capture_download_manifest_member(rom, member)
+        public_id = "11111111-1111-4111-8111-111111111111"
+        evidence = handler.capture_download_manifest_member(rom, member, public_id)
 
         expected_input = b"\0".join(
             (
                 b"romm-manifest-v1",
-                b"42",
+                public_id.encode(),
                 "Unicode Game/base/nested/Gruesse-\u00fc.bin".encode(),
                 b"8",
                 hashlib.sha256(b"evidence").hexdigest().encode(),
@@ -1918,21 +1919,21 @@ class TestDownloadManifestMemberEvidence:
         handler, rom, member, path = self._handler_and_member(tmp_path)
         member.relative_path = "../outside.bin"
         with pytest.raises(ValueError, match="invalid"):
-            handler.capture_download_manifest_member(rom, member)
+            handler.capture_download_manifest_member(rom, member, "public-id")
 
         member.relative_path = "base/nested/Gruesse-\u00fc.bin"
         path.write_bytes(b"changed")
         with pytest.raises(ValueError, match="changed"):
-            handler.capture_download_manifest_member(rom, member)
+            handler.capture_download_manifest_member(rom, member, "public-id")
         path.unlink()
         with pytest.raises(ValueError, match="unavailable"):
-            handler.capture_download_manifest_member(rom, member)
+            handler.capture_download_manifest_member(rom, member, "public-id")
 
     def test_download_manifest_member_light_revalidation_does_not_hash_and_is_not_content_proof(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         handler, rom, member, path = self._handler_and_member(tmp_path)
-        evidence = handler.capture_download_manifest_member(rom, member)
+        evidence = handler.capture_download_manifest_member(rom, member, "public-id")
 
         def fail_hash(_relative_path: str):
             raise AssertionError("light revalidation must not hash content")

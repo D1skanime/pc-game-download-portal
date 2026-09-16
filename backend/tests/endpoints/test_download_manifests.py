@@ -17,12 +17,12 @@ def _headers(access_token: str) -> dict[str, str]:
 
 
 class _ManifestFilesystem:
-    def capture_download_manifest_member(self, rom, member):
+    def capture_download_manifest_member(self, rom, member, public_id):
         return DownloadManifestMemberEvidence(
             destination=f"Game/{member.relative_path}",
             size_bytes=member.size_bytes,
             sha256=member.sha256,
-            snapshot=f'"snapshot-{member.id}"',
+            snapshot=f'"snapshot-{public_id}"',
             mtime_ns=member.id,
             device=None,
             inode=None,
@@ -91,6 +91,11 @@ def test_create_and_retrieve_a_path_free_whole_game_manifest(
         5 * 1024**3 + index for index in range(1, 5)
     ]
     assert all(member["snapshot"].startswith('"') for member in body["members"])
+    assert all(
+        len(member["file_id"]) == 36 and member["file_id"] != str(component.id)
+        for component in manifest_components
+        for member in body["members"]
+    )
     assert all(
         member["download"]
         == f"/api/download-manifests/{body['id']}/files/{member['file_id']}"

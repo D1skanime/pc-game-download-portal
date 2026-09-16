@@ -16,13 +16,13 @@ class FakeManifestFilesystem:
         self.light_checks: list[int] = []
         self.changed_member_ids: set[int] = set()
 
-    def capture_download_manifest_member(self, rom, member):
-        self.captured.append(member.id)
+    def capture_download_manifest_member(self, rom, member, public_id):
+        self.captured.append((member.id, public_id))
         return DownloadManifestMemberEvidence(
             destination=f"{rom.fs_name}/{member.relative_path}",
             size_bytes=member.size_bytes,
             sha256=member.sha256,
-            snapshot=f'"snapshot-{member.id}"',
+            snapshot=f'"snapshot-{public_id}"',
             mtime_ns=member.id,
             device=None,
             inode=None,
@@ -81,7 +81,16 @@ def test_create_manifest_selects_only_eligible_components_atomically(admin_user,
     assert [
         member.size_bytes for item in manifest.components for member in item.members
     ] == [5 * 1024**3] * 4
-    assert filesystem.captured == sorted(filesystem.captured)
+    assert [member_id for member_id, _public_id in filesystem.captured] == sorted(
+        member_id for member_id, _public_id in filesystem.captured
+    )
+    assert all(
+        member.public_id == public_id
+        for _id, public_id in filesystem.captured
+        for component in manifest.components
+        for member in component.members
+        if member.manifest_member_id == _id
+    )
     with session() as db:
         assert db.scalar(
             select(DownloadManifest).where(DownloadManifest.id == manifest.id)
@@ -137,7 +146,9 @@ def test_get_manifest_is_owner_scoped_and_uses_only_light_checks(
     loaded = handler.get_manifest(manifest.id, admin_user.id)
     assert loaded is not None
     assert filesystem.light_checks == [component.manifest_members[0].id]
-    assert filesystem.captured == [component.manifest_members[0].id]
+    assert [member_id for member_id, _public_id in filesystem.captured] == [
+        component.manifest_members[0].id
+    ]
 
     filesystem.changed_member_ids.add(component.manifest_members[0].id)
     assert (
