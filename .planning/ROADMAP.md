@@ -20,7 +20,7 @@ file, and never creates a whole-game ZIP or changes the NAS library.
 - [x] **Phase 9: Operational Immutability Proof** - Functionally accepted after completed isolated UAT (2026-08-31). The optional synthetic-harness replacement is deferred from this milestone.
 - [ ] **Phase 10: PC Integration Model** - Model immutable PC game components and manifests, then enrich recognized games through safe metadata sources.
 - [x] **Phase 14: Immutable Download Manifests** - Turn selected existing PC components into stable, hash-backed download manifests. (completed 2026-09-16)
-- [ ] **Phase 15: Direct Resumable Transfer** - Serve manifest files directly with snapshot-bound HTTP Range resume and no ZIP packaging.
+- [x] **Phase 15: Direct Resumable Transfer** - Serve manifest files directly with snapshot-bound HTTP Range resume and no ZIP packaging. (completed 2026-09-16)
 - [ ] **Phase 16: Cross-platform Desktop Client** - Deliver the Tauri/Rust Windows and Linux/Bazzite client with safe local recovery.
 - [ ] **Phase 17: Client Handoff and Hardening** - Connect v2 selection to the client and prove large-file failure and safety behavior.
 
@@ -350,7 +350,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 9. Operational Immutability Proof       | Manual UAT     | Complete    | 2026-09-15 |
 | 10. PC Integration Model                | 3/3            | Complete    | 2026-09-15 |
 | 14. Immutable Download Manifests        | 4/4            | Complete    | 2026-09-16 |
-| 15. Direct Resumable Transfer           | 0/TBD          | Not started | -          |
+| 15. Direct Resumable Transfer           | 3/3            | Complete    | 2026-09-16 |
 | 16. Cross-platform Desktop Client       | 0/TBD          | Not started | -          |
 | 17. Client Handoff and Hardening        | 0/TBD          | Not started | -          |
 
@@ -447,7 +447,7 @@ large partial files without packaging or extracting content.
 3. A changed source snapshot fails rather than mixing data from two versions.
 4. Sizes and offsets above 4 GiB remain correct and concurrency is bounded.
 
-**Plans:** TBD
+**Plans:** 3/3 plans complete
 
 ### Phase 16: Cross-platform Desktop Client
 
