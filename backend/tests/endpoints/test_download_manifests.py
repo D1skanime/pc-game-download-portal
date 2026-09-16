@@ -1,12 +1,18 @@
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from fastapi import status
 from sqlalchemy import select
 from tests.conftest import session
 
+from endpoints import download_manifests as download_manifests_endpoint
 from handler.database import db_download_manifest_handler, db_rom_handler
-from handler.filesystem.roms_handler import DownloadManifestMemberEvidence
+from handler.filesystem.roms_handler import (
+    DownloadManifestMemberEvidence,
+    DownloadManifestTransferResult,
+    DownloadManifestTransferState,
+)
 from models.download_manifest import DownloadManifest, DownloadManifestStatus
 from models.permission import HiddenEntity, PermEntity
 from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
@@ -14,6 +20,52 @@ from models.rom import RomComponent, RomComponentKind, RomComponentManifestMembe
 
 def _headers(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
+
+
+class _TransferLease:
+    def __init__(self, content: bytes, snapshot: str):
+        self.size_bytes = len(content)
+        self.snapshot = snapshot
+        self._content = content
+        self.closed = False
+        self.iterated = False
+
+    def close(self) -> None:
+        self.closed = True
+
+    def iter_chunks(self, start: int, length: int):
+        self.iterated = True
+        try:
+            yield self._content[start : start + length]
+        finally:
+            self.close()
+
+
+def _manifest_member_url(manifest: dict[str, object]) -> tuple[str, dict[str, object]]:
+    member = manifest["members"][0]
+    assert isinstance(member, dict)
+    download = member["download"]
+    assert isinstance(download, str)
+    return download, member
+
+
+def _install_ready_transfer(monkeypatch, content: bytes):
+    leases: list[_TransferLease] = []
+
+    async def open_verified(_rom, persisted_member):
+        lease = _TransferLease(content, persisted_member.snapshot)
+        leases.append(lease)
+        return DownloadManifestTransferResult(
+            state=DownloadManifestTransferState.READY,
+            lease=lease,
+        )
+
+    monkeypatch.setattr(
+        download_manifests_endpoint.fs_rom_handler,
+        "open_verified_download_manifest_member",
+        open_verified,
+    )
+    return leases
 
 
 class _ManifestFilesystem:
@@ -226,3 +278,174 @@ def test_closed_manifest_states_are_bounded(
     assert response.status_code == expected_status
     assert response.json() == {"detail": {"code": expected_code}}
     assert manifest.id not in response.text
+
+
+def test_manifest_member_delivers_original_bytes_with_exact_full_and_range_headers(
+    client, access_token, rom, manifest_components, monkeypatch
+):
+    created = client.post(
+        f"/api/roms/{rom.id}/download-manifests",
+        headers=_headers(access_token),
+        json={"component_ids": [manifest_components[0].id]},
+    ).json()
+    url, member = _manifest_member_url(created)
+    content = b"original-member-bytes"
+    leases = _install_ready_transfer(monkeypatch, content)
+
+    full = client.get(url, headers=_headers(access_token))
+    assert full.status_code == status.HTTP_200_OK
+    assert full.content == content
+    assert full.headers["accept-ranges"] == "bytes"
+    assert full.headers["content-length"] == str(len(content))
+    assert full.headers["content-disposition"].startswith("attachment;")
+    assert "zip" not in full.headers["content-type"]
+    assert leases[0].closed
+
+    partial = client.get(
+        url,
+        headers={
+            **_headers(access_token),
+            "Range": "bytes=3-8",
+            "If-Match": member["snapshot"],
+        },
+    )
+    assert partial.status_code == status.HTTP_206_PARTIAL_CONTENT
+    assert partial.content == content[3:9]
+    assert partial.headers["content-length"] == "6"
+    assert partial.headers["content-range"] == f"bytes 3-8/{len(content)}"
+    assert leases[1].closed
+
+
+@pytest.mark.parametrize(
+    "range_header",
+    [
+        "bytes=",
+        "bytes=0-1,2-3",
+        "items=0-1",
+        "bytes=-0",
+        "bytes=999-",
+        "bytes=8-3",
+        "bytes=18446744073709551616-",
+    ],
+)
+def test_manifest_member_rejects_invalid_ranges_before_opening_transfer(
+    client, access_token, rom, manifest_components, monkeypatch, range_header
+):
+    created = client.post(
+        f"/api/roms/{rom.id}/download-manifests",
+        headers=_headers(access_token),
+        json={"component_ids": [manifest_components[0].id]},
+    ).json()
+    url, member = _manifest_member_url(created)
+    opened = False
+
+    async def open_verified(_rom, _persisted_member):
+        nonlocal opened
+        opened = True
+        raise AssertionError("invalid Range must not open a transfer")
+
+    monkeypatch.setattr(
+        download_manifests_endpoint.fs_rom_handler,
+        "open_verified_download_manifest_member",
+        open_verified,
+    )
+    response = client.get(
+        url,
+        headers={
+            **_headers(access_token),
+            "Range": range_header,
+            "If-Match": member["snapshot"],
+        },
+    )
+
+    assert response.status_code == status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE
+    assert response.headers["content-range"] == f"bytes */{member['size']}"
+    assert not opened
+
+
+@pytest.mark.parametrize(
+    "if_match",
+    [None, 'W/"strong"', "*", '"first", "second"', '"stale"'],
+)
+def test_manifest_member_rejects_non_exact_resume_validators_before_opening_transfer(
+    client, access_token, rom, manifest_components, monkeypatch, if_match
+):
+    created = client.post(
+        f"/api/roms/{rom.id}/download-manifests",
+        headers=_headers(access_token),
+        json={"component_ids": [manifest_components[0].id]},
+    ).json()
+    url, _member = _manifest_member_url(created)
+    opened = False
+
+    async def open_verified(_rom, _persisted_member):
+        nonlocal opened
+        opened = True
+        raise AssertionError("invalid If-Match must not open a transfer")
+
+    monkeypatch.setattr(
+        download_manifests_endpoint.fs_rom_handler,
+        "open_verified_download_manifest_member",
+        open_verified,
+    )
+    headers = {**_headers(access_token), "Range": "bytes=0-"}
+    if if_match is not None:
+        headers["If-Match"] = if_match
+    response = client.get(url, headers=headers)
+
+    assert response.status_code == status.HTTP_412_PRECONDITION_FAILED
+    assert response.json() == {"detail": {"code": "snapshot_mismatch"}}
+    assert not opened
+
+
+def test_manifest_member_source_change_has_no_lease_or_source_bytes(
+    client, access_token, rom, manifest_components, monkeypatch
+):
+    created = client.post(
+        f"/api/roms/{rom.id}/download-manifests",
+        headers=_headers(access_token),
+        json={"component_ids": [manifest_components[0].id]},
+    ).json()
+    url, member = _manifest_member_url(created)
+    source_bytes = b"private-source-bytes"
+    opened = 0
+
+    async def changed_source(_rom, _persisted_member):
+        nonlocal opened
+        opened += 1
+        return DownloadManifestTransferResult(
+            state=DownloadManifestTransferState.SOURCE_CHANGED
+        )
+
+    monkeypatch.setattr(
+        download_manifests_endpoint.fs_rom_handler,
+        "open_verified_download_manifest_member",
+        changed_source,
+    )
+    response = client.get(
+        url,
+        headers={
+            **_headers(access_token),
+            "Range": "bytes=0-",
+            "If-Match": member["snapshot"],
+        },
+    )
+
+    assert response.status_code == status.HTTP_412_PRECONDITION_FAILED
+    assert response.json() == {"detail": {"code": "source_changed"}}
+    assert opened == 1
+    assert source_bytes not in response.content
+
+
+@pytest.mark.parametrize(
+    "size,start,end",
+    [
+        (5 * 1024**3, 4 * 1024**3, 5 * 1024**3 - 1),
+        (80 * 1024**3, 79 * 1024**3, 80 * 1024**3 - 1),
+        (120 * 1024**3, 119 * 1024**3, 120 * 1024**3 - 1),
+    ],
+)
+def test_manifest_range_bounds_preserve_large_u64_values(size, start, end):
+    assert download_manifests_endpoint._transfer_range_bounds(
+        f"bytes={start}-{end}", size
+    ) == (start, end)
