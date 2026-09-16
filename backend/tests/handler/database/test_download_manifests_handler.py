@@ -12,7 +12,7 @@ from models.rom import Rom, RomComponent, RomComponentKind, RomComponentManifest
 
 class FakeManifestFilesystem:
     def __init__(self):
-        self.captured: list[int] = []
+        self.captured: list[tuple[int, str]] = []
         self.light_checks: list[int] = []
         self.changed_member_ids: set[int] = set()
 
@@ -84,13 +84,11 @@ def test_create_manifest_selects_only_eligible_components_atomically(admin_user,
     assert [member_id for member_id, _public_id in filesystem.captured] == sorted(
         member_id for member_id, _public_id in filesystem.captured
     )
-    assert all(
-        member.public_id == public_id
-        for _id, public_id in filesystem.captured
+    assert {
+        member.manifest_member_id: member.public_id
         for component in manifest.components
         for member in component.members
-        if member.manifest_member_id == _id
-    )
+    } == dict(filesystem.captured)
     with session() as db:
         assert db.scalar(
             select(DownloadManifest).where(DownloadManifest.id == manifest.id)

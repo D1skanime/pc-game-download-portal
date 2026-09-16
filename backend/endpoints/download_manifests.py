@@ -51,12 +51,14 @@ def _serialize(manifest: DownloadManifest) -> DownloadManifestResponse:
         ],
         members=[
             DownloadManifestMemberSchema(
-                file_id=member.id,
+                file_id=member.public_id,
                 destination=member.destination,
                 size=member.size_bytes,
                 sha256=member.sha256,
                 snapshot=member.snapshot,
-                download=f"/api/download-manifests/{manifest.id}/files/{member.id}",
+                download=(
+                    f"/api/download-manifests/{manifest.id}/files/{member.public_id}"
+                ),
             )
             for member in members
         ],

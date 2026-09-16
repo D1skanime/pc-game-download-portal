@@ -245,13 +245,13 @@ def _download_manifest_destination(rom: Rom, member: RomComponentManifestMember)
 
 
 def _download_manifest_snapshot(
-    member_id: int, destination: str, size_bytes: int, sha256: str
+    public_id: str, destination: str, size_bytes: int, sha256: str
 ) -> str:
     """Build the versioned strong validator from immutable captured evidence."""
     canonical = b"\0".join(
         (
             b"romm-manifest-v1",
-            str(member_id).encode(),
+            public_id.encode(),
             destination.encode(),
             str(size_bytes).encode(),
             sha256.encode(),
@@ -316,7 +316,7 @@ class FSRomsHandler(ExternalFSHandler):
         return f"{rom.fs_path}/{rom.fs_name}/{relative_path.as_posix()}"
 
     def capture_download_manifest_member(
-        self, rom: Rom, member: RomComponentManifestMember
+        self, rom: Rom, member: RomComponentManifestMember, public_id: str
     ) -> DownloadManifestMemberEvidence:
         """Fully verify one persisted source member through a HASH capability."""
         destination = _download_manifest_destination(rom, member)
@@ -343,7 +343,7 @@ class FSRomsHandler(ExternalFSHandler):
             size_bytes=before.st_size,
             sha256=sha256,
             snapshot=_download_manifest_snapshot(
-                member.id, destination, before.st_size, sha256
+                public_id, destination, before.st_size, sha256
             ),
             mtime_ns=before.st_mtime_ns,
             device=before.st_dev if hasattr(before, "st_dev") else None,

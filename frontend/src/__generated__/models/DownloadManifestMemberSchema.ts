@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type DownloadManifestMemberSchema = {
-    file_id: number;
+    file_id: string;
     destination: string;
     size: number;
     sha256: string;

@@ -25,13 +25,13 @@ class DownloadManifestComponentSchema(BaseModel):
 
 
 class DownloadManifestMemberSchema(BaseModel):
-    file_id: int
+    file_id: str = Field(pattern=r"^[0-9a-f-]{36}$")
     destination: str
     size: int = Field(ge=0)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     snapshot: str = Field(pattern=r'^".+"$')
     download: str = Field(
-        pattern=r"^/api/download-manifests/[0-9a-f-]{36}/files/[0-9]+$"
+        pattern=r"^/api/download-manifests/[0-9a-f-]{36}/files/[0-9a-f-]{36}$"
     )
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Protocol
+from uuid import uuid4
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
@@ -38,7 +39,7 @@ ELIGIBLE_COMPONENT_KINDS = frozenset(
 
 class ManifestFilesystem(Protocol):
     def capture_download_manifest_member(
-        self, rom: Rom, member: RomComponentManifestMember
+        self, rom: Rom, member: RomComponentManifestMember, public_id: str
     ) -> DownloadManifestMemberEvidence: ...
 
     def light_revalidate_download_manifest_member(
@@ -118,32 +119,6 @@ class DBDownloadManifestsHandler(DBBaseHandler):
         if any(not members_by_component[component.id] for component in components):
             raise ValueError("manifest components need source members")
 
-        captured: list[
-            tuple[
-                RomComponent, RomComponentManifestMember, DownloadManifestMemberEvidence
-            ]
-        ] = []
-        for component in components:
-            for member in members_by_component[component.id]:
-                if (
-                    member.size_bytes < 0
-                    or len(member.sha256) != 64
-                    or any(
-                        character not in "0123456789abcdef"
-                        for character in member.sha256
-                    )
-                ):
-                    raise ValueError("manifest member hash evidence is unavailable")
-                captured.append(
-                    (
-                        component,
-                        member,
-                        self.filesystem_handler.capture_download_manifest_member(
-                            rom, member
-                        ),
-                    )
-                )
-
         manifest = DownloadManifest(
             user_id=user_id,
             rom_id=rom.id,
@@ -155,19 +130,33 @@ class DBDownloadManifestsHandler(DBBaseHandler):
             for component in components
         }
         manifest.components = list(selected_components.values())
-        for component, member, evidence in captured:
-            selected_components[component.id].members.append(
-                DownloadManifestMember(
+        for component in components:
+            for member in members_by_component[component.id]:
+                if (
+                    member.size_bytes < 0
+                    or len(member.sha256) != 64
+                    or any(
+                        character not in "0123456789abcdef"
+                        for character in member.sha256
+                    )
+                ):
+                    raise ValueError("manifest member hash evidence is unavailable")
+                pending_member = DownloadManifestMember(
+                    public_id=str(uuid4()),
+                    component_id=component.id,
                     manifest_member=member,
-                    destination=evidence.destination,
-                    size_bytes=evidence.size_bytes,
-                    sha256=evidence.sha256,
-                    snapshot=evidence.snapshot,
-                    mtime_ns=evidence.mtime_ns,
-                    device=evidence.device,
-                    inode=evidence.inode,
                 )
-            )
+                selected_components[component.id].members.append(pending_member)
+                evidence = self.filesystem_handler.capture_download_manifest_member(
+                    rom, member, pending_member.public_id
+                )
+                pending_member.destination = evidence.destination
+                pending_member.size_bytes = evidence.size_bytes
+                pending_member.sha256 = evidence.sha256
+                pending_member.snapshot = evidence.snapshot
+                pending_member.mtime_ns = evidence.mtime_ns
+                pending_member.device = evidence.device
+                pending_member.inode = evidence.inode
         session.add(manifest)
         session.flush()
         return manifest
