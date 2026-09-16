@@ -177,3 +177,89 @@ def test_expiry_precedes_source_change_and_revocation_is_closed(admin_user, rom)
         handler.get_manifest(active.id, admin_user.id).status
         is DownloadManifestStatus.REVOKED
     )
+
+
+def test_transfer_manifest_member_is_scoped_to_owner_manifest_and_public_member(
+    admin_user, viewer_user, rom
+):
+    first_component = _component(rom.id, RomComponentKind.BASE, "first")
+    second_component = _component(rom.id, RomComponentKind.DLC, "second")
+    with session.begin() as db:
+        db.add_all([first_component, second_component])
+
+    filesystem = FakeManifestFilesystem()
+    handler = DBDownloadManifestsHandler(filesystem)
+    first_manifest = handler.create_manifest(
+        admin_user.id, rom.id, [first_component.id]
+    )
+    second_manifest = handler.create_manifest(
+        admin_user.id, rom.id, [second_component.id]
+    )
+    first_member = first_manifest.components[0].members[0]
+    second_member = second_manifest.components[0].members[0]
+
+    resolved = handler.get_transfer_manifest_member(
+        first_manifest.id, admin_user.id, first_member.public_id
+    )
+
+    assert resolved is not None
+    assert resolved.public_id == first_member.public_id
+    assert resolved.component.component_id == first_component.id
+    assert resolved.manifest_member_id == first_component.manifest_members[0].id
+    assert resolved.component.manifest.rom_id == rom.id
+    assert resolved.component.manifest.status is DownloadManifestStatus.VALID
+    assert (
+        handler.get_transfer_manifest_member(
+            first_manifest.id, viewer_user.id, first_member.public_id
+        )
+        is None
+    )
+    assert (
+        handler.get_transfer_manifest_member(
+            first_manifest.id, admin_user.id, second_member.public_id
+        )
+        is None
+    )
+    assert (
+        handler.get_transfer_manifest_member(
+            first_manifest.id, admin_user.id, str(first_member.id)
+        )
+        is None
+    )
+    assert filesystem.light_checks == []
+
+
+@pytest.mark.parametrize(
+    ("status", "expired"),
+    [
+        (DownloadManifestStatus.REVOKED, False),
+        (DownloadManifestStatus.SOURCE_CHANGED, False),
+        (DownloadManifestStatus.VALID, True),
+    ],
+)
+def test_transfer_manifest_member_preserves_lifecycle_without_light_revalidation(
+    admin_user, rom, status, expired
+):
+    component = _component(rom.id, RomComponentKind.BASE, "lifecycle")
+    with session.begin() as db:
+        db.add(component)
+
+    filesystem = FakeManifestFilesystem()
+    handler = DBDownloadManifestsHandler(filesystem)
+    manifest = handler.create_manifest(admin_user.id, rom.id, [component.id])
+    member = manifest.components[0].members[0]
+    if expired:
+        manifest.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    else:
+        manifest.status = status
+    with session.begin() as db:
+        db.merge(manifest)
+
+    resolved = handler.get_transfer_manifest_member(
+        manifest.id, admin_user.id, member.public_id
+    )
+
+    assert resolved is not None
+    expected_status = DownloadManifestStatus.EXPIRED if expired else status
+    assert resolved.component.manifest.status is expected_status
+    assert filesystem.light_checks == []
