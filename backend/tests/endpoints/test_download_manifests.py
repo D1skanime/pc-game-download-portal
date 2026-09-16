@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from fastapi import status
@@ -10,6 +10,7 @@ from endpoints import download_manifests as download_manifests_endpoint
 from handler.database import db_download_manifest_handler, db_rom_handler
 from handler.filesystem.roms_handler import (
     DownloadManifestMemberEvidence,
+    DownloadManifestTransferLease,
     DownloadManifestTransferResult,
     DownloadManifestTransferState,
 )
@@ -41,7 +42,7 @@ class _TransferLease:
             self.close()
 
 
-def _manifest_member_url(manifest: dict[str, object]) -> tuple[str, dict[str, object]]:
+def _manifest_member_url(manifest: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     member = manifest["members"][0]
     assert isinstance(member, dict)
     download = member["download"]
@@ -57,7 +58,7 @@ def _install_ready_transfer(monkeypatch, content: bytes):
         leases.append(lease)
         return DownloadManifestTransferResult(
             state=DownloadManifestTransferState.READY,
-            lease=lease,
+            lease=cast(DownloadManifestTransferLease, lease),
         )
 
     monkeypatch.setattr(
@@ -66,6 +67,17 @@ def _install_ready_transfer(monkeypatch, content: bytes):
         open_verified,
     )
     return leases
+
+
+def _set_component_member_size(component_id: int, size_bytes: int) -> None:
+    with session.begin() as db:
+        member = db.scalar(
+            select(RomComponentManifestMember).where(
+                RomComponentManifestMember.component_id == component_id
+            )
+        )
+        assert member is not None
+        member.size_bytes = size_bytes
 
 
 class _ManifestFilesystem:
@@ -283,13 +295,14 @@ def test_closed_manifest_states_are_bounded(
 def test_manifest_member_delivers_original_bytes_with_exact_full_and_range_headers(
     client, access_token, rom, manifest_components, monkeypatch
 ):
+    content = b"original-member-bytes"
+    _set_component_member_size(manifest_components[0].id, len(content))
     created = client.post(
         f"/api/roms/{rom.id}/download-manifests",
         headers=_headers(access_token),
         json={"component_ids": [manifest_components[0].id]},
     ).json()
     url, member = _manifest_member_url(created)
-    content = b"original-member-bytes"
     leases = _install_ready_transfer(monkeypatch, content)
 
     full = client.get(url, headers=_headers(access_token))
@@ -337,6 +350,8 @@ def test_manifest_member_rejects_invalid_ranges_before_opening_transfer(
         json={"component_ids": [manifest_components[0].id]},
     ).json()
     url, member = _manifest_member_url(created)
+    if range_header == "bytes=999-":
+        range_header = f"bytes={member['size']}-"
     opened = False
 
     async def open_verified(_rom, _persisted_member):
@@ -358,7 +373,7 @@ def test_manifest_member_rejects_invalid_ranges_before_opening_transfer(
         },
     )
 
-    assert response.status_code == status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE
+    assert response.status_code == status.HTTP_416_RANGE_NOT_SATISFIABLE
     assert response.headers["content-range"] == f"bytes */{member['size']}"
     assert not opened
 
@@ -435,6 +450,73 @@ def test_manifest_member_source_change_has_no_lease_or_source_bytes(
     assert response.json() == {"detail": {"code": "source_changed"}}
     assert opened == 1
     assert source_bytes not in response.content
+
+
+def test_manifest_member_rejects_mismatched_validator_for_full_transfer(
+    client, access_token, rom, manifest_components, monkeypatch
+):
+    created = client.post(
+        f"/api/roms/{rom.id}/download-manifests",
+        headers=_headers(access_token),
+        json={"component_ids": [manifest_components[0].id]},
+    ).json()
+    url, _member = _manifest_member_url(created)
+
+    async def open_verified(_rom, _persisted_member):
+        raise AssertionError("mismatched validator must not open a transfer")
+
+    monkeypatch.setattr(
+        download_manifests_endpoint.fs_rom_handler,
+        "open_verified_download_manifest_member",
+        open_verified,
+    )
+    response = client.get(
+        url,
+        headers={**_headers(access_token), "If-Match": 'W/"stale"'},
+    )
+
+    assert response.status_code == status.HTTP_412_PRECONDITION_FAILED
+    assert response.json() == {"detail": {"code": "snapshot_mismatch"}}
+
+
+def test_manifest_member_masks_foreign_and_hidden_rom_before_source_access(
+    client,
+    access_token,
+    viewer_access_token,
+    viewer_user,
+    rom,
+    manifest_components,
+    monkeypatch,
+):
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=viewer_user.id)
+    created = client.post(
+        f"/api/roms/{rom.id}/download-manifests",
+        headers=_headers(viewer_access_token),
+        json={"component_ids": [manifest_components[0].id]},
+    ).json()
+    url, _member = _manifest_member_url(created)
+
+    async def open_verified(_rom, _persisted_member):
+        raise AssertionError("masked requests must not access a source")
+
+    monkeypatch.setattr(
+        download_manifests_endpoint.fs_rom_handler,
+        "open_verified_download_manifest_member",
+        open_verified,
+    )
+    foreign = client.get(url, headers=_headers(access_token))
+    assert foreign.status_code == status.HTTP_404_NOT_FOUND
+    assert foreign.json() == {"detail": "Download manifest not found"}
+
+    with session.begin() as db:
+        db.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS, entity_id=rom.id, user_id=viewer_user.id
+            )
+        )
+    hidden = client.get(url, headers=_headers(viewer_access_token))
+    assert hidden.status_code == status.HTTP_404_NOT_FOUND
+    assert hidden.json() == {"detail": "Download manifest not found"}
 
 
 @pytest.mark.parametrize(
