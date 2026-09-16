@@ -2028,7 +2028,7 @@ class TestVerifiedDownloadManifestMember:
         sha256 = "a" * 64
         persisted.size_bytes = size_bytes
         persisted.sha256 = sha256
-        persisted.snapshot = f'"{hashlib.sha256(b"romm-manifest-v1\\0" + persisted.public_id.encode() + b"\\0" + persisted.destination.encode() + b"\\0" + str(size_bytes).encode() + b"\\0" + sha256.encode()).hexdigest()}"'
+        persisted.snapshot = f'"{hashlib.sha256(b"romm-manifest-v1\0" + persisted.public_id.encode() + b"\0" + persisted.destination.encode() + b"\0" + str(size_bytes).encode() + b"\0" + sha256.encode()).hexdigest()}"'
         metadata = SimpleNamespace(
             st_mode=0o100644,
             st_size=size_bytes,
@@ -2036,6 +2036,9 @@ class TestVerifiedDownloadManifestMember:
             st_dev=45,
             st_ino=67,
         )
+        persisted.mtime_ns = metadata.st_mtime_ns
+        persisted.device = metadata.st_dev
+        persisted.inode = metadata.st_ino
         source = Mock()
         source.fileno.return_value = 9
         source.hash.return_value = sha256
@@ -2079,6 +2082,28 @@ class TestVerifiedDownloadManifestMember:
         assert second.state is DownloadManifestTransferState.READY
         assert second.lease is not None
         second.lease.close()
+        assert limiter.in_flight == 0
+
+    @pytest.mark.asyncio
+    async def test_verified_download_manifest_member_releases_transfer_slot_on_read_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        handler, rom, persisted, _path = self._handler_and_persisted_member(tmp_path)
+        limiter = ConcurrencyLimiter(1)
+        monkeypatch.setattr(
+            "handler.filesystem.roms_handler._download_manifest_transfer_limiter",
+            limiter,
+        )
+        result = await handler.open_verified_download_manifest_member(rom, persisted)
+        assert result.lease is not None
+
+        def fail_read(_descriptor: int, _length: int) -> bytes:
+            raise OSError("disconnected")
+
+        monkeypatch.setattr("handler.filesystem.roms_handler.os.read", fail_read)
+        with pytest.raises(OSError, match="disconnected"):
+            next(result.lease.iter_chunks(0, 1))
+
         assert limiter.in_flight == 0
 
 

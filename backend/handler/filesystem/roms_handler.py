@@ -7,7 +7,9 @@ import re
 import stat
 import zipfile
 import zlib
+from collections.abc import Iterator
 from dataclasses import dataclass
+from enum import StrEnum
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -15,6 +17,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from anyio import Path as AnyioPath
 from PIL import Image, UnidentifiedImageError
 
+from config import DOWNLOAD_MANIFEST_TRANSFER_MAX_CONCURRENCY
 from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
@@ -26,6 +29,7 @@ from exceptions.fs_exceptions import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
+from models.download_manifest import DownloadManifestMember
 from models.platform import Platform
 from models.rom import (
     Rom,
@@ -54,6 +58,7 @@ from utils.archives import (
 )
 from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
+from utils.rate_limiter import ConcurrencyLimiter
 
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
@@ -225,6 +230,62 @@ class DownloadManifestMemberEvidence:
     inode: int | None
 
 
+class DownloadManifestTransferState(StrEnum):
+    READY = "ready"
+    SOURCE_CHANGED = "source_changed"
+
+
+@dataclass
+class DownloadManifestTransferLease:
+    """Own a verified source descriptor and its transfer slot until streaming ends."""
+
+    size_bytes: int
+    snapshot: str
+    _source: Any
+    _limiter: ConcurrencyLimiter
+    _closed: bool = False
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._source.close()
+        finally:
+            self._limiter.release()
+
+    def iter_chunks(self, start: int, length: int) -> Iterator[bytes]:
+        if type(start) is not int or type(length) is not int:
+            raise ValueError("Download range bounds must be integers")
+        if start < 0 or length < 0 or start > self.size_bytes:
+            raise ValueError("Download range bounds are invalid")
+        if length > self.size_bytes - start:
+            raise ValueError("Download range exceeds verified source size")
+
+        remaining = length
+        os.lseek(self._source.fileno(), start, os.SEEK_SET)
+        try:
+            while remaining:
+                chunk = os.read(self._source.fileno(), min(1024 * 1024, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+                yield chunk
+        finally:
+            self.close()
+
+
+@dataclass(frozen=True)
+class DownloadManifestTransferResult:
+    state: DownloadManifestTransferState
+    lease: DownloadManifestTransferLease | None = None
+
+
+_download_manifest_transfer_limiter = ConcurrencyLimiter(
+    DOWNLOAD_MANIFEST_TRANSFER_MAX_CONCURRENCY
+)
+
+
 def _download_manifest_destination(rom: Rom, member: RomComponentManifestMember) -> str:
     """Create a client-safe destination from trusted persisted identities."""
     relative_path = PurePosixPath(member.relative_path)
@@ -349,6 +410,80 @@ class FSRomsHandler(ExternalFSHandler):
             device=before.st_dev if hasattr(before, "st_dev") else None,
             inode=before.st_ino if hasattr(before, "st_ino") else None,
         )
+
+    async def open_verified_download_manifest_member(
+        self, rom: Rom, persisted_member: DownloadManifestMember
+    ) -> DownloadManifestTransferResult:
+        """Rehash one persisted member before allowing its verified descriptor to stream."""
+        await _download_manifest_transfer_limiter.acquire()
+        source = None
+        lease_transferred = False
+        try:
+            member = persisted_member.manifest_member
+            destination = _download_manifest_destination(rom, member)
+            source_path = self.pc_component_member_path(rom, member)
+            source = self.open_rom_hash(source_path)
+            before = os.fstat(source.fileno())
+            if not stat.S_ISREG(before.st_mode):
+                raise ValueError("PC component manifest source is unavailable")
+            sha256 = source.hash("sha256").lower()
+            after = os.fstat(source.fileno())
+
+            before_indicators = (
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_dev,
+                before.st_ino,
+            )
+            after_indicators = (
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_dev,
+                after.st_ino,
+            )
+            snapshot = _download_manifest_snapshot(
+                persisted_member.public_id, destination, before.st_size, sha256
+            )
+            if (
+                before_indicators != after_indicators
+                or destination != persisted_member.destination
+                or before.st_size != persisted_member.size_bytes
+                or sha256 != persisted_member.sha256.lower()
+                or snapshot != persisted_member.snapshot
+                or before.st_mtime_ns != persisted_member.mtime_ns
+                or (
+                    persisted_member.device is not None
+                    and before.st_dev != persisted_member.device
+                )
+                or (
+                    persisted_member.inode is not None
+                    and before.st_ino != persisted_member.inode
+                )
+            ):
+                raise ValueError("PC component manifest source changed")
+
+            lease = DownloadManifestTransferLease(
+                size_bytes=before.st_size,
+                snapshot=snapshot,
+                _source=source,
+                _limiter=_download_manifest_transfer_limiter,
+            )
+            lease_transferred = True
+            return DownloadManifestTransferResult(
+                state=DownloadManifestTransferState.READY,
+                lease=lease,
+            )
+        except Exception:
+            return DownloadManifestTransferResult(
+                state=DownloadManifestTransferState.SOURCE_CHANGED
+            )
+        finally:
+            if not lease_transferred:
+                try:
+                    if source is not None:
+                        source.close()
+                finally:
+                    _download_manifest_transfer_limiter.release()
 
     def light_revalidate_download_manifest_member(
         self,

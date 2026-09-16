@@ -70,6 +70,11 @@ ROM_PATCHER_MAX_CONCURRENCY: Final[int] = max(
     1, safe_int(_get_env("ROM_PATCHER_MAX_CONCURRENCY"), 2)
 )
 
+# Bound full source verification and long-lived direct transfer descriptors.
+DOWNLOAD_MANIFEST_TRANSFER_MAX_CONCURRENCY: Final[int] = max(
+    1, safe_int(_get_env("DOWNLOAD_MANIFEST_TRANSFER_MAX_CONCURRENCY"), 2)
+)
+
 # DATABASE
 DB_HOST: Final[str | None] = _get_env("DB_HOST")
 DB_PORT: Final[int] = safe_int(_get_env("DB_PORT"), 3306)
