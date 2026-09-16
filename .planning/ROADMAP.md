@@ -19,7 +19,7 @@ file, and never creates a whole-game ZIP or changes the NAS library.
 - [x] **Phase 8: Bounded V1 Removal** - Remove the frozen frontend and compatibility paths behind a dedicated v2 regression gate. (completed 2026-08-27)
 - [x] **Phase 9: Operational Immutability Proof** - Functionally accepted after completed isolated UAT (2026-08-31). The optional synthetic-harness replacement is deferred from this milestone.
 - [ ] **Phase 10: PC Integration Model** - Model immutable PC game components and manifests, then enrich recognized games through safe metadata sources.
-- [ ] **Phase 14: Immutable Download Manifests** - Turn selected existing PC components into stable, hash-backed download manifests.
+- [x] **Phase 14: Immutable Download Manifests** - Turn selected existing PC components into stable, hash-backed download manifests. (completed 2026-09-16)
 - [ ] **Phase 15: Direct Resumable Transfer** - Serve manifest files directly with snapshot-bound HTTP Range resume and no ZIP packaging.
 - [ ] **Phase 16: Cross-platform Desktop Client** - Deliver the Tauri/Rust Windows and Linux/Bazzite client with safe local recovery.
 - [ ] **Phase 17: Client Handoff and Hardening** - Connect v2 selection to the client and prove large-file failure and safety behavior.
@@ -349,7 +349,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 8. Bounded V1 Removal                   | 4/4            | Complete    | 2026-08-27 |
 | 9. Operational Immutability Proof       | Manual UAT     | Complete    | 2026-09-15 |
 | 10. PC Integration Model                | 3/3            | Complete    | 2026-09-15 |
-| 14. Immutable Download Manifests        | 2/3            | In Progress |            |
+| 14. Immutable Download Manifests        | 4/4            | Complete    | 2026-09-16 |
 | 15. Direct Resumable Transfer           | 0/TBD          | Not started | -          |
 | 16. Cross-platform Desktop Client       | 0/TBD          | Not started | -          |
 | 17. Client Handoff and Hardening        | 0/TBD          | Not started | -          |
@@ -424,7 +424,7 @@ hash-backed download manifest without changing the source library.
 3. Changed, expired, or unsafe snapshots fail clearly and never authorize a
    mixed source version.
 
-**Plans:** 2/3 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 
