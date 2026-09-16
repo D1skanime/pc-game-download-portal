@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Protocol
 from uuid import uuid4
 
 from sqlalchemy import select, update
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from config import DOWNLOAD_MANIFEST_TTL_SECONDS
 from decorators.database import begin_session
@@ -200,6 +200,43 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                     manifest.status = DownloadManifestStatus.SOURCE_CHANGED
                     return manifest
         return manifest
+
+    @begin_session
+    def get_transfer_manifest_member(
+        self,
+        manifest_id: str,
+        user_id: int,
+        public_id: str,
+        session: Session = None,  # type: ignore
+    ) -> DownloadManifestMember | None:
+        member = session.scalar(
+            select(DownloadManifestMember)
+            .join(DownloadManifestMember.component)
+            .join(DownloadManifestComponent.manifest)
+            .options(
+                joinedload(DownloadManifestMember.manifest_member),
+                joinedload(DownloadManifestMember.component)
+                .joinedload(DownloadManifestComponent.component)
+                .joinedload(RomComponent.rom),
+                joinedload(DownloadManifestMember.component)
+                .joinedload(DownloadManifestComponent.manifest)
+                .joinedload(DownloadManifest.rom),
+            )
+            .where(
+                DownloadManifest.id == manifest_id,
+                DownloadManifest.user_id == user_id,
+                DownloadManifestMember.public_id == public_id,
+            )
+        )
+        if member is None:
+            return None
+
+        manifest = member.component.manifest
+        if manifest.status is DownloadManifestStatus.VALID and datetime.now(
+            timezone.utc
+        ) >= to_utc(manifest.expires_at):
+            manifest.status = DownloadManifestStatus.EXPIRED
+        return member
 
     @begin_session
     def revoke_manifest(
