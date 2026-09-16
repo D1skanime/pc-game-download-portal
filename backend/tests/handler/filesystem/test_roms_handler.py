@@ -3,6 +3,7 @@ import hashlib
 import os
 import shutil
 import tempfile
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -2054,6 +2055,64 @@ class TestVerifiedDownloadManifestMember:
         assert result.lease.size_bytes == size_bytes
         assert result.lease.iter_chunks(size_bytes - 1, 1)
         result.lease.close()
+
+    @pytest.mark.asyncio
+    async def test_verified_download_manifest_member_hash_does_not_block_event_loop(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """A blocked source hash must not delay independent async work."""
+        handler, rom, persisted, _path = self._handler_and_persisted_member(tmp_path)
+        limiter = ConcurrencyLimiter(1)
+        monkeypatch.setattr(
+            "handler.filesystem.roms_handler._download_manifest_transfer_limiter",
+            limiter,
+        )
+        metadata = SimpleNamespace(
+            st_mode=0o100644,
+            st_size=persisted.size_bytes,
+            st_mtime_ns=persisted.mtime_ns,
+            st_dev=persisted.device,
+            st_ino=persisted.inode,
+        )
+        hash_started = threading.Event()
+        allow_hash_to_finish = threading.Event()
+        source = Mock()
+        source.fileno.return_value = 9
+
+        def blocked_hash(_algorithm: str) -> str:
+            hash_started.set()
+            allow_hash_to_finish.wait(timeout=1)
+            return persisted.sha256
+
+        source.hash.side_effect = blocked_hash
+        monkeypatch.setattr(handler, "open_rom_hash", lambda _path: source)
+        monkeypatch.setattr(
+            "handler.filesystem.roms_handler.os.fstat", lambda _fd: metadata
+        )
+
+        loop = asyncio.get_running_loop()
+        started_at = loop.time()
+        transfer = asyncio.create_task(
+            handler.open_verified_download_manifest_member(rom, persisted)
+        )
+
+        async def independent_coroutine() -> float:
+            await asyncio.sleep(0)
+            return loop.time()
+
+        independent = asyncio.create_task(independent_coroutine())
+        await asyncio.wait_for(asyncio.to_thread(hash_started.wait, 1), timeout=2)
+        independent_at = await asyncio.wait_for(independent, timeout=0.2)
+        assert independent_at - started_at < 0.2
+
+        allow_hash_to_finish.set()
+        result = await asyncio.wait_for(transfer, timeout=1)
+
+        assert result.state is DownloadManifestTransferState.READY
+        assert result.lease is not None
+        result.lease.close()
+        source.close.assert_called_once()
+        assert limiter.in_flight == 0
 
     @pytest.mark.asyncio
     async def test_verified_download_manifest_member_releases_transfer_slot_after_early_close(
