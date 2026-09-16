@@ -189,6 +189,7 @@ def test_manifest_constraints_reject_duplicate_selection_and_members(admin_user,
         return DownloadManifestMember(
             download_manifest_component_id=selected_component_id,
             manifest_member_id=source_member_id,
+            component_id=component_id,
             destination=destination,
             size_bytes=1,
             sha256="c" * 64,

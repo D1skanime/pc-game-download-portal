@@ -10,9 +10,11 @@ from sqlalchemy import (
     CheckConstraint,
     Enum,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     String,
     UniqueConstraint,
+    event,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
@@ -69,6 +71,11 @@ class DownloadManifestComponent(BaseModel):
             "component_id",
             name="uq_download_manifest_components_manifest_component",
         ),
+        UniqueConstraint(
+            "id",
+            "component_id",
+            name="uq_download_manifest_components_id_component",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -85,6 +92,7 @@ class DownloadManifestComponent(BaseModel):
         back_populates="component",
         cascade="all, delete-orphan",
         lazy="selectin",
+        foreign_keys="DownloadManifestMember.download_manifest_component_id",
     )
 
 
@@ -104,15 +112,38 @@ class DownloadManifestMember(BaseModel):
         CheckConstraint(
             "length(snapshot) >= 2", name="ck_download_manifest_members_snapshot"
         ),
+        UniqueConstraint("public_id", name="uq_download_manifest_members_public_id"),
+        ForeignKeyConstraint(
+            ["download_manifest_component_id", "component_id"],
+            [
+                "download_manifest_components.id",
+                "download_manifest_components.component_id",
+            ],
+            name="fk_download_manifest_members_selected_component",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["manifest_member_id", "component_id"],
+            [
+                "rom_component_manifest_members.id",
+                "rom_component_manifest_members.component_id",
+            ],
+            name="fk_download_manifest_members_source_component",
+            ondelete="RESTRICT",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(length=36), default=lambda: str(uuid.uuid4()), nullable=False
+    )
     download_manifest_component_id: Mapped[int] = mapped_column(
         ForeignKey("download_manifest_components.id", ondelete="CASCADE")
     )
     manifest_member_id: Mapped[int] = mapped_column(
         ForeignKey("rom_component_manifest_members.id", ondelete="RESTRICT")
     )
+    component_id: Mapped[int] = mapped_column(Integer, nullable=False)
     destination: Mapped[str] = mapped_column(String(length=700), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     sha256: Mapped[str] = mapped_column(String(length=64), nullable=False)
@@ -122,9 +153,13 @@ class DownloadManifestMember(BaseModel):
     inode: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     component: Mapped[DownloadManifestComponent] = relationship(
-        back_populates="members"
+        back_populates="members",
+        foreign_keys=lambda: [DownloadManifestMember.download_manifest_component_id],
     )
-    manifest_member: Mapped[RomComponentManifestMember] = relationship(lazy="joined")
+    manifest_member: Mapped[RomComponentManifestMember] = relationship(
+        lazy="joined",
+        foreign_keys=lambda: [DownloadManifestMember.manifest_member_id],
+    )
 
     @validates("sha256")
     def validate_sha256(self, _key: str, value: str) -> str:
@@ -141,3 +176,11 @@ class DownloadManifestMember(BaseModel):
         if len(value) < 2 or not (value.startswith('"') and value.endswith('"')):
             raise ValueError("snapshot must be a quoted strong validator")
         return value
+
+
+@event.listens_for(DownloadManifestMember, "before_insert")
+def set_download_manifest_member_component_id(
+    _mapper, _connection, member: DownloadManifestMember
+) -> None:
+    if member.component_id is None and member.component is not None:
+        member.component_id = member.component.component_id

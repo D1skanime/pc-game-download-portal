@@ -293,6 +293,11 @@ class RomComponentManifestMember(BaseModel):
             "relative_path",
             name="uq_rom_component_manifest_members_component_relative_path",
         ),
+        UniqueConstraint(
+            "id",
+            "component_id",
+            name="uq_rom_component_manifest_members_id_component",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
