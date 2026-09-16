@@ -411,13 +411,11 @@ class FSRomsHandler(ExternalFSHandler):
             inode=before.st_ino if hasattr(before, "st_ino") else None,
         )
 
-    async def open_verified_download_manifest_member(
+    def _open_verified_download_manifest_member_source(
         self, rom: Rom, persisted_member: DownloadManifestMember
-    ) -> DownloadManifestTransferResult:
-        """Rehash one persisted member before allowing its verified descriptor to stream."""
-        await _download_manifest_transfer_limiter.acquire()
+    ) -> tuple[Any, int, str]:
+        """Open and fully verify a member source before it is handed to a lease."""
         source = None
-        lease_transferred = False
         try:
             member = persisted_member.manifest_member
             destination = _download_manifest_destination(rom, member)
@@ -461,9 +459,30 @@ class FSRomsHandler(ExternalFSHandler):
                 )
             ):
                 raise ValueError("PC component manifest source changed")
+            return source, before.st_size, snapshot
+        except Exception:
+            if source is not None:
+                source.close()
+            raise
 
+    async def open_verified_download_manifest_member(
+        self, rom: Rom, persisted_member: DownloadManifestMember
+    ) -> DownloadManifestTransferResult:
+        """Rehash one persisted member before allowing its verified descriptor to stream."""
+        await _download_manifest_transfer_limiter.acquire()
+        source = None
+        lease_transferred = False
+        verification = asyncio.create_task(
+            asyncio.to_thread(
+                self._open_verified_download_manifest_member_source,
+                rom,
+                persisted_member,
+            )
+        )
+        try:
+            source, size_bytes, snapshot = await asyncio.shield(verification)
             lease = DownloadManifestTransferLease(
-                size_bytes=before.st_size,
+                size_bytes=size_bytes,
                 snapshot=snapshot,
                 _source=source,
                 _limiter=_download_manifest_transfer_limiter,
@@ -473,6 +492,15 @@ class FSRomsHandler(ExternalFSHandler):
                 state=DownloadManifestTransferState.READY,
                 lease=lease,
             )
+        except asyncio.CancelledError:
+            try:
+                source, _, _ = await verification
+            except Exception:
+                source = None
+            else:
+                source.close()
+                source = None
+            raise
         except Exception:
             return DownloadManifestTransferResult(
                 state=DownloadManifestTransferState.SOURCE_CHANGED
