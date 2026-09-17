@@ -21,8 +21,8 @@ file, and never creates a whole-game ZIP or changes the NAS library.
 - [ ] **Phase 10: PC Integration Model** - Model immutable PC game components and manifests, then enrich recognized games through safe metadata sources.
 - [x] **Phase 14: Immutable Download Manifests** - Turn selected existing PC components into stable, hash-backed download manifests. (completed 2026-09-16)
 - [x] **Phase 15: Direct Resumable Transfer** - Serve manifest files directly with snapshot-bound HTTP Range resume and no ZIP packaging. (completed 2026-09-16)
-- [ ] **Phase 16: Cross-platform Desktop Client** - Deliver the Tauri/Rust Windows and Linux/Bazzite client with safe local recovery.
-- [ ] **Phase 17: Client Handoff and Hardening** - Connect v2 selection to the client and prove large-file failure and safety behavior.
+- [ ] **Phase 16: Cross-platform Desktop Client** - Retain the Tauri/Rust Windows and Linux/Bazzite prototype for later cleanup; mandatory installers and desktop distribution are cancelled product scope.
+- [ ] **Phase 17: Browser Download Manager** - Deliver browser-only direct downloads from v2 with server-validated component or allowed-file selection, one immutable manifest, original direct member downloads, a standard attachment baseline, an optional capability-detected File System Access enhancement, controlled queues, and read-only source safety. Phase 16 installer UAT does not block this phase.
 
 ## Phase Details
 
@@ -352,7 +352,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 14. Immutable Download Manifests        | 4/4            | Complete    | 2026-09-16 |
 | 15. Direct Resumable Transfer           | 3/3            | Complete    | 2026-09-16 |
 | 16. Cross-platform Desktop Client       | 5/6            | In Progress |            |
-| 17. Client Handoff and Hardening        | 0/TBD          | Not started | -          |
+| 17. Browser Download Manager            | 0/13           | In Progress |            |
 
 ### Phase 11: Local PC Media and DLC Navigation
 
@@ -451,8 +451,9 @@ large partial files without packaging or extracting content.
 
 ### Phase 16: Cross-platform Desktop Client
 
-**Goal:** A Tauri/Rust client on Windows and Linux/Bazzite downloads selected
-manifest content safely into a user-chosen destination.
+**Goal:** Retain a Tauri/Rust prototype for Windows and Linux/Bazzite download
+recovery while deferring desktop cleanup. Mandatory installers, desktop handoff,
+and distribution are cancelled product scope.
 **Depends on:** Phase 15
 **Requirements:** CLNT-01, CLNT-02, CLNT-03, CLNT-04, CLNT-05
 
@@ -464,21 +465,29 @@ manifest content safely into a user-chosen destination.
 3. It creates only manifest-authorized paths below the selected destination and
    clearly handles disk-full and permission failures.
 
-**Plans:** 5/6 plans executed
+**Plans:** 5/6 plans executed, with installer UAT blocked and non-blocking for Phase 17
 
-### Phase 17: Client Handoff and Hardening
+### Phase 17: Browser Download Manager
 
-**Goal:** RomM v2 hands the current game or component selection to the desktop
-client, with production-relevant safety and large-file evidence.
-**Depends on:** Phase 16
+**Goal:** RomM v2 lets users select PC game components or allowed individual files
+and download the original immutable manifest files directly in the browser, with
+a standard browser attachment baseline, an optional capability-detected File
+System Access enhancement, and verified read-only source safety. Desktop handoff,
+installers, and distribution are not part of this phase.
+**Depends on:** Phase 14, Phase 15
 **Requirements:** UXDL-01, SAFE-01, TEST-01
 
 **Success Criteria:**
 
-1. v2 passes the same whole-game or component selection the user chose to the
-   installed client.
-2. The complete flow leaves the NAS and source library unchanged.
-3. Automated checks cover resume, source change, bad checksum, disk-full,
-   large values, and Windows/Linux path safety.
+1. v2 creates an immutable manifest for a valid component or allowed file
+   selection and downloads its original files without desktop software or ZIP
+   packaging.
+2. Standard browser downloads work as the compatible baseline; File System
+   Access is capability-detected and never required.
+3. The queue, transfer history, source-change handling, range protocol, and
+   terminology distinguish browser handoff from a server-served response and
+   enhanced-mode local verification.
+4. The complete flow leaves the NAS and source library unchanged, does not
+   expose source paths, and covers large-file and multi-file evidence.
 
-**Plans:** TBD
+**Plans:** 13 plans planned

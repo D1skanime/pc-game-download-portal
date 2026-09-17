@@ -1,5 +1,12 @@
 # Phase 16 Cross-platform Desktop UAT
 
+The desktop prototype remains retained for documentation and possible later
+cleanup. Mandatory Windows, standard Linux, and Bazzite installer and bundled
+start UAT is cancelled product scope. The blocked rows below are therefore not
+false passes, but they do not block the browser-only Phase 17 implementation.
+Desktop cleanup and source deletion are deferred, and no desktop code is deleted
+by this status correction.
+
 This record is intentionally evidence-based. Host-only compilation does not
 substitute for Windows, standard Linux, or Bazzite bundle/start evidence.
 
@@ -53,4 +60,5 @@ The ignored executable test must record these values for each authorized run:
 | No-NAS assertion          |          |
 
 Phase 16 remains incomplete while any platform row or the isolated large-file
-run is `BLOCKED`.
+run is `BLOCKED`. This incomplete desktop UAT is non-blocking for Phase 17,
+whose product scope is browser-only and does not require desktop handoff.

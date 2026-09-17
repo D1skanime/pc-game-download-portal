@@ -140,10 +140,10 @@
 
 ### Direct Large-file Transfer
 
-- [ ] **XFER-01**: The server transfers each source file directly without generating a whole-game ZIP, part ZIP, or extraction step.
-- [ ] **XFER-02**: A client can resume a partial file from its exact byte offset through authenticated HTTP range requests.
-- [ ] **XFER-03**: Resume requests bind to the exact manifest file snapshot and fail safely if the source or manifest has changed.
-- [ ] **XFER-04**: Transfer accounting, offsets, and totals remain correct for files and aggregates larger than 4 GiB, with bounded server concurrency.
+- [x] **XFER-01**: The server transfers each source file directly without generating a whole-game ZIP, part ZIP, or extraction step. (Completed in Phase 15, verified by `15-VERIFICATION.md`.)
+- [x] **XFER-02**: A client can resume a partial file from its exact byte offset through authenticated HTTP range requests. (Completed in Phase 15, verified by `15-VERIFICATION.md`.)
+- [x] **XFER-03**: Resume requests bind to the exact manifest file snapshot and fail safely if the source or manifest has changed. (Completed in Phase 15, verified by `15-VERIFICATION.md`.)
+- [x] **XFER-04**: Transfer accounting, offsets, and totals remain correct for files and aggregates larger than 4 GiB, with bounded server concurrency. (Completed in Phase 15, verified by `15-VERIFICATION.md`.)
 
 ### Tauri Desktop Client
 
@@ -155,7 +155,7 @@
 
 ### Web Handoff and Safety
 
-- [ ] **UXDL-01**: The v2 UI securely hands a whole-game or selected-component download to the installed desktop client.
+- [ ] **UXDL-01**: The v2 UI securely prepares a whole-game, selected-component, or allowed-file download in the browser through one server-validated immutable manifest, original direct member downloads, and the standard browser attachment baseline, with an optional capability-detected File System Access enhancement.
 - [ ] **SAFE-01**: Manifest preparation and every transfer leave the NAS and RomM source library read-only and unchanged.
 - [ ] **TEST-01**: Automated coverage proves resume, source changes, incorrect checksums, disk-full recovery, 4 GiB-plus values, and Windows/Linux path safety.
 
