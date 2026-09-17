@@ -109,7 +109,16 @@ Each task was committed atomically:
 - **Verification:** Ruff/static checks pass; route module imports under configured environment.
 - **Committed in:** `8e398b9ed`
 
-**Total deviations:** 1 auto-fixed (Rule 2)
+**2. [Rule 1 - Bug] Normalized item activity timestamps to UTC.**
+
+- **Found during:** Final static review after Task 2
+- **Issue:** One observation path used the host-local timezone helper, which could make history timestamps inconsistent across deployments.
+- **Fix:** Record activity with explicit UTC timestamps.
+- **Files modified:** `backend/handler/database/download_transfers_handler.py`
+- **Verification:** Trunk Ruff checks pass.
+- **Committed in:** `636f690a7`
+
+**Total deviations:** 2 auto-fixed (Rule 1, Rule 2)
 
 **Impact on plan:** Required application wiring only, no new authority or scope expansion.
 
