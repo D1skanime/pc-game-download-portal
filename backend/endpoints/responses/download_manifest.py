@@ -7,6 +7,10 @@ class DownloadManifestCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     component_ids: list[int] | None = Field(default=None, min_length=1, max_length=100)
+    archive_set_id: int | None = Field(default=None, ge=1)
+    selected_member_ids: list[int] | None = Field(
+        default=None, min_length=1, max_length=100
+    )
 
     @field_validator("component_ids")
     @classmethod
@@ -16,6 +20,13 @@ class DownloadManifestCreateRequest(BaseModel):
             or len(value) != len(set(value))
         ):
             raise ValueError("component ids must be unique positive integers")
+        return value
+
+    @field_validator("selected_member_ids")
+    @classmethod
+    def validate_selected_member_ids(cls, value: list[int] | None) -> list[int] | None:
+        if value is not None and len(value) != len(set(value)):
+            raise ValueError("selected member ids must be unique")
         return value
 
 

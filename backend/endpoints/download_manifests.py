@@ -169,7 +169,11 @@ async def create_download_manifest(
     assert_rom_visible(request, rom, not_found_detail=_NOT_FOUND)
     try:
         manifest = db_download_manifest_handler.create_manifest(
-            request.user.id, rom.id, payload.component_ids
+            request.user.id,
+            rom.id,
+            payload.component_ids,
+            archive_set_id=payload.archive_set_id,
+            selected_member_ids=payload.selected_member_ids,
         )
     except ValueError:
         _not_found()
