@@ -6,6 +6,7 @@ import type { EjsControls } from './EjsControls';
 import type { MetadataMediaType } from './MetadataMediaType';
 import type { NetplayICEServer } from './NetplayICEServer';
 export type ConfigResponse = {
+    browser_download_queue_concurrency: number;
     CONFIG_FILE_MOUNTED: boolean;
     CONFIG_FILE_WRITABLE: boolean;
     CONFIG_FILE_PARSE_ERROR: (string | null);
@@ -40,4 +41,3 @@ export type ConfigResponse = {
     GAMELIST_MEDIA_IMAGE: MetadataMediaType;
     PEGASUS_AUTO_EXPORT_ON_SCAN: boolean;
 };
-

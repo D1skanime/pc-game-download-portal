@@ -4,6 +4,7 @@ from config.config_manager import EjsControls, MetadataMediaType, NetplayICEServ
 
 
 class ConfigResponse(TypedDict):
+    browser_download_queue_concurrency: int
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
     CONFIG_FILE_PARSE_ERROR: str | None

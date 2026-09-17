@@ -1,5 +1,6 @@
 import type { AxiosResponse } from "axios";
 import type {
+  ConfigResponse,
   ExclusionPayload,
   PlatformBindingPayload,
   ScanSettingsPayload,
@@ -7,6 +8,10 @@ import type {
 import api from "@/services/api";
 
 export const configApi = api;
+
+async function getBrowserDownloadQueueConfig() {
+  return api.get<ConfigResponse>("/config");
+}
 
 async function addPlatformBindConfig({
   fsSlug,
@@ -76,6 +81,7 @@ async function updateScanSettings(payload: ScanSettingsPayload) {
 }
 
 export default {
+  getBrowserDownloadQueueConfig,
   addPlatformBindConfig,
   deletePlatformBindConfig,
   addPlatformVersionConfig,

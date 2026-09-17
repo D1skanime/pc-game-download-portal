@@ -63,6 +63,9 @@ DEFAULT_EXCLUDED_DIRS: Final = [
     ".DocumentRevisions-V100",
     "System Volume Information",
 ]
+BROWSER_DOWNLOAD_QUEUE_CONCURRENCY_MIN: Final = 1
+BROWSER_DOWNLOAD_QUEUE_CONCURRENCY_MAX: Final = 16
+BROWSER_DOWNLOAD_QUEUE_CONCURRENCY_DEFAULT: Final = 3
 
 
 class EjsControlsButton(TypedDict):
@@ -205,6 +208,7 @@ class Config:
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     STREAMING_ENABLED: bool
     STREAMING_CONTAINERS: list[StreamingContainer]
+    BROWSER_DOWNLOAD_QUEUE_CONCURRENCY: int
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -554,6 +558,11 @@ class ConfigManager:
             STREAMING_CONTAINERS=pydash.get(
                 self._raw_config, "streaming.containers", []
             ),
+            BROWSER_DOWNLOAD_QUEUE_CONCURRENCY=pydash.get(
+                self._raw_config,
+                "browser_download_queue_concurrency",
+                BROWSER_DOWNLOAD_QUEUE_CONCURRENCY_DEFAULT,
+            ),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
@@ -592,6 +601,20 @@ class ConfigManager:
         """Validates the config.yml file"""
         if not isinstance(self.config.EXCLUDED_PLATFORMS, list):
             log.critical("Invalid config.yml: exclude.platforms must be a list")
+            sys.exit(3)
+
+        queue_concurrency = self.config.BROWSER_DOWNLOAD_QUEUE_CONCURRENCY
+        if (
+            type(queue_concurrency) is not int
+            or not BROWSER_DOWNLOAD_QUEUE_CONCURRENCY_MIN
+            <= queue_concurrency
+            <= BROWSER_DOWNLOAD_QUEUE_CONCURRENCY_MAX
+        ):
+            log.critical(
+                "Invalid config.yml: browser_download_queue_concurrency must be "
+                f"an integer between {BROWSER_DOWNLOAD_QUEUE_CONCURRENCY_MIN} and "
+                f"{BROWSER_DOWNLOAD_QUEUE_CONCURRENCY_MAX}"
+            )
             sys.exit(3)
 
         if not isinstance(self.config.EXCLUDED_SINGLE_EXT, list):
