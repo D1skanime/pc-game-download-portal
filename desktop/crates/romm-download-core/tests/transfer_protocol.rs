@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fs, path::PathBuf};
 
 use romm_download_core::{
     ConfiguredOrigin, DestinationRootRegistry, DownloadEngine, DownloadError, HttpRequest,
-    HttpResponse, HttpTransport, ManifestId, MemberId, TransferOutcome, VecSink,
+    HttpResponse, HttpTransport, TransferOutcome, VecSink,
 };
 
 const MANIFEST_ID: &str = "11111111-1111-4111-8111-111111111111";
@@ -76,6 +76,24 @@ fn invalid_remote_states_do_not_create_a_job_or_accept_cross_origin_data() {
     let mut transport = MockTransport::with(redirect);
     let mut engine = DownloadEngine::new(&mut transport, &roots, "secret");
     assert_eq!(engine.queue_manifest(origin, MANIFEST_ID.parse().unwrap(), handle).unwrap_err(), DownloadError::InvalidResponse);
+}
+
+#[test]
+fn malformed_manifests_and_expired_handles_create_no_local_state() {
+    let origin = ConfiguredOrigin::parse("https://romm.example").unwrap();
+    let local_root = root();
+    let mut roots = DestinationRootRegistry::new();
+    let handle = roots.register_native_selection(&local_root).unwrap();
+    let mut transport = MockTransport::with(response(200, b"not json"));
+    let mut engine = DownloadEngine::new(&mut transport, &roots, "secret");
+    assert_eq!(engine.queue_manifest(origin.clone(), MANIFEST_ID.parse().unwrap(), handle).unwrap_err(), DownloadError::InvalidResponse);
+    assert!(fs::read_dir(&local_root).unwrap().next().is_none());
+
+    roots.expire(handle);
+    let mut transport = MockTransport::with(response(200, manifest(3).as_bytes()));
+    let mut engine = DownloadEngine::new(&mut transport, &roots, "secret");
+    assert_eq!(engine.queue_manifest(origin, MANIFEST_ID.parse().unwrap(), handle).unwrap_err(), DownloadError::InvalidDestinationRoot);
+    assert!(fs::read_dir(&local_root).unwrap().next().is_none());
 }
 
 #[test]
