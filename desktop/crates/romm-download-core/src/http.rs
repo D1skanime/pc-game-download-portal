@@ -57,10 +57,33 @@ pub struct HttpResponse {
     pub final_url: Option<String>,
 }
 
+/// Response headers for a streaming transfer. The body is delivered in bounded chunks.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HttpStreamResponse {
+    pub status: u16,
+    pub headers: BTreeMap<String, String>,
+    pub final_url: Option<String>,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HttpTransportError;
 
 /// The native adapter seam. Implementations must not forward credentials across origins.
 pub trait HttpTransport {
     fn execute(&mut self, request: HttpRequest) -> Result<HttpResponse, HttpTransportError>;
+
+    fn execute_stream(
+        &mut self,
+        request: HttpRequest,
+        on_chunk: &mut dyn FnMut(&[u8]) -> Result<(), HttpTransportError>,
+    ) -> Result<HttpStreamResponse, HttpTransportError> {
+        let response = self.execute(request)?;
+        let metadata = HttpStreamResponse {
+            status: response.status,
+            headers: response.headers,
+            final_url: response.final_url,
+        };
+        on_chunk(&response.body)?;
+        Ok(metadata)
+    }
 }

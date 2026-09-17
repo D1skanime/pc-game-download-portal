@@ -21,7 +21,7 @@ pub use finalize::{
     preflight_required_bytes,
 };
 pub use http::{
-    ConfiguredOrigin, HttpBoundaryError, HttpRequest, HttpResponse, HttpTransport,
+    ConfiguredOrigin, HttpBoundaryError, HttpRequest, HttpResponse, HttpStreamResponse, HttpTransport,
     HttpTransportError,
 };
 pub use job_store::{JobStore, JobStoreError, PersistedJob};
