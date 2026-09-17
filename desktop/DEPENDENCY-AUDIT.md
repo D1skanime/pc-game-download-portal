@@ -17,6 +17,11 @@ database on 2026-09-17. No package below is marked `[SUS]` or `[SLOP]`.
 | `tauri-plugin-dialog`   | `2.7.3`       | crates.io, `tauri-apps/plugins-workspace`       | MIT OR Apache-2.0 | No RustSec advisory listed | Native-only destination folder chooser.                                             |
 | `keyring`               | `4.2.0`       | crates.io, `open-source-cooperative/keyring-rs` | MIT OR Apache-2.0 | No RustSec advisory listed | OS credential-store access for the device bearer token.                             |
 | `reqwest`               | `0.12.24`     | crates.io, `seanmonstar/reqwest`                | MIT OR Apache-2.0 | No RustSec advisory listed | Origin-bound native device authorization HTTP adapter.                              |
+| `vite`                  | `6.1.0`       | npm, `vitejs/vite`                              | MIT               | npm audit review required  | Standalone desktop webview asset bundling, isolated from `frontend/`.               |
+| `typescript`            | `5.7.3`       | npm, `microsoft/TypeScript`                     | Apache-2.0        | npm audit review required  | Strict type checking for the desktop shell UI.                                      |
+| `vitest`                | `3.0.5`       | npm, `vitest-dev/vitest`                        | MIT               | npm audit review required  | Fast isolated state/UI regression tests with mocked Tauri bindings.                 |
+| `jsdom`                 | `26.0.0`      | npm, `jsdom/jsdom`                              | MIT               | npm audit review required  | DOM environment for standalone UI tests, no network or native bridge.               |
+| `@types/jsdom`          | `30.0.0`      | npm, `DefinitelyTyped/DefinitelyTyped`          | MIT               | npm audit review required  | Type declarations for the isolated jsdom test environment.                          |
 
 `cargo audit` is not available in the host environment. The focused RustSec
 advisory database review above is the pre-install advisory gate; the workspace
