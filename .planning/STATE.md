@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 16-02-PLAN.md
-last_updated: "2026-09-17T08:58:46.169Z"
+stopped_at: Blocked 16-06 Task 3 human verification
+last_updated: "2026-09-17T12:16:10.658Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 17
@@ -328,6 +328,7 @@ Recent decisions affecting current work:
 - [Phase 1]: Point-in-time resolution rejects configured-root and target-component symlinks; descriptor-relative no-follow opens and residual long-read race enforcement remain Phase 2 consumer-policy work.
 - [Phase 5]: Confirm NAS watcher fidelity; scheduled and manual scans remain authoritative by default.
 - [Phase 9]: Confirm NAS protocol, mount options, atime behavior, and a safe activation window before real-NAS rollout.
+- [Phase 16]: Authorized Windows, standard Linux, and Bazzite runners plus the isolated 30 GiB UAT volume are unavailable; Task 3 remains blocked and evidence is deferred in 16-UAT.md.
 
 ## Deferred Items
 
@@ -339,6 +340,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-17T08:58:07.294Z
-Stopped at: Completed 16-02-PLAN.md
-Resume file: None
+Last session: 2026-09-17T12:16:10.639Z
+Stopped at: Blocked 16-06 Task 3 human verification
+Resume file: 16-06 platform UAT evidence required
