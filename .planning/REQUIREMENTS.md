@@ -148,10 +148,10 @@
 ### Tauri Desktop Client
 
 - [x] **CLNT-01**: A Tauri/Rust desktop client runs on Windows and Linux/Bazzite.
-- [ ] **CLNT-02**: The client persists per-file progress and resumes after a restart, pause, or network failure.
+- [x] **CLNT-02**: The client persists per-file progress and resumes after a restart, pause, or network failure.
 - [ ] **CLNT-03**: The client verifies SHA-256 and atomically finalizes each completed file without replacing an existing verified file on failure.
 - [x] **CLNT-04**: The client reconstructs only manifest-authorized directories and files below a user-chosen destination root.
-- [ ] **CLNT-05**: Insufficient disk space, missing write permission, and checksum failures retain safe partial state and clear recovery guidance.
+- [x] **CLNT-05**: Insufficient disk space, missing write permission, and checksum failures retain safe partial state and clear recovery guidance.
 
 ### Web Handoff and Safety
 
@@ -275,10 +275,10 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | XFER-03     | Phase 15 | Pending  |
 | XFER-04     | Phase 15 | Pending  |
 | CLNT-01     | Phase 16 | Complete |
-| CLNT-02     | Phase 16 | Pending  |
+| CLNT-02     | Phase 16 | Complete |
 | CLNT-03     | Phase 16 | Pending  |
 | CLNT-04     | Phase 16 | Complete |
-| CLNT-05     | Phase 16 | Pending  |
+| CLNT-05     | Phase 16 | Complete |
 | UXDL-01     | Phase 17 | Pending  |
 | SAFE-01     | Phase 17 | Pending  |
 | TEST-01     | Phase 17 | Pending  |

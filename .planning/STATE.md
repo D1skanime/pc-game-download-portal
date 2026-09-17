@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 14-02-PLAN.md
-last_updated: "2026-09-17T07:34:25.287Z"
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-09-17T07:44:49.240Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 17
   completed_phases: 12
   total_plans: 137
-  completed_plans: 126
+  completed_plans: 127
   percent: 71
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 16 (cross-platform-desktop-client) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-09-17
 
@@ -130,6 +130,7 @@ _Updated after each plan completion_
 | Phase 14 P01 | 24m | 2 tasks | 3 files |
 | Phase 14 P02 | 24min | 2 tasks | 7 files |
 | Phase 16 P01 | 28min | 1 tasks | 8 files |
+| Phase 16 P02 | 4min | 1 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -306,6 +307,8 @@ Recent decisions affecting current work:
 - [Phase 14]: Whole-game selection includes only manifest-backed base, update, DLC, and extra components. — Prevents recursive arbitrary source-directory selection.
 - [Phase 16]: Validate member URLs by exact opaque Phase-15 route equality.
 - [Phase 16]: Use full Unicode case folding with exact, NFC, and NFD collision rejection before persistence.
+- [Phase 16]: Destination paths enter the core only at native registration and are represented thereafter by opaque expirable handles. — Prevents queue and recovery APIs from accepting arbitrary local paths.
+- [Phase 16]: Final files require SHA-256 verification; parts resume only when every persisted identity field and byte count exactly match. — Prevents a coincidental part filename or differing final from becoming trusted local state.
 
 ### Roadmap Evolution
 
@@ -330,6 +333,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-17T07:34:25.272Z
-Stopped at: Completed 14-02-PLAN.md
+Last session: 2026-09-17T07:44:49.227Z
+Stopped at: Completed 16-02-PLAN.md
 Resume file: None
