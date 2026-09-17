@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -18,6 +18,8 @@ from models.download_transfer import (
 from .base_handler import DBBaseHandler
 
 _EVENT_LIMIT = 64
+_SESSION_RETENTION = timedelta(days=90)
+_CLEANUP_BATCH_LIMIT = 100
 _MAX_OBSERVED_BYTES = 2**63 - 1
 _TERMINAL_ITEMS = {
     DownloadTransferItemStatus.VERIFIED,
@@ -35,6 +37,92 @@ _TERMINAL_SESSIONS = {
 
 
 class DBDownloadTransfersHandler(DBBaseHandler):
+    @begin_session
+    def cleanup_sessions(
+        self,
+        now: datetime | None = None,
+        batch_limit: int = _CLEANUP_BATCH_LIMIT,
+        session: Session = None,  # type: ignore
+    ) -> dict[str, int]:
+        """Reconcile expired manifests and remove old terminal history."""
+        current_time = now or datetime.now(UTC)
+        cutoff = current_time - _SESSION_RETENTION
+        limit = min(max(batch_limit, 1), _CLEANUP_BATCH_LIMIT)
+
+        active_sessions = session.scalars(
+            select(DownloadTransferSession)
+            .join(
+                DownloadManifest,
+                DownloadManifest.id == DownloadTransferSession.manifest_id,
+            )
+            .where(
+                DownloadTransferSession.status == DownloadTransferSessionStatus.ACTIVE,
+                (
+                    (DownloadManifest.status != DownloadManifestStatus.VALID)
+                    | (DownloadManifest.expires_at <= current_time)
+                ),
+            )
+            .order_by(DownloadTransferSession.id)
+            .limit(limit)
+            .with_for_update()
+        ).all()
+        staled = 0
+        for transfer in active_sessions:
+            transfer.status = DownloadTransferSessionStatus.STALE
+            transfer.ended_at = current_time
+            candidates = [
+                item for item in transfer.items if item.status not in _TERMINAL_ITEMS
+            ]
+            for item in candidates:
+                item.status = DownloadTransferItemStatus.STALE
+                item.ended_at = current_time
+                ordinal = (
+                    session.scalar(
+                        select(func.max(DownloadTransferEvent.ordinal)).where(
+                            DownloadTransferEvent.session_id == transfer.id
+                        )
+                    )
+                    or 0
+                )
+                if ordinal >= _EVENT_LIMIT:
+                    continue
+                session.add(
+                    DownloadTransferEvent(
+                        session_id=transfer.id,
+                        item_id=item.id,
+                        ordinal=ordinal + 1,
+                        event_type="stale",
+                        observed_bytes=item.observed_bytes,
+                        error_code=(
+                            "manifest_revoked"
+                            if transfer.manifest.status
+                            is DownloadManifestStatus.REVOKED
+                            else "manifest_expired"
+                        ),
+                        occurred_at=current_time,
+                    )
+                )
+            staled += 1
+
+        terminal_sessions = session.scalars(
+            select(DownloadTransferSession)
+            .where(
+                DownloadTransferSession.status.in_(_TERMINAL_SESSIONS),
+                DownloadTransferSession.ended_at.is_not(None),
+                DownloadTransferSession.ended_at <= cutoff,
+            )
+            .order_by(
+                DownloadTransferSession.ended_at,
+                DownloadTransferSession.id,
+            )
+            .limit(limit)
+            .with_for_update()
+        ).all()
+        for transfer in terminal_sessions:
+            session.delete(transfer)
+        session.flush()
+        return {"staled": staled, "deleted": len(terminal_sessions)}
+
     @begin_session
     def create_session(
         self,
