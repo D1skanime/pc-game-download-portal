@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 17-03-PLAN.md
-last_updated: "2026-09-17T20:41:12.543Z"
+stopped_at: Completed 17-04-PLAN.md
+last_updated: "2026-09-17T20:51:53.665Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 17
   completed_phases: 13
   total_plans: 150
-  completed_plans: 134
+  completed_plans: 135
   percent: 76
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 17 (browser-download-manager) — EXECUTING
-Plan: 3 of 13
+Plan: 4 of 13
 Status: Ready to execute
 Last activity: 2026-09-17
 
@@ -135,6 +135,7 @@ _Updated after each plan completion_
 | Phase 16 P05 | 82min | 2 tasks | 13 files |
 | Phase 17 P01 | 14min | 2 tasks | 4 files |
 | Phase 17 P03 | 19min | 2 tasks | 5 files |
+| Phase 17 P04 | 15 min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -323,6 +324,7 @@ Recent decisions affecting current work:
 - [Phase 17]: Phase 17 is browser-only, reuses Phase 15 direct-transfer authority, and retains the Phase 16 prototype without requiring desktop distribution. — Phase 17 is browser-only, reuses Phase 15 direct-transfer authority, and retains the Phase 16 prototype without requiring desktop distribution.
 - [Phase 17]: An explicit archive_set_id selects the persisted policy, while selected_member_ids must contain every required member and only policy members.
 - [Phase 17]: Requests that omit policy fields retain the existing component selection path, so ROMs without policies remain Phase 14 compatible.
+- [Phase 17]: Transfer sessions retain only manifest/member identities, selected totals, timestamps, and bounded observations, never paths, URLs, tokens, or local handles. — This keeps history observational and prevents session metadata from becoming a delivery credential.
 
 ### Blockers/Concerns
 
@@ -341,6 +343,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-17T20:41:12.535Z
-Stopped at: Completed 17-03-PLAN.md
+Last session: 2026-09-17T20:51:53.645Z
+Stopped at: Completed 17-04-PLAN.md
 Resume file: None
