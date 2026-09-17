@@ -115,6 +115,7 @@ from utils.zip_cache import (
     resolve_cached_zip,
 )
 
+from .download_archive_sets import router as download_archive_sets_router
 from .files import (
     MappedContentResponse,
     _mapped_chunks,
@@ -238,6 +239,7 @@ router = APIRouter(
 )
 router.include_router(upload_router)
 router.include_router(files_router)
+router.include_router(download_archive_sets_router)
 router.include_router(manual_router)
 router.include_router(soundtrack_router)
 router.include_router(screenshot_router)

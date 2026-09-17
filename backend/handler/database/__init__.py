@@ -2,6 +2,7 @@ from .client_tokens_handler import DBClientTokensHandler
 from .collections_handler import DBCollectionsHandler
 from .device_save_sync_handler import DBDeviceSaveSyncHandler
 from .devices_handler import DBDevicesHandler
+from .download_archive_sets_handler import DBDownloadArchiveSetsHandler
 from .download_manifests_handler import DBDownloadManifestsHandler
 from .firmware_handler import DBFirmwareHandler
 from .legacy_migration_handler import DBLegacyMigrationHandler
@@ -22,6 +23,7 @@ from .users_handler import DBUsersHandler
 
 db_client_token_handler = DBClientTokensHandler()
 db_download_manifest_handler = DBDownloadManifestsHandler()
+db_download_archive_sets_handler = DBDownloadArchiveSetsHandler()
 db_collection_handler = DBCollectionsHandler()
 db_device_handler = DBDevicesHandler()
 db_device_save_sync_handler = DBDeviceSaveSyncHandler()

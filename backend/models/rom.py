@@ -73,6 +73,7 @@ def compute_name_sort_key(name: str | None) -> str:
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
     from models.collection import Collection
+    from models.download_archive_set import DownloadArchiveSet
     from models.platform import Platform
     from models.user import User
 
@@ -709,6 +710,12 @@ class Rom(BaseModel):
         back_populates="rom",
         cascade="all, delete-orphan",
         order_by="RomComponent.relative_path",
+    )
+    download_archive_sets: Mapped[list[DownloadArchiveSet]] = relationship(
+        lazy="raise",
+        back_populates="rom",
+        cascade="all, delete-orphan",
+        order_by="DownloadArchiveSet.id",
     )
     saves: Mapped[list[Save]] = relationship(lazy="raise", back_populates="rom")
     states: Mapped[list[State]] = relationship(lazy="raise", back_populates="rom")
