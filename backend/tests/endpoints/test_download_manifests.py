@@ -14,6 +14,7 @@ from handler.filesystem.roms_handler import (
     DownloadManifestTransferResult,
     DownloadManifestTransferState,
 )
+from models.download_archive_set import DownloadArchiveSet, DownloadArchiveSetMember
 from models.download_manifest import DownloadManifest, DownloadManifestStatus
 from models.permission import HiddenEntity, PermEntity
 from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
@@ -175,6 +176,109 @@ def test_create_and_retrieve_a_path_free_whole_game_manifest(
     )
     assert fetched.status_code == status.HTTP_200_OK
     assert fetched.json() == body
+
+
+def test_create_policy_manifest_excludes_unselected_optional_member(
+    client, access_token, rom
+):
+    component = RomComponent(
+        rom_id=rom.id,
+        relative_path="base-policy",
+        kind=RomComponentKind.BASE,
+        manifest_members=[
+            RomComponentManifestMember(
+                relative_path="base-policy/required.bin",
+                size_bytes=3,
+                sha256="a" * 64,
+            ),
+            RomComponentManifestMember(
+                relative_path="base-policy/optional.bin",
+                size_bytes=4,
+                sha256="b" * 64,
+            ),
+        ],
+    )
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+        archive_set = DownloadArchiveSet(rom_id=rom.id, name="policy")
+        archive_set.members = [
+            DownloadArchiveSetMember(
+                component_id=component.id,
+                manifest_member_id=component.manifest_members[0].id,
+                position=0,
+                required=True,
+            ),
+            DownloadArchiveSetMember(
+                component_id=component.id,
+                manifest_member_id=component.manifest_members[1].id,
+                position=1,
+                required=False,
+            ),
+        ]
+        db.add(archive_set)
+        db.flush()
+        archive_set_id = archive_set.id
+        required_id = component.manifest_members[0].id
+
+    created = client.post(
+        f"/api/roms/{rom.id}/download-manifests",
+        headers=_headers(access_token),
+        json={
+            "archive_set_id": archive_set_id,
+            "selected_member_ids": [required_id],
+        },
+    )
+
+    assert created.status_code == status.HTTP_201_CREATED
+    body = created.json()
+    assert [member["size"] for member in body["members"]] == [3]
+    assert body["components"] == [{"component_id": component.id, "kind": "base"}]
+    assert "fs_path" not in created.text
+    assert "download-manifests" in body["members"][0]["download"]
+
+
+def test_create_policy_manifest_masks_incomplete_selection_before_capture(
+    client, access_token, rom
+):
+    component = RomComponent(
+        rom_id=rom.id,
+        relative_path="required-policy",
+        kind=RomComponentKind.BASE,
+        manifest_members=[
+            RomComponentManifestMember(
+                relative_path="required-policy/content.bin",
+                size_bytes=3,
+                sha256="a" * 64,
+            )
+        ],
+    )
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+        archive_set = DownloadArchiveSet(rom_id=rom.id, name="required")
+        archive_set.members = [
+            DownloadArchiveSetMember(
+                component_id=component.id,
+                manifest_member_id=component.manifest_members[0].id,
+                position=0,
+                required=True,
+            )
+        ]
+        db.add(archive_set)
+        db.flush()
+        archive_set_id = archive_set.id
+
+    response = client.post(
+        f"/api/roms/{rom.id}/download-manifests",
+        headers=_headers(access_token),
+        json={"archive_set_id": archive_set_id, "selected_member_ids": []},
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Download manifest not found"}
+    assert str(archive_set_id) not in response.text
+    assert "required-policy" not in response.text
 
 
 def test_create_exact_components_rejects_invalid_or_foreign_selection(

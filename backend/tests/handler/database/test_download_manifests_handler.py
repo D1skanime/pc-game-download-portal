@@ -6,6 +6,7 @@ from tests.conftest import session
 
 from handler.database.download_manifests_handler import DBDownloadManifestsHandler
 from handler.filesystem.roms_handler import DownloadManifestMemberEvidence
+from models.download_archive_set import DownloadArchiveSet, DownloadArchiveSetMember
 from models.download_manifest import DownloadManifest, DownloadManifestStatus
 from models.rom import Rom, RomComponent, RomComponentKind, RomComponentManifestMember
 
@@ -93,6 +94,106 @@ def test_create_manifest_selects_only_eligible_components_atomically(admin_user,
         assert db.scalar(
             select(DownloadManifest).where(DownloadManifest.id == manifest.id)
         )
+
+
+def test_create_manifest_enforces_archive_set_and_captures_only_selected_members(
+    admin_user, rom
+):
+    component = _component(rom.id, RomComponentKind.BASE, "policy")
+    component.manifest_members.append(
+        RomComponentManifestMember(
+            relative_path="base/policy-optional.bin",
+            size_bytes=7,
+            sha256="b" * 64,
+        )
+    )
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+        archive_set = DownloadArchiveSet(rom_id=rom.id, name="complete")
+        archive_set.members = [
+            DownloadArchiveSetMember(
+                component_id=component.id,
+                manifest_member_id=component.manifest_members[0].id,
+                position=0,
+                required=True,
+            ),
+            DownloadArchiveSetMember(
+                component_id=component.id,
+                manifest_member_id=component.manifest_members[1].id,
+                position=1,
+                required=False,
+            ),
+        ]
+        db.add(archive_set)
+        db.flush()
+        archive_set_id = archive_set.id
+        required_id = component.manifest_members[0].id
+        optional_id = component.manifest_members[1].id
+
+    filesystem = FakeManifestFilesystem()
+    handler = DBDownloadManifestsHandler(filesystem)
+    manifest = handler.create_manifest(
+        admin_user.id,
+        rom.id,
+        None,
+        archive_set_id=archive_set_id,
+        selected_member_ids=[required_id],
+    )
+
+    assert [item.component_id for item in manifest.components] == [component.id]
+    assert [item.manifest_member_id for item in manifest.components[0].members] == [
+        required_id
+    ]
+    assert [member_id for member_id, _ in filesystem.captured] == [required_id]
+    assert optional_id not in [member_id for member_id, _ in filesystem.captured]
+
+
+@pytest.mark.parametrize(
+    "selected_member_ids",
+    [[], [999999], [1, 1]],
+)
+def test_create_manifest_rejects_incomplete_or_unknown_policy_selection_before_capture(
+    admin_user, rom, selected_member_ids
+):
+    component = _component(rom.id, RomComponentKind.BASE, "required")
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+        archive_set = DownloadArchiveSet(rom_id=rom.id, name="required")
+        archive_set.members = [
+            DownloadArchiveSetMember(
+                component_id=component.id,
+                manifest_member_id=component.manifest_members[0].id,
+                position=0,
+                required=True,
+            )
+        ]
+        db.add(archive_set)
+        db.flush()
+        archive_set_id = archive_set.id
+        required_id = component.manifest_members[0].id
+
+    filesystem = FakeManifestFilesystem()
+    handler = DBDownloadManifestsHandler(filesystem)
+    with pytest.raises(ValueError):
+        handler.create_manifest(
+            admin_user.id,
+            rom.id,
+            None,
+            archive_set_id=archive_set_id,
+            selected_member_ids=selected_member_ids,
+        )
+    assert filesystem.captured == []
+    with pytest.raises(ValueError):
+        handler.create_manifest(
+            admin_user.id,
+            rom.id,
+            None,
+            archive_set_id=archive_set_id,
+            selected_member_ids=[],
+        )
+    assert required_id not in [member_id for member_id, _ in filesystem.captured]
 
 
 def test_create_manifest_rejects_duplicate_foreign_and_empty_components(
