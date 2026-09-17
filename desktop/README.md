@@ -37,6 +37,22 @@ cargo fmt --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 ```
 
+## Isolated large-file UAT
+
+The real-engine loopback gate requires a writable volume with at least 30 GiB
+free. It creates a uniquely named temporary root, serves one sparse 30 GiB
+original file over `127.0.0.1`, interrupts after a recorded nonzero offset,
+resumes with the persisted job and part, verifies SHA-256, finalizes atomically,
+and removes the entire temporary root:
+
+```bash
+cargo test -p romm-download-core --test sparse_30gib_uat -- --ignored --exact sparse_30gib_resume_finalize_uat
+```
+
+Run only on an isolated local volume. A failed capacity or platform preflight is
+`BLOCKED`, never a passing result. The gate has no code path to Team4s, NAS
+storage, a deployed RomM, or a source library.
+
 These checks use mocks and temporary local destination roots. This phase does
 not contact a real NAS or Team4s, restart services, change source libraries, or
 perform a live download.
