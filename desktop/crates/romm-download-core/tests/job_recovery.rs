@@ -1,8 +1,8 @@
 use std::{fs, path::PathBuf};
 
 use romm_download_core::{
-    DestinationRootRegistry, DownloadState, JobStore, ManifestValidator, PersistedJob, RecoveryClassification,
-    RecoveryManager,
+    DestinationRootRegistry, DownloadState, JobStore, ManifestValidator, PersistedJob,
+    RecoveryClassification, RecoveryManager,
 };
 
 const MANIFEST_ID: &str = "11111111-1111-4111-8111-111111111111";
@@ -14,7 +14,10 @@ fn root() -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let root = std::env::temp_dir().join(format!("romm-download-core-recovery-{}-{nonce}", std::process::id()));
+    let root = std::env::temp_dir().join(format!(
+        "romm-download-core-recovery-{}-{nonce}",
+        std::process::id()
+    ));
     fs::create_dir_all(&root).unwrap();
     root
 }
@@ -58,18 +61,33 @@ fn classifies_final_and_part_files_without_unsafe_overwrite_or_resume() {
     fs::create_dir_all(root.join("Game")).unwrap();
 
     fs::write(root.join("Game/file.bin"), b"abc").unwrap();
-    assert_eq!(RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(), RecoveryClassification::Completed);
+    assert_eq!(
+        RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(),
+        RecoveryClassification::Completed
+    );
     fs::write(root.join("Game/file.bin"), b"foreign").unwrap();
-    assert_eq!(RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(), RecoveryClassification::LocalConflict);
+    assert_eq!(
+        RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(),
+        RecoveryClassification::LocalConflict
+    );
     fs::remove_file(root.join("Game/file.bin")).unwrap();
 
     let part = root.join(format!("Game/.romm-part-{}", member.id));
     fs::write(&part, b"ab").unwrap();
-    assert_eq!(RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(), RecoveryClassification::UntrustedLocalState);
+    assert_eq!(
+        RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(),
+        RecoveryClassification::UntrustedLocalState
+    );
     store.upsert(&persisted(&manifest, 2)).unwrap();
-    assert_eq!(RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(), RecoveryClassification::Resumable { bytes: 2 });
+    assert_eq!(
+        RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(),
+        RecoveryClassification::Resumable { bytes: 2 }
+    );
     fs::write(&part, b"abcd").unwrap();
-    assert_eq!(RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(), RecoveryClassification::CorruptLocalState);
+    assert_eq!(
+        RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(),
+        RecoveryClassification::CorruptLocalState
+    );
     fs::remove_dir_all(root).unwrap();
 }
 
@@ -87,6 +105,9 @@ fn rejects_a_part_when_any_persisted_identity_field_differs() {
     record.snapshot = "\"another-snapshot\"".into();
     store.upsert(&record).unwrap();
 
-    assert_eq!(RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(), RecoveryClassification::UntrustedLocalState);
+    assert_eq!(
+        RecoveryManager::classify(&registry, handle, &manifest, member, &store).unwrap(),
+        RecoveryClassification::UntrustedLocalState
+    );
     fs::remove_dir_all(root).unwrap();
 }

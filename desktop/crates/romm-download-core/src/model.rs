@@ -1,8 +1,8 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// An opaque server-owned manifest identity.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct ManifestId(Uuid);
 
@@ -19,7 +19,7 @@ impl std::fmt::Display for ManifestId {
 }
 
 /// An opaque server-owned manifest member identity.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct MemberId(Uuid);
 
@@ -36,7 +36,7 @@ impl std::fmt::Display for MemberId {
 }
 
 /// All normal and recovery states permitted in persisted job data.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DownloadState {
     Queued,
