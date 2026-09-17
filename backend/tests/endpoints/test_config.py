@@ -31,6 +31,7 @@ def test_config(client):
     assert config.get("GAMELIST_MEDIA_IMAGE") == "screenshot"
     assert config.get("GAMELIST_AUTO_EXPORT_ON_SCAN") is False
     assert config.get("PEGASUS_AUTO_EXPORT_ON_SCAN") is False
+    assert config.get("browser_download_queue_concurrency") == 3
 
 
 def test_config_parse_error_gated_by_auth(client, access_token: str):
