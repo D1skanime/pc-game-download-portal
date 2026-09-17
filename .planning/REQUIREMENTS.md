@@ -155,9 +155,9 @@
 
 ### Web Handoff and Safety
 
-- [ ] **UXDL-01**: The v2 UI securely prepares a whole-game, selected-component, or allowed-file download in the browser through one server-validated immutable manifest, original direct member downloads, and the standard browser attachment baseline, with an optional capability-detected File System Access enhancement.
-- [ ] **SAFE-01**: Manifest preparation and every transfer leave the NAS and RomM source library read-only and unchanged.
-- [ ] **TEST-01**: Automated coverage proves resume, source changes, incorrect checksums, disk-full recovery, 4 GiB-plus values, and Windows/Linux path safety.
+- [x] **UXDL-01**: The v2 UI securely prepares a whole-game, selected-component, or allowed-file download in the browser through one server-validated immutable manifest, original direct member downloads, and the standard browser attachment baseline, with an optional capability-detected File System Access enhancement.
+- [x] **SAFE-01**: Manifest preparation and every transfer leave the NAS and RomM source library read-only and unchanged.
+- [x] **TEST-01**: Automated coverage proves resume, source changes, incorrect checksums, disk-full recovery, 4 GiB-plus values, and Windows/Linux path safety.
 
 ## Future Requirements
 
@@ -279,9 +279,9 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | CLNT-03     | Phase 16 | Complete |
 | CLNT-04     | Phase 16 | Complete |
 | CLNT-05     | Phase 16 | Complete |
-| UXDL-01     | Phase 17 | Pending  |
-| SAFE-01     | Phase 17 | Pending  |
-| TEST-01     | Phase 17 | Pending  |
+| UXDL-01     | Phase 17 | Complete |
+| SAFE-01     | Phase 17 | Complete |
+| TEST-01     | Phase 17 | Complete |
 
 **Coverage:**
 
