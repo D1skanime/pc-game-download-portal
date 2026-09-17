@@ -1,17 +1,29 @@
+mod auth;
 mod commands;
 
-use std::sync::Mutex;
+use std::{
+    sync::Mutex,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
+use auth::{
+    AuthSnapshot, DeviceAuthClient, KeyringTokenStore, PairingInfo, ReqwestDeviceAuthTransport,
+};
 use commands::{NativeShell, QueueRequest, ShellSnapshot};
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
-struct ShellState(Mutex<NativeShell>);
+type NativeDeviceAuth = DeviceAuthClient<ReqwestDeviceAuthTransport, KeyringTokenStore>;
+
+struct ShellState {
+    shell: Mutex<NativeShell>,
+    auth: Mutex<Option<NativeDeviceAuth>>,
+}
 
 #[tauri::command]
 fn configure_origin(state: State<'_, ShellState>, origin: String) -> Result<(), String> {
     state
-        .0
+        .shell
         .lock()
         .map_err(|_| "command_unavailable".to_owned())?
         .configure_origin(&origin)
@@ -28,7 +40,7 @@ fn choose_destination(
     };
     let selected_path = selected.as_path().ok_or_else(|| "invalid_destination".to_owned())?;
     state
-        .0
+        .shell
         .lock()
         .map_err(|_| "command_unavailable".to_owned())?
         .register_native_selection(selected_path)
@@ -44,7 +56,7 @@ fn queue_manifest(
     destination_root: String,
 ) -> Result<String, String> {
     state
-        .0
+        .shell
         .lock()
         .map_err(|_| "command_unavailable".to_owned())?
         .queue(QueueRequest {
@@ -57,19 +69,19 @@ fn queue_manifest(
 
 #[tauri::command]
 fn pause(state: State<'_, ShellState>, job_id: String) -> Result<(), String> {
-    state.0.lock().map_err(|_| "command_unavailable".to_owned())?.pause(&job_id);
+    state.shell.lock().map_err(|_| "command_unavailable".to_owned())?.pause(&job_id);
     Ok(())
 }
 
 #[tauri::command]
 fn resume(state: State<'_, ShellState>, job_id: String) -> Result<(), String> {
-    state.0.lock().map_err(|_| "command_unavailable".to_owned())?.resume(&job_id);
+    state.shell.lock().map_err(|_| "command_unavailable".to_owned())?.resume(&job_id);
     Ok(())
 }
 
 #[tauri::command]
 fn skip(state: State<'_, ShellState>, job_id: String) -> Result<(), String> {
-    state.0.lock().map_err(|_| "command_unavailable".to_owned())?.skip(&job_id);
+    state.shell.lock().map_err(|_| "command_unavailable".to_owned())?.skip(&job_id);
     Ok(())
 }
 
@@ -80,7 +92,7 @@ fn select_conflict_action(
     action: String,
 ) -> Result<(), String> {
     state
-        .0
+        .shell
         .lock()
         .map_err(|_| "command_unavailable".to_owned())?
         .select_conflict_action(&job_id, &action)
@@ -90,16 +102,68 @@ fn select_conflict_action(
 #[tauri::command]
 fn state_snapshot(state: State<'_, ShellState>) -> Result<ShellSnapshot, String> {
     Ok(state
-        .0
+        .shell
         .lock()
         .map_err(|_| "command_unavailable".to_owned())?
         .state_snapshot())
 }
 
+#[tauri::command]
+fn start_device_pairing(
+    state: State<'_, ShellState>,
+    origin: String,
+    client_device_identifier: String,
+    name: String,
+    platform: String,
+    client_version: String,
+) -> Result<PairingInfo, String> {
+    if !state
+        .shell
+        .lock()
+        .map_err(|_| "command_unavailable".to_owned())?
+        .is_configured_origin(&origin)
+    {
+        return Err("invalid_origin".to_owned());
+    }
+    let transport = ReqwestDeviceAuthTransport::new().map_err(|_| "auth_unavailable".to_owned())?;
+    let store = KeyringTokenStore::new().map_err(|_| "auth_unavailable".to_owned())?;
+    let mut client = DeviceAuthClient::new(&origin, transport, store)
+        .map_err(|_| "invalid_origin".to_owned())?;
+    let pairing = client
+        .start(
+            &client_device_identifier,
+            &name,
+            &platform,
+            &client_version,
+            now_epoch()?,
+        )
+        .map_err(|_| "auth_required".to_owned())?;
+    *state.auth.lock().map_err(|_| "command_unavailable".to_owned())? = Some(client);
+    Ok(pairing)
+}
+
+#[tauri::command]
+fn poll_device_pairing(state: State<'_, ShellState>) -> Result<AuthSnapshot, String> {
+    let mut auth = state.auth.lock().map_err(|_| "command_unavailable".to_owned())?;
+    let client = auth.as_mut().ok_or_else(|| "auth_required".to_owned())?;
+    client.poll(now_epoch()?).map_err(|_| "auth_required".to_owned())?;
+    Ok(client.snapshot())
+}
+
+fn now_epoch() -> Result<u64, String> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .map_err(|_| "auth_unavailable".to_owned())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .manage(ShellState(Mutex::new(NativeShell::new())))
+        .manage(ShellState {
+            shell: Mutex::new(NativeShell::new()),
+            auth: Mutex::new(None),
+        })
         .invoke_handler(tauri::generate_handler![
             configure_origin,
             choose_destination,
@@ -108,7 +172,9 @@ fn main() {
             resume,
             skip,
             select_conflict_action,
-            state_snapshot
+            state_snapshot,
+            start_device_pairing,
+            poll_device_pairing
         ])
         .run(tauri::generate_context!())
         .expect("failed to run RomM Desktop");

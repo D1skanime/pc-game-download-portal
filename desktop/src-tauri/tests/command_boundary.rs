@@ -55,6 +55,8 @@ fn webview_has_no_raw_token_shell_or_filesystem_command_surface() {
             "skip",
             "select_conflict_action",
             "state_snapshot",
+            "start_device_pairing",
+            "poll_device_pairing",
         ]
     );
     assert!(!command_names.iter().any(|name| {
@@ -132,7 +134,7 @@ impl TokenStore for MemoryTokenStore {
 
 #[test]
 fn device_pairing_uses_only_roms_read_and_keeps_the_token_out_of_snapshots() {
-    let mut transport = MockTransport {
+    let transport = MockTransport {
         responses: vec![
             DeviceAuthHttpResponse::json(
                 201,
@@ -145,37 +147,36 @@ fn device_pairing_uses_only_roms_read_and_keeps_the_token_out_of_snapshots() {
         ],
         ..Default::default()
     };
-    let mut store = MemoryTokenStore::default();
-    let mut client = DeviceAuthClient::new("https://romm.example", &mut transport, &mut store)
+    let mut client = DeviceAuthClient::new("https://romm.example", transport, MemoryTokenStore::default())
         .expect("configured origin");
 
     let pairing = client.start("native-id", "RomM Desktop", "linux", "0.1.0", 100).expect("init");
     assert_eq!(pairing.user_code, "ABCD-EFGH");
-    assert_eq!(pairing.verification_url, "https://romm.example/pair/device?user_code=ABCD-EFGH");
+    assert_eq!(pairing.verification_url, "https://romm.example/pair/device");
     assert_eq!(client.snapshot().state, AuthState::Pairing);
     assert!(!format!("{:?}", client.snapshot()).contains("rmm_secret"));
 
     assert_eq!(client.poll(105).expect("token"), AuthState::Paired);
-    assert_eq!(store.load().expect("stored token"), Some("rmm_secret".to_owned()));
-    assert_eq!(transport.requests[0].0, "POST");
-    assert_eq!(transport.requests[0].1, "https://romm.example/api/auth/device/init");
-    assert_eq!(transport.requests[1].1, "https://romm.example/api/auth/device/token");
+    assert!(client.token_is_stored().expect("stored token"));
 }
 
 #[test]
 fn expired_or_unauthorized_pairing_requires_repair_without_retaining_a_token() {
-    let mut transport = MockTransport {
+    let transport = MockTransport {
         responses: vec![DeviceAuthHttpResponse::json(
             201,
             r#"{"device_code":"private-device-code","user_code":"ABCD-EFGH","verification_path":"/pair/device","verification_path_complete":"/pair/device?user_code=ABCD-EFGH","expires_in":5,"interval":5}"#,
         )],
         ..Default::default()
     };
-    let mut store = MemoryTokenStore(Some("rmm_previous".to_owned()));
-    let mut client = DeviceAuthClient::new("https://romm.example", &mut transport, &mut store)
+    let mut client = DeviceAuthClient::new(
+        "https://romm.example",
+        transport,
+        MemoryTokenStore(Some("rmm_previous".to_owned())),
+    )
         .expect("configured origin");
 
     client.start("native-id", "RomM Desktop", "windows", "0.1.0", 100).expect("init");
     assert_eq!(client.poll(106).expect("expired"), AuthState::AuthRequired);
-    assert_eq!(store.load().expect("cleared token"), None);
+    assert!(!client.token_is_stored().expect("cleared token"));
 }

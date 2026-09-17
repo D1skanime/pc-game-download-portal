@@ -73,6 +73,13 @@ impl NativeShell {
         Ok(())
     }
 
+    #[allow(dead_code)]
+    pub fn is_configured_origin(&self, origin: &str) -> bool {
+        ConfiguredOrigin::parse(origin)
+            .ok()
+            .is_some_and(|candidate| self.configured_origin.as_ref() == Some(&candidate))
+    }
+
     /// The native chooser is the only caller permitted to provide a filesystem path.
     pub fn register_native_selection(
         &mut self,
@@ -148,7 +155,7 @@ impl NativeShell {
 
     #[cfg(test)]
     #[allow(dead_code)]
-    pub const fn public_command_names() -> [&'static str; 8] {
+    pub const fn public_command_names() -> [&'static str; 10] {
         [
             "configure_origin",
             "choose_destination",
@@ -158,6 +165,8 @@ impl NativeShell {
             "skip",
             "select_conflict_action",
             "state_snapshot",
+            "start_device_pairing",
+            "poll_device_pairing",
         ]
     }
 
