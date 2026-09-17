@@ -68,7 +68,10 @@ fn foreign_final_survives_normal_completion_but_explicit_replace_uses_platform_a
             .expect_err("normal completion must not replace a final"),
             FinalizationError::LocalConflict
         );
-        assert_eq!(fs::read(&final_path).expect("foreign preserved"), b"foreign");
+        assert_eq!(
+            fs::read(&final_path).expect("foreign preserved"),
+            b"foreign"
+        );
         assert_eq!(fs::read(&part_path).expect("part retained"), b"abc");
 
         assert_eq!(

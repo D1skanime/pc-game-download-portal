@@ -1,6 +1,9 @@
 //! Path-free download manifest contracts.
 
+mod engine;
 mod error;
+mod finalize;
+mod hash;
 mod http;
 mod job_store;
 mod manifest;
@@ -10,7 +13,13 @@ mod recovery;
 mod scheduler;
 mod transfer;
 
+pub use engine::IntegrityDownloadEngine;
 pub use error::ManifestValidationError;
+pub use finalize::{
+    FinalizationError, FinalizationMode, Finalizer, NativePlatformOperations, PlatformFamily,
+    PlatformOperations, RecoveryAction, RecoveryDecision, classify_local_failure,
+    preflight_required_bytes,
+};
 pub use http::{
     ConfiguredOrigin, HttpBoundaryError, HttpRequest, HttpResponse, HttpTransport,
     HttpTransportError,
