@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/romm-download-core"]
+resolver = "3"
