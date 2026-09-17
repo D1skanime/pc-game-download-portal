@@ -81,7 +81,21 @@ completed: 2026-09-17
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Build correctness] Replaced unit trait errors with bounded explicit error markers**
+
+- **Found during:** Task 1, required Clippy verification.
+- **Issue:** Clippy with warnings denied rejected the initial transport and file-sink `Result<_, ()>` signatures.
+- **Fix:** Added bounded `HttpTransportError` and `FileSinkError` marker types, then re-ran the focused tests, formatter, and Clippy gates.
+- **Files modified:** `desktop/crates/romm-download-core/src/http.rs`, `desktop/crates/romm-download-core/src/transfer.rs`, `desktop/crates/romm-download-core/src/lib.rs`, `desktop/crates/romm-download-core/tests/transfer_protocol.rs`.
+- **Verification:** 7 focused tests, `cargo fmt --check`, and Clippy with warnings denied passed.
+- **Committed in:** `1529b5a81`.
+
+---
+
+**Total deviations:** 1 auto-fixed (Rule 1).
+**Impact on plan:** Required to satisfy the specified warnings-denied quality gate, without changing protocol behavior or scope.
 
 ## Issues Encountered
 
