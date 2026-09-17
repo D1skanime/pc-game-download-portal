@@ -4,13 +4,13 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 16-02-PLAN.md
-last_updated: "2026-09-17T08:02:12.672Z"
+last_updated: "2026-09-17T08:58:46.169Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 17
   completed_phases: 12
   total_plans: 137
-  completed_plans: 129
+  completed_plans: 130
   percent: 71
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 16 (cross-platform-desktop-client) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-09-17
 
@@ -132,6 +132,7 @@ _Updated after each plan completion_
 | Phase 16 P01 | 28min | 1 tasks | 8 files |
 | Phase 16 P02 | 4min | 1 tasks | 10 files |
 | Phase 16 P04 | 12min | 1 tasks | 6 files |
+| Phase 16 P05 | 82min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -312,6 +313,8 @@ Recent decisions affecting current work:
 - [Phase 16]: Final files require SHA-256 verification; parts resume only when every persisted identity field and byte count exactly match. — Prevents a coincidental part filename or differing final from becoming trusted local state.
 - [Phase 16]: Normal finalization hard-links a fsynced verified sibling only to an absent final, while explicit replacement stays platform-specific. This keeps valid finals intact unless the user explicitly chose replacement.
 - [Phase 16]: Windows production replacement uses ReplaceFileW instead of assuming Unix rename semantics. Windows has different replacement semantics and requires a dedicated native operation.
+- [Phase 16]: Tauri IPC carries only typed origin, manifest ID, opaque root handle, closed conflict action, and redacted state values.
+- [Phase 16]: Device authorization joins only existing origin-bound routes, requests roms.read, and stores rmm_ tokens solely in the native keyring.
 
 ### Roadmap Evolution
 
@@ -336,6 +339,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-17T08:01:55.586Z
+Last session: 2026-09-17T08:58:07.294Z
 Stopped at: Completed 16-02-PLAN.md
 Resume file: None

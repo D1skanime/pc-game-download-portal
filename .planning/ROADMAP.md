@@ -351,7 +351,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 10. PC Integration Model                | 3/3            | Complete    | 2026-09-15 |
 | 14. Immutable Download Manifests        | 4/4            | Complete    | 2026-09-16 |
 | 15. Direct Resumable Transfer           | 3/3            | Complete    | 2026-09-16 |
-| 16. Cross-platform Desktop Client       | 4/6            | In Progress |            |
+| 16. Cross-platform Desktop Client       | 5/6            | In Progress |            |
 | 17. Client Handoff and Hardening        | 0/TBD          | Not started | -          |
 
 ### Phase 11: Local PC Media and DLC Navigation
@@ -464,7 +464,7 @@ manifest content safely into a user-chosen destination.
 3. It creates only manifest-authorized paths below the selected destination and
    clearly handles disk-full and permission failures.
 
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 ### Phase 17: Client Handoff and Hardening
 
