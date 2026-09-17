@@ -2,9 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::{
     ConfiguredOrigin, DestinationRootHandle, DestinationRootRegistry, HttpRequest, HttpResponse,
-    HttpStreamResponse, HttpTransportError,
-    HttpTransport, LocalPathError, ManifestId, ManifestValidator, ValidatedManifest,
-    ValidatedMember,
+    HttpStreamResponse, HttpTransport, HttpTransportError, LocalPathError, ManifestId,
+    ManifestValidator, ValidatedManifest, ValidatedMember,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -137,7 +136,10 @@ impl<'a, T: HttpTransport> DownloadEngine<'a, T> {
             headers.insert("If-Match".to_owned(), member.snapshot.clone());
         }
         let request = self.make_request(&origin, &member.download, headers)?;
-        let expected = member.size.checked_sub(offset).ok_or(DownloadError::CorruptLocalState)?;
+        let expected = member
+            .size
+            .checked_sub(offset)
+            .ok_or(DownloadError::CorruptLocalState)?;
         let mut written = 0_u64;
         let mut callback = |chunk: &[u8]| {
             let count = u64::try_from(chunk.len()).map_err(|_| HttpTransportError)?;
@@ -146,9 +148,23 @@ impl<'a, T: HttpTransport> DownloadEngine<'a, T> {
             on_progress(offset + written);
             Ok(())
         };
-        let response = self.transport.execute_stream(request, &mut callback).map_err(|_| DownloadError::NetworkError)?;
-        if response.final_url.as_deref().is_some_and(|url| !origin.contains_url(url)) { return Err(DownloadError::InvalidResponse); }
-        match response.status { 401 | 403 => return Err(DownloadError::AuthRequired), 410 => return Err(DownloadError::ManifestStale), 409 | 412 => return Err(DownloadError::SourceChanged), _ => {} }
+        let response = self
+            .transport
+            .execute_stream(request, &mut callback)
+            .map_err(|_| DownloadError::NetworkError)?;
+        if response
+            .final_url
+            .as_deref()
+            .is_some_and(|url| !origin.contains_url(url))
+        {
+            return Err(DownloadError::InvalidResponse);
+        }
+        match response.status {
+            401 | 403 => return Err(DownloadError::AuthRequired),
+            410 => return Err(DownloadError::ManifestStale),
+            409 | 412 => return Err(DownloadError::SourceChanged),
+            _ => {}
+        }
         self.validate_response(member, offset, expected, &response, written)
     }
 
@@ -161,11 +177,24 @@ impl<'a, T: HttpTransport> DownloadEngine<'a, T> {
         written: u64,
     ) -> Result<TransferOutcome, DownloadError> {
         if response.status == 416 {
-            return if offset == member.size && written == 0 { Ok(TransferOutcome::VerificationCandidate) } else { Err(DownloadError::InvalidResponse) };
+            return if offset == member.size && written == 0 {
+                Ok(TransferOutcome::VerificationCandidate)
+            } else {
+                Err(DownloadError::InvalidResponse)
+            };
         }
         if offset == 0 {
-            if response.status != 200 || content_length(&response.headers) != Some(expected) || written != expected { return Err(DownloadError::InvalidResponse); }
-        } else if response.status != 206 || !valid_content_range_headers(&response.headers, offset, member.size) || content_length(&response.headers) != Some(expected) || written != expected {
+            if response.status != 200
+                || content_length(&response.headers) != Some(expected)
+                || written != expected
+            {
+                return Err(DownloadError::InvalidResponse);
+            }
+        } else if response.status != 206
+            || !valid_content_range_headers(&response.headers, offset, member.size)
+            || content_length(&response.headers) != Some(expected)
+            || written != expected
+        {
             return Err(DownloadError::InvalidResponse);
         }
         Ok(TransferOutcome::Downloaded { bytes: member.size })
@@ -177,7 +206,9 @@ impl<'a, T: HttpTransport> DownloadEngine<'a, T> {
         route: &str,
         mut headers: BTreeMap<String, String>,
     ) -> Result<HttpRequest, DownloadError> {
-        let url = origin.join_relative(route).map_err(|_| DownloadError::InvalidResponse)?;
+        let url = origin
+            .join_relative(route)
+            .map_err(|_| DownloadError::InvalidResponse)?;
         headers.insert("Authorization".to_owned(), format!("Bearer {}", self.token));
         let request = HttpRequest { url, headers };
         self.last_request = Some(request.clone());
@@ -191,19 +222,55 @@ impl<'a, T: HttpTransport> DownloadEngine<'a, T> {
         headers: BTreeMap<String, String>,
     ) -> Result<HttpResponse, DownloadError> {
         let request = self.make_request(origin, route, headers)?;
-        let response = self.transport.execute(request).map_err(|_| DownloadError::NetworkError)?;
-        if response.final_url.as_deref().is_some_and(|url| !origin.contains_url(url)) { return Err(DownloadError::InvalidResponse); }
-        match response.status { 401 | 403 => Err(DownloadError::AuthRequired), 410 => Err(DownloadError::ManifestStale), 409 | 412 => Err(DownloadError::SourceChanged), _ => Ok(response) }
+        let response = self
+            .transport
+            .execute(request)
+            .map_err(|_| DownloadError::NetworkError)?;
+        if response
+            .final_url
+            .as_deref()
+            .is_some_and(|url| !origin.contains_url(url))
+        {
+            return Err(DownloadError::InvalidResponse);
+        }
+        match response.status {
+            401 | 403 => Err(DownloadError::AuthRequired),
+            410 => Err(DownloadError::ManifestStale),
+            409 | 412 => Err(DownloadError::SourceChanged),
+            _ => Ok(response),
+        }
     }
 }
 
-fn content_length(headers: &BTreeMap<String, String>) -> Option<u64> { headers.get("Content-Length")?.parse().ok() }
+fn content_length(headers: &BTreeMap<String, String>) -> Option<u64> {
+    headers.get("Content-Length")?.parse().ok()
+}
 fn valid_content_range_headers(headers: &BTreeMap<String, String>, start: u64, total: u64) -> bool {
-    let Some(value) = headers.get("Content-Range").and_then(|v| v.strip_prefix("bytes ")) else { return false; };
-    let Some((range, total_value)) = value.split_once('/') else { return false; };
-    let Some((actual_start, actual_end)) = range.split_once('-') else { return false; };
-    let (Ok(actual_start), Ok(actual_end), Ok(actual_total)) = (actual_start.parse::<u64>(), actual_end.parse::<u64>(), total_value.parse::<u64>()) else { return false; };
-    actual_start == start && actual_total == total && actual_end.checked_sub(actual_start).and_then(|length| length.checked_add(1)).is_some_and(|length| length == total.saturating_sub(start))
+    let Some(value) = headers
+        .get("Content-Range")
+        .and_then(|v| v.strip_prefix("bytes "))
+    else {
+        return false;
+    };
+    let Some((range, total_value)) = value.split_once('/') else {
+        return false;
+    };
+    let Some((actual_start, actual_end)) = range.split_once('-') else {
+        return false;
+    };
+    let (Ok(actual_start), Ok(actual_end), Ok(actual_total)) = (
+        actual_start.parse::<u64>(),
+        actual_end.parse::<u64>(),
+        total_value.parse::<u64>(),
+    ) else {
+        return false;
+    };
+    actual_start == start
+        && actual_total == total
+        && actual_end
+            .checked_sub(actual_start)
+            .and_then(|length| length.checked_add(1))
+            .is_some_and(|length| length == total.saturating_sub(start))
 }
 
 fn map_root_error(error: LocalPathError) -> DownloadError {

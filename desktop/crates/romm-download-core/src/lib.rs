@@ -21,8 +21,8 @@ pub use finalize::{
     preflight_required_bytes,
 };
 pub use http::{
-    ConfiguredOrigin, HttpBoundaryError, HttpRequest, HttpResponse, HttpStreamResponse, HttpTransport,
-    HttpTransportError,
+    ConfiguredOrigin, HttpBoundaryError, HttpRequest, HttpResponse, HttpStreamResponse,
+    HttpTransport, HttpTransportError,
 };
 pub use job_store::{JobStore, JobStoreError, PersistedJob};
 pub use manifest::ManifestValidator;
