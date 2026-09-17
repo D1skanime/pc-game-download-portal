@@ -10,6 +10,7 @@ database on 2026-09-17. No package below is marked `[SUS]` or `[SLOP]`.
 | `serde_json`            | `1.0.151`     | crates.io, `serde-rs/json`                    | MIT OR Apache-2.0 | No RustSec advisory listed | Parse untrusted manifest JSON at the single validation boundary.               |
 | `uuid`                  | `1.26.1`      | crates.io, `uuid-rs/uuid`                     | Apache-2.0 OR MIT | No RustSec advisory listed | Parse and type opaque manifest and member identities.                          |
 | `unicode-normalization` | `0.1.25`      | crates.io, `unicode-rs/unicode-normalization` | MIT OR Apache-2.0 | No RustSec advisory listed | Detect portable NFC and NFD destination collisions before persistence.         |
+| `unicode-casefold`      | `0.2.0`       | crates.io, `lfairy/unicode-casefold`          | MIT OR Apache-2.0 | No RustSec advisory listed | Detect Unicode case-folded destination collisions before persistence.          |
 
 `cargo audit` is not available in the host environment. The focused RustSec
 advisory database review above is the pre-install advisory gate; the workspace

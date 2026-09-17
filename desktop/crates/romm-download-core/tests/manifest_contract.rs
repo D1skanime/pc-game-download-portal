@@ -23,7 +23,7 @@ fn member(destination: &str) -> String {
             "destination": "{destination}",
             "size": 5368709120,
             "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "snapshot": "\\\"romm-snapshot\\\"",
+            "snapshot": "\"romm-snapshot\"",
             "download": "/api/download-manifests/{MANIFEST_ID}/files/{MEMBER_ID}"
         }}"#
     )
@@ -43,13 +43,42 @@ fn validates_only_canonical_path_free_members() {
 #[test]
 fn rejects_untrusted_wire_values() {
     let cases = [
-        (manifest(&member("Game/file.bin")).replace("\"schema_version\": 1", "\"schema_version\": 2"), ManifestValidationError::UnsupportedSchemaVersion),
-        (manifest(&member("Game/file.bin")).replace(MEMBER_ID, "not-a-uuid"), ManifestValidationError::InvalidMemberId),
-        (manifest(&member("Game/file.bin")).replace("5368709120", "-1"), ManifestValidationError::InvalidSize),
-        (manifest(&member("Game/file.bin")).replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "ABC"), ManifestValidationError::InvalidSha256),
-        (manifest(&member("Game/file.bin")).replace("\\\"romm-snapshot\\\"", "W/\\\"weak\\\""), ManifestValidationError::InvalidSnapshot),
-        (manifest(&member("Game/file.bin")).replace("/api/download-manifests/", "https://evil.example/api/download-manifests/"), ManifestValidationError::InvalidDownloadUrl),
-        (manifest(&member("Game/file.bin")).replace("\"members\": [", "\"unknown\": true, \"members\": ["), ManifestValidationError::InvalidManifest),
+        (
+            manifest(&member("Game/file.bin"))
+                .replace("\"schema_version\": 1", "\"schema_version\": 2"),
+            ManifestValidationError::UnsupportedSchemaVersion,
+        ),
+        (
+            manifest(&member("Game/file.bin")).replace(MEMBER_ID, "not-a-uuid"),
+            ManifestValidationError::InvalidMemberId,
+        ),
+        (
+            manifest(&member("Game/file.bin")).replace("5368709120", "-1"),
+            ManifestValidationError::InvalidSize,
+        ),
+        (
+            manifest(&member("Game/file.bin")).replace(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "ABC",
+            ),
+            ManifestValidationError::InvalidSha256,
+        ),
+        (
+            manifest(&member("Game/file.bin")).replace("\\\"romm-snapshot\\\"", "W/\\\"weak\\\""),
+            ManifestValidationError::InvalidSnapshot,
+        ),
+        (
+            manifest(&member("Game/file.bin")).replace(
+                "/api/download-manifests/",
+                "https://evil.example/api/download-manifests/",
+            ),
+            ManifestValidationError::InvalidDownloadUrl,
+        ),
+        (
+            manifest(&member("Game/file.bin"))
+                .replace("\"members\": [", "\"unknown\": true, \"members\": ["),
+            ManifestValidationError::InvalidManifest,
+        ),
     ];
 
     for (input, expected) in cases {
@@ -62,10 +91,12 @@ fn rejects_duplicate_and_portably_colliding_destinations() {
     for destination_pair in [
         ("Game/file.bin", "Game/file.bin"),
         ("Game/File.bin", "game/file.bin"),
+        ("Game/straße.bin", "Game/STRASSE.bin"),
         ("Game/café.bin", "Game/café.bin"),
     ] {
         let first = member(destination_pair.0);
-        let second = member(destination_pair.1).replace(MEMBER_ID, "33333333-3333-4333-8333-333333333333");
+        let second =
+            member(destination_pair.1).replace(MEMBER_ID, "33333333-3333-4333-8333-333333333333");
         let input = manifest(&format!("{first},{second}"));
 
         assert_eq!(
@@ -73,4 +104,26 @@ fn rejects_duplicate_and_portably_colliding_destinations() {
             ManifestValidationError::DestinationCollision
         );
     }
+}
+
+#[test]
+fn rejects_path_bearing_destinations_before_persistence() {
+    for destination in ["/absolute/file.bin", "Game/../file.bin", r"Game\file.bin"] {
+        assert_eq!(
+            ManifestValidator::validate(&manifest(&member(destination))).unwrap_err(),
+            ManifestValidationError::InvalidDestination
+        );
+    }
+}
+
+#[test]
+fn rejects_duplicate_member_ids_before_a_job_can_be_created() {
+    let first = member("Game/base.bin");
+    let second = member("Game/update.bin");
+    let input = manifest(&format!("{first},{second}"));
+
+    assert_eq!(
+        ManifestValidator::validate(&input).unwrap_err(),
+        ManifestValidationError::DuplicateMemberId
+    );
 }
