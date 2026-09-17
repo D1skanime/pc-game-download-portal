@@ -198,7 +198,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             raise ValueError("event history is full")
         item.observed_bytes = observed_bytes
         item.status = next_status
-        item.last_activity_at = datetime.now().astimezone()
+        item.last_activity_at = datetime.now(UTC)
         event = DownloadTransferEvent(
             session_id=transfer_id,
             item_id=item_id,
