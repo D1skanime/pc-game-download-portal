@@ -1,6 +1,9 @@
 #[path = "../src/commands.rs"]
 mod commands;
+#[path = "../src/auth.rs"]
+mod auth;
 
+use auth::{AuthState, DeviceAuthClient, DeviceAuthHttpResponse, DeviceAuthTransport, TokenStore};
 use commands::{ConflictAction, NativeShell, QueueRequest};
 
 #[test]
@@ -88,4 +91,91 @@ fn conflict_choices_are_closed_and_state_is_redacted() {
     assert_eq!(snapshot.jobs.len(), 1);
     assert_eq!(snapshot.jobs[0].state, "SKIPPED");
     assert!(!format!("{snapshot:?}").contains("romm.example"));
+}
+
+#[derive(Default)]
+struct MockTransport {
+    responses: Vec<DeviceAuthHttpResponse>,
+    requests: Vec<(String, String)>,
+}
+
+impl DeviceAuthTransport for MockTransport {
+    fn send(
+        &mut self,
+        method: &str,
+        url: &str,
+        _body: &str,
+    ) -> Result<DeviceAuthHttpResponse, ()> {
+        self.requests.push((method.to_owned(), url.to_owned()));
+        Ok(self.responses.remove(0))
+    }
+}
+
+#[derive(Default)]
+struct MemoryTokenStore(Option<String>);
+
+impl TokenStore for MemoryTokenStore {
+    fn save(&mut self, token: &str) -> Result<(), ()> {
+        self.0 = Some(token.to_owned());
+        Ok(())
+    }
+
+    fn load(&self) -> Result<Option<String>, ()> {
+        Ok(self.0.clone())
+    }
+
+    fn clear(&mut self) -> Result<(), ()> {
+        self.0 = None;
+        Ok(())
+    }
+}
+
+#[test]
+fn device_pairing_uses_only_roms_read_and_keeps_the_token_out_of_snapshots() {
+    let mut transport = MockTransport {
+        responses: vec![
+            DeviceAuthHttpResponse::json(
+                201,
+                r#"{"device_code":"private-device-code","user_code":"ABCD-EFGH","verification_path":"/pair/device","verification_path_complete":"/pair/device?user_code=ABCD-EFGH","expires_in":300,"interval":5}"#,
+            ),
+            DeviceAuthHttpResponse::json(
+                200,
+                r#"{"access_token":"rmm_secret","device_id":"1","scopes":["roms.read"],"expires_at":null}"#,
+            ),
+        ],
+        ..Default::default()
+    };
+    let mut store = MemoryTokenStore::default();
+    let mut client = DeviceAuthClient::new("https://romm.example", &mut transport, &mut store)
+        .expect("configured origin");
+
+    let pairing = client.start("native-id", "RomM Desktop", "linux", "0.1.0", 100).expect("init");
+    assert_eq!(pairing.user_code, "ABCD-EFGH");
+    assert_eq!(pairing.verification_url, "https://romm.example/pair/device?user_code=ABCD-EFGH");
+    assert_eq!(client.snapshot().state, AuthState::Pairing);
+    assert!(!format!("{:?}", client.snapshot()).contains("rmm_secret"));
+
+    assert_eq!(client.poll(105).expect("token"), AuthState::Paired);
+    assert_eq!(store.load().expect("stored token"), Some("rmm_secret".to_owned()));
+    assert_eq!(transport.requests[0].0, "POST");
+    assert_eq!(transport.requests[0].1, "https://romm.example/api/auth/device/init");
+    assert_eq!(transport.requests[1].1, "https://romm.example/api/auth/device/token");
+}
+
+#[test]
+fn expired_or_unauthorized_pairing_requires_repair_without_retaining_a_token() {
+    let mut transport = MockTransport {
+        responses: vec![DeviceAuthHttpResponse::json(
+            201,
+            r#"{"device_code":"private-device-code","user_code":"ABCD-EFGH","verification_path":"/pair/device","verification_path_complete":"/pair/device?user_code=ABCD-EFGH","expires_in":5,"interval":5}"#,
+        )],
+        ..Default::default()
+    };
+    let mut store = MemoryTokenStore(Some("rmm_previous".to_owned()));
+    let mut client = DeviceAuthClient::new("https://romm.example", &mut transport, &mut store)
+        .expect("configured origin");
+
+    client.start("native-id", "RomM Desktop", "windows", "0.1.0", 100).expect("init");
+    assert_eq!(client.poll(106).expect("expired"), AuthState::AuthRequired);
+    assert_eq!(store.load().expect("cleared token"), None);
 }
