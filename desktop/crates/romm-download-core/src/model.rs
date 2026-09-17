@@ -18,6 +18,14 @@ impl std::fmt::Display for ManifestId {
     }
 }
 
+impl std::str::FromStr for ManifestId {
+    type Err = uuid::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        uuid::Uuid::parse_str(value).map(Self::new)
+    }
+}
+
 /// An opaque server-owned manifest member identity.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(transparent)]
