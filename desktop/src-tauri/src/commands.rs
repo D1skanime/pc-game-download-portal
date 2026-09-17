@@ -1,6 +1,9 @@
 use std::{collections::HashMap, str::FromStr};
 
-use romm_download_core::{ConfiguredOrigin, DestinationRootHandle, DestinationRootRegistry, ManifestId};
+use romm_download_core::{
+    ConfiguredOrigin, DestinationRootHandle, DestinationRootRegistry, DownloadEngine,
+    HttpTransport, ManifestId, QueuedManifest,
+};
 use serde::Serialize;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -116,6 +119,30 @@ impl NativeShell {
             },
         );
         Ok(job_id)
+    }
+
+    /// Delegates manifest retrieval and root lifetime revalidation to the core.
+    #[allow(dead_code)]
+    pub fn queue_with_core<T: HttpTransport>(
+        &self,
+        engine: &mut DownloadEngine<'_, T>,
+        request: &QueueRequest,
+    ) -> Result<QueuedManifest, CommandBoundaryError> {
+        let origin = ConfiguredOrigin::parse(&request.origin)
+            .map_err(|_| CommandBoundaryError::InvalidOrigin)?;
+        if self.configured_origin.as_ref() != Some(&origin) {
+            return Err(CommandBoundaryError::InvalidOrigin);
+        }
+        let manifest_id = ManifestId::from_str(&request.manifest_id)
+            .map_err(|_| CommandBoundaryError::InvalidManifestId)?;
+        let handle = self
+            .handles
+            .get(&request.destination_root)
+            .copied()
+            .ok_or(CommandBoundaryError::UnknownDestinationRoot)?;
+        engine
+            .queue_manifest(origin, manifest_id, handle)
+            .map_err(|_| CommandBoundaryError::UnknownDestinationRoot)
     }
 
     pub fn select_conflict_action(
