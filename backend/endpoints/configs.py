@@ -111,6 +111,7 @@ def get_config(request: Request) -> ConfigResponse:
 
     cfg = cm.get_config()
     return ConfigResponse(
+        browser_download_queue_concurrency=cfg.BROWSER_DOWNLOAD_QUEUE_CONCURRENCY,
         CONFIG_FILE_MOUNTED=cfg.CONFIG_FILE_MOUNTED,
         CONFIG_FILE_WRITABLE=cfg.CONFIG_FILE_WRITABLE,
         # Raw parser error may leak the config file path, so only send when authenticated
