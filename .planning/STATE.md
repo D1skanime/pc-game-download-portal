@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: completed
+status: executing
 stopped_at: Completed 14-02-PLAN.md
-last_updated: "2026-09-16T21:26:22.290Z"
-last_activity: 2026-09-16 -- Phase 15 marked complete
+last_updated: "2026-09-17T07:34:25.287Z"
+last_activity: 2026-09-17
 progress:
   total_phases: 17
   completed_phases: 12
-  total_plans: 131
-  completed_plans: 125
+  total_plans: 137
+  completed_plans: 126
   percent: 71
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 15 — direct-resumable-transfer
+**Current focus:** Phase 16 — cross-platform-desktop-client
 
 ## Current Position
 
-Phase: 15 — COMPLETE
-Plan: 1 of 3
-Status: Phase 15 complete
-Last activity: 2026-09-16 -- Phase 15 marked complete
+Phase: 16 (cross-platform-desktop-client) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-09-17
 
 ## Performance Metrics
 
@@ -129,6 +129,7 @@ _Updated after each plan completion_
 | Phase 10 P02 | 36min | 3 tasks | 9 files |
 | Phase 14 P01 | 24m | 2 tasks | 3 files |
 | Phase 14 P02 | 24min | 2 tasks | 7 files |
+| Phase 16 P01 | 28min | 1 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -303,6 +304,8 @@ Recent decisions affecting current work:
 - [Phase 14]: Manifest members retain opaque source-member IDs, safe delivery evidence, and no source paths. — Keeps the manifest database boundary portable and prevents source-library disclosure.
 - [Phase 14]: Creation hashes through the constrained HASH capability, while ordinary GET performs STAT-only light checks. — Preserves source integrity without full rehashes during ordinary manifest retrieval.
 - [Phase 14]: Whole-game selection includes only manifest-backed base, update, DLC, and extra components. — Prevents recursive arbitrary source-directory selection.
+- [Phase 16]: Validate member URLs by exact opaque Phase-15 route equality.
+- [Phase 16]: Use full Unicode case folding with exact, NFC, and NFD collision rejection before persistence.
 
 ### Roadmap Evolution
 
@@ -327,6 +330,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-16T12:28:38.534Z
+Last session: 2026-09-17T07:34:25.272Z
 Stopped at: Completed 14-02-PLAN.md
 Resume file: None
