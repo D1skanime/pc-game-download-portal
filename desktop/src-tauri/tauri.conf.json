@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "RomM Desktop",
+  "version": "0.1.0",
+  "identifier": "org.romm.desktop",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "RomM Desktop",
+        "width": 1080,
+        "height": 720,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self'; img-src 'self' asset:; style-src 'self'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": [],
+    "targets": ["nsis", "deb", "rpm", "appimage"]
+  }
+}

@@ -67,4 +67,25 @@ fn conflict_choices_are_closed_and_state_is_redacted() {
     assert_eq!(ConflictAction::Skip.as_str(), "skip");
     assert_eq!(ConflictAction::Overwrite.as_str(), "overwrite");
     assert_eq!(ConflictAction::ChooseAnotherDestination.as_str(), "choose_another_destination");
+
+    let mut shell = NativeShell::for_test();
+    let root = shell.register_test_root().expect("test root");
+    let job_id = shell
+        .queue(QueueRequest {
+            origin: "https://romm.example".to_owned(),
+            manifest_id: "00000000-0000-0000-0000-000000000001".to_owned(),
+            destination_root: root,
+        })
+        .expect("opaque queue request");
+    shell.pause(&job_id);
+    shell.resume(&job_id);
+    shell
+        .select_conflict_action(&job_id, "skip")
+        .expect("closed conflict action");
+    shell.skip(&job_id);
+
+    let snapshot = shell.state_snapshot();
+    assert_eq!(snapshot.jobs.len(), 1);
+    assert_eq!(snapshot.jobs[0].state, "SKIPPED");
+    assert!(!format!("{snapshot:?}").contains("romm.example"));
 }

@@ -9,3 +9,9 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 romm-download-core = { path = "../crates/romm-download-core" }
+serde = { version = "=1.0.229", features = ["derive"] }
+tauri = { version = "=2.11.5", features = [] }
+tauri-plugin-dialog = "=2.7.3"
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
