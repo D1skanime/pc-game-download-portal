@@ -1,10 +1,53 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
+from tests.conftest import session
 
 from handler.database.download_transfers_handler import DBDownloadTransfersHandler
+from models.download_manifest import (
+    DownloadManifest,
+    DownloadManifestComponent,
+    DownloadManifestMember,
+)
 from models.download_transfer import (
     DownloadTransferItemStatus,
     DownloadTransferMode,
 )
+from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
+
+
+@pytest.fixture
+def manifest(rom, admin_user):
+    component = RomComponent(
+        rom_id=rom.id, relative_path="base", kind=RomComponentKind.BASE
+    )
+    source = RomComponentManifestMember(
+        component=component,
+        relative_path="base/game.iso",
+        size_bytes=42,
+        sha256="a" * 64,
+    )
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+        saved = DownloadManifest(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
+        )
+        selected = DownloadManifestComponent(manifest=saved, component=component)
+        DownloadManifestMember(
+            component=selected,
+            manifest_member=source,
+            destination="game.iso",
+            size_bytes=42,
+            sha256="a" * 64,
+            snapshot='"snapshot"',
+            mtime_ns=1,
+        )
+        db.add(saved)
+        db.flush()
+        return saved
 
 
 def test_owner_scoped_session_creation_copies_manifest_members(

@@ -40,6 +40,7 @@ from endpoints.configs import router as configs_router
 from endpoints.device import router as device_router
 from endpoints.device_auth import router as device_auth_router
 from endpoints.download_manifests import router as download_manifests_router
+from endpoints.download_transfers import router as download_transfers_router
 from endpoints.export import router as export_router
 from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
@@ -194,6 +195,7 @@ app.include_router(client_tokens_router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(device_auth_router, prefix="/api")
 app.include_router(download_manifests_router, prefix="/api")
+app.include_router(download_transfers_router, prefix="/api")
 app.include_router(play_sessions_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(rom_router, prefix="/api")
