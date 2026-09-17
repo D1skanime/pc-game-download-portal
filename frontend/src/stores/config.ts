@@ -12,6 +12,7 @@ type ExclusionTypes =
   | "EXCLUDED_MULTI_PARTS_FILES";
 
 const defaultConfig = {
+  browser_download_queue_concurrency: 3,
   CONFIG_FILE_MOUNTED: false,
   CONFIG_FILE_WRITABLE: false,
   CONFIG_FILE_PARSE_ERROR: null,

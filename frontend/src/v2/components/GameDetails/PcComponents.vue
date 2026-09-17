@@ -1,22 +1,36 @@
 <script setup lang="ts">
 import { RBtn, RCollapsible, REmptyState, RTag } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { PcComponentSchema } from "@/__generated__";
+import type { DownloadManifestResponse } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
+import api from "@/services/api";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { PcMatchableComponentKind } from "@/v2/components/MatchRom/types";
+import { useBrowserDownloadQueue } from "@/v2/composables/useBrowserDownloadQueue";
+import DownloadManager from "./DownloadManager.vue";
+import DownloadSelectionDialog, {
+  type DownloadArchiveSet,
+} from "./DownloadSelectionDialog.vue";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ components: PcComponentSchema[]; romId: number }>();
+const props = defineProps<{
+  components: PcComponentSchema[];
+  romId: number;
+  archiveSets?: DownloadArchiveSet[];
+}>();
 const emit = defineEmits<{ (event: "applied"): void }>();
 const { t } = useI18n();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
+const showDownload = ref(false);
+const queue = useBrowserDownloadQueue();
+const queueItems = computed(() => queue.items.value);
 
 function openComponentMatcher(component: PcComponentSchema) {
   if (component.kind === "unresolved") return;
@@ -37,6 +51,22 @@ function openDlcDetails(componentId: number) {
     name: ROUTES.PC_DLC,
     params: { rom: props.romId, component: componentId },
   });
+}
+
+async function startDownload(payload: {
+  archiveSetId?: number;
+  selectedMemberIds: number[];
+  componentIds: number[];
+}) {
+  const response = await api.post<DownloadManifestResponse>(
+    `/roms/${props.romId}/download-manifests`,
+    {
+      archive_set_id: payload.archiveSetId,
+      selected_member_ids: payload.selectedMemberIds,
+      component_ids: payload.archiveSetId ? undefined : payload.componentIds,
+    },
+  );
+  await queue.start(response.data);
 }
 
 const GROUPS: Array<{ kind: PcComponentSchema["kind"]; label: string }> = [
@@ -64,6 +94,19 @@ const groupedComponents = computed(() =>
 <template>
   <section class="pc-components">
     <h3 class="pc-components__heading">{{ t("rom.pc-components") }}</h3>
+    <RBtn
+      data-testid="download-components"
+      prepend-icon="mdi-download"
+      @click="showDownload = true"
+      >{{ t("rom.download-components") }}</RBtn
+    >
+    <DownloadSelectionDialog
+      v-model="showDownload"
+      :components="components"
+      :archive-sets="archiveSets"
+      @start="startDownload"
+    />
+    <DownloadManager :items="queueItems" />
 
     <REmptyState
       v-if="groupedComponents.length === 0"
