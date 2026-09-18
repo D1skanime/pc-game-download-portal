@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 17-09-PLAN.md
-last_updated: "2026-09-18T07:56:03.001Z"
+last_updated: "2026-09-18T07:57:09.536Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 17
@@ -344,6 +344,7 @@ Recent decisions affecting current work:
 - [Phase 5]: Confirm NAS watcher fidelity; scheduled and manual scans remain authoritative by default.
 - [Phase 9]: Confirm NAS protocol, mount options, atime behavior, and a safe activation window before real-NAS rollout.
 - [Phase 16]: Authorized Windows, standard Linux, and Bazzite runners plus the isolated 30 GiB UAT volume are unavailable; Task 3 remains blocked and evidence is deferred in 16-UAT.md.
+- Phase 17 browser verification remains pending because Firefox, Chrome, Edge, and MariaDB are unavailable in the isolated Linux checkout; see 17-BROWSER-MATRIX.md and 17-DOWNLOAD-EVIDENCE.md.
 
 ## Deferred Items
 
