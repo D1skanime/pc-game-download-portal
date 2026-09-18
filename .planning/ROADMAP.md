@@ -22,7 +22,7 @@ file, and never creates a whole-game ZIP or changes the NAS library.
 - [x] **Phase 14: Immutable Download Manifests** - Turn selected existing PC components into stable, hash-backed download manifests. (completed 2026-09-16)
 - [x] **Phase 15: Direct Resumable Transfer** - Serve manifest files directly with snapshot-bound HTTP Range resume and no ZIP packaging. (completed 2026-09-16)
 - [ ] **Phase 16: Cross-platform Desktop Client** - Retain the Tauri/Rust Windows and Linux/Bazzite prototype for later cleanup; mandatory installers and desktop distribution are cancelled product scope.
-- [ ] **Phase 17: Browser Download Manager** - Deliver browser-only direct downloads from v2 with server-validated component or allowed-file selection, one immutable manifest, original direct member downloads, a standard attachment baseline, an optional capability-detected File System Access enhancement, controlled queues, and read-only source safety. Phase 16 installer UAT does not block this phase.
+- [x] **Phase 17: Browser Download Manager** - Deliver browser-only direct downloads from v2 with server-validated component or allowed-file selection, one immutable manifest, original direct member downloads, a standard attachment baseline, an optional capability-detected File System Access enhancement, controlled queues, and read-only source safety. Phase 16 installer UAT does not block this phase. (completed 2026-09-18)
 
 ## Phase Details
 
@@ -352,7 +352,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 14. Immutable Download Manifests        | 4/4            | Complete    | 2026-09-16 |
 | 15. Direct Resumable Transfer           | 3/3            | Complete    | 2026-09-16 |
 | 16. Cross-platform Desktop Client       | 5/6            | In Progress |            |
-| 17. Browser Download Manager            | 11/13          | In Progress |            |
+| 17. Browser Download Manager            | 13/13          | Complete    | 2026-09-18 |
 
 ### Phase 11: Local PC Media and DLC Navigation
 
@@ -490,4 +490,4 @@ installers, and distribution are not part of this phase.
 4. The complete flow leaves the NAS and source library unchanged, does not
    expose source paths, and covers large-file and multi-file evidence.
 
-**Plans:** 11/13 plans executed
+**Plans:** 13/13 plans complete
