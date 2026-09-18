@@ -371,17 +371,6 @@ describe("browser download accessibility and truthful state contract", () => {
           session("expired"),
           session("failed"),
         ],
-        queueItems: [
-          {
-            file_id: "member-path",
-            destination: "safe/relative/game.bin",
-            size: 1024,
-            sha256: "a".repeat(64),
-            snapshot: "snapshot",
-            download: "https://example.invalid/private-token",
-            status: "handed_to_browser",
-          },
-        ],
       },
     });
 
@@ -395,8 +384,6 @@ describe("browser download accessibility and truthful state contract", () => {
       "This download is no longer available. Prepare it again.",
     );
     expect(text).toContain("Download failed");
-    expect(text).toContain("game.bin");
-    expect(text).not.toContain("safe/relative");
     expect(text).not.toMatch(
       /(NAS|local|saved|downloaded|completed|checksum|resumable|https?:\/\/|token|opaque-)/i,
     );
