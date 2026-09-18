@@ -40,6 +40,7 @@ const translations: Record<string, string> = {
   "rom.download-handed-to-browser": "Handed to browser",
   "rom.download-no-complete-set": "No complete download set is available",
   "rom.download-optional-file": "Optional file",
+  "rom.pc-base-game": "Main game",
   "rom.download-queued": "Queued",
   "rom.download-required-missing":
     "This selection is incomplete. Add the required components shown above before starting the download.",
@@ -276,7 +277,37 @@ describe("browser download accessibility and truthful state contract", () => {
       archiveSetId: 1,
       selectedMemberIds: [11],
       componentIds: [1],
+      mode: "standard",
     });
+  });
+
+  it("uses a human component label for optional files instead of the manifest ID", async () => {
+    const wrapper = mount(DownloadSelectionDialog, {
+      props: {
+        modelValue: false,
+        components,
+        archiveSets: [
+          {
+            id: 1,
+            name: "Complete game",
+            members: [
+              {
+                component_id: 1,
+                manifest_member_id: 11,
+                position: 1,
+                required: false,
+              },
+            ],
+          },
+        ],
+      },
+      global: selectionGlobal,
+    });
+
+    await wrapper.setProps({ modelValue: true });
+    await nextTick();
+    expect(wrapper.text()).toContain("Optional file Main game");
+    expect(wrapper.text()).not.toContain("11");
   });
 
   it("uses only truthful status vocabulary and never exposes source values", () => {

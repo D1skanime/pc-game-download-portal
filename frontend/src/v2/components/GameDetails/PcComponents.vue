@@ -43,7 +43,7 @@ function openComponentMatcher(component: PcComponentSchema) {
       romId: props.romId,
       componentId: component.id,
       componentKind: component.kind as PcMatchableComponentKind,
-      label: component.relative_path,
+      label: componentLabel(component),
     },
     refresh: () => emit("applied"),
   });
@@ -60,6 +60,7 @@ async function startDownload(payload: {
   archiveSetId?: number;
   selectedMemberIds: number[];
   componentIds: number[];
+  mode: "standard" | "enhanced";
 }) {
   const response = await api.post<DownloadManifestResponse>(
     `/roms/${props.romId}/download-manifests`,
@@ -75,12 +76,25 @@ async function startDownload(payload: {
       props.components.find((component) => component.id === entry.component_id),
     )
     .filter((component): component is PcComponentSchema => !!component)
-    .map((component) =>
-      component.kind === "base"
-        ? t("rom.pc-base-game")
-        : component.relative_path,
-    );
-  await queue.start(response.data);
+    .map((component) => componentLabel(component));
+  if (payload.mode === "enhanced") {
+    await queue.startEnhanced(response.data);
+  } else {
+    await queue.start(response.data);
+  }
+}
+
+const COMPONENT_LABELS: Record<PcComponentSchema["kind"], string> = {
+  base: "rom.pc-base-game",
+  update: "rom.pc-updates",
+  dlc: "rom.category-dlc",
+  hotfix: "rom.pc-hotfixes",
+  language_pack: "rom.pc-language-packs",
+  extra: "rom.pc-extras",
+  unresolved: "rom.pc-needs-classification",
+};
+function componentLabel(component: PcComponentSchema) {
+  return t(COMPONENT_LABELS[component.kind]);
 }
 
 const GROUPS: Array<{ kind: PcComponentSchema["kind"]; label: string }> = [

@@ -28,12 +28,14 @@ const emit = defineEmits<{
       archiveSetId?: number;
       selectedMemberIds: number[];
       componentIds: number[];
+      mode: "standard" | "enhanced";
     },
   ): void;
 }>();
 const { t } = useI18n();
 const selectedSet = ref<number | undefined>();
 const selectedOptional = ref<number[]>([]);
+const mode = ref<"standard" | "enhanced">("standard");
 const currentSet = computed(() =>
   props.archiveSets?.find((set) => set.id === selectedSet.value),
 );
@@ -64,6 +66,7 @@ watch(
     if (open) {
       selectedSet.value = props.archiveSets?.[0]?.id;
       selectedOptional.value = [];
+      mode.value = "standard";
     }
   },
 );
@@ -73,8 +76,22 @@ function start() {
     archiveSetId: selectedSet.value,
     selectedMemberIds: selectedMembers.value,
     componentIds: props.components.map((component) => component.id),
+    mode: mode.value,
   });
   emit("update:modelValue", false);
+}
+const componentKindLabels: Record<PcComponentSchema["kind"], string> = {
+  base: "rom.pc-base-game",
+  update: "rom.pc-updates",
+  dlc: "rom.category-dlc",
+  hotfix: "rom.pc-hotfixes",
+  language_pack: "rom.pc-language-packs",
+  extra: "rom.pc-extras",
+  unresolved: "rom.pc-needs-classification",
+};
+function memberComponentLabel(componentId: number) {
+  const component = props.components.find((item) => item.id === componentId);
+  return component ? t(componentKindLabels[component.kind]) : t("file");
 }
 </script>
 <template>
@@ -87,7 +104,7 @@ function start() {
     <template #header>{{ t("rom.download-components") }}</template>
     <template #content>
       <div class="download-selection">
-        <DownloadModeSelector model-value="standard" />
+        <DownloadModeSelector v-model="mode" />
         <RCheckbox
           v-for="set in archiveSets"
           :key="set.id"
@@ -105,7 +122,9 @@ function start() {
           )"
           :key="member.manifest_member_id"
           :model-value="selectedOptional.includes(member.manifest_member_id)"
-          :label="`${t('rom.download-optional-file')} ${member.manifest_member_id}`"
+          :label="`${t('rom.download-optional-file')} ${memberComponentLabel(
+            member.component_id,
+          )}`"
           @update:model-value="
             (memberValue) =>
               memberValue

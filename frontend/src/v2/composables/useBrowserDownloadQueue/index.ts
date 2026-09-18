@@ -225,19 +225,25 @@ export function useBrowserDownloadQueue() {
         ...member,
         status: "queued" as const,
       }));
-      for (const item of items.value.slice(0, limit)) {
-        const anchor = document.createElement("a");
-        anchor.href = item.download;
-        anchor.download = item.destination.split("/").pop() ?? "download";
-        anchor.click();
-        item.status = "handed_to_browser";
-        const transferItem = session.data.items.find(
-          (candidate) => candidate.manifest_member_id === item.file_id,
+      for (let index = 0; index < items.value.length; index += limit) {
+        await Promise.all(
+          items.value.slice(index, index + limit).map(async (item) => {
+            const anchor = document.createElement("a");
+            anchor.href = item.download;
+            anchor.download = item.destination.split("/").pop() ?? "download";
+            anchor.click();
+            item.status = "handed_to_browser";
+            const transferItem = session.data.items.find(
+              (candidate) => candidate.manifest_member_id === item.file_id,
+            );
+            if (transferItem)
+              await downloadTransfersApi.observe(
+                session.data.id,
+                transferItem.id,
+                { event_type: "handoff" },
+              );
+          }),
         );
-        if (transferItem)
-          await downloadTransfersApi.observe(session.data.id, transferItem.id, {
-            event_type: "handoff",
-          });
       }
       return true;
     } finally {
