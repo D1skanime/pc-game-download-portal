@@ -182,13 +182,24 @@ class DBDownloadTransfersHandler(DBBaseHandler):
 
     @begin_session
     def get_sessions(
-        self, user_id: int, limit: int = 50, session: Session = None  # type: ignore
+        self,
+        user_id: int,
+        limit: int = 50,
+        rom_id: int | None = None,
+        manifest_id: str | None = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[DownloadTransferSession]:
+        stmt = select(DownloadTransferSession).where(
+            DownloadTransferSession.user_id == user_id
+        )
+        if rom_id is not None:
+            stmt = stmt.where(DownloadTransferSession.rom_id == rom_id)
+        if manifest_id is not None:
+            stmt = stmt.where(DownloadTransferSession.manifest_id == manifest_id)
         return session.scalars(
-            select(DownloadTransferSession)
-            .where(DownloadTransferSession.user_id == user_id)
-            .order_by(DownloadTransferSession.started_at.desc())
-            .limit(min(max(limit, 1), 100))
+            stmt.order_by(DownloadTransferSession.started_at.desc()).limit(
+                min(max(limit, 1), 100)
+            )
         ).all()
 
     @begin_session

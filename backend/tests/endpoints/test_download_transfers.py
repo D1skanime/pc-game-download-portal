@@ -107,3 +107,46 @@ def test_standard_transfer_response_does_not_claim_local_storage(
         forbidden not in created.text
         for forbidden in ("source_path", "fs_path", "file://", "token", "credential")
     )
+
+
+def test_transfer_history_supports_owner_scoped_rom_and_manifest_filters(
+    client, access_token, manifest, rom
+):
+    created = client.post(
+        "/api/download-transfer-sessions",
+        headers=_headers(access_token),
+        json={"manifest_id": manifest.id, "mode": "standard"},
+    )
+    assert created.status_code == status.HTTP_201_CREATED
+
+    headers = _headers(access_token)
+    unfiltered = client.get("/api/download-transfer-sessions", headers=headers)
+    by_rom = client.get(
+        f"/api/download-transfer-sessions?rom_id={rom.id}", headers=headers
+    )
+    by_manifest = client.get(
+        f"/api/download-transfer-sessions?manifest_id={manifest.id}", headers=headers
+    )
+    unmatched = client.get(
+        "/api/download-transfer-sessions?rom_id=999999", headers=headers
+    )
+
+    assert unfiltered.status_code == status.HTTP_200_OK
+    assert by_rom.status_code == status.HTTP_200_OK
+    assert by_manifest.status_code == status.HTTP_200_OK
+    assert unmatched.status_code == status.HTTP_200_OK
+    assert len(unfiltered.json()) == len(by_rom.json()) == len(by_manifest.json()) == 1
+    assert unmatched.json() == []
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["rom_id=0", "manifest_id=not-a-uuid"],
+)
+def test_transfer_history_filters_are_validated(client, access_token, query):
+    response = client.get(
+        f"/api/download-transfer-sessions?{query}",
+        headers=_headers(access_token),
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

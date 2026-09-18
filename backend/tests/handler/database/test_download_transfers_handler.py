@@ -98,6 +98,25 @@ def test_foreign_owner_is_masked_and_events_are_append_only(
         )
 
 
+def test_get_sessions_applies_owner_scoped_rom_and_manifest_filters(
+    admin_user, manifest, rom
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.STANDARD
+    )
+
+    assert [item.id for item in handler.get_sessions(admin_user.id)] == [transfer.id]
+    assert [item.id for item in handler.get_sessions(admin_user.id, rom_id=rom.id)] == [
+        transfer.id
+    ]
+    assert [
+        item.id for item in handler.get_sessions(admin_user.id, manifest_id=manifest.id)
+    ] == [transfer.id]
+    assert handler.get_sessions(admin_user.id, rom_id=rom.id + 1) == []
+    assert handler.get_sessions(admin_user.id, manifest_id="0" * 36) == []
+
+
 def test_standard_cannot_claim_verified_and_enhanced_can_verify_only_digest_match(
     admin_user, manifest
 ):

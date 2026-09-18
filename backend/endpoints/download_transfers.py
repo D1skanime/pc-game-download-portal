@@ -1,6 +1,6 @@
-from typing import NoReturn
+from typing import Annotated, NoReturn
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Query, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.download_transfer import (
@@ -93,10 +93,16 @@ async def create_download_transfer(
 
 
 @protected_route(router.get, "", [Scope.ROMS_READ])
-async def list_download_transfers(request: Request) -> list[DownloadTransferResponse]:
+async def list_download_transfers(
+    request: Request,
+    rom_id: Annotated[int | None, Query(gt=0)] = None,
+    manifest_id: Annotated[str | None, Query(pattern=r"^[0-9a-f-]{36}$")] = None,
+) -> list[DownloadTransferResponse]:
     return [
         _serialize(item)
-        for item in db_download_transfer_handler.get_sessions(request.user.id)
+        for item in db_download_transfer_handler.get_sessions(
+            request.user.id, rom_id=rom_id, manifest_id=manifest_id
+        )
     ]
 
 
