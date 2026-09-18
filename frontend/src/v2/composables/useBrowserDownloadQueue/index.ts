@@ -210,6 +210,17 @@ export function useBrowserDownloadQueue() {
   const queued = computed(() =>
     items.value.filter((item) => item.status === "queued"),
   );
+  function hasActiveItems() {
+    return items.value.some((item) =>
+      ["queued", "downloading", "paused"].includes(item.status),
+    );
+  }
+  function canStart() {
+    if (starting.value || hasActiveItems()) return false;
+    // A terminal previous attempt is history, not an active lock.
+    if (sessionId.value) sessionId.value = null;
+    return true;
+  }
   async function pickEnhancedDirectory() {
     const picker = getEnhancedDirectoryPicker();
     if (!picker) return null;
@@ -218,7 +229,7 @@ export function useBrowserDownloadQueue() {
     return root;
   }
   async function start(manifest: DownloadManifestResponse) {
-    if (starting.value || sessionId.value) return false;
+    if (!canStart()) return false;
     starting.value = true;
     try {
       const config = await configApi.getBrowserDownloadQueueConfig();
@@ -261,8 +272,9 @@ export function useBrowserDownloadQueue() {
     manifest: DownloadManifestResponse,
     selectedRoot?: FileSystemDirectoryHandle | null,
   ) {
+    if (!canStart()) return false;
     const root = selectedRoot ?? (await pickEnhancedDirectory());
-    if (!root || starting.value || sessionId.value) return false;
+    if (!root) return false;
     starting.value = true;
     try {
       const config = await configApi.getBrowserDownloadQueueConfig();
