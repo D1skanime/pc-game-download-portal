@@ -104,4 +104,26 @@ describe("DownloadTransferHistory", () => {
     expect(error.text()).toContain("rom.download-failed-description");
     expect(error.text()).not.toContain("opaque backend detail");
   });
+
+  it("renders an enhanced queue verification as successful", () => {
+    const wrapper = mount(DownloadTransferHistory, {
+      props: {
+        sessions: [],
+        queueItems: [
+          {
+            file_id: "member-verified",
+            destination: "game.bin",
+            size: 1024,
+            sha256: "a".repeat(64),
+            snapshot: "snapshot",
+            download: "https://example.invalid/download",
+            status: "verified",
+          },
+        ],
+      },
+    });
+
+    expect(wrapper.text()).toContain("Verified");
+    expect(wrapper.text()).not.toContain("Download failed");
+  });
 });

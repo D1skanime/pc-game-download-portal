@@ -99,7 +99,14 @@ const rows = computed<HistoryRow[]>(() =>
     >
       <li v-for="item in queueItems" :key="item.file_id">
         <span>{{ safeFilename(item.destination) }}</span>
-        <RTag :text="statusText(item.status, 'standard')" />
+        <RTag
+          :text="
+            statusText(
+              item.status,
+              item.status === 'verified' ? 'enhanced' : 'standard',
+            )
+          "
+        />
       </li>
     </ul>
 
