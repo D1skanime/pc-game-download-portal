@@ -66,7 +66,9 @@ completed: 2026-09-18
 ## Task Commits
 
 1. **Task 1: Add final deterministic protocol and source-safety coverage** - `309daf818` (test), `4285a7a86` (fix)
-2. **Task 2: Record isolated browser matrix and download evidence** - working-tree artifacts, metadata commit pending
+2. **Task 2: Record isolated browser matrix and download evidence** - `429ddf2c5` (docs)
+
+**Plan metadata:** `fc8bf0b97` (docs: record browser verification blocker)
 
 ## Files Created/Modified
 
