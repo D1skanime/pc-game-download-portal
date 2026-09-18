@@ -94,12 +94,14 @@ describe("DownloadTransferHistory", () => {
     const loading = mount(DownloadTransferHistory, {
       props: { sessions: [], loading: true },
     });
-    expect(loading.text()).toContain("Loading");
+    expect(
+      loading.find("[data-testid='download-history-loading']").exists(),
+    ).toBe(true);
 
     const error = mount(DownloadTransferHistory, {
-      props: { sessions: [], error: "opaque backend detail" },
+      props: { sessions: [], error: true },
     });
-    expect(error.text()).toContain("Download history is unavailable");
+    expect(error.text()).toContain("rom.download-failed-description");
     expect(error.text()).not.toContain("opaque backend detail");
   });
 });

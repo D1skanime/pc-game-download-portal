@@ -12,7 +12,11 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-const transfer = (id: string, romId: number) => ({
+const transfer = (
+  id: string,
+  romId: number,
+  itemStatus = "handed_to_browser",
+) => ({
   schema_version: 1,
   id,
   manifest_id: "manifest-a",
@@ -25,7 +29,18 @@ const transfer = (id: string, romId: number) => ({
   started_at: "2026-09-18T08:00:00Z",
   last_activity_at: "2026-09-18T08:01:00Z",
   ended_at: null,
-  items: [],
+  items: [
+    {
+      id: 42,
+      manifest_member_id: "member-a",
+      expected_bytes: 1024,
+      observed_bytes: 0,
+      status: itemStatus,
+      started_at: null,
+      last_activity_at: null,
+      ended_at: null,
+    },
+  ],
   events: [],
 });
 
@@ -74,10 +89,12 @@ describe("DownloadManager", () => {
       .mockReturnValueOnce(new Promise((resolve) => (resolveSecond = resolve)));
     const wrapper = mount(DownloadManager, { props: { romId: 7, items: [] } });
     await wrapper.setProps({ romId: 8 });
-    resolveFirst({ data: [transfer("old-session", 7)] });
-    resolveSecond({ data: [transfer("new-session", 8)] });
-    await vi.waitFor(() => expect(wrapper.text()).toContain("new-session"));
-    expect(wrapper.text()).not.toContain("old-session");
+    resolveFirst({ data: [transfer("old-session", 7, "handed_to_browser")] });
+    resolveSecond({ data: [transfer("new-session", 8, "served")] });
+    await vi.waitFor(() =>
+      expect(wrapper.text()).toContain("rom.download-served"),
+    );
+    expect(wrapper.text()).not.toContain("rom.download-handed-to-browser");
     wrapper.unmount();
   });
 });
