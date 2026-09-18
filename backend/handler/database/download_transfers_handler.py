@@ -36,6 +36,13 @@ _TERMINAL_SESSIONS = {
 }
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Normalize MariaDB's naive UTC datetimes before Python comparisons."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 class DBDownloadTransfersHandler(DBBaseHandler):
     @begin_session
     def cleanup_sessions(
@@ -140,10 +147,9 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         )
         if manifest is None:
             raise ValueError("manifest not found")
-        if (
-            manifest.status is not DownloadManifestStatus.VALID
-            or manifest.expires_at <= datetime.now(UTC)
-        ):
+        if manifest.status is not DownloadManifestStatus.VALID or _as_utc(
+            manifest.expires_at
+        ) <= datetime.now(UTC):
             raise ValueError("manifest is not active")
         members = [
             member for component in manifest.components for member in component.members

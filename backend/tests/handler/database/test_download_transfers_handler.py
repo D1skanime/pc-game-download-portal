@@ -3,7 +3,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from tests.conftest import session
 
-from handler.database.download_transfers_handler import DBDownloadTransfersHandler
+from handler.database.download_transfers_handler import (
+    DBDownloadTransfersHandler,
+    _as_utc,
+)
 from models.download_manifest import (
     DownloadManifest,
     DownloadManifestComponent,
@@ -65,6 +68,27 @@ def test_owner_scoped_session_creation_copies_manifest_members(
     assert all(
         item.status is DownloadTransferItemStatus.QUEUED for item in transfer.items
     )
+
+
+def test_session_creation_accepts_database_returned_naive_manifest_expiry(
+    admin_user, manifest
+):
+    with session.begin() as db:
+        row = db.get(DownloadManifest, manifest.id)
+        row.expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=1)
+        db.add(row)
+
+    transfer = DBDownloadTransfersHandler().create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.STANDARD
+    )
+
+    assert transfer.manifest_id == manifest.id
+
+
+def test_as_utc_normalizes_naive_database_values():
+    value = _as_utc(datetime(2026, 9, 18, 12, 0, 0))
+
+    assert value.tzinfo is UTC
 
 
 def test_foreign_owner_is_masked_and_events_are_append_only(
