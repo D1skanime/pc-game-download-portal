@@ -298,6 +298,25 @@ export function useBrowserDownloadQueue() {
               await enhancedMember(root, item, controller.signal);
               item.status = "verified";
             } catch (error) {
+              const errorCode =
+                error instanceof Error
+                  ? error.message
+                  : "enhanced_download_failed";
+              console.error("[RomM] Enhanced download failed", {
+                fileId: item.file_id,
+                destination: item.destination,
+                error: errorCode,
+              });
+              const transferItem = session.data.items.find(
+                (candidate) => candidate.manifest_member_id === item.file_id,
+              );
+              if (transferItem) {
+                await downloadTransfersApi.observe(
+                  session.data.id,
+                  transferItem.id,
+                  { event_type: "fail", error_code: errorCode },
+                );
+              }
               item.status = controller.signal.aborted ? "paused" : "failed";
             } finally {
               controllers.delete(item.file_id);
