@@ -31,6 +31,9 @@ const emitter = inject<Emitter<Events>>("emitter");
 const showDownload = ref(false);
 const queue = useBrowserDownloadQueue();
 const queueItems = computed(() => queue.items.value);
+const selectedManifestId = ref<string | null>(null);
+const selectedComponentLabels = ref<string[]>([]);
+const currentSessionId = computed(() => queue.sessionId.value);
 
 function openComponentMatcher(component: PcComponentSchema) {
   if (component.kind === "unresolved") return;
@@ -66,6 +69,17 @@ async function startDownload(payload: {
       component_ids: payload.archiveSetId ? undefined : payload.componentIds,
     },
   );
+  selectedManifestId.value = response.data.id;
+  selectedComponentLabels.value = response.data.components
+    .map((entry) =>
+      props.components.find((component) => component.id === entry.component_id),
+    )
+    .filter((component): component is PcComponentSchema => !!component)
+    .map((component) =>
+      component.kind === "base"
+        ? t("rom.pc-base-game")
+        : component.relative_path,
+    );
   await queue.start(response.data);
 }
 
@@ -106,7 +120,13 @@ const groupedComponents = computed(() =>
       :archive-sets="archiveSets"
       @start="startDownload"
     />
-    <DownloadManager :items="queueItems" />
+    <DownloadManager
+      :rom-id="romId"
+      :items="queueItems"
+      :selected-manifest-id="selectedManifestId"
+      :session-id="currentSessionId"
+      :component-labels="selectedComponentLabels"
+    />
 
     <REmptyState
       v-if="groupedComponents.length === 0"
