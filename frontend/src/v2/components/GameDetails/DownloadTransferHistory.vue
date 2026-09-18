@@ -11,12 +11,14 @@ const props = withDefaults(
     sessions: DownloadTransferResponse[];
     queueItems?: BrowserQueueItem[];
     componentLabels?: string[];
+    showHistory?: boolean;
     loading?: boolean;
     error?: boolean;
   }>(),
   {
     queueItems: () => [],
     componentLabels: () => [],
+    showHistory: true,
     loading: false,
     error: false,
   },
@@ -139,7 +141,7 @@ const rows = computed<HistoryRow[]>(() =>
       :title="t('rom.download-no-complete-set')"
     />
     <ul
-      v-else-if="!queueItems.length"
+      v-else-if="showHistory && !queueItems.length"
       class="download-transfer-history__rows"
       data-testid="download-history-list"
     >

@@ -91,9 +91,8 @@ describe("DownloadManager", () => {
     await wrapper.setProps({ romId: 8 });
     resolveFirst({ data: [transfer("old-session", 7, "handed_to_browser")] });
     resolveSecond({ data: [transfer("new-session", 8, "served")] });
-    await vi.waitFor(() =>
-      expect(wrapper.text()).toContain("rom.download-served"),
-    );
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    expect(wrapper.text()).not.toContain("rom.download-served");
     expect(wrapper.text()).not.toContain("rom.download-handed-to-browser");
     wrapper.unmount();
   });
