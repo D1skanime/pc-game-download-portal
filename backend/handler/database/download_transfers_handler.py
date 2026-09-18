@@ -164,7 +164,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         )
         transfer.items = [
             DownloadTransferItem(
-                manifest_member_id=member.manifest_member_id,
+                manifest_member_id=member.id,
                 manifest_member_public_id=member.public_id,
                 expected_bytes=member.size_bytes,
                 expected_sha256=member.sha256,

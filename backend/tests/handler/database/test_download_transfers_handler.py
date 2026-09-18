@@ -65,6 +65,7 @@ def test_owner_scoped_session_creation_copies_manifest_members(
     )
     assert transfer.user_id == admin_user.id
     assert len(transfer.items) == len(manifest.members)
+    assert transfer.items[0].manifest_member_id == manifest.members[0].id
     assert all(
         item.status is DownloadTransferItemStatus.QUEUED for item in transfer.items
     )
