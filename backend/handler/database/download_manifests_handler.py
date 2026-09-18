@@ -94,8 +94,6 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                 or len(set(selected_member_ids)) != len(selected_member_ids)
             ):
                 raise ValueError("invalid manifest member selection")
-        if archive_set_id is None and selected_member_ids is not None:
-            raise ValueError("manifest member selection requires an archive set")
         if archive_set_id is not None and component_ids is not None:
             raise ValueError("manifest policy selection cannot include components")
 
@@ -217,6 +215,23 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                     .with_for_update()
                 )
             )
+            if selected_member_ids is not None:
+                selected_ids = set(selected_member_ids)
+                allowed_ids = {member.id for member in member_rows}
+                if not selected_ids.issubset(allowed_ids):
+                    raise ValueError("manifest member selection is unavailable")
+                member_rows = [
+                    member for member in member_rows if member.id in selected_ids
+                ]
+                components = [
+                    component
+                    for component in components
+                    if any(
+                        member.component_id == component.id for member in member_rows
+                    )
+                ]
+                if not components:
+                    raise ValueError("manifest member selection is empty")
         members_by_component: dict[int, list[RomComponentManifestMember]] = {
             component.id: [] for component in components
         }

@@ -31,6 +31,7 @@ const translations: Record<string, string> = {
   "rom.download-browser-mode": "Standard browser download",
   "rom.download-cancelled": "Cancelled",
   "rom.download-components": "Download components",
+  "rom.download-game": "Download game",
   "rom.download-expired":
     "This download is no longer available. Prepare it again.",
   "rom.download-failed": "Download failed",
@@ -275,6 +276,54 @@ describe("browser download accessibility and truthful state contract", () => {
     await wrapper.findAll("button")[1].trigger("click");
     expect(wrapper.emitted("start")?.[0]?.[0]).toEqual({
       archiveSetId: 1,
+      selectedMemberIds: [11],
+      componentIds: [1],
+      mode: "standard",
+    });
+  });
+
+  it("shows component files and submits only the checked files without an archive policy", async () => {
+    const wrapper = mount(DownloadSelectionDialog, {
+      props: {
+        modelValue: false,
+        components: [
+          {
+            id: 1,
+            relative_path: "base",
+            kind: "base",
+            manifest_members: [
+              {
+                id: 11,
+                relative_path: "base/game.iso",
+                size_bytes: 4096,
+                sha256: "a".repeat(64),
+              },
+              {
+                id: 12,
+                relative_path: "base/readme.txt",
+                size_bytes: 128,
+                sha256: "b".repeat(64),
+              },
+            ],
+          },
+        ],
+        archiveSets: [],
+      },
+      global: selectionGlobal,
+    });
+
+    await wrapper.setProps({ modelValue: true });
+    await nextTick();
+    expect(wrapper.text()).toContain("base/game.iso");
+    expect(wrapper.text()).toContain("base/readme.txt");
+
+    const fileControls = wrapper.findAll("input[type=checkbox]");
+    expect(fileControls).toHaveLength(3);
+    await fileControls[2].setValue(false);
+    await wrapper.findAll("button")[1].trigger("click");
+
+    expect(wrapper.emitted("start")?.[0]?.[0]).toEqual({
+      archiveSetId: undefined,
       selectedMemberIds: [11],
       componentIds: [1],
       mode: "standard",

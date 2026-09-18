@@ -126,7 +126,7 @@ const groupedComponents = computed(() =>
       data-testid="download-components"
       prepend-icon="mdi-download"
       @click="showDownload = true"
-      >{{ t("rom.download-components") }}</RBtn
+      >{{ t("rom.download-game") }}</RBtn
     >
     <DownloadSelectionDialog
       v-model="showDownload"

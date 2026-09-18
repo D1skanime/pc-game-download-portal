@@ -96,6 +96,37 @@ def test_create_manifest_selects_only_eligible_components_atomically(admin_user,
         )
 
 
+def test_create_manifest_allows_explicit_file_selection_without_archive_policy(
+    admin_user, rom
+):
+    component = _component(rom.id, RomComponentKind.BASE, "files")
+    component.manifest_members.append(
+        RomComponentManifestMember(
+            relative_path="base-files/optional.bin",
+            size_bytes=7,
+            sha256="b" * 64,
+        )
+    )
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+        selected_id = component.manifest_members[0].id
+
+    filesystem = FakeManifestFilesystem()
+    handler = DBDownloadManifestsHandler(filesystem)
+    manifest = handler.create_manifest(
+        admin_user.id,
+        rom.id,
+        [component.id],
+        selected_member_ids=[selected_id],
+    )
+
+    assert [member.manifest_member_id for member in manifest.components[0].members] == [
+        selected_id
+    ]
+    assert [member_id for member_id, _public_id in filesystem.captured] == [selected_id]
+
+
 def test_create_manifest_enforces_archive_set_and_captures_only_selected_members(
     admin_user, rom
 ):

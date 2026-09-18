@@ -129,6 +129,7 @@
   "download-clear-cancelled-keep": "Conserver les téléchargements annulés",
   "download-clear-cancelled-title": "Supprimer les téléchargements annulés ?",
   "download-components": "Télécharger les composants",
+  "download-game": "Télécharger le jeu",
   "download-enhanced-description": "Choisissez un dossier. RomM écrit et vérifie chaque fichier dans ce navigateur.",
   "download-enhanced-mode": "Téléchargement amélioré dans un dossier",
   "download-enhanced-start": "Choisir un dossier et commencer le téléchargement",
