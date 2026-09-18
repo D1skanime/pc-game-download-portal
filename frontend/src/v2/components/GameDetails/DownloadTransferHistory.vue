@@ -99,6 +99,20 @@ const rows = computed<HistoryRow[]>(() =>
     >
       <li v-for="item in queueItems" :key="item.file_id">
         <span>{{ safeFilename(item.destination) }}</span>
+        <template
+          v-if="item.status === 'downloading' || item.status === 'verified'"
+        >
+          <progress
+            class="download-transfer-history__progress"
+            :max="item.size"
+            :value="item.observedBytes ?? 0"
+            :aria-label="`${formatBytes(item.observedBytes ?? 0)} / ${formatBytes(item.size)}`"
+          />
+          <small
+            >{{ formatBytes(item.observedBytes ?? 0) }} /
+            {{ formatBytes(item.size) }}</small
+          >
+        </template>
         <RTag
           :text="
             statusText(
@@ -119,13 +133,13 @@ const rows = computed<HistoryRow[]>(() =>
       {{ t("rom.download-failed-description") }}
     </RAlert>
     <REmptyState
-      v-else-if="rows.length === 0"
+      v-else-if="rows.length === 0 && !queueItems.length"
       data-testid="download-history-empty"
       icon="mdi-download-outline"
       :title="t('rom.download-no-complete-set')"
     />
     <ul
-      v-else
+      v-else-if="!queueItems.length"
       class="download-transfer-history__rows"
       data-testid="download-history-list"
     >
@@ -177,6 +191,11 @@ const rows = computed<HistoryRow[]>(() =>
 .download-transfer-history li > span:first-child {
   flex: 1 1 12rem;
   overflow-wrap: anywhere;
+}
+
+.download-transfer-history__progress {
+  width: min(18rem, 35vw);
+  accent-color: var(--r-color-primary);
 }
 
 .download-transfer-history time {

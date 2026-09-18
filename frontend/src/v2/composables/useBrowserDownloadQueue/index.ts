@@ -142,6 +142,7 @@ async function enhancedMember(
   root: FileSystemDirectoryHandle,
   member: DownloadManifestResponse["members"][number],
   signal: AbortSignal,
+  onProgress: (bytes: number) => void,
 ) {
   const { file, existing } = await openDestination(
     root,
@@ -149,6 +150,7 @@ async function enhancedMember(
     true,
   );
   const offset = existing.size;
+  onProgress(offset);
   if (offset > member.size) throw new Error("local_file_too_large");
   const worker = createHashWorker();
   try {
@@ -182,6 +184,7 @@ async function enhancedMember(
       if (next.done) break;
       await writable.write(next.value);
       observed += next.value.byteLength;
+      onProgress(observed);
       await hasher.update(next.value);
     }
     await writable.close();
@@ -195,6 +198,7 @@ async function enhancedMember(
 }
 
 export type BrowserQueueItem = DownloadManifestResponse["members"][number] & {
+  observedBytes?: number;
   status:
     | "queued"
     | "handed_to_browser"
@@ -243,6 +247,7 @@ export function useBrowserDownloadQueue() {
       sessionId.value = session.data.id;
       items.value = manifest.members.map((member) => ({
         ...member,
+        observedBytes: 0,
         status: "queued" as const,
       }));
       for (let index = 0; index < items.value.length; index += limit) {
@@ -288,6 +293,7 @@ export function useBrowserDownloadQueue() {
       sessionId.value = session.data.id;
       items.value = manifest.members.map((member) => ({
         ...member,
+        observedBytes: 0,
         status: "queued" as const,
       }));
       for (let index = 0; index < items.value.length; index += limit) {
@@ -297,7 +303,9 @@ export function useBrowserDownloadQueue() {
             const controller = new AbortController();
             controllers.set(item.file_id, controller);
             try {
-              await enhancedMember(root, item, controller.signal);
+              await enhancedMember(root, item, controller.signal, (bytes) => {
+                item.observedBytes = bytes;
+              });
               item.status = "verified";
             } catch (error) {
               const errorCode =
