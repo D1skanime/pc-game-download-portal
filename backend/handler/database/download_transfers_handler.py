@@ -173,6 +173,9 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         ]
         session.add(transfer)
         session.flush()
+        # The endpoint serializes the new session after this transaction closes.
+        # Load the select-in relationship while the session is still bound.
+        _ = transfer.events
         return transfer
 
     @begin_session
