@@ -4,13 +4,13 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 17-04-PLAN.md
-last_updated: "2026-09-17T20:51:53.665Z"
-last_activity: 2026-09-17
+last_updated: "2026-09-18T07:09:40.210Z"
+last_activity: 2026-09-18
 progress:
   total_phases: 17
   completed_phases: 13
   total_plans: 150
-  completed_plans: 135
+  completed_plans: 139
   percent: 76
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 17 (browser-download-manager) — EXECUTING
-Plan: 4 of 13
+Plan: 5 of 13
 Status: Ready to execute
-Last activity: 2026-09-17
+Last activity: 2026-09-18
 
 ## Performance Metrics
 
@@ -136,6 +136,7 @@ _Updated after each plan completion_
 | Phase 17 P01 | 14min | 2 tasks | 4 files |
 | Phase 17 P03 | 19min | 2 tasks | 5 files |
 | Phase 17 P04 | 15 min | 2 tasks | 10 files |
+| Phase 17 P08 | 18min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -325,6 +326,8 @@ Recent decisions affecting current work:
 - [Phase 17]: An explicit archive_set_id selects the persisted policy, while selected_member_ids must contain every required member and only policy members.
 - [Phase 17]: Requests that omit policy fields retain the existing component selection path, so ROMs without policies remain Phase 14 compatible.
 - [Phase 17]: Transfer sessions retain only manifest/member identities, selected totals, timestamps, and bounded observations, never paths, URLs, tokens, or local handles. — This keeps history observational and prevents session metadata from becoming a delivery credential.
+- [Phase 17]: Human-approved hash-wasm@4.12.0 gates incremental SHA-256 worker installation. — The threat model requires package provenance approval before registry installation.
+- [Phase 17]: Enhanced browser transfers use capability-detected FSA and strict exact 206 resume validation while standard handoff remains unchanged. — This preserves the universal baseline while limiting local byte authority to the user-approved enhanced path.
 
 ### Blockers/Concerns
 
@@ -343,6 +346,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-17T20:51:53.645Z
+Last session: 2026-09-18T07:09:01.635Z
 Stopped at: Completed 17-04-PLAN.md
 Resume file: None
