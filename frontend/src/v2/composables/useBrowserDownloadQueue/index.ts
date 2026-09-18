@@ -131,8 +131,10 @@ async function openDestination(
     file = await directory.getFileHandle(filename, { create: true });
   }
   const existing = await file.getFile();
-  if (existed && (!resume || existing.size === 0))
-    throw new Error("destination_exists");
+  // A zero-byte placeholder can be safely restarted. Non-empty files are
+  // retained for validator-checked resume, while standard mode still refuses
+  // accidental overwrites when resume is disabled.
+  if (existed && !resume) throw new Error("destination_exists");
   return { file, existing };
 }
 
