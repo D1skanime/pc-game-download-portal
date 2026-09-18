@@ -5,6 +5,10 @@ import type { PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import PcComponents from "./PcComponents.vue";
 
+vi.mock("@/services/api", () => ({
+  default: { post: vi.fn() },
+}));
+
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 
 vi.mock("vue-router", async (importOriginal) => ({
@@ -162,5 +166,25 @@ describe("PcComponents", () => {
       params: { rom: 42, component: 3 },
     });
     expect(wrapper.text()).not.toContain("DetailsUpdates");
+  });
+
+  it("passes the visible ROM identity into the download manager", () => {
+    const wrapper = mount(PcComponents, {
+      props: { components: componentGroups, romId: 99 },
+      global: {
+        stubs: {
+          DownloadManager: {
+            props: ["romId"],
+            template:
+              "<output data-testid='download-manager-rom'>{{ romId }}</output>",
+          },
+          RCollapsible: { template: "<section><slot /></section>" },
+        },
+      },
+    });
+
+    expect(wrapper.get("[data-testid='download-manager-rom']").text()).toBe(
+      "99",
+    );
   });
 });
