@@ -210,6 +210,13 @@ export function useBrowserDownloadQueue() {
   const queued = computed(() =>
     items.value.filter((item) => item.status === "queued"),
   );
+  async function pickEnhancedDirectory() {
+    const picker = getEnhancedDirectoryPicker();
+    if (!picker) return null;
+    const root = await picker({ mode: "readwrite" });
+    if (!(await permission(root))) return null;
+    return root;
+  }
   async function start(manifest: DownloadManifestResponse) {
     if (starting.value || sessionId.value) return false;
     starting.value = true;
@@ -250,13 +257,14 @@ export function useBrowserDownloadQueue() {
       starting.value = false;
     }
   }
-  async function startEnhanced(manifest: DownloadManifestResponse) {
-    const picker = getEnhancedDirectoryPicker();
-    if (!picker || starting.value || sessionId.value) return false;
+  async function startEnhanced(
+    manifest: DownloadManifestResponse,
+    selectedRoot?: FileSystemDirectoryHandle | null,
+  ) {
+    const root = selectedRoot ?? (await pickEnhancedDirectory());
+    if (!root || starting.value || sessionId.value) return false;
     starting.value = true;
     try {
-      const root = await picker({ mode: "readwrite" });
-      if (!(await permission(root))) return false;
       const config = await configApi.getBrowserDownloadQueueConfig();
       const limit = getBrowserDownloadQueueConcurrency(config.data);
       const session = await downloadTransfersApi.create({
@@ -304,6 +312,7 @@ export function useBrowserDownloadQueue() {
     sessionId,
     starting,
     start,
+    pickEnhancedDirectory,
     startEnhanced,
     pause,
     cancel,

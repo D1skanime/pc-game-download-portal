@@ -62,6 +62,12 @@ async function startDownload(payload: {
   componentIds: number[];
   mode: "standard" | "enhanced";
 }) {
+  // The File System Access picker must be opened while the click activation is
+  // still alive. Waiting for the manifest request first makes Chromium reject
+  // the picker with NotAllowedError.
+  const selectedRoot =
+    payload.mode === "enhanced" ? await queue.pickEnhancedDirectory() : null;
+  if (payload.mode === "enhanced" && !selectedRoot) return;
   const response = await api.post<DownloadManifestResponse>(
     `/roms/${props.romId}/download-manifests`,
     {
@@ -78,7 +84,7 @@ async function startDownload(payload: {
     .filter((component): component is PcComponentSchema => !!component)
     .map((component) => componentLabel(component));
   if (payload.mode === "enhanced") {
-    await queue.startEnhanced(response.data);
+    await queue.startEnhanced(response.data, selectedRoot);
   } else {
     await queue.start(response.data);
   }
