@@ -5,7 +5,9 @@ export function validateDownloadDestination(
   if (
     !destination ||
     destination.includes("\\") ||
-    destination.startsWith("/")
+    destination.startsWith("/") ||
+    destination.startsWith("//") ||
+    /^[A-Za-z]:\//.test(destination)
   ) {
     return null;
   }
