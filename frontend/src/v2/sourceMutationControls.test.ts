@@ -14,6 +14,7 @@ import ScreenshotsSubtab from "@/v2/components/GameDetails/ScreenshotsSubtab.vue
 import MatchRomBodyGrid from "@/v2/components/MatchRom/MatchRomBodyGrid.vue";
 import MatchRomBodyList from "@/v2/components/MatchRom/MatchRomBodyList.vue";
 import SettingsSidebar from "@/v2/components/Settings/SettingsSidebar.vue";
+import { validateDownloadDestination } from "@/v2/utils/downloadManifestPath";
 import Home from "@/v2/views/Home.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -249,6 +250,17 @@ function mountPanel(component: object) {
 }
 
 describe("maximum-grant source mutation controls", () => {
+  it("rejects absolute Windows and control-character download destinations", () => {
+    for (const destination of [
+      "C:/Users/player/game.iso",
+      "C:\\Users\\player\\game.iso",
+      "\\\\server\\share\\game.iso",
+      "safe/\u0000.bin",
+    ]) {
+      expect(validateDownloadDestination(destination)).toBeNull();
+    }
+  });
+
   it("keeps generic ROM files read and download only", () => {
     const wrapper = mountPanel(FilesTab);
     expect(wrapper.html()).not.toContain("common.upload");

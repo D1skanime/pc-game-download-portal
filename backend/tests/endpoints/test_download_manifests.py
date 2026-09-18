@@ -629,9 +629,58 @@ def test_manifest_member_masks_foreign_and_hidden_rom_before_source_access(
         (5 * 1024**3, 4 * 1024**3, 5 * 1024**3 - 1),
         (80 * 1024**3, 79 * 1024**3, 80 * 1024**3 - 1),
         (120 * 1024**3, 119 * 1024**3, 120 * 1024**3 - 1),
+        (2**64 - 1, 2**64 - 2, 2**64 - 2),
     ],
 )
 def test_manifest_range_bounds_preserve_large_u64_values(size, start, end):
     assert download_manifests_endpoint._transfer_range_bounds(
         f"bytes={start}-{end}", size
     ) == (start, end)
+
+
+@pytest.mark.parametrize(
+    "manifest_status,expected_status,expected_code",
+    [
+        (DownloadManifestStatus.EXPIRED, status.HTTP_410_GONE, "manifest_expired"),
+        (DownloadManifestStatus.REVOKED, status.HTTP_410_GONE, "manifest_revoked"),
+        (
+            DownloadManifestStatus.SOURCE_CHANGED,
+            status.HTTP_409_CONFLICT,
+            "manifest_source_changed",
+        ),
+    ],
+)
+def test_manifest_member_masks_closed_lifecycle_before_source_access(
+    client,
+    access_token,
+    rom,
+    manifest_components,
+    monkeypatch,
+    manifest_status,
+    expected_status,
+    expected_code,
+):
+    created = client.post(
+        f"/api/roms/{rom.id}/download-manifests",
+        headers=_headers(access_token),
+        json={"component_ids": [manifest_components[0].id]},
+    ).json()
+    url, _member = _manifest_member_url(created)
+    with session.begin() as db:
+        persisted = db.scalar(
+            select(DownloadManifest).where(DownloadManifest.id == created["id"])
+        )
+        assert persisted is not None
+        persisted.status = manifest_status
+
+    async def open_verified(_rom, _persisted_member):
+        raise AssertionError("closed manifests must not access source bytes")
+
+    monkeypatch.setattr(
+        download_manifests_endpoint.fs_rom_handler,
+        "open_verified_download_manifest_member",
+        open_verified,
+    )
+    response = client.get(url, headers=_headers(access_token))
+    assert response.status_code == expected_status
+    assert response.json() == {"detail": {"code": expected_code}}

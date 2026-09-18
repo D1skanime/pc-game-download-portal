@@ -58,11 +58,35 @@ def test_transfer_history_requires_authentication(client, manifest):
     )
 
 
+def test_transfer_history_masks_foreign_owner(
+    client, access_token, viewer_access_token, manifest
+):
+    created = client.post(
+        "/api/download-transfer-sessions",
+        headers=_headers(access_token),
+        json={"manifest_id": manifest.id, "mode": "standard"},
+    )
+    assert created.status_code == status.HTTP_201_CREATED
+
+    response = client.get(
+        f"/api/download-transfer-sessions/{created.json()['id']}",
+        headers=_headers(viewer_access_token),
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Download transfer session not found"}
+
+
 def test_transfer_payload_rejects_unknown_fields(client, access_token, manifest):
     response = client.post(
         "/api/download-transfer-sessions",
         headers=_headers(access_token),
-        json={"manifest_id": manifest.id, "mode": "standard", "path": "/tmp/x"},
+        json={
+            "manifest_id": manifest.id,
+            "mode": "standard",
+            "path": "/tmp/x",
+            "zip": True,
+            "desktop": True,
+        },
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
