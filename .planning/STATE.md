@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 17-04-PLAN.md
-last_updated: "2026-09-18T07:09:40.210Z"
+stopped_at: Completed 17-09-PLAN.md
+last_updated: "2026-09-18T07:17:00.503Z"
 last_activity: 2026-09-18
 progress:
   total_phases: 17
   completed_phases: 13
   total_plans: 150
-  completed_plans: 139
+  completed_plans: 140
   percent: 76
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 17 (browser-download-manager) — EXECUTING
-Plan: 5 of 13
+Plan: 6 of 13
 Status: Ready to execute
 Last activity: 2026-09-18
 
@@ -137,6 +137,7 @@ _Updated after each plan completion_
 | Phase 17 P03 | 19min | 2 tasks | 5 files |
 | Phase 17 P04 | 15 min | 2 tasks | 10 files |
 | Phase 17 P08 | 18min | 2 tasks | 8 files |
+| Phase 17 P09 | 15min | 1 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -328,6 +329,8 @@ Recent decisions affecting current work:
 - [Phase 17]: Transfer sessions retain only manifest/member identities, selected totals, timestamps, and bounded observations, never paths, URLs, tokens, or local handles. — This keeps history observational and prevents session metadata from becoming a delivery credential.
 - [Phase 17]: Human-approved hash-wasm@4.12.0 gates incremental SHA-256 worker installation. — The threat model requires package provenance approval before registry installation.
 - [Phase 17]: Enhanced browser transfers use capability-detected FSA and strict exact 206 resume validation while standard handoff remains unchanged. — This preserves the universal baseline while limiting local byte authority to the user-approved enhanced path.
+- [Phase 17]: Reserve Handed to browser for standard attachment handoff, Served for server response delivery, and Verified for enhanced local checksum equality.
+- [Phase 17]: Keep full-locale parity validation deferred until Plan 17-10 adds the remaining nine locales, while enforcing exact parity across this plan's nine-file group.
 
 ### Blockers/Concerns
 
@@ -346,6 +349,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-18T07:09:01.635Z
-Stopped at: Completed 17-04-PLAN.md
+Last session: 2026-09-18T07:17:00.488Z
+Stopped at: Completed 17-09-PLAN.md
 Resume file: None

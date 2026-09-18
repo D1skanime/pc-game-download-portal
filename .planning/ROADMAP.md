@@ -352,7 +352,7 @@ Dependency note: Plan 06-47 depends on every new implementation plan, 06-33 thro
 | 14. Immutable Download Manifests        | 4/4            | Complete    | 2026-09-16 |
 | 15. Direct Resumable Transfer           | 3/3            | Complete    | 2026-09-16 |
 | 16. Cross-platform Desktop Client       | 5/6            | In Progress |            |
-| 17. Browser Download Manager            | 8/13           | In Progress |            |
+| 17. Browser Download Manager            | 9/13           | In Progress |            |
 
 ### Phase 11: Local PC Media and DLC Navigation
 
@@ -490,4 +490,4 @@ installers, and distribution are not part of this phase.
 4. The complete flow leaves the NAS and source library unchanged, does not
    expose source paths, and covers large-file and multi-file evidence.
 
-**Plans:** 8/13 plans executed
+**Plans:** 9/13 plans executed
