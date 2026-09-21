@@ -5,6 +5,9 @@ import downloadTransfersApi from "@/services/api/downloadTransfers";
 import { validateDownloadDestination } from "@/v2/utils/downloadManifestPath";
 import { getBrowserDownloadQueueConcurrency } from "./config";
 
+/** A blocked FSA prompt/write must not hold the queue forever. */
+export const ENHANCED_MEMBER_TIMEOUT_MS = 30_000;
+
 type DirectoryPicker = (options?: {
   mode?: "readwrite";
 }) => Promise<FileSystemDirectoryHandle>;
@@ -241,7 +244,10 @@ export function useBrowserDownloadQueue() {
   const starting = ref(false);
   const operations = new Map<
     string,
-    { controller: AbortController; reason: "pause" | "cancel" | null }
+    {
+      controller: AbortController;
+      reason: "pause" | "cancel" | "timeout" | null;
+    }
   >();
   let enhancedRoot: FileSystemDirectoryHandle | null = null;
   const queued = computed(() =>
@@ -357,9 +363,10 @@ export function useBrowserDownloadQueue() {
     item.status = "downloading";
     const operation = { controller: new AbortController(), reason: null } as {
       controller: AbortController;
-      reason: "pause" | "cancel" | null;
+      reason: "pause" | "cancel" | "timeout" | null;
     };
     operations.set(item.file_id, operation);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
       await downloadTransfersApi.observe(transferId, item.transferItemId, {
         event_type: wasPaused ? "resume" : "progress",
@@ -373,15 +380,26 @@ export function useBrowserDownloadQueue() {
           item.transferItemId,
         ),
       };
-      await enhancedMember(
+      const transfer = enhancedMember(
         root,
         attributedMember,
         operation.controller.signal,
-        () => operation.reason,
+        () =>
+          operation.reason === "pause" || operation.reason === "cancel"
+            ? operation.reason
+            : null,
         (bytes) => {
           item.observedBytes = bytes;
         },
       );
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          operation.reason = "timeout";
+          operation.controller.abort();
+          reject(new Error("enhanced_download_timeout"));
+        }, ENHANCED_MEMBER_TIMEOUT_MS);
+      });
+      await Promise.race([transfer, timeout]);
       await downloadTransfersApi.observe(transferId, item.transferItemId, {
         event_type: "verified",
         observed_bytes: item.size,
@@ -412,6 +430,7 @@ export function useBrowserDownloadQueue() {
         item.status = "failed";
       }
     } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
       operations.delete(item.file_id);
     }
   }
