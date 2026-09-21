@@ -247,6 +247,40 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_attributed_item(
+        self,
+        transfer_id: str,
+        user_id: int,
+        manifest_id: str,
+        manifest_member_id: int,
+        item_id: int,
+        session: Session = None,  # type: ignore
+    ) -> DownloadTransferItem | None:
+        transfer = session.scalar(
+            select(DownloadTransferSession)
+            .where(
+                DownloadTransferSession.id == transfer_id,
+                DownloadTransferSession.user_id == user_id,
+                DownloadTransferSession.manifest_id == manifest_id,
+            )
+            .with_for_update()
+        )
+        if transfer is None or transfer.status in _TERMINAL_SESSIONS:
+            return None
+        item = session.scalar(
+            select(DownloadTransferItem)
+            .where(
+                DownloadTransferItem.id == item_id,
+                DownloadTransferItem.session_id == transfer_id,
+                DownloadTransferItem.manifest_member_id == manifest_member_id,
+            )
+            .with_for_update()
+        )
+        if item is None or item.status in _TERMINAL_ITEMS:
+            return None
+        return item
+
+    @begin_session
     def get_sessions(
         self,
         user_id: int,
@@ -419,6 +453,8 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         )
         if transfer is None or item is None or transfer.status in _TERMINAL_SESSIONS:
             raise ValueError("session is closed or unavailable")
+        if transfer.mode is DownloadTransferMode.ENHANCED:
+            raise ValueError("enhanced transfers require local verification")
         if item.status not in {
             DownloadTransferItemStatus.HANDED_TO_BROWSER,
             DownloadTransferItemStatus.PAUSED,

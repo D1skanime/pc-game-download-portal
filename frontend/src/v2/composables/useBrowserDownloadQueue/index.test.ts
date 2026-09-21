@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DownloadManifestResponse } from "@/__generated__";
 import {
   getEnhancedDirectoryPicker,
+  getAttributedDownloadUrl,
   isEnhancedDownloadSupported,
   useBrowserDownloadQueue,
   validateEnhancedResponse,
@@ -36,6 +37,12 @@ const manifest = {
 } satisfies DownloadManifestResponse;
 
 describe("enhanced browser download protocol", () => {
+  it("binds member URLs to the owning transfer item", () => {
+    expect(
+      getAttributedDownloadUrl("/download?existing=true", "session/a", 7),
+    ).toBe("/download?existing=true&transfer_id=session%2Fa&item_id=7");
+  });
+
   it("is capability detected instead of user-agent detected", () => {
     expect(isEnhancedDownloadSupported()).toBe(
       typeof window !== "undefined" &&
@@ -91,9 +98,12 @@ describe("useBrowserDownloadQueue standard mode", () => {
   });
 
   it("hands off every member in controlled concurrency batches", async () => {
+    const hrefs: string[] = [];
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => undefined);
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        hrefs.push(this.href);
+      });
 
     const queue = useBrowserDownloadQueue();
     await expect(queue.start(manifest)).resolves.toBe(true);
@@ -104,6 +114,7 @@ describe("useBrowserDownloadQueue standard mode", () => {
       "handed_to_browser",
       "handed_to_browser",
     ]);
+    expect(hrefs[0]).toContain("transfer_id=session-a");
     expect(observe).toHaveBeenCalledTimes(3);
     click.mockRestore();
   });

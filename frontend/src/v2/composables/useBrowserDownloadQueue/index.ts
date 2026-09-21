@@ -32,6 +32,15 @@ export function validateEnhancedResponse(
   );
 }
 
+export function getAttributedDownloadUrl(
+  download: string,
+  transferId: string,
+  itemId: number,
+): string {
+  const separator = download.includes("?") ? "&" : "?";
+  return `${download}${separator}transfer_id=${encodeURIComponent(transferId)}&item_id=${itemId}`;
+}
+
 function createHashWorker() {
   return new Worker(
     new URL("../../workers/downloadHash.worker.ts", import.meta.url),
@@ -199,6 +208,7 @@ async function enhancedMember(
 
 export type BrowserQueueItem = DownloadManifestResponse["members"][number] & {
   observedBytes?: number;
+  transferItemId?: number;
   status:
     | "queued"
     | "handed_to_browser"
@@ -248,25 +258,29 @@ export function useBrowserDownloadQueue() {
       items.value = manifest.members.map((member) => ({
         ...member,
         observedBytes: 0,
+        transferItemId: session.data.items.find(
+          (candidate) => candidate.manifest_member_id === member.file_id,
+        )?.id,
         status: "queued" as const,
       }));
       for (let index = 0; index < items.value.length; index += limit) {
         await Promise.all(
           items.value.slice(index, index + limit).map(async (item) => {
+            if (item.transferItemId === undefined) return;
+            await downloadTransfersApi.observe(
+              session.data.id,
+              item.transferItemId,
+              { event_type: "handoff" },
+            );
+            item.status = "handed_to_browser";
             const anchor = document.createElement("a");
-            anchor.href = item.download;
+            anchor.href = getAttributedDownloadUrl(
+              item.download,
+              session.data.id,
+              item.transferItemId,
+            );
             anchor.download = item.destination.split("/").pop() ?? "download";
             anchor.click();
-            item.status = "handed_to_browser";
-            const transferItem = session.data.items.find(
-              (candidate) => candidate.manifest_member_id === item.file_id,
-            );
-            if (transferItem)
-              await downloadTransfersApi.observe(
-                session.data.id,
-                transferItem.id,
-                { event_type: "handoff" },
-              );
           }),
         );
       }
@@ -294,6 +308,9 @@ export function useBrowserDownloadQueue() {
       items.value = manifest.members.map((member) => ({
         ...member,
         observedBytes: 0,
+        transferItemId: session.data.items.find(
+          (candidate) => candidate.manifest_member_id === member.file_id,
+        )?.id,
         status: "queued" as const,
       }));
       for (let index = 0; index < items.value.length; index += limit) {
@@ -303,9 +320,25 @@ export function useBrowserDownloadQueue() {
             const controller = new AbortController();
             controllers.set(item.file_id, controller);
             try {
-              await enhancedMember(root, item, controller.signal, (bytes) => {
-                item.observedBytes = bytes;
-              });
+              const attributedMember =
+                item.transferItemId === undefined
+                  ? item
+                  : {
+                      ...item,
+                      download: getAttributedDownloadUrl(
+                        item.download,
+                        session.data.id,
+                        item.transferItemId,
+                      ),
+                    };
+              await enhancedMember(
+                root,
+                attributedMember,
+                controller.signal,
+                (bytes) => {
+                  item.observedBytes = bytes;
+                },
+              );
               item.status = "verified";
             } catch (error) {
               const errorCode =
@@ -317,13 +350,10 @@ export function useBrowserDownloadQueue() {
                 destination: item.destination,
                 error: errorCode,
               });
-              const transferItem = session.data.items.find(
-                (candidate) => candidate.manifest_member_id === item.file_id,
-              );
-              if (transferItem) {
+              if (item.transferItemId !== undefined) {
                 await downloadTransfersApi.observe(
                   session.data.id,
-                  transferItem.id,
+                  item.transferItemId,
                   { event_type: "fail", error_code: errorCode },
                 );
               }

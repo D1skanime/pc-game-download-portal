@@ -1,8 +1,8 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import NoReturn
 from urllib.parse import quote
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 
@@ -15,7 +15,11 @@ from endpoints.responses.download_manifest import (
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
-from handler.database import db_download_manifest_handler, db_rom_handler
+from handler.database import (
+    db_download_manifest_handler,
+    db_download_transfer_handler,
+    db_rom_handler,
+)
 from handler.filesystem import fs_rom_handler
 from handler.filesystem.roms_handler import DownloadManifestTransferState
 from models.download_manifest import DownloadManifest, DownloadManifestStatus
@@ -147,11 +151,23 @@ def _attachment_disposition(destination: str) -> str:
     )
 
 
-def _lease_chunks(lease, start: int, length: int) -> Iterator[bytes]:
+def _lease_chunks(
+    lease,
+    start: int,
+    length: int,
+    on_complete: Callable[[], None] | None = None,
+) -> Iterator[bytes]:
+    completed = False
     try:
         yield from lease.iter_chunks(start, length)
+        completed = True
     finally:
         lease.close()
+        if completed and on_complete is not None:
+            try:
+                on_complete()
+            except ValueError:
+                pass
 
 
 @protected_route(
@@ -199,7 +215,11 @@ async def get_download_manifest(
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def get_download_manifest_member(
-    request: Request, manifest_id: str, public_id: str
+    request: Request,
+    manifest_id: str,
+    public_id: str,
+    transfer_id: str | None = Query(default=None, min_length=36, max_length=36),
+    item_id: int | None = Query(default=None, gt=0),
 ) -> StreamingResponse:
     """Stream one verified immutable manifest member without archive packaging."""
     persisted_member = db_download_manifest_handler.get_transfer_manifest_member(
@@ -211,6 +231,20 @@ async def get_download_manifest_member(
     manifest = persisted_member.component.manifest
     assert_rom_visible(request, manifest.rom, not_found_detail=_NOT_FOUND)
     _valid_or_error(manifest)
+
+    if (transfer_id is None) != (item_id is None):
+        _not_found()
+    attributed = None
+    if transfer_id is not None and item_id is not None:
+        attributed = db_download_transfer_handler.get_attributed_item(
+            transfer_id,
+            request.user.id,
+            manifest_id,
+            persisted_member.id,
+            item_id,
+        )
+        if attributed is None:
+            _not_found()
 
     range_header = request.headers.get("range")
     if_match = request.headers.get("if-match")
@@ -252,8 +286,15 @@ async def get_download_manifest_member(
         response_status = status.HTTP_206_PARTIAL_CONTENT
         headers["Content-Range"] = f"bytes {start}-{end}/{lease.size_bytes}"
 
+    on_complete = None
+    if attributed is not None and bounds is None:
+        assert transfer_id is not None and item_id is not None
+        on_complete = lambda: db_download_transfer_handler.mark_served(
+            transfer_id, request.user.id, item_id
+        )
+
     return StreamingResponse(
-        _lease_chunks(lease, start, content_length),
+        _lease_chunks(lease, start, content_length, on_complete),
         status_code=response_status,
         media_type="application/octet-stream",
         headers=headers,
