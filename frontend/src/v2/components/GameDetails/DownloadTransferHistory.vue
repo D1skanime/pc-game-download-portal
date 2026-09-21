@@ -52,6 +52,7 @@ type HistoryRow = {
   key: string;
   sessionId: string;
   sessionStatus: string;
+  manifestMemberId: string | null;
   status: string;
   mode: string;
   destination: string | null;
@@ -100,6 +101,7 @@ const rows = computed<HistoryRow[]>(() =>
           key: session.id,
           sessionId: session.id,
           sessionStatus: session.status,
+          manifestMemberId: null,
           status: session.status,
           mode: session.mode,
           destination: null,
@@ -113,6 +115,7 @@ const rows = computed<HistoryRow[]>(() =>
       key: `${session.id}-${index}`,
       sessionId: session.id,
       sessionStatus: session.status,
+      manifestMemberId: item.manifest_member_id,
       status: item.status,
       mode: session.mode,
       destination: item.destination,
@@ -129,6 +132,48 @@ const terminalRows = computed(() =>
     ),
   ),
 );
+const displayRows = computed<HistoryRow[]>(() => {
+  const live = new Map(props.queueItems.map((item) => [item.file_id, item]));
+  const persistedIds = new Set(
+    rows.value
+      .map((row) => row.manifestMemberId)
+      .filter((id): id is string => id !== null),
+  );
+  const merged = rows.value.map((row) => {
+    const item = row.manifestMemberId
+      ? live.get(row.manifestMemberId)
+      : undefined;
+    return item
+      ? {
+          ...row,
+          status: item.status,
+          bytes: item.size,
+          observedBytes: item.observedBytes ?? row.observedBytes,
+        }
+      : row;
+  });
+  return merged.concat(
+    props.queueItems
+      .filter((item) => !persistedIds.has(item.file_id))
+      .map<HistoryRow>((item) => ({
+        key: `live-${item.file_id}`,
+        sessionId: "",
+        sessionStatus: "active",
+        manifestMemberId: item.file_id,
+        status: item.status,
+        mode: "enhanced",
+        destination: item.destination,
+        observedBytes: item.observedBytes ?? 0,
+        bytes: item.size,
+        timestamp: "",
+      })),
+  );
+});
+function hasLiveMember(memberId: string | null) {
+  return (
+    !!memberId && props.queueItems.some((item) => item.file_id === memberId)
+  );
+}
 </script>
 
 <template>
@@ -149,77 +194,6 @@ const terminalRows = computed(() =>
       {{ t("rom.download-remove-all") }}
     </button>
 
-    <ul
-      v-if="queueItems.length"
-      class="download-transfer-history__queue"
-      data-testid="download-queue"
-    >
-      <li
-        v-for="item in queueItems"
-        :key="item.file_id"
-        :class="statusClass(item.status)"
-      >
-        <span>{{ safeFilename(item.destination) }}</span>
-        <template
-          v-if="
-            item.status === 'downloading' ||
-            item.status === 'verified' ||
-            item.status === 'failed' ||
-            item.status === 'paused'
-          "
-        >
-          <RProgressLinear
-            class="download-transfer-history__progress"
-            :model-value="progressValue(item)"
-            :indeterminate="
-              item.status === 'downloading' && (item.observedBytes ?? 0) === 0
-            "
-            :color="progressColor(item.status)"
-            :height="10"
-            :aria-label="`${formatBytes(item.observedBytes ?? 0)} / ${formatBytes(item.size)}`"
-          />
-          <small
-            >{{ formatBytes(item.observedBytes ?? 0) }} /
-            {{ formatBytes(item.size) }}</small
-          >
-        </template>
-        <RTag
-          :text="
-            statusText(
-              item.status,
-              item.status === 'verified' ? 'enhanced' : 'standard',
-            )
-          "
-        />
-        <div class="download-transfer-history__actions">
-          <button
-            v-if="item.status === 'downloading'"
-            type="button"
-            :aria-label="t('rom.download-pause')"
-            @click="emit('pause', item.file_id)"
-          >
-            {{ t("rom.download-pause") }}
-          </button>
-          <button
-            v-if="item.status === 'paused'"
-            type="button"
-            :aria-label="t('rom.download-resume')"
-            @click="emit('resume', item.file_id)"
-          >
-            {{ t("rom.download-resume") }}
-          </button>
-          <button
-            v-if="item.status === 'downloading' || item.status === 'paused'"
-            type="button"
-            :aria-label="t('rom.download-cancel')"
-            @click="emit('cancel', item.file_id)"
-          >
-            {{ t("rom.download-cancel") }}
-          </button>
-        </div>
-      </li>
-    </ul>
-
     <RSpinner
       v-if="loading"
       data-testid="download-history-loading"
@@ -229,17 +203,17 @@ const terminalRows = computed(() =>
       {{ t("rom.download-failed-description") }}
     </RAlert>
     <REmptyState
-      v-else-if="rows.length === 0 && !queueItems.length"
+      v-else-if="displayRows.length === 0"
       data-testid="download-history-empty"
       icon="mdi-download-outline"
       :title="t('rom.download-no-complete-set')"
     />
     <ul
-      v-else-if="showHistory && rows.length"
+      v-else-if="showHistory && displayRows.length"
       class="download-transfer-history__rows"
       data-testid="download-history-list"
     >
-      <li v-for="row in rows" :key="row.key">
+      <li v-for="row in displayRows" :key="row.key">
         <span v-if="row.destination">{{ safeFilename(row.destination) }}</span>
         <RProgressLinear
           v-if="row.destination"
@@ -266,9 +240,31 @@ const terminalRows = computed(() =>
           timestamp(row.timestamp)
         }}</time>
         <button
+          v-if="row.status === 'downloading' && row.manifestMemberId"
+          type="button"
+          :aria-label="t('rom.download-pause')"
+          @click="emit('pause', row.manifestMemberId)"
+        >
+          {{ t("rom.download-pause") }}
+        </button>
+        <button
+          v-else-if="
+            row.status === 'paused' &&
+            row.manifestMemberId &&
+            hasLiveMember(row.manifestMemberId)
+          "
+          type="button"
+          :aria-label="t('rom.download-resume')"
+          @click="emit('resume', row.manifestMemberId)"
+        >
+          {{ t("rom.download-resume") }}
+        </button>
+        <button
           v-if="
             row.sessionStatus === 'active' &&
-            ['active', 'queued', 'paused'].includes(row.status)
+            ['active', 'queued', 'paused'].includes(row.status) &&
+            row.status !== 'downloading' &&
+            row.status !== 'paused'
           "
           type="button"
           :aria-label="t('rom.download-cancel')"
@@ -277,7 +273,11 @@ const terminalRows = computed(() =>
           {{ t("rom.download-cancel") }}
         </button>
         <button
-          v-if="row.sessionStatus === 'active' && row.status === 'paused'"
+          v-if="
+            row.sessionStatus === 'active' &&
+            row.status === 'paused' &&
+            !hasLiveMember(row.manifestMemberId)
+          "
           type="button"
           :aria-label="t('rom.download-resume')"
           @click="emit('resume-session', row.sessionId)"
