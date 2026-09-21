@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 17-09-PLAN.md
-last_updated: "2026-09-18T07:57:09.536Z"
-last_activity: 2026-09-18
+last_updated: "2026-09-21T12:32:00Z"
+last_activity: 2026-09-21
 progress:
   total_phases: 17
   completed_phases: 14
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 17 (browser-download-manager) — EXECUTING
 Plan: 8 of 13
 Status: Ready to execute
-Last activity: 2026-09-18
+Last activity: 2026-09-21 - Completed quick task 260921-haf: Enhanced FSA Download Timeout and Queue Recovery
 
 ## Performance Metrics
 
@@ -345,6 +345,12 @@ Recent decisions affecting current work:
 - [Phase 9]: Confirm NAS protocol, mount options, atime behavior, and a safe activation window before real-NAS rollout.
 - [Phase 16]: Authorized Windows, standard Linux, and Bazzite runners plus the isolated 30 GiB UAT volume are unavailable; Task 3 remains blocked and evidence is deferred in 16-UAT.md.
 - Phase 17 browser verification remains pending because Firefox, Chrome, Edge, and MariaDB are unavailable in the isolated Linux checkout; see 17-BROWSER-MATRIX.md and 17-DOWNLOAD-EVIDENCE.md.
+
+### Quick Tasks Completed
+
+| #          | Description                                      | Date       | Commit       | Directory                                                                                                           |
+| ---------- | ------------------------------------------------ | ---------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| 260921-haf | Enhanced FSA Download Timeout and Queue Recovery | 2026-09-21 | 5d9dfb11ef4f | [260921-haf-enhanced-fsa-download-timeout-and-queue-](./quick/260921-haf-enhanced-fsa-download-timeout-and-queue-/) |
 
 ## Deferred Items
 
