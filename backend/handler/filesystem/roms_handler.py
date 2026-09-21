@@ -414,17 +414,16 @@ class FSRomsHandler(ExternalFSHandler):
     def _open_verified_download_manifest_member_source(
         self, rom: Rom, persisted_member: DownloadManifestMember
     ) -> tuple[Any, int, str]:
-        """Open and fully verify a member source before it is handed to a lease."""
+        """Open a descriptor after checking its captured structural identity."""
         source = None
         try:
             member = persisted_member.manifest_member
             destination = _download_manifest_destination(rom, member)
             source_path = self.pc_component_member_path(rom, member)
-            source = self.open_rom_hash(source_path)
+            source = self.open_rom_read(source_path)
             before = os.fstat(source.fileno())
             if not stat.S_ISREG(before.st_mode):
                 raise ValueError("PC component manifest source is unavailable")
-            sha256 = source.hash("sha256").lower()
             after = os.fstat(source.fileno())
 
             before_indicators = (
@@ -440,26 +439,24 @@ class FSRomsHandler(ExternalFSHandler):
                 after.st_ino,
             )
             snapshot = _download_manifest_snapshot(
-                persisted_member.public_id, destination, before.st_size, sha256
+                persisted_member.public_id,
+                destination,
+                persisted_member.size_bytes,
+                persisted_member.sha256.lower(),
             )
             if (
                 before_indicators != after_indicators
                 or destination != persisted_member.destination
                 or before.st_size != persisted_member.size_bytes
-                or sha256 != persisted_member.sha256.lower()
                 or snapshot != persisted_member.snapshot
                 or before.st_mtime_ns != persisted_member.mtime_ns
-                or (
-                    persisted_member.device is not None
-                    and before.st_dev != persisted_member.device
-                )
-                or (
-                    persisted_member.inode is not None
-                    and before.st_ino != persisted_member.inode
-                )
+                or persisted_member.device is None
+                or before.st_dev != persisted_member.device
+                or persisted_member.inode is None
+                or before.st_ino != persisted_member.inode
             ):
                 raise ValueError("PC component manifest source changed")
-            return source, before.st_size, snapshot
+            return source, before.st_size, persisted_member.snapshot
         except Exception:
             if source is not None:
                 source.close()
@@ -468,7 +465,7 @@ class FSRomsHandler(ExternalFSHandler):
     async def open_verified_download_manifest_member(
         self, rom: Rom, persisted_member: DownloadManifestMember
     ) -> DownloadManifestTransferResult:
-        """Rehash one persisted member before allowing its verified descriptor to stream."""
+        """Open one structurally unchanged descriptor for direct streaming."""
         await _download_manifest_transfer_limiter.acquire()
         source = None
         lease_transferred = False
