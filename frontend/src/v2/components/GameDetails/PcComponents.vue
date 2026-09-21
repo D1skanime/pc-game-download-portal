@@ -149,6 +149,7 @@ const groupedComponents = computed(() =>
       @pause="queue.pause"
       @cancel="queue.cancel"
       @resume="queue.resume"
+      @resume-session="queue.resumeSession"
     />
 
     <REmptyState

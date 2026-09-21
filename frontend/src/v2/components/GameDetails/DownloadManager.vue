@@ -14,6 +14,7 @@ const emit = defineEmits<{
   (event: "pause", fileId: string): void;
   (event: "cancel", fileId: string): void;
   (event: "resume", fileId: string): void;
+  (event: "resume-session", sessionId: string): void;
 }>();
 
 const props = withDefaults(
@@ -140,6 +141,7 @@ onBeforeUnmount(() => {
     @pause="emit('pause', $event)"
     @cancel="emit('cancel', $event)"
     @resume="emit('resume', $event)"
+    @resume-session="emit('resume-session', $event)"
     @remove="removeSession"
     @remove-all="removeAllHistory"
     @cancel-session="cancelSession"

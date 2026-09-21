@@ -1,6 +1,7 @@
 import { createSHA256 } from "hash-wasm";
 import { computed, ref } from "vue";
 import type { DownloadManifestResponse } from "@/__generated__";
+import api from "@/services/api";
 import configApi from "@/services/api/config";
 import downloadTransfersApi from "@/services/api/downloadTransfers";
 import { validateDownloadDestination } from "@/v2/utils/downloadManifestPath";
@@ -504,6 +505,45 @@ export function useBrowserDownloadQueue() {
     await runEnhancedItem(enhancedRoot, item, sessionId.value);
     return (item.status as BrowserQueueItem["status"]) === "verified";
   }
+  async function resumeSession(transferId: string) {
+    const root = await pickEnhancedDirectory();
+    if (!root) return false;
+    const session = await downloadTransfersApi.get(transferId);
+    if (session.data.mode !== "enhanced") return false;
+    const manifest = await api.get<DownloadManifestResponse>(
+      `/download-manifests/${session.data.manifest_id}`,
+    );
+    const config = await configApi.getBrowserDownloadQueueConfig();
+    const limit = getBrowserDownloadQueueConcurrency(config.data);
+    enhancedRoot = root;
+    sessionId.value = transferId;
+    items.value = manifest.data.members.map((member) => {
+      const persisted = session.data.items.find(
+        (item) => item.manifest_member_id === member.file_id,
+      );
+      const status = persisted?.status;
+      return {
+        ...member,
+        observedBytes: persisted?.observed_bytes ?? 0,
+        transferItemId: persisted?.id,
+        status:
+          status === "verified"
+            ? ("verified" as const)
+            : status === "failed" || status === "cancelled"
+              ? (status as "failed" | "cancelled")
+              : ("queued" as const),
+      };
+    });
+    const pending = items.value.filter((item) => item.status === "queued");
+    for (let index = 0; index < pending.length; index += limit) {
+      await Promise.all(
+        pending
+          .slice(index, index + limit)
+          .map((item) => runEnhancedItem(root, item, transferId)),
+      );
+    }
+    return true;
+  }
   function pause(fileId: string) {
     const operation = operations.get(fileId);
     if (operation) {
@@ -529,6 +569,7 @@ export function useBrowserDownloadQueue() {
     pickEnhancedDirectory,
     startEnhanced,
     resume,
+    resumeSession,
     pause,
     cancel,
   };

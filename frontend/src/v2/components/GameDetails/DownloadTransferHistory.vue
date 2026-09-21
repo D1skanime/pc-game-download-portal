@@ -28,6 +28,7 @@ const emit = defineEmits<{
   (event: "pause", fileId: string): void;
   (event: "cancel", fileId: string): void;
   (event: "resume", fileId: string): void;
+  (event: "resume-session", sessionId: string): void;
   (event: "remove", sessionId: string): void;
   (event: "remove-all"): void;
   (event: "cancel-session", sessionId: string): void;
@@ -274,6 +275,14 @@ const terminalRows = computed(() =>
           @click="emit('cancel-session', row.sessionId)"
         >
           {{ t("rom.download-cancel") }}
+        </button>
+        <button
+          v-if="row.sessionStatus === 'active' && row.status === 'paused'"
+          type="button"
+          :aria-label="t('rom.download-resume')"
+          @click="emit('resume-session', row.sessionId)"
+        >
+          {{ t("rom.download-resume") }}
         </button>
         <button
           v-else
