@@ -151,6 +151,7 @@ async function enhancedMember(
   root: FileSystemDirectoryHandle,
   member: DownloadManifestResponse["members"][number],
   signal: AbortSignal,
+  abortReason: () => "pause" | "cancel" | null,
   onProgress: (bytes: number) => void,
 ) {
   const { file, existing } = await openDestination(
@@ -162,6 +163,7 @@ async function enhancedMember(
   onProgress(offset);
   if (offset > member.size) throw new Error("local_file_too_large");
   const worker = createHashWorker();
+  let writable: FileSystemWritableFileStream | null = null;
   try {
     const hasher = createHasher(worker);
     await hasher.reset();
@@ -175,13 +177,17 @@ async function enhancedMember(
     }
     const headers: Record<string, string> = { "If-Match": member.snapshot };
     if (offset > 0) headers.Range = `bytes=${offset}-`;
-    const response = await fetch(member.download, { signal, headers });
+    const response = await fetch(member.download, {
+      credentials: "same-origin",
+      signal,
+      headers,
+    });
     if (!validateEnhancedResponse(response, offset, member.size)) {
       throw new Error(
         response.status === 412 ? "source_changed" : "invalid_resume_response",
       );
     }
-    const writable = await file.createWritable({
+    writable = await file.createWritable({
       keepExistingData: offset > 0,
     });
     if (offset) await writable.seek(offset);
@@ -191,17 +197,28 @@ async function enhancedMember(
     while (true) {
       const next = await reader.read();
       if (next.done) break;
+      if (signal.aborted) {
+        throw new Error(abortReason() ?? "download_aborted");
+      }
       await writable.write(next.value);
       observed += next.value.byteLength;
       onProgress(observed);
       await hasher.update(next.value);
     }
     await writable.close();
+    writable = null;
+    if (signal.aborted) throw new Error(abortReason() ?? "download_aborted");
     if (observed !== member.size) throw new Error("size_mismatch");
     const digest = await hasher.digest();
     if (digest.toLowerCase() !== member.sha256.toLowerCase())
       throw new Error("checksum_mismatch");
   } finally {
+    if (signal.aborted && writable !== null) {
+      await writable.close();
+      const persisted = await file.getFile();
+      onProgress(persisted.size);
+      writable = null;
+    }
     worker.terminate();
   }
 }
@@ -222,7 +239,11 @@ export function useBrowserDownloadQueue() {
   const items = ref<BrowserQueueItem[]>([]);
   const sessionId = ref<string | null>(null);
   const starting = ref(false);
-  const controllers = new Map<string, AbortController>();
+  const operations = new Map<
+    string,
+    { controller: AbortController; reason: "pause" | "cancel" | null }
+  >();
+  let enhancedRoot: FileSystemDirectoryHandle | null = null;
   const queued = computed(() =>
     items.value.filter((item) => item.status === "queued"),
   );
@@ -305,6 +326,7 @@ export function useBrowserDownloadQueue() {
         mode: "enhanced",
       });
       sessionId.value = session.data.id;
+      enhancedRoot = root;
       items.value = manifest.members.map((member) => ({
         ...member,
         observedBytes: 0,
@@ -315,53 +337,9 @@ export function useBrowserDownloadQueue() {
       }));
       for (let index = 0; index < items.value.length; index += limit) {
         await Promise.all(
-          items.value.slice(index, index + limit).map(async (item) => {
-            item.status = "downloading";
-            const controller = new AbortController();
-            controllers.set(item.file_id, controller);
-            try {
-              const attributedMember =
-                item.transferItemId === undefined
-                  ? item
-                  : {
-                      ...item,
-                      download: getAttributedDownloadUrl(
-                        item.download,
-                        session.data.id,
-                        item.transferItemId,
-                      ),
-                    };
-              await enhancedMember(
-                root,
-                attributedMember,
-                controller.signal,
-                (bytes) => {
-                  item.observedBytes = bytes;
-                },
-              );
-              item.status = "verified";
-            } catch (error) {
-              const errorCode =
-                error instanceof Error
-                  ? error.message
-                  : "enhanced_download_failed";
-              console.error("[RomM] Enhanced download failed", {
-                fileId: item.file_id,
-                destination: item.destination,
-                error: errorCode,
-              });
-              if (item.transferItemId !== undefined) {
-                await downloadTransfersApi.observe(
-                  session.data.id,
-                  item.transferItemId,
-                  { event_type: "fail", error_code: errorCode },
-                );
-              }
-              item.status = controller.signal.aborted ? "paused" : "failed";
-            } finally {
-              controllers.delete(item.file_id);
-            }
-          }),
+          items.value
+            .slice(index, index + limit)
+            .map((item) => runEnhancedItem(root, item, session.data.id)),
         );
       }
       return true;
@@ -369,11 +347,94 @@ export function useBrowserDownloadQueue() {
       starting.value = false;
     }
   }
+  async function runEnhancedItem(
+    root: FileSystemDirectoryHandle,
+    item: BrowserQueueItem,
+    transferId: string,
+  ) {
+    if (item.transferItemId === undefined) return;
+    const wasPaused = item.status === "paused";
+    item.status = "downloading";
+    const operation = { controller: new AbortController(), reason: null } as {
+      controller: AbortController;
+      reason: "pause" | "cancel" | null;
+    };
+    operations.set(item.file_id, operation);
+    try {
+      await downloadTransfersApi.observe(transferId, item.transferItemId, {
+        event_type: wasPaused ? "resume" : "progress",
+        observed_bytes: item.observedBytes ?? 0,
+      });
+      const attributedMember = {
+        ...item,
+        download: getAttributedDownloadUrl(
+          item.download,
+          transferId,
+          item.transferItemId,
+        ),
+      };
+      await enhancedMember(
+        root,
+        attributedMember,
+        operation.controller.signal,
+        () => operation.reason,
+        (bytes) => {
+          item.observedBytes = bytes;
+        },
+      );
+      await downloadTransfersApi.observe(transferId, item.transferItemId, {
+        event_type: "verified",
+        observed_bytes: item.size,
+        sha256: item.sha256,
+      });
+      item.status = "verified";
+    } catch (error) {
+      const reason = operation.reason;
+      if (reason === "pause" || reason === "cancel") {
+        await downloadTransfersApi.observe(transferId, item.transferItemId, {
+          event_type: reason,
+          observed_bytes: item.observedBytes ?? 0,
+        });
+        item.status = reason === "pause" ? "paused" : "cancelled";
+      } else {
+        const errorCode =
+          error instanceof Error ? error.message : "enhanced_download_failed";
+        console.error("[RomM] Enhanced download failed", {
+          fileId: item.file_id,
+          destination: item.destination,
+          error: errorCode,
+        });
+        await downloadTransfersApi.observe(transferId, item.transferItemId, {
+          event_type: "fail",
+          error_code: errorCode,
+          observed_bytes: item.observedBytes ?? 0,
+        });
+        item.status = "failed";
+      }
+    } finally {
+      operations.delete(item.file_id);
+    }
+  }
+  async function resume(fileId: string) {
+    const item = items.value.find((candidate) => candidate.file_id === fileId);
+    if (!item || item.status !== "paused" || !enhancedRoot || !sessionId.value)
+      return false;
+    await runEnhancedItem(enhancedRoot, item, sessionId.value);
+    return (item.status as BrowserQueueItem["status"]) === "verified";
+  }
   function pause(fileId: string) {
-    controllers.get(fileId)?.abort();
+    const operation = operations.get(fileId);
+    if (operation) {
+      operation.reason = "pause";
+      operation.controller.abort();
+    }
   }
   function cancel(fileId: string) {
-    controllers.get(fileId)?.abort();
+    const operation = operations.get(fileId);
+    if (operation) {
+      operation.reason = "cancel";
+      operation.controller.abort();
+    }
     const item = items.value.find((candidate) => candidate.file_id === fileId);
     if (item) item.status = "cancelled";
   }
@@ -385,6 +446,7 @@ export function useBrowserDownloadQueue() {
     start,
     pickEnhancedDirectory,
     startEnhanced,
+    resume,
     pause,
     cancel,
   };
