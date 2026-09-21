@@ -174,6 +174,18 @@ function hasLiveMember(memberId: string | null) {
     !!memberId && props.queueItems.some((item) => item.file_id === memberId)
   );
 }
+const resumableSessionId = computed(
+  () =>
+    rows.value.find(
+      (row) =>
+        row.sessionStatus === "active" &&
+        ["failed", "queued", "paused"].includes(row.status),
+    )?.sessionId ?? null,
+);
+const activeSessionId = computed(
+  () =>
+    rows.value.find((row) => row.sessionStatus === "active")?.sessionId ?? null,
+);
 </script>
 
 <template>
@@ -183,6 +195,26 @@ function hasLiveMember(memberId: string | null) {
       class="download-transfer-history__components"
     >
       {{ componentLabels.join(", ") }}
+    </div>
+
+    <div
+      v-if="resumableSessionId || activeSessionId"
+      class="download-transfer-history__session-actions"
+    >
+      <button
+        v-if="resumableSessionId"
+        type="button"
+        @click="emit('resume-session', resumableSessionId)"
+      >
+        {{ t("rom.download-resume") }}
+      </button>
+      <button
+        v-if="activeSessionId"
+        type="button"
+        @click="emit('cancel-session', activeSessionId)"
+      >
+        {{ t("rom.download-cancel") }}
+      </button>
     </div>
 
     <button
@@ -324,6 +356,22 @@ function hasLiveMember(memberId: string | null) {
 .download-transfer-history__components {
   color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-sm);
+}
+
+.download-transfer-history__session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r-space-2);
+}
+
+.download-transfer-history__session-actions button {
+  min-height: var(--r-touch-target);
+  padding: 0 var(--r-space-3);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-sm);
+  background: var(--r-color-panel);
+  color: var(--r-color-fg);
+  cursor: pointer;
 }
 
 .download-transfer-history ul {
