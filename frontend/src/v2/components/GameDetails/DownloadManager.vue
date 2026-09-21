@@ -96,7 +96,7 @@ onBeforeUnmount(() => {
     :sessions="sessions"
     :queue-items="items"
     :component-labels="componentLabels"
-    :show-history="false"
+    :show-history="true"
     :loading="loading"
     :error="error"
   />
