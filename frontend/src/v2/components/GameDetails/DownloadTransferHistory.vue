@@ -214,7 +214,10 @@ const rows = computed<HistoryRow[]>(() =>
           timestamp(row.timestamp)
         }}</time>
         <button
-          v-if="row.sessionStatus === 'active'"
+          v-if="
+            row.sessionStatus === 'active' &&
+            ['active', 'queued', 'paused'].includes(row.status)
+          "
           type="button"
           :aria-label="t('rom.download-cancel')"
           @click="emit('cancel-session', row.sessionId)"
