@@ -303,6 +303,46 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         ).all()
 
     @begin_session
+    def delete_session(
+        self,
+        transfer_id: str,
+        user_id: int,
+        session: Session = None,  # type: ignore
+    ) -> bool:
+        transfer = session.scalar(
+            select(DownloadTransferSession)
+            .where(
+                DownloadTransferSession.id == transfer_id,
+                DownloadTransferSession.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        if transfer is None:
+            return False
+        if transfer.status not in _TERMINAL_SESSIONS:
+            raise ValueError("active session must be cancelled before removal")
+        session.delete(transfer)
+        return True
+
+    @begin_session
+    def delete_terminal_sessions(
+        self,
+        user_id: int,
+        rom_id: int | None = None,
+        session: Session = None,  # type: ignore
+    ) -> int:
+        stmt = select(DownloadTransferSession).where(
+            DownloadTransferSession.user_id == user_id,
+            DownloadTransferSession.status.in_(_TERMINAL_SESSIONS),
+        )
+        if rom_id is not None:
+            stmt = stmt.where(DownloadTransferSession.rom_id == rom_id)
+        transfers = session.scalars(stmt.with_for_update()).all()
+        for transfer in transfers:
+            session.delete(transfer)
+        return len(transfers)
+
+    @begin_session
     def append_observation(
         self,
         transfer_id: str,

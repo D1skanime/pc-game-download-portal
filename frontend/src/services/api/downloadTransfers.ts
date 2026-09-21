@@ -41,6 +41,16 @@ function get(sessionId: string) {
     `/download-transfer-sessions/${encodeURIComponent(sessionId)}`,
   );
 }
+function remove(sessionId: string) {
+  return api.delete<void>(
+    `/download-transfer-sessions/${encodeURIComponent(sessionId)}`,
+  );
+}
+function removeAll(params?: { romId?: number }) {
+  return api.delete<void>("/download-transfer-sessions", {
+    params: { rom_id: params?.romId },
+  });
+}
 function observe(
   sessionId: string,
   itemId: number,
@@ -51,4 +61,4 @@ function observe(
     payload,
   );
 }
-export default { create, list, get, observe };
+export default { create, list, get, remove, removeAll, observe };

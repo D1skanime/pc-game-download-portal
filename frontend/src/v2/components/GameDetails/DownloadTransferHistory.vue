@@ -28,6 +28,8 @@ const emit = defineEmits<{
   (event: "pause", fileId: string): void;
   (event: "cancel", fileId: string): void;
   (event: "resume", fileId: string): void;
+  (event: "remove", sessionId: string): void;
+  (event: "remove-all"): void;
 }>();
 
 const STATUS_KEYS: Record<string, string> = {
@@ -46,6 +48,7 @@ const STATUS_KEYS: Record<string, string> = {
 
 type HistoryRow = {
   key: string;
+  sessionId: string;
   status: string;
   mode: string;
   bytes: number;
@@ -56,6 +59,10 @@ function statusText(status: string, mode: string) {
   const safeStatus =
     status === "verified" && mode !== "enhanced" ? "failed" : status;
   return t(STATUS_KEYS[safeStatus] ?? "rom.download-failed");
+}
+
+function statusClass(status: string) {
+  return `download-transfer-history__status--${status}`;
 }
 
 function safeFilename(destination: string) {
@@ -72,6 +79,7 @@ const rows = computed<HistoryRow[]>(() =>
       return [
         {
           key: session.id,
+          sessionId: session.id,
           status: session.status,
           mode: session.mode,
           bytes: session.selected_bytes,
@@ -81,6 +89,7 @@ const rows = computed<HistoryRow[]>(() =>
     }
     return session.items.map((item, index) => ({
       key: `${session.id}-${index}`,
+      sessionId: session.id,
       status: item.status,
       mode: session.mode,
       bytes: item.expected_bytes,
@@ -99,15 +108,33 @@ const rows = computed<HistoryRow[]>(() =>
       {{ componentLabels.join(", ") }}
     </div>
 
+    <button
+      v-if="showHistory && rows.length"
+      type="button"
+      class="download-transfer-history__remove-all"
+      @click="emit('remove-all')"
+    >
+      {{ t("rom.clear-all") }}
+    </button>
+
     <ul
       v-if="queueItems.length"
       class="download-transfer-history__queue"
       data-testid="download-queue"
     >
-      <li v-for="item in queueItems" :key="item.file_id">
+      <li
+        v-for="item in queueItems"
+        :key="item.file_id"
+        :class="statusClass(item.status)"
+      >
         <span>{{ safeFilename(item.destination) }}</span>
         <template
-          v-if="item.status === 'downloading' || item.status === 'verified'"
+          v-if="
+            item.status === 'downloading' ||
+            item.status === 'verified' ||
+            item.status === 'failed' ||
+            item.status === 'paused'
+          "
         >
           <progress
             class="download-transfer-history__progress"
@@ -182,6 +209,14 @@ const rows = computed<HistoryRow[]>(() =>
         <time v-if="row.timestamp" :datetime="row.timestamp">{{
           timestamp(row.timestamp)
         }}</time>
+        <button
+          v-if="!['active', 'queued', 'paused'].includes(row.status)"
+          type="button"
+          :aria-label="t('rom.delete-file')"
+          @click="emit('remove', row.sessionId)"
+        >
+          {{ t("rom.delete-file") }}
+        </button>
       </li>
     </ul>
   </section>
@@ -227,8 +262,56 @@ const rows = computed<HistoryRow[]>(() =>
 }
 
 .download-transfer-history__progress {
-  width: min(18rem, 35vw);
+  width: 100%;
+  flex: 1 1 100%;
+  height: 0.7rem;
   accent-color: var(--r-color-primary);
+}
+
+.download-transfer-history__status--verified
+  .download-transfer-history__progress {
+  accent-color: var(--r-color-success);
+}
+
+.download-transfer-history__status--downloading
+  .download-transfer-history__progress {
+  accent-color: var(--r-color-primary);
+}
+
+.download-transfer-history__status--failed
+  .download-transfer-history__progress {
+  accent-color: var(--r-color-danger);
+}
+
+.download-transfer-history__queue li {
+  position: relative;
+}
+
+.download-transfer-history__queue li:has(.download-transfer-history__progress) {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) auto;
+}
+
+.download-transfer-history__queue
+  li:has(.download-transfer-history__progress)
+  small,
+.download-transfer-history__queue
+  li:has(.download-transfer-history__progress)
+  .r-tag {
+  grid-row: 2;
+}
+
+.download-transfer-history__queue
+  li:has(.download-transfer-history__progress)
+  .download-transfer-history__progress {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.download-transfer-history__queue
+  li:has(.download-transfer-history__progress)
+  > span:first-child {
+  grid-row: 2;
 }
 
 .download-transfer-history__actions {

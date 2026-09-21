@@ -107,6 +107,37 @@ async def list_download_transfers(
     ]
 
 
+@protected_route(
+    router.delete, "", [Scope.ROMS_READ], status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_download_transfer_history(
+    request: Request,
+    rom_id: Annotated[int | None, Query(gt=0)] = None,
+) -> None:
+    db_download_transfer_handler.delete_terminal_sessions(
+        request.user.id, rom_id=rom_id
+    )
+
+
+@protected_route(
+    router.delete,
+    "/{transfer_id}",
+    [Scope.ROMS_READ],
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_download_transfer(request: Request, transfer_id: str) -> None:
+    try:
+        deleted = db_download_transfer_handler.delete_session(
+            transfer_id, request.user.id
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    if not deleted:
+        _not_found()
+
+
 @protected_route(router.get, "/{transfer_id}", [Scope.ROMS_READ])
 async def get_download_transfer(
     request: Request, transfer_id: str
