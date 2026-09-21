@@ -79,18 +79,36 @@ async function hydrate() {
 }
 
 async function removeSession(sessionId: string) {
-  await downloadTransfersApi.remove(sessionId);
-  await hydrate();
+  try {
+    await downloadTransfersApi.remove(sessionId);
+    sessions.value = sessions.value.filter(
+      (session) => session.id !== sessionId,
+    );
+  } catch {
+    await hydrate();
+  }
 }
 
 async function removeAllHistory() {
-  await downloadTransfersApi.removeAll({ romId: props.romId });
-  await hydrate();
+  try {
+    await downloadTransfersApi.removeAll({ romId: props.romId });
+    sessions.value = sessions.value.filter(
+      (session) => session.status === "active",
+    );
+  } catch {
+    await hydrate();
+  }
 }
 
 async function cancelSession(sessionId: string) {
-  await downloadTransfersApi.cancel(sessionId);
-  await hydrate();
+  try {
+    const response = await downloadTransfersApi.cancel(sessionId);
+    sessions.value = sessions.value.map((session) =>
+      session.id === sessionId ? response.data : session,
+    );
+  } catch {
+    await hydrate();
+  }
 }
 
 watch(

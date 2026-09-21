@@ -53,6 +53,8 @@ type HistoryRow = {
   sessionStatus: string;
   status: string;
   mode: string;
+  destination: string | null;
+  observedBytes: number;
   bytes: number;
   timestamp: string;
 };
@@ -73,10 +75,12 @@ function progressValue(item: BrowserQueueItem) {
 }
 
 function progressColor(status: BrowserQueueItem["status"]) {
-  if (status === "verified") return "success";
-  if (status === "failed") return "danger";
+  if (status === "verified")
+    return "color-mix(in srgb, var(--r-color-success) 42%, transparent)";
+  if (status === "failed")
+    return "color-mix(in srgb, var(--r-color-danger) 42%, transparent)";
   if (status === "cancelled") return "secondary";
-  return "primary";
+  return "var(--r-color-brand-primary)";
 }
 
 function safeFilename(destination: string) {
@@ -97,17 +101,21 @@ const rows = computed<HistoryRow[]>(() =>
           sessionStatus: session.status,
           status: session.status,
           mode: session.mode,
+          destination: null,
+          observedBytes: session.observed_bytes,
           bytes: session.selected_bytes,
           timestamp: session.last_activity_at,
         },
       ];
     }
-    return session.items.map((item, index) => ({
+    return session.items.map<HistoryRow>((item, index) => ({
       key: `${session.id}-${index}`,
       sessionId: session.id,
       sessionStatus: session.status,
       status: item.status,
       mode: session.mode,
+      destination: item.destination,
+      observedBytes: item.observed_bytes,
       bytes: item.expected_bytes,
       timestamp: item.last_activity_at ?? session.last_activity_at,
     }));
@@ -231,6 +239,26 @@ const terminalRows = computed(() =>
       data-testid="download-history-list"
     >
       <li v-for="row in rows" :key="row.key">
+        <span v-if="row.destination">{{ safeFilename(row.destination) }}</span>
+        <RProgressLinear
+          v-if="row.destination"
+          class="download-transfer-history__progress"
+          :model-value="
+            row.bytes
+              ? Math.min(100, (row.observedBytes / row.bytes) * 100)
+              : 100
+          "
+          :indeterminate="row.status === 'active' && row.observedBytes === 0"
+          :color="
+            ['verified', 'served', 'completed'].includes(row.status)
+              ? 'color-mix(in srgb, var(--r-color-success) 42%, transparent)'
+              : ['failed', 'stale'].includes(row.status)
+                ? 'color-mix(in srgb, var(--r-color-danger) 42%, transparent)'
+                : 'var(--r-color-brand-primary)'
+          "
+          :height="10"
+          :aria-label="`${formatBytes(row.observedBytes)} / ${formatBytes(row.bytes)}`"
+        />
         <RTag :text="statusText(row.status, row.mode)" />
         <span>{{ formatBytes(row.bytes) }}</span>
         <time v-if="row.timestamp" :datetime="row.timestamp">{{

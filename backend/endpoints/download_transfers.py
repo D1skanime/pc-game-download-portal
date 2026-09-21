@@ -25,6 +25,11 @@ def _not_found() -> NoReturn:
 
 
 def _serialize(transfer) -> DownloadTransferResponse:
+    manifest_members = {
+        member.public_id: member
+        for component in transfer.manifest.components
+        for member in component.members
+    }
     return DownloadTransferResponse(
         id=transfer.id,
         manifest_id=transfer.manifest_id,
@@ -42,6 +47,11 @@ def _serialize(transfer) -> DownloadTransferResponse:
             DownloadTransferItemResponse(
                 id=item.id,
                 manifest_member_id=item.manifest_member_public_id,
+                destination=(
+                    manifest_members[item.manifest_member_public_id].destination
+                    if item.manifest_member_public_id in manifest_members
+                    else ""
+                ),
                 expected_bytes=item.expected_bytes,
                 observed_bytes=item.observed_bytes,
                 status=item.status.value,

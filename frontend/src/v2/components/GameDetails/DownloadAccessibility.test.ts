@@ -146,6 +146,7 @@ function session(
       {
         id: 42,
         manifest_member_id: `member-${itemStatus}`,
+        destination: `game/${itemStatus}.bin`,
         expected_bytes: 1024,
         observed_bytes: itemStatus === "served" ? 1024 : 0,
         status: itemStatus,

@@ -15,6 +15,7 @@ export type DownloadTransferResponse = {
   items: Array<{
     id: number;
     manifest_member_id: string;
+    destination: string;
     expected_bytes: number;
     observed_bytes: number;
     status: string;

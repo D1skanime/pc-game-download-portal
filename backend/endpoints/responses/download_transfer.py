@@ -24,6 +24,7 @@ class DownloadTransferObservationRequest(BaseModel):
 class DownloadTransferItemResponse(BaseModel):
     id: int
     manifest_member_id: str
+    destination: str
     expected_bytes: int
     observed_bytes: int
     status: str
