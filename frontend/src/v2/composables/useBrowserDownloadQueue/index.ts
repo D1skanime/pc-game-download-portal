@@ -1,3 +1,4 @@
+import { createSHA256 } from "hash-wasm";
 import { computed, ref } from "vue";
 import type { DownloadManifestResponse } from "@/__generated__";
 import configApi from "@/services/api/config";
@@ -53,34 +54,87 @@ function createHashWorker() {
   );
 }
 
-function createHasher(worker: Worker) {
+type Sha256Hasher = Awaited<ReturnType<typeof createSHA256>>;
+
+function createHasher() {
+  let worker: Worker | null = null;
+  let fallback: Sha256Hasher | null = null;
+  try {
+    worker = createHashWorker();
+  } catch {
+    // Some browser/build combinations reject module workers. Keep the
+    // transfer usable with the same streaming WASM hasher on the main thread.
+  }
   let id = 0;
   const send = (message: object, transfer?: Transferable[]) =>
     new Promise<any>((resolve, reject) => {
+      if (!worker) {
+        reject(new Error("hash_worker_unavailable"));
+        return;
+      }
+      const currentWorker = worker;
+      if (!currentWorker) {
+        reject(new Error("hash_worker_unavailable"));
+        return;
+      }
       const requestId = ++id;
       const onMessage = (event: MessageEvent) => {
         if (event.data.id !== requestId) return;
-        worker.removeEventListener("message", onMessage);
-        worker.removeEventListener("error", onError);
+        currentWorker.removeEventListener("message", onMessage);
+        currentWorker.removeEventListener("error", onError);
         if (event.data.error) reject(new Error(event.data.error));
         else resolve(event.data);
       };
       const onError = (event: ErrorEvent) => {
-        worker.removeEventListener("message", onMessage);
-        worker.removeEventListener("error", onError);
+        currentWorker.removeEventListener("message", onMessage);
+        currentWorker.removeEventListener("error", onError);
         reject(event.error ?? new Error(event.message));
       };
-      worker.addEventListener("message", onMessage);
-      worker.addEventListener("error", onError);
-      worker.postMessage({ ...message, id: requestId }, transfer ?? []);
+      currentWorker.addEventListener("message", onMessage);
+      currentWorker.addEventListener("error", onError);
+      currentWorker.postMessage({ ...message, id: requestId }, transfer ?? []);
     });
   return {
-    reset: () => send({ type: "reset" }),
-    update: (chunk: Uint8Array) => {
-      const copy = chunk.slice();
-      return send({ type: "update", chunk: copy.buffer }, [copy.buffer]);
+    reset: async () => {
+      if (worker) {
+        try {
+          await send({ type: "reset" });
+          return;
+        } catch {
+          worker.terminate();
+          worker = null;
+        }
+      }
+      fallback = await createSHA256();
     },
-    digest: async () => (await send({ type: "digest" })).digest as string,
+    update: async (chunk: Uint8Array) => {
+      const copy = chunk.slice();
+      if (worker) {
+        try {
+          await send({ type: "update", chunk: copy.buffer }, [copy.buffer]);
+          return;
+        } catch {
+          worker.terminate();
+          worker = null;
+          fallback = await createSHA256();
+        }
+      }
+      fallback?.update(copy);
+    },
+    digest: async () => {
+      if (worker) {
+        try {
+          return (await send({ type: "digest" })).digest as string;
+        } catch {
+          worker.terminate();
+          worker = null;
+          fallback = await createSHA256();
+        }
+      }
+      if (!fallback) throw new Error("hash_unavailable");
+      return fallback.digest();
+    },
+    terminate: () => worker?.terminate(),
   };
 }
 
@@ -165,10 +219,9 @@ async function enhancedMember(
   const offset = existing.size;
   onProgress(offset);
   if (offset > member.size) throw new Error("local_file_too_large");
-  const worker = createHashWorker();
+  const hasher = createHasher();
   let writable: FileSystemWritableFileStream | null = null;
   try {
-    const hasher = createHasher(worker);
     await hasher.reset();
     if (offset) await hashExisting(existing, hasher);
     if (offset === member.size) {
@@ -222,7 +275,7 @@ async function enhancedMember(
       onProgress(persisted.size);
       writable = null;
     }
-    worker.terminate();
+    hasher.terminate();
   }
 }
 
@@ -422,11 +475,21 @@ export function useBrowserDownloadQueue() {
           destination: item.destination,
           error: errorCode,
         });
-        await downloadTransfersApi.observe(transferId, item.transferItemId, {
-          event_type: "fail",
-          error_code: errorCode,
-          observed_bytes: item.observedBytes ?? 0,
-        });
+        try {
+          await downloadTransfersApi.observe(transferId, item.transferItemId, {
+            event_type: "fail",
+            error_code: errorCode.slice(0, 64),
+            observed_bytes: item.observedBytes ?? 0,
+          });
+        } catch (observationError) {
+          console.error("[RomM] Could not record enhanced download failure", {
+            fileId: item.file_id,
+            error:
+              observationError instanceof Error
+                ? observationError.message
+                : "transfer_observation_failed",
+          });
+        }
         item.status = "failed";
       }
     } finally {

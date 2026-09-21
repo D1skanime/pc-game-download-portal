@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RAlert, REmptyState, RSpinner, RTag } from "@v2/lib";
+import { RAlert, REmptyState, RProgressLinear, RSpinner, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DownloadTransferResponse } from "@/__generated__";
@@ -65,6 +65,18 @@ function statusText(status: string, mode: string) {
 
 function statusClass(status: string) {
   return `download-transfer-history__status--${status}`;
+}
+
+function progressValue(item: BrowserQueueItem) {
+  if (!item.size) return 100;
+  return Math.min(100, ((item.observedBytes ?? 0) / item.size) * 100);
+}
+
+function progressColor(status: BrowserQueueItem["status"]) {
+  if (status === "verified") return "success";
+  if (status === "failed") return "danger";
+  if (status === "cancelled") return "secondary";
+  return "primary";
 }
 
 function safeFilename(destination: string) {
@@ -147,10 +159,14 @@ const terminalRows = computed(() =>
             item.status === 'paused'
           "
         >
-          <progress
+          <RProgressLinear
             class="download-transfer-history__progress"
-            :max="item.size"
-            :value="item.observedBytes ?? 0"
+            :model-value="progressValue(item)"
+            :indeterminate="
+              item.status === 'downloading' && (item.observedBytes ?? 0) === 0
+            "
+            :color="progressColor(item.status)"
+            :height="10"
             :aria-label="`${formatBytes(item.observedBytes ?? 0)} / ${formatBytes(item.size)}`"
           />
           <small
@@ -286,23 +302,6 @@ const terminalRows = computed(() =>
 .download-transfer-history__progress {
   width: 100%;
   flex: 1 1 100%;
-  height: 0.7rem;
-  accent-color: var(--r-color-primary);
-}
-
-.download-transfer-history__status--verified
-  .download-transfer-history__progress {
-  accent-color: var(--r-color-success);
-}
-
-.download-transfer-history__status--downloading
-  .download-transfer-history__progress {
-  accent-color: var(--r-color-primary);
-}
-
-.download-transfer-history__status--failed
-  .download-transfer-history__progress {
-  accent-color: var(--r-color-danger);
 }
 
 .download-transfer-history__queue li {
