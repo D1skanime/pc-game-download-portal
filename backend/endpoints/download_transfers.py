@@ -153,6 +153,27 @@ async def delete_download_transfer(request: Request, transfer_id: str) -> None:
         _not_found()
 
 
+@protected_route(
+    router.delete,
+    "/{transfer_id}/items/{item_id}",
+    [Scope.ROMS_READ],
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_download_transfer_item(
+    request: Request, transfer_id: str, item_id: int
+) -> None:
+    try:
+        deleted = db_download_transfer_handler.delete_item(
+            transfer_id, request.user.id, item_id
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    if not deleted:
+        _not_found()
+
+
 @protected_route(router.post, "/{transfer_id}/cancel", [Scope.ROMS_READ])
 async def cancel_download_transfer(
     request: Request, transfer_id: str

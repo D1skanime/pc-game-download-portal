@@ -325,6 +325,44 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         return True
 
     @begin_session
+    def delete_item(
+        self,
+        transfer_id: str,
+        user_id: int,
+        item_id: int,
+        session: Session = None,  # type: ignore
+    ) -> bool:
+        transfer = session.scalar(
+            select(DownloadTransferSession)
+            .where(
+                DownloadTransferSession.id == transfer_id,
+                DownloadTransferSession.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        if transfer is None:
+            return False
+        if transfer.status not in _TERMINAL_SESSIONS:
+            raise ValueError("active session must be cancelled before removal")
+        item = session.scalar(
+            select(DownloadTransferItem)
+            .where(
+                DownloadTransferItem.id == item_id,
+                DownloadTransferItem.session_id == transfer_id,
+            )
+            .with_for_update()
+        )
+        if item is None:
+            return False
+        if item.status not in _TERMINAL_ITEMS:
+            raise ValueError("active item must be cancelled before removal")
+        if len(transfer.items) == 1:
+            session.delete(transfer)
+        else:
+            session.delete(item)
+        return True
+
+    @begin_session
     def delete_terminal_sessions(
         self,
         user_id: int,

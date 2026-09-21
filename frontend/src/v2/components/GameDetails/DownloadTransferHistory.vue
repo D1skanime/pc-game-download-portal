@@ -27,8 +27,10 @@ const { t } = useI18n();
 const emit = defineEmits<{
   (event: "pause", fileId: string): void;
   (event: "cancel", fileId: string): void;
+  (event: "cancel-item", sessionId: string, itemId: number): void;
   (event: "resume", fileId: string): void;
   (event: "resume-session", sessionId: string): void;
+  (event: "remove-item", sessionId: string, itemId: number): void;
   (event: "remove", sessionId: string): void;
   (event: "remove-all"): void;
   (event: "cancel-session", sessionId: string): void;
@@ -53,6 +55,7 @@ type HistoryRow = {
   sessionId: string;
   sessionStatus: string;
   manifestMemberId: string | null;
+  transferItemId: number | null;
   status: string;
   mode: string;
   destination: string | null;
@@ -102,6 +105,7 @@ const rows = computed<HistoryRow[]>(() =>
           sessionId: session.id,
           sessionStatus: session.status,
           manifestMemberId: null,
+          transferItemId: null,
           status: session.status,
           mode: session.mode,
           destination: null,
@@ -111,11 +115,12 @@ const rows = computed<HistoryRow[]>(() =>
         },
       ];
     }
-    return session.items.map<HistoryRow>((item, index) => ({
-      key: `${session.id}-${index}`,
+    return session.items.map<HistoryRow>((item) => ({
+      key: `${session.id}-${item.id}`,
       sessionId: session.id,
       sessionStatus: session.status,
       manifestMemberId: item.manifest_member_id,
+      transferItemId: item.id,
       status: item.status,
       mode: session.mode,
       destination: item.destination,
@@ -160,6 +165,7 @@ const displayRows = computed<HistoryRow[]>(() => {
         sessionId: "",
         sessionStatus: "active",
         manifestMemberId: item.file_id,
+        transferItemId: item.transferItemId ?? null,
         status: item.status,
         mode: "enhanced",
         destination: item.destination,
@@ -306,11 +312,13 @@ const activeSessionId = computed(
         <button
           v-if="
             row.sessionStatus === 'active' &&
-            ['active', 'queued'].includes(row.status)
+            row.transferItemId !== null &&
+            ['active', 'queued', 'paused'].includes(row.status) &&
+            !hasLiveMember(row.manifestMemberId)
           "
           type="button"
           :aria-label="t('rom.download-cancel')"
-          @click="emit('cancel-session', row.sessionId)"
+          @click="emit('cancel-item', row.sessionId, row.transferItemId)"
         >
           {{ t("rom.download-cancel") }}
         </button>
@@ -326,7 +334,15 @@ const activeSessionId = computed(
           {{ t("rom.download-cancel") }}
         </button>
         <button
-          v-if="row.sessionStatus !== 'active'"
+          v-if="row.sessionStatus !== 'active' && row.transferItemId !== null"
+          type="button"
+          :aria-label="t('rom.download-remove-entry')"
+          @click="emit('remove-item', row.sessionId, row.transferItemId)"
+        >
+          {{ t("rom.download-remove-entry") }}
+        </button>
+        <button
+          v-else-if="row.sessionStatus !== 'active'"
           type="button"
           :aria-label="t('rom.download-remove-entry')"
           @click="emit('remove', row.sessionId)"

@@ -13,6 +13,7 @@ const { t } = useI18n();
 const emit = defineEmits<{
   (event: "pause", fileId: string): void;
   (event: "cancel", fileId: string): void;
+  (event: "cancel-item", sessionId: string, itemId: number): void;
   (event: "resume", fileId: string): void;
   (event: "resume-session", sessionId: string): void;
 }>();
@@ -90,6 +91,15 @@ async function removeSession(sessionId: string) {
   }
 }
 
+async function removeItem(sessionId: string, itemId: number) {
+  try {
+    await downloadTransfersApi.removeItem(sessionId, itemId);
+    await hydrate();
+  } catch {
+    await hydrate();
+  }
+}
+
 async function removeAllHistory() {
   try {
     await downloadTransfersApi.removeAll({ romId: props.romId });
@@ -107,6 +117,17 @@ async function cancelSession(sessionId: string) {
     sessions.value = sessions.value.map((session) =>
       session.id === sessionId ? response.data : session,
     );
+  } catch {
+    await hydrate();
+  }
+}
+
+async function cancelItem(sessionId: string, itemId: number) {
+  try {
+    await downloadTransfersApi.observe(sessionId, itemId, {
+      event_type: "cancel",
+    });
+    await hydrate();
   } catch {
     await hydrate();
   }
@@ -140,9 +161,11 @@ onBeforeUnmount(() => {
     :error="error"
     @pause="emit('pause', $event)"
     @cancel="emit('cancel', $event)"
+    @cancel-item="cancelItem"
     @resume="emit('resume', $event)"
     @resume-session="emit('resume-session', $event)"
     @remove="removeSession"
+    @remove-item="removeItem"
     @remove-all="removeAllHistory"
     @cancel-session="cancelSession"
   />

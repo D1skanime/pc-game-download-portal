@@ -15,6 +15,8 @@ vi.mock("vue-i18n", () => ({
         "rom.download-served": "Served by RomM",
         "rom.download-stale": "Source changed. Prepare the download again.",
         "rom.download-verified": "Verified",
+        "rom.download-cancel": "Cancel download",
+        "rom.download-remove-entry": "Delete download entry",
       })[key] ?? key,
   }),
 }));
@@ -126,5 +128,33 @@ describe("DownloadTransferHistory", () => {
 
     expect(wrapper.text()).toContain("Verified");
     expect(wrapper.text()).not.toContain("Download failed");
+  });
+
+  it("offers a per-file cancel action for persisted transfer items", async () => {
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [session("queued")] },
+    });
+
+    const rowCancel = wrapper
+      .findAll("li button")
+      .find((button) => button.text() === "Cancel download");
+    await rowCancel?.trigger("click");
+
+    expect(wrapper.emitted("cancel-item")).toEqual([["opaque-queued", 42]]);
+  });
+
+  it("removes one terminal file entry without removing the session", async () => {
+    const completed = session("served");
+    completed.status = "completed";
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [completed] },
+    });
+
+    await wrapper
+      .findAll("li button")
+      .find((button) => button.text() === "Delete download entry")
+      ?.trigger("click");
+
+    expect(wrapper.emitted("remove-item")).toEqual([["opaque-served", 42]]);
   });
 });
