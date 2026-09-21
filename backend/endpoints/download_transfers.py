@@ -100,6 +100,11 @@ async def create_download_transfer(
         )
     except ValueError:
         _not_found()
+    # create_session returns after its managed DB session closes. Reload the
+    # transfer so manifest members are available for the response serializer.
+    transfer = db_download_transfer_handler.get_session(transfer.id, request.user.id)
+    if transfer is None:
+        _not_found()
     return _serialize(transfer)
 
 
