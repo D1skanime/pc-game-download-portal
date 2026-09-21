@@ -41,7 +41,7 @@ const STATUS_KEYS: Record<string, string> = {
   failed: "rom.download-failed",
   paused: "rom.download-state-paused",
   downloading: "rom.download-state-downloading",
-  active: "rom.download-queued",
+  active: "rom.download-state-downloading",
 };
 
 type HistoryRow = {
@@ -67,42 +67,26 @@ function timestamp(value: string | null) {
 }
 
 const rows = computed<HistoryRow[]>(() =>
-  props.sessions
-    .filter(
-      (session) =>
-        session.status !== "active" ||
-        session.items.every((item) =>
-          [
-            "handed_to_browser",
-            "served",
-            "verified",
-            "failed",
-            "cancelled",
-            "stale",
-            "expired",
-          ].includes(item.status),
-        ),
-    )
-    .flatMap((session) => {
-      if (session.items.length === 0) {
-        return [
-          {
-            key: session.id,
-            status: session.status,
-            mode: session.mode,
-            bytes: session.selected_bytes,
-            timestamp: session.last_activity_at,
-          },
-        ];
-      }
-      return session.items.map((item, index) => ({
-        key: `${session.id}-${index}`,
-        status: item.status,
-        mode: session.mode,
-        bytes: item.expected_bytes,
-        timestamp: item.last_activity_at ?? session.last_activity_at,
-      }));
-    }),
+  props.sessions.flatMap((session) => {
+    if (session.items.length === 0) {
+      return [
+        {
+          key: session.id,
+          status: session.status,
+          mode: session.mode,
+          bytes: session.selected_bytes,
+          timestamp: session.last_activity_at,
+        },
+      ];
+    }
+    return session.items.map((item, index) => ({
+      key: `${session.id}-${index}`,
+      status: item.status,
+      mode: session.mode,
+      bytes: item.expected_bytes,
+      timestamp: item.last_activity_at ?? session.last_activity_at,
+    }));
+  }),
 );
 </script>
 
