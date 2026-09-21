@@ -508,30 +508,31 @@ export function useBrowserDownloadQueue() {
   async function resumeSession(transferId: string) {
     const root = await pickEnhancedDirectory();
     if (!root) return false;
-    const session = await downloadTransfersApi.get(transferId);
-    if (session.data.mode !== "enhanced") return false;
+    const previous = await downloadTransfersApi.get(transferId);
+    if (previous.data.mode !== "enhanced") return false;
+    if (previous.data.status === "active") {
+      await downloadTransfersApi.cancel(transferId);
+    }
     const manifest = await api.get<DownloadManifestResponse>(
-      `/download-manifests/${session.data.manifest_id}`,
+      `/download-manifests/${previous.data.manifest_id}`,
     );
     const config = await configApi.getBrowserDownloadQueueConfig();
     const limit = getBrowserDownloadQueueConcurrency(config.data);
+    const session = await downloadTransfersApi.create({
+      manifest_id: manifest.data.id,
+      mode: "enhanced",
+    });
     enhancedRoot = root;
-    sessionId.value = transferId;
+    sessionId.value = session.data.id;
     items.value = manifest.data.members.map((member) => {
       const persisted = session.data.items.find(
         (item) => item.manifest_member_id === member.file_id,
       );
-      const status = persisted?.status;
       return {
         ...member,
-        observedBytes: persisted?.observed_bytes ?? 0,
+        observedBytes: 0,
         transferItemId: persisted?.id,
-        status:
-          status === "verified"
-            ? ("verified" as const)
-            : status === "failed" || status === "cancelled"
-              ? (status as "failed" | "cancelled")
-              : ("queued" as const),
+        status: "queued" as const,
       };
     });
     const pending = items.value.filter((item) => item.status === "queued");
@@ -539,7 +540,7 @@ export function useBrowserDownloadQueue() {
       await Promise.all(
         pending
           .slice(index, index + limit)
-          .map((item) => runEnhancedItem(root, item, transferId)),
+          .map((item) => runEnhancedItem(root, item, session.data.id)),
       );
     }
     return true;

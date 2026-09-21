@@ -248,7 +248,7 @@ function hasLiveMember(memberId: string | null) {
           {{ t("rom.download-pause") }}
         </button>
         <button
-          v-else-if="
+          v-if="
             row.status === 'paused' &&
             row.manifestMemberId &&
             hasLiveMember(row.manifestMemberId)
@@ -262,20 +262,7 @@ function hasLiveMember(memberId: string | null) {
         <button
           v-if="
             row.sessionStatus === 'active' &&
-            ['active', 'queued', 'paused'].includes(row.status) &&
-            row.status !== 'downloading' &&
-            row.status !== 'paused'
-          "
-          type="button"
-          :aria-label="t('rom.download-cancel')"
-          @click="emit('cancel-session', row.sessionId)"
-        >
-          {{ t("rom.download-cancel") }}
-        </button>
-        <button
-          v-if="
-            row.sessionStatus === 'active' &&
-            row.status === 'paused' &&
+            ['failed', 'queued', 'paused'].includes(row.status) &&
             !hasLiveMember(row.manifestMemberId)
           "
           type="button"
@@ -285,7 +272,29 @@ function hasLiveMember(memberId: string | null) {
           {{ t("rom.download-resume") }}
         </button>
         <button
-          v-else
+          v-if="
+            row.sessionStatus === 'active' &&
+            ['active', 'queued'].includes(row.status)
+          "
+          type="button"
+          :aria-label="t('rom.download-cancel')"
+          @click="emit('cancel-session', row.sessionId)"
+        >
+          {{ t("rom.download-cancel") }}
+        </button>
+        <button
+          v-if="
+            ['downloading', 'paused'].includes(row.status) &&
+            hasLiveMember(row.manifestMemberId)
+          "
+          type="button"
+          :aria-label="t('rom.download-cancel')"
+          @click="emit('cancel', row.manifestMemberId!)"
+        >
+          {{ t("rom.download-cancel") }}
+        </button>
+        <button
+          v-if="row.sessionStatus !== 'active'"
           type="button"
           :aria-label="t('rom.download-remove-entry')"
           @click="emit('remove', row.sessionId)"
