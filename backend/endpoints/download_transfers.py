@@ -31,6 +31,7 @@ def _serialize(transfer) -> DownloadTransferResponse:
         rom_id=transfer.rom_id,
         mode=transfer.mode.value,
         status=transfer.status.value,
+        result=transfer.result.value if transfer.result is not None else None,
         selected_items=transfer.selected_items,
         selected_bytes=transfer.selected_bytes,
         observed_bytes=transfer.observed_bytes,

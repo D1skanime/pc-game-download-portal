@@ -12,6 +12,7 @@ from models.download_transfer import (
     DownloadTransferItemStatus,
     DownloadTransferMode,
     DownloadTransferSession,
+    DownloadTransferSessionResult,
     DownloadTransferSessionStatus,
 )
 
@@ -22,6 +23,7 @@ _SESSION_RETENTION = timedelta(days=90)
 _CLEANUP_BATCH_LIMIT = 100
 _MAX_OBSERVED_BYTES = 2**63 - 1
 _TERMINAL_ITEMS = {
+    DownloadTransferItemStatus.SERVED,
     DownloadTransferItemStatus.VERIFIED,
     DownloadTransferItemStatus.CANCELLED,
     DownloadTransferItemStatus.FAILED,
@@ -44,6 +46,61 @@ def _as_utc(value: datetime) -> datetime:
 
 
 class DBDownloadTransfersHandler(DBBaseHandler):
+    @staticmethod
+    def _reconcile_locked(
+        transfer: DownloadTransferSession,
+        now: datetime,
+    ) -> None:
+        transfer.observed_bytes = sum(item.observed_bytes for item in transfer.items)
+        for item in transfer.items:
+            if item.status in _TERMINAL_ITEMS and item.ended_at is None:
+                item.ended_at = now
+        if any(item.status not in _TERMINAL_ITEMS for item in transfer.items):
+            return
+        if transfer.status is DownloadTransferSessionStatus.STALE:
+            transfer.result = DownloadTransferSessionResult.FAILED
+        elif transfer.status is DownloadTransferSessionStatus.CANCELLED:
+            transfer.result = DownloadTransferSessionResult.CANCELLED
+        else:
+            transfer.status = DownloadTransferSessionStatus.COMPLETED
+            successful = all(
+                item.status
+                in {
+                    DownloadTransferItemStatus.SERVED,
+                    DownloadTransferItemStatus.VERIFIED,
+                }
+                for item in transfer.items
+            )
+            failed = any(
+                item.status
+                in {
+                    DownloadTransferItemStatus.FAILED,
+                    DownloadTransferItemStatus.STALE,
+                }
+                for item in transfer.items
+            )
+            cancelled = any(
+                item.status is DownloadTransferItemStatus.CANCELLED
+                for item in transfer.items
+            )
+            if successful:
+                transfer.result = DownloadTransferSessionResult.SUCCESS
+            elif failed and any(
+                item.status
+                in {
+                    DownloadTransferItemStatus.SERVED,
+                    DownloadTransferItemStatus.VERIFIED,
+                }
+                for item in transfer.items
+            ):
+                transfer.result = DownloadTransferSessionResult.PARTIAL
+            elif cancelled and not failed:
+                transfer.result = DownloadTransferSessionResult.CANCELLED
+            else:
+                transfer.result = DownloadTransferSessionResult.FAILED
+        if transfer.ended_at is None:
+            transfer.ended_at = now
+
     @begin_session
     def cleanup_sessions(
         self,
@@ -268,6 +325,11 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         if event_type == "verified":
             if transfer.mode is DownloadTransferMode.STANDARD:
                 raise ValueError("standard transfers cannot verify")
+            if item.status not in {
+                DownloadTransferItemStatus.ACTIVE,
+                DownloadTransferItemStatus.HANDED_TO_BROWSER,
+            }:
+                raise ValueError("verified requires an active item")
             if observed_bytes != item.expected_bytes or sha256 != item.expected_sha256:
                 raise ValueError("local digest does not match manifest")
             next_status = DownloadTransferItemStatus.VERIFIED
@@ -278,10 +340,20 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         elif event_type == "progress":
             if transfer.mode is DownloadTransferMode.STANDARD:
                 raise ValueError("standard transfers do not report progress")
-            next_status = item.status
+            if item.status not in {
+                DownloadTransferItemStatus.QUEUED,
+                DownloadTransferItemStatus.ACTIVE,
+            }:
+                raise ValueError("progress requires a queued or active item")
+            next_status = DownloadTransferItemStatus.ACTIVE
         elif event_type == "pause":
             if transfer.mode is DownloadTransferMode.STANDARD:
                 raise ValueError("standard transfers cannot pause")
+            if item.status not in {
+                DownloadTransferItemStatus.ACTIVE,
+                DownloadTransferItemStatus.HANDED_TO_BROWSER,
+            }:
+                raise ValueError("pause requires an active item")
             next_status = DownloadTransferItemStatus.PAUSED
         elif event_type == "resume":
             if (
@@ -289,7 +361,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 or item.status is not DownloadTransferItemStatus.PAUSED
             ):
                 raise ValueError("resume requires enhanced paused item")
-            next_status = DownloadTransferItemStatus.HANDED_TO_BROWSER
+            next_status = DownloadTransferItemStatus.ACTIVE
         elif event_type == "cancel":
             next_status = DownloadTransferItemStatus.CANCELLED
         else:
@@ -304,9 +376,13 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         )
         if ordinal >= _EVENT_LIMIT:
             raise ValueError("event history is full")
+        now = datetime.now(UTC)
         item.observed_bytes = observed_bytes
         item.status = next_status
-        item.last_activity_at = datetime.now(UTC)
+        item.started_at = item.started_at or now
+        item.last_activity_at = now
+        if next_status in _TERMINAL_ITEMS:
+            item.ended_at = now
         event = DownloadTransferEvent(
             session_id=transfer_id,
             item_id=item_id,
@@ -316,8 +392,8 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             error_code=error_code,
         )
         session.add(event)
-        transfer.observed_bytes = sum(entry.observed_bytes for entry in transfer.items)
         transfer.last_activity_at = item.last_activity_at
+        self._reconcile_locked(transfer, now)
         session.flush()
         return event
 
@@ -350,6 +426,10 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             raise ValueError("item is not ready to serve")
         item.status = DownloadTransferItemStatus.SERVED
         item.observed_bytes = item.expected_bytes
+        now = datetime.now(UTC)
+        item.started_at = item.started_at or now
+        item.last_activity_at = now
+        item.ended_at = now
         session.add(
             DownloadTransferEvent(
                 session_id=transfer_id,
@@ -367,6 +447,8 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 observed_bytes=item.expected_bytes,
             )
         )
+        transfer.last_activity_at = now
+        self._reconcile_locked(transfer, now)
         session.flush()
         return item
 
@@ -385,11 +467,13 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         if transfer.status in _TERMINAL_SESSIONS:
             return
         transfer.status = DownloadTransferSessionStatus.CANCELLED
-        transfer.ended_at = datetime.now(UTC)
+        now = datetime.now(UTC)
+        transfer.last_activity_at = now
         for item in transfer.items:
             if item.status not in _TERMINAL_ITEMS:
                 item.status = DownloadTransferItemStatus.CANCELLED
-                item.ended_at = transfer.ended_at
+                item.ended_at = now
+        self._reconcile_locked(transfer, now)
 
     @begin_session
     def mark_stale(
@@ -420,10 +504,13 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         )
         if transfer is None or item is None or transfer.status in _TERMINAL_SESSIONS:
             raise ValueError("session is closed or unavailable")
-        item.status = DownloadTransferItemStatus.STALE
-        item.ended_at = datetime.now(UTC)
+        now = datetime.now(UTC)
         transfer.status = DownloadTransferSessionStatus.STALE
-        transfer.ended_at = item.ended_at
+        transfer.last_activity_at = now
+        for candidate in transfer.items:
+            if candidate.status not in _TERMINAL_ITEMS:
+                candidate.status = DownloadTransferItemStatus.STALE
+                candidate.ended_at = now
         ordinal = (
             session.scalar(
                 select(func.max(DownloadTransferEvent.ordinal)).where(
@@ -442,5 +529,6 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 error_code=f"http_{http_status}",
             )
         )
+        self._reconcile_locked(transfer, now)
         session.flush()
         return item

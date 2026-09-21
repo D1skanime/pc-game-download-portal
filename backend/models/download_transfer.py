@@ -30,8 +30,16 @@ class DownloadTransferSessionStatus(enum.StrEnum):
     STALE = "stale"
 
 
+class DownloadTransferSessionResult(enum.StrEnum):
+    SUCCESS = "success"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
 class DownloadTransferItemStatus(enum.StrEnum):
     QUEUED = "queued"
+    ACTIVE = "active"
     HANDED_TO_BROWSER = "handed_to_browser"
     SERVED = "served"
     VERIFIED = "verified"
@@ -79,6 +87,17 @@ class DownloadTransferSession(BaseModel):
         default=DownloadTransferSessionStatus.ACTIVE,
         nullable=False,
         index=True,
+    )
+    result: Mapped[DownloadTransferSessionResult | None] = mapped_column(
+        Enum(
+            DownloadTransferSessionResult,
+            native_enum=False,
+            create_constraint=True,
+            length=16,
+            name="downloadtransfersessionresult",
+            values_callable=lambda values: [value.value for value in values],
+        ),
+        nullable=True,
     )
     selected_items: Mapped[int] = mapped_column(Integer, nullable=False)
     selected_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)

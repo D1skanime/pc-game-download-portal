@@ -47,6 +47,7 @@ class DownloadTransferResponse(BaseModel):
     rom_id: int
     mode: str
     status: str
+    result: str | None = None
     selected_items: int
     selected_bytes: int
     observed_bytes: int

@@ -5,6 +5,7 @@ export type DownloadTransferResponse = {
   rom_id: number;
   mode: string;
   status: string;
+  result?: string | null;
   selected_items: number;
   selected_bytes: number;
   observed_bytes: number;

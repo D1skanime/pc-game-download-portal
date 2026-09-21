@@ -17,6 +17,7 @@ from models.download_transfer import (
     DownloadTransferItemStatus,
     DownloadTransferMode,
     DownloadTransferSession,
+    DownloadTransferSessionResult,
     DownloadTransferSessionStatus,
 )
 from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
@@ -161,7 +162,6 @@ def test_standard_cannot_claim_verified_and_enhanced_can_verify_only_digest_matc
             observed_bytes=item.expected_bytes,
             sha256="a" * 64,
         )
-
     enhanced = handler.create_session(
         admin_user.id, manifest.id, DownloadTransferMode.ENHANCED
     )
@@ -175,6 +175,66 @@ def test_standard_cannot_claim_verified_and_enhanced_can_verify_only_digest_matc
             "verified",
             observed_bytes=enhanced_item.expected_bytes,
             sha256="b" * 64,
+        )
+
+
+def test_reconciliation_completes_verified_session_with_success_result(
+    admin_user, manifest
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.ENHANCED
+    )
+    item = transfer.items[0]
+
+    handler.append_observation(
+        transfer.id, admin_user.id, item.id, "progress", observed_bytes=42
+    )
+    handler.append_observation(
+        transfer.id,
+        admin_user.id,
+        item.id,
+        "verified",
+        observed_bytes=item.expected_bytes,
+        sha256=item.expected_sha256,
+    )
+
+    saved = handler.get_session(transfer.id, admin_user.id)
+    assert saved.status is DownloadTransferSessionStatus.COMPLETED
+    assert saved.result is DownloadTransferSessionResult.SUCCESS
+    assert saved.ended_at is not None
+    assert saved.items[0].ended_at is not None
+
+
+def test_reconciliation_completes_failed_session_with_failed_result(
+    admin_user, manifest
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.STANDARD
+    )
+    item = transfer.items[0]
+
+    handler.append_observation(
+        transfer.id, admin_user.id, item.id, "fail", error_code="network"
+    )
+
+    saved = handler.get_session(transfer.id, admin_user.id)
+    assert saved.status is DownloadTransferSessionStatus.COMPLETED
+    assert saved.result is DownloadTransferSessionResult.FAILED
+
+
+def test_standard_progress_is_rejected_before_it_can_claim_activity(
+    admin_user, manifest
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.STANDARD
+    )
+
+    with pytest.raises(ValueError, match="standard"):
+        handler.append_observation(
+            transfer.id, admin_user.id, transfer.items[0].id, "progress", 1
         )
 
 
