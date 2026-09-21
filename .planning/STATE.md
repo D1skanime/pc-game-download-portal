@@ -348,9 +348,10 @@ Recent decisions affecting current work:
 
 ### Quick Tasks Completed
 
-| #          | Description                                      | Date       | Commit       | Directory                                                                                                           |
-| ---------- | ------------------------------------------------ | ---------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
-| 260921-haf | Enhanced FSA Download Timeout and Queue Recovery | 2026-09-21 | 5d9dfb11ef4f | [260921-haf-enhanced-fsa-download-timeout-and-queue-](./quick/260921-haf-enhanced-fsa-download-timeout-and-queue-/) |
+| #          | Description                                                         | Date       | Commit       | Directory                                                                                                           |
+| ---------- | ------------------------------------------------------------------- | ---------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| 260921-haf | Enhanced FSA Download Timeout and Queue Recovery                    | 2026-09-21 | 5d9dfb11ef4f | [260921-haf-enhanced-fsa-download-timeout-and-queue-](./quick/260921-haf-enhanced-fsa-download-timeout-and-queue-/) |
+| 260921-ij0 | Fix browser download status labels and row actions after failed UAT | 2026-09-21 | a65bc399624c | [260921-ij0-fix-browser-download-status-labels-and-r](./quick/260921-ij0-fix-browser-download-status-labels-and-r/) |
 
 ## Deferred Items
 
