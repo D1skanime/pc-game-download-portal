@@ -101,6 +101,13 @@ const rows = computed<HistoryRow[]>(() =>
     }));
   }),
 );
+const terminalRows = computed(() =>
+  rows.value.filter((row) =>
+    ["completed", "cancelled", "failed", "expired", "stale"].includes(
+      row.sessionStatus,
+    ),
+  ),
+);
 </script>
 
 <template>
@@ -113,7 +120,7 @@ const rows = computed<HistoryRow[]>(() =>
     </div>
 
     <button
-      v-if="showHistory && rows.length"
+      v-if="showHistory && terminalRows.length"
       type="button"
       class="download-transfer-history__remove-all"
       @click="emit('remove-all')"
