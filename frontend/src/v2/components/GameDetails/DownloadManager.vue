@@ -10,6 +10,11 @@ import {
 import DownloadTransferHistory from "./DownloadTransferHistory.vue";
 
 const { t } = useI18n();
+const emit = defineEmits<{
+  (event: "pause", fileId: string): void;
+  (event: "cancel", fileId: string): void;
+  (event: "resume", fileId: string): void;
+}>();
 
 const props = withDefaults(
   defineProps<{
@@ -99,5 +104,8 @@ onBeforeUnmount(() => {
     :show-history="true"
     :loading="loading"
     :error="error"
+    @pause="emit('pause', $event)"
+    @cancel="emit('cancel', $event)"
+    @resume="emit('resume', $event)"
   />
 </template>

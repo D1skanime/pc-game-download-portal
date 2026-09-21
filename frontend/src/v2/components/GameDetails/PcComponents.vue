@@ -146,6 +146,9 @@ const groupedComponents = computed(() =>
       :selected-manifest-id="selectedManifestId"
       :session-id="currentSessionId"
       :component-labels="selectedComponentLabels"
+      @pause="queue.pause"
+      @cancel="queue.cancel"
+      @resume="queue.resume"
     />
 
     <REmptyState

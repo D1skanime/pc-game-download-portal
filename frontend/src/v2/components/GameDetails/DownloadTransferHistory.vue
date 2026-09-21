@@ -24,6 +24,11 @@ const props = withDefaults(
   },
 );
 const { t } = useI18n();
+const emit = defineEmits<{
+  (event: "pause", fileId: string): void;
+  (event: "cancel", fileId: string): void;
+  (event: "resume", fileId: string): void;
+}>();
 
 const STATUS_KEYS: Record<string, string> = {
   queued: "rom.download-queued",
@@ -139,6 +144,32 @@ const rows = computed<HistoryRow[]>(() =>
             )
           "
         />
+        <div class="download-transfer-history__actions">
+          <button
+            v-if="item.status === 'downloading'"
+            type="button"
+            :aria-label="t('rom.download-pause')"
+            @click="emit('pause', item.file_id)"
+          >
+            {{ t("rom.download-pause") }}
+          </button>
+          <button
+            v-if="item.status === 'paused'"
+            type="button"
+            :aria-label="t('rom.download-resume')"
+            @click="emit('resume', item.file_id)"
+          >
+            {{ t("rom.download-resume") }}
+          </button>
+          <button
+            v-if="item.status === 'downloading' || item.status === 'paused'"
+            type="button"
+            :aria-label="t('rom.download-cancel')"
+            @click="emit('cancel', item.file_id)"
+          >
+            {{ t("rom.download-cancel") }}
+          </button>
+        </div>
       </li>
     </ul>
 
@@ -214,6 +245,22 @@ const rows = computed<HistoryRow[]>(() =>
 .download-transfer-history__progress {
   width: min(18rem, 35vw);
   accent-color: var(--r-color-primary);
+}
+
+.download-transfer-history__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r-space-1);
+}
+
+.download-transfer-history__actions button {
+  min-height: var(--r-touch-target);
+  padding: 0 var(--r-space-2);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-sm);
+  background: transparent;
+  color: var(--r-color-fg);
+  cursor: pointer;
 }
 
 .download-transfer-history time {
