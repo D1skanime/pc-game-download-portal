@@ -154,6 +154,8 @@
   "download-prepare-again": "Prepare download again",
   "download-queued": "Queued",
   "download-remove-cancelled": "Remove cancelled downloads",
+  "download-remove-entry": "Delete download entry",
+  "download-remove-all": "Delete all download entries",
   "download-required-missing": "This selection is incomplete. Add the required components shown above before starting the download.",
   "download-resume": "Resume download",
   "download-resume-recovery": "Any enhanced partial file remains available only for a later safe resume when local state permits it.",

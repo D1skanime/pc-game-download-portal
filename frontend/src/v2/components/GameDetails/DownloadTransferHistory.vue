@@ -30,6 +30,7 @@ const emit = defineEmits<{
   (event: "resume", fileId: string): void;
   (event: "remove", sessionId: string): void;
   (event: "remove-all"): void;
+  (event: "cancel-session", sessionId: string): void;
 }>();
 
 const STATUS_KEYS: Record<string, string> = {
@@ -49,6 +50,7 @@ const STATUS_KEYS: Record<string, string> = {
 type HistoryRow = {
   key: string;
   sessionId: string;
+  sessionStatus: string;
   status: string;
   mode: string;
   bytes: number;
@@ -80,6 +82,7 @@ const rows = computed<HistoryRow[]>(() =>
         {
           key: session.id,
           sessionId: session.id,
+          sessionStatus: session.status,
           status: session.status,
           mode: session.mode,
           bytes: session.selected_bytes,
@@ -90,6 +93,7 @@ const rows = computed<HistoryRow[]>(() =>
     return session.items.map((item, index) => ({
       key: `${session.id}-${index}`,
       sessionId: session.id,
+      sessionStatus: session.status,
       status: item.status,
       mode: session.mode,
       bytes: item.expected_bytes,
@@ -114,7 +118,7 @@ const rows = computed<HistoryRow[]>(() =>
       class="download-transfer-history__remove-all"
       @click="emit('remove-all')"
     >
-      {{ t("rom.clear-all") }}
+      {{ t("rom.download-remove-all") }}
     </button>
 
     <ul
@@ -210,12 +214,20 @@ const rows = computed<HistoryRow[]>(() =>
           timestamp(row.timestamp)
         }}</time>
         <button
-          v-if="!['active', 'queued', 'paused'].includes(row.status)"
+          v-if="row.sessionStatus === 'active'"
           type="button"
-          :aria-label="t('rom.delete-file')"
+          :aria-label="t('rom.download-cancel')"
+          @click="emit('cancel-session', row.sessionId)"
+        >
+          {{ t("rom.download-cancel") }}
+        </button>
+        <button
+          v-else
+          type="button"
+          :aria-label="t('rom.download-remove-entry')"
           @click="emit('remove', row.sessionId)"
         >
-          {{ t("rom.delete-file") }}
+          {{ t("rom.download-remove-entry") }}
         </button>
       </li>
     </ul>

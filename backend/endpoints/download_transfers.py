@@ -138,6 +138,15 @@ async def delete_download_transfer(request: Request, transfer_id: str) -> None:
         _not_found()
 
 
+@protected_route(router.post, "/{transfer_id}/cancel", [Scope.ROMS_READ])
+async def cancel_download_transfer(
+    request: Request, transfer_id: str
+) -> DownloadTransferResponse:
+    if not db_download_transfer_handler.cancel_session(transfer_id, request.user.id):
+        _not_found()
+    return _serialize(_load_visible(request, transfer_id))
+
+
 @protected_route(router.get, "/{transfer_id}", [Scope.ROMS_READ])
 async def get_download_transfer(
     request: Request, transfer_id: str

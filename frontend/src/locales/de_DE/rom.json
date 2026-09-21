@@ -154,6 +154,8 @@
   "download-prepare-again": "Download erneut vorbereiten",
   "download-queued": "In Warteschlange",
   "download-remove-cancelled": "Abgebrochene Downloads entfernen",
+  "download-remove-entry": "Download-Eintrag löschen",
+  "download-remove-all": "Alle Download-Einträge löschen",
   "download-required-missing": "Diese Auswahl ist unvollständig. Fügen Sie vor dem Start die oben angezeigten erforderlichen Komponenten hinzu.",
   "download-resume": "Download fortsetzen",
   "download-resume-recovery": "Eine unvollständige Datei aus dem erweiterten Download bleibt nur für eine spätere sichere Fortsetzung verfügbar, wenn der lokale Zustand dies erlaubt.",

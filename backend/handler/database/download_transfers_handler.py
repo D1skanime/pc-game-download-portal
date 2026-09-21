@@ -343,6 +343,32 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         return len(transfers)
 
     @begin_session
+    def cancel_session(
+        self,
+        transfer_id: str,
+        user_id: int,
+        session: Session = None,  # type: ignore
+    ) -> bool:
+        transfer = session.scalar(
+            select(DownloadTransferSession)
+            .where(
+                DownloadTransferSession.id == transfer_id,
+                DownloadTransferSession.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        if transfer is None:
+            return False
+        now = datetime.now(UTC)
+        transfer.status = DownloadTransferSessionStatus.CANCELLED
+        for item in transfer.items:
+            if item.status not in _TERMINAL_ITEMS:
+                item.status = DownloadTransferItemStatus.CANCELLED
+                item.ended_at = now
+        self._reconcile_locked(transfer, now)
+        return True
+
+    @begin_session
     def append_observation(
         self,
         transfer_id: str,

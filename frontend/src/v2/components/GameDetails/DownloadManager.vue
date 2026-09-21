@@ -88,6 +88,11 @@ async function removeAllHistory() {
   await hydrate();
 }
 
+async function cancelSession(sessionId: string) {
+  await downloadTransfersApi.cancel(sessionId);
+  await hydrate();
+}
+
 watch(
   () => [
     props.romId,
@@ -119,5 +124,6 @@ onBeforeUnmount(() => {
     @resume="emit('resume', $event)"
     @remove="removeSession"
     @remove-all="removeAllHistory"
+    @cancel-session="cancelSession"
   />
 </template>

@@ -51,6 +51,11 @@ function removeAll(params?: { romId?: number }) {
     params: { rom_id: params?.romId },
   });
 }
+function cancel(sessionId: string) {
+  return api.post<DownloadTransferResponse>(
+    `/download-transfer-sessions/${encodeURIComponent(sessionId)}/cancel`,
+  );
+}
 function observe(
   sessionId: string,
   itemId: number,
@@ -61,4 +66,4 @@ function observe(
     payload,
   );
 }
-export default { create, list, get, remove, removeAll, observe };
+export default { create, list, get, remove, removeAll, cancel, observe };
