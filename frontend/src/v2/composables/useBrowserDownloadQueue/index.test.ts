@@ -118,4 +118,20 @@ describe("useBrowserDownloadQueue standard mode", () => {
     expect(observe).toHaveBeenCalledTimes(3);
     click.mockRestore();
   });
+
+  it("forgets a completed session when its final local row is cleared", () => {
+    const queue = useBrowserDownloadQueue();
+    queue.sessionId.value = "completed-session";
+    queue.items.value = [
+      {
+        ...manifest.members[0],
+        status: "verified",
+      },
+    ];
+
+    queue.clearTerminal(["a"]);
+
+    expect(queue.items.value).toEqual([]);
+    expect(queue.sessionId.value).toBeNull();
+  });
 });

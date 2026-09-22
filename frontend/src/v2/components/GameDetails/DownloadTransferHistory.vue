@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RAlert, REmptyState, RProgressLinear, RSpinner, RTag } from "@v2/lib";
+import { RAlert, RProgressLinear, RSpinner, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DownloadTransferResponse } from "@/__generated__";
@@ -202,12 +202,6 @@ function hasLiveMember(memberId: string | null) {
     <RAlert v-else-if="error" type="error" data-testid="download-history-error">
       {{ t("rom.download-failed-description") }}
     </RAlert>
-    <REmptyState
-      v-else-if="displayRows.length === 0"
-      data-testid="download-history-empty"
-      icon="mdi-download-outline"
-      :title="t('rom.download-no-complete-set')"
-    />
     <ul
       v-else-if="showHistory && displayRows.length"
       class="download-transfer-history__rows"

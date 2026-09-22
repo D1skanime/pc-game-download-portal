@@ -571,6 +571,10 @@ export function useBrowserDownloadQueue() {
   function clearTerminal(fileIds: string[]) {
     const fileIdSet = new Set(fileIds);
     items.value = items.value.filter((item) => !fileIdSet.has(item.file_id));
+    if (items.value.length === 0) {
+      sessionId.value = null;
+      enhancedRoot = null;
+    }
   }
   return {
     items,

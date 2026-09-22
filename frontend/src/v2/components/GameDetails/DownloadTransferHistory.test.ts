@@ -108,6 +108,19 @@ describe("DownloadTransferHistory", () => {
     expect(error.text()).not.toContain("opaque backend detail");
   });
 
+  it("does not confuse an empty history with an unavailable download set", () => {
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [], queueItems: [] },
+    });
+
+    expect(
+      wrapper.find("[data-testid='download-history-empty']").exists(),
+    ).toBe(false);
+    expect(wrapper.text()).not.toContain(
+      "No complete download set is available",
+    );
+  });
+
   it("renders an enhanced queue verification as successful", () => {
     const wrapper = mount(DownloadTransferHistory, {
       props: {
