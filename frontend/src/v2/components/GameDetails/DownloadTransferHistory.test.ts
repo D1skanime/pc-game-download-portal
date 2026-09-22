@@ -135,6 +135,12 @@ describe("DownloadTransferHistory", () => {
       props: { sessions: [session("queued")] },
     });
 
+    expect(
+      wrapper
+        .findAll("button")
+        .filter((button) => button.text() === "Cancel download"),
+    ).toHaveLength(1);
+
     const rowCancel = wrapper
       .findAll("li button")
       .find((button) => button.text() === "Cancel download");

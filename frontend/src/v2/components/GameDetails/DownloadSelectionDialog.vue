@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RBtn, RCheckbox, RDialog } from "@v2/lib";
+import { RBtn, RCheckbox, RCollapsible, RDialog } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PcComponentSchema } from "@/__generated__";
@@ -37,6 +37,7 @@ const { t } = useI18n();
 const selectedSet = ref<number | undefined>();
 const selectedOptional = ref<number[]>([]);
 const selectedMemberIds = ref<number[]>([]);
+const expandedComponentIds = ref<number[]>([]);
 const mode = ref<"standard" | "enhanced">("standard");
 const currentSet = computed(() =>
   props.archiveSets?.find((set) => set.id === selectedSet.value),
@@ -97,6 +98,7 @@ watch(
     if (open) {
       selectedSet.value = props.archiveSets?.[0]?.id;
       selectedOptional.value = [];
+      expandedComponentIds.value = [];
       selectedMemberIds.value = props.archiveSets?.length
         ? []
         : props.components.flatMap((component) =>
@@ -129,6 +131,14 @@ function memberComponentLabel(componentId: number) {
   const component = props.components.find((item) => item.id === componentId);
   return component ? t(componentKindLabels[component.kind]) : t("file");
 }
+function componentFilesExpanded(componentId: number) {
+  return expandedComponentIds.value.includes(componentId);
+}
+function setComponentFilesExpanded(componentId: number, expanded: boolean) {
+  expandedComponentIds.value = expanded
+    ? [...new Set([...expandedComponentIds.value, componentId])]
+    : expandedComponentIds.value.filter((id) => id !== componentId);
+}
 </script>
 <template>
   <RDialog
@@ -150,7 +160,11 @@ function memberComponentLabel(componentId: number) {
           @update:model-value="selectedSet = set.id"
         />
         <div v-if="!archiveSets?.length" class="download-selection__files">
-          <template v-for="component in components" :key="component.id">
+          <div
+            v-for="component in components"
+            :key="component.id"
+            class="download-selection__component"
+          >
             <RCheckbox
               :model-value="
                 component.manifest_members.some((member) =>
@@ -182,23 +196,33 @@ function memberComponentLabel(componentId: number) {
                       ))
               "
             />
-            <RCheckbox
-              v-for="member in component.manifest_members"
-              :key="`file-${member.id}`"
-              :model-value="selectedMemberIds.includes(member.id)"
-              :label="`${member.relative_path} (${formatBytes(member.size_bytes)})`"
+            <RCollapsible
+              v-if="component.manifest_members.length"
+              :model-value="componentFilesExpanded(component.id)"
+              :title="t('details')"
+              attached
+              :data-testid="`download-component-files-${component.id}`"
               @update:model-value="
-                (checked) =>
-                  (selectedMemberIds = checked
-                    ? [...selectedMemberIds, member.id]
-                    : selectedMemberIds.filter((id) => id !== member.id))
+                setComponentFilesExpanded(component.id, $event)
               "
-            />
-          </template>
+            >
+              <div class="download-selection__member-list">
+                <RCheckbox
+                  v-for="member in component.manifest_members"
+                  :key="`file-${member.id}`"
+                  :model-value="selectedMemberIds.includes(member.id)"
+                  :label="`${member.relative_path} (${formatBytes(member.size_bytes)})`"
+                  @update:model-value="
+                    (checked) =>
+                      (selectedMemberIds = checked
+                        ? [...selectedMemberIds, member.id]
+                        : selectedMemberIds.filter((id) => id !== member.id))
+                  "
+                />
+              </div>
+            </RCollapsible>
+          </div>
         </div>
-        <p v-if="!archiveSets?.length" data-testid="download-selected-total">
-          {{ formatBytes(selectedBytes) }}
-        </p>
         <p v-if="missing.length" role="alert">
           {{ t("rom.download-required-missing") }}
         </p>
@@ -222,13 +246,49 @@ function memberComponentLabel(componentId: number) {
         />
       </div>
     </template>
-    <template #footer
-      ><RBtn variant="text" @click="emit('update:modelValue', false)">{{
+    <template #footer>
+      <span
+        v-if="!archiveSets?.length"
+        class="download-selection__total"
+        data-testid="download-selected-total"
+        >{{ t("rom.download-selected") }}:
+        {{ formatBytes(selectedBytes) }}</span
+      >
+      <RBtn variant="text" @click="emit('update:modelValue', false)">{{
         t("common.cancel")
-      }}</RBtn
-      ><RBtn :disabled="selectionInvalid" @click="start">{{
+      }}</RBtn>
+      <RBtn :disabled="selectionInvalid" @click="start">{{
         t("rom.download-start")
-      }}</RBtn></template
-    >
+      }}</RBtn>
+    </template>
   </RDialog>
 </template>
+<style scoped>
+.download-selection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-3);
+}
+
+.download-selection__files,
+.download-selection__member-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-2);
+}
+
+.download-selection__component {
+  display: flex;
+  flex-direction: column;
+}
+
+.download-selection__member-list {
+  padding: var(--r-space-3) var(--r-space-4);
+}
+
+.download-selection__total {
+  margin-right: auto;
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-sm);
+}
+</style>

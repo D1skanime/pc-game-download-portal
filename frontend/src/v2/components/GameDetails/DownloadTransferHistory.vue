@@ -174,18 +174,6 @@ function hasLiveMember(memberId: string | null) {
     !!memberId && props.queueItems.some((item) => item.file_id === memberId)
   );
 }
-const resumableSessionId = computed(
-  () =>
-    rows.value.find(
-      (row) =>
-        row.sessionStatus === "active" &&
-        ["failed", "queued", "paused"].includes(row.status),
-    )?.sessionId ?? null,
-);
-const activeSessionId = computed(
-  () =>
-    rows.value.find((row) => row.sessionStatus === "active")?.sessionId ?? null,
-);
 </script>
 
 <template>
@@ -195,26 +183,6 @@ const activeSessionId = computed(
       class="download-transfer-history__components"
     >
       {{ componentLabels.join(", ") }}
-    </div>
-
-    <div
-      v-if="resumableSessionId || activeSessionId"
-      class="download-transfer-history__session-actions"
-    >
-      <button
-        v-if="resumableSessionId"
-        type="button"
-        @click="emit('resume-session', resumableSessionId)"
-      >
-        {{ t("rom.download-resume") }}
-      </button>
-      <button
-        v-if="activeSessionId"
-        type="button"
-        @click="emit('cancel-session', activeSessionId)"
-      >
-        {{ t("rom.download-cancel") }}
-      </button>
     </div>
 
     <button
@@ -391,29 +359,6 @@ const activeSessionId = computed(
 .download-transfer-history__components {
   color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-sm);
-}
-
-.download-transfer-history__session-actions {
-  position: sticky;
-  top: var(--r-space-2);
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--r-space-2);
-  align-self: flex-start;
-  padding: var(--r-space-2);
-  border-radius: var(--r-radius-sm);
-  background: color-mix(in srgb, var(--r-color-panel) 92%, transparent);
-}
-
-.download-transfer-history__session-actions button {
-  min-height: var(--r-touch-target);
-  padding: 0 var(--r-space-3);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-sm);
-  background: var(--r-color-panel);
-  color: var(--r-color-fg);
-  cursor: pointer;
 }
 
 .download-transfer-history__remove-all {

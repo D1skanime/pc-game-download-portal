@@ -104,11 +104,30 @@ const RBtnStub = defineComponent({
     '<button type="button" :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
 });
 
+const RCollapsibleStub = defineComponent({
+  props: {
+    title: { type: String, default: "" },
+    modelValue: { type: Boolean, default: false },
+  },
+  emits: ["update:modelValue"],
+  template: `
+    <section>
+      <button
+        type="button"
+        :aria-expanded="modelValue"
+        @click="$emit('update:modelValue', !modelValue)"
+      >{{ title }}</button>
+      <div v-if="modelValue"><slot /></div>
+    </section>
+  `,
+});
+
 const selectionGlobal = {
   stubs: {
     RDialog: RDialogStub,
     RCheckbox: RCheckboxStub,
     RBtn: RBtnStub,
+    RCollapsible: RCollapsibleStub,
     DownloadModeSelector: {
       template:
         '<label data-testid="download-mode"><input type="radio" aria-label="Standard browser download" />Standard browser download</label>',
@@ -315,13 +334,20 @@ describe("browser download accessibility and truthful state contract", () => {
 
     await wrapper.setProps({ modelValue: true });
     await nextTick();
+    expect(wrapper.text()).not.toContain("base/game.iso");
+    expect(wrapper.text()).not.toContain("base/readme.txt");
+
+    await wrapper.find('[aria-expanded="false"]').trigger("click");
     expect(wrapper.text()).toContain("base/game.iso");
     expect(wrapper.text()).toContain("base/readme.txt");
 
     const fileControls = wrapper.findAll("input[type=checkbox]");
     expect(fileControls).toHaveLength(3);
     await fileControls[2].setValue(false);
-    await wrapper.findAll("button")[1].trigger("click");
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Start download")
+      ?.trigger("click");
 
     expect(wrapper.emitted("start")?.[0]?.[0]).toEqual({
       archiveSetId: undefined,
