@@ -568,6 +568,10 @@ export function useBrowserDownloadQueue() {
     const item = items.value.find((candidate) => candidate.file_id === fileId);
     if (item) item.status = "cancelled";
   }
+  function clearTerminal(fileIds: string[]) {
+    const fileIdSet = new Set(fileIds);
+    items.value = items.value.filter((item) => !fileIdSet.has(item.file_id));
+  }
   return {
     items,
     queued,
@@ -580,6 +584,7 @@ export function useBrowserDownloadQueue() {
     resumeSession,
     pause,
     cancel,
+    clearTerminal,
   };
 }
 export { getBrowserDownloadQueueConcurrency } from "./config";

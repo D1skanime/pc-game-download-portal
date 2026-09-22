@@ -16,6 +16,7 @@ const emit = defineEmits<{
   (event: "cancel-item", sessionId: string, itemId: number): void;
   (event: "resume", fileId: string): void;
   (event: "resume-session", sessionId: string, memberId?: string): void;
+  (event: "clear-terminal", fileIds: string[]): void;
 }>();
 
 const props = withDefaults(
@@ -105,6 +106,14 @@ async function removeAllHistory() {
     await downloadTransfersApi.removeAll({ romId: props.romId });
     sessions.value = sessions.value.filter(
       (session) => session.status === "active",
+    );
+    emit(
+      "clear-terminal",
+      props.items
+        .filter((item) =>
+          ["verified", "failed", "cancelled"].includes(item.status),
+        )
+        .map((item) => item.file_id),
     );
   } catch {
     await hydrate();

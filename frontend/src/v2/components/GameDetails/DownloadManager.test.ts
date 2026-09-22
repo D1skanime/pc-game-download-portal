@@ -2,10 +2,14 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DownloadManager from "./DownloadManager.vue";
 
-const { list, get } = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn() }));
+const { list, get, removeAll } = vi.hoisted(() => ({
+  list: vi.fn(),
+  get: vi.fn(),
+  removeAll: vi.fn(),
+}));
 
 vi.mock("@/services/api/downloadTransfers", () => ({
-  default: { list, get },
+  default: { list, get, removeAll },
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -48,8 +52,10 @@ describe("DownloadManager", () => {
   beforeEach(() => {
     list.mockReset();
     get.mockReset();
+    removeAll.mockReset();
     list.mockResolvedValue({ data: [] });
     get.mockResolvedValue({ data: transfer("session-a", 7) });
+    removeAll.mockResolvedValue({});
   });
 
   it("does not offer enhanced mode when directory access is unavailable", () => {
@@ -95,5 +101,44 @@ describe("DownloadManager", () => {
     expect(wrapper.text()).not.toContain("rom.download-served");
     expect(wrapper.text()).not.toContain("rom.download-handed-to-browser");
     wrapper.unmount();
+  });
+
+  it("clears completed local rows after the server history is removed", async () => {
+    const completed = transfer("completed-session", 7, "verified");
+    completed.status = "completed";
+    list.mockResolvedValue({ data: [completed] });
+    const wrapper = mount(DownloadManager, {
+      props: {
+        romId: 7,
+        items: [
+          {
+            file_id: "member-a",
+            destination: "game/file.zip",
+            size: 1024,
+            sha256: "a".repeat(64),
+            snapshot: "snapshot",
+            download: "https://example.invalid/download",
+            status: "verified",
+          },
+        ],
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(
+        wrapper
+          .findAll("button")
+          .some((button) => button.text() === "rom.download-remove-all"),
+      ).toBe(true),
+    );
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "rom.download-remove-all")
+      ?.trigger("click");
+
+    await vi.waitFor(() =>
+      expect(removeAll).toHaveBeenCalledWith({ romId: 7 }),
+    );
+    expect(wrapper.emitted("clear-terminal")).toEqual([[["member-a"]]]);
   });
 });
