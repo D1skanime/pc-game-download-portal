@@ -15,7 +15,7 @@ const emit = defineEmits<{
   (event: "cancel", fileId: string): void;
   (event: "cancel-item", sessionId: string, itemId: number): void;
   (event: "resume", fileId: string): void;
-  (event: "resume-session", sessionId: string): void;
+  (event: "resume-session", sessionId: string, memberId?: string): void;
 }>();
 
 const props = withDefaults(
@@ -133,6 +133,10 @@ async function cancelItem(sessionId: string, itemId: number) {
   }
 }
 
+function resumeSession(sessionId: string, memberId?: string) {
+  emit("resume-session", sessionId, memberId);
+}
+
 watch(
   () => [
     props.romId,
@@ -163,7 +167,7 @@ onBeforeUnmount(() => {
     @cancel="emit('cancel', $event)"
     @cancel-item="cancelItem"
     @resume="emit('resume', $event)"
-    @resume-session="emit('resume-session', $event)"
+    @resume-session="resumeSession"
     @remove="removeSession"
     @remove-item="removeItem"
     @remove-all="removeAllHistory"

@@ -505,7 +505,10 @@ export function useBrowserDownloadQueue() {
     await runEnhancedItem(enhancedRoot, item, sessionId.value);
     return (item.status as BrowserQueueItem["status"]) === "verified";
   }
-  async function resumeSession(transferId: string) {
+  async function resumeSession(
+    transferId: string,
+    manifestMemberId?: string | null,
+  ) {
     const root = await pickEnhancedDirectory();
     if (!root) return false;
     const previous = await downloadTransfersApi.get(transferId);
@@ -521,10 +524,14 @@ export function useBrowserDownloadQueue() {
     const session = await downloadTransfersApi.create({
       manifest_id: manifest.data.id,
       mode: "enhanced",
+      ...(manifestMemberId ? { member_ids: [manifestMemberId] } : {}),
     });
     enhancedRoot = root;
     sessionId.value = session.data.id;
-    items.value = manifest.data.members.map((member) => {
+    const members = manifest.data.members.filter(
+      (member) => !manifestMemberId || member.file_id === manifestMemberId,
+    );
+    items.value = members.map((member) => {
       const persisted = session.data.items.find(
         (item) => item.manifest_member_id === member.file_id,
       );

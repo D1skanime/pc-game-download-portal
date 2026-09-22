@@ -73,6 +73,21 @@ def test_owner_scoped_session_creation_copies_manifest_members(
     )
 
 
+def test_session_creation_can_limit_transfer_to_manifest_members(admin_user, manifest):
+    handler = DBDownloadTransfersHandler()
+    member_id = manifest.members[0].public_id
+
+    transfer = handler.create_session(
+        admin_user.id,
+        manifest.id,
+        DownloadTransferMode.ENHANCED,
+        member_ids={member_id},
+    )
+
+    assert [item.manifest_member_public_id for item in transfer.items] == [member_id]
+    assert transfer.selected_items == 1
+
+
 def test_session_creation_accepts_database_returned_naive_manifest_expiry(
     admin_user, manifest
 ):

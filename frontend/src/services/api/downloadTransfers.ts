@@ -9,6 +9,7 @@ export type DownloadTransferMode = "standard" | "enhanced";
 export type DownloadTransferCreatePayload = {
   manifest_id: string;
   mode: DownloadTransferMode;
+  member_ids?: string[];
 };
 export type DownloadTransferEvent = {
   event_type:

@@ -96,7 +96,10 @@ async def create_download_transfer(
     assert_rom_visible(request, manifest.rom, not_found_detail=_NOT_FOUND)
     try:
         transfer = db_download_transfer_handler.create_session(
-            request.user.id, payload.manifest_id, DownloadTransferMode(payload.mode)
+            request.user.id,
+            payload.manifest_id,
+            DownloadTransferMode(payload.mode),
+            member_ids=set(payload.member_ids) if payload.member_ids else None,
         )
     except ValueError:
         _not_found()

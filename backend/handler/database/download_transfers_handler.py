@@ -196,6 +196,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         user_id: int,
         manifest_id: str,
         mode: DownloadTransferMode,
+        member_ids: set[str] | None = None,
         session: Session = None,  # type: ignore
     ) -> DownloadTransferSession:
         manifest = session.scalar(
@@ -214,6 +215,10 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         members = [
             member for component in manifest.components for member in component.members
         ]
+        if member_ids is not None:
+            members = [member for member in members if member.public_id in member_ids]
+            if not members or len(members) != len(member_ids):
+                raise ValueError("manifest members not found")
         transfer = DownloadTransferSession(
             user_id=user_id,
             rom_id=manifest.rom_id,

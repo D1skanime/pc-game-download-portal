@@ -157,4 +157,19 @@ describe("DownloadTransferHistory", () => {
 
     expect(wrapper.emitted("remove-item")).toEqual([["opaque-served", 42]]);
   });
+
+  it("shows only the newest attempt when a file has repeated sessions", () => {
+    const older = session("failed");
+    older.id = "older-session";
+    const newer = session("served");
+    newer.id = "newer-session";
+    older.items[0].manifest_member_id = newer.items[0].manifest_member_id;
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [newer, older] },
+    });
+
+    expect(
+      wrapper.findAll("[data-testid='download-history-list'] > li"),
+    ).toHaveLength(1);
+  });
 });

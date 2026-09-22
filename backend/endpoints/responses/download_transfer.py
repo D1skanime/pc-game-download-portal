@@ -8,6 +8,7 @@ class DownloadTransferCreateRequest(BaseModel):
 
     manifest_id: str = Field(pattern=r"^[0-9a-f-]{36}$")
     mode: str = Field(pattern=r"^(standard|enhanced)$")
+    member_ids: list[str] | None = Field(default=None, min_length=1, max_length=4096)
 
 
 class DownloadTransferObservationRequest(BaseModel):

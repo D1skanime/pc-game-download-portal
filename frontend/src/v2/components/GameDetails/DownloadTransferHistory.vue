@@ -29,7 +29,7 @@ const emit = defineEmits<{
   (event: "cancel", fileId: string): void;
   (event: "cancel-item", sessionId: string, itemId: number): void;
   (event: "resume", fileId: string): void;
-  (event: "resume-session", sessionId: string): void;
+  (event: "resume-session", sessionId: string, memberId?: string): void;
   (event: "remove-item", sessionId: string, itemId: number): void;
   (event: "remove", sessionId: string): void;
   (event: "remove-all"): void;
@@ -99,21 +99,7 @@ function timestamp(value: string | null) {
 const rows = computed<HistoryRow[]>(() =>
   props.sessions.flatMap((session) => {
     if (session.items.length === 0) {
-      return [
-        {
-          key: session.id,
-          sessionId: session.id,
-          sessionStatus: session.status,
-          manifestMemberId: null,
-          transferItemId: null,
-          status: session.status,
-          mode: session.mode,
-          destination: null,
-          observedBytes: session.observed_bytes,
-          bytes: session.selected_bytes,
-          timestamp: session.last_activity_at,
-        },
-      ];
+      return [];
     }
     return session.items.map<HistoryRow>((item) => ({
       key: `${session.id}-${item.id}`,
@@ -144,19 +130,27 @@ const displayRows = computed<HistoryRow[]>(() => {
       .map((row) => row.manifestMemberId)
       .filter((id): id is string => id !== null),
   );
-  const merged = rows.value.map((row) => {
-    const item = row.manifestMemberId
-      ? live.get(row.manifestMemberId)
-      : undefined;
-    return item
-      ? {
-          ...row,
-          status: item.status,
-          bytes: item.size,
-          observedBytes: item.observedBytes ?? row.observedBytes,
-        }
-      : row;
-  });
+  const seenMembers = new Set<string>();
+  const merged = rows.value
+    .map((row) => {
+      const item = row.manifestMemberId
+        ? live.get(row.manifestMemberId)
+        : undefined;
+      return item
+        ? {
+            ...row,
+            status: item.status,
+            bytes: item.size,
+            observedBytes: item.observedBytes ?? row.observedBytes,
+          }
+        : row;
+    })
+    .filter((row) => {
+      if (!row.manifestMemberId) return false;
+      if (seenMembers.has(row.manifestMemberId)) return false;
+      seenMembers.add(row.manifestMemberId);
+      return true;
+    });
   return merged.concat(
     props.queueItems
       .filter((item) => !persistedIds.has(item.file_id))
@@ -316,7 +310,13 @@ const activeSessionId = computed(
               "
               type="button"
               :aria-label="t('rom.download-resume')"
-              @click="emit('resume-session', row.sessionId)"
+              @click="
+                emit(
+                  'resume-session',
+                  row.sessionId,
+                  row.manifestMemberId ?? undefined,
+                )
+              "
             >
               {{ t("rom.download-resume") }}
             </button>
@@ -394,9 +394,16 @@ const activeSessionId = computed(
 }
 
 .download-transfer-history__session-actions {
+  position: sticky;
+  top: var(--r-space-2);
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
   gap: var(--r-space-2);
+  align-self: flex-start;
+  padding: var(--r-space-2);
+  border-radius: var(--r-radius-sm);
+  background: color-mix(in srgb, var(--r-color-panel) 92%, transparent);
 }
 
 .download-transfer-history__session-actions button {
@@ -405,6 +412,20 @@ const activeSessionId = computed(
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-sm);
   background: var(--r-color-panel);
+  color: var(--r-color-fg);
+  cursor: pointer;
+}
+
+.download-transfer-history__remove-all {
+  position: sticky;
+  top: var(--r-space-2);
+  z-index: 2;
+  align-self: flex-end;
+  min-height: var(--r-touch-target);
+  padding: 0 var(--r-space-3);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-sm);
+  background: color-mix(in srgb, var(--r-color-panel) 92%, transparent);
   color: var(--r-color-fg);
   cursor: pointer;
 }
