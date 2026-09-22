@@ -252,7 +252,12 @@ const activeSessionId = computed(
       data-testid="download-history-list"
     >
       <li v-for="row in displayRows" :key="row.key">
-        <span v-if="row.destination">{{ safeFilename(row.destination) }}</span>
+        <div class="download-transfer-history__row-heading">
+          <span v-if="row.destination">{{
+            safeFilename(row.destination)
+          }}</span>
+          <RTag :text="statusText(row.status, row.mode)" />
+        </div>
         <RProgressLinear
           v-if="row.destination"
           class="download-transfer-history__progress"
@@ -272,83 +277,93 @@ const activeSessionId = computed(
           :height="10"
           :aria-label="`${formatBytes(row.observedBytes)} / ${formatBytes(row.bytes)}`"
         />
-        <RTag :text="statusText(row.status, row.mode)" />
-        <span>{{ formatBytes(row.bytes) }}</span>
-        <time v-if="row.timestamp" :datetime="row.timestamp">{{
-          timestamp(row.timestamp)
-        }}</time>
-        <button
-          v-if="row.status === 'downloading' && row.manifestMemberId"
-          type="button"
-          :aria-label="t('rom.download-pause')"
-          @click="emit('pause', row.manifestMemberId)"
-        >
-          {{ t("rom.download-pause") }}
-        </button>
-        <button
-          v-if="
-            row.status === 'paused' &&
-            row.manifestMemberId &&
-            hasLiveMember(row.manifestMemberId)
-          "
-          type="button"
-          :aria-label="t('rom.download-resume')"
-          @click="emit('resume', row.manifestMemberId)"
-        >
-          {{ t("rom.download-resume") }}
-        </button>
-        <button
-          v-if="
-            row.sessionStatus === 'active' &&
-            ['failed', 'queued', 'paused'].includes(row.status) &&
-            !hasLiveMember(row.manifestMemberId)
-          "
-          type="button"
-          :aria-label="t('rom.download-resume')"
-          @click="emit('resume-session', row.sessionId)"
-        >
-          {{ t("rom.download-resume") }}
-        </button>
-        <button
-          v-if="
-            row.sessionStatus === 'active' &&
-            row.transferItemId !== null &&
-            ['active', 'queued', 'paused'].includes(row.status) &&
-            !hasLiveMember(row.manifestMemberId)
-          "
-          type="button"
-          :aria-label="t('rom.download-cancel')"
-          @click="emit('cancel-item', row.sessionId, row.transferItemId)"
-        >
-          {{ t("rom.download-cancel") }}
-        </button>
-        <button
-          v-if="
-            ['downloading', 'paused'].includes(row.status) &&
-            hasLiveMember(row.manifestMemberId)
-          "
-          type="button"
-          :aria-label="t('rom.download-cancel')"
-          @click="emit('cancel', row.manifestMemberId!)"
-        >
-          {{ t("rom.download-cancel") }}
-        </button>
-        <button
-          v-if="row.sessionStatus !== 'active' && row.transferItemId !== null"
-          type="button"
-          :aria-label="t('rom.download-remove-entry')"
-          @click="emit('remove-item', row.sessionId, row.transferItemId)"
-        >
-          {{ t("rom.download-remove-entry") }}
-        </button>
-        <button
-          v-else-if="row.sessionStatus !== 'active'"
-          type="button"
-          :aria-label="t('rom.download-remove-entry')"
-          @click="emit('remove', row.sessionId)"
-        >
-          {{ t("rom.download-remove-entry") }}
-        </button>
+        <div class="download-transfer-history__row-footer">
+          <div class="download-transfer-history__row-meta">
+            <span
+              >{{ formatBytes(row.observedBytes) }} /
+              {{ formatBytes(row.bytes) }}</span
+            >
+            <time v-if="row.timestamp" :datetime="row.timestamp">{{
+              timestamp(row.timestamp)
+            }}</time>
+          </div>
+          <div class="download-transfer-history__actions">
+            <button
+              v-if="row.status === 'downloading' && row.manifestMemberId"
+              type="button"
+              :aria-label="t('rom.download-pause')"
+              @click="emit('pause', row.manifestMemberId)"
+            >
+              {{ t("rom.download-pause") }}
+            </button>
+            <button
+              v-if="
+                row.status === 'paused' &&
+                row.manifestMemberId &&
+                hasLiveMember(row.manifestMemberId)
+              "
+              type="button"
+              :aria-label="t('rom.download-resume')"
+              @click="emit('resume', row.manifestMemberId)"
+            >
+              {{ t("rom.download-resume") }}
+            </button>
+            <button
+              v-if="
+                row.sessionStatus === 'active' &&
+                ['failed', 'queued', 'paused'].includes(row.status) &&
+                !hasLiveMember(row.manifestMemberId)
+              "
+              type="button"
+              :aria-label="t('rom.download-resume')"
+              @click="emit('resume-session', row.sessionId)"
+            >
+              {{ t("rom.download-resume") }}
+            </button>
+            <button
+              v-if="
+                row.sessionStatus === 'active' &&
+                row.transferItemId !== null &&
+                ['active', 'queued', 'paused'].includes(row.status) &&
+                !hasLiveMember(row.manifestMemberId)
+              "
+              type="button"
+              :aria-label="t('rom.download-cancel')"
+              @click="emit('cancel-item', row.sessionId, row.transferItemId)"
+            >
+              {{ t("rom.download-cancel") }}
+            </button>
+            <button
+              v-if="
+                ['downloading', 'paused'].includes(row.status) &&
+                hasLiveMember(row.manifestMemberId)
+              "
+              type="button"
+              :aria-label="t('rom.download-cancel')"
+              @click="emit('cancel', row.manifestMemberId!)"
+            >
+              {{ t("rom.download-cancel") }}
+            </button>
+            <button
+              v-if="
+                row.sessionStatus !== 'active' && row.transferItemId !== null
+              "
+              type="button"
+              :aria-label="t('rom.download-remove-entry')"
+              @click="emit('remove-item', row.sessionId, row.transferItemId)"
+            >
+              {{ t("rom.download-remove-entry") }}
+            </button>
+            <button
+              v-else-if="row.sessionStatus !== 'active'"
+              type="button"
+              :aria-label="t('rom.download-remove-entry')"
+              @click="emit('remove', row.sessionId)"
+            >
+              {{ t("rom.download-remove-entry") }}
+            </button>
+          </div>
+        </div>
       </li>
     </ul>
   </section>
@@ -364,9 +379,13 @@ const activeSessionId = computed(
 .download-transfer-history__components,
 .download-transfer-history li {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--r-space-3);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--r-space-2);
+  padding: var(--r-space-3) var(--r-space-4);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+  background: color-mix(in srgb, var(--r-color-panel) 72%, transparent);
 }
 
 .download-transfer-history__components {
@@ -399,19 +418,38 @@ const activeSessionId = computed(
   list-style: none;
 }
 
-.download-transfer-history li {
-  min-height: var(--r-touch-target);
-  padding: var(--r-space-2) 0;
+.download-transfer-history__row-heading,
+.download-transfer-history__row-footer,
+.download-transfer-history__row-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-2);
 }
 
-.download-transfer-history li > span:first-child {
+.download-transfer-history__row-heading {
+  justify-content: space-between;
+  min-height: var(--r-touch-target);
+}
+
+.download-transfer-history__row-heading > span:first-child {
   flex: 1 1 12rem;
   overflow-wrap: anywhere;
 }
 
+.download-transfer-history__row-footer {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.download-transfer-history__row-meta {
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-xs);
+}
+
 .download-transfer-history__progress {
   width: 100%;
-  flex: 1 1 100%;
+  flex: 0 0 auto;
+  min-height: 10px;
 }
 
 .download-transfer-history__queue li {
@@ -448,7 +486,8 @@ const activeSessionId = computed(
 .download-transfer-history__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--r-space-1);
+  justify-content: flex-end;
+  gap: var(--r-space-2);
 }
 
 .download-transfer-history__actions button {
@@ -459,6 +498,10 @@ const activeSessionId = computed(
   background: transparent;
   color: var(--r-color-fg);
   cursor: pointer;
+}
+
+.download-transfer-history__actions button:hover {
+  background: var(--r-color-panel);
 }
 
 .download-transfer-history time {
