@@ -353,6 +353,7 @@ Recent decisions affecting current work:
 | 260921-haf         | Enhanced FSA Download Timeout and Queue Recovery                       | 2026-09-21 | 5d9dfb11ef4f | [260921-haf-enhanced-fsa-download-timeout-and-queue-](./quick/260921-haf-enhanced-fsa-download-timeout-and-queue-/) |
 | 260921-ij0         | Fix browser download status labels and row actions after failed UAT    | 2026-09-21 | a65bc399624c | [260921-ij0-fix-browser-download-status-labels-and-r](./quick/260921-ij0-fix-browser-download-status-labels-and-r/) |
 | 260922-single-file | Fix single-file resume, duplicate history rows, and long-list controls | 2026-09-22 | 5b787b838    | [260922-single-file-resume-and-history-fix](./quick/260922-single-file-resume-and-history-fix/)                     |
+| 260922-dlc-uat-ui  | Validate 40-file DLC UAT and simplify selection and history controls   | 2026-09-22 | a7c0b2bee    | [260922-dlc-download-uat-ui](./quick/260922-dlc-download-uat-ui/)                                                   |
 
 ## Deferred Items
 
