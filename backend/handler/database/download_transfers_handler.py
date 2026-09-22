@@ -18,7 +18,10 @@ from models.download_transfer import (
 
 from .base_handler import DBBaseHandler
 
-_EVENT_LIMIT = 64
+# A multi-file enhanced transfer records at least one progress and one
+# completion event per member. Keep the history bounded, but allow the
+# supported 80-part (and larger) archives to finish without hitting the cap.
+_EVENT_LIMIT = 4096
 _SESSION_RETENTION = timedelta(days=90)
 _CLEANUP_BATCH_LIMIT = 100
 _MAX_OBSERVED_BYTES = 2**63 - 1
