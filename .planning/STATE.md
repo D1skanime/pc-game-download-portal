@@ -358,6 +358,7 @@ Recent decisions affecting current work:
 | 260923-resume-expiry   | Preserve sessions on expired resume and show restart feedback          | 2026-09-23 | 357eb4e58    | [260923-resume-expiry-feedback](./quick/260923-resume-expiry-feedback/)                                             |
 | 260923-history-flicker | Prevent per-file queue changes from reloading history                  | 2026-09-23 | 7bebbfd77    | [260923-history-refresh-flicker](./quick/260923-history-refresh-flicker/)                                           |
 | 260923-ikx             | Add a per-file enhanced-download retry action                          | 2026-09-23 | d7b7246e9    | [260923-ikx-add-a-per-file-enhanced-download-retry-a](./quick/260923-ikx-add-a-per-file-enhanced-download-retry-a/) |
+| 260923-jvj             | Prevent manifest-referenced PC members from blocking rescans           | 2026-09-23 | b05fd4cce    | [260923-jvj-prevent-pc-component-rescans-from-failin](./quick/260923-jvj-prevent-pc-component-rescans-from-failin/) |
 
 ## Deferred Items
 
