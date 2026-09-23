@@ -357,6 +357,7 @@ Recent decisions affecting current work:
 | 260922-clear-local     | Clear terminal local queue rows after server history clear             | 2026-09-22 | 7de7744c3    | [260922-clear-local-download-history](./quick/260922-clear-local-download-history/)                                 |
 | 260923-resume-expiry   | Preserve sessions on expired resume and show restart feedback          | 2026-09-23 | 357eb4e58    | [260923-resume-expiry-feedback](./quick/260923-resume-expiry-feedback/)                                             |
 | 260923-history-flicker | Prevent per-file queue changes from reloading history                  | 2026-09-23 | 7bebbfd77    | [260923-history-refresh-flicker](./quick/260923-history-refresh-flicker/)                                           |
+| 260923-ikx             | Add a per-file enhanced-download retry action                          | 2026-09-23 | d7b7246e9    | [260923-ikx-add-a-per-file-enhanced-download-retry-a](./quick/260923-ikx-add-a-per-file-enhanced-download-retry-a/) |
 
 ## Deferred Items
 
