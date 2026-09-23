@@ -356,7 +356,7 @@ Recent decisions affecting current work:
 | 260922-dlc-uat-ui      | Validate 40-file DLC UAT and simplify selection and history controls   | 2026-09-22 | a7c0b2bee    | [260922-dlc-download-uat-ui](./quick/260922-dlc-download-uat-ui/)                                                   |
 | 260922-clear-local     | Clear terminal local queue rows after server history clear             | 2026-09-22 | 7de7744c3    | [260922-clear-local-download-history](./quick/260922-clear-local-download-history/)                                 |
 | 260923-resume-expiry   | Preserve sessions on expired resume and show restart feedback          | 2026-09-23 | 357eb4e58    | [260923-resume-expiry-feedback](./quick/260923-resume-expiry-feedback/)                                             |
-| 260923-history-flicker | Prevent per-file queue changes from reloading history                  | 2026-09-23 | pending      | [260923-history-refresh-flicker](./quick/260923-history-refresh-flicker/)                                           |
+| 260923-history-flicker | Prevent per-file queue changes from reloading history                  | 2026-09-23 | 7bebbfd77    | [260923-history-refresh-flicker](./quick/260923-history-refresh-flicker/)                                           |
 
 ## Deferred Items
 
