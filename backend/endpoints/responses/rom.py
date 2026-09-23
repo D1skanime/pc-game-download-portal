@@ -436,7 +436,9 @@ class PcComponentSchema(BaseModel):
     updated_at: UTCDatetime | None = None
     relative_path: str
     kind: RomComponentKind
-    manifest_members: list[PcComponentManifestMemberSchema]
+    manifest_members: list[PcComponentManifestMemberSchema] = Field(
+        validation_alias="available_manifest_members"
+    )
     component_metadata: PcComponentMetadataSchema | None = None
     local_media: list[PcComponentLocalMediaSchema] = Field(default_factory=list)
     owned_media: list[PcComponentOwnedMediaSchema] = Field(default_factory=list)

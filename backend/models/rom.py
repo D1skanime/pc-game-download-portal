@@ -284,6 +284,12 @@ class RomComponent(BaseModel):
         order_by="RomComponentNote.updated_at.desc()",
     )
 
+    @property
+    def available_manifest_members(self) -> list[RomComponentManifestMember]:
+        return [
+            member for member in self.manifest_members if not member.missing_from_fs
+        ]
+
 
 class RomComponentManifestMember(BaseModel):
     __tablename__ = "rom_component_manifest_members"
@@ -310,6 +316,7 @@ class RomComponentManifestMember(BaseModel):
     )
     size_bytes: Mapped[int] = mapped_column(BigInteger(), nullable=False)
     sha256: Mapped[str] = mapped_column(String(length=64), nullable=False)
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     component: Mapped[RomComponent] = relationship(back_populates="manifest_members")
 

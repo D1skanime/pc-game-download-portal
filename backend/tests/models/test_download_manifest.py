@@ -6,6 +6,7 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 from tests.conftest import session
 
+from handler.database import db_rom_handler
 from models.base import BaseModel
 from models.download_manifest import (
     DownloadManifest,
@@ -113,6 +114,76 @@ def test_manifest_persists_owner_scoped_path_free_immutable_selection(admin_user
     }
     forbidden = {"fs_path", "fs_name", "container_path", "source_root", "source_path"}
     assert persisted_columns.isdisjoint(forbidden)
+
+
+def test_rescan_keeps_manifest_referenced_missing_members_out_of_current_catalog(
+    admin_user, rom
+):
+    """A deleted source file must not make a later PC scan fail."""
+    initial = db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="base",
+                kind=RomComponentKind.BASE,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="base/removed.iso",
+                        size_bytes=4,
+                        sha256="a" * 64,
+                    )
+                ],
+            )
+        ],
+    )
+    component = initial[0]
+    removed = component.manifest_members[0]
+    manifest = DownloadManifest(
+        user_id=admin_user.id,
+        rom_id=rom.id,
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+    selected_component = DownloadManifestComponent(
+        manifest=manifest,
+        component=component,
+    )
+    selected_member = DownloadManifestMember(
+        component=selected_component,
+        manifest_member=removed,
+        destination="Cyberpunk2077/base/removed.iso",
+        size_bytes=4,
+        sha256="a" * 64,
+        snapshot='"manifest-v1"',
+        mtime_ns=1,
+        device=None,
+        inode=None,
+    )
+    with session.begin() as db:
+        db.add(selected_member)
+
+    rescanned = db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="base",
+                kind=RomComponentKind.BASE,
+                manifest_members=[
+                    RomComponentManifestMember(
+                        relative_path="base/current.iso",
+                        size_bytes=8,
+                        sha256="b" * 64,
+                    )
+                ],
+            )
+        ],
+    )
+
+    by_path = {member.relative_path: member for member in rescanned[0].manifest_members}
+    assert by_path["base/current.iso"].missing_from_fs is False
+    assert by_path["base/removed.iso"].missing_from_fs is True
+    assert [
+        member.relative_path for member in rescanned[0].available_manifest_members
+    ] == ["base/current.iso"]
 
 
 def test_manifest_member_allows_portable_nullable_device_and_inode(admin_user, rom):

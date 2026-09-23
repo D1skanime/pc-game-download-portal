@@ -49,6 +49,7 @@ from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
 from models.collection import Collection, CollectionRom, SmartCollection
+from models.download_manifest import DownloadManifestMember
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
@@ -2748,15 +2749,30 @@ class DBRomsHandler(DBBaseHandler):
                             sha256=scanned_member.sha256,
                         )
                     )
-                elif (
-                    member.size_bytes != scanned_member.size_bytes
-                    or member.sha256 != scanned_member.sha256
-                ):
-                    member.size_bytes = scanned_member.size_bytes
-                    member.sha256 = scanned_member.sha256
+                else:
+                    member.missing_from_fs = False
+                    if (
+                        member.size_bytes != scanned_member.size_bytes
+                        or member.sha256 != scanned_member.sha256
+                    ):
+                        member.size_bytes = scanned_member.size_bytes
+                        member.sha256 = scanned_member.sha256
 
-            for member in unmatched_members.values():
-                session.delete(member)
+            missing_members = list(unmatched_members.values())
+            referenced_member_ids = set(
+                session.scalars(
+                    select(DownloadManifestMember.manifest_member_id).where(
+                        DownloadManifestMember.manifest_member_id.in_(
+                            member.id for member in missing_members
+                        )
+                    )
+                )
+            )
+            for member in missing_members:
+                if member.id in referenced_member_ids:
+                    member.missing_from_fs = True
+                else:
+                    session.delete(member)
             saved.append(component)
 
         for component in unmatched.values():
