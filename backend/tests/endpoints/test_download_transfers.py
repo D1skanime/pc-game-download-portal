@@ -109,6 +109,26 @@ def test_standard_transfer_response_does_not_claim_local_storage(
     )
 
 
+def test_cancelling_an_active_transfer_returns_the_cancelled_session(
+    client, access_token, manifest
+):
+    headers = _headers(access_token)
+    created = client.post(
+        "/api/download-transfer-sessions",
+        headers=headers,
+        json={"manifest_id": manifest.id, "mode": "standard"},
+    )
+    assert created.status_code == status.HTTP_201_CREATED
+
+    cancelled = client.post(
+        f"/api/download-transfer-sessions/{created.json()['id']}/cancel",
+        headers=headers,
+    )
+
+    assert cancelled.status_code == status.HTTP_200_OK
+    assert cancelled.json()["status"] == "cancelled"
+
+
 def test_transfer_history_supports_owner_scoped_rom_and_manifest_filters(
     client, access_token, manifest, rom
 ):

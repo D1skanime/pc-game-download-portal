@@ -601,29 +601,6 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         return item
 
     @begin_session
-    def cancel_session(self, transfer_id: str, user_id: int, session: Session = None) -> None:  # type: ignore
-        transfer = session.scalar(
-            select(DownloadTransferSession)
-            .where(
-                DownloadTransferSession.id == transfer_id,
-                DownloadTransferSession.user_id == user_id,
-            )
-            .with_for_update()
-        )
-        if transfer is None:
-            raise ValueError("session not found")
-        if transfer.status in _TERMINAL_SESSIONS:
-            return
-        transfer.status = DownloadTransferSessionStatus.CANCELLED
-        now = datetime.now(UTC)
-        transfer.last_activity_at = now
-        for item in transfer.items:
-            if item.status not in _TERMINAL_ITEMS:
-                item.status = DownloadTransferItemStatus.CANCELLED
-                item.ended_at = now
-        self._reconcile_locked(transfer, now)
-
-    @begin_session
     def mark_stale(
         self,
         transfer_id: str,

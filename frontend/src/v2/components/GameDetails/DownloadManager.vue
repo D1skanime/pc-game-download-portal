@@ -34,6 +34,19 @@ const sessions = ref<DownloadTransferResponse[]>([]);
 const loading = ref(false);
 const error = ref(false);
 let requestVersion = 0;
+let standardRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+function scheduleStandardRefresh(session: DownloadTransferResponse) {
+  if (standardRefreshTimer !== undefined) {
+    clearTimeout(standardRefreshTimer);
+    standardRefreshTimer = undefined;
+  }
+  if (session.mode !== "standard" || session.status !== "active") return;
+  standardRefreshTimer = setTimeout(() => {
+    standardRefreshTimer = undefined;
+    void hydrate();
+  }, 1_000);
+}
 
 function upsertSession(
   values: DownloadTransferResponse[],
@@ -70,6 +83,16 @@ async function hydrate() {
           current.data.manifest_id === props.selectedManifestId)
       ) {
         sessions.value = upsertSession(sessions.value, current.data);
+        scheduleStandardRefresh(current.data);
+        if (
+          current.data.mode === "standard" &&
+          current.data.status !== "active"
+        ) {
+          emit(
+            "clear-terminal",
+            current.data.items.map((item) => item.manifest_member_id),
+          );
+        }
       }
     }
   } catch {
@@ -151,6 +174,7 @@ watch(() => [props.romId, props.selectedManifestId, props.sessionId], hydrate, {
 });
 onBeforeUnmount(() => {
   requestVersion += 1;
+  if (standardRefreshTimer !== undefined) clearTimeout(standardRefreshTimer);
 });
 </script>
 <template>

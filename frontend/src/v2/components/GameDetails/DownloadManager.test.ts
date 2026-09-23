@@ -110,6 +110,42 @@ describe("DownloadManager", () => {
     expect(list).not.toHaveBeenCalled();
   });
 
+  it("refreshes an active standard session until the server marks it terminal", async () => {
+    vi.useFakeTimers();
+    const active = transfer("session-a", 7, "handed_to_browser");
+    const served = transfer("session-a", 7, "served");
+    served.status = "completed";
+    get.mockResolvedValueOnce({ data: active }).mockResolvedValueOnce({
+      data: served,
+    });
+
+    const wrapper = mount(DownloadManager, {
+      props: {
+        romId: 7,
+        sessionId: "session-a",
+        items: [
+          {
+            file_id: "member-a",
+            destination: "game/file.zip",
+            size: 1024,
+            sha256: "a".repeat(64),
+            snapshot: "snapshot",
+            download: "https://example.invalid/download",
+            status: "handed_to_browser" as const,
+          },
+        ],
+      },
+    });
+
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(wrapper.emitted("clear-terminal")).toEqual([[["member-a"]]]);
+    await wrapper.setProps({ items: [] });
+    expect(wrapper.text()).toContain("rom.download-served");
+    vi.useRealTimers();
+  });
+
   it("ignores a response for the previous ROM after selection changes", async () => {
     let resolveFirst!: (value: { data: unknown[] }) => void;
     let resolveSecond!: (value: { data: unknown[] }) => void;
