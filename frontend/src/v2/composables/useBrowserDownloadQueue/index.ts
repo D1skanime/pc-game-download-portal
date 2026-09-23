@@ -513,9 +513,6 @@ export function useBrowserDownloadQueue() {
     if (!root) return false;
     const previous = await downloadTransfersApi.get(transferId);
     if (previous.data.mode !== "enhanced") return false;
-    if (previous.data.status === "active") {
-      await downloadTransfersApi.cancel(transferId);
-    }
     const manifest = await api.get<DownloadManifestResponse>(
       `/download-manifests/${previous.data.manifest_id}`,
     );
@@ -526,6 +523,9 @@ export function useBrowserDownloadQueue() {
       mode: "enhanced",
       ...(manifestMemberId ? { member_ids: [manifestMemberId] } : {}),
     });
+    if (previous.data.status === "active") {
+      await downloadTransfersApi.cancel(transferId);
+    }
     enhancedRoot = root;
     sessionId.value = session.data.id;
     const members = manifest.data.members.filter(

@@ -8,17 +8,33 @@ import {
   validateEnhancedResponse,
 } from ".";
 
-const { getConfig, createSession, observe } = vi.hoisted(() => ({
+const {
+  getConfig,
+  createSession,
+  observe,
+  getSession,
+  cancelSession,
+  getManifest,
+} = vi.hoisted(() => ({
   getConfig: vi.fn(),
   createSession: vi.fn(),
   observe: vi.fn(),
+  getSession: vi.fn(),
+  cancelSession: vi.fn(),
+  getManifest: vi.fn(),
 }));
 
+vi.mock("@/services/api", () => ({ default: { get: getManifest } }));
 vi.mock("@/services/api/config", () => ({
   default: { getBrowserDownloadQueueConfig: getConfig },
 }));
 vi.mock("@/services/api/downloadTransfers", () => ({
-  default: { create: createSession, observe },
+  default: {
+    create: createSession,
+    observe,
+    get: getSession,
+    cancel: cancelSession,
+  },
 }));
 
 const manifest = {
@@ -81,6 +97,9 @@ describe("useBrowserDownloadQueue standard mode", () => {
     getConfig.mockReset();
     createSession.mockReset();
     observe.mockReset();
+    getSession.mockReset();
+    cancelSession.mockReset();
+    getManifest.mockReset();
     getConfig.mockResolvedValue({
       data: { browser_download_queue_concurrency: 2 },
     });
@@ -133,5 +152,27 @@ describe("useBrowserDownloadQueue standard mode", () => {
 
     expect(queue.items.value).toEqual([]);
     expect(queue.sessionId.value).toBeNull();
+  });
+
+  it("keeps the previous session untouched when its manifest has expired", async () => {
+    const picker = vi.fn().mockResolvedValue({
+      queryPermission: vi.fn().mockResolvedValue("granted"),
+      requestPermission: vi.fn(),
+    });
+    Object.assign(window, { showDirectoryPicker: picker });
+    getSession.mockResolvedValue({
+      data: { mode: "enhanced", status: "active" },
+    });
+    getManifest.mockRejectedValue(new Error("manifest_expired"));
+
+    const queue = useBrowserDownloadQueue();
+
+    await expect(
+      queue.resumeSession("previous-session", "member-a"),
+    ).rejects.toThrow("manifest_expired");
+    expect(cancelSession).not.toHaveBeenCalled();
+
+    delete (window as Window & { showDirectoryPicker?: unknown })
+      .showDirectoryPicker;
   });
 });

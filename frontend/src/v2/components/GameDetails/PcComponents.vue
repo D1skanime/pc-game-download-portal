@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RBtn, RCollapsible, REmptyState, RTag } from "@v2/lib";
+import { isAxiosError } from "axios";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -12,6 +13,7 @@ import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { PcMatchableComponentKind } from "@/v2/components/MatchRom/types";
 import { useBrowserDownloadQueue } from "@/v2/composables/useBrowserDownloadQueue";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import DownloadManager from "./DownloadManager.vue";
 import DownloadSelectionDialog, {
   type DownloadArchiveSet,
@@ -26,6 +28,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ (event: "applied"): void }>();
 const { t } = useI18n();
+const snackbar = useSnackbar();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const showDownload = ref(false);
@@ -90,6 +93,23 @@ async function startDownload(payload: {
   }
 }
 
+async function resumeDownload(transferId: string, memberId?: string) {
+  try {
+    await queue.resumeSession(transferId, memberId);
+  } catch (error) {
+    console.error("[PcComponents] Could not resume download", error);
+    const expired =
+      isAxiosError(error) &&
+      (error.response?.status === 410 ||
+        error.response?.data?.detail?.code === "manifest_expired");
+    snackbar.error(
+      expired
+        ? t("rom.download-expired")
+        : t("rom.download-failed-description"),
+    );
+  }
+}
+
 const COMPONENT_LABELS: Record<PcComponentSchema["kind"], string> = {
   base: "rom.pc-base-game",
   update: "rom.pc-updates",
@@ -149,7 +169,7 @@ const groupedComponents = computed(() =>
       @pause="queue.pause"
       @cancel="queue.cancel"
       @resume="queue.resume"
-      @resume-session="queue.resumeSession"
+      @resume-session="resumeDownload"
       @clear-terminal="queue.clearTerminal"
     />
 

@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import mitt from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PcComponentSchema } from "@/__generated__";
@@ -9,7 +9,28 @@ vi.mock("@/services/api", () => ({
   default: { post: vi.fn() },
 }));
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+const { push, resumeSession, snackbarError } = vi.hoisted(() => ({
+  push: vi.fn(),
+  resumeSession: vi.fn(),
+  snackbarError: vi.fn(),
+}));
+
+vi.mock("@/v2/composables/useBrowserDownloadQueue", () => ({
+  isEnhancedDownloadSupported: () => false,
+  useBrowserDownloadQueue: () => ({
+    items: { value: [] },
+    sessionId: { value: null },
+    pause: vi.fn(),
+    cancel: vi.fn(),
+    clearTerminal: vi.fn(),
+    resume: vi.fn(),
+    resumeSession,
+  }),
+}));
+
+vi.mock("@/v2/composables/useSnackbar", () => ({
+  useSnackbar: () => ({ error: snackbarError }),
+}));
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -28,6 +49,9 @@ vi.mock("vue-i18n", () => ({
         "rom.pc-language-packs": "Language packs",
         "rom.pc-extras": "Extras",
         "rom.pc-needs-classification": "Needs classification",
+        "rom.download-expired":
+          "This download has expired. Start a new download.",
+        "rom.download-failed-description": "Download failed.",
       })[key] ?? key,
   }),
 }));
@@ -60,7 +84,11 @@ const componentGroups = [
 ] satisfies PcComponentSchema[];
 
 describe("PcComponents", () => {
-  beforeEach(() => push.mockReset());
+  beforeEach(() => {
+    push.mockReset();
+    resumeSession.mockReset();
+    snackbarError.mockReset();
+  });
 
   it("uses the main game label instead of the technical base folder name", () => {
     const wrapper = mount(PcComponents, {
@@ -185,6 +213,32 @@ describe("PcComponents", () => {
 
     expect(wrapper.get("[data-testid='download-manager-rom']").text()).toBe(
       "99",
+    );
+  });
+
+  it("explains that an expired manifest cannot be resumed", async () => {
+    resumeSession.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 410, data: { detail: { code: "manifest_expired" } } },
+    });
+    const wrapper = mount(PcComponents, {
+      props: { components: [], romId: 1 },
+      global: {
+        stubs: {
+          DownloadManager: {
+            emits: ["resume-session"],
+            template:
+              "<button data-testid=\"resume-session\" @click=\"$emit('resume-session', 'session', 'member')\">Resume</button>",
+          },
+        },
+      },
+    });
+
+    await wrapper.get("[data-testid='resume-session']").trigger("click");
+    await flushPromises();
+
+    expect(snackbarError).toHaveBeenCalledWith(
+      "This download has expired. Start a new download.",
     );
   });
 });
