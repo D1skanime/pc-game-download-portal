@@ -17,6 +17,7 @@ vi.mock("vue-i18n", () => ({
         "rom.download-verified": "Verified",
         "rom.download-cancel": "Cancel download",
         "rom.download-remove-entry": "Delete download entry",
+        "rom.download-resume": "Resume download",
       })[key] ?? key,
   }),
 }));
@@ -175,6 +176,26 @@ describe("DownloadTransferHistory", () => {
       ?.trigger("click");
 
     expect(wrapper.emitted("remove-item")).toEqual([["opaque-served", 42]]);
+  });
+
+  it("offers retry for a failed enhanced member in a completed partial session", async () => {
+    const partial = session("failed");
+    partial.mode = "enhanced";
+    partial.status = "completed";
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [partial] },
+    });
+
+    const retry = wrapper
+      .findAll("li button")
+      .find((button) => button.text() === "Resume download");
+    expect(retry).toBeDefined();
+
+    await retry?.trigger("click");
+
+    expect(wrapper.emitted("resume-session")).toEqual([
+      ["opaque-failed", "member-failed"],
+    ]);
   });
 
   it("shows only the newest attempt when a file has repeated sessions", () => {

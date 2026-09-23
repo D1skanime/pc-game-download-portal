@@ -266,8 +266,23 @@ function hasLiveMember(memberId: string | null) {
             </button>
             <button
               v-if="
+                row.mode === 'enhanced' &&
+                row.status === 'failed' &&
+                row.manifestMemberId &&
+                !hasLiveMember(row.manifestMemberId)
+              "
+              type="button"
+              :aria-label="t('rom.download-resume')"
+              @click="
+                emit('resume-session', row.sessionId, row.manifestMemberId)
+              "
+            >
+              {{ t("rom.download-resume") }}
+            </button>
+            <button
+              v-if="
                 row.sessionStatus === 'active' &&
-                ['failed', 'queued', 'paused'].includes(row.status) &&
+                ['queued', 'paused'].includes(row.status) &&
                 !hasLiveMember(row.manifestMemberId)
               "
               type="button"
