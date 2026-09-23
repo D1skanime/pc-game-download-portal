@@ -4,6 +4,7 @@ import {
   getEnhancedDirectoryPicker,
   getAttributedDownloadUrl,
   isEnhancedDownloadSupported,
+  createEnhancedInactivityTimeout,
   useBrowserDownloadQueue,
   validateEnhancedResponse,
 } from ".";
@@ -53,6 +54,22 @@ const manifest = {
 } satisfies DownloadManifestResponse;
 
 describe("enhanced browser download protocol", () => {
+  it("times out only after an uninterrupted period without activity", () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    const timeout = createEnhancedInactivityTimeout(onTimeout);
+
+    vi.advanceTimersByTime(29_999);
+    timeout.refresh();
+    vi.advanceTimersByTime(29_999);
+    expect(onTimeout).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+
+    timeout.clear();
+    vi.useRealTimers();
+  });
+
   it("binds member URLs to the owning transfer item", () => {
     expect(
       getAttributedDownloadUrl("/download?existing=true", "session/a", 7),

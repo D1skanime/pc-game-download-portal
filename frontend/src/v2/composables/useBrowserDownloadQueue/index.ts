@@ -10,6 +10,27 @@ import { getBrowserDownloadQueueConcurrency } from "./config";
 /** A blocked FSA prompt/write must not hold the queue forever. */
 export const ENHANCED_MEMBER_TIMEOUT_MS = 30_000;
 
+/**
+ * A member may take longer than the watchdog while it is actively streaming
+ * or hashing. Only an uninterrupted idle interval is a failed transfer.
+ */
+export function createEnhancedInactivityTimeout(onTimeout: () => void) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const refresh = () => {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+    timeoutId = setTimeout(onTimeout, ENHANCED_MEMBER_TIMEOUT_MS);
+  };
+
+  refresh();
+  return {
+    refresh,
+    clear: () => {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      timeoutId = undefined;
+    },
+  };
+}
+
 type DirectoryPicker = (options?: {
   mode?: "readwrite";
 }) => Promise<FileSystemDirectoryHandle>;
@@ -142,6 +163,7 @@ function createHasher() {
 async function hashExisting(
   file: File,
   hasher: ReturnType<typeof createHasher>,
+  onActivity: () => void = () => undefined,
 ) {
   await hasher.reset();
   const reader = file.stream().getReader();
@@ -150,6 +172,7 @@ async function hashExisting(
       const next = await reader.read();
       if (next.done) break;
       await hasher.update(next.value);
+      onActivity();
     }
   } finally {
     reader.releaseLock();
@@ -211,6 +234,7 @@ async function enhancedMember(
   signal: AbortSignal,
   abortReason: () => "pause" | "cancel" | null,
   onProgress: (bytes: number) => void,
+  onActivity: () => void,
 ) {
   const { file, existing } = await openDestination(
     root,
@@ -223,8 +247,9 @@ async function enhancedMember(
   const hasher = createHasher();
   let writable: FileSystemWritableFileStream | null = null;
   try {
+    onActivity();
     await hasher.reset();
-    if (offset) await hashExisting(existing, hasher);
+    if (offset) await hashExisting(existing, hasher, onActivity);
     if (offset === member.size) {
       const digest = await hasher.digest();
       if (digest.toLowerCase() !== member.sha256.toLowerCase()) {
@@ -247,6 +272,7 @@ async function enhancedMember(
     writable = await file.createWritable({
       keepExistingData: offset > 0,
     });
+    onActivity();
     if (offset) await writable.seek(offset);
     if (!response.body) throw new Error("missing_response_body");
     const reader = response.body.getReader();
@@ -261,6 +287,7 @@ async function enhancedMember(
       observed += next.value.byteLength;
       onProgress(observed);
       await hasher.update(next.value);
+      onActivity();
     }
     await writable.close();
     writable = null;
@@ -420,7 +447,10 @@ export function useBrowserDownloadQueue() {
       reason: "pause" | "cancel" | "timeout" | null;
     };
     operations.set(item.file_id, operation);
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = createEnhancedInactivityTimeout(() => {
+      operation.reason = "timeout";
+      operation.controller.abort();
+    });
     try {
       await downloadTransfersApi.observe(transferId, item.transferItemId, {
         event_type: wasPaused ? "resume" : "progress",
@@ -445,15 +475,9 @@ export function useBrowserDownloadQueue() {
         (bytes) => {
           item.observedBytes = bytes;
         },
+        timeout.refresh,
       );
-      const timeout = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          operation.reason = "timeout";
-          operation.controller.abort();
-          reject(new Error("enhanced_download_timeout"));
-        }, ENHANCED_MEMBER_TIMEOUT_MS);
-      });
-      await Promise.race([transfer, timeout]);
+      await transfer;
       await downloadTransfersApi.observe(transferId, item.transferItemId, {
         event_type: "verified",
         observed_bytes: item.size,
@@ -494,7 +518,7 @@ export function useBrowserDownloadQueue() {
         item.status = "failed";
       }
     } finally {
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      timeout.clear();
       operations.delete(item.file_id);
     }
   }
