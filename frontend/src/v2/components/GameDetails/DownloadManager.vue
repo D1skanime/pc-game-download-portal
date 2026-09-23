@@ -146,16 +146,9 @@ function resumeSession(sessionId: string, memberId?: string) {
   emit("resume-session", sessionId, memberId);
 }
 
-watch(
-  () => [
-    props.romId,
-    props.selectedManifestId,
-    props.sessionId,
-    props.items.map((item) => `${item.file_id}:${item.status}`).join(","),
-  ],
-  hydrate,
-  { immediate: true },
-);
+watch(() => [props.romId, props.selectedManifestId, props.sessionId], hydrate, {
+  immediate: true,
+});
 onBeforeUnmount(() => {
   requestVersion += 1;
 });

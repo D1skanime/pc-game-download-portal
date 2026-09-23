@@ -87,6 +87,29 @@ describe("DownloadManager", () => {
     );
   });
 
+  it("does not reload history when a live queue row changes status", async () => {
+    const item = {
+      file_id: "member-a",
+      destination: "game/file.zip",
+      size: 1024,
+      sha256: "a".repeat(64),
+      snapshot: "snapshot",
+      download: "https://example.invalid/download",
+      status: "queued" as const,
+    };
+    const wrapper = mount(DownloadManager, {
+      props: { romId: 7, items: [item] },
+    });
+
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    list.mockClear();
+    await wrapper.setProps({
+      items: [{ ...item, status: "downloading" as const }],
+    });
+
+    expect(list).not.toHaveBeenCalled();
+  });
+
   it("ignores a response for the previous ROM after selection changes", async () => {
     let resolveFirst!: (value: { data: unknown[] }) => void;
     let resolveSecond!: (value: { data: unknown[] }) => void;
