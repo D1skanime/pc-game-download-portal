@@ -55,10 +55,10 @@ result and never abort IGDB, MobyGames, LaunchBox, or SteamGridDB processing.
 
 ## Data model and API contract
 
-Main games follow upstream's established `Rom.steam_id` and
-`Rom.steam_metadata` contract. A migration adds equivalent nullable
-`steam_id` and JSON `steam_metadata` fields to `RomComponentMetadata`, along
-with response-schema serialization where component metadata is exposed.
+The current fork has not yet adopted upstream's established `Rom.steam_id` and
+`Rom.steam_metadata` contract. One migration therefore adds nullable `steam_id`
+and JSON `steam_metadata` fields to both `Rom` and `RomComponentMetadata`,
+along with response-schema serialization where each model is exposed.
 
 `steam_metadata` retains the normalized upstream Steam metadata shape and may
 hold language provenance needed to make refresh behavior observable. Provenance
