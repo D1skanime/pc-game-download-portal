@@ -11,7 +11,7 @@ from endpoints.responses.download_transfer import (
     DownloadTransferResponse,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import db_download_manifest_handler, db_download_transfer_handler
 from models.download_transfer import DownloadTransferMode
 from utils.router import APIRouter
@@ -117,10 +117,15 @@ async def list_download_transfers(
     rom_id: Annotated[int | None, Query(gt=0)] = None,
     manifest_id: Annotated[str | None, Query(pattern=r"^[0-9a-f-]{36}$")] = None,
 ) -> list[DownloadTransferResponse]:
+    permissions = get_permissions(request)
     return [
         _serialize(item)
         for item in db_download_transfer_handler.get_sessions(
-            request.user.id, rom_id=rom_id, manifest_id=manifest_id
+            request.user.id,
+            rom_id=rom_id,
+            manifest_id=manifest_id,
+            hidden_platform_ids=permissions.hidden_platform_ids,
+            hidden_rom_ids=permissions.hidden_rom_ids,
         )
     ]
 

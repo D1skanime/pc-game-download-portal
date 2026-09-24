@@ -15,6 +15,7 @@ from models.download_transfer import (
     DownloadTransferSessionResult,
     DownloadTransferSessionStatus,
 )
+from models.rom import Rom
 
 from .base_handler import DBBaseHandler
 
@@ -295,6 +296,8 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         limit: int = 50,
         rom_id: int | None = None,
         manifest_id: str | None = None,
+        hidden_platform_ids: Sequence[int] | None = None,
+        hidden_rom_ids: Sequence[int] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[DownloadTransferSession]:
         stmt = select(DownloadTransferSession).where(
@@ -304,6 +307,10 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             stmt = stmt.where(DownloadTransferSession.rom_id == rom_id)
         if manifest_id is not None:
             stmt = stmt.where(DownloadTransferSession.manifest_id == manifest_id)
+        if hidden_platform_ids:
+            stmt = stmt.join(Rom).where(Rom.platform_id.not_in(hidden_platform_ids))
+        if hidden_rom_ids:
+            stmt = stmt.where(DownloadTransferSession.rom_id.not_in(hidden_rom_ids))
         return session.scalars(
             stmt.order_by(DownloadTransferSession.started_at.desc()).limit(
                 min(max(limit, 1), 100)

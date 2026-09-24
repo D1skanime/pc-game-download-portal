@@ -160,6 +160,23 @@ def test_get_sessions_applies_owner_scoped_rom_and_manifest_filters(
     assert handler.get_sessions(admin_user.id, manifest_id="0" * 36) == []
 
 
+def test_get_sessions_excludes_currently_hidden_roms_and_platforms(
+    admin_user, manifest, rom
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.STANDARD
+    )
+
+    assert handler.get_sessions(admin_user.id, hidden_rom_ids=[rom.id]) == []
+    assert (
+        handler.get_sessions(admin_user.id, hidden_platform_ids=[rom.platform_id]) == []
+    )
+    assert [
+        session.id for session in handler.get_sessions(admin_user.id, hidden_rom_ids=[])
+    ] == [transfer.id]
+
+
 def test_standard_cannot_claim_verified_and_enhanced_can_verify_only_digest_match(
     admin_user, manifest
 ):
