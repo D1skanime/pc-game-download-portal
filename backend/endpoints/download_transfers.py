@@ -155,7 +155,8 @@ async def delete_download_transfer(request: Request, transfer_id: str) -> None:
         )
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "invalid_transition", "message": str(exc)},
         ) from exc
     if not deleted:
         _not_found()
@@ -176,7 +177,8 @@ async def delete_download_transfer_item(
         )
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "invalid_transition", "message": str(exc)},
         ) from exc
     if not deleted:
         _not_found()
@@ -220,7 +222,8 @@ async def append_download_transfer_event(
         )
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "invalid_transition", "message": str(exc)},
         ) from exc
     return DownloadTransferEventResponse(
         ordinal=event.ordinal,
