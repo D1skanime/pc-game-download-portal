@@ -11,6 +11,31 @@ Phase 18 completes the browser download lifecycle introduced in Phase 17. It doe
 - Original members are streamed directly. There is no server ZIP, split, extraction, assembly, launcher, desktop-client, or installer scope.
 - Standard attachment handoff and enhanced File System Access transfers remain separate modes with separate truth claims.
 
+## Classic RomM Compatibility Boundary
+
+Phase 18 is additive to original RomM behavior. The existing classic route
+`/api/roms/{id}/content/{file_name}` remains the authority for normal ROM
+downloads, including single-file selection, multi-file selection, and the
+existing ZIP and M3U behavior. `getDownloadPath()` continues to construct that
+route. It is never removed, redirected to a manifest, or made to require a PC
+component, archive set, enhanced browser capability, or transfer session.
+
+The existing EmulatorJS and Ruffle routes remain independent playback flows.
+Their content lookup continues to use the classic download path. Save states,
+saves, achievements, patcher, metadata, collections, favorites, visibility,
+and permissions remain outside the PC transfer-session reducer and must retain
+their current contracts.
+
+PC download capabilities are an explicit overlay: PC Components, archive sets,
+immutable manifests, enhanced transfers, and transfer history appear only
+through the PC game-detail flow. The frontend PC boundary is currently
+`dos`, `win`, `win3x`, and `win9x`; Phase 18 verifies that this set gates the
+tab and that no non-PC detail page invokes PC-specific manifest or archive-set
+behavior. Backend archive-set and manifest endpoints may remain generic for
+their existing authorization and data-model roles, but no new caller may route
+classic ROM downloads through them. Archive sets never infer or replace
+classic multi-file or multi-disc membership.
+
 ## Current-Code Findings
 
 The current code already has `DownloadTransferSession`, item, and append-only event records; a locked item reducer; a terminal session reducer; exact enhanced SHA-256 observation validation; explicit `pause` and `cancel` abort intent; direct-member attribution; and server-only `mark_served()` on an unranged, fully consumed response. These capabilities are retained.
@@ -62,6 +87,15 @@ Every list, get, mutate, dismiss, retry, attributed stream, and archive-set oper
 ## Verification Strategy
 
 Backend tests cover every allowed and denied transition, byte/hash validation, session reduction, terminal expiry preservation, retry lineage, current visibility, `served`, stale mapping, and no sensitive fields. Frontend tests cover the abort-reason regression, pause/resume, queued cancellation, restart, partial resume, throttling, archive-set fetch states, state-specific history actions, and truthful standard-mode vocabulary.
+
+Compatibility regression coverage contains a representative non-PC single-file
+ROM and a classic multi-file or M3U fixture. It asserts the detail page has no
+PC Components tab, classic downloads still use the content route, archive sets
+are never required, and existing ZIP/M3U selection semantics remain unchanged.
+EmulatorJS and, where a fixture is available, Ruffle retain their play button,
+launch route, and download separation. Existing visibility and permission
+tests remain part of the gate. A PC fixture separately proves that the PC tab,
+components, archive-set policy, manifest, and enhanced path are available.
 
 Browser evidence uses an isolated fixture only, never Team4s or a real NAS. It covers Chromium standard and enhanced flows, Firefox standard handoff/history, and Edge enhanced behavior when supported. It records unsupported capability cases honestly. Sparse fixtures test offsets and accounting above 4 GiB; multi-part fixtures test required and optional archive-set ordering and a single-part retry. Before-and-after source facts prove no mutation.
 
