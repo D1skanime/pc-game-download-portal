@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: executing
-stopped_at: Completed 17-09-PLAN.md
-last_updated: "2026-09-21T12:32:00Z"
-last_activity: 2026-09-21
+status: complete
+stopped_at: Phase 17 accepted after isolated Chromium UAT
+last_updated: "2026-09-24T00:00:00Z"
+last_activity: 2026-09-24
 progress:
   total_phases: 17
-  completed_phases: 14
+  completed_phases: 15
   total_plans: 150
   completed_plans: 144
-  percent: 82
+  percent: 88
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 17 — browser-download-manager
+**Current focus:** Milestone complete
 
 ## Current Position
 
-Phase: 17 (browser-download-manager) — EXECUTING
-Plan: 8 of 13
-Status: Ready to execute
-Last activity: 2026-09-21 - Completed quick task 260921-haf: Enhanced FSA Download Timeout and Queue Recovery
+Phase: 17 (browser-download-manager) — COMPLETE
+Plan: 13 of 13
+Status: Accepted after isolated Chromium UAT; Firefox and Edge waived by product decision
+Last activity: 2026-09-24 - Phase 17 browser download manager accepted
 
 ## Performance Metrics
 
