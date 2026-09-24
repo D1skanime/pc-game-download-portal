@@ -65,8 +65,9 @@ def test_owner_scoped_session_creation_copies_manifest_members(
         admin_user.id, manifest.id, DownloadTransferMode.STANDARD
     )
     assert transfer.user_id == admin_user.id
-    assert len(transfer.items) == len(manifest.members)
-    assert transfer.items[0].manifest_member_id == manifest.members[0].id
+    manifest_member = manifest.components[0].members[0]
+    assert len(transfer.items) == 1
+    assert transfer.items[0].manifest_member_id == manifest_member.id
     assert transfer.events == []
     assert all(
         item.status is DownloadTransferItemStatus.QUEUED for item in transfer.items
@@ -75,7 +76,7 @@ def test_owner_scoped_session_creation_copies_manifest_members(
 
 def test_session_creation_can_limit_transfer_to_manifest_members(admin_user, manifest):
     handler = DBDownloadTransfersHandler()
-    member_id = manifest.members[0].public_id
+    member_id = manifest.components[0].members[0].public_id
 
     transfer = handler.create_session(
         admin_user.id,
@@ -134,7 +135,7 @@ def test_foreign_owner_is_masked_and_events_are_append_only(
             "served",
             observed_bytes=item.expected_bytes,
         )
-    with pytest.raises(ValueError, match="monotonic"):
+    with pytest.raises(ValueError, match="standard transfers do not report progress"):
         handler.append_observation(
             transfer.id, admin_user.id, item.id, "progress", observed_bytes=1
         )
