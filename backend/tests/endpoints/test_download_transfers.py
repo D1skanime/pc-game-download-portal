@@ -11,6 +11,7 @@ from models.download_manifest import (
     DownloadManifestComponent,
     DownloadManifestMember,
 )
+from models.permission import HiddenEntity, PermEntity
 from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
 
 
@@ -106,6 +107,36 @@ def test_transfer_history_masks_foreign_owner(
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json() == {"detail": "Download transfer session not found"}
+
+
+def test_transfer_history_list_excludes_currently_hidden_rom(
+    client, viewer_access_token, viewer_user, manifest, rom
+):
+    with session.begin() as db:
+        saved_manifest = db.get(DownloadManifest, manifest.id)
+        assert saved_manifest is not None
+        saved_manifest.user_id = viewer_user.id
+
+    headers = _headers(viewer_access_token)
+    created = client.post(
+        "/api/download-transfer-sessions",
+        headers=headers,
+        json={"manifest_id": manifest.id, "mode": "standard"},
+    )
+    assert created.status_code == status.HTTP_201_CREATED
+
+    with session.begin() as db:
+        db.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS,
+                entity_id=rom.id,
+                user_id=viewer_user.id,
+            )
+        )
+
+    response = client.get("/api/download-transfer-sessions", headers=headers)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == []
 
 
 def test_transfer_payload_rejects_unknown_fields(client, access_token, manifest):
