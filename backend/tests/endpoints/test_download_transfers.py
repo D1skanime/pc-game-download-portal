@@ -5,6 +5,7 @@ from fastapi import status
 from tests.conftest import session
 
 from endpoints.download_transfers import _conflict
+from handler.database import db_download_manifest_handler
 from models.download_manifest import (
     DownloadManifest,
     DownloadManifestComponent,
@@ -49,6 +50,20 @@ def manifest(rom, admin_user):
 
 def _headers(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
+
+
+class _UnchangedManifestFilesystem:
+    def light_revalidate_download_manifest_member(self, *_args):
+        return "UNCHANGED_BY_LIGHT_CHECK"
+
+
+@pytest.fixture(autouse=True)
+def _manifest_filesystem(monkeypatch):
+    monkeypatch.setattr(
+        db_download_manifest_handler,
+        "_filesystem_handler",
+        _UnchangedManifestFilesystem(),
+    )
 
 
 def test_transfer_history_requires_authentication(client, manifest):
