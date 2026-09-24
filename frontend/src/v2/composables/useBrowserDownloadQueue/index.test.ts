@@ -171,6 +171,27 @@ describe("useBrowserDownloadQueue standard mode", () => {
     expect(queue.sessionId.value).toBeNull();
   });
 
+  it("journals cancellation of an item before it begins downloading", async () => {
+    const queue = useBrowserDownloadQueue();
+    queue.sessionId.value = "session-a";
+    queue.items.value = [
+      {
+        ...manifest.members[0],
+        transferItemId: 1,
+        observedBytes: 0,
+        status: "queued",
+      },
+    ];
+
+    await queue.cancel("a");
+
+    expect(queue.items.value[0].status).toBe("cancelled");
+    expect(observe).toHaveBeenCalledWith("session-a", 1, {
+      event_type: "cancel",
+      observed_bytes: 0,
+    });
+  });
+
   it("keeps the previous session untouched when its manifest has expired", async () => {
     const picker = vi.fn().mockResolvedValue({
       queryPermission: vi.fn().mockResolvedValue("granted"),

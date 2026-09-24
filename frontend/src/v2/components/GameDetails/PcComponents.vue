@@ -25,6 +25,7 @@ const props = defineProps<{
   components: PcComponentSchema[];
   romId: number;
   archiveSets?: DownloadArchiveSet[];
+  archiveSetsState?: "idle" | "loading" | "ready" | "error";
 }>();
 const emit = defineEmits<{ (event: "applied"): void }>();
 const { t } = useI18n();
@@ -65,6 +66,12 @@ async function startDownload(payload: {
   componentIds: number[];
   mode: "standard" | "enhanced";
 }) {
+  if (
+    props.archiveSetsState === "loading" ||
+    props.archiveSetsState === "error"
+  ) {
+    return;
+  }
   // The File System Access picker must be opened while the click activation is
   // still alive. Waiting for the manifest request first makes Chromium reject
   // the picker with NotAllowedError.
@@ -152,9 +159,14 @@ const groupedComponents = computed(() =>
       class="align-self-start"
       data-testid="download-components"
       prepend-icon="mdi-download"
+      :loading="archiveSetsState === 'loading'"
+      :disabled="archiveSetsState === 'error'"
       @click="showDownload = true"
       >{{ t("rom.download-game") }}</RBtn
     >
+    <p v-if="archiveSetsState === 'error'" class="pc-components__error">
+      {{ t("rom.download-failed-description") }}
+    </p>
     <DownloadSelectionDialog
       v-model="showDownload"
       :components="components"
@@ -249,6 +261,11 @@ const groupedComponents = computed(() =>
 .pc-components__heading {
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-semibold);
+}
+
+.pc-components__error {
+  margin: 0;
+  color: var(--r-color-danger);
 }
 
 .pc-components__group {

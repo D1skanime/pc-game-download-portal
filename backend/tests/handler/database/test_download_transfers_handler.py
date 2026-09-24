@@ -253,8 +253,26 @@ def test_reconciliation_completes_failed_session_with_failed_result(
     )
 
     saved = handler.get_session(transfer.id, admin_user.id)
-    assert saved.status is DownloadTransferSessionStatus.COMPLETED
+    assert saved.status is DownloadTransferSessionStatus.FAILED
     assert saved.result is DownloadTransferSessionResult.FAILED
+
+
+def test_reconciliation_marks_all_cancelled_items_as_cancelled_session(
+    admin_user, manifest
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.ENHANCED
+    )
+
+    for item in transfer.items:
+        handler.append_observation(
+            transfer.id, admin_user.id, item.id, "cancel", observed_bytes=0
+        )
+
+    saved = handler.get_session(transfer.id, admin_user.id)
+    assert saved.status is DownloadTransferSessionStatus.CANCELLED
+    assert saved.result is DownloadTransferSessionResult.CANCELLED
 
 
 def test_standard_progress_is_rejected_before_it_can_claim_activity(

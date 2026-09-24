@@ -23,6 +23,7 @@ from .base_handler import DBBaseHandler
 # completion event per member. Keep the history bounded, but allow the
 # supported 80-part (and larger) archives to finish without hitting the cap.
 _EVENT_LIMIT = 4096
+_TERMINAL_EVENT_RESERVE = 256
 _SESSION_RETENTION = timedelta(days=90)
 _CLEANUP_BATCH_LIMIT = 100
 _MAX_OBSERVED_BYTES = 2**63 - 1
@@ -61,47 +62,40 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 item.ended_at = now
         if any(item.status not in _TERMINAL_ITEMS for item in transfer.items):
             return
-        if transfer.status is DownloadTransferSessionStatus.STALE:
-            transfer.result = DownloadTransferSessionResult.FAILED
-        elif transfer.status is DownloadTransferSessionStatus.CANCELLED:
-            transfer.result = DownloadTransferSessionResult.CANCELLED
-        else:
+        statuses = {item.status for item in transfer.items}
+        successful_items = {
+            DownloadTransferItemStatus.SERVED,
+            DownloadTransferItemStatus.VERIFIED,
+        }
+        failed_items = {
+            DownloadTransferItemStatus.FAILED,
+            DownloadTransferItemStatus.STALE,
+        }
+
+        # The session is derived from its terminal items. A mixed result is a
+        # completed partial delivery, while an entirely failed or cancelled
+        # attempt retains the recovery-relevant terminal state.
+        if statuses <= successful_items:
             transfer.status = DownloadTransferSessionStatus.COMPLETED
-            successful = all(
-                item.status
-                in {
-                    DownloadTransferItemStatus.SERVED,
-                    DownloadTransferItemStatus.VERIFIED,
-                }
-                for item in transfer.items
-            )
-            failed = any(
-                item.status
-                in {
-                    DownloadTransferItemStatus.FAILED,
-                    DownloadTransferItemStatus.STALE,
-                }
-                for item in transfer.items
-            )
-            cancelled = any(
-                item.status is DownloadTransferItemStatus.CANCELLED
-                for item in transfer.items
-            )
-            if successful:
-                transfer.result = DownloadTransferSessionResult.SUCCESS
-            elif failed and any(
-                item.status
-                in {
-                    DownloadTransferItemStatus.SERVED,
-                    DownloadTransferItemStatus.VERIFIED,
-                }
-                for item in transfer.items
-            ):
-                transfer.result = DownloadTransferSessionResult.PARTIAL
-            elif cancelled and not failed:
-                transfer.result = DownloadTransferSessionResult.CANCELLED
-            else:
-                transfer.result = DownloadTransferSessionResult.FAILED
+            transfer.result = DownloadTransferSessionResult.SUCCESS
+        elif statuses == {DownloadTransferItemStatus.CANCELLED}:
+            transfer.status = DownloadTransferSessionStatus.CANCELLED
+            transfer.result = DownloadTransferSessionResult.CANCELLED
+        elif statuses == {DownloadTransferItemStatus.STALE}:
+            transfer.status = DownloadTransferSessionStatus.STALE
+            transfer.result = DownloadTransferSessionResult.FAILED
+        elif statuses <= failed_items:
+            transfer.status = DownloadTransferSessionStatus.FAILED
+            transfer.result = DownloadTransferSessionResult.FAILED
+        elif statuses & successful_items:
+            transfer.status = DownloadTransferSessionStatus.COMPLETED
+            transfer.result = DownloadTransferSessionResult.PARTIAL
+        elif statuses & failed_items:
+            transfer.status = DownloadTransferSessionStatus.FAILED
+            transfer.result = DownloadTransferSessionResult.FAILED
+        else:
+            transfer.status = DownloadTransferSessionStatus.CANCELLED
+            transfer.result = DownloadTransferSessionResult.CANCELLED
         if transfer.ended_at is None:
             transfer.ended_at = now
 
@@ -527,9 +521,34 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             )
             or 0
         )
+        now = datetime.now(UTC)
+        if (
+            event_type == "progress"
+            and ordinal >= _EVENT_LIMIT - _TERMINAL_EVENT_RESERVE
+        ):
+            latest_progress = session.scalar(
+                select(DownloadTransferEvent)
+                .where(
+                    DownloadTransferEvent.session_id == transfer_id,
+                    DownloadTransferEvent.item_id == item_id,
+                    DownloadTransferEvent.event_type == "progress",
+                )
+                .order_by(DownloadTransferEvent.ordinal.desc())
+                .limit(1)
+            )
+            if latest_progress is not None:
+                item.observed_bytes = observed_bytes
+                item.status = next_status
+                item.started_at = item.started_at or now
+                item.last_activity_at = now
+                latest_progress.observed_bytes = observed_bytes
+                latest_progress.occurred_at = now
+                transfer.last_activity_at = now
+                self._reconcile_locked(transfer, now)
+                session.flush()
+                return latest_progress
         if ordinal >= _EVENT_LIMIT:
             raise ValueError("event history is full")
-        now = datetime.now(UTC)
         item.observed_bytes = observed_bytes
         item.status = next_status
         item.started_at = item.started_at or now

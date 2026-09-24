@@ -9,6 +9,8 @@ import { getBrowserDownloadQueueConcurrency } from "./config";
 
 /** A blocked FSA prompt/write must not hold the queue forever. */
 export const ENHANCED_MEMBER_TIMEOUT_MS = 30_000;
+const PROGRESS_SYNC_INTERVAL_MS = 1_000;
+const PROGRESS_SYNC_INTERVAL_BYTES = 8 * 1024 * 1024;
 
 /**
  * A member may take longer than the watchdog while it is actively streaming
@@ -440,6 +442,7 @@ export function useBrowserDownloadQueue() {
     transferId: string,
   ) {
     if (item.transferItemId === undefined) return;
+    if (item.status === "cancelled") return;
     const wasPaused = item.status === "paused";
     item.status = "downloading";
     const operation = { controller: new AbortController(), reason: null } as {
@@ -447,6 +450,37 @@ export function useBrowserDownloadQueue() {
       reason: "pause" | "cancel" | "timeout" | null;
     };
     operations.set(item.file_id, operation);
+    let lastSyncedBytes = item.observedBytes ?? 0;
+    let lastSyncedAt = Date.now();
+    let progressSync = Promise.resolve();
+    const syncProgress = (force = false) => {
+      const observedBytes = item.observedBytes ?? 0;
+      if (
+        !force &&
+        observedBytes - lastSyncedBytes < PROGRESS_SYNC_INTERVAL_BYTES &&
+        Date.now() - lastSyncedAt < PROGRESS_SYNC_INTERVAL_MS
+      ) {
+        return progressSync;
+      }
+      progressSync = progressSync
+        .then(async () => {
+          if (observedBytes <= lastSyncedBytes) return;
+          await downloadTransfersApi.observe(transferId, item.transferItemId!, {
+            event_type: "progress",
+            observed_bytes: observedBytes,
+          });
+          lastSyncedBytes = observedBytes;
+          lastSyncedAt = Date.now();
+        })
+        .catch((error) => {
+          console.error("[RomM] Could not persist download progress", {
+            fileId: item.file_id,
+            error:
+              error instanceof Error ? error.message : "journal_sync_failed",
+          });
+        });
+      return progressSync;
+    };
     const timeout = createEnhancedInactivityTimeout(() => {
       operation.reason = "timeout";
       operation.controller.abort();
@@ -474,23 +508,43 @@ export function useBrowserDownloadQueue() {
             : null,
         (bytes) => {
           item.observedBytes = bytes;
+          void syncProgress();
         },
         timeout.refresh,
       );
       await transfer;
-      await downloadTransfersApi.observe(transferId, item.transferItemId, {
-        event_type: "verified",
-        observed_bytes: item.size,
-        sha256: item.sha256,
-      });
+      await syncProgress(true);
+      try {
+        await downloadTransfersApi.observe(transferId, item.transferItemId, {
+          event_type: "verified",
+          observed_bytes: item.size,
+          sha256: item.sha256,
+        });
+      } catch (error) {
+        console.error("[RomM] Could not persist download verification", {
+          fileId: item.file_id,
+          error: error instanceof Error ? error.message : "journal_sync_failed",
+        });
+      }
       item.status = "verified";
     } catch (error) {
       const reason = operation.reason;
       if (reason === "pause" || reason === "cancel") {
-        await downloadTransfersApi.observe(transferId, item.transferItemId, {
-          event_type: reason,
-          observed_bytes: item.observedBytes ?? 0,
-        });
+        await syncProgress(true);
+        try {
+          await downloadTransfersApi.observe(transferId, item.transferItemId, {
+            event_type: reason,
+            observed_bytes: item.observedBytes ?? 0,
+          });
+        } catch (observationError) {
+          console.error("[RomM] Could not persist download lifecycle event", {
+            fileId: item.file_id,
+            error:
+              observationError instanceof Error
+                ? observationError.message
+                : "journal_sync_failed",
+          });
+        }
         item.status = reason === "pause" ? "paused" : "cancelled";
       } else {
         const errorCode =
@@ -583,14 +637,32 @@ export function useBrowserDownloadQueue() {
       operation.controller.abort();
     }
   }
-  function cancel(fileId: string) {
+  async function cancel(fileId: string) {
     const operation = operations.get(fileId);
     if (operation) {
       operation.reason = "cancel";
       operation.controller.abort();
     }
     const item = items.value.find((candidate) => candidate.file_id === fileId);
-    if (item) item.status = "cancelled";
+    if (!item || item.status === "cancelled") return;
+    item.status = "cancelled";
+    if (!operation && sessionId.value && item.transferItemId !== undefined) {
+      try {
+        await downloadTransfersApi.observe(
+          sessionId.value,
+          item.transferItemId,
+          {
+            event_type: "cancel",
+            observed_bytes: item.observedBytes ?? 0,
+          },
+        );
+      } catch (error) {
+        console.error("[RomM] Could not persist queued download cancellation", {
+          fileId: item.file_id,
+          error: error instanceof Error ? error.message : "journal_sync_failed",
+        });
+      }
+    }
   }
   function clearTerminal(fileIds: string[]) {
     const fileIdSet = new Set(fileIds);

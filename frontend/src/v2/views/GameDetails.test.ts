@@ -13,4 +13,12 @@ describe("GameDetails", () => {
 
     expect(source).toContain('label: t("rom.game-downloads")');
   });
+
+  it("loads archive-set policy before enabling PC downloads", () => {
+    const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
+
+    expect(source).toContain("download-archive-sets");
+    expect(source).toContain(':archive-sets="archiveSets"');
+    expect(source).toContain(':archive-sets-state="archiveSetsState"');
+  });
 });
