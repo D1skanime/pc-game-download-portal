@@ -192,6 +192,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         manifest_id: str,
         mode: DownloadTransferMode,
         member_ids: set[str] | None = None,
+        previous_session_id: str | None = None,
         session: Session = None,  # type: ignore
     ) -> DownloadTransferSession:
         manifest = session.scalar(
@@ -207,6 +208,23 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             manifest.expires_at
         ) <= datetime.now(UTC):
             raise ValueError("manifest is not active")
+        previous_attempt = None
+        if previous_session_id is not None:
+            previous_attempt = session.scalar(
+                select(DownloadTransferSession)
+                .where(
+                    DownloadTransferSession.id == previous_session_id,
+                    DownloadTransferSession.user_id == user_id,
+                )
+                .with_for_update()
+            )
+            if (
+                previous_attempt is None
+                or previous_attempt.rom_id != manifest.rom_id
+                or previous_attempt.mode is not mode
+                or previous_attempt.status not in _TERMINAL_SESSIONS
+            ):
+                raise ValueError("previous transfer is not retryable")
         members = [
             member for component in manifest.components for member in component.members
         ]
@@ -219,6 +237,8 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             rom_id=manifest.rom_id,
             manifest_id=manifest.id,
             mode=mode,
+            parent_session_id=previous_attempt.id if previous_attempt else None,
+            attempt_no=(previous_attempt.attempt_no + 1) if previous_attempt else 1,
             selected_items=len(members),
             selected_bytes=sum(member.size_bytes for member in members),
         )

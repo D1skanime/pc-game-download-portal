@@ -599,6 +599,7 @@ export function useBrowserDownloadQueue() {
     const session = await downloadTransfersApi.create({
       manifest_id: manifest.data.id,
       mode: "enhanced",
+      previous_session_id: transferId,
       ...(manifestMemberId ? { member_ids: [manifestMemberId] } : {}),
     });
     if (previous.data.status === "active") {

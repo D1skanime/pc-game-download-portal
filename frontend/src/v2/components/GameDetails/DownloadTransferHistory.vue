@@ -130,7 +130,6 @@ const displayRows = computed<HistoryRow[]>(() => {
       .map((row) => row.manifestMemberId)
       .filter((id): id is string => id !== null),
   );
-  const seenMembers = new Set<string>();
   const merged = rows.value
     .map((row) => {
       const item = row.manifestMemberId
@@ -145,12 +144,7 @@ const displayRows = computed<HistoryRow[]>(() => {
           }
         : row;
     })
-    .filter((row) => {
-      if (!row.manifestMemberId) return false;
-      if (seenMembers.has(row.manifestMemberId)) return false;
-      seenMembers.add(row.manifestMemberId);
-      return true;
-    });
+    .filter((row) => row.manifestMemberId !== null);
   return merged.concat(
     props.queueItems
       .filter((item) => !persistedIds.has(item.file_id))

@@ -177,6 +177,24 @@ def test_get_sessions_excludes_currently_hidden_roms_and_platforms(
     ] == [transfer.id]
 
 
+def test_retry_session_records_terminal_parent_attempt(admin_user, manifest):
+    handler = DBDownloadTransfersHandler()
+    previous = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.ENHANCED
+    )
+    handler.cancel_session(previous.id, admin_user.id)
+
+    retry = handler.create_session(
+        admin_user.id,
+        manifest.id,
+        DownloadTransferMode.ENHANCED,
+        previous_session_id=previous.id,
+    )
+
+    assert retry.parent_session_id == previous.id
+    assert retry.attempt_no == 2
+
+
 def test_standard_cannot_claim_verified_and_enhanced_can_verify_only_digest_match(
     admin_user, manifest
 ):

@@ -33,6 +33,8 @@ def _serialize(transfer) -> DownloadTransferResponse:
     return DownloadTransferResponse(
         id=transfer.id,
         manifest_id=transfer.manifest_id,
+        parent_session_id=transfer.parent_session_id,
+        attempt_no=transfer.attempt_no,
         rom_id=transfer.rom_id,
         mode=transfer.mode.value,
         status=transfer.status.value,
@@ -100,6 +102,7 @@ async def create_download_transfer(
             payload.manifest_id,
             DownloadTransferMode(payload.mode),
             member_ids=set(payload.member_ids) if payload.member_ids else None,
+            previous_session_id=payload.previous_session_id,
         )
     except ValueError:
         _not_found()
