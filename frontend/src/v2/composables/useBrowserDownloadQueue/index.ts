@@ -269,7 +269,11 @@ async function enhancedMember(
     });
     if (!validateEnhancedResponse(response, offset, member.size)) {
       throw new Error(
-        response.status === 412 ? "source_changed" : "invalid_resume_response",
+        response.status === 412
+          ? "source_changed"
+          : response.status === 410
+            ? "manifest_expired"
+            : "invalid_resume_response",
       );
     }
     writable = await file.createWritable({
@@ -320,7 +324,8 @@ export type BrowserQueueItem = DownloadManifestResponse["members"][number] & {
     | "paused"
     | "verified"
     | "failed"
-    | "cancelled";
+    | "cancelled"
+    | "stale";
 };
 export function useBrowserDownloadQueue() {
   const items = ref<BrowserQueueItem[]>([]);
@@ -552,6 +557,13 @@ export function useBrowserDownloadQueue() {
       } else {
         const errorCode =
           error instanceof Error ? error.message : "enhanced_download_failed";
+        if (
+          errorCode === "source_changed" ||
+          errorCode === "manifest_expired"
+        ) {
+          item.status = "stale";
+          return;
+        }
         console.error("[RomM] Enhanced download failed", {
           fileId: item.file_id,
           destination: item.destination,
