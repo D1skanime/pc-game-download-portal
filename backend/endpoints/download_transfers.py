@@ -24,6 +24,24 @@ def _not_found() -> NoReturn:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
 
 
+def _conflict(error: ValueError) -> HTTPException:
+    message = str(error)
+    if "digest" in message:
+        code = "integrity_mismatch"
+    elif "observed bytes" in message:
+        code = "invalid_observation"
+    elif "closed or unavailable" in message:
+        code = "session_closed"
+    elif "event history" in message:
+        code = "event_limit_reached"
+    else:
+        code = "invalid_transition"
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"code": code, "message": message},
+    )
+
+
 def _serialize(transfer) -> DownloadTransferResponse:
     manifest_members = {
         member.public_id: member
@@ -158,10 +176,7 @@ async def delete_download_transfer(request: Request, transfer_id: str) -> None:
             transfer_id, request.user.id
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "invalid_transition", "message": str(exc)},
-        ) from exc
+        raise _conflict(exc) from exc
     if not deleted:
         _not_found()
 
@@ -180,10 +195,7 @@ async def delete_download_transfer_item(
             transfer_id, request.user.id, item_id
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "invalid_transition", "message": str(exc)},
-        ) from exc
+        raise _conflict(exc) from exc
     if not deleted:
         _not_found()
 
@@ -225,10 +237,7 @@ async def append_download_transfer_event(
             payload.sha256,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "invalid_transition", "message": str(exc)},
-        ) from exc
+        raise _conflict(exc) from exc
     return DownloadTransferEventResponse(
         ordinal=event.ordinal,
         event_type=event.event_type,

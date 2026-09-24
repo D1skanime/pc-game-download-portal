@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 from tests.conftest import session
 
+from endpoints.download_transfers import _conflict
 from models.download_manifest import (
     DownloadManifest,
     DownloadManifestComponent,
@@ -56,6 +57,22 @@ def test_transfer_history_requires_authentication(client, manifest):
         status.HTTP_401_UNAUTHORIZED,
         status.HTTP_404_NOT_FOUND,
     )
+
+
+@pytest.mark.parametrize(
+    ("message", "code"),
+    [
+        ("local digest does not match manifest", "integrity_mismatch"),
+        ("observed bytes must be monotonic", "invalid_observation"),
+        ("session is closed or unavailable", "session_closed"),
+        ("pause requires an active item", "invalid_transition"),
+    ],
+)
+def test_transfer_conflicts_are_machine_readable(message, code):
+    response = _conflict(ValueError(message))
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.detail["code"] == code
 
 
 def test_transfer_history_masks_foreign_owner(
