@@ -237,13 +237,14 @@ async function enhancedMember(
   abortReason: () => "pause" | "cancel" | null,
   onProgress: (bytes: number) => void,
   onActivity: () => void,
+  restartFromZero = false,
 ) {
   const { file, existing } = await openDestination(
     root,
     member.destination,
     true,
   );
-  const offset = existing.size;
+  const offset = restartFromZero ? 0 : existing.size;
   onProgress(offset);
   if (offset > member.size) throw new Error("local_file_too_large");
   const hasher = createHasher();
@@ -440,6 +441,7 @@ export function useBrowserDownloadQueue() {
     root: FileSystemDirectoryHandle,
     item: BrowserQueueItem,
     transferId: string,
+    restartFromZero = false,
   ) {
     if (item.transferItemId === undefined) return;
     if (item.status === "cancelled") return;
@@ -511,6 +513,7 @@ export function useBrowserDownloadQueue() {
           void syncProgress();
         },
         timeout.refresh,
+        restartFromZero,
       );
       await transfer;
       await syncProgress(true);
@@ -586,6 +589,7 @@ export function useBrowserDownloadQueue() {
   async function resumeSession(
     transferId: string,
     manifestMemberId?: string | null,
+    restartFromZero = false,
   ) {
     const root = await pickEnhancedDirectory();
     if (!root) return false;
@@ -596,15 +600,15 @@ export function useBrowserDownloadQueue() {
     );
     const config = await configApi.getBrowserDownloadQueueConfig();
     const limit = getBrowserDownloadQueueConcurrency(config.data);
+    if (previous.data.status === "active") {
+      await downloadTransfersApi.cancel(transferId);
+    }
     const session = await downloadTransfersApi.create({
       manifest_id: manifest.data.id,
       mode: "enhanced",
       previous_session_id: transferId,
       ...(manifestMemberId ? { member_ids: [manifestMemberId] } : {}),
     });
-    if (previous.data.status === "active") {
-      await downloadTransfersApi.cancel(transferId);
-    }
     enhancedRoot = root;
     sessionId.value = session.data.id;
     const members = manifest.data.members.filter(
@@ -626,10 +630,16 @@ export function useBrowserDownloadQueue() {
       await Promise.all(
         pending
           .slice(index, index + limit)
-          .map((item) => runEnhancedItem(root, item, session.data.id)),
+          .map((item) =>
+            runEnhancedItem(root, item, session.data.id, restartFromZero),
+          ),
       );
     }
     return true;
+  }
+  async function restart(fileId: string) {
+    if (!sessionId.value) return false;
+    return resumeSession(sessionId.value, fileId, true);
   }
   function pause(fileId: string) {
     const operation = operations.get(fileId);
@@ -683,6 +693,7 @@ export function useBrowserDownloadQueue() {
     startEnhanced,
     resume,
     resumeSession,
+    restart,
     pause,
     cancel,
     clearTerminal,

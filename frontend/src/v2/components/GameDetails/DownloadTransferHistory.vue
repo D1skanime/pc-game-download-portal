@@ -29,7 +29,13 @@ const emit = defineEmits<{
   (event: "cancel", fileId: string): void;
   (event: "cancel-item", sessionId: string, itemId: number): void;
   (event: "resume", fileId: string): void;
-  (event: "resume-session", sessionId: string, memberId?: string): void;
+  (event: "restart", fileId: string): void;
+  (
+    event: "resume-session",
+    sessionId: string,
+    memberId?: string,
+    restartFromZero?: boolean,
+  ): void;
   (event: "remove-item", sessionId: string, itemId: number): void;
   (event: "remove", sessionId: string): void;
   (event: "remove-all"): void;
@@ -257,6 +263,26 @@ function hasLiveMember(memberId: string | null) {
               @click="emit('resume', row.manifestMemberId)"
             >
               {{ t("rom.download-resume") }}
+            </button>
+            <button
+              v-if="
+                row.mode === 'enhanced' &&
+                ['failed', 'paused'].includes(row.status) &&
+                row.manifestMemberId &&
+                !hasLiveMember(row.manifestMemberId)
+              "
+              type="button"
+              :aria-label="t('rom.download-prepare-again')"
+              @click="
+                emit(
+                  'resume-session',
+                  row.sessionId,
+                  row.manifestMemberId,
+                  true,
+                )
+              "
+            >
+              {{ t("rom.download-prepare-again") }}
             </button>
             <button
               v-if="

@@ -100,9 +100,13 @@ async function startDownload(payload: {
   }
 }
 
-async function resumeDownload(transferId: string, memberId?: string) {
+async function resumeDownload(
+  transferId: string,
+  memberId?: string,
+  restartFromZero = false,
+) {
   try {
-    await queue.resumeSession(transferId, memberId);
+    await queue.resumeSession(transferId, memberId, restartFromZero);
   } catch (error) {
     console.error("[PcComponents] Could not resume download", error);
     const expired =
@@ -182,6 +186,7 @@ const groupedComponents = computed(() =>
       @pause="queue.pause"
       @cancel="queue.cancel"
       @resume="queue.resume"
+      @restart="queue.restart"
       @resume-session="resumeDownload"
       @clear-terminal="queue.clearTerminal"
     />
