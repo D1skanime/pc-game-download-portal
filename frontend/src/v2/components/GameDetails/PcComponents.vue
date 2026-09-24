@@ -149,6 +149,7 @@ const groupedComponents = computed(() =>
   <section class="pc-components">
     <h3 class="pc-components__heading">{{ t("rom.game-downloads") }}</h3>
     <RBtn
+      class="align-self-start"
       data-testid="download-components"
       prepend-icon="mdi-download"
       @click="showDownload = true"

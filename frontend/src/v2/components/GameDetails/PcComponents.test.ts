@@ -101,6 +101,16 @@ describe("PcComponents", () => {
     );
   });
 
+  it("keeps the download action aligned with the component content", () => {
+    const wrapper = mount(PcComponents, {
+      props: { components: [], romId: 1 },
+    });
+
+    expect(
+      wrapper.get("[data-testid='download-components']").classes(),
+    ).toContain("align-self-start");
+  });
+
   it("uses the main game label instead of the technical base folder name", () => {
     const wrapper = mount(PcComponents, {
       props: {
