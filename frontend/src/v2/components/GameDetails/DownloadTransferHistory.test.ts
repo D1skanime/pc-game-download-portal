@@ -26,6 +26,8 @@ const session = (status: string): DownloadTransferResponse => ({
   schema_version: 1,
   id: `opaque-${status}`,
   manifest_id: "manifest-a",
+  parent_session_id: null,
+  attempt_no: 1,
   rom_id: 7,
   mode: status === "verified" ? "enhanced" : "standard",
   status: "active",

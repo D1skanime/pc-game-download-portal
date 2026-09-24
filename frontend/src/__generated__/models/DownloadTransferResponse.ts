@@ -2,6 +2,8 @@ export type DownloadTransferResponse = {
   schema_version: number;
   id: string;
   manifest_id: string;
+  parent_session_id: string | null;
+  attempt_no: number;
   rom_id: number;
   mode: string;
   status: string;

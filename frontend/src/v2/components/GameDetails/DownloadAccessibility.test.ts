@@ -152,6 +152,8 @@ function session(
     schema_version: 1,
     id: `opaque-${itemStatus}`,
     manifest_id: "manifest-a",
+    parent_session_id: null,
+    attempt_no: 1,
     rom_id: 7,
     mode,
     status: "active",
