@@ -116,6 +116,14 @@ function safeMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function isMissingMappingError(error: unknown) {
+  if (!axios.isAxiosError(error)) return false;
+  return (
+    error.response?.status === 409 &&
+    error.response?.data?.detail?.code === "platform_mapping_missing"
+  );
+}
+
 async function ensurePlatforms() {
   if (platformsStore.allPlatforms.length === 0)
     await platformsStore.fetchPlatforms();
@@ -143,7 +151,11 @@ async function loadMapping() {
     mapping.value = (await storageApi.getMapping(platformId.value)).data;
     await loadPreview(mapping.value.id);
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) return;
+    if (
+      (axios.isAxiosError(error) && error.response?.status === 404) ||
+      isMissingMappingError(error)
+    )
+      return;
     if (axios.isAxiosError(error) && error.response?.status === 403)
       errorState.value = "forbidden";
     else errorState.value = "generic";

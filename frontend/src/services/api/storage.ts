@@ -71,6 +71,7 @@ function removeMapping(
       data: {
         expected_version: expectedVersion,
         expected_unreachable_catalog_count: expectedUnreachableCatalogCount,
+        confirmed: true,
       },
     },
   );
