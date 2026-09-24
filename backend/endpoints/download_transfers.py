@@ -62,6 +62,7 @@ def _serialize(transfer) -> DownloadTransferResponse:
                 ended_at=item.ended_at,
             )
             for item in transfer.items
+            if item.dismissed_at is None
         ],
         events=[
             DownloadTransferEventResponse(

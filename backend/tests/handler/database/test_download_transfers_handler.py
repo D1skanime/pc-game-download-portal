@@ -195,6 +195,23 @@ def test_retry_session_records_terminal_parent_attempt(admin_user, manifest):
     assert retry.attempt_no == 2
 
 
+def test_history_removal_hides_terminal_session_without_deleting_audit_rows(
+    admin_user, manifest
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.ENHANCED
+    )
+    handler.cancel_session(transfer.id, admin_user.id)
+
+    assert handler.delete_session(transfer.id, admin_user.id)
+    assert handler.get_sessions(admin_user.id) == []
+    saved = handler.get_session(transfer.id, admin_user.id)
+    assert saved is not None
+    assert saved.dismissed_at is not None
+    assert saved.items[0].status is DownloadTransferItemStatus.CANCELLED
+
+
 def test_standard_cannot_claim_verified_and_enhanced_can_verify_only_digest_match(
     admin_user, manifest
 ):

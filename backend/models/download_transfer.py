@@ -113,6 +113,7 @@ class DownloadTransferSession(BaseModel):
         default=utc_now, onupdate=utc_now, nullable=False
     )
     ended_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    dismissed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     user: Mapped[User] = relationship(lazy="joined")
     rom: Mapped[Rom] = relationship(lazy="joined")
@@ -163,6 +164,7 @@ class DownloadTransferItem(BaseModel):
     started_at: Mapped[datetime | None] = mapped_column(nullable=True)
     last_activity_at: Mapped[datetime | None] = mapped_column(nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    dismissed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     session: Mapped[DownloadTransferSession] = relationship(back_populates="items")
     events: Mapped[list[DownloadTransferEvent]] = relationship(

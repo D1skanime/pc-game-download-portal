@@ -315,7 +315,8 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Sequence[DownloadTransferSession]:
         stmt = select(DownloadTransferSession).where(
-            DownloadTransferSession.user_id == user_id
+            DownloadTransferSession.user_id == user_id,
+            DownloadTransferSession.dismissed_at.is_(None),
         )
         if rom_id is not None:
             stmt = stmt.where(DownloadTransferSession.rom_id == rom_id)
@@ -350,7 +351,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             return False
         if transfer.status not in _TERMINAL_SESSIONS:
             raise ValueError("active session must be cancelled before removal")
-        session.delete(transfer)
+        transfer.dismissed_at = datetime.now(UTC)
         return True
 
     @begin_session
@@ -385,10 +386,9 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             return False
         if item.status not in _TERMINAL_ITEMS:
             raise ValueError("active item must be cancelled before removal")
-        if len(transfer.items) == 1:
-            session.delete(transfer)
-        else:
-            session.delete(item)
+        item.dismissed_at = datetime.now(UTC)
+        if all(candidate.dismissed_at is not None for candidate in transfer.items):
+            transfer.dismissed_at = datetime.now(UTC)
         return True
 
     @begin_session
@@ -401,12 +401,13 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         stmt = select(DownloadTransferSession).where(
             DownloadTransferSession.user_id == user_id,
             DownloadTransferSession.status.in_(_TERMINAL_SESSIONS),
+            DownloadTransferSession.dismissed_at.is_(None),
         )
         if rom_id is not None:
             stmt = stmt.where(DownloadTransferSession.rom_id == rom_id)
         transfers = session.scalars(stmt.with_for_update()).all()
         for transfer in transfers:
-            session.delete(transfer)
+            transfer.dismissed_at = datetime.now(UTC)
         return len(transfers)
 
     @begin_session
