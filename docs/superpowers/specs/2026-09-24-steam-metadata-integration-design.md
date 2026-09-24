@@ -20,9 +20,10 @@ uses the new `steam` source slug and provides structured store metadata.
 
 Steam is automatically eligible only for `win`, `linux`, and `mac`. The fork's
 `dos`, `win3x`, and `win9x` platforms are excluded from automatic Steam search
-to prevent anachronistic or weak matches. A future explicit Steam App ID tag is
-allowed to resolve an intentionally pinned app ID without enabling blind
-searches for those platforms.
+to prevent anachronistic or weak matches. Automatic search eligibility is
+separate from explicit App-ID eligibility: a valid explicitly pinned Steam App
+ID may be resolved and refreshed on those platforms, but must never cause a
+name search.
 
 Classic ROM platforms remain outside the Steam provider path. Adding `steam`
 to the global source enum and priority validation must not make a non-PC scan
@@ -44,7 +45,9 @@ key. The following explicit configuration values are added:
 The service sends the configured language and country to both store search and
 app-details requests. For a resolved app, the preferred-language details are
 read first. Missing localized textual fields are filled from a fallback details
-request only; no empty Steam values overwrite populated provider data.
+request for that exact same App ID only. Fallback must never perform a second
+name search or select a different application. No empty or malformed Steam
+value overwrites or clears populated provider data.
 
 The upstream request limiter, timeout handling, 429 retries, malformed-payload
 handling, and heartbeat remain in place. Provider failures resolve to no Steam
@@ -58,9 +61,12 @@ Main games follow upstream's established `Rom.steam_id` and
 with response-schema serialization where component metadata is exposed.
 
 `steam_metadata` retains the normalized upstream Steam metadata shape and may
-hold language provenance needed to make refresh behavior observable. It is not
-a replacement for `igdb_metadata`. Existing IDs and metadata from IGDB, Moby,
-SteamGridDB, and LaunchBox are preserved.
+hold language provenance needed to make refresh behavior observable. Provenance
+is observational only and is not an uncontrolled alternative source of display
+state. It is not a replacement for `igdb_metadata`. Existing IDs and metadata
+from IGDB, Moby, SteamGridDB, and LaunchBox are preserved. Component
+`steam_id` has no global uniqueness constraint, because component identity is
+scoped by the existing parent-and-path domain model.
 
 The metadata source enum, scan-priority validation allowlist, heartbeat
 response, provider registry, refresh selection UI, and provider presentation
@@ -72,13 +78,15 @@ SteamGridDB names, IDs, assets, and controls unchanged.
 For an eligible PC main game, Steam searches the Storefront using the upstream
 similarity threshold and store type validation. An explicit Steam App ID is
 preferred over a name lookup. Existing Steam IDs are refreshed by ID rather
-than replaced by a new filename guess. The match extends the existing ROM; it
-never creates a second ROM.
+than replaced by a new filename guess, including when the filename changes.
+The match extends the existing ROM; it never creates a second ROM.
 
 The PC candidate matcher lists Steam beside `igdb`, `moby`, `sgdb`, and
 `launchbox`. Applying a Steam candidate resolves its selected app ID to full
-details before persistence. A candidate stores only non-empty values and
-provider-scoped Steam data.
+details before persistence. Automatic scans and manually selected candidates
+both pass through one normalized Steam application and field-merge function;
+there is no second application policy. A candidate stores only non-empty values
+and provider-scoped Steam data.
 
 The display/application merge is field-specific:
 
@@ -92,7 +100,9 @@ The display/application merge is field-specific:
 
 Manual overrides remain authoritative. Existing persistence code must keep its
 source and override semantics, and Steam application must use the same guarded
-paths rather than direct model writes.
+paths rather than direct model writes. Steam artwork is input to the existing
+artwork-selection policy only. It cannot directly replace explicitly selected
+or manually overridden cover or screenshot artwork.
 
 ## DLC safety rule
 
@@ -102,11 +112,15 @@ IGDB remains the first and required identity step for automatic DLC enrichment:
    a candidate.
 2. Exactly one related IGDB candidate is hydrated and retained.
 3. Only then may Steam search for a DLC store item using that known DLC title.
-4. Steam data is applied only for one sufficiently confident DLC result, and,
-   where returned by Steam, a relationship to the parent's known Steam App ID
-   confirms it.
-5. A zero, ambiguous, bundle, soundtrack, edition, or mismatched-parent result
-   leaves the existing IGDB DLC metadata unchanged.
+4. A candidate must be a Steam DLC. Bundles, soundtracks, demos, editions,
+   tools, and other unrelated product types are rejected.
+5. Steam data is applied only for one sufficiently confident DLC result. When
+   Steam exposes a parent relation, it must equal the known parent Steam App
+   ID. When Steam exposes no usable parent relation, automatic enrichment is
+   allowed only for a unique, high-confidence result tied to the already
+   IGDB-resolved DLC identity.
+6. A zero, ambiguous, invalid-type, or mismatched-parent result leaves the
+   existing IGDB DLC metadata unchanged.
 
 No folder-name-only Steam DLC matching is introduced. Steam enriches the same
 component row and never creates a component.
@@ -127,16 +141,23 @@ Tests cover the upstream port and the fork integration:
   timeout/429 degradation, and no API key requirement.
 - `win`, `linux`, and `mac` matching, plus no automatic query for classic ROMs,
   `dos`, `win3x`, and `win9x`.
-- Preferred German text, partial German payload fallback to English, empty
-  Steam fields preserving IGDB values, and persisted Steam App IDs.
+- Preferred German text, partial German payload fallback to English for the
+  same App ID, empty or malformed Steam fields preserving IGDB values, and
+  persisted Steam App IDs.
 - Main-game merge combinations: Steam summary with IGDB themes, Steam release
   with IGDB franchise, Steam publisher with IGDB relationships, and artwork
   priority preservation.
-- Manual metadata protection, re-scrape of an existing IGDB game, and no
-  duplicate ROM creation.
+- Independent manual protection for title, summary, release date, and selected
+  artwork, re-scrape of an existing IGDB game, and no duplicate ROM creation.
 - Existing IGDB DLC discovery, a single safe Steam DLC enrichment, German DLC
-  fallback, missing Steam DLC retention of IGDB values, ambiguous result
-  refusal, and parent mismatch refusal.
+  fallback for the same App ID, missing Steam DLC retention of IGDB values,
+  invalid-store-type rejection, ambiguous-result refusal, and parent-mismatch
+  refusal.
+- Steam enabled but unavailable with successful IGDB, MobyGames, or LaunchBox
+  metadata, proving the pre-Steam usable result is retained.
+- Existing Steam App ID with a renamed filename, and excluded DOS, Win3x, and
+  Win9x platforms both without an ID (no name search) and with an explicit ID
+  (direct resolution only).
 - Backend unit and endpoint suites, migration upgrade/downgrade checks,
   frontend type generation and typecheck when API schema changes, and relevant
   frontend tests for provider labels or refresh selection.
