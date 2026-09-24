@@ -42,6 +42,7 @@ vi.mock("vue-i18n", () => ({
     t: (key: string) =>
       ({
         "rom.pc-components": "PC components",
+        "rom.game-downloads": "Game downloads",
         "rom.pc-base-game": "Main game",
         "rom.pc-updates": "Updates",
         "rom.category-dlc": "DLC",
@@ -88,6 +89,16 @@ describe("PcComponents", () => {
     push.mockReset();
     resumeSession.mockReset();
     snackbarError.mockReset();
+  });
+
+  it("uses the player-facing game downloads heading", () => {
+    const wrapper = mount(PcComponents, {
+      props: { components: [], romId: 1 },
+    });
+
+    expect(wrapper.get(".pc-components__heading").text()).toBe(
+      "Game downloads",
+    );
   });
 
   it("uses the main game label instead of the technical base folder name", () => {

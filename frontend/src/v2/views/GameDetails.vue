@@ -287,7 +287,7 @@ const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: t("rom.tab-overview") },
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
   ...(isPcRom.value
-    ? [{ id: "pc-components", label: t("rom.pc-components") }]
+    ? [{ id: "pc-components", label: t("rom.game-downloads") }]
     : []),
   { id: "patcher", label: t("common.patcher") },
   { id: "media", label: t("rom.media") },

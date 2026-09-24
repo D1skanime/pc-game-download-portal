@@ -7,4 +7,10 @@ describe("GameDetails", () => {
 
     expect(source).toContain(':parent-rom-id="currentRom.id"');
   });
+
+  it("labels the PC download tab for players instead of the internal model", () => {
+    const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
+
+    expect(source).toContain('label: t("rom.game-downloads")');
+  });
 });
