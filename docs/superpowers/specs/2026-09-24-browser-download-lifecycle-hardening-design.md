@@ -44,11 +44,13 @@ The remaining gaps are integration and lifecycle gaps:
 
 1. `list_download_transfers()` serializes owner-scoped sessions without an `assert_rom_visible()` check for each returned session.
 2. `GameDetails.vue` does not request `/{rom_id}/download-archive-sets`, so `PcComponents` receives no real archive-set policy despite supporting it.
-3. Enhanced progress is held locally except for start, pause, failure, and verification. It needs bounded journal snapshots. Snapshot mismatch is currently recorded as a generic failure rather than `stale`.
+3. Enhanced progress is held locally except for start, pause, failure, and verification. It needs bounded journal snapshots. The current global event limit is 4096, not 64; sampled progress must reserve lifecycle and terminal event capacity for every selected member. Snapshot mismatch is currently recorded as a generic failure rather than `stale`.
 4. A cancelled queued item is only changed locally. The journal is not guaranteed to receive a cancellation observation.
 5. `resumeSession()` creates an unrelated new session and does not express retry lineage. History cannot show attempts as one recovery sequence.
 6. History hard-deletes terminal records. A user-facing hide operation should preserve audit evidence while removing an entry from the default list.
 7. Phase 17 artifacts are inconsistent: `17-14-PLAN.md` and its hardening commits exist, but it lacks a summary and STATE says 13 rather than 14 plans. Phase 18 records the factual baseline without rewriting history.
+
+The audit also requires a machine-readable failure taxonomy. HTTP status alone is not a transfer state: only known manifest lifecycle or snapshot failures may become `stale`; an unrelated 409 remains a bounded transfer or journal failure. Download I/O, final integrity, snapshot, and journal-sync errors are represented and rendered separately.
 
 ## Lifecycle Authority
 
