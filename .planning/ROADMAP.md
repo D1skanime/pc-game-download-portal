@@ -513,3 +513,6 @@ Plans:
 - [x] 18-10-PLAN.md — Fail closed when IGDB DLC hydration cannot establish an authoritative identity.
 - [ ] 18-11-PLAN.md — Run focused backend and MariaDB/PostgreSQL migration evidence in canonical Compose context.
 - [x] 18-12-PLAN.md — Correct the generated detailed-ROM contract key link and audit closure coverage.
+- [ ] 18-13-PLAN.md — Diagnose and correct the two remaining parent-selection and component-persistence suite failures.
+- [ ] 18-14-PLAN.md — Make the historical PostgreSQL 0118 metadata view replacement type-stable and portable.
+- [ ] 18-15-PLAN.md — Re-run the 186-test Compose suite and full PostgreSQL cycle, then record final closure evidence.
