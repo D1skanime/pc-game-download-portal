@@ -34,6 +34,8 @@ const selectedDlc = {
     moby_id: null,
     sgdb_id: null,
     launchbox_id: null,
+    steam_id: null,
+    steam_metadata: null,
     name: "Selected expansion",
     summary: "Only selected DLC metadata is visible.",
     metadata_source: "local",
