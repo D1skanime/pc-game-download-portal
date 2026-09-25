@@ -20,6 +20,7 @@ class SteamMetadata(TypedDict):
     developers: NotRequired[list[str]]
     publishers: NotRequired[list[str]]
     platforms: NotRequired[SteamPlatforms]
+    release_date: NotRequired[dict[str, str | bool]]
     language: NotRequired[str]
     fallback_language: NotRequired[str]
 
@@ -129,34 +130,65 @@ class SteamHandler(MetadataHandler):
             )
         )
 
+    @staticmethod
+    def _string_list(value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [item for item in value if isinstance(item, str) and item.strip()]
+
+    @staticmethod
+    def _release_date(value: object) -> dict[str, str | bool]:
+        if not isinstance(value, dict) or not isinstance(value.get("date"), str):
+            return {}
+        result: dict[str, str | bool] = {"date": value["date"]}
+        if isinstance(value.get("coming_soon"), bool):
+            result["coming_soon"] = value["coming_soon"]
+        return result
+
     async def _build_rom(
         self, preferred: SteamAppDetails, fallback: SteamAppDetails | None
     ) -> SteamRom:
         app_id = preferred["steam_appid"]
-        name = preferred.get("name") or (fallback or {}).get("name", "")
-        summary = preferred.get("short_description") or (fallback or {}).get(
+        fallback_details = fallback or {}
+        name = preferred.get("name") or fallback_details.get("name", "")
+        summary = preferred.get("short_description") or fallback_details.get(
             "short_description", ""
         )
         metadata: SteamMetadata = {
             "language": STEAM_API_LANGUAGE,
             "fallback_language": STEAM_API_FALLBACK_LANGUAGE if fallback else "",
         }
-        for field in ("developers", "publishers", "platforms"):
-            if value := preferred.get(field) or (fallback or {}).get(field):
-                metadata[field] = value  # type: ignore[literal-required]
+        for field in ("developers", "publishers"):
+            if value := self._string_list(
+                preferred.get(field) or fallback_details.get(field)
+            ):
+                metadata[field] = value
+        if release_date := self._release_date(
+            preferred.get("release_date") or fallback_details.get("release_date")
+        ):
+            metadata["release_date"] = release_date
+        if isinstance(preferred.get("platforms"), dict):
+            metadata["platforms"] = preferred["platforms"]
+        elif isinstance(fallback_details.get("platforms"), dict):
+            metadata["platforms"] = fallback_details["platforms"]
+        header_image = preferred.get("header_image") or fallback_details.get(
+            "header_image", ""
+        )
         result = SteamRom(
             steam_id=app_id,
             name=name,
             steam_metadata=metadata,
             url_cover=await self.steam_service.get_library_capsule_url(app_id)
-            or preferred.get("header_image", ""),
+            or header_image,
         )
         if summary:
             result["summary"] = summary
-        if screenshots := preferred.get("screenshots") or (fallback or {}).get(
+        if screenshots := preferred.get("screenshots") or fallback_details.get(
             "screenshots"
         ):
             result["url_screenshots"] = [
-                str(item["path_full"]) for item in screenshots if item.get("path_full")
+                item["path_full"]
+                for item in screenshots
+                if isinstance(item, dict) and isinstance(item.get("path_full"), str)
             ]
         return result
