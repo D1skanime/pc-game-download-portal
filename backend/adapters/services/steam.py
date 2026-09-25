@@ -1,7 +1,7 @@
 import asyncio
 import http
 import json
-from typing import Final
+from typing import Final, cast
 
 import aiohttp
 import yarl
@@ -69,7 +69,7 @@ class SteamService:
         if not isinstance(items, list):
             return []
         return [
-            item
+            cast(SteamStoreSearchItem, item)
             for item in items
             if isinstance(item, dict)
             and item.get("type") == "app"
@@ -94,12 +94,24 @@ class SteamService:
             str(self.url.joinpath("appdetails").with_query(query))
         )
         envelope = response.get(str(app_id))
+        if not isinstance(envelope, dict):
+            envelope = next(
+                (
+                    candidate
+                    for candidate in response.values()
+                    if isinstance(candidate, dict)
+                    and candidate.get("success") is True
+                    and isinstance(candidate.get("data"), dict)
+                    and candidate["data"].get("steam_appid") == app_id
+                ),
+                None,
+            )
         if not isinstance(envelope, dict) or envelope.get("success") is not True:
             return None
         details = envelope.get("data")
         if not isinstance(details, dict):
             return None
-        return details
+        return cast(SteamAppDetails, details)
 
     async def get_library_capsule_url(self, app_id: int) -> str | None:
         url = STEAM_LIBRARY_CAPSULE_URL.format(app_id=app_id)

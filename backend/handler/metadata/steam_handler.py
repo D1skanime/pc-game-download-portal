@@ -1,3 +1,4 @@
+import re
 from typing import NotRequired, TypedDict
 
 from adapters.services.steam import SteamService
@@ -14,6 +15,9 @@ from .base_handler import BaseRom, MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
 
 STEAM_PLATFORMS = frozenset({UPS.WIN, UPS.LINUX, UPS.MAC})
+COMPACT_TITLE_BOUNDARY = re.compile(
+    r"(?<=[a-z])(?=[A-Z])|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])"
+)
 
 
 class SteamMetadata(TypedDict):
@@ -60,10 +64,10 @@ class SteamHandler(MetadataHandler):
             return SteamRom(steam_id=None)
         from handler.filesystem import fs_rom_handler
 
-        term = self.normalize_search_term(
-            fs_rom_handler.get_file_name_with_no_tags(fs_name),
-            remove_punctuation=False,
-        )
+        name = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+        if " " not in name:
+            name = COMPACT_TITLE_BOUNDARY.sub(" ", name)
+        term = self.normalize_search_term(name, remove_punctuation=False)
         if not term:
             return SteamRom(steam_id=None)
         apps = await self.steam_service.search_apps(

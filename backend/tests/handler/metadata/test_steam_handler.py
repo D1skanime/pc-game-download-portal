@@ -101,6 +101,28 @@ async def test_eligible_pc_platforms_can_search(handler, platform):
     handler.steam_service.search_apps.assert_awaited_once()
 
 
+async def test_compact_pc_filename_is_split_before_steam_search(handler):
+    handler.steam_service.search_apps = AsyncMock(
+        return_value=[
+            {"id": 1903340, "name": "Clair Obscur: Expedition 33", "type": "app"}
+        ]
+    )
+    handler.steam_service.get_app_details = AsyncMock(
+        return_value={
+            "type": "game",
+            "name": "Clair Obscur: Expedition 33",
+            "steam_appid": 1903340,
+        }
+    )
+
+    result = await handler.get_rom("ClairObscurExpedition33.exe", "win")
+
+    assert result["steam_id"] == 1903340
+    handler.steam_service.search_apps.assert_awaited_once_with(
+        "clair obscur expedition 33", country="CH", language="de"
+    )
+
+
 async def test_invalid_store_type_and_disabled_provider_return_no_match(handler):
     handler.steam_service.get_app_details = AsyncMock(
         return_value={"type": "bundle", "steam_appid": 1091500}

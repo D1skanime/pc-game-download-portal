@@ -36,6 +36,25 @@ async def test_app_details_sends_the_requested_locale(session):
     assert "l=de" in request_url
 
 
+async def test_app_details_accepts_a_matching_payload_from_an_unexpected_envelope_key(
+    session,
+):
+    """Steam occasionally caches a valid payload under a stale response key."""
+    session.get.return_value = _response(
+        {
+            "stale-cache-key": {
+                "success": True,
+                "data": {"steam_appid": 1091500, "type": "game"},
+            }
+        }
+    )
+
+    assert await SteamService().get_app_details(1091500) == {
+        "steam_appid": 1091500,
+        "type": "game",
+    }
+
+
 @pytest.mark.parametrize(
     "failure",
     [
