@@ -331,6 +331,10 @@ class RomComponentMetadata(BaseModel):
     moby_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     sgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    steam_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
     name: Mapped[str | None] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
     summary: Mapped[str | None] = mapped_column(Text())
     metadata_source: Mapped[str | None] = mapped_column(String(length=100))
@@ -551,6 +555,7 @@ class RomFacets(BaseModel):
     hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
+    steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
@@ -577,6 +582,7 @@ class Rom(BaseModel):
     hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
+    steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     __table_args__ = (
         Index("uq_roms_incarnation_token", "incarnation_token", unique=True),
@@ -644,6 +650,9 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     moby_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    steam_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
     ss_metadata: Mapped[dict[str, Any] | None] = mapped_column(
@@ -1065,6 +1074,7 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
     "igdb": Rom.igdb_id,
     "ss": Rom.ss_id,
     "moby": Rom.moby_id,
+    "steam": Rom.steam_id,
     "launchbox": Rom.launchbox_id,
     "ra": Rom.ra_id,
     "hasheous": Rom.hasheous_id,
@@ -1081,6 +1091,7 @@ METADATA_SOURCE_FACET_COLUMNS: dict[str, InstrumentedAttribute] = {
     "igdb": RomFacets.igdb_id,
     "ss": RomFacets.ss_id,
     "moby": RomFacets.moby_id,
+    "steam": RomFacets.steam_id,
     "launchbox": RomFacets.launchbox_id,
     "ra": RomFacets.ra_id,
     "hasheous": RomFacets.hasheous_id,

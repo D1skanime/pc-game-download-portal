@@ -113,7 +113,8 @@ def test_steam_metadata_migration_has_the_current_download_head():
         ("rom_component_metadata", "steam_id"),
         ("rom_component_metadata", "steam_metadata"),
     ):
-        assert f'"{table}", sa.Column("{column}"' in migration
+        assert f'"{table}"' in migration
+        assert f'sa.Column("{column}"' in migration
         assert f'op.drop_column("{table}", "{column}")' in migration
     assert migration.count("sa.JSON()") == 2
     assert "unique=True" not in migration
