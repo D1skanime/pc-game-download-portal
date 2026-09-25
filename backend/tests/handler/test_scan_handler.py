@@ -1,9 +1,12 @@
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from handler.scan_handler import MetadataSource, resolve_steam_scan_metadata
+from models.platform import Platform
+from models.rom import Rom
 
 
 def _rom(*, steam_id: int | None = None) -> SimpleNamespace:
@@ -22,6 +25,10 @@ def _rom(*, steam_id: int | None = None) -> SimpleNamespace:
     )
 
 
+def _platform(slug: str) -> SimpleNamespace:
+    return SimpleNamespace(slug=slug)
+
+
 @pytest.mark.asyncio
 async def test_stored_steam_id_refreshes_directly_after_filename_change():
     direct = AsyncMock(return_value={"steam_id": 1091500, "name": "Steam title"})
@@ -31,8 +38,8 @@ async def test_stored_steam_id_refreshes_directly_after_filename_change():
         patch("handler.scan_handler.meta_steam_handler.get_rom", search),
     ):
         updates = await resolve_steam_scan_metadata(
-            _rom(steam_id=1091500),
-            SimpleNamespace(slug="win"),
+            cast("Rom", _rom(steam_id=1091500)),
+            cast("Platform", _platform("win")),
             "Renamed game.exe",
             [MetadataSource.STEAM],
         )
@@ -54,8 +61,8 @@ async def test_eligible_pc_platforms_search_steam_only_without_a_stored_id(
         patch("handler.scan_handler.meta_steam_handler.get_rom", search),
     ):
         await resolve_steam_scan_metadata(
-            _rom(),
-            SimpleNamespace(slug=platform_slug),
+            cast("Rom", _rom()),
+            cast("Platform", _platform(platform_slug)),
             "Game.exe",
             [MetadataSource.STEAM],
         )
@@ -76,14 +83,14 @@ async def test_excluded_pc_platforms_use_only_an_explicit_stored_steam_id(
         patch("handler.scan_handler.meta_steam_handler.get_rom", search),
     ):
         await resolve_steam_scan_metadata(
-            _rom(steam_id=1091500),
-            SimpleNamespace(slug=platform_slug),
+            cast("Rom", _rom(steam_id=1091500)),
+            cast("Platform", _platform(platform_slug)),
             "Game.exe",
             [MetadataSource.STEAM],
         )
         await resolve_steam_scan_metadata(
-            _rom(),
-            SimpleNamespace(slug=platform_slug),
+            cast("Rom", _rom()),
+            cast("Platform", _platform(platform_slug)),
             "Game.exe",
             [MetadataSource.STEAM],
         )
@@ -101,8 +108,8 @@ async def test_classic_roms_never_call_steam():
         patch("handler.scan_handler.meta_steam_handler.get_rom", search),
     ):
         updates = await resolve_steam_scan_metadata(
-            _rom(steam_id=1091500),
-            SimpleNamespace(slug="snes"),
+            cast("Rom", _rom(steam_id=1091500)),
+            cast("Platform", _platform("snes")),
             "Game.sfc",
             [MetadataSource.STEAM],
         )
@@ -119,8 +126,8 @@ async def test_steam_failure_is_empty_and_preserves_existing_state():
         AsyncMock(side_effect=TimeoutError()),
     ):
         updates = await resolve_steam_scan_metadata(
-            _rom(steam_id=1091500),
-            SimpleNamespace(slug="win"),
+            cast("Rom", _rom(steam_id=1091500)),
+            cast("Platform", _platform("win")),
             "Game.exe",
             [MetadataSource.STEAM],
         )

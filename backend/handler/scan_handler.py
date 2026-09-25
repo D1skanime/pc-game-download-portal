@@ -32,6 +32,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -57,6 +58,8 @@ from handler.metadata.ss_handler import (
     SSRom,
     note_rate_limited_rom,
 )
+from handler.metadata.steam_handler import STEAM_PLATFORMS
+from handler.metadata.steam_merge import normalize_steam
 from handler.scan_command import MappedScanCommand as _MappedScanCommand
 from handler.storage.read_context import MappingReadContext
 from logger.formatter import BLUE, LIGHTYELLOW
@@ -71,6 +74,8 @@ from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
+
+STEAM_EXPLICIT_ID_PLATFORMS = frozenset({*STEAM_PLATFORMS, "dos", "win3x", "win9x"})
 
 
 @enum.unique
@@ -142,6 +147,52 @@ class MetadataSource(enum.StrEnum):
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
     PLAYMATCH = "playmatch"  # Playmatch
+    STEAM = "steam"  # Steam storefront
+
+
+def _steam_scan_current(rom: Rom) -> dict[str, Any]:
+    metadatum = rom.metadatum
+    return {
+        "name": rom.name,
+        "summary": rom.summary,
+        "manual_metadata": rom.manual_metadata,
+        "steam_metadata": rom.steam_metadata,
+        "metadata": {
+            "main_developer": metadatum.main_developer if metadatum else None,
+            "publishers": metadatum.publishers if metadatum else None,
+            "pc_release_date": metadatum.pc_release_date if metadatum else None,
+        },
+    }
+
+
+async def resolve_steam_scan_metadata(
+    rom: Rom,
+    platform: Platform,
+    fs_name: str,
+    metadata_sources: list[str],
+) -> dict[str, Any]:
+    """Resolve one PC Storefront match without broadening classic scan dispatch."""
+    if (
+        MetadataSource.STEAM not in metadata_sources
+        or platform.slug not in STEAM_EXPLICIT_ID_PLATFORMS
+    ):
+        return {}
+
+    try:
+        if isinstance(rom.steam_id, int) and not isinstance(rom.steam_id, bool):
+            result = await meta_steam_handler.get_rom_by_id(rom.steam_id, platform.slug)
+        elif platform.slug in STEAM_PLATFORMS:
+            result = await meta_steam_handler.get_rom(fs_name, platform.slug)
+        else:
+            return {}
+    except Exception:
+        log.warning(
+            "Steam metadata lookup failed",
+            extra={**LOGGER_MODULE_NAME, "platform": platform.slug},
+        )
+        return {}
+
+    return normalize_steam(result, _steam_scan_current(rom))
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -937,9 +988,14 @@ async def scan_rom(
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
+    async def fetch_steam_updates() -> dict[str, Any]:
+        return await resolve_steam_scan_metadata(
+            rom, platform, rom_attrs["fs_name"], metadata_sources
+        )
+
     # Run metadata fetches concurrently. One provider raising must not discard the
     # others' results for this ROM, so each failure falls back to an empty match.
-    provider_fetches = (
+    provider_fetches: tuple[tuple[Any, Any], ...] = (
         (
             fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
             IGDBRom(igdb_id=None),
@@ -959,6 +1015,7 @@ async def scan_rom(
         (fetch_hltb_rom(), HLTBRom(hltb_id=None)),
         (fetch_gamelist_rom(), GamelistRom(gamelist_id=None)),
         (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
+        (fetch_steam_updates(), {}),
     )
     fetch_results = await asyncio.gather(
         *(coro for coro, _ in provider_fetches), return_exceptions=True
@@ -989,6 +1046,7 @@ async def scan_rom(
         hltb_handler_rom,
         gamelist_handler_rom,
         libretro_handler_rom,
+        steam_updates,
     ) = resolved
 
     metadata_handlers: dict[MetadataSource, dict] = {
@@ -1144,6 +1202,11 @@ async def scan_rom(
             }
         )
 
+    if steam_updates:
+        for field in ("steam_id", "steam_metadata", "name", "summary"):
+            if field in steam_updates:
+                rom_attrs[field] = steam_updates[field]
+
     # A rehash that no longer matches must drop the previous Hasheous match, or
     # the ROM keeps showing verification flags earned by hashes it no longer has.
     # Only a conclusive lookup clears them, so an unreachable Hasheous can't
@@ -1177,6 +1240,7 @@ async def scan_rom(
         and not rom_attrs.get("flashpoint_id")
         and not rom_attrs.get("hltb_id")
         and not rom_attrs.get("gamelist_id")
+        and not rom_attrs.get("steam_id")
     ):
         log.warning(
             f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
