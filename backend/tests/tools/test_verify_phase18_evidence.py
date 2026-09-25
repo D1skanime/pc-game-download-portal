@@ -34,3 +34,14 @@ def test_0116_creates_the_postgresql_enum_without_table_recreation():
     assert "from sqlalchemy.dialects.postgresql import ENUM" in migration
     assert "create_type=False" in migration
     assert "media_role.create(connection, checkfirst=True)" in migration
+
+
+def test_postgres_migration_verifier_keeps_the_full_isolated_cycle():
+    verifier = REPO_ROOT / "backend/tools/verify_phase18_postgres_migration.sh"
+    contents = verifier.read_text()
+
+    assert "postgres:16-alpine" in contents
+    assert 'docker rm -f "${postgres_container}"' in contents
+    assert contents.count("run_alembic heads") == 1
+    assert contents.count("run_alembic upgrade head") == 2
+    assert contents.count("run_alembic downgrade -1") == 1

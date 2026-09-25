@@ -77,6 +77,36 @@ def test_pc_igdb_metadata_migration_is_reversible_and_portable():
     assert "pc_release_date" in migration
 
 
+def test_pc_igdb_metadata_postgres_view_keeps_legacy_player_count_as_text():
+    migration = Path("alembic/versions/0118_pc_igdb_structured_metadata.py").read_text()
+
+    assert "generated_player_count::text AS player_count" in migration
+    assert (
+        "NULLIF(igdb_metadata ->> 'main_developer', '') AS main_developer" in migration
+    )
+    assert (
+        "COALESCE(igdb_metadata -> 'publishers', '[]'::jsonb) AS publishers"
+        in migration
+    )
+    assert (
+        "(igdb_metadata ->> 'pc_release_date')::bigint END AS pc_release_date"
+        in migration
+    )
+
+
+def test_pc_igdb_metadata_mariadb_view_keeps_non_postgresql_expressions():
+    migration = Path("alembic/versions/0118_pc_igdb_structured_metadata.py").read_text()
+
+    mariadb_branch = migration.split("        else:\n", maxsplit=1)[1]
+    assert (
+        "JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.main_developer'))"
+        in mariadb_branch
+    )
+    assert "JSON_ARRAY()" in mariadb_branch
+    assert "AS UNSIGNED) END AS pc_release_date" in mariadb_branch
+    assert "::text" not in mariadb_branch
+
+
 def test_component_metadata_allows_shared_steam_app_ids():
     first = RomComponentMetadata(component_id=1, steam_id=123)
     second = RomComponentMetadata(component_id=2, steam_id=123)
