@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 18-14-PLAN.md
-last_updated: "2026-09-25T15:13:37.850Z"
+stopped_at: Completed 18-15-PLAN.md
+last_updated: "2026-09-25T15:21:04.653Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 18
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 166
-  completed_plans: 158
-  percent: 72
+  completed_plans: 159
+  percent: 78
 ---
 
 # Project State
@@ -153,6 +153,7 @@ _Updated after each plan completion_
 | Phase 18 P12 | 4min | 2 tasks | 3 files |
 | Phase 18 P13 | 18min | 3 tasks | 3 files |
 | Phase 18 P14 | 8min | 2 tasks | 3 files |
+| Phase 18 P15 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -372,6 +373,8 @@ Recent decisions affecting current work:
 - [Phase 18]: Component metadata writes fully refresh the component before returning its lock version. — The next IGDB or Steam write must use MariaDB's persisted timestamp, not the pre-flush Python value.
 - [Phase 18]: Use a PostgreSQL-only text cast for 0118 player_count while retaining the MariaDB projection.
 - [Phase 18]: Preserve CREATE OR REPLACE VIEW and prove the full disposable PostgreSQL migration cycle.
+- [Phase 18]: Record the measured 189-pass Compose MariaDB suite count, superseding stale 186-plan and 187-summary counts.
+- [Phase 18]: Keep host-loopback pytest and scoped Trunk failures explicit rather than inferring a phase-wide verification pass.
 
 ### Blockers/Concerns
 
@@ -411,6 +414,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T15:13:37.833Z
-Stopped at: Completed 18-14-PLAN.md
+Last session: 2026-09-25T15:21:04.638Z
+Stopped at: Completed 18-15-PLAN.md
 Resume file: None

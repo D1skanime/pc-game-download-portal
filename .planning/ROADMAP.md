@@ -497,7 +497,7 @@ installers, and distribution are not part of this phase.
 **Goal:** Add the official Steam Storefront provider to eligible PC games and safely identified DLC components, with German-first text while preserving IGDB relationships, manual data, and SteamGridDB's artwork-only role.
 **Requirements**: [STEAM-01, STEAM-02, STEAM-03, STEAM-04, STEAM-05]
 **Depends on:** Phase 17
-**Plans:** 14/15 plans executed
+**Plans:** 15/15 plans complete
 
 Plans:
 
@@ -515,4 +515,4 @@ Plans:
 - [x] 18-12-PLAN.md — Correct the generated detailed-ROM contract key link and audit closure coverage.
 - [x] 18-13-PLAN.md — Diagnose and correct the two remaining parent-selection and component-persistence suite failures.
 - [x] 18-14-PLAN.md — Make the historical PostgreSQL 0118 metadata view replacement type-stable and portable.
-- [ ] 18-15-PLAN.md — Re-run the 186-test Compose suite and full PostgreSQL cycle, then record final closure evidence.
+- [x] 18-15-PLAN.md — Re-run the 186-test Compose suite and full PostgreSQL cycle, then record final closure evidence.
