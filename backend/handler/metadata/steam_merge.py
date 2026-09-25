@@ -26,6 +26,9 @@ def normalize_steam(
     updates: dict[str, Any] = {"steam_id": steam_id, "steam_metadata": metadata}
 
     metadata_current = _mapping(current.get("metadata"))
+    fallback_fields = _string_set(
+        _mapping(steam.get("steam_metadata")).get("fallback_fields")
+    )
     values = {
         "name": _non_empty_string(steam.get("name")),
         "summary": _non_empty_string(steam.get("summary")),
@@ -52,7 +55,11 @@ def normalize_steam(
             if field in {"name", "summary"}
             else metadata_current.get(field, current.get(field))
         )
-        if _can_replace(current_value, field in steam_fields):
+        if _can_replace(
+            current_value,
+            field in steam_fields
+            or (field in {"name", "summary"} and field not in fallback_fields),
+        ):
             if field in {"name", "summary"}:
                 updates[field] = value
             else:

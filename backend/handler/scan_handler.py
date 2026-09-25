@@ -197,6 +197,20 @@ async def resolve_steam_scan_metadata(
     return normalize_steam(result, _steam_scan_current(rom))
 
 
+def _steam_artwork_handler(steam_updates: dict[str, Any]) -> dict[str, Any]:
+    media = steam_updates.get("media")
+    if not isinstance(media, dict):
+        return {"steam_id": steam_updates.get("steam_id")}
+
+    cover = media.get("cover")
+    screenshots = media.get("screenshots")
+    return {
+        "steam_id": steam_updates.get("steam_id"),
+        "url_cover": cover[0] if isinstance(cover, list) and cover else "",
+        "url_screenshots": screenshots if isinstance(screenshots, list) else [],
+    }
+
+
 def get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
@@ -1052,6 +1066,11 @@ async def scan_rom(
     ) = resolved
 
     metadata_handlers: dict[MetadataSource, dict] = {
+        MetadataSource.STEAM: {
+            "handler": _steam_artwork_handler(steam_updates),
+            "id_field": "steam_id",
+            "metadata_field": "steam_metadata",
+        },
         MetadataSource.IGDB: {
             "handler": igdb_handler_rom,
             "id_field": "igdb_id",

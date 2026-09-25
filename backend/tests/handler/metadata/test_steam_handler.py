@@ -35,6 +35,7 @@ async def test_missing_german_summary_falls_back_on_the_same_app_id(handler):
 
     assert result["steam_id"] == 1091500
     assert result["summary"] == "An open-world RPG."
+    assert result["steam_metadata"]["fallback_fields"] == ["summary"]
     calls = handler.steam_service.get_app_details.await_args_list
     assert [call.args[0] for call in calls] == [1091500, 1091500]
     assert calls[0].kwargs == {"country": "CH", "language": "german"}

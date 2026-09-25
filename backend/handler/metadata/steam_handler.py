@@ -27,6 +27,7 @@ class SteamMetadata(TypedDict):
     release_date: NotRequired[dict[str, str | bool]]
     language: NotRequired[str]
     fallback_language: NotRequired[str]
+    fallback_fields: NotRequired[list[str]]
     type: NotRequired[str]
     fullgame: NotRequired[SteamFullGame]
 
@@ -168,6 +169,17 @@ class SteamHandler(MetadataHandler):
             "language": STEAM_API_LANGUAGE,
             "fallback_language": STEAM_API_FALLBACK_LANGUAGE if fallback else "",
         }
+        fallback_fields: list[str] = []
+        if fallback and not preferred.get("name") and fallback_details.get("name"):
+            fallback_fields.append("name")
+        if (
+            fallback
+            and not preferred.get("short_description")
+            and fallback_details.get("short_description")
+        ):
+            fallback_fields.append("summary")
+        if fallback_fields:
+            metadata["fallback_fields"] = fallback_fields
         if isinstance(preferred.get("type"), str):
             metadata["type"] = preferred["type"]
         if isinstance(preferred.get("fullgame"), dict):

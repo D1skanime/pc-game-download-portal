@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from handler.scan_handler import MetadataSource, resolve_steam_scan_metadata
+from handler.scan_handler import (
+    MetadataSource,
+    _steam_artwork_handler,
+    resolve_steam_scan_metadata,
+)
 from models.platform import Platform
 from models.rom import Rom
 
@@ -27,6 +31,22 @@ def _rom(*, steam_id: int | None = None) -> SimpleNamespace:
 
 def _platform(slug: str) -> SimpleNamespace:
     return SimpleNamespace(slug=slug)
+
+
+def test_steam_media_enters_the_existing_artwork_priority_handler():
+    assert _steam_artwork_handler(
+        {
+            "steam_id": 1903340,
+            "media": {
+                "cover": ["https://cdn.example/cover.jpg"],
+                "screenshots": ["https://cdn.example/shot.jpg"],
+            },
+        }
+    ) == {
+        "steam_id": 1903340,
+        "url_cover": "https://cdn.example/cover.jpg",
+        "url_screenshots": ["https://cdn.example/shot.jpg"],
+    }
 
 
 @pytest.mark.asyncio

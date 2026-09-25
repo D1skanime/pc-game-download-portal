@@ -44,13 +44,14 @@ def test_normalize_steam_preserves_each_manual_field_and_selected_artwork():
     assert not ({"path_cover_s", "path_screenshot"} & updates.keys())
 
 
-def test_normalize_steam_protects_legacy_populated_fields_without_steam_provenance():
+def test_normalize_steam_prefers_localized_text_over_non_manual_provider_data():
     updates = normalize_steam(
         {
             "steam_id": 1091500,
             "name": "Steam title",
             "summary": "Steam summary",
             "pc_release_date": 1_700_000_000,
+            "steam_metadata": {"language": "german"},
         },
         {
             "name": "Legacy title",
@@ -63,8 +64,36 @@ def test_normalize_steam_protects_legacy_populated_fields_without_steam_provenan
 
     assert updates == {
         "steam_id": 1091500,
-        "steam_metadata": {"app_id": 1091500, "source": "storefront"},
+        "steam_metadata": {
+            "app_id": 1091500,
+            "language": "german",
+            "source": "storefront",
+            "fields": ["name", "summary"],
+        },
+        "name": "Steam title",
+        "summary": "Steam summary",
     }
+
+
+def test_normalize_steam_keeps_existing_text_when_only_english_fallback_exists():
+    updates = normalize_steam(
+        {
+            "steam_id": 1091500,
+            "summary": "English Steam summary",
+            "steam_metadata": {
+                "language": "german",
+                "fallback_language": "english",
+                "fallback_fields": ["summary"],
+            },
+        },
+        {
+            "summary": "Existing provider summary",
+            "manual_metadata": {},
+            "steam_metadata": {},
+        },
+    )
+
+    assert "summary" not in updates
 
 
 def test_normalize_steam_replaces_only_steam_owned_or_empty_fields_and_drops_empty_values():
