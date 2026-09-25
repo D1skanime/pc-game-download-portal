@@ -163,7 +163,7 @@
 
 - [x] **STEAM-01**: An operator can independently enable the official no-key Steam Storefront metadata provider, configure German-first locale defaults with English fallback, include it in metadata priority, and observe its health without changing SteamGridDB's artwork-only role.
 - [x] **STEAM-02**: Eligible PC games can persist and refresh a stable Steam App ID and localized structured Steam metadata, with same-App-ID fallback and non-destructive field-level merge that preserves manual values and IGDB-owned relationships.
-- [ ] **STEAM-03**: An existing DLC component can receive Steam metadata only after one hydrated IGDB DLC identity and a uniquely safe Steam DLC match pass product-type, confidence, and parent validation; unsafe matches preserve existing IGDB metadata and never create a component.
+- [x] **STEAM-03**: An existing DLC component can receive Steam metadata only after one hydrated IGDB DLC identity and a uniquely safe Steam DLC match pass product-type, confidence, and parent validation; unsafe matches preserve existing IGDB metadata and never create a component.
 - [x] **STEAM-04**: API and v2 metadata-provider surfaces distinguish Steam Storefront from SteamGridDB and expose persisted Steam provenance consistently.
 - [x] **STEAM-05**: Steam timeout, rate-limit, regional, malformed-payload, and ambiguity failures are non-fatal to existing providers and are covered by backend, migration, and relevant frontend regression checks.
 
