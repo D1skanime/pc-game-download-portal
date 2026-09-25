@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -356,6 +356,12 @@ def test_pc_parent_steam_selection_resolves_details_before_guarded_persistence(
     )
     monkeypatch.setitem(pc_metadata_match_handler.providers, "steam", steam)
 
+    review = client.get(
+        f"/api/roms/{rom.id}/pc-metadata-candidates", headers=_headers(access_token)
+    )
+
+    assert review.status_code == status.HTTP_200_OK
+
     response = client.post(
         f"/api/roms/{rom.id}/pc-metadata-selection",
         headers=_headers(access_token),
@@ -363,7 +369,7 @@ def test_pc_parent_steam_selection_resolves_details_before_guarded_persistence(
             "candidate_id": candidate.id,
             "query": "Cyberpunk 2077",
             "selected_media_ids": [],
-            "expected_version": rom.updated_at.isoformat(),
+            "expected_version": review.json()["expected_version"],
         },
     )
 
@@ -373,6 +379,50 @@ def test_pc_parent_steam_selection_resolves_details_before_guarded_persistence(
     assert saved is not None
     assert saved.steam_id == 1091500
     assert saved.steam_metadata["language"] == "de"
+
+
+def test_pc_parent_steam_selection_rejects_review_version_after_rom_changes(
+    client, access_token, rom, monkeypatch
+):
+    candidate = _steam_candidate()
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_candidates",
+        AsyncMock(
+            return_value={"steam": PcMetadataProviderResult("steam", True, [candidate])}
+        ),
+    )
+    steam = type("Steam", (), {})()
+    steam.get_rom_by_id = AsyncMock(
+        return_value={"steam_id": 1091500, "steam_metadata": {"language": "de"}}
+    )
+    monkeypatch.setitem(pc_metadata_match_handler.providers, "steam", steam)
+
+    review = client.get(
+        f"/api/roms/{rom.id}/pc-metadata-candidates", headers=_headers(access_token)
+    )
+    assert review.status_code == status.HTTP_200_OK
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "summary": "Changed after review",
+            "updated_at": datetime.fromisoformat(review.json()["expected_version"])
+            + timedelta(seconds=1),
+        },
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": candidate.id,
+            "query": "Cyberpunk 2077",
+            "selected_media_ids": [],
+            "expected_version": review.json()["expected_version"],
+        },
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
 
 
 def test_non_dlc_component_rejects_provider_media_selection(
