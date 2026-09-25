@@ -4,6 +4,7 @@ import aiohttp
 import pytest
 
 from adapters.services.steam import SteamService
+from adapters.services.steam_types import SteamAppDetails, SteamFullGame
 
 
 def _response(payload: object) -> MagicMock:
@@ -80,3 +81,11 @@ async def test_rate_limit_retries_are_bounded_then_degrade(session):
         )
 
     assert session.get.await_count == 3
+
+
+def test_dlc_fullgame_transport_contract_keeps_only_the_parent_identity():
+    annotations = SteamFullGame.__annotations__
+
+    assert annotations["appid"] == int | str
+    assert str(annotations["name"]) == "typing.NotRequired[str]"
+    assert SteamAppDetails.__annotations__["fullgame"].__args__[0] is SteamFullGame

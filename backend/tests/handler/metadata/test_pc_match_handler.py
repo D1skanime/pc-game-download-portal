@@ -241,6 +241,54 @@ def test_unique_related_dlc_match_refuses_ambiguous_parent_matches():
     assert handler.find_unique_related_igdb_candidate(rom, component) is None
 
 
+@pytest.mark.parametrize(
+    ("fullgame", "expected"),
+    [
+        ({"appid": 1091500}, 1091500),
+        ({"appid": "1091500", "name": "Diagnostic only"}, 1091500),
+        (None, None),
+        ({}, None),
+        ({"appid": True}, None),
+        ({"appid": 0}, None),
+        ({"appid": -1}, None),
+        ({"appid": 1.5}, None),
+        ({"appid": "1.5"}, None),
+        ({"appid": "not-an-id"}, None),
+        ("1091500", None),
+    ],
+)
+def test_dlc_parent_id_accepts_only_positive_decimal_fullgame_appids(
+    fullgame, expected
+):
+    assert PcMetadataMatchHandler._steam_fullgame_app_id(fullgame) == expected
+
+
+@pytest.mark.parametrize(
+    ("product_type", "fullgame", "parent_id", "expected"),
+    [
+        ("dlc", {"appid": 1091500}, 1091500, True),
+        ("dlc", None, 1091500, True),
+        ("dlc", {"appid": 42}, 1091500, False),
+        ("dlc", {"appid": "invalid"}, 1091500, False),
+        ("game", {"appid": 1091500}, 1091500, False),
+        ("bundle", {"appid": 1091500}, 1091500, False),
+        ("music", {"appid": 1091500}, 1091500, False),
+        ("demo", {"appid": 1091500}, 1091500, False),
+        ("tool", {"appid": 1091500}, 1091500, False),
+        ("edition", {"appid": 1091500}, 1091500, False),
+    ],
+)
+def test_dlc_details_require_dlc_type_and_a_matching_parent_when_exposed(
+    product_type, fullgame, parent_id, expected
+):
+    assert (
+        PcMetadataMatchHandler._is_valid_steam_dlc_details(
+            {"type": product_type, "fullgame": fullgame}, parent_id
+        )
+        is expected
+    )
+
+
 @pytest.mark.asyncio
 async def test_collect_candidates_returns_typed_unavailable_provider_result():
     failing = Mock(is_enabled=Mock(return_value=True))

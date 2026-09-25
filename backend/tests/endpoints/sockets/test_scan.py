@@ -91,6 +91,7 @@ async def test_scan_enrichment_imports_only_trusted_dlc_media(mocker):
     db.get_pc_component_by_id.return_value = saved
     matcher = mocker.patch.object(scan_module, "pc_metadata_match_handler")
     matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=candidate)
+    matcher.fetch_validated_steam_dlc = AsyncMock(return_value=None)
     store = mocker.patch.object(
         scan_module.fs_resource_handler,
         "store_pc_component_provider_image",
@@ -120,10 +121,12 @@ async def test_scan_enrichment_ignores_ambiguous_dlc_and_media_failure(mocker):
     db = mocker.patch.object(scan_module, "db_rom_handler")
     matcher = mocker.patch.object(scan_module, "pc_metadata_match_handler")
     matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=None)
+    matcher.fetch_validated_steam_dlc = AsyncMock(return_value=None)
 
     await scan_module._enrich_pc_dlc_from_igdb(rom, component)
 
     db.apply_pc_component_metadata_candidate.assert_not_called()
+    matcher.fetch_validated_steam_dlc.assert_not_awaited()
 
     candidate = PcMetadataCandidate(
         id="candidate-id",
@@ -136,6 +139,7 @@ async def test_scan_enrichment_ignores_ambiguous_dlc_and_media_failure(mocker):
     )
     saved = MagicMock(id=11, updated_at=object())
     matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=candidate)
+    matcher.fetch_validated_steam_dlc = AsyncMock(return_value=None)
     db.apply_pc_component_metadata_candidate.return_value = saved
     store = mocker.patch.object(
         scan_module.fs_resource_handler,
