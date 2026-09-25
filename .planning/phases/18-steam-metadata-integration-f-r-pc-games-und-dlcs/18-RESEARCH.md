@@ -190,23 +190,70 @@ backend/
 | Upstream Steam handler uses one locale and generic scan merge | Fork requires German-first, same-App-ID fallback and field-guarded PC merge | Port transport concepts, isolate fork policy. [VERIFIED: current upstream `origin/master:backend/handler/metadata/steam_handler.py`, `18-CONTEXT.md`] |
 | Existing automatic DLC import is IGDB-only                    | Steam can enrich only after unique hydrated IGDB identity                   | Retain IGDB discovery and add a narrow Steam enrichment stage. [VERIFIED: `backend/endpoints/sockets/scan.py`, `18-CONTEXT.md`]                       |
 
+## Resolved Storefront and Manual-Provenance Contracts
+
+### Steam DLC parent contract
+
+The Storefront `appdetails` payload represents a DLC's parent, when it exposes
+one, as `data.fullgame`. The accepted safe shape is an object with a positive
+decimal `appid` (Steam has returned this as either a JSON number or a numeric
+string) and an optional display `name`. The parent identity used by Phase 18 is
+**only** `fullgame.appid`, normalized to `int`; `fullgame.name` is diagnostic
+only and must never establish a parent. A missing `fullgame` is an explicitly
+supported Storefront outcome. A non-object `fullgame`, missing `appid`, boolean,
+zero, negative, fractional, or non-decimal value is malformed and is treated as
+no usable parent relation, never as a match. The typed transport contract must
+therefore define `SteamFullGame` with `appid: int | str` and
+`name: NotRequired[str]`, and `SteamAppDetails.fullgame: NotRequired[SteamFullGame]`.
+
+This is a fork-side defensive extension. The inspected current upstream Steam
+types do not consume DLC parent relations, while the local pre-existing stub
+incorrectly typed `fullgame` as `dict[str, int]`. Fixtures must pin valid
+integer and numeric-string parents, absent parent, and malformed parents before
+the DLC adapter is wired. [VERIFIED: current local
+`backend/adapters/services/steam_types.py`; current upstream
+`origin/master:backend/adapters/services/steam_types.py`; Steam Storefront
+`appdetails` response contract observed through the existing `fullgame` stub.]
+
+### Authoritative manual-field provenance
+
+The current authoritative state is field-specific, not a general
+`manual_fields` flag:
+
+- `manual_metadata` is the explicit user override store for structured metadata
+  and has first-release-date precedence in the generated metadata view.
+- `name` and `summary` are direct ROM columns with no persisted per-field
+  provider/manual provenance. `name_sort_key` only records a custom sort order;
+  it is not evidence that `name` is manual.
+- selected cover and screenshot ownership is represented by `path_cover_s`,
+  `path_cover_l`, and `path_screenshots`; a remote provider must not overwrite
+  those owned selections implicitly.
+
+Therefore a Steam merge must not infer that a non-empty title or summary is
+provider-owned. The merge contract must introduce and consume explicit
+`manual_metadata` keys `name`, `summary`, and `pc_release_date` for future
+manual overrides, while preserving legacy non-empty title/summary/release
+values on automatic Steam scans until an explicit Steam-owned provenance is
+present. The existing edit/update endpoint must write those keys whenever a
+user explicitly changes the corresponding field. This is the prerequisite that
+makes independent manual-protection tests meaningful; the normalizer is not
+permitted to apply a preferred Steam field until this contract's RED tests pass.
+[VERIFIED: `backend/models/rom.py`, `backend/alembic/versions/0061_manual_metadata.py`,
+`backend/handler/database/roms_handler.py`, `backend/handler/scan_handler.py`,
+`backend/endpoints/roms/__init__.py`, and
+`frontend/src/v2/components/EditRom/AdditionalDetails.vue`.]
+
 ## Assumptions Log
 
-| #   | Claim                                                                                                                                   | Section        | Risk if Wrong                                                                                                 |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------- |
-| A1  | Steam Storefront parent relation will be available in a stable typed field for enough DLC results to enforce it when present. [ASSUMED] | DLC enrichment | The parser may need to tolerate alternate/missing Storefront shapes; tests must cover absent-parent fallback. |
-| A2  | No new locale key is required if Steam is only surfaced via provider labels and existing settings components. [ASSUMED]                 | v2 display     | New provider copy may require all locale files and i18n checks.                                               |
+| #   | Claim                                                                                                                   | Section    | Risk if Wrong                                                   |
+| --- | ----------------------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------- |
+| A1  | No new locale key is required if Steam is only surfaced via provider labels and existing settings components. [ASSUMED] | v2 display | New provider copy may require all locale files and i18n checks. |
 
 ## Open Questions
 
-1. **Which exact Storefront details field encodes a DLC's parent App ID?**
-   - What we know: the approved scope requires parent equality when Storefront exposes it, and current local typed payload has `fullgame`. [VERIFIED: `18-CONTEXT.md`, `backend/adapters/services/steam_types.py`]
-   - What's unclear: the response shape for every DLC/region. [ASSUMED]
-   - Recommendation: parse defensively into an optional typed parent ID; fixture tests must include present, absent and malformed parent data. [VERIFIED: `18-CONTEXT.md`]
-
-2. **What is the established manual-field provenance representation?**
-   - What we know: ordinary scan update preservation uses existing model values and selected cover paths, but there is no general `manual_fields` abstraction in the inspected PC writer. [VERIFIED: `backend/handler/scan_handler.py`, `backend/handler/database/roms_handler.py`]
-   - Recommendation: planner must identify the live manual metadata/source semantics before implementing a normalizer, then test title, summary, release and artwork independently. [VERIFIED: `18-CONTEXT.md`]
+No blocking open questions remain. Storefront parent parsing and manual field
+provenance are fixed above and have dedicated RED-first test requirements in
+Plans 18-01, 18-04, and 18-05.
 
 ## Environment Availability
 
@@ -238,8 +285,8 @@ backend/
 | timeout, 429, malformed and unavailable isolation                              | adapter + scan unit            | extend Steam tests and scan resolver tests                                              | Gap. [VERIFIED: approved plan, existing sparse Steam tests]                 |
 | platform gate plus ID refresh after rename                                     | scan/handler unit              | new `test_resolve_steam_rom.py`                                                         | Gap. [VERIFIED: current upstream resolver, `18-CONTEXT.md`]                 |
 | provider registry, priority, watcher, heartbeat                                | config/endpoint unit           | `test_config_loader.py`, `test_heartbeat.py`, scan-priority tests                       | Gap. [VERIFIED: codebase registry paths]                                    |
-| persistence, no component App-ID uniqueness and reversible migration           | model/migration                | `test_pc_igdb_metadata.py`, Alembic commands                                            | Partial. [VERIFIED: existing model assertion, `0119` migration]             |
-| manual-safe non-empty main merge and artwork preservation                      | focused merge unit             | new `test_steam_merge.py`                                                               | Gap. [VERIFIED: approved plan]                                              |
+| persistence, no component App-ID uniqueness and reversible migration           | model/migration                | container-context MariaDB and PostgreSQL Alembic commands                               | Partial. [VERIFIED: existing model assertion, `0119` migration]             |
+| manual-safe non-empty main merge and artwork preservation                      | focused merge + endpoint unit  | `test_steam_merge.py`, `test_rom.py`, `test_pc_metadata.py`                             | Gap. [VERIFIED: approved plan]                                              |
 | unique IGDB identity, invalid types, parent mismatch and no component creation | DLC handler/scan unit          | extend PC matcher and socket scan tests                                                 | Gap. [VERIFIED: `backend/endpoints/sockets/test_scan.py`, `18-CONTEXT.md`]  |
 | Steam manual candidate and provider label/display                              | endpoint/v2 test and typecheck | PC metadata endpoint tests, v2 relevant component tests                                 | Gap. [VERIFIED: `backend/endpoints/roms/pc_metadata.py`, v2 provider files] |
 
