@@ -44,6 +44,37 @@ async def test_collect_candidates_attributes_results_to_their_provider():
 
 
 @pytest.mark.asyncio
+async def test_collect_candidates_exposes_steam_identity_and_review_media(rom):
+    steam = Mock(is_enabled=Mock(return_value=True))
+    steam.get_matched_roms_by_name = AsyncMock(
+        return_value=[
+            {
+                "steam_id": 1091500,
+                "name": "Cyberpunk 2077",
+                "steam_metadata": {"language": "de"},
+                "url_cover": "https://cdn.example/cyberpunk-cover.jpg",
+                "url_screenshots": ["https://cdn.example/cyberpunk-shot.jpg"],
+            }
+        ]
+    )
+    handler = PcMetadataMatchHandler(providers={"steam": steam})
+
+    results = await handler.collect_candidates(rom, "Cyberpunk 2077")
+
+    candidate = results["steam"].candidates[0]
+    assert candidate.provider_ids == {"steam_id": 1091500}
+    assert candidate.fields["steam_id"] == 1091500
+    assert candidate.fields["steam_metadata"] == {"language": "de"}
+    assert candidate.media == [
+        {"kind": "cover", "url": "https://cdn.example/cyberpunk-cover.jpg"},
+        {"kind": "screenshot", "url": "https://cdn.example/cyberpunk-shot.jpg"},
+    ]
+    steam.get_matched_roms_by_name.assert_awaited_once_with(
+        "Cyberpunk 2077", rom.platform_slug
+    )
+
+
+@pytest.mark.asyncio
 async def test_collect_candidates_uses_a_spaced_search_title_for_compact_folder_names():
     igdb = Mock(is_enabled=Mock(return_value=True))
     igdb.get_matched_roms_by_name = AsyncMock(

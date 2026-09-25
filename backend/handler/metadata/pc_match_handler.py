@@ -13,6 +13,7 @@ from handler.metadata import (
     meta_launchbox_handler,
     meta_moby_handler,
     meta_sgdb_handler,
+    meta_steam_handler,
 )
 from models.rom import Rom, RomComponent
 
@@ -56,6 +57,7 @@ class PcMetadataMatchHandler:
     def __init__(self, providers: dict[str, PcMetadataProvider] | None = None) -> None:
         self.providers = providers or {
             "igdb": meta_igdb_handler,
+            "steam": meta_steam_handler,
             "moby": meta_moby_handler,
             "sgdb": meta_sgdb_handler,
             "launchbox": meta_launchbox_handler,
@@ -238,6 +240,10 @@ class PcMetadataMatchHandler:
             return await provider.get_matched_roms_by_name(  # type: ignore[attr-defined]
                 title, rom.platform_slug
             )
+        if provider_name == "steam":
+            return await provider.get_matched_roms_by_name(  # type: ignore[attr-defined]
+                title, rom.platform_slug
+            )
         return []
 
     @staticmethod
@@ -264,11 +270,13 @@ class PcMetadataMatchHandler:
                 "moby_id",
                 "sgdb_id",
                 "launchbox_id",
+                "steam_id",
                 "name",
                 "summary",
                 "igdb_metadata",
                 "moby_metadata",
                 "launchbox_metadata",
+                "steam_metadata",
             }
         }
         return PcMetadataCandidate(

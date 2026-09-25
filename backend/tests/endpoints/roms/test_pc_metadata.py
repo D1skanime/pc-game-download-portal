@@ -51,6 +51,18 @@ def _candidate_results() -> dict[str, PcMetadataProviderResult]:
     }
 
 
+def _steam_candidate() -> PcMetadataCandidate:
+    return PcMetadataCandidate(
+        id="candidate-steam-1091500",
+        provider="steam",
+        title="Cyberpunk 2077",
+        provider_ids={"steam_id": 1091500},
+        description_available=False,
+        media=[],
+        fields={"steam_id": 1091500, "name": "Untrusted search title"},
+    )
+
+
 @pytest.mark.parametrize(
     "kind",
     [
@@ -320,6 +332,47 @@ def test_pc_parent_metadata_selection_imports_confirmed_cover_and_screenshots(
     assert saved.path_cover_s == "roms/1/cover/s.jpg"
     assert saved.path_cover_l == "roms/1/cover/l.jpg"
     assert saved.path_screenshots == ["roms/1/screenshots/0.jpg"]
+
+
+def test_pc_parent_steam_selection_resolves_details_before_guarded_persistence(
+    client, access_token, rom, monkeypatch
+):
+    candidate = _steam_candidate()
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_candidates",
+        AsyncMock(
+            return_value={"steam": PcMetadataProviderResult("steam", True, [candidate])}
+        ),
+    )
+    steam = type("Steam", (), {})()
+    steam.get_rom_by_id = AsyncMock(
+        return_value={
+            "steam_id": 1091500,
+            "name": "Resolved German title",
+            "summary": "Resolved German summary",
+            "steam_metadata": {"language": "de"},
+        }
+    )
+    monkeypatch.setitem(pc_metadata_match_handler.providers, "steam", steam)
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": candidate.id,
+            "query": "Cyberpunk 2077",
+            "selected_media_ids": [],
+            "expected_version": rom.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    steam.get_rom_by_id.assert_awaited_once_with(1091500, rom.platform_slug)
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert saved.steam_id == 1091500
+    assert saved.steam_metadata["language"] == "de"
 
 
 def test_non_dlc_component_rejects_provider_media_selection(

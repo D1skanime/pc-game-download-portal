@@ -1767,14 +1767,24 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Rom | None:
         """Apply a reviewed PC metadata candidate only at the expected version."""
+        metadata_values = data.get("metadata")
+        rom_values = {key: value for key, value in data.items() if key != "metadata"}
         result = session.execute(
             update(Rom)
             .where(and_(Rom.id == id, Rom.updated_at == expected_updated_at))
-            .values(**data)
+            .values(**rom_values)
             .execution_options(synchronize_session="evaluate")
         )
         if result.rowcount != 1:
             return None
+        if isinstance(metadata_values, dict):
+            metadata = session.get(RomMetadata, id)
+            if metadata is None:
+                metadata = RomMetadata(rom_id=id)
+                session.add(metadata)
+            for field in ("main_developer", "publishers", "pc_release_date"):
+                if field in metadata_values:
+                    setattr(metadata, field, metadata_values[field])
         session.flush()
         session.expire_all()
         return session.query(Rom).filter_by(id=id).one()
