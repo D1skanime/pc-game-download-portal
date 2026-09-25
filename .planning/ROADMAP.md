@@ -497,11 +497,11 @@ installers, and distribution are not part of this phase.
 **Goal:** Add the official Steam Storefront provider to eligible PC games and safely identified DLC components, with German-first text while preserving IGDB relationships, manual data, and SteamGridDB's artwork-only role.
 **Requirements**: [STEAM-01, STEAM-02, STEAM-03, STEAM-04, STEAM-05]
 **Depends on:** Phase 17
-**Plans:** 9 plans
+**Plans:** 1/9 plans executed
 
 Plans:
 
-- [ ] 18-01-PLAN.md — Harden the localized upstream-close Steam service, handler, and no-key configuration.
+- [x] 18-01-PLAN.md — Harden the localized upstream-close Steam service, handler, and no-key configuration.
 - [ ] 18-02-PLAN.md — Repair the migration graph, persist Steam IDs/provenance, and prove migrations against disposable PostgreSQL.
 - [ ] 18-03-PLAN.md — Complete provider priority, heartbeat, distinct responsive/accessibility-verified v2 Steam presentation, and production build.
 - [ ] 18-04-PLAN.md — Integrate Steam PC candidates through one manual-safe merge policy.
