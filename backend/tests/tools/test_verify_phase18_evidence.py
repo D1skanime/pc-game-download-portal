@@ -24,3 +24,13 @@ def test_0115_creates_the_postgresql_enum_without_table_recreation():
     assert "from sqlalchemy.dialects.postgresql import ENUM" in migration
     assert "create_type=False" in migration
     assert "component_kind.create(connection, checkfirst=True)" in migration
+
+
+def test_0116_creates_the_postgresql_enum_without_table_recreation():
+    migration = (
+        REPO_ROOT / "backend/alembic/versions/0116_pc_component_local_media.py"
+    ).read_text()
+
+    assert "from sqlalchemy.dialects.postgresql import ENUM" in migration
+    assert "create_type=False" in migration
+    assert "media_role.create(connection, checkfirst=True)" in migration
