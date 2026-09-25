@@ -387,9 +387,7 @@ function closeDialog() {
           <span>{{ t("rom.selection-count", { n: roms.length }) }}</span>
         </div>
 
-        <!-- 1. Providers section — General + Specific RSelects, sharing
-             one `metadataSources` model. Both render icon-only chips so
-             a multi-select stays visually quiet in the activator. -->
+        <!-- General and specific selects share one provider selection. -->
         <section class="r-v2-refresh__section">
           <h3 class="r-v2-refresh__section-title">
             {{ t("scan.section-providers") }}
@@ -428,6 +426,7 @@ function closeDialog() {
                         size="18"
                         rounded="sm"
                       />
+                      <span>{{ item.raw.name }}</span>
                     </span>
                   </template>
                 </RTooltip>
@@ -518,6 +517,7 @@ function closeDialog() {
                         size="18"
                         rounded="sm"
                       />
+                      <span>{{ item.raw.name }}</span>
                     </span>
                   </template>
                 </RTooltip>
@@ -765,12 +765,10 @@ function closeDialog() {
   color: var(--r-color-fg-faint);
 }
 
-/* Icon-only chip rendered in the activator — keeps the multi-select
-   visually quiet when many providers are picked. */
 .r-v2-refresh__provider-chip {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: var(--r-space-1);
 }
 
 /* Hash matcher pills — same compact icon + switch rows as Scan.vue. */
