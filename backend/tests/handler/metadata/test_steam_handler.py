@@ -41,6 +41,43 @@ async def test_missing_german_summary_falls_back_on_the_same_app_id(handler):
     assert calls[1].kwargs == {"country": "US", "language": "en"}
 
 
+async def test_fallback_fills_empty_release_and_header_fields_for_the_same_app_id(
+    handler,
+):
+    handler.steam_service.get_app_details = AsyncMock(
+        side_effect=[
+            {
+                "type": "game",
+                "name": "Cyberpunk 2077",
+                "steam_appid": 1091500,
+                "header_image": "",
+                "release_date": {},
+            },
+            {
+                "type": "game",
+                "name": "Cyberpunk 2077",
+                "steam_appid": 1091500,
+                "header_image": "https://cdn.example/header.jpg",
+                "release_date": {"date": "10 Dec, 2020", "coming_soon": False},
+            },
+        ]
+    )
+
+    result = await handler.get_rom_by_id(1091500)
+
+    assert result["url_cover"] == "https://cdn.example/header.jpg"
+    assert result["steam_metadata"]["release_date"] == {
+        "date": "10 Dec, 2020",
+        "coming_soon": False,
+    }
+    assert [
+        call.args[0] for call in handler.steam_service.get_app_details.await_args_list
+    ] == [
+        1091500,
+        1091500,
+    ]
+
+
 @pytest.mark.parametrize("platform", ["dos", "win3x", "win9x"])
 async def test_excluded_pc_platforms_do_not_name_search(handler, platform):
     handler.steam_service.search_apps = AsyncMock()
