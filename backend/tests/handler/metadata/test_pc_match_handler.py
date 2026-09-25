@@ -241,6 +241,30 @@ def test_unique_related_dlc_match_refuses_ambiguous_parent_matches():
     assert handler.find_unique_related_igdb_candidate(rom, component) is None
 
 
+@pytest.mark.asyncio
+async def test_fetch_unique_related_dlc_match_returns_none_when_hydration_raises():
+    igdb = Mock()
+    igdb.get_matched_rom_by_id = AsyncMock(side_effect=RuntimeError("offline"))
+    handler = PcMetadataMatchHandler(providers={"igdb": igdb})
+    rom = Mock()
+    rom.name = "Kingdom Come: Deliverance"
+    rom.igdb_metadata = {
+        "dlcs": [
+            {
+                "id": 119899,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+                "cover_url": "https://images.igdb.com/womans-lot.jpg",
+            }
+        ]
+    }
+    component = Mock(relative_path="dlc/a-woman-s-lot", manifest_members=[])
+
+    candidate = await handler.fetch_unique_related_igdb_candidate(rom, component)
+
+    assert candidate is None
+    igdb.get_matched_rom_by_id.assert_awaited_once_with(rom, 119899)
+
+
 @pytest.mark.parametrize(
     ("fullgame", "expected"),
     [

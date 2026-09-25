@@ -154,6 +154,20 @@ async def test_scan_enrichment_ignores_ambiguous_dlc_and_media_failure(mocker):
     db.import_pc_component_provider_media.assert_not_called()
 
 
+async def test_scan_enrichment_stops_after_igdb_hydration_failure(mocker):
+    rom = MagicMock(id=7, igdb_metadata={"dlcs": []})
+    component = MagicMock(id=11, kind=RomComponentKind.DLC, updated_at=object())
+    db = mocker.patch.object(scan_module, "db_rom_handler")
+    matcher = mocker.patch.object(scan_module, "pc_metadata_match_handler")
+    matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=None)
+    matcher.fetch_validated_steam_dlc = AsyncMock()
+
+    await scan_module._enrich_pc_dlc_from_igdb(rom, component)
+
+    matcher.fetch_validated_steam_dlc.assert_not_awaited()
+    db.apply_pc_component_metadata_candidate.assert_not_called()
+
+
 async def test_merging_scan_stats():
     stats = ScanStats(
         scanned_platforms=1,
