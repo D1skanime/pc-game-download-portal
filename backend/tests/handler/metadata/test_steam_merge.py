@@ -1,0 +1,107 @@
+from handler.metadata.steam_merge import normalize_steam
+
+
+def test_normalize_steam_preserves_each_manual_field_and_selected_artwork():
+    current = {
+        "name": "Manual title",
+        "summary": "Manual summary",
+        "pc_release_date": 1_600_000_000,
+        "manual_metadata": {
+            "name": True,
+            "summary": True,
+            "pc_release_date": True,
+        },
+        "path_cover_s": "roms/1/manual-cover.webp",
+        "path_screenshot": "roms/1/manual-shot.webp",
+        "themes": ["Cyberpunk"],
+        "franchise": {"name": "Cyberpunk"},
+        "related_games": [{"id": 1}],
+        "dlc": [{"id": 2}],
+    }
+
+    updates = normalize_steam(
+        {
+            "steam_id": 1091500,
+            "name": "Steam title",
+            "summary": "Steam summary",
+            "pc_release_date": 1_700_000_000,
+            "url_cover": "https://cdn.example/cover.jpg",
+            "url_screenshots": ["https://cdn.example/shot.jpg"],
+        },
+        current,
+    )
+
+    assert updates["steam_id"] == 1091500
+    assert updates["steam_metadata"] == {"app_id": 1091500, "source": "storefront"}
+    assert "name" not in updates
+    assert "summary" not in updates
+    assert "pc_release_date" not in updates
+    assert updates["media"] == {
+        "cover": ["https://cdn.example/cover.jpg"],
+        "screenshots": ["https://cdn.example/shot.jpg"],
+    }
+    assert not ({"themes", "franchise", "related_games", "dlc"} & updates.keys())
+    assert not ({"path_cover_s", "path_screenshot"} & updates.keys())
+
+
+def test_normalize_steam_protects_legacy_populated_fields_without_steam_provenance():
+    updates = normalize_steam(
+        {
+            "steam_id": 1091500,
+            "name": "Steam title",
+            "summary": "Steam summary",
+            "pc_release_date": 1_700_000_000,
+        },
+        {
+            "name": "Legacy title",
+            "summary": "Legacy summary",
+            "pc_release_date": 1_600_000_000,
+            "manual_metadata": {},
+            "steam_metadata": {},
+        },
+    )
+
+    assert updates == {
+        "steam_id": 1091500,
+        "steam_metadata": {"app_id": 1091500, "source": "storefront"},
+    }
+
+
+def test_normalize_steam_replaces_only_steam_owned_or_empty_fields_and_drops_empty_values():
+    updates = normalize_steam(
+        {
+            "steam_id": "1091500",
+            "name": "  Steam title  ",
+            "summary": "",
+            "main_developer": "  CD Projekt  ",
+            "publishers": ["CD Projekt", "", None],
+            "pc_release_date": "not-a-date",
+            "url_cover": "",
+            "url_screenshots": ["", None],
+        },
+        {
+            "name": "Old Steam title",
+            "summary": "",
+            "pc_release_date": None,
+            "manual_metadata": {},
+            "steam_metadata": {
+                "app_id": 1091500,
+                "source": "storefront",
+                "fields": ["name"],
+            },
+        },
+    )
+
+    assert updates == {
+        "steam_id": 1091500,
+        "steam_metadata": {
+            "app_id": 1091500,
+            "source": "storefront",
+            "fields": ["name", "main_developer", "publishers"],
+        },
+        "name": "Steam title",
+        "metadata": {
+            "main_developer": "CD Projekt",
+            "publishers": ["CD Projekt"],
+        },
+    }

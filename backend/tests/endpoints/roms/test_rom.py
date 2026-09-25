@@ -810,6 +810,34 @@ def test_update_rom(
     get_rom_by_id_mock.assert_not_called()
 
 
+def test_update_rom_records_manual_title_summary_and_pc_release_authority(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={
+            "fs_name": rom.fs_name,
+            "name": "User title",
+            "summary": "User summary",
+            "raw_manual_metadata": json.dumps(
+                {
+                    "first_release_date": 1_600_000_000,
+                    "pc_release_date": 1_700_000_000,
+                }
+            ),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert saved.manual_metadata["name"] is True
+    assert saved.manual_metadata["summary"] is True
+    assert saved.manual_metadata["pc_release_date"] is True
+    assert saved.manual_metadata["first_release_date"] == 1_600_000_000
+
+
 @patch.object(
     IGDBHandler,
     "get_rom_by_id",
