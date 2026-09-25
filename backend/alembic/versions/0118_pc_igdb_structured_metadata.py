@@ -53,7 +53,11 @@ def _metadata_view_sql(is_pg: bool, *, include_pc_fields: bool = True) -> str:
         "generated_age_ratings AS age_ratings",
         "generated_first_release_date AS first_release_date",
         "generated_average_rating AS average_rating",
-        "generated_player_count AS player_count",
+        (
+            "generated_player_count::text AS player_count"
+            if is_pg
+            else "generated_player_count AS player_count"
+        ),
     ]
     if include_pc_fields:
         if is_pg:
