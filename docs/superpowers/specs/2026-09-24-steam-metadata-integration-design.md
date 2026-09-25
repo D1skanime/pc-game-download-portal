@@ -164,13 +164,36 @@ Tests cover the upstream port and the fork integration:
 
 ## Upstream compatibility record
 
-The initial port tracks upstream RomM commit
-`eaba9c70d1ef462022c7b4a1ab9846ddb214b66c` at the time of design. Directly
-ported concepts and files are the Steam service, Steam typed payloads, Steam
-handler, Steam enable flag, metadata source registration, heartbeat, scan
-resolution, Rom persistence fields, and their tests. Fork-specific code stays
-in localized Steam detail resolution, PC candidate integration, component
-metadata persistence, and field-level merge tests.
+The completed port was compared directly with `origin/master` at
+`e98fa77e73275860b4f085f27c67f5d42af96bd2` (inspected 2026-09-25). The
+upstream baseline provides the bounded no-key Storefront service and typed
+payloads (`backend/adapters/services/steam.py` and `steam_types.py`), the
+Steam handler's PC platform and store-type matching, request limiting and
+degradation, enablement and source registration, watcher and heartbeat wiring,
+and stored App-ID scan refresh concepts (`backend/config/config_manager.py`,
+`backend/watcher.py`, `backend/endpoints/heartbeat.py`, and
+`backend/handler/scan_handler.py`).
+
+Fork-only safeguards are deliberately kept separate from those direct ports:
+
+- German Swiss detail retrieval fills only missing localized fields from an
+  English US response for the same resolved App ID. It never performs a second
+  name search.
+- PC main-game application uses `normalize_steam`, explicit
+  `manual_metadata` provenance, legacy populated-field protection, and the
+  existing selected-artwork flow. Steam candidates are re-resolved by App ID
+  before optimistic persistence.
+- Automatic PC scans prefer a persisted App ID, reject a mismatched response,
+  search by name only for `win`, `linux`, and `mac`, and keep classic platforms
+  out of the provider path.
+- DLC enrichment begins with exactly one hydrated IGDB identity, then accepts
+  only a valid DLC Storefront result with a matching typed parent when exposed,
+  or one unique high-confidence parentless result. It updates an existing
+  component only and preserves IGDB structure.
+
+`sgdb` remains the unchanged SteamGridDB artwork-only provider. It is not a
+Steam Storefront alias and none of the Steam provider changes alter SGDB
+identity, artwork selection, or controls.
 
 ## Explicit exclusions
 
