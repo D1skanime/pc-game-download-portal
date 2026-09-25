@@ -14,6 +14,11 @@ class SteamStoreSearchItem(TypedDict):
     platforms: NotRequired[SteamPlatforms]
 
 
+class SteamFullGame(TypedDict):
+    appid: int | str
+    name: NotRequired[str]
+
+
 class SteamAppDetails(TypedDict):
     type: str
     name: str
@@ -25,4 +30,4 @@ class SteamAppDetails(TypedDict):
     platforms: NotRequired[SteamPlatforms]
     screenshots: NotRequired[list[dict[str, str | int]]]
     release_date: NotRequired[dict[str, str | bool]]
-    fullgame: NotRequired[dict[str, int]]
+    fullgame: NotRequired[SteamFullGame]

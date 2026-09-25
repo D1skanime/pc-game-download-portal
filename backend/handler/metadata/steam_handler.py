@@ -1,7 +1,7 @@
 from typing import NotRequired, TypedDict
 
 from adapters.services.steam import SteamService
-from adapters.services.steam_types import SteamAppDetails, SteamPlatforms
+from adapters.services.steam_types import SteamAppDetails, SteamFullGame, SteamPlatforms
 from config import (
     STEAM_API_COUNTRY,
     STEAM_API_ENABLED,
@@ -23,6 +23,8 @@ class SteamMetadata(TypedDict):
     release_date: NotRequired[dict[str, str | bool]]
     language: NotRequired[str]
     fallback_language: NotRequired[str]
+    type: NotRequired[str]
+    fullgame: NotRequired[SteamFullGame]
 
 
 class SteamRom(BaseRom):
@@ -149,7 +151,11 @@ class SteamHandler(MetadataHandler):
         self, preferred: SteamAppDetails, fallback: SteamAppDetails | None
     ) -> SteamRom:
         app_id = preferred["steam_appid"]
-        fallback_details = fallback or {}
+        fallback_details: SteamAppDetails = fallback or {
+            "type": "",
+            "name": "",
+            "steam_appid": 0,
+        }
         name = preferred.get("name") or fallback_details.get("name", "")
         summary = preferred.get("short_description") or fallback_details.get(
             "short_description", ""
@@ -158,6 +164,10 @@ class SteamHandler(MetadataHandler):
             "language": STEAM_API_LANGUAGE,
             "fallback_language": STEAM_API_FALLBACK_LANGUAGE if fallback else "",
         }
+        if isinstance(preferred.get("type"), str):
+            metadata["type"] = preferred["type"]
+        if isinstance(preferred.get("fullgame"), dict):
+            metadata["fullgame"] = preferred["fullgame"]
         for field in ("developers", "publishers"):
             if value := self._string_list(
                 preferred.get(field) or fallback_details.get(field)
@@ -187,7 +197,7 @@ class SteamHandler(MetadataHandler):
             "screenshots"
         ):
             result["url_screenshots"] = [
-                item["path_full"]
+                str(item["path_full"])
                 for item in screenshots
                 if isinstance(item, dict) and isinstance(item.get("path_full"), str)
             ]
