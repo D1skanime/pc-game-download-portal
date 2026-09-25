@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 18-09-PLAN.md
-last_updated: "2026-09-25T13:55:13.346Z"
+last_updated: "2026-09-25T14:08:18.674Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 18
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 160
-  completed_plans: 152
-  percent: 72
+  completed_plans: 153
+  percent: 78
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 18 (steam-metadata-integration-f-r-pc-games-und-dlcs) — EXECUTING
-Plan: 7 of 9
+Plan: 8 of 9
 Status: Ready to execute
 Last activity: 2026-09-25
 
@@ -148,6 +148,7 @@ _Updated after each plan completion_
 | Phase 18 P07 | 15min | 2 tasks | 3 files |
 | Phase 18 P09 | 5min | 2 tasks | 2 files |
 | Phase 18 P05 | 22min | 2 tasks | 7 files |
+| Phase 18 P08 | 14min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -357,6 +358,8 @@ Recent decisions affecting current work:
 - [Phase 18]: Steam name search is limited to win, linux, and mac; excluded PC platforms require a stored ID. — Preserves classic-ROM isolation while permitting explicit stored-ID refreshes for excluded PC platforms.
 - [Phase 18]: Component Steam updates reuse the selected optimistic-lock boundary, retain known provider provenance, and never allocate or uniquely identify components. — Steam provenance remains observational and cannot erase IGDB structured data or derive display state.
 - [Phase 18]: Steam DLC enrichment requires one hydrated IGDB identity, DLC type, matching parent App ID when exposed, and unique high-confidence title selection.
+- [Phase 18]: Compatibility record pins inspected origin/master e98fa77e and separates direct Steam ports from German-first, PC merge, stored-ID, and IGDB-first DLC safeguards. — Future upstream work needs an auditable port boundary.
+- [Phase 18]: Closure evidence retains unavailable backend MariaDB, fail-closed PostgreSQL credentials, and incomplete global Trunk as blockers rather than passes. — Required validation cannot be inferred from partial evidence.
 
 ### Blockers/Concerns
 
@@ -367,6 +370,9 @@ Recent decisions affecting current work:
 - Phase 17 browser verification remains pending because Firefox, Chrome, Edge, and MariaDB are unavailable in the isolated Linux checkout; see 17-BROWSER-MATRIX.md and 17-DOWNLOAD-EVIDENCE.md.
 - Fresh PostgreSQL upgrade fails before 0126 because 20260831_add_pc_rom_components.py recreates enum romcomponentkind; recorded in Phase 18 deferred-items.md.
 - Focused backend pytest is blocked in the host checkout because backend/pytest.ini forces DB_HOST=127.0.0.1 while the available Compose MariaDB service is network-only. Reproduce: cd backend && uv run pytest tests/handler/metadata/test_steam_merge.py -q.
+- Phase 18 backend suite blocked before assertions: configured MariaDB endpoint 127.0.0.1:3306 is unavailable while romm-db-dev is Compose-network-only.
+- Phase 18 PostgreSQL verifier blocked fail-closed: docker compose config --environment lacks POSTGRES_USER.
+- Phase 18 repository-wide trunk check has no final status because the shared dirty tree scan did not complete in the execution window.
 
 ### Quick Tasks Completed
 
@@ -392,6 +398,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T13:54:53.132Z
+Last session: 2026-09-25T14:07:51.710Z
 Stopped at: Completed 18-09-PLAN.md
 Resume file: None
