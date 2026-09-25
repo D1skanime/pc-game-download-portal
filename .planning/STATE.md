@@ -4,13 +4,13 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 18-03-PLAN.md
-last_updated: "2026-09-25T13:21:58.096Z"
+last_updated: "2026-09-25T13:34:20.571Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 18
   completed_phases: 13
   total_plans: 160
-  completed_plans: 148
+  completed_plans: 149
   percent: 72
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 18 (steam-metadata-integration-f-r-pc-games-und-dlcs) — EXECUTING
-Plan: 4 of 9
+Plan: 5 of 9
 Status: Ready to execute
 Last activity: 2026-09-25
 
@@ -144,6 +144,7 @@ _Updated after each plan completion_
 | Phase 18 P02 | 7min | 3 tasks | 5 files |
 | Phase 18 P06 | 10min | 2 tasks | 8 files |
 | Phase 18 P03 | 211 min | 3 tasks | 10 files |
+| Phase 18 P04 | 9min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -347,6 +348,8 @@ Recent decisions affecting current work:
 - [Phase 18]: Steam persistence follows revision 0125 with nullable provenance fields and no global component App-ID uniqueness. — Keeps Steam observational and avoids deduplicating shared DLC identities.
 - [Phase 18]: Phase 18 PostgreSQL verification uses a unique Compose-network container and database while preserving the first failure. — The verifier never touches shared databases or relies on a host port.
 - [Phase 18]: Steam identity and raw provenance use existing ROM/component response surfaces only, with no Steam-specific route or display field. — Keeps steam_metadata observational and preserves display-state authority.
+- [Phase 18]: Steam display fields are applied only by normalize_steam, with manual and legacy populated values protected. — A single policy prevents scan and manual selection paths from diverging.
+- [Phase 18]: Manual Steam selection re-resolves its App ID before persistence. — Search-list payloads are untrusted and cannot directly update catalog metadata.
 
 ### Blockers/Concerns
 
@@ -356,6 +359,7 @@ Recent decisions affecting current work:
 - [Phase 16]: Authorized Windows, standard Linux, and Bazzite runners plus the isolated 30 GiB UAT volume are unavailable; Task 3 remains blocked and evidence is deferred in 16-UAT.md.
 - Phase 17 browser verification remains pending because Firefox, Chrome, Edge, and MariaDB are unavailable in the isolated Linux checkout; see 17-BROWSER-MATRIX.md and 17-DOWNLOAD-EVIDENCE.md.
 - Fresh PostgreSQL upgrade fails before 0126 because 20260831_add_pc_rom_components.py recreates enum romcomponentkind; recorded in Phase 18 deferred-items.md.
+- Focused backend pytest is blocked in the host checkout because backend/pytest.ini forces DB_HOST=127.0.0.1 while the available Compose MariaDB service is network-only. Reproduce: cd backend && uv run pytest tests/handler/metadata/test_steam_merge.py -q.
 
 ### Quick Tasks Completed
 
@@ -381,6 +385,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T13:21:58.080Z
+Last session: 2026-09-25T13:34:00.445Z
 Stopped at: Completed 18-03-PLAN.md
 Resume file: None
