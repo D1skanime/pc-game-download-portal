@@ -4,13 +4,13 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 18-03-PLAN.md
-last_updated: "2026-09-25T13:34:20.571Z"
+last_updated: "2026-09-25T13:42:30.202Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 18
   completed_phases: 13
   total_plans: 160
-  completed_plans: 149
+  completed_plans: 150
   percent: 72
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 18 (steam-metadata-integration-f-r-pc-games-und-dlcs) — EXECUTING
-Plan: 5 of 9
+Plan: 6 of 9
 Status: Ready to execute
 Last activity: 2026-09-25
 
@@ -145,6 +145,7 @@ _Updated after each plan completion_
 | Phase 18 P06 | 10min | 2 tasks | 8 files |
 | Phase 18 P03 | 211 min | 3 tasks | 10 files |
 | Phase 18 P04 | 9min | 2 tasks | 9 files |
+| Phase 18 P07 | 15min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -350,6 +351,8 @@ Recent decisions affecting current work:
 - [Phase 18]: Steam identity and raw provenance use existing ROM/component response surfaces only, with no Steam-specific route or display field. — Keeps steam_metadata observational and preserves display-state authority.
 - [Phase 18]: Steam display fields are applied only by normalize_steam, with manual and legacy populated values protected. — A single policy prevents scan and manual selection paths from diverging.
 - [Phase 18]: Manual Steam selection re-resolves its App ID before persistence. — Search-list payloads are untrusted and cannot directly update catalog metadata.
+- [Phase 18]: Automatic Steam scans refresh persisted App IDs directly and reject mismatched responses. — Prevents filename changes or malformed provider replies from silently changing a stored Steam identity.
+- [Phase 18]: Steam name search is limited to win, linux, and mac; excluded PC platforms require a stored ID. — Preserves classic-ROM isolation while permitting explicit stored-ID refreshes for excluded PC platforms.
 
 ### Blockers/Concerns
 
@@ -385,6 +388,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T13:34:00.445Z
+Last session: 2026-09-25T13:42:14.622Z
 Stopped at: Completed 18-03-PLAN.md
 Resume file: None
