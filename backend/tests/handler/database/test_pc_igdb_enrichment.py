@@ -120,6 +120,9 @@ def test_pc_component_steam_provenance_preserves_existing_provider_metadata(rom)
     )
     assert enriched is not None
     assert enriched.component_metadata is not None
+    current = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert current is not None
+    assert enriched.updated_at == current.updated_at
 
     steam_data = {
         "steam_id": 1091500,

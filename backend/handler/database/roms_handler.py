@@ -1891,7 +1891,7 @@ class DBRomsHandler(DBBaseHandler):
                     setattr(metadata, field, igdb_metadata[field])
         component.updated_at = datetime.now(timezone.utc)
         session.flush()
-        session.refresh(component, attribute_names=["component_metadata"])
+        session.refresh(component)
         return component
 
     @begin_session
