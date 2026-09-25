@@ -97,7 +97,7 @@ def test_normalize_steam_replaces_only_steam_owned_or_empty_fields_and_drops_emp
         "steam_metadata": {
             "app_id": 1091500,
             "source": "storefront",
-            "fields": ["name", "main_developer", "publishers"],
+            "fields": ["main_developer", "name", "publishers"],
         },
         "name": "Steam title",
         "metadata": {
@@ -105,3 +105,17 @@ def test_normalize_steam_replaces_only_steam_owned_or_empty_fields_and_drops_emp
             "publishers": ["CD Projekt"],
         },
     }
+
+
+def test_normalize_steam_drops_malformed_data_without_clearing_existing_values():
+    current = {
+        "name": "Existing title",
+        "summary": "Existing summary",
+        "pc_release_date": 1_600_000_000,
+        "manual_metadata": {},
+        "steam_metadata": {},
+        "path_cover_s": "roms/1/selected-cover.webp",
+        "path_screenshots": ["roms/1/selected-shot.webp"],
+    }
+
+    assert normalize_steam({"steam_id": False, "name": ""}, current) == {}
