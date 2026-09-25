@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 18-12-PLAN.md
-last_updated: "2026-09-25T14:42:18.562Z"
+stopped_at: "Blocked after 18-11 evidence: focused backend suite and PostgreSQL 0118 baseline"
+last_updated: "2026-09-25T14:54:50.657Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 18
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 163
-  completed_plans: 155
-  percent: 72
+  completed_plans: 156
+  percent: 78
 ---
 
 # Project State
@@ -364,6 +364,8 @@ Recent decisions affecting current work:
 - [Phase 18]: Closure evidence retains unavailable backend MariaDB, fail-closed PostgreSQL credentials, and incomplete global Trunk as blockers rather than passes. — Required validation cannot be inferred from partial evidence.
 - [Phase 18]: Automatic Steam DLC enrichment accepts only matching, named hydrated IGDB details. — Cached IGDB relationship data cannot authorize Steam lookup after failed or invalid detail hydration.
 - [Phase 18]: Generated-contract evidence points to the generator-owned DetailedRomSchema.ts, never a synthetic RomSchema.ts. — The checked-in generator artifact declares steam_id and steam_metadata; RomSchema.ts does not exist.
+- [Phase 18]: Compose-network isolated MariaDB runner — The test runner uses romm-dev and romm-db-dev with a validated generated schema, avoiding host loopback and shared schema mutation.
+- [Phase 18]: Stop PostgreSQL repair at historical 0118 — 0115 and directly blocking 0116 enum lifecycles were corrected; the unrelated 0118 view-type migration requires a separately scoped compatibility fix.
 
 ### Blockers/Concerns
 
@@ -377,6 +379,7 @@ Recent decisions affecting current work:
 - Phase 18 backend suite blocked before assertions: configured MariaDB endpoint 127.0.0.1:3306 is unavailable while romm-db-dev is Compose-network-only.
 - Phase 18 PostgreSQL verifier blocked fail-closed: docker compose config --environment lacks POSTGRES_USER.
 - Phase 18 repository-wide trunk check has no final status because the shared dirty tree scan did not complete in the execution window.
+- Phase 18 Plan 11: canonical-network suite has 184 passes but two product assertion failures; disposable PostgreSQL passes 0115/0116 then blocks at 0118 roms_metadata player_count view type change.
 
 ### Quick Tasks Completed
 
@@ -402,6 +405,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T14:42:18.548Z
-Stopped at: Completed 18-12-PLAN.md
-Resume file: None
+Last session: 2026-09-25T14:54:43.623Z
+Stopped at: Blocked after 18-11 evidence: focused backend suite and PostgreSQL 0118 baseline
+Resume file: .planning/phases/18-steam-metadata-integration-f-r-pc-games-und-dlcs/18-11-SUMMARY.md
