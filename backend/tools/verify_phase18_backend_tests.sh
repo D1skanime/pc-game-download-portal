@@ -24,6 +24,7 @@ compose_environment() {
 	printf '%s' "${value:-${fallback}}"
 }
 
+# shellcheck disable=SC2329
 cleanup() {
 	local status=$?
 
