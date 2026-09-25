@@ -24,6 +24,7 @@ const defaultHeartbeat: Heartbeat = {
     MOBY_API_ENABLED: false,
     RA_API_ENABLED: false,
     STEAMGRIDDB_API_ENABLED: false,
+    STEAM_API_ENABLED: false,
     LAUNCHBOX_API_ENABLED: false,
     PLAYMATCH_API_ENABLED: false,
     HASHEOUS_API_ENABLED: false,

@@ -62,6 +62,13 @@ export const PROVIDERS: Provider[] = [
     url: (id) => `https://www.steamgriddb.com/game/${id}`,
   },
   {
+    key: "steam_id",
+    name: "Steam",
+    color: "var(--r-color-brand-primary)",
+    logo: null,
+    url: (id) => `https://store.steampowered.com/app/${id}`,
+  },
+  {
     key: "launchbox_id",
     name: "LaunchBox",
     color: "var(--r-color-provider-launchbox)",
