@@ -48,6 +48,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.scan_handler import MetadataSource
@@ -74,6 +75,7 @@ async def heartbeat() -> HeartbeatResponse:
     moby_enabled = meta_moby_handler.is_enabled()
     ra_enabled = meta_ra_handler.is_enabled()
     sgdb_enabled = meta_sgdb_handler.is_enabled()
+    steam_enabled = meta_steam_handler.is_enabled()
     launchbox_enabled = meta_launchbox_handler.is_enabled()
     hasheous_enabled = meta_hasheous_handler.is_enabled()
     playmatch_enabled = meta_playmatch_handler.is_enabled()
@@ -99,11 +101,13 @@ async def heartbeat() -> HeartbeatResponse:
                 or flashpoint_enabled
                 or hltb_enabled
                 or libretro_enabled
+                or steam_enabled
             ),
             "IGDB_API_ENABLED": igdb_enabled,
             "SS_API_ENABLED": ss_enabled,
             "MOBY_API_ENABLED": moby_enabled,
             "STEAMGRIDDB_API_ENABLED": sgdb_enabled,
+            "STEAM_API_ENABLED": steam_enabled,
             "RA_API_ENABLED": ra_enabled,
             "LAUNCHBOX_API_ENABLED": launchbox_enabled,
             "HASHEOUS_API_ENABLED": hasheous_enabled,
@@ -171,6 +175,8 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_tgdb_handler.heartbeat()
         case MetadataSource.SGDB:
             return await meta_sgdb_handler.heartbeat()
+        case MetadataSource.STEAM:
+            return await meta_steam_handler.heartbeat()
         case MetadataSource.FLASHPOINT:
             return await meta_flashpoint_handler.heartbeat()
         case MetadataSource.HLTB:

@@ -12,6 +12,7 @@ class MetadataSourcesDict(TypedDict):
     SS_API_ENABLED: bool
     MOBY_API_ENABLED: bool
     STEAMGRIDDB_API_ENABLED: bool
+    STEAM_API_ENABLED: bool
     RA_API_ENABLED: bool
     LAUNCHBOX_API_ENABLED: bool
     HASHEOUS_API_ENABLED: bool
