@@ -497,7 +497,7 @@ installers, and distribution are not part of this phase.
 **Goal:** Add the official Steam Storefront provider to eligible PC games and safely identified DLC components, with German-first text while preserving IGDB relationships, manual data, and SteamGridDB's artwork-only role.
 **Requirements**: [STEAM-01, STEAM-02, STEAM-03, STEAM-04, STEAM-05]
 **Depends on:** Phase 17
-**Plans:** 9/9 plans complete
+**Plans:** 9/12 plans complete, 3 gap-closure plans pending
 
 Plans:
 
@@ -510,3 +510,6 @@ Plans:
 - [x] 18-07-PLAN.md — Add stored-ID-first PC automatic Steam scans without classic-ROM regressions.
 - [x] 18-08-PLAN.md — Run phase-wide evidence gates and record the upstream/fork compatibility boundary.
 - [x] 18-09-PLAN.md — Persist Steam provenance only on existing PC components without duplication or IGDB-field loss.
+- [ ] 18-10-PLAN.md — Fail closed when IGDB DLC hydration cannot establish an authoritative identity.
+- [ ] 18-11-PLAN.md — Run focused backend and MariaDB/PostgreSQL migration evidence in canonical Compose context.
+- [ ] 18-12-PLAN.md — Correct the generated detailed-ROM contract key link and audit closure coverage.

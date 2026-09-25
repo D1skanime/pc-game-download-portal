@@ -25,4 +25,21 @@ The separate `18-VALIDATION.md` is the executable final evidence matrix. It
 contains the mandatory container-context migration commands and v2 manual UAT
 gate, rather than treating either as an environment blocker.
 
+## Gap-Closure Coverage, 2026-09-25
+
+| Source       | Actionable closure item                                                                                 | Disposition | Plan         |
+| ------------ | ------------------------------------------------------------------------------------------------------- | ----------- | ------------ |
+| GOAL         | A failed IGDB DLC hydration cannot authorize Steam matching or persistence                              | COVERED     | 18-10        |
+| GOAL         | Phase completion has reproducible canonical-container backend and MariaDB/PostgreSQL migration evidence | COVERED     | 18-11        |
+| GOAL         | The declared generated detailed-ROM contract is an existing generator-owned artifact                    | COVERED     | 18-12        |
+| REQ          | STEAM-02 persistence and dialect evidence                                                               | COVERED     | 18-11, 18-12 |
+| REQ          | STEAM-03 hydrated IGDB identity before Steam DLC lookup                                                 | COVERED     | 18-10        |
+| REQ          | STEAM-04 generated API contract linkage                                                                 | COVERED     | 18-12        |
+| REQ          | STEAM-05 non-fatal failure isolation and focused backend evidence                                       | COVERED     | 18-10, 18-11 |
+| RESEARCH     | Portable migration verification and PostgreSQL enum lifecycle                                           | COVERED     | 18-11        |
+| RESEARCH     | Backend-owned generated OpenAPI contract                                                                | COVERED     | 18-12        |
+| CONTEXT D-03 | Nullable provenance remains portable and has no component App-ID uniqueness                             | COVERED     | 18-11        |
+| CONTEXT D-05 | Only hydrated unambiguous IGDB DLC identity can trigger Steam enrichment                                | COVERED     | 18-10        |
+| CONTEXT D-06 | Failures are isolated without payload/secret disclosure and closure evidence has final statuses         | COVERED     | 18-10, 18-11 |
+
 Deferred work such as translation, login, library synchronization, downloads, installation, achievements, cloud features, and a generic matching framework is intentionally absent from every plan.
