@@ -1855,17 +1855,30 @@ class DBRomsHandler(DBBaseHandler):
             "moby_id",
             "sgdb_id",
             "launchbox_id",
+            "steam_id",
             "name",
             "summary",
         ):
             if field in data:
                 setattr(metadata, field, data[field])
         metadata.metadata_source = provider
-        metadata.provider_metadata = {
-            key: value
-            for key, value in data.items()
-            if key.endswith("_metadata") and value is not None
-        }
+        provider_metadata = dict(metadata.provider_metadata or {})
+        for field in (
+            "igdb_metadata",
+            "moby_metadata",
+            "steam_metadata",
+            "ss_metadata",
+            "ra_metadata",
+            "launchbox_metadata",
+            "hasheous_metadata",
+            "flashpoint_metadata",
+            "hltb_metadata",
+            "gamelist_metadata",
+        ):
+            value = data.get(field)
+            if value is not None:
+                provider_metadata[field] = value
+        metadata.provider_metadata = provider_metadata
         igdb_metadata = data.get("igdb_metadata")
         if isinstance(igdb_metadata, dict):
             for field in (

@@ -136,6 +136,8 @@ def test_pc_component_steam_provenance_preserves_existing_provider_metadata(rom)
     assert persisted.component_metadata is not None
     metadata = persisted.component_metadata
     assert metadata.steam_id == 1091500
+    assert metadata.name == "Trusted DLC"
+    assert metadata.summary == "Imported from IGDB"
     assert metadata.provider_metadata == {
         "igdb_metadata": _metadata()["igdb_metadata"],
         "steam_metadata": steam_data["steam_metadata"],
