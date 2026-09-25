@@ -25,8 +25,9 @@ cleanup() {
 
 trap cleanup EXIT
 
-required_compose_environment() {
+compose_environment() {
 	local name="$1"
+	local fallback="$2"
 	local value
 
 	value="$(
@@ -34,16 +35,11 @@ required_compose_environment() {
 			awk -F= -v name="${name}" '$1 == name { sub(/^[^=]*=/, ""); print; exit }'
 	)"
 
-	if [[ -z ${value} ]]; then
-		printf 'Missing required Compose environment variable: %s\n' "${name}" >&2
-		return 1
-	fi
-
-	printf '%s' "${value}"
+	printf '%s' "${value:-${fallback}}"
 }
 
-postgres_user="$(required_compose_environment POSTGRES_USER)"
-postgres_password="$(required_compose_environment POSTGRES_PASSWORD)"
+postgres_user="$(compose_environment POSTGRES_USER romm)"
+postgres_password="$(compose_environment POSTGRES_PASSWORD authentik)"
 compose_project="$(
 	docker compose config --format json |
 		awk -F'"' '/^[[:space:]]*"name"[[:space:]]*:/ { print $4; exit }'
