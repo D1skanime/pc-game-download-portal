@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: executing
-stopped_at: Completed 18-10-PLAN.md
-last_updated: "2026-09-25T14:38:33.795Z"
+status: verifying
+stopped_at: Completed 18-12-PLAN.md
+last_updated: "2026-09-25T14:42:18.562Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 18
   completed_phases: 13
   total_plans: 163
-  completed_plans: 154
+  completed_plans: 155
   percent: 72
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 Phase: 18 (steam-metadata-integration-f-r-pc-games-und-dlcs) — EXECUTING
 Plan: 9 of 9
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-25
 
 ## Performance Metrics
@@ -150,6 +150,7 @@ _Updated after each plan completion_
 | Phase 18 P05 | 22min | 2 tasks | 7 files |
 | Phase 18 P08 | 14min | 2 tasks | 3 files |
 | Phase 18 P10 | 10min | 2 tasks | 3 files |
+| Phase 18 P12 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -362,6 +363,7 @@ Recent decisions affecting current work:
 - [Phase 18]: Compatibility record pins inspected origin/master e98fa77e and separates direct Steam ports from German-first, PC merge, stored-ID, and IGDB-first DLC safeguards. — Future upstream work needs an auditable port boundary.
 - [Phase 18]: Closure evidence retains unavailable backend MariaDB, fail-closed PostgreSQL credentials, and incomplete global Trunk as blockers rather than passes. — Required validation cannot be inferred from partial evidence.
 - [Phase 18]: Automatic Steam DLC enrichment accepts only matching, named hydrated IGDB details. — Cached IGDB relationship data cannot authorize Steam lookup after failed or invalid detail hydration.
+- [Phase 18]: Generated-contract evidence points to the generator-owned DetailedRomSchema.ts, never a synthetic RomSchema.ts. — The checked-in generator artifact declares steam_id and steam_metadata; RomSchema.ts does not exist.
 
 ### Blockers/Concerns
 
@@ -400,6 +402,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T14:38:33.777Z
-Stopped at: Completed 18-10-PLAN.md
+Last session: 2026-09-25T14:42:18.548Z
+Stopped at: Completed 18-12-PLAN.md
 Resume file: None
