@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-09-25T09:36:01.885Z"
+stopped_at: Completed 18-06-PLAN.md
+last_updated: "2026-09-25T09:45:37.522Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 18
   completed_phases: 13
   total_plans: 160
-  completed_plans: 146
+  completed_plans: 147
   percent: 72
 ---
 
@@ -142,6 +142,7 @@ _Updated after each plan completion_
 | Phase 17 P12 | 20min | 2 tasks | 6 files |
 | Phase 18 P01 | 9min | 3 tasks | 8 files |
 | Phase 18 P02 | 7min | 3 tasks | 5 files |
+| Phase 18 P06 | 10min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -344,6 +345,7 @@ Recent decisions affecting current work:
 - [Phase 18]: Steam Storefront failures degrade to empty typed results and remain separate from SteamGridDB. Untrusted remote metadata must not abort other providers or alter SteamGridDB's artwork role.
 - [Phase 18]: Steam persistence follows revision 0125 with nullable provenance fields and no global component App-ID uniqueness. — Keeps Steam observational and avoids deduplicating shared DLC identities.
 - [Phase 18]: Phase 18 PostgreSQL verification uses a unique Compose-network container and database while preserving the first failure. — The verifier never touches shared databases or relies on a host port.
+- [Phase 18]: Steam identity and raw provenance use existing ROM/component response surfaces only, with no Steam-specific route or display field. — Keeps steam_metadata observational and preserves display-state authority.
 
 ### Blockers/Concerns
 
@@ -378,6 +380,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T09:35:48.344Z
-Stopped at: Completed 18-01-PLAN.md
+Last session: 2026-09-25T09:45:37.515Z
+Stopped at: Completed 18-06-PLAN.md
 Resume file: None
