@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: complete
-stopped_at: Phase 17 accepted after isolated Chromium UAT
-last_updated: "2026-09-24T00:00:00Z"
-last_activity: 2026-09-24
+status: active
+stopped_at: Phase 18 Steam Metadata Integration for PC Games and DLCs added
+last_updated: "2026-09-25T00:00:00Z"
+last_activity: 2026-09-25
 progress:
-  total_phases: 17
+  total_phases: 18
   completed_phases: 15
   total_plans: 150
   completed_plans: 144
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Milestone complete
+**Current focus:** Phase 18 Steam Metadata Integration for PC Games and DLCs
 
 ## Current Position
 
-Phase: 17 (browser-download-manager) — COMPLETE
-Plan: 13 of 13
-Status: Accepted after isolated Chromium UAT; Firefox and Edge waived by product decision
-Last activity: 2026-09-24 - Phase 17 browser download manager accepted
+Phase: 18 (steam-metadata-integration-f-r-pc-games-und-dlcs) — PLANNED
+Plan: 0 of 5
+Status: Executable plan created; uncommitted Steam scaffolding remains incomplete and must be hardened by plan execution
+Last activity: 2026-09-25 - Phase 18 planning completed
 
 ## Performance Metrics
 
@@ -324,6 +324,7 @@ Recent decisions affecting current work:
 - Phase 11 added: Local PC Media and DLC Navigation
 - Phase 12 added: DLC detail pages for local PC components
 - Phase 13 added: PC IGDB metadata and DLC media
+- Phase 18 added: Steam Metadata Integration für PC Games und DLCs
 - [Phase 13]: Parent and DLC provider media remains RomM-owned; all DLC media previews use protected `/api` content routes.
 - [Phase 17]: Phase 17 is browser-only, reuses Phase 15 direct-transfer authority, and retains the Phase 16 prototype without requiring desktop distribution. — Phase 17 is browser-only, reuses Phase 15 direct-transfer authority, and retains the Phase 16 prototype without requiring desktop distribution.
 - [Phase 17]: An explicit archive_set_id selects the persisted policy, while selected_member_ids must contain every required member and only policy members.

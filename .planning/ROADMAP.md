@@ -491,3 +491,18 @@ installers, and distribution are not part of this phase.
    expose source paths, and covers large-file and multi-file evidence.
 
 **Plans:** 13/13 plans complete. Chromium live UAT completed; Firefox and Edge explicitly waived by product decision.
+
+### Phase 18: Steam Metadata Integration für PC Games und DLCs
+
+**Goal:** Add the official Steam Storefront provider to eligible PC games and safely identified DLC components, with German-first text while preserving IGDB relationships, manual data, and SteamGridDB's artwork-only role.
+**Requirements**: [STEAM-01, STEAM-02, STEAM-03, STEAM-04, STEAM-05]
+**Depends on:** Phase 17
+**Plans:** 5 plans
+
+Plans:
+
+- [ ] 18-01-PLAN.md — Harden the localized upstream-close Steam service, handler, and no-key configuration.
+- [ ] 18-02-PLAN.md — Repair the migration graph and persist Steam IDs/provenance for ROMs and components.
+- [ ] 18-03-PLAN.md — Complete provider priority, heartbeat, and distinct v2 Steam presentation wiring.
+- [ ] 18-04-PLAN.md — Integrate stored-ID-first Steam PC matching through one manual-safe merge policy.
+- [ ] 18-05-PLAN.md — Add IGDB-first safe Steam DLC enrichment and final verification.
