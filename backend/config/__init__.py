@@ -121,9 +121,11 @@ STEAMGRIDDB_API_KEY: Final[str | None] = _get_env("STEAMGRIDDB_API_KEY")
 
 # STEAM
 STEAM_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("STEAM_API_ENABLED"))
-STEAM_API_LANGUAGE: Final[str] = _get_env("STEAM_API_LANGUAGE", "de")
+STEAM_API_LANGUAGE: Final[str] = _get_env("STEAM_API_LANGUAGE", "german")
 STEAM_API_COUNTRY: Final[str] = _get_env("STEAM_API_COUNTRY", "CH")
-STEAM_API_FALLBACK_LANGUAGE: Final[str] = _get_env("STEAM_API_FALLBACK_LANGUAGE", "en")
+STEAM_API_FALLBACK_LANGUAGE: Final[str] = _get_env(
+    "STEAM_API_FALLBACK_LANGUAGE", "english"
+)
 STEAM_API_FALLBACK_COUNTRY: Final[str] = _get_env("STEAM_API_FALLBACK_COUNTRY", "US")
 
 # RETROACHIEVEMENTS

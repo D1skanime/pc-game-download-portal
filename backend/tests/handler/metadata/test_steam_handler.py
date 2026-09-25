@@ -37,8 +37,8 @@ async def test_missing_german_summary_falls_back_on_the_same_app_id(handler):
     assert result["summary"] == "An open-world RPG."
     calls = handler.steam_service.get_app_details.await_args_list
     assert [call.args[0] for call in calls] == [1091500, 1091500]
-    assert calls[0].kwargs == {"country": "CH", "language": "de"}
-    assert calls[1].kwargs == {"country": "US", "language": "en"}
+    assert calls[0].kwargs == {"country": "CH", "language": "german"}
+    assert calls[1].kwargs == {"country": "US", "language": "english"}
 
 
 async def test_fallback_fills_empty_release_and_header_fields_for_the_same_app_id(
@@ -119,7 +119,7 @@ async def test_compact_pc_filename_is_split_before_steam_search(handler):
 
     assert result["steam_id"] == 1903340
     handler.steam_service.search_apps.assert_awaited_once_with(
-        "clair obscur expedition 33", country="CH", language="de"
+        "clair obscur expedition 33", country="CH", language="german"
     )
 
 
