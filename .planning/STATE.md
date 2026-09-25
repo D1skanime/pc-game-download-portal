@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: verifying
-stopped_at: "Blocked after 18-11 evidence: focused backend suite and PostgreSQL 0118 baseline"
-last_updated: "2026-09-25T14:54:50.657Z"
+stopped_at: Completed 18-13-PLAN.md
+last_updated: "2026-09-25T15:09:16.736Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 18
-  completed_phases: 14
-  total_plans: 163
-  completed_plans: 156
-  percent: 78
+  completed_phases: 13
+  total_plans: 166
+  completed_plans: 157
+  percent: 72
 ---
 
 # Project State
@@ -151,6 +151,7 @@ _Updated after each plan completion_
 | Phase 18 P08 | 14min | 2 tasks | 3 files |
 | Phase 18 P10 | 10min | 2 tasks | 3 files |
 | Phase 18 P12 | 4min | 2 tasks | 3 files |
+| Phase 18 P13 | 18min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -366,6 +367,8 @@ Recent decisions affecting current work:
 - [Phase 18]: Generated-contract evidence points to the generator-owned DetailedRomSchema.ts, never a synthetic RomSchema.ts. — The checked-in generator artifact declares steam_id and steam_metadata; RomSchema.ts does not exist.
 - [Phase 18]: Compose-network isolated MariaDB runner — The test runner uses romm-dev and romm-db-dev with a validated generated schema, avoiding host loopback and shared schema mutation.
 - [Phase 18]: Stop PostgreSQL repair at historical 0118 — 0115 and directly blocking 0116 enum lifecycles were corrected; the unrelated 0118 view-type migration requires a separately scoped compatibility fix.
+- [Phase 18]: Parent selections use the candidate-review version rather than an in-memory ORM timestamp. — MariaDB persists timestamp precision independently; the API review response is the authoritative optimistic-lock token.
+- [Phase 18]: Component metadata writes fully refresh the component before returning its lock version. — The next IGDB or Steam write must use MariaDB's persisted timestamp, not the pre-flush Python value.
 
 ### Blockers/Concerns
 
@@ -405,6 +408,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T14:54:43.623Z
-Stopped at: Blocked after 18-11 evidence: focused backend suite and PostgreSQL 0118 baseline
-Resume file: .planning/phases/18-steam-metadata-integration-f-r-pc-games-und-dlcs/18-11-SUMMARY.md
+Last session: 2026-09-25T15:09:16.720Z
+Stopped at: Completed 18-13-PLAN.md
+Resume file: None
