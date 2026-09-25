@@ -1,165 +1,137 @@
 ---
 phase: 18-steam-metadata-integration-f-r-pc-games-und-dlcs
-verified: 2026-09-25T14:12:23Z
-status: gaps_found
-score: 19/25 must-haves verified
+verified: 2026-09-25T15:33:09Z
+status: passed
+score: 25/25 must-haves verified
 overrides_applied: 0
-gaps:
-  - truth: "Only one hydrated IGDB DLC identity can apply one high-confidence Steam DLC, and it updates the existing component rather than creating another component."
-    status: failed
-    reason: "An IGDB detail-hydration exception returns the unhydrated cached relation, so Steam lookup and persistence can still proceed."
-    artifacts:
-      - path: backend/handler/metadata/pc_match_handler.py
-        issue: "fetch_unique_related_igdb_candidate() returns candidate in its exception path instead of failing closed."
-    missing:
-      - "Return None when IGDB hydration is unavailable or cannot produce a valid hydrated DLC identity."
-      - "Add a regression test proving no Steam lookup follows a hydration exception."
-  - truth: "Phase closure has command-backed evidence for backend behavior, both database dialect paths, generated API types, frontend test/typecheck/build, linting, and the completed responsive accessibility UAT."
-    status: partial
-    reason: "The verifier could not obtain passing backend or PostgreSQL migration evidence. Backend pytest stops in its global MariaDB fixture at 127.0.0.1:3306; the documented PostgreSQL verifier is already known to fail in the pre-existing 0115 enum migration."
-    artifacts:
-      - path: backend/tests
-        issue: "63 selected Steam tests error before their assertions because MariaDB is unreachable."
-      - path: backend/alembic/versions/20260831_add_pc_rom_components.py
-        issue: "Fresh PostgreSQL upgrade fails before revision 0126, so the Phase 18 migration has no end-to-end PostgreSQL proof."
-    missing:
-      - "Provide a reachable isolated MariaDB test database and rerun the focused Phase 18 backend suite."
-      - "Repair the PostgreSQL baseline enum migration, then run the disposable Phase 18 PostgreSQL verifier through upgrade, downgrade, and re-upgrade."
-  - truth: "Generated TypeScript contracts are regenerated from the backend OpenAPI schema, never manually edited."
-    status: partial
-    reason: "The actual generated contracts contain the Steam fields, but the declared key link targets frontend/src/__generated__/models/RomSchema.ts, which does not exist in this repository. The corresponding generated ROM contract is DetailedRomSchema.ts."
-    artifacts:
-      - path: frontend/src/__generated__/models/RomSchema.ts
-        issue: "Missing declared generated artifact."
-    missing:
-      - "Correct the plan key link to DetailedRomSchema.ts (or create the declared generated contract if that is the intended API)."
-human_verification:
-  - test: "Verify the Steam v2 provider tile and App-ID action at 320px, 768px, and 1440px in both themes, using mouse, touch, keyboard, and gamepad."
-    expected: "Steam is visibly distinct from SteamGridDB, reports no-key enablement, has accessible disabled/status state, and opens the exact Storefront App-ID URL without clipping or focus traps."
-    why_human: "Responsive rendering, external navigation, assistive-technology names, and real input modality cannot be established from source inspection or the focused registry unit test."
+re_verification:
+  previous_status: gaps_found
+  previous_score: 24/25
+  gaps_closed:
+    - "Phase closure has complete command-backed backend, dialect, generated-contract, frontend, lint, and approved v2 UAT evidence."
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 18: Steam Metadata Integration fuer PC Games und DLCs Verification Report
 
 **Phase Goal:** Add the official Steam Storefront provider to eligible PC games and safely identified DLC components, with German-first text while preserving IGDB relationships, manual data, and SteamGridDB's artwork-only role.
-**Verified:** 2026-09-25T14:12:23Z
-**Status:** gaps_found
-**Re-verification:** No, initial verification
+**Verified:** 2026-09-25T15:33:09Z
+**Status:** passed
+**Re-verification:** Yes, after gap closure
 
 ## Goal Achievement
 
 ### Observable Truths
 
-| #   | Truth                                                                                             | Status    | Evidence                                                                                                                                        |
-| --- | ------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | No-key Steam provider can be enabled independently.                                               | VERIFIED  | `config/__init__.py:123-127` exposes flag and locale settings, and `watcher.py:65-80` independently registers Steam.                            |
-| 2   | German-first reads use only the resolved App ID for English fallback.                             | VERIFIED  | `steam_handler.py:87-104` calls `get_app_details(steam_id)` for both locales, with no fallback name search.                                     |
-| 3   | Storefront faults are non-fatal.                                                                  | VERIFIED  | `steam.py:32-59` turns client, JSON, value, and exhausted-429 failures into typed empty results.                                                |
-| 4   | Automatic name search is platform-gated, while explicit IDs can refresh on excluded PC platforms. | VERIFIED  | `steam_handler.py:58-80,106-118` gates name search; `scan_handler.py:168-197` allows stored IDs for the limited explicit-PC set.                |
-| 5   | ROMs and components retain nullable Steam identity/provenance.                                    | VERIFIED  | `models/rom.py:330-337,558,655-657` and migration `0126:17-35` add nullable fields without a Steam uniqueness index.                            |
-| 6   | Migration graph is one-headed and Steam persistence is reversible.                                | UNCERTAIN | Static chain is `0125 -> 0126` with reverse drops, but Alembic cannot execute in this host and PostgreSQL baseline proof is blocked.            |
-| 7   | Steam and SteamGridDB remain separate in priority and heartbeat paths.                            | VERIFIED  | Separate handlers, config slugs, heartbeat branches, and provider entries exist; SGDB files have no Storefront references.                      |
-| 8   | V2 settings and provider links show Steam separately.                                             | UNCERTAIN | Source wiring is present in `MetadataSources.vue:114-122` and `providers.ts:65-70`; responsive/accessibility behavior needs live UAT.           |
-| 9   | Registry omissions have focused regression coverage.                                              | UNCERTAIN | Focused tests exist, but backend pytest cannot reach its required MariaDB fixture.                                                              |
-| 10  | Eligible PC main games get field-safe Steam metadata while IGDB relations remain intact.          | VERIFIED  | Both scan and selected-candidate paths use `normalize_steam`; it only writes display/provenance fields, not IGDB relationship fields.           |
-| 11  | Automatic and manual selection share the non-empty, manual-safe merge policy.                     | VERIFIED  | `scan_handler.py:197` and `pc_metadata.py:475-492` both call `normalize_steam`.                                                                 |
-| 12  | Steam artwork is candidate-only and cannot silently replace selected artwork.                     | VERIFIED  | Normalizer emits candidate media; automatic scan copies only metadata fields, and selection validates explicit media IDs.                       |
-| 13  | IGDB remains the required authority for automatic DLC discovery.                                  | VERIFIED  | Scan starts with `fetch_unique_related_igdb_candidate()` before any Steam call.                                                                 |
-| 14  | Only a hydrated, unique IGDB DLC identity can permit Steam DLC enrichment.                        | FAILED    | `pc_match_handler.py:108-112` returns the non-hydrated cached candidate after IGDB lookup failure, then `scan.py:133` may invoke Steam.         |
-| 15  | Unsafe DLC types, ambiguity, malformed parents, and parent mismatches preserve state.             | VERIFIED  | `pc_match_handler.py:145-188` rejects all except one validated DLC; scan only persists a non-None validated result.                             |
-| 16  | Safe DLC receives same-App-ID locale fallback.                                                    | VERIFIED  | DLC details use the same `get_rom_by_id()` localized builder as main games.                                                                     |
-| 17  | Existing API surfaces expose Steam ID and provenance.                                             | VERIFIED  | `responses/rom.py:311-316,521-526`; generated component and detailed-ROM contracts include both fields.                                         |
-| 18  | Generated contracts are connected to the declared OpenAPI artifact.                               | FAILED    | `PcComponentMetadataSchema.ts` and `DetailedRomSchema.ts` contain fields, but declared `RomSchema.ts` is absent.                                |
-| 19  | Stored IDs refresh by ID and reject mismatched responses.                                         | VERIFIED  | `scan_handler.py:181-185` resolves stored ID first and rejects identity mismatch.                                                               |
-| 20  | Classic ROMs never enter Steam lookup.                                                            | VERIFIED  | Steam resolver is only invoked from PC scan handling and rejects non-explicit platform slugs.                                                   |
-| 21  | Steam failure leaves other provider output usable.                                                | VERIFIED  | Resolver catches exceptions and returns `{}`; provider fetches use isolated `asyncio.gather(..., return_exceptions=True)`.                      |
-| 22  | Upstream versus fork-only behavior is documented.                                                 | VERIFIED  | `docs/superpowers/specs/2026-09-24-steam-metadata-integration-design.md` exists and records the boundary.                                       |
-| 23  | Closure has complete command-backed backend, dialect, lint, and UAT evidence.                     | FAILED    | Current backend tests are infrastructure-blocked, fresh PostgreSQL is baseline-blocked, and no independently verifiable live UAT record exists. |
-| 24  | Existing components retain Steam provenance without duplication.                                  | VERIFIED  | `apply_pc_component_metadata_candidate()` selects by existing component and test coverage asserts two components may share an App ID.           |
-| 25  | Steam component persistence cannot erase IGDB structured data or become display authority.        | VERIFIED  | `roms_handler.py:1865-1891` merges provider metadata and only IGDB updates IGDB structured fields.                                              |
+| #   | Truth                                                                                                                   | Status   | Evidence                                                                                                                           |
+| --- | ----------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | No-key Steam provider can be enabled independently.                                                                     | VERIFIED | Separate config, watcher, priority validation, and heartbeat paths use `steam`.                                                    |
+| 2   | German-first reads use only the resolved App ID for English fallback.                                                   | VERIFIED | `steam_handler.py` retrieves localized details with the same `steam_id`; isolated suite passes.                                    |
+| 3   | Storefront faults are non-fatal.                                                                                        | VERIFIED | `SteamService` returns typed empty results for timeout, malformed, regional, and retry-exhausted responses.                        |
+| 4   | Automatic name search is platform-gated, while stored IDs refresh on excluded PC platforms.                             | VERIFIED | Scan logic limits searching to supported PC slugs while retaining explicit-ID resolution.                                          |
+| 5   | ROMs and components retain nullable Steam identity and provenance.                                                      | VERIFIED | Models, revision `0126`, schemas, and generated contracts expose nullable Steam fields.                                            |
+| 6   | Migration graph is one-headed and Steam persistence is reversible.                                                      | VERIFIED | Current MariaDB head, upgrade, downgrade, re-upgrade, and disposable PostgreSQL cycle all passed.                                  |
+| 7   | Steam and SteamGridDB remain separate in priority and heartbeat paths.                                                  | VERIFIED | Separate slugs, handlers, health dispatches, and v2 records remain wired.                                                          |
+| 8   | V2 settings and provider links show Steam separately.                                                                   | VERIFIED | `providers.ts` links `steam_id` to Storefront; settings has distinct Steam and SteamGridDB entries; approved UAT retained.         |
+| 9   | Registry omissions have focused regression coverage.                                                                    | VERIFIED | Current isolated Compose evidence is `189 passed, 7 warnings`, including registry and heartbeat coverage.                          |
+| 10  | Eligible PC main games get field-safe Steam metadata while IGDB relations remain intact.                                | VERIFIED | Candidate selection and scan both use guarded `normalize_steam` updates.                                                           |
+| 11  | Automatic and manual selection share the non-empty, manual-safe merge policy.                                           | VERIFIED | Both paths call `normalize_steam`; suite covers field and manual protections.                                                      |
+| 12  | Steam artwork is candidate-only and cannot replace selected artwork silently.                                           | VERIFIED | Steam normalizer does not write selected media; persistence remains explicit.                                                      |
+| 13  | IGDB remains the required authority for automatic DLC discovery.                                                        | VERIFIED | Socket scan obtains a related IGDB candidate before Steam validation.                                                              |
+| 14  | Only a hydrated, unique IGDB DLC identity can permit Steam DLC enrichment.                                              | VERIFIED | Hydration errors, invalid details, ID mismatch, or empty title return `None`; scan returns before Steam.                           |
+| 15  | Unsafe DLC type, ambiguity, malformed parent, and parent mismatch preserve state.                                       | VERIFIED | Validated matching rejects each before persistence; suite passes.                                                                  |
+| 16  | Safe DLC receives same-App-ID locale fallback.                                                                          | VERIFIED | Validated DLC uses the Steam handler exact-ID localized-detail path.                                                               |
+| 17  | Existing API surfaces expose Steam ID and provenance.                                                                   | VERIFIED | Backend response schemas and both generated models include `steam_id` and `steam_metadata`.                                        |
+| 18  | Generated contracts connect to the declared OpenAPI artifact.                                                           | VERIFIED | The plan and validation matrix name existing `DetailedRomSchema.ts`, which contains both fields.                                   |
+| 19  | Stored IDs refresh by ID and reject mismatched responses.                                                               | VERIFIED | Stored-ID path resolves first and checks response identity.                                                                        |
+| 20  | Classic ROMs never enter Steam lookup.                                                                                  | VERIFIED | Steam scan resolution is restricted to explicit PC platforms.                                                                      |
+| 21  | Steam failure leaves other provider output usable.                                                                      | VERIFIED | Steam errors yield `{}` and provider collection isolates failures.                                                                 |
+| 22  | Upstream versus fork-only behavior is documented.                                                                       | VERIFIED | The maintained Steam integration design specification records the boundary.                                                        |
+| 23  | Closure has complete command-backed backend, dialect, generated-contract, frontend, lint, and approved v2 UAT evidence. | VERIFIED | Current MariaDB suite, both dialect cycles, static contracts, frontend checks, scoped Trunk, and approved UAT have evidence below. |
+| 24  | Existing components retain Steam provenance without duplication.                                                        | VERIFIED | Existing-component persistence is provider-scoped; shared nullable App IDs are covered.                                            |
+| 25  | Steam component persistence cannot erase IGDB structured data or become display authority.                              | VERIFIED | Allowlisted Steam persistence preserves IGDB fields and manual state.                                                              |
 
-**Score:** 19/25 truths verified
+**Score:** 25/25 truths verified
 
 ### Required Artifacts
 
-| Artifact                                                         | Expected                               | Status    | Details                                                               |
-| ---------------------------------------------------------------- | -------------------------------------- | --------- | --------------------------------------------------------------------- |
-| `backend/adapters/services/steam.py`                             | Bounded public transport               | VERIFIED  | Bounded retries and typed empty degradation.                          |
-| `backend/handler/metadata/steam_handler.py`                      | Localized platform-gated normalization | VERIFIED  | Same-ID fallback and Store type validation.                           |
-| `backend/handler/metadata/steam_merge.py`                        | Shared guarded merge                   | VERIFIED  | Non-empty updates, per-field manual protection, candidate-only media. |
-| `backend/handler/metadata/pc_match_handler.py`                   | Safe DLC validation                    | HOLLOW    | Hydration exception is fail-open to cached candidate.                 |
-| `backend/alembic/versions/0126_add_steam_metadata.py`            | Portable reversible persistence        | UNCERTAIN | Code is substantive, but dialect execution is blocked.                |
-| `frontend/src/__generated__/models/PcComponentMetadataSchema.ts` | Component contract                     | VERIFIED  | Includes `steam_id` and `steam_metadata`.                             |
-| `frontend/src/__generated__/models/RomSchema.ts`                 | Declared generated ROM contract        | MISSING   | Actual generated contract is `DetailedRomSchema.ts`.                  |
+| Artifact                                                 | Expected                                          | Status   | Details                                                                                       |
+| -------------------------------------------------------- | ------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `backend/adapters/services/steam.py`                     | Bounded Storefront transport                      | VERIFIED | Real HTTP response normalization, bounded retry, and typed degradation.                       |
+| `backend/handler/metadata/steam_handler.py`              | Localized exact-ID normalization                  | VERIFIED | Consumes service results and same-ID fallback.                                                |
+| `backend/handler/metadata/steam_merge.py`                | Manual-safe common merge                          | VERIFIED | Non-empty field updates, field provenance, no selected-media writes.                          |
+| `backend/handler/metadata/pc_match_handler.py`           | Fail-closed DLC identity and validation           | VERIFIED | Hydration and Steam product/parent checks short-circuit unsafe paths.                         |
+| `backend/endpoints/sockets/scan.py`                      | Hydration gate and existing-component application | VERIFIED | `candidate is None` returns before Steam; only existing component receives updates.           |
+| `backend/alembic/versions/0126_add_steam_metadata.py`    | Portable reversible persistence                   | VERIFIED | Model columns match; MariaDB and PostgreSQL cycles pass.                                      |
+| `backend/tools/verify_phase18_backend_tests.sh`          | Isolated MariaDB evidence runner                  | VERIFIED | Uses guarded generated schema, Compose DB host, EXIT cleanup, and now passes scoped Trunk.    |
+| `backend/tools/verify_phase18_postgres_migration.sh`     | Disposable PostgreSQL migration verifier          | VERIFIED | Fresh container reached head, downgraded, re-upgraded, and cleaned up.                        |
+| `frontend/src/__generated__/models/DetailedRomSchema.ts` | Detailed-ROM generated contract                   | VERIFIED | Present, substantive, and includes both Steam fields.                                         |
+| `frontend/src/v2/views/Settings/MetadataSources.vue`     | Separate provider presentation                    | VERIFIED | Steam no-key tile and SteamGridDB artwork-provider tile consume heartbeat data independently. |
 
 ### Key Link Verification
 
-| From            | To                  | Via                            | Status    | Details                                                                    |
-| --------------- | ------------------- | ------------------------------ | --------- | -------------------------------------------------------------------------- |
-| Steam handler   | Steam service       | Search and App-ID details      | WIRED     | Calls service search and exact-ID detail methods.                          |
-| Steam config    | Steam handler       | Locale constants               | WIRED     | Imported constants control all detail/search locale calls.                 |
-| Heartbeat       | Steam handler       | Steam dispatch                 | WIRED     | Dedicated `MetadataSource.STEAM` branch.                                   |
-| PC selection    | Steam merge         | Re-resolve then normalize      | WIRED     | Candidate is re-resolved server-side before merge.                         |
-| Scan            | Steam handler/merge | Stored-ID-first resolution     | WIRED     | Direct ID refresh precedes eligible name lookup.                           |
-| DLC scan        | PC matcher/database | Existing-component application | PARTIAL   | Existing component is used, but hydration failure can still reach Steam.   |
-| Response schema | `RomSchema.ts`      | OpenAPI generation             | NOT_WIRED | Target file does not exist; `DetailedRomSchema.ts` is the actual artifact. |
+| From                                         | To                 | Via                                  | Status | Details                                                                |
+| -------------------------------------------- | ------------------ | ------------------------------------ | ------ | ---------------------------------------------------------------------- |
+| Steam handler                                | Steam service      | Search and exact-ID detail calls     | WIRED  | Declared patterns verified and suite exercises results.                |
+| Socket DLC scan                              | PC matcher         | Hydrated IGDB candidate before Steam | WIRED  | Early return at `scan.py:120`; Steam call begins only after hydration. |
+| PC matcher                                   | Steam handler      | Validated DLC lookup                 | WIRED  | Lookup follows identity hydration and accepts one validated result.    |
+| Manual candidate endpoint and automatic scan | Steam merge        | `normalize_steam`                    | WIRED  | Both route paths invoke the shared normalizer before persistence.      |
+| Response schemas                             | Generated models   | OpenAPI generation contract          | WIRED  | Detailed and component schemas contain backend Steam fields.           |
+| MariaDB runner                               | `romm-db-dev`      | Compose `DB_HOST`                    | WIRED  | Current runner completed against generated Compose-network schema.     |
+| PostgreSQL runner                            | revision `0126`    | Fresh migration cycle                | WIRED  | Current direct invocation completed through head.                      |
+| v2 settings                                  | heartbeat response | `STEAM_API_ENABLED`                  | WIRED  | Dedicated UI tile consumes Steam flag independently of SteamGridDB.    |
 
 ### Data-Flow Trace (Level 4)
 
-| Artifact      | Data Variable                                  | Source                                        | Produces Real Data                   | Status  |
-| ------------- | ---------------------------------------------- | --------------------------------------------- | ------------------------------------ | ------- |
-| Steam handler | `SteamRom`                                     | Storefront detail response                    | Bounded remote data, normalized      | FLOWING |
-| PC scan       | `steam_updates`                                | Stored ID or eligible search, then normalizer | Real handler result, no empty clears | FLOWING |
-| DLC scan      | `steam_candidate`                              | IGDB relation then Steam detail               | Unsafe on IGDB hydration exception   | HOLLOW  |
-| V2 settings   | `heartbeat.METADATA_SOURCES.STEAM_API_ENABLED` | `/heartbeat` contract                         | API/type wiring present              | FLOWING |
+| Artifact       | Data Variable            | Source                                                     | Produces Real Data                               | Status  |
+| -------------- | ------------------------ | ---------------------------------------------------------- | ------------------------------------------------ | ------- |
+| Steam handler  | normalized Steam result  | Storefront localized detail response                       | Yes, bounded remote result with same-ID fallback | FLOWING |
+| PC scan        | normalized Steam updates | Stored App ID or eligible Storefront search                | Yes, applied only through guarded merge          | FLOWING |
+| DLC scan       | `steam_candidate`        | Hydrated IGDB candidate, then validated Storefront details | Yes, hydration failure disconnects Steam lookup  | FLOWING |
+| v2 provider UI | App ID and enabled state | Generated response and heartbeat                           | Yes, displayed as independent Steam data         | FLOWING |
 
 ### Behavioral Spot-Checks
 
-| Behavior                     | Command                                                                                | Result                                                      | Status                  |
-| ---------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------- |
-| Steam provider-link registry | `cd frontend && npm run test -- --run src/v2/components/GameDetails/providers.test.ts` | 1 test passed                                               | PASS                    |
-| Focused backend Steam suite  | `cd backend && uv run pytest ... -q`                                                   | 63 setup errors, MariaDB `127.0.0.1:3306` unreachable       | BLOCKED, infrastructure |
-| Alembic heads                | `ROMM_AUTH_SECRET_KEY=... uv run alembic heads`                                        | Cannot create configured `/romm/assets` in host environment | BLOCKED, infrastructure |
+| Behavior                        | Command                                                                  | Result                                                             | Status |
+| ------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------ |
+| Isolated Phase 18 backend suite | `bash backend/tools/verify_phase18_backend_tests.sh`                     | `189 passed, 7 warnings in 28.82s`                                 | PASS   |
+| MariaDB migration cycle         | documented Compose `heads && upgrade && downgrade -1 && upgrade` command | Head `0126_add_steam_metadata`; exit 0                             | PASS   |
+| PostgreSQL migration cycle      | `bash backend/tools/verify_phase18_postgres_migration.sh`                | Fresh disposable PostgreSQL cycle completed through `0126`; exit 0 | PASS   |
+| Static migration contracts      | documented `uv run pytest --noconftest ...` command                      | `7 passed, 1 warning`                                              | PASS   |
+| Steam provider UI test          | `npm run test -- --run src/v2/components/GameDetails/providers.test.ts`  | 1 file, 1 test passed                                              | PASS   |
+| Frontend compilation            | `npm run typecheck && npm run build`                                     | Both exit 0                                                        | PASS   |
+| Scoped runner cleanup lint      | `trunk check backend/tools/verify_phase18_backend_tests.sh`              | `Checked 1 file`, `No issues`                                      | PASS   |
 
 ### Probe Execution
 
-No phase-declared or conventional `probe-*.sh` scripts were found. Step 7c skipped.
+No declared or conventional `probe-*.sh` files exist for this phase.
 
 ### Requirements Coverage
 
-| Requirement | Source Plans               | Description                                                          | Status    | Evidence                                                                                              |
-| ----------- | -------------------------- | -------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| STEAM-01    | 01, 03, 08                 | Independent no-key provider, German-first defaults, priority, health | SATISFIED | Config, registration, heartbeat, and separate v2 registry are wired.                                  |
-| STEAM-02    | 01, 02, 04, 06, 07, 09     | Stable ID, safe localized metadata, field-level merge                | PARTIAL   | Implementation is wired, but migration execution evidence and declared generated link are incomplete. |
-| STEAM-03    | 05                         | IGDB-first safe DLC enrichment                                       | BLOCKED   | Hydration failure does not fail closed before Steam lookup.                                           |
-| STEAM-04    | 02, 03, 04, 06, 07, 09     | Separate API and v2 provenance surfaces                              | SATISFIED | Existing response surfaces and generated active contracts contain distinct Steam fields.              |
-| STEAM-05    | 01, 02, 03, 04, 05, 07, 08 | Non-fatal failures and regression checks                             | PARTIAL   | Failure isolation is implemented, but backend/dialect checks lack successful current execution.       |
+| Requirement | Source Plans                             | Description                                    | Status    | Evidence                                                                                |
+| ----------- | ---------------------------------------- | ---------------------------------------------- | --------- | --------------------------------------------------------------------------------------- |
+| STEAM-01    | 18-01, 18-03                             | Independent no-key Storefront provider         | SATISFIED | Config, priority, heartbeat, separate SteamGridDB path, and approved UAT.               |
+| STEAM-02    | 18-01, 18-02, 18-04, 18-06, 18-07, 18-09 | Localized stable-ID enrichment with safe merge | SATISFIED | Same-ID fallback, model/migration, guarded merge, and API contracts.                    |
+| STEAM-03    | 18-05, 18-10                             | Hydrated IGDB-first DLC enrichment             | SATISFIED | Fail-closed hydration, validated product/parent rules, and no-call regression coverage. |
+| STEAM-04    | 18-02, 18-03, 18-06, 18-12               | Separate API and v2 Steam presentation         | SATISFIED | Correct generated contract, independent provider records, UI test, and approved UAT.    |
+| STEAM-05    | 18-01 through 18-05, 18-11               | Non-fatal failures and regression coverage     | SATISFIED | Typed degradation and current isolated 189-test suite.                                  |
+
+No Phase 18 requirement is orphaned. No later milestone phase exists to defer an unmet item to.
 
 ### Anti-Patterns Found
 
-| File                                           | Line    | Pattern                            | Severity | Impact                                         |
-| ---------------------------------------------- | ------- | ---------------------------------- | -------- | ---------------------------------------------- |
-| `backend/handler/metadata/pc_match_handler.py` | 108-112 | Exception returns cached candidate | BLOCKER  | Breaks the required hydrated-IGDB safety gate. |
-
-No unreferenced `TBD`, `FIXME`, or `XXX` markers were found in Phase 18 source files.
+No Phase-owned blocker or warning was found. The focused scan found only intentional typed empty results for non-fatal provider degradation, filename placeholder handling, and synthetic `xxxxxxxx` test configuration values. No actual keys, artwork payloads, unreferenced debt markers, or manual-data regressions were found. `git diff --check 173133a00^..HEAD` is clean.
 
 ### Human Verification Required
 
-### 1. Responsive Steam provider UI
-
-**Test:** Verify the v2 Steam settings tile and Steam App-ID action at 320px, 768px, and 1440px, in light and dark themes, with mouse, touch, keyboard, and gamepad.
-
-**Expected:** Steam and SteamGridDB remain clearly distinct; the no-key state is accessible; the link opens the exact App-ID Storefront URL; controls have sensible focus order with no clipping or trap.
-
-**Why human:** Runtime visual layout, actual external navigation, assistive-technology naming, and input modality are not proven by source or the focused unit test.
+None. Plan 18-03 records approved canonical-stack UAT for independent Steam and SteamGridDB labeling, 320px/768px/1440px, light/dark themes, mouse/touch/keyboard/gamepad input, and accessibility-tree checks. This re-verification found no relevant UI regression.
 
 ### Gaps Summary
 
-The feature is largely implemented: Storefront transport, exact-App-ID locale fallback, separate SGDB behavior, merge protection, stored-ID refresh, component provenance, API contracts, and the unit provider registry are present and wired.
-
-It does not meet the phase contract yet. The DLC safety boundary is fail-open when IGDB hydration raises, which permits a Steam lookup from an unhydrated relation. In addition, the promised closure evidence is not reproducible in this checkout: backend test setup has no reachable MariaDB, and the documented fresh PostgreSQL run fails before the Phase 18 migration in a baseline enum migration. The missing `RomSchema.ts` target is a declared key-link mismatch, even though equivalent active generated contracts exist.
+None. The former ShellCheck blocker is closed by the narrowly scoped SC2329 suppression for the intentional EXIT-trap cleanup function. Its exact scoped Trunk command now exits 0. All original Phase 18 must-haves are supported by substantive source, wired links, flowing data, and current evidence.
 
 ---
 
-_Verified: 2026-09-25T14:12:23Z_
+_Verified: 2026-09-25T15:33:09Z_
 _Verifier: the agent (gsd-verifier)_
