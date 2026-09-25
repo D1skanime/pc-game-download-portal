@@ -126,6 +126,14 @@ export default defineStore("heartbeat", {
             : "",
         },
         {
+          name: "Steam",
+          value: "steam",
+          logo_path: "/assets/scrappers/steam.svg",
+          disabled: !this.value.METADATA_SOURCES?.STEAM_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+        {
           name: "Hasheous",
           value: "hasheous",
           logo_path: "/assets/scrappers/hasheous.png",

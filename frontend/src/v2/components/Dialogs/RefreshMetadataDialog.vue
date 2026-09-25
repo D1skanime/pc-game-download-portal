@@ -46,6 +46,7 @@ const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
 // dialog reads as a sibling surface, not a parallel vocabulary.
 const GENERAL_PROVIDER_KEYS = new Set([
   "igdb",
+  "steam",
   "ss",
   "moby",
   "launchbox",

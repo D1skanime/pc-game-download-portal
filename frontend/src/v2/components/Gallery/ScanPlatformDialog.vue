@@ -55,6 +55,7 @@ const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
 
 const GENERAL_PROVIDER_KEYS = new Set([
   "igdb",
+  "steam",
   "ss",
   "moby",
   "launchbox",
