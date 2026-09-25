@@ -4,13 +4,13 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-09-25T09:27:53.028Z"
+last_updated: "2026-09-25T09:36:01.885Z"
 last_activity: 2026-09-25
 progress:
   total_phases: 18
   completed_phases: 13
   total_plans: 160
-  completed_plans: 145
+  completed_plans: 146
   percent: 72
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 18 (steam-metadata-integration-f-r-pc-games-und-dlcs) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Last activity: 2026-09-25
 
@@ -141,6 +141,7 @@ _Updated after each plan completion_
 | Phase 17 P13 | 15m | 2 tasks | 6 files |
 | Phase 17 P12 | 20min | 2 tasks | 6 files |
 | Phase 18 P01 | 9min | 3 tasks | 8 files |
+| Phase 18 P02 | 7min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -341,6 +342,8 @@ Recent decisions affecting current work:
 - [Phase 17]: Browser destination validation rejects Windows drive-letter and UNC roots.
 - [Phase 18]: Steam locale fallback uses only the resolved App ID, never a second name search. Preserves product identity across localized Storefront responses.
 - [Phase 18]: Steam Storefront failures degrade to empty typed results and remain separate from SteamGridDB. Untrusted remote metadata must not abort other providers or alter SteamGridDB's artwork role.
+- [Phase 18]: Steam persistence follows revision 0125 with nullable provenance fields and no global component App-ID uniqueness. — Keeps Steam observational and avoids deduplicating shared DLC identities.
+- [Phase 18]: Phase 18 PostgreSQL verification uses a unique Compose-network container and database while preserving the first failure. — The verifier never touches shared databases or relies on a host port.
 
 ### Blockers/Concerns
 
@@ -349,6 +352,7 @@ Recent decisions affecting current work:
 - [Phase 9]: Confirm NAS protocol, mount options, atime behavior, and a safe activation window before real-NAS rollout.
 - [Phase 16]: Authorized Windows, standard Linux, and Bazzite runners plus the isolated 30 GiB UAT volume are unavailable; Task 3 remains blocked and evidence is deferred in 16-UAT.md.
 - Phase 17 browser verification remains pending because Firefox, Chrome, Edge, and MariaDB are unavailable in the isolated Linux checkout; see 17-BROWSER-MATRIX.md and 17-DOWNLOAD-EVIDENCE.md.
+- Fresh PostgreSQL upgrade fails before 0126 because 20260831_add_pc_rom_components.py recreates enum romcomponentkind; recorded in Phase 18 deferred-items.md.
 
 ### Quick Tasks Completed
 
@@ -374,6 +378,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T09:27:53.010Z
+Last session: 2026-09-25T09:35:48.344Z
 Stopped at: Completed 18-01-PLAN.md
 Resume file: None
