@@ -181,6 +181,8 @@ async def resolve_steam_scan_metadata(
     try:
         if isinstance(rom.steam_id, int) and not isinstance(rom.steam_id, bool):
             result = await meta_steam_handler.get_rom_by_id(rom.steam_id, platform.slug)
+            if result.get("steam_id") != rom.steam_id:
+                return {}
         elif platform.slug in STEAM_PLATFORMS:
             result = await meta_steam_handler.get_rom(fs_name, platform.slug)
         else:

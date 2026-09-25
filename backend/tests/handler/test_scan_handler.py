@@ -50,6 +50,21 @@ async def test_stored_steam_id_refreshes_directly_after_filename_change():
 
 
 @pytest.mark.asyncio
+async def test_stored_steam_id_rejects_a_different_resolved_app_id():
+    direct = AsyncMock(return_value={"steam_id": 1091501, "name": "Other game"})
+    with patch("handler.scan_handler.meta_steam_handler.get_rom_by_id", direct):
+        updates = await resolve_steam_scan_metadata(
+            cast("Rom", _rom(steam_id=1091500)),
+            cast("Platform", _platform("win")),
+            "Renamed game.exe",
+            [MetadataSource.STEAM],
+        )
+
+    direct.assert_awaited_once_with(1091500, "win")
+    assert updates == {}
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("platform_slug", ["win", "linux", "mac"])
 async def test_eligible_pc_platforms_search_steam_only_without_a_stored_id(
     platform_slug: str,
