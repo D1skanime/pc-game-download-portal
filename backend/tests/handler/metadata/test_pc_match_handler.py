@@ -265,6 +265,65 @@ async def test_fetch_unique_related_dlc_match_returns_none_when_hydration_raises
     igdb.get_matched_rom_by_id.assert_awaited_once_with(rom, 119899)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "details",
+    [
+        None,
+        {},
+        {"igdb_id": 119900, "name": "A Woman's Lot"},
+        {"igdb_id": 119899, "name": ""},
+    ],
+)
+async def test_fetch_unique_related_dlc_match_rejects_invalid_hydration(details):
+    igdb = Mock()
+    igdb.get_matched_rom_by_id = AsyncMock(return_value=details)
+    handler = PcMetadataMatchHandler(providers={"igdb": igdb})
+    rom = Mock()
+    rom.name = "Kingdom Come: Deliverance"
+    rom.igdb_metadata = {
+        "dlcs": [
+            {
+                "id": 119899,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+            }
+        ]
+    }
+    component = Mock(relative_path="dlc/a-woman-s-lot", manifest_members=[])
+
+    assert await handler.fetch_unique_related_igdb_candidate(rom, component) is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_unique_related_dlc_match_accepts_valid_hydration():
+    igdb = Mock()
+    igdb.get_matched_rom_by_id = AsyncMock(
+        return_value={
+            "igdb_id": 119899,
+            "name": "Kingdom Come: Deliverance - A Woman's Lot",
+            "summary": "A valid hydrated DLC identity.",
+        }
+    )
+    handler = PcMetadataMatchHandler(providers={"igdb": igdb})
+    rom = Mock()
+    rom.name = "Kingdom Come: Deliverance"
+    rom.igdb_metadata = {
+        "dlcs": [
+            {
+                "id": 119899,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+            }
+        ]
+    }
+    component = Mock(relative_path="dlc/a-woman-s-lot", manifest_members=[])
+
+    candidate = await handler.fetch_unique_related_igdb_candidate(rom, component)
+
+    assert candidate is not None
+    assert candidate.provider_ids == {"igdb_id": 119899}
+    assert candidate.title == "Kingdom Come: Deliverance - A Woman's Lot"
+
+
 @pytest.mark.parametrize(
     ("fullgame", "expected"),
     [

@@ -104,12 +104,20 @@ class PcMetadataMatchHandler:
         igdb = self.providers.get("igdb")
         get_by_id = getattr(igdb, "get_matched_rom_by_id", None)
         if get_by_id is None:
-            return candidate
+            return None
         try:
             details = await get_by_id(rom, candidate.provider_ids["igdb_id"])
         except Exception:
-            return candidate
-        return self._candidate("igdb", details) if details else candidate
+            return None
+        if not isinstance(details, dict):
+            return None
+        hydrated = self._candidate("igdb", details)
+        if (
+            hydrated.provider_ids.get("igdb_id") != candidate.provider_ids["igdb_id"]
+            or not hydrated.title
+        ):
+            return None
+        return hydrated
 
     @staticmethod
     def _steam_fullgame_app_id(fullgame: object) -> int | None:
