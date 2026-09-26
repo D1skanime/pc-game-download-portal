@@ -63,7 +63,7 @@ re_verification:
 | `backend/handler/metadata/steam_merge.py`                | Manual-safe common merge                          | VERIFIED | Non-empty field updates, field provenance, no selected-media writes.                          |
 | `backend/handler/metadata/pc_match_handler.py`           | Fail-closed DLC identity and validation           | VERIFIED | Hydration and Steam product/parent checks short-circuit unsafe paths.                         |
 | `backend/endpoints/sockets/scan.py`                      | Hydration gate and existing-component application | VERIFIED | `candidate is None` returns before Steam; only existing component receives updates.           |
-| `backend/alembic/versions/0126_add_steam_metadata.py`    | Portable reversible persistence                   | VERIFIED | Model columns match; MariaDB and PostgreSQL cycles pass.                                      |
+| `backend/alembic/versions/0128_add_steam_metadata.py`    | Portable reversible persistence                   | VERIFIED | Model columns match; MariaDB and PostgreSQL cycles pass.                                      |
 | `backend/tools/verify_phase18_backend_tests.sh`          | Isolated MariaDB evidence runner                  | VERIFIED | Uses guarded generated schema, Compose DB host, EXIT cleanup, and now passes scoped Trunk.    |
 | `backend/tools/verify_phase18_postgres_migration.sh`     | Disposable PostgreSQL migration verifier          | VERIFIED | Fresh container reached head, downgraded, re-upgraded, and cleaned up.                        |
 | `frontend/src/__generated__/models/DetailedRomSchema.ts` | Detailed-ROM generated contract                   | VERIFIED | Present, substantive, and includes both Steam fields.                                         |
@@ -79,7 +79,7 @@ re_verification:
 | Manual candidate endpoint and automatic scan | Steam merge        | `normalize_steam`                    | WIRED  | Both route paths invoke the shared normalizer before persistence.      |
 | Response schemas                             | Generated models   | OpenAPI generation contract          | WIRED  | Detailed and component schemas contain backend Steam fields.           |
 | MariaDB runner                               | `romm-db-dev`      | Compose `DB_HOST`                    | WIRED  | Current runner completed against generated Compose-network schema.     |
-| PostgreSQL runner                            | revision `0126`    | Fresh migration cycle                | WIRED  | Current direct invocation completed through head.                      |
+| PostgreSQL runner                            | revision `0128`    | Fresh migration cycle                | WIRED  | Current direct invocation completed through head.                      |
 | v2 settings                                  | heartbeat response | `STEAM_API_ENABLED`                  | WIRED  | Dedicated UI tile consumes Steam flag independently of SteamGridDB.    |
 
 ### Data-Flow Trace (Level 4)
@@ -93,16 +93,17 @@ re_verification:
 
 ### Behavioral Spot-Checks
 
-| Behavior                        | Command                                                                  | Result                                                                          | Status |
-| ------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ------ |
-| Isolated Phase 18 backend suite | `bash backend/tools/verify_phase18_backend_tests.sh`                     | `189 passed, 7 warnings in 28.82s`                                              | PASS   |
-| MariaDB migration cycle         | documented Compose `heads && upgrade && downgrade -1 && upgrade` command | Head `0126_add_steam_metadata`; exit 0                                          | PASS   |
-| PostgreSQL migration cycle      | `bash backend/tools/verify_phase18_postgres_migration.sh`                | Fresh disposable PostgreSQL cycle completed through `0126`; exit 0              | PASS   |
-| Static migration contracts      | documented `uv run pytest --noconftest ...` command                      | `7 passed, 1 warning`                                                           | PASS   |
-| Steam provider UI test          | `npm run test -- --run src/v2/components/GameDetails/providers.test.ts`  | 1 file, 1 test passed                                                           | PASS   |
-| Frontend compilation            | `npm run typecheck && npm run build`                                     | Both exit 0                                                                     | PASS   |
-| Scoped runner cleanup lint      | `trunk check backend/tools/verify_phase18_backend_tests.sh`              | `Checked 1 file`, `No issues`                                                   | PASS   |
-| Isolated UAT live PC scans      | Test stack at `http://127.0.0.1:3344`                                    | Steam enabled; German Steam text persisted without replacing IGDB relationships | PASS   |
+| Behavior                       | Command                                                                 | Result                                                                          | Status |
+| ------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------ |
+| Isolated release backend suite | Disposable candidate container                                          | `195 passed, 7 warnings in 32.15s`                                              | PASS   |
+| MariaDB migration cycle        | Fresh isolated release stack                                            | Head `0128_add_steam_metadata`; upgrade, downgrade, re-upgrade pass             | PASS   |
+| PostgreSQL migration cycle     | Fresh disposable release database                                       | Head `0128_add_steam_metadata`; upgrade, downgrade, re-upgrade pass             | PASS   |
+| Static migration contracts     | documented `uv run pytest --noconftest ...` command                     | `7 passed, 1 warning`                                                           | PASS   |
+| Steam provider UI test         | `npm run test -- --run src/v2/components/GameDetails/providers.test.ts` | 1 file, 1 test passed                                                           | PASS   |
+| Frontend compilation           | `npm run typecheck && npm run build`                                    | Both exit 0                                                                     | PASS   |
+| Full frontend suite            | Disposable candidate container                                          | `799 passed`                                                                    | PASS   |
+| Scoped runner cleanup lint     | `trunk check backend/tools/verify_phase18_backend_tests.sh`             | `Checked 1 file`, `No issues`                                                   | PASS   |
+| Isolated UAT live PC scans     | Test stack at `http://127.0.0.1:3344`                                   | Steam enabled; German Steam text persisted without replacing IGDB relationships | PASS   |
 
 ### Probe Execution
 
