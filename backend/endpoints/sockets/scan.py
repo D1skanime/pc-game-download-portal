@@ -112,6 +112,8 @@ _PC_IGDB_MEDIA_ROLES = {
 
 def _refresh_rom_for_scan_emit(rom: Rom) -> Rom:
     """Load the fields required by the scan event before its session closes."""
+    if not isinstance(rom, Rom):
+        return rom
     return db_rom_handler.get_rom_simple(rom.id) or rom
 
 
