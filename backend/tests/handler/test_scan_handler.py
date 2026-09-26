@@ -6,6 +6,7 @@ import pytest
 
 from handler.scan_handler import (
     MetadataSource,
+    _apply_metadata_handler_fields,
     _steam_artwork_handler,
     resolve_steam_scan_metadata,
 )
@@ -46,6 +47,25 @@ def test_steam_media_enters_the_existing_artwork_priority_handler():
         "steam_id": 1903340,
         "url_cover": "https://cdn.example/cover.jpg",
         "url_screenshots": ["https://cdn.example/shot.jpg"],
+    }
+
+
+def test_derived_igdb_artworks_are_not_passed_to_the_rom_model():
+    rom_attrs = {"name": "Existing"}
+
+    _apply_metadata_handler_fields(
+        rom_attrs,
+        {
+            "igdb_id": 1877,
+            "url_screenshots": ["https://cdn.example/artwork.jpg"],
+            "url_artworks": ["https://cdn.example/artwork.jpg"],
+        },
+    )
+
+    assert rom_attrs == {
+        "name": "Existing",
+        "igdb_id": 1877,
+        "url_screenshots": ["https://cdn.example/artwork.jpg"],
     }
 
 

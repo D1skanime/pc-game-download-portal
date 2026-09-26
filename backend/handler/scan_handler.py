@@ -211,6 +211,17 @@ def _steam_artwork_handler(steam_updates: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _apply_metadata_handler_fields(
+    rom_attrs: dict[str, Any], handler_data: dict[str, Any]
+) -> None:
+    """Apply persisted provider fields while keeping derived media out of the model."""
+    for key, field_value in handler_data.items():
+        if key == "url_artworks":
+            continue
+        if field_value:
+            rom_attrs[key] = field_value
+
+
 def get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
@@ -1169,10 +1180,7 @@ async def scan_rom(
     # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered):
         handler_data = metadata_handlers[source_name]["handler"]
-        # Only update fields that have valid values
-        for key, field_value in handler_data.items():
-            if field_value:
-                rom_attrs[key] = field_value
+        _apply_metadata_handler_fields(rom_attrs, handler_data)
 
     # Artwork sources are prioritized separately, and each field can carry its
     # own override on top of the shared artwork priority.
