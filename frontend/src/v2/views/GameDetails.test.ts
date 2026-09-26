@@ -13,4 +13,15 @@ describe("GameDetails", () => {
 
     expect(source).toContain('label: t("rom.game-downloads")');
   });
+
+  it("keeps the patcher tab out of PC game details", () => {
+    const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
+
+    expect(source).toContain(
+      '...(isPcRom.value ? [] : [{ id: "patcher", label: t("common.patcher") }])',
+    );
+    expect(source).toMatch(
+      /<PatcherTab\s+v-if="tab === 'patcher' && !isPcRom"\s+:rom="currentRom"\s+\/>/,
+    );
+  });
 });
