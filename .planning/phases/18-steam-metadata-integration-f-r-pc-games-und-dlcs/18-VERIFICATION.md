@@ -93,15 +93,16 @@ re_verification:
 
 ### Behavioral Spot-Checks
 
-| Behavior                        | Command                                                                  | Result                                                             | Status |
-| ------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------ |
-| Isolated Phase 18 backend suite | `bash backend/tools/verify_phase18_backend_tests.sh`                     | `189 passed, 7 warnings in 28.82s`                                 | PASS   |
-| MariaDB migration cycle         | documented Compose `heads && upgrade && downgrade -1 && upgrade` command | Head `0126_add_steam_metadata`; exit 0                             | PASS   |
-| PostgreSQL migration cycle      | `bash backend/tools/verify_phase18_postgres_migration.sh`                | Fresh disposable PostgreSQL cycle completed through `0126`; exit 0 | PASS   |
-| Static migration contracts      | documented `uv run pytest --noconftest ...` command                      | `7 passed, 1 warning`                                              | PASS   |
-| Steam provider UI test          | `npm run test -- --run src/v2/components/GameDetails/providers.test.ts`  | 1 file, 1 test passed                                              | PASS   |
-| Frontend compilation            | `npm run typecheck && npm run build`                                     | Both exit 0                                                        | PASS   |
-| Scoped runner cleanup lint      | `trunk check backend/tools/verify_phase18_backend_tests.sh`              | `Checked 1 file`, `No issues`                                      | PASS   |
+| Behavior                        | Command                                                                  | Result                                                                          | Status |
+| ------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ------ |
+| Isolated Phase 18 backend suite | `bash backend/tools/verify_phase18_backend_tests.sh`                     | `189 passed, 7 warnings in 28.82s`                                              | PASS   |
+| MariaDB migration cycle         | documented Compose `heads && upgrade && downgrade -1 && upgrade` command | Head `0126_add_steam_metadata`; exit 0                                          | PASS   |
+| PostgreSQL migration cycle      | `bash backend/tools/verify_phase18_postgres_migration.sh`                | Fresh disposable PostgreSQL cycle completed through `0126`; exit 0              | PASS   |
+| Static migration contracts      | documented `uv run pytest --noconftest ...` command                      | `7 passed, 1 warning`                                                           | PASS   |
+| Steam provider UI test          | `npm run test -- --run src/v2/components/GameDetails/providers.test.ts`  | 1 file, 1 test passed                                                           | PASS   |
+| Frontend compilation            | `npm run typecheck && npm run build`                                     | Both exit 0                                                                     | PASS   |
+| Scoped runner cleanup lint      | `trunk check backend/tools/verify_phase18_backend_tests.sh`              | `Checked 1 file`, `No issues`                                                   | PASS   |
+| Isolated UAT live PC scans      | Test stack at `http://127.0.0.1:3344`                                    | Steam enabled; German Steam text persisted without replacing IGDB relationships | PASS   |
 
 ### Probe Execution
 
@@ -125,7 +126,7 @@ No Phase-owned blocker or warning was found. The focused scan found only intenti
 
 ### Human Verification Required
 
-None. Plan 18-03 records approved canonical-stack UAT for independent Steam and SteamGridDB labeling, 320px/768px/1440px, light/dark themes, mouse/touch/keyboard/gamepad input, and accessibility-tree checks. This re-verification found no relevant UI regression.
+The isolated UAT stack was approved on 2026-09-26. Steam appeared independently from SteamGridDB in metadata selection, and the following real PC scans completed successfully: Clair Obscur: Expedition 33, Cyberpunk 2077 with the Phantom Liberty DLC, and Kingdom Come: Deliverance II. Each main game retained its IGDB relationship data and received the resolved Steam App ID plus German Steam text. Phantom Liberty retained its IGDB DLC identity and received Steam App ID `2138330`; the ambiguous DLC remained unchanged. No real library or production stack was used.
 
 ### Gaps Summary
 
@@ -133,5 +134,5 @@ None. The former ShellCheck blocker is closed by the narrowly scoped SC2329 supp
 
 ---
 
-_Verified: 2026-09-25T15:33:09Z_
+_Verified: 2026-09-26T02:36:16Z_
 _Verifier: the agent (gsd-verifier)_
