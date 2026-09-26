@@ -1,15 +1,15 @@
 """Add Steam metadata persistence.
 
-Revision ID: 0126_add_steam_metadata
-Revises: 0125_pc_component_manifest_members_missing_from_fs
+Revision ID: 0128_add_steam_metadata
+Revises: 0127_download_transfer_history_dismissal
 Create Date: 2026-09-25 00:00:00.000000
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0126_add_steam_metadata"
-down_revision = "0125_pc_component_manifest_members_missing_from_fs"
+revision = "0128_add_steam_metadata"
+down_revision = "0127_download_transfer_history_dismissal"
 branch_labels = None
 depends_on = None
 

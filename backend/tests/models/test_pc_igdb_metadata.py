@@ -129,13 +129,10 @@ def test_steam_persistence_fields_are_nullable_and_source_mapped():
 
 
 def test_steam_metadata_migration_has_the_current_download_head():
-    migration = Path("alembic/versions/0126_add_steam_metadata.py").read_text()
+    migration = Path("alembic/versions/0128_add_steam_metadata.py").read_text()
 
-    assert 'revision = "0126_add_steam_metadata"' in migration
-    assert (
-        'down_revision = "0125_pc_component_manifest_members_missing_from_fs"'
-        in migration
-    )
+    assert 'revision = "0128_add_steam_metadata"' in migration
+    assert 'down_revision = "0127_download_transfer_history_dismissal"' in migration
     for table, column in (
         ("roms", "steam_id"),
         ("roms", "steam_metadata"),
