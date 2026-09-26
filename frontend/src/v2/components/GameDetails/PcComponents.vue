@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RBtn, RCollapsible, REmptyState, RTag } from "@v2/lib";
+import { isAxiosError } from "axios";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -12,6 +13,7 @@ import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { PcMatchableComponentKind } from "@/v2/components/MatchRom/types";
 import { useBrowserDownloadQueue } from "@/v2/composables/useBrowserDownloadQueue";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import DownloadManager from "./DownloadManager.vue";
 import DownloadSelectionDialog, {
   type DownloadArchiveSet,
@@ -23,9 +25,11 @@ const props = defineProps<{
   components: PcComponentSchema[];
   romId: number;
   archiveSets?: DownloadArchiveSet[];
+  archiveSetsState?: "idle" | "loading" | "ready" | "error";
 }>();
 const emit = defineEmits<{ (event: "applied"): void }>();
 const { t } = useI18n();
+const snackbar = useSnackbar();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const showDownload = ref(false);
@@ -62,6 +66,12 @@ async function startDownload(payload: {
   componentIds: number[];
   mode: "standard" | "enhanced";
 }) {
+  if (
+    props.archiveSetsState === "loading" ||
+    props.archiveSetsState === "error"
+  ) {
+    return;
+  }
   // The File System Access picker must be opened while the click activation is
   // still alive. Waiting for the manifest request first makes Chromium reject
   // the picker with NotAllowedError.
@@ -87,6 +97,27 @@ async function startDownload(payload: {
     await queue.startEnhanced(response.data, selectedRoot);
   } else {
     await queue.start(response.data);
+  }
+}
+
+async function resumeDownload(
+  transferId: string,
+  memberId?: string,
+  restartFromZero = false,
+) {
+  try {
+    await queue.resumeSession(transferId, memberId, restartFromZero);
+  } catch (error) {
+    console.error("[PcComponents] Could not resume download", error);
+    const expired =
+      isAxiosError(error) &&
+      (error.response?.status === 410 ||
+        error.response?.data?.detail?.code === "manifest_expired");
+    snackbar.error(
+      expired
+        ? t("rom.download-expired")
+        : t("rom.download-failed-description"),
+    );
   }
 }
 
@@ -127,13 +158,19 @@ const groupedComponents = computed(() =>
 
 <template>
   <section class="pc-components">
-    <h3 class="pc-components__heading">{{ t("rom.pc-components") }}</h3>
+    <h3 class="pc-components__heading">{{ t("rom.game-downloads") }}</h3>
     <RBtn
+      class="align-self-start"
       data-testid="download-components"
       prepend-icon="mdi-download"
+      :loading="archiveSetsState === 'loading'"
+      :disabled="archiveSetsState === 'error'"
       @click="showDownload = true"
       >{{ t("rom.download-game") }}</RBtn
     >
+    <p v-if="archiveSetsState === 'error'" class="pc-components__error">
+      {{ t("rom.download-failed-description") }}
+    </p>
     <DownloadSelectionDialog
       v-model="showDownload"
       :components="components"
@@ -146,6 +183,12 @@ const groupedComponents = computed(() =>
       :selected-manifest-id="selectedManifestId"
       :session-id="currentSessionId"
       :component-labels="selectedComponentLabels"
+      @pause="queue.pause"
+      @cancel="queue.cancel"
+      @resume="queue.resume"
+      @restart="queue.restart"
+      @resume-session="resumeDownload"
+      @clear-terminal="queue.clearTerminal"
     />
 
     <REmptyState
@@ -223,6 +266,11 @@ const groupedComponents = computed(() =>
 .pc-components__heading {
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-semibold);
+}
+
+.pc-components__error {
+  margin: 0;
+  color: var(--r-color-danger);
 }
 
 .pc-components__group {

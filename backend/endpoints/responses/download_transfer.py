@@ -8,6 +8,8 @@ class DownloadTransferCreateRequest(BaseModel):
 
     manifest_id: str = Field(pattern=r"^[0-9a-f-]{36}$")
     mode: str = Field(pattern=r"^(standard|enhanced)$")
+    member_ids: list[str] | None = Field(default=None, min_length=1, max_length=4096)
+    previous_session_id: str | None = Field(default=None, pattern=r"^[0-9a-f-]{36}$")
 
 
 class DownloadTransferObservationRequest(BaseModel):
@@ -24,6 +26,7 @@ class DownloadTransferObservationRequest(BaseModel):
 class DownloadTransferItemResponse(BaseModel):
     id: int
     manifest_member_id: str
+    destination: str
     expected_bytes: int
     observed_bytes: int
     status: str
@@ -44,9 +47,12 @@ class DownloadTransferResponse(BaseModel):
     schema_version: int = 1
     id: str
     manifest_id: str
+    parent_session_id: str | None
+    attempt_no: int
     rom_id: int
     mode: str
     status: str
+    result: str | None = None
     selected_items: int
     selected_bytes: int
     observed_bytes: int

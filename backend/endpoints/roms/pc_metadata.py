@@ -1,6 +1,7 @@
 """Review-first endpoints for selecting PC metadata candidates."""
 
 import hashlib
+from dataclasses import replace
 from typing import Annotated, Any
 
 from fastapi import HTTPException, Path, Query, Request, Response, status
@@ -28,6 +29,7 @@ from handler.metadata.pc_match_handler import (
     PcMetadataCandidate,
     pc_metadata_match_handler,
 )
+from handler.metadata.steam_merge import normalize_steam
 from models.rom import (
     RomComponentKind,
     RomComponentOwnedMediaOrigin,
@@ -445,6 +447,51 @@ async def select_pc_metadata_candidate(
             detail="Unknown or unavailable PC metadata candidate",
         )
 
+    candidate_fields = candidate.fields
+    if candidate.provider == "steam":
+        steam_id = candidate.provider_ids.get("steam_id")
+        get_by_id = getattr(
+            pc_metadata_match_handler.providers.get("steam"), "get_rom_by_id", None
+        )
+        try:
+            details = (
+                await get_by_id(steam_id, rom.platform_slug)
+                if isinstance(steam_id, int) and get_by_id is not None
+                else None
+            )
+        except Exception:
+            details = None
+        if not isinstance(details, dict) or details.get("steam_id") != steam_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Unknown or unavailable Steam metadata candidate",
+            )
+        resolved_candidate = pc_metadata_match_handler._candidate("steam", details)
+        candidate = replace(
+            candidate,
+            media=resolved_candidate.media,
+            fields=resolved_candidate.fields,
+        )
+        candidate_fields = normalize_steam(
+            details,
+            {
+                "name": rom.name,
+                "summary": rom.summary,
+                "manual_metadata": rom.manual_metadata,
+                "steam_metadata": rom.steam_metadata,
+                "metadata": {
+                    "main_developer": (
+                        rom.metadatum.main_developer if rom.metadatum else None
+                    ),
+                    "publishers": rom.metadatum.publishers if rom.metadatum else None,
+                    "pc_release_date": (
+                        rom.metadatum.pc_release_date if rom.metadatum else None
+                    ),
+                },
+            },
+        )
+        candidate_fields.pop("media", None)
+
     selected_media = {
         _candidate_media_id(candidate, media): media
         for media in candidate.media
@@ -457,7 +504,7 @@ async def select_pc_metadata_candidate(
         )
 
     updated = db_rom_handler.apply_pc_metadata_candidate(
-        id, selection.expected_version, candidate.fields
+        id, selection.expected_version, candidate_fields
     )
     if updated is None:
         raise HTTPException(

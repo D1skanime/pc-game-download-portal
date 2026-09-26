@@ -44,6 +44,37 @@ async def test_collect_candidates_attributes_results_to_their_provider():
 
 
 @pytest.mark.asyncio
+async def test_collect_candidates_exposes_steam_identity_and_review_media(rom):
+    steam = Mock(is_enabled=Mock(return_value=True))
+    steam.get_matched_roms_by_name = AsyncMock(
+        return_value=[
+            {
+                "steam_id": 1091500,
+                "name": "Cyberpunk 2077",
+                "steam_metadata": {"language": "de"},
+                "url_cover": "https://cdn.example/cyberpunk-cover.jpg",
+                "url_screenshots": ["https://cdn.example/cyberpunk-shot.jpg"],
+            }
+        ]
+    )
+    handler = PcMetadataMatchHandler(providers={"steam": steam})
+
+    results = await handler.collect_candidates(rom, "Cyberpunk 2077")
+
+    candidate = results["steam"].candidates[0]
+    assert candidate.provider_ids == {"steam_id": 1091500}
+    assert candidate.fields["steam_id"] == 1091500
+    assert candidate.fields["steam_metadata"] == {"language": "de"}
+    assert candidate.media == [
+        {"kind": "cover", "url": "https://cdn.example/cyberpunk-cover.jpg"},
+        {"kind": "screenshot", "url": "https://cdn.example/cyberpunk-shot.jpg"},
+    ]
+    steam.get_matched_roms_by_name.assert_awaited_once_with(
+        "Cyberpunk 2077", rom.platform_slug
+    )
+
+
+@pytest.mark.asyncio
 async def test_collect_candidates_uses_a_spaced_search_title_for_compact_folder_names():
     igdb = Mock(is_enabled=Mock(return_value=True))
     igdb.get_matched_roms_by_name = AsyncMock(
@@ -208,6 +239,137 @@ def test_unique_related_dlc_match_refuses_ambiguous_parent_matches():
     component = Mock(relative_path="dlc/a-woman-s-lot", manifest_members=[])
 
     assert handler.find_unique_related_igdb_candidate(rom, component) is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_unique_related_dlc_match_returns_none_when_hydration_raises():
+    igdb = Mock()
+    igdb.get_matched_rom_by_id = AsyncMock(side_effect=RuntimeError("offline"))
+    handler = PcMetadataMatchHandler(providers={"igdb": igdb})
+    rom = Mock()
+    rom.name = "Kingdom Come: Deliverance"
+    rom.igdb_metadata = {
+        "dlcs": [
+            {
+                "id": 119899,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+                "cover_url": "https://images.igdb.com/womans-lot.jpg",
+            }
+        ]
+    }
+    component = Mock(relative_path="dlc/a-woman-s-lot", manifest_members=[])
+
+    candidate = await handler.fetch_unique_related_igdb_candidate(rom, component)
+
+    assert candidate is None
+    igdb.get_matched_rom_by_id.assert_awaited_once_with(rom, 119899)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "details",
+    [
+        None,
+        {},
+        {"igdb_id": 119900, "name": "A Woman's Lot"},
+        {"igdb_id": 119899, "name": ""},
+    ],
+)
+async def test_fetch_unique_related_dlc_match_rejects_invalid_hydration(details):
+    igdb = Mock()
+    igdb.get_matched_rom_by_id = AsyncMock(return_value=details)
+    handler = PcMetadataMatchHandler(providers={"igdb": igdb})
+    rom = Mock()
+    rom.name = "Kingdom Come: Deliverance"
+    rom.igdb_metadata = {
+        "dlcs": [
+            {
+                "id": 119899,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+            }
+        ]
+    }
+    component = Mock(relative_path="dlc/a-woman-s-lot", manifest_members=[])
+
+    assert await handler.fetch_unique_related_igdb_candidate(rom, component) is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_unique_related_dlc_match_accepts_valid_hydration():
+    igdb = Mock()
+    igdb.get_matched_rom_by_id = AsyncMock(
+        return_value={
+            "igdb_id": 119899,
+            "name": "Kingdom Come: Deliverance - A Woman's Lot",
+            "summary": "A valid hydrated DLC identity.",
+        }
+    )
+    handler = PcMetadataMatchHandler(providers={"igdb": igdb})
+    rom = Mock()
+    rom.name = "Kingdom Come: Deliverance"
+    rom.igdb_metadata = {
+        "dlcs": [
+            {
+                "id": 119899,
+                "name": "Kingdom Come: Deliverance - A Woman's Lot",
+            }
+        ]
+    }
+    component = Mock(relative_path="dlc/a-woman-s-lot", manifest_members=[])
+
+    candidate = await handler.fetch_unique_related_igdb_candidate(rom, component)
+
+    assert candidate is not None
+    assert candidate.provider_ids == {"igdb_id": 119899}
+    assert candidate.title == "Kingdom Come: Deliverance - A Woman's Lot"
+
+
+@pytest.mark.parametrize(
+    ("fullgame", "expected"),
+    [
+        ({"appid": 1091500}, 1091500),
+        ({"appid": "1091500", "name": "Diagnostic only"}, 1091500),
+        (None, None),
+        ({}, None),
+        ({"appid": True}, None),
+        ({"appid": 0}, None),
+        ({"appid": -1}, None),
+        ({"appid": 1.5}, None),
+        ({"appid": "1.5"}, None),
+        ({"appid": "not-an-id"}, None),
+        ("1091500", None),
+    ],
+)
+def test_dlc_parent_id_accepts_only_positive_decimal_fullgame_appids(
+    fullgame, expected
+):
+    assert PcMetadataMatchHandler._steam_fullgame_app_id(fullgame) == expected
+
+
+@pytest.mark.parametrize(
+    ("product_type", "fullgame", "parent_id", "expected"),
+    [
+        ("dlc", {"appid": 1091500}, 1091500, True),
+        ("dlc", None, 1091500, True),
+        ("dlc", {"appid": 42}, 1091500, False),
+        ("dlc", {"appid": "invalid"}, 1091500, False),
+        ("game", {"appid": 1091500}, 1091500, False),
+        ("bundle", {"appid": 1091500}, 1091500, False),
+        ("music", {"appid": 1091500}, 1091500, False),
+        ("demo", {"appid": 1091500}, 1091500, False),
+        ("tool", {"appid": 1091500}, 1091500, False),
+        ("edition", {"appid": 1091500}, 1091500, False),
+    ],
+)
+def test_dlc_details_require_dlc_type_and_a_matching_parent_when_exposed(
+    product_type, fullgame, parent_id, expected
+):
+    assert (
+        PcMetadataMatchHandler._is_valid_steam_dlc_details(
+            {"type": product_type, "fullgame": fullgame}, parent_id
+        )
+        is expected
+    )
 
 
 @pytest.mark.asyncio

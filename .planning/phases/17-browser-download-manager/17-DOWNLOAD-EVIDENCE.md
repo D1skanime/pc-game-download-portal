@@ -1,42 +1,34 @@
 # Phase 17 Isolated Download Evidence
 
-Status: BLOCKED, no browser-capable isolated fixture was available in the execution environment.
+**Recorded:** 2026-09-24
 
-The evidence below intentionally distinguishes deterministic code/test observations from user-visible browser transfers. No successful real download is claimed.
+All observations below used the isolated UAT stack at `127.0.0.1:3344` and
+the read-only temporary source root. No real NAS or Team4s source was used.
 
-## Commands attempted
+| Case                          | Result | Evidence                                                                                                                                                                                                                          |
+| ----------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Large single ISO              | PASS   | A 5 GiB ISO was transferred with Enhanced mode. Source and destination SHA-256 were identical: `7f06c62352aebd8125b2a1841e2b9e1ffcbed602f381c3dcb3200200e383d1d5`. The fixture was removed after the test to preserve disk space. |
+| Multi-file game               | PASS   | Forty DLC ZIP members completed through the Enhanced queue with bounded concurrency.                                                                                                                                              |
+| Update-only selection         | PASS   | The immutable manifest contained exactly three update ZIPs, 49,152 bytes total, and no main-game member. Standard mode recorded all three as `served`.                                                                            |
+| DLC-only selection            | PASS   | A 40-member DLC-only manifest was created and handed to the browser without main-game members.                                                                                                                                    |
+| Pause and resume              | PASS   | A 2 GiB Enhanced ISO was paused at 1,738,539,008 bytes, resumed with `Range` plus `If-Match`, received `206`, and completed byte-identically.                                                                                     |
+| Source change                 | PASS   | Replacing one source byte between pause and resume produced `412` and the transfer entered `source_changed`; old and new data were not combined.                                                                                  |
+| Standard multi-file safeguard | PASS   | Chromium served 19 files then applied its own automatic-download restriction to the remaining handoffs. RomM respected this browser decision and did not claim local persistence.                                                 |
+| History and transfer controls | PASS   | Cancel, per-entry removal, remove-all, retry and standard-status reconciliation were exercised in the live UI.                                                                                                                    |
 
-| Command or probe                                                                                                                                                                                        | Result                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `cd backend && uv run pytest tests/endpoints/test_download_manifests.py tests/endpoints/test_download_transfers.py -q`                                                                                  | BLOCKED before tests, MariaDB at `127.0.0.1:3306` unavailable |
-| `cd frontend && npm run test -- sourceMutationControls useBrowserDownloadQueue downloadManifestPath`                                                                                                    | PASS, 4 files and 24 tests                                    |
-| `cd frontend && npm run test -- DownloadAccessibility DownloadManager DownloadSelectionDialog DownloadTransferHistory PcComponents useBrowserDownloadQueue downloadManifestPath sourceMutationControls` | PASS, 8 files and 42 tests                                    |
-| `cd frontend && npm run typecheck`                                                                                                                                                                      | PASS                                                          |
-| `python3 frontend/src/locales/check_i18n_locales.py`                                                                                                                                                    | PASS                                                          |
-| `python3 frontend/src/locales/check_i18n_sorted.py`                                                                                                                                                     | PASS                                                          |
-| `trunk check --ci` on changed files                                                                                                                                                                     | PASS                                                          |
-| `command -v firefox`, Chrome/Chromium probes, Edge probes                                                                                                                                               | BLOCKED, no binaries installed                                |
+## Source safety
 
-## Required isolated cases
+- The source root was mounted read-only in the application container.
+- Direct files were streamed; no server ZIP, staging copy, split archive
+  assembly, rename, or source-root sidecar was created.
+- The 5 GiB source and downloaded destination hashes matched exactly.
+- Test fixtures and local destinations were removed only after evidence was
+  collected.
 
-| Case                      | Status            | Source before/after | Destination/result | Notes                                |
-| ------------------------- | ----------------- | ------------------- | ------------------ | ------------------------------------ |
-| Greater-than-4-GiB ISO    | BLOCKED / NOT RUN | NOT CAPTURED        | NOT CAPTURED       | Browser and live MariaDB unavailable |
-| Multi-file game           | BLOCKED / NOT RUN | NOT CAPTURED        | NOT CAPTURED       | Browser and live MariaDB unavailable |
-| Update-only               | BLOCKED / NOT RUN | NOT CAPTURED        | NOT CAPTURED       | Browser and live MariaDB unavailable |
-| DLC-only                  | BLOCKED / NOT RUN | NOT CAPTURED        | NOT CAPTURED       | Browser and live MariaDB unavailable |
-| Optional-member exclusion | BLOCKED / NOT RUN | NOT CAPTURED        | NOT CAPTURED       | Browser and live MariaDB unavailable |
-| Required-set rejection    | BLOCKED / NOT RUN | NOT CAPTURED        | NOT CAPTURED       | Browser and live MariaDB unavailable |
-| Enhanced resume           | BLOCKED / NOT RUN | NOT CAPTURED        | NOT CAPTURED       | Browser and live MariaDB unavailable |
-| Source-change response    | BLOCKED / NOT RUN | NOT CAPTURED        | NOT CAPTURED       | Browser and live MariaDB unavailable |
-| Expired/revoked response  | BLOCKED / NOT RUN | NOT CAPTURED        | NOT CAPTURED       | Browser and live MariaDB unavailable |
+## Automated verification note
 
-For every blocked case, the required source tree, file size, SHA-256, and access-time before/after comparison is **NOT CAPTURED**. It would be misleading to manufacture a before/after result without running the isolated browser flow.
-
-## Automated safety evidence
-
-The local frontend tests cover strict resume response classification, destination traversal rejection, required/optional selection presentation, truthful handoff/status wording, and source-mutation disclosure guards. Backend endpoint tests were extended for lifecycle masking, owner masking, forbidden ZIP/desktop/path payloads, and u64 range values, but their database-backed execution remains blocked by unavailable MariaDB.
-
-## Explicit boundary
-
-No real NAS, Team4s, deployment, restart, external source root, or desktop installer was accessed, modified, or treated as evidence. This artifact is a blocked evidence record, not a browser sign-off.
+Focused frontend tests, typechecking, production build, and file-scoped Trunk
+checks passed during implementation. The checkout's standalone pytest fixture
+still cannot reach its configured `127.0.0.1:3306` test database. This does not
+invalidate the live isolated MariaDB-backed UAT above, but remains an
+environmental limitation of the host test command.

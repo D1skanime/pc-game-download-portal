@@ -166,7 +166,10 @@ class DBDownloadManifestsHandler(DBBaseHandler):
             member_rows = list(
                 session.scalars(
                     select(RomComponentManifestMember)
-                    .where(RomComponentManifestMember.id.in_(source_ids))
+                    .where(
+                        RomComponentManifestMember.id.in_(source_ids),
+                        RomComponentManifestMember.missing_from_fs.is_(False),
+                    )
                     .with_for_update()
                 )
             )
@@ -209,7 +212,8 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                     .where(
                         RomComponentManifestMember.component_id.in_(
                             component.id for component in components
-                        )
+                        ),
+                        RomComponentManifestMember.missing_from_fs.is_(False),
                     )
                     .order_by(RomComponentManifestMember.id)
                     .with_for_update()

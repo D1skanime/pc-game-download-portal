@@ -281,7 +281,7 @@ const STATE_APPLY_SETTLE_MS = 500;
 async function loadSave(save: SaveSchema) {
   saveRef.value = save;
 
-  const { data } = await api.get(save.download_path.replace("/api", ""), {
+  const { data } = await api.get(`/saves/${save.id}/content`, {
     responseType: "arraybuffer",
   });
   if (data) {
@@ -333,7 +333,7 @@ window.EJS_onSaveSave = async function ({
 
 // States management
 async function loadState(state: StateSchema) {
-  const { data } = await api.get(state.download_path.replace("/api", ""), {
+  const { data } = await api.get(`/states/${state.id}/content`, {
     responseType: "arraybuffer",
   });
   if (data) {

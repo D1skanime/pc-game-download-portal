@@ -140,6 +140,7 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
         "gamelist",
         "libretro",
         "playmatch",
+        "steam",
     }
 )
 

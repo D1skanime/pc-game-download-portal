@@ -2,9 +2,12 @@ export type DownloadTransferResponse = {
   schema_version: number;
   id: string;
   manifest_id: string;
+  parent_session_id: string | null;
+  attempt_no: number;
   rom_id: number;
   mode: string;
   status: string;
+  result?: string | null;
   selected_items: number;
   selected_bytes: number;
   observed_bytes: number;
@@ -14,6 +17,7 @@ export type DownloadTransferResponse = {
   items: Array<{
     id: number;
     manifest_member_id: string;
+    destination: string;
     expected_bytes: number;
     observed_bytes: number;
     status: string;

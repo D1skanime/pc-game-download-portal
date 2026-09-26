@@ -12,6 +12,7 @@ import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
+import api from "@/services/api";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
@@ -19,6 +20,7 @@ import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH, toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
+import type { DownloadArchiveSet } from "@/v2/components/GameDetails/DownloadSelectionDialog.vue";
 import FilesTab from "@/v2/components/GameDetails/FilesTab/FilesTab.vue";
 import GameHeader from "@/v2/components/GameDetails/GameHeader.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
@@ -257,6 +259,38 @@ const isPcRom = computed(
   () =>
     currentRom.value && PC_PLATFORM_SLUGS.has(currentRom.value.platform_slug),
 );
+const archiveSets = ref<DownloadArchiveSet[]>([]);
+const archiveSetsState = ref<"idle" | "loading" | "ready" | "error">("idle");
+
+async function loadArchiveSets(romId: number) {
+  archiveSetsState.value = "loading";
+  archiveSets.value = [];
+  try {
+    const { data } = await api.get<DownloadArchiveSet[]>(
+      `/roms/${romId}/download-archive-sets`,
+    );
+    if (currentRom.value?.id !== romId) return;
+    archiveSets.value = data;
+    archiveSetsState.value = "ready";
+  } catch (error) {
+    if (currentRom.value?.id !== romId) return;
+    archiveSetsState.value = "error";
+    console.error("[GameDetails] Could not load download archive sets", error);
+  }
+}
+
+watch(
+  [() => currentRom.value?.id, isPcRom],
+  ([romId, pcRom]) => {
+    if (!romId || !pcRom) {
+      archiveSets.value = [];
+      archiveSetsState.value = "idle";
+      return;
+    }
+    void loadArchiveSets(romId);
+  },
+  { immediate: true },
+);
 
 async function refreshPcDetails() {
   if (!currentRom.value) return;
@@ -280,16 +314,15 @@ function openPcParentMatcher() {
   });
 }
 
-// The patcher tab is always available: a base game file can be patched with
-// one of the ROM's bundled patch files or with a patch uploaded from disk, so
-// users don't have to store patches in the library until they need them.
+// PC games are delivered as complete downloads, so only ROM platforms expose
+// the patch workflow.
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: t("rom.tab-overview") },
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
   ...(isPcRom.value
-    ? [{ id: "pc-components", label: t("rom.pc-components") }]
+    ? [{ id: "pc-components", label: t("rom.game-downloads") }]
     : []),
-  { id: "patcher", label: t("common.patcher") },
+  ...(isPcRom.value ? [] : [{ id: "patcher", label: t("common.patcher") }]),
   { id: "media", label: t("rom.media") },
   { id: "notes", label: t("rom.tab-notes") },
   {
@@ -361,10 +394,12 @@ const tabs = computed<RTabNavItem[]>(() => [
             <PcComponents
               :rom-id="currentRom.id"
               :components="currentRom.components ?? []"
+              :archive-sets="archiveSets"
+              :archive-sets-state="archiveSetsState"
               @applied="refreshPcDetails"
             />
           </template>
-          <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
+          <PatcherTab v-if="tab === 'patcher' && !isPcRom" :rom="currentRom" />
           <MediaTab v-if="tab === 'media'" :rom="currentRom" />
           <NotesTab v-if="tab === 'notes'" :rom="currentRom" />
           <AchievementsTab

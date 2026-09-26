@@ -10,6 +10,20 @@ import {
 import DownloadTransferHistory from "./DownloadTransferHistory.vue";
 
 const { t } = useI18n();
+const emit = defineEmits<{
+  (event: "pause", fileId: string): void;
+  (event: "cancel", fileId: string): void;
+  (event: "cancel-item", sessionId: string, itemId: number): void;
+  (event: "resume", fileId: string): void;
+  (event: "restart", fileId: string): void;
+  (
+    event: "resume-session",
+    sessionId: string,
+    memberId?: string,
+    restartFromZero?: boolean,
+  ): void;
+  (event: "clear-terminal", fileIds: string[]): void;
+}>();
 
 const props = withDefaults(
   defineProps<{
@@ -26,6 +40,19 @@ const sessions = ref<DownloadTransferResponse[]>([]);
 const loading = ref(false);
 const error = ref(false);
 let requestVersion = 0;
+let standardRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+function scheduleStandardRefresh(session: DownloadTransferResponse) {
+  if (standardRefreshTimer !== undefined) {
+    clearTimeout(standardRefreshTimer);
+    standardRefreshTimer = undefined;
+  }
+  if (session.mode !== "standard" || session.status !== "active") return;
+  standardRefreshTimer = setTimeout(() => {
+    standardRefreshTimer = undefined;
+    void hydrate();
+  }, 1_000);
+}
 
 function upsertSession(
   values: DownloadTransferResponse[],
@@ -62,6 +89,16 @@ async function hydrate() {
           current.data.manifest_id === props.selectedManifestId)
       ) {
         sessions.value = upsertSession(sessions.value, current.data);
+        scheduleStandardRefresh(current.data);
+        if (
+          current.data.mode === "standard" &&
+          current.data.status !== "active"
+        ) {
+          emit(
+            "clear-terminal",
+            current.data.items.map((item) => item.manifest_member_id),
+          );
+        }
       }
     }
   } catch {
@@ -73,18 +110,81 @@ async function hydrate() {
   }
 }
 
-watch(
-  () => [
-    props.romId,
-    props.selectedManifestId,
-    props.sessionId,
-    props.items.map((item) => `${item.file_id}:${item.status}`).join(","),
-  ],
-  hydrate,
-  { immediate: true },
-);
+async function removeSession(sessionId: string) {
+  try {
+    await downloadTransfersApi.remove(sessionId);
+    sessions.value = sessions.value.filter(
+      (session) => session.id !== sessionId,
+    );
+  } catch {
+    await hydrate();
+  }
+}
+
+async function removeItem(sessionId: string, itemId: number) {
+  try {
+    await downloadTransfersApi.removeItem(sessionId, itemId);
+    await hydrate();
+  } catch {
+    await hydrate();
+  }
+}
+
+async function removeAllHistory() {
+  try {
+    await downloadTransfersApi.removeAll({ romId: props.romId });
+    sessions.value = sessions.value.filter(
+      (session) => session.status === "active",
+    );
+    emit(
+      "clear-terminal",
+      props.items
+        .filter((item) =>
+          ["verified", "failed", "cancelled"].includes(item.status),
+        )
+        .map((item) => item.file_id),
+    );
+  } catch {
+    await hydrate();
+  }
+}
+
+async function cancelSession(sessionId: string) {
+  try {
+    const response = await downloadTransfersApi.cancel(sessionId);
+    sessions.value = sessions.value.map((session) =>
+      session.id === sessionId ? response.data : session,
+    );
+  } catch {
+    await hydrate();
+  }
+}
+
+async function cancelItem(sessionId: string, itemId: number) {
+  try {
+    await downloadTransfersApi.observe(sessionId, itemId, {
+      event_type: "cancel",
+    });
+    await hydrate();
+  } catch {
+    await hydrate();
+  }
+}
+
+function resumeSession(
+  sessionId: string,
+  memberId?: string,
+  restartFromZero = false,
+) {
+  emit("resume-session", sessionId, memberId, restartFromZero);
+}
+
+watch(() => [props.romId, props.selectedManifestId, props.sessionId], hydrate, {
+  immediate: true,
+});
 onBeforeUnmount(() => {
   requestVersion += 1;
+  if (standardRefreshTimer !== undefined) clearTimeout(standardRefreshTimer);
 });
 </script>
 <template>
@@ -96,8 +196,18 @@ onBeforeUnmount(() => {
     :sessions="sessions"
     :queue-items="items"
     :component-labels="componentLabels"
-    :show-history="false"
+    :show-history="true"
     :loading="loading"
     :error="error"
+    @pause="emit('pause', $event)"
+    @cancel="emit('cancel', $event)"
+    @cancel-item="cancelItem"
+    @resume="emit('resume', $event)"
+    @restart="emit('restart', $event)"
+    @resume-session="resumeSession"
+    @remove="removeSession"
+    @remove-item="removeItem"
+    @remove-all="removeAllHistory"
+    @cancel-session="cancelSession"
   />
 </template>

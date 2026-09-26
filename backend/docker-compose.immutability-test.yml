@@ -24,6 +24,7 @@ services:
       REDIS_PORT: "6379"
       ROMM_BASE_PATH: /romm
       DEV_HOST: 0.0.0.0
+      STEAM_API_ENABLED: "${STEAM_API_ENABLED:-false}"
       PYTHONDONTWRITEBYTECODE: "1"
     entrypoint:
       - /bin/bash
@@ -105,6 +106,7 @@ services:
       REDIS_HOST: queue
       REDIS_PORT: "6379"
       ROMM_BASE_PATH: /romm
+      STEAM_API_ENABLED: "${STEAM_API_ENABLED:-false}"
       PYTHONDONTWRITEBYTECODE: "1"
       RQ_REDIS_URL: redis://queue:6379/0
     entrypoint:

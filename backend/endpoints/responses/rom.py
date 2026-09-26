@@ -312,6 +312,8 @@ class PcComponentMetadataSchema(BaseModel):
     moby_id: int | None
     sgdb_id: int | None
     launchbox_id: int | None
+    steam_id: int | None
+    steam_metadata: dict[str, object] | None
     name: str | None
     summary: str | None
     metadata_source: str | None
@@ -436,7 +438,9 @@ class PcComponentSchema(BaseModel):
     updated_at: UTCDatetime | None = None
     relative_path: str
     kind: RomComponentKind
-    manifest_members: list[PcComponentManifestMemberSchema]
+    manifest_members: list[PcComponentManifestMemberSchema] = Field(
+        validation_alias="available_manifest_members"
+    )
     component_metadata: PcComponentMetadataSchema | None = None
     local_media: list[PcComponentLocalMediaSchema] = Field(default_factory=list)
     owned_media: list[PcComponentOwnedMediaSchema] = Field(default_factory=list)
@@ -518,6 +522,8 @@ class RomSchema(BaseModel):
     hltb_id: int | None
     gamelist_id: str | None
     libretro_id: str | None
+    steam_id: int | None
+    steam_metadata: dict[str, object] | None
 
     platform_id: int
     platform_slug: str

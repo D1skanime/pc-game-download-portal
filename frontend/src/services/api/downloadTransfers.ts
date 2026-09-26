@@ -9,6 +9,8 @@ export type DownloadTransferMode = "standard" | "enhanced";
 export type DownloadTransferCreatePayload = {
   manifest_id: string;
   mode: DownloadTransferMode;
+  member_ids?: string[];
+  previous_session_id?: string;
 };
 export type DownloadTransferEvent = {
   event_type:
@@ -41,6 +43,26 @@ function get(sessionId: string) {
     `/download-transfer-sessions/${encodeURIComponent(sessionId)}`,
   );
 }
+function remove(sessionId: string) {
+  return api.delete<void>(
+    `/download-transfer-sessions/${encodeURIComponent(sessionId)}`,
+  );
+}
+function removeItem(sessionId: string, itemId: number) {
+  return api.delete<void>(
+    `/download-transfer-sessions/${encodeURIComponent(sessionId)}/items/${itemId}`,
+  );
+}
+function removeAll(params?: { romId?: number }) {
+  return api.delete<void>("/download-transfer-sessions", {
+    params: { rom_id: params?.romId },
+  });
+}
+function cancel(sessionId: string) {
+  return api.post<DownloadTransferResponse>(
+    `/download-transfer-sessions/${encodeURIComponent(sessionId)}/cancel`,
+  );
+}
 function observe(
   sessionId: string,
   itemId: number,
@@ -51,4 +73,13 @@ function observe(
     payload,
   );
 }
-export default { create, list, get, observe };
+export default {
+  create,
+  list,
+  get,
+  remove,
+  removeItem,
+  removeAll,
+  cancel,
+  observe,
+};

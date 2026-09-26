@@ -232,6 +232,7 @@ function isHashMatcherOn(matcher: HashMatcher): boolean {
 // All in one group doesn't touch the other.
 const GENERAL_PROVIDER_KEYS = new Set([
   "igdb",
+  "steam",
   "ss",
   "moby",
   "launchbox",

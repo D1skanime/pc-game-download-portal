@@ -1690,8 +1690,17 @@ async def update_rom(
         cleaned_data["flashpoint_metadata"] = raw_flashpoint_metadata
     if cleaned_data["hltb_id"] and raw_hltb_metadata is not None:
         cleaned_data["hltb_metadata"] = raw_hltb_metadata
+    manual_metadata = dict(rom.manual_metadata or {})
     if raw_manual_metadata is not None:
-        cleaned_data["manual_metadata"] = raw_manual_metadata
+        manual_metadata.update(raw_manual_metadata)
+    if "name" in provided_fields:
+        manual_metadata["name"] = True
+    if "summary" in provided_fields:
+        manual_metadata["summary"] = True
+    if raw_manual_metadata and "pc_release_date" in raw_manual_metadata:
+        manual_metadata["pc_release_date"] = True
+    if raw_manual_metadata is not None or {"name", "summary"} & provided_fields:
+        cleaned_data["manual_metadata"] = manual_metadata
 
     # Fetch metadata from external sources
     if (

@@ -4,11 +4,14 @@ import pytest
 from fastapi import status
 from tests.conftest import session
 
+from endpoints.download_transfers import _conflict
+from handler.database import db_download_manifest_handler
 from models.download_manifest import (
     DownloadManifest,
     DownloadManifestComponent,
     DownloadManifestMember,
 )
+from models.permission import HiddenEntity, PermEntity
 from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
 
 
@@ -50,12 +53,42 @@ def _headers(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
 
 
+class _UnchangedManifestFilesystem:
+    def light_revalidate_download_manifest_member(self, *_args):
+        return "UNCHANGED_BY_LIGHT_CHECK"
+
+
+@pytest.fixture(autouse=True)
+def _manifest_filesystem(monkeypatch):
+    monkeypatch.setattr(
+        db_download_manifest_handler,
+        "_filesystem_handler",
+        _UnchangedManifestFilesystem(),
+    )
+
+
 def test_transfer_history_requires_authentication(client, manifest):
     response = client.get(f"/api/download-transfer-sessions/{manifest.id}")
     assert response.status_code in (
         status.HTTP_401_UNAUTHORIZED,
         status.HTTP_404_NOT_FOUND,
     )
+
+
+@pytest.mark.parametrize(
+    ("message", "code"),
+    [
+        ("local digest does not match manifest", "integrity_mismatch"),
+        ("observed bytes must be monotonic", "invalid_observation"),
+        ("session is closed or unavailable", "session_closed"),
+        ("pause requires an active item", "invalid_transition"),
+    ],
+)
+def test_transfer_conflicts_are_machine_readable(message, code):
+    response = _conflict(ValueError(message))
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.detail["code"] == code
 
 
 def test_transfer_history_masks_foreign_owner(
@@ -74,6 +107,36 @@ def test_transfer_history_masks_foreign_owner(
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json() == {"detail": "Download transfer session not found"}
+
+
+def test_transfer_history_list_excludes_currently_hidden_rom(
+    client, viewer_access_token, viewer_user, manifest, rom
+):
+    with session.begin() as db:
+        saved_manifest = db.get(DownloadManifest, manifest.id)
+        assert saved_manifest is not None
+        saved_manifest.user_id = viewer_user.id
+
+    headers = _headers(viewer_access_token)
+    created = client.post(
+        "/api/download-transfer-sessions",
+        headers=headers,
+        json={"manifest_id": manifest.id, "mode": "standard"},
+    )
+    assert created.status_code == status.HTTP_201_CREATED
+
+    with session.begin() as db:
+        db.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS,
+                entity_id=rom.id,
+                user_id=viewer_user.id,
+            )
+        )
+
+    response = client.get("/api/download-transfer-sessions", headers=headers)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == []
 
 
 def test_transfer_payload_rejects_unknown_fields(client, access_token, manifest):
@@ -107,6 +170,26 @@ def test_standard_transfer_response_does_not_claim_local_storage(
         forbidden not in created.text
         for forbidden in ("source_path", "fs_path", "file://", "token", "credential")
     )
+
+
+def test_cancelling_an_active_transfer_returns_the_cancelled_session(
+    client, access_token, manifest
+):
+    headers = _headers(access_token)
+    created = client.post(
+        "/api/download-transfer-sessions",
+        headers=headers,
+        json={"manifest_id": manifest.id, "mode": "standard"},
+    )
+    assert created.status_code == status.HTTP_201_CREATED
+
+    cancelled = client.post(
+        f"/api/download-transfer-sessions/{created.json()['id']}/cancel",
+        headers=headers,
+    )
+
+    assert cancelled.status_code == status.HTTP_200_OK
+    assert cancelled.json()["status"] == "cancelled"
 
 
 def test_transfer_history_supports_owner_scoped_rom_and_manifest_filters(

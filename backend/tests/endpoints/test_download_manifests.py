@@ -275,8 +275,8 @@ def test_create_policy_manifest_masks_incomplete_selection_before_capture(
         json={"archive_set_id": archive_set_id, "selected_member_ids": []},
     )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert response.json() == {"detail": "Download manifest not found"}
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.json() == {"detail": "Invalid download manifest request"}
     assert str(archive_set_id) not in response.text
     assert "required-policy" not in response.text
 
@@ -431,6 +431,76 @@ def test_manifest_member_delivers_original_bytes_with_exact_full_and_range_heade
     assert partial.headers["content-length"] == "6"
     assert partial.headers["content-range"] == f"bytes 3-8/{len(content)}"
     assert leases[1].closed
+
+
+def test_completed_attributed_full_body_persists_served(monkeypatch):
+    lease = _TransferLease(b"complete", '"snapshot"')
+    monkeypatch.setattr(
+        download_manifests_endpoint.db_download_transfer_handler,
+        "mark_served",
+        lambda *args: mark_served_calls.append(args),
+    )
+    mark_served_calls: list[tuple[object, ...]] = []
+
+    chunks = download_manifests_endpoint._lease_chunks(
+        lease,
+        0,
+        lease.size_bytes,
+        lambda: download_manifests_endpoint.db_download_transfer_handler.mark_served(
+            "transfer-id", 7, 42
+        ),
+    )
+
+    assert b"".join(chunks) == b"complete"
+    assert mark_served_calls == [("transfer-id", 7, 42)]
+    assert lease.closed
+
+
+def test_interrupted_attributed_body_does_not_persist_served(monkeypatch):
+    class DisconnectingLease(_TransferLease):
+        def iter_chunks(self, start: int, length: int):
+            yield self._content[:2]
+            raise ConnectionError("client disconnected")
+
+    mark_served_calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        download_manifests_endpoint.db_download_transfer_handler,
+        "mark_served",
+        lambda *args: mark_served_calls.append(args),
+    )
+    lease = DisconnectingLease(b"complete", '"snapshot"')
+    chunks = download_manifests_endpoint._lease_chunks(
+        lease,
+        0,
+        lease.size_bytes,
+        lambda: download_manifests_endpoint.db_download_transfer_handler.mark_served(
+            "transfer-id", 7, 42
+        ),
+    )
+
+    with pytest.raises(ConnectionError):
+        list(chunks)
+    assert mark_served_calls == []
+    assert lease.closed
+
+
+def test_completed_range_body_does_not_claim_full_served(monkeypatch):
+    mark_served_calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        download_manifests_endpoint.db_download_transfer_handler,
+        "mark_served",
+        lambda *args: mark_served_calls.append(args),
+    )
+    lease = _TransferLease(b"complete", '"snapshot"')
+    chunks = download_manifests_endpoint._lease_chunks(
+        lease,
+        2,
+        3,
+    )
+
+    assert b"".join(chunks) == b"mpl"
+    assert mark_served_calls == []
+    assert lease.closed
 
 
 @pytest.mark.parametrize(

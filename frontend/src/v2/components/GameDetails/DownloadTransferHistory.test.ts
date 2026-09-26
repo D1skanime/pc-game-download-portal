@@ -15,6 +15,9 @@ vi.mock("vue-i18n", () => ({
         "rom.download-served": "Served by RomM",
         "rom.download-stale": "Source changed. Prepare the download again.",
         "rom.download-verified": "Verified",
+        "rom.download-cancel": "Cancel download",
+        "rom.download-remove-entry": "Delete download entry",
+        "rom.download-resume": "Resume download",
       })[key] ?? key,
   }),
 }));
@@ -23,6 +26,8 @@ const session = (status: string): DownloadTransferResponse => ({
   schema_version: 1,
   id: `opaque-${status}`,
   manifest_id: "manifest-a",
+  parent_session_id: null,
+  attempt_no: 1,
   rom_id: 7,
   mode: status === "verified" ? "enhanced" : "standard",
   status: "active",
@@ -36,6 +41,7 @@ const session = (status: string): DownloadTransferResponse => ({
     {
       id: 42,
       manifest_member_id: `member-${status}`,
+      destination: `game/${status}.bin`,
       expected_bytes: 1024,
       observed_bytes: status === "served" ? 1024 : 0,
       status,
@@ -105,6 +111,19 @@ describe("DownloadTransferHistory", () => {
     expect(error.text()).not.toContain("opaque backend detail");
   });
 
+  it("does not confuse an empty history with an unavailable download set", () => {
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [], queueItems: [] },
+    });
+
+    expect(
+      wrapper.find("[data-testid='download-history-empty']").exists(),
+    ).toBe(false);
+    expect(wrapper.text()).not.toContain(
+      "No complete download set is available",
+    );
+  });
+
   it("renders an enhanced queue verification as successful", () => {
     const wrapper = mount(DownloadTransferHistory, {
       props: {
@@ -125,5 +144,74 @@ describe("DownloadTransferHistory", () => {
 
     expect(wrapper.text()).toContain("Verified");
     expect(wrapper.text()).not.toContain("Download failed");
+  });
+
+  it("offers a per-file cancel action for persisted transfer items", async () => {
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [session("queued")] },
+    });
+
+    expect(
+      wrapper
+        .findAll("button")
+        .filter((button) => button.text() === "Cancel download"),
+    ).toHaveLength(1);
+
+    const rowCancel = wrapper
+      .findAll("li button")
+      .find((button) => button.text() === "Cancel download");
+    await rowCancel?.trigger("click");
+
+    expect(wrapper.emitted("cancel-item")).toEqual([["opaque-queued", 42]]);
+  });
+
+  it("removes one terminal file entry without removing the session", async () => {
+    const completed = session("served");
+    completed.status = "completed";
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [completed] },
+    });
+
+    await wrapper
+      .findAll("li button")
+      .find((button) => button.text() === "Delete download entry")
+      ?.trigger("click");
+
+    expect(wrapper.emitted("remove-item")).toEqual([["opaque-served", 42]]);
+  });
+
+  it("offers retry for a failed enhanced member in a completed partial session", async () => {
+    const partial = session("failed");
+    partial.mode = "enhanced";
+    partial.status = "completed";
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [partial] },
+    });
+
+    const retry = wrapper
+      .findAll("li button")
+      .find((button) => button.text() === "Resume download");
+    expect(retry).toBeDefined();
+
+    await retry?.trigger("click");
+
+    expect(wrapper.emitted("resume-session")).toEqual([
+      ["opaque-failed", "member-failed"],
+    ]);
+  });
+
+  it("keeps previous attempts visible when a file is retried", () => {
+    const older = session("failed");
+    older.id = "older-session";
+    const newer = session("served");
+    newer.id = "newer-session";
+    older.items[0].manifest_member_id = newer.items[0].manifest_member_id;
+    const wrapper = mount(DownloadTransferHistory, {
+      props: { sessions: [newer, older] },
+    });
+
+    expect(
+      wrapper.findAll("[data-testid='download-history-list'] > li"),
+    ).toHaveLength(2);
   });
 });

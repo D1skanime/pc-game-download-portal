@@ -49,6 +49,7 @@ from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
 from models.collection import Collection, CollectionRom, SmartCollection
+from models.download_manifest import DownloadManifestMember
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
@@ -1766,14 +1767,24 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Rom | None:
         """Apply a reviewed PC metadata candidate only at the expected version."""
+        metadata_values = data.get("metadata")
+        rom_values = {key: value for key, value in data.items() if key != "metadata"}
         result = session.execute(
             update(Rom)
             .where(and_(Rom.id == id, Rom.updated_at == expected_updated_at))
-            .values(**data)
+            .values(**rom_values)
             .execution_options(synchronize_session="evaluate")
         )
         if result.rowcount != 1:
             return None
+        if isinstance(metadata_values, dict):
+            metadata = session.get(RomMetadata, id)
+            if metadata is None:
+                metadata = RomMetadata(rom_id=id)
+                session.add(metadata)
+            for field in ("main_developer", "publishers", "pc_release_date"):
+                if field in metadata_values:
+                    setattr(metadata, field, metadata_values[field])
         session.flush()
         session.expire_all()
         return session.query(Rom).filter_by(id=id).one()
@@ -1844,17 +1855,30 @@ class DBRomsHandler(DBBaseHandler):
             "moby_id",
             "sgdb_id",
             "launchbox_id",
+            "steam_id",
             "name",
             "summary",
         ):
             if field in data:
                 setattr(metadata, field, data[field])
         metadata.metadata_source = provider
-        metadata.provider_metadata = {
-            key: value
-            for key, value in data.items()
-            if key.endswith("_metadata") and value is not None
-        }
+        provider_metadata = dict(metadata.provider_metadata or {})
+        for field in (
+            "igdb_metadata",
+            "moby_metadata",
+            "steam_metadata",
+            "ss_metadata",
+            "ra_metadata",
+            "launchbox_metadata",
+            "hasheous_metadata",
+            "flashpoint_metadata",
+            "hltb_metadata",
+            "gamelist_metadata",
+        ):
+            value = data.get(field)
+            if value is not None:
+                provider_metadata[field] = value
+        metadata.provider_metadata = provider_metadata
         igdb_metadata = data.get("igdb_metadata")
         if isinstance(igdb_metadata, dict):
             for field in (
@@ -1867,7 +1891,7 @@ class DBRomsHandler(DBBaseHandler):
                     setattr(metadata, field, igdb_metadata[field])
         component.updated_at = datetime.now(timezone.utc)
         session.flush()
-        session.refresh(component, attribute_names=["component_metadata"])
+        session.refresh(component)
         return component
 
     @begin_session
@@ -2748,15 +2772,30 @@ class DBRomsHandler(DBBaseHandler):
                             sha256=scanned_member.sha256,
                         )
                     )
-                elif (
-                    member.size_bytes != scanned_member.size_bytes
-                    or member.sha256 != scanned_member.sha256
-                ):
-                    member.size_bytes = scanned_member.size_bytes
-                    member.sha256 = scanned_member.sha256
+                else:
+                    member.missing_from_fs = False
+                    if (
+                        member.size_bytes != scanned_member.size_bytes
+                        or member.sha256 != scanned_member.sha256
+                    ):
+                        member.size_bytes = scanned_member.size_bytes
+                        member.sha256 = scanned_member.sha256
 
-            for member in unmatched_members.values():
-                session.delete(member)
+            missing_members = list(unmatched_members.values())
+            referenced_member_ids = set(
+                session.scalars(
+                    select(DownloadManifestMember.manifest_member_id).where(
+                        DownloadManifestMember.manifest_member_id.in_(
+                            member.id for member in missing_members
+                        )
+                    )
+                )
+            )
+            for member in missing_members:
+                if member.id in referenced_member_ids:
+                    member.missing_from_fs = True
+                else:
+                    session.delete(member)
             saved.append(component)
 
         for component in unmatched.values():

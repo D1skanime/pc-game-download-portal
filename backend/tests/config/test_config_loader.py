@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 from config.config_manager import (
     DEFAULT_EXCLUDED_DIRS,
@@ -7,6 +8,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_FILES,
     ConfigManager,
 )
+from handler.scan_handler import MetadataSource
 
 
 def test_config_loader():
@@ -90,9 +92,22 @@ def test_scan_priority_sources_match_metadata_source_enum():
     """VALID_SCAN_PRIORITY_SOURCES duplicates MetadataSource to avoid a circular
     import; guard against the two drifting apart."""
     from config.config_manager import VALID_SCAN_PRIORITY_SOURCES
-    from handler.scan_handler import MetadataSource
 
     assert VALID_SCAN_PRIORITY_SOURCES == {source.value for source in MetadataSource}
+
+
+def test_watcher_lists_enabled_steam_without_enabling_steamgriddb():
+    """Steam Storefront is independently available to watcher scans."""
+    with (
+        patch("watcher.meta_steam_handler.is_enabled", return_value=True),
+        patch("watcher.meta_sgdb_handler.is_enabled", return_value=False),
+    ):
+        from watcher import _metadata_sources
+
+        sources = _metadata_sources()
+
+    assert MetadataSource.STEAM in sources
+    assert MetadataSource.SGDB not in sources
 
 
 def test_empty_config_loader():

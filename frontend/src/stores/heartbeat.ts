@@ -24,6 +24,7 @@ const defaultHeartbeat: Heartbeat = {
     MOBY_API_ENABLED: false,
     RA_API_ENABLED: false,
     STEAMGRIDDB_API_ENABLED: false,
+    STEAM_API_ENABLED: false,
     LAUNCHBOX_API_ENABLED: false,
     PLAYMATCH_API_ENABLED: false,
     HASHEOUS_API_ENABLED: false,
@@ -122,6 +123,14 @@ export default defineStore("heartbeat", {
           logo_path: "/assets/scrappers/igdb.png",
           disabled: !this.value.METADATA_SOURCES?.IGDB_API_ENABLED
             ? i18n.global.t("scan.api-key-missing")
+            : "",
+        },
+        {
+          name: "Steam",
+          value: "steam",
+          logo_path: "/assets/scrappers/steam.svg",
+          disabled: !this.value.METADATA_SOURCES?.STEAM_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
             : "",
         },
         {

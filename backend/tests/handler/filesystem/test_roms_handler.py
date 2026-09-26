@@ -3,7 +3,6 @@ import hashlib
 import os
 import shutil
 import tempfile
-import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -1993,11 +1992,17 @@ class TestVerifiedDownloadManifestMember:
         return handler, rom, persisted, path
 
     @pytest.mark.asyncio
-    async def test_verified_download_manifest_member_rehashes_before_streaming(
-        self, tmp_path: Path
+    async def test_verified_download_manifest_member_uses_descriptor_metadata_before_streaming(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         handler, rom, persisted, path = self._handler_and_persisted_member(tmp_path)
         source_digest = _fixture_tree_digest(tmp_path)
+
+        monkeypatch.setattr(
+            handler,
+            "open_rom_hash",
+            lambda _path: pytest.fail("stream opening must not hash the source"),
+        )
 
         result = await handler.open_verified_download_manifest_member(rom, persisted)
 
@@ -2009,11 +2014,24 @@ class TestVerifiedDownloadManifestMember:
         assert path.read_bytes() == b"verified-stream"
 
     @pytest.mark.asyncio
-    async def test_verified_download_manifest_member_returns_source_changed_without_lease(
+    async def test_verified_download_manifest_member_rejects_source_truncation(
         self, tmp_path: Path
     ):
         handler, rom, persisted, path = self._handler_and_persisted_member(tmp_path)
-        path.write_bytes(b"changed-stream")
+        path.write_bytes(b"short")
+
+        result = await handler.open_verified_download_manifest_member(rom, persisted)
+
+        assert result.state is DownloadManifestTransferState.SOURCE_CHANGED
+        assert result.lease is None
+
+    @pytest.mark.asyncio
+    async def test_verified_download_manifest_member_rejects_path_replacement(
+        self, tmp_path: Path
+    ):
+        handler, rom, persisted, path = self._handler_and_persisted_member(tmp_path)
+        path.unlink()
+        path.write_bytes(b"verified-stream")
 
         result = await handler.open_verified_download_manifest_member(rom, persisted)
 
@@ -2040,10 +2058,11 @@ class TestVerifiedDownloadManifestMember:
         persisted.mtime_ns = metadata.st_mtime_ns
         persisted.device = metadata.st_dev
         persisted.inode = metadata.st_ino
-        source = Mock()
-        source.fileno.return_value = 9
-        source.hash.return_value = sha256
-        monkeypatch.setattr(handler, "open_rom_hash", lambda _path: source)
+        monkeypatch.setattr(
+            handler,
+            "open_rom_hash",
+            lambda _path: pytest.fail("stream opening must not hash the source"),
+        )
         monkeypatch.setattr(
             "handler.filesystem.roms_handler.os.fstat", lambda _fd: metadata
         )
@@ -2057,62 +2076,60 @@ class TestVerifiedDownloadManifestMember:
         result.lease.close()
 
     @pytest.mark.asyncio
-    async def test_verified_download_manifest_member_hash_does_not_block_event_loop(
+    async def test_verified_download_manifest_member_rejects_structural_identity_drift(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """A blocked source hash must not delay independent async work."""
         handler, rom, persisted, _path = self._handler_and_persisted_member(tmp_path)
-        limiter = ConcurrencyLimiter(1)
-        monkeypatch.setattr(
-            "handler.filesystem.roms_handler._download_manifest_transfer_limiter",
-            limiter,
-        )
         metadata = SimpleNamespace(
             st_mode=0o100644,
             st_size=persisted.size_bytes,
             st_mtime_ns=persisted.mtime_ns,
             st_dev=persisted.device,
-            st_ino=persisted.inode,
+            st_ino=(persisted.inode or 0) + 1,
         )
-        hash_started = threading.Event()
-        allow_hash_to_finish = threading.Event()
-        source = Mock()
-        source.fileno.return_value = 9
-
-        def blocked_hash(_algorithm: str) -> str:
-            hash_started.set()
-            allow_hash_to_finish.wait(timeout=1)
-            return persisted.sha256
-
-        source.hash.side_effect = blocked_hash
-        monkeypatch.setattr(handler, "open_rom_hash", lambda _path: source)
         monkeypatch.setattr(
             "handler.filesystem.roms_handler.os.fstat", lambda _fd: metadata
         )
+        result = await handler.open_verified_download_manifest_member(rom, persisted)
 
-        loop = asyncio.get_running_loop()
-        started_at = loop.time()
-        transfer = asyncio.create_task(
-            handler.open_verified_download_manifest_member(rom, persisted)
+        assert result.state is DownloadManifestTransferState.SOURCE_CHANGED
+        assert result.lease is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("field", "delta"),
+        [
+            ("st_size", 1),
+            ("st_mtime_ns", 1),
+            ("st_dev", 1),
+            ("st_ino", 1),
+        ],
+    )
+    async def test_verified_download_manifest_member_rejects_each_structural_drift(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        field: str,
+        delta: int,
+    ):
+        handler, rom, persisted, _path = self._handler_and_persisted_member(tmp_path)
+        metadata = {
+            "st_mode": 0o100644,
+            "st_size": persisted.size_bytes,
+            "st_mtime_ns": persisted.mtime_ns,
+            "st_dev": persisted.device or 0,
+            "st_ino": persisted.inode or 0,
+        }
+        metadata[field] += delta
+        monkeypatch.setattr(
+            "handler.filesystem.roms_handler.os.fstat",
+            lambda _fd: SimpleNamespace(**metadata),
         )
 
-        async def independent_coroutine() -> float:
-            await asyncio.sleep(0)
-            return loop.time()
+        result = await handler.open_verified_download_manifest_member(rom, persisted)
 
-        independent = asyncio.create_task(independent_coroutine())
-        await asyncio.wait_for(asyncio.to_thread(hash_started.wait, 1), timeout=2)
-        independent_at = await asyncio.wait_for(independent, timeout=0.2)
-        assert independent_at - started_at < 0.2
-
-        allow_hash_to_finish.set()
-        result = await asyncio.wait_for(transfer, timeout=1)
-
-        assert result.state is DownloadManifestTransferState.READY
-        assert result.lease is not None
-        result.lease.close()
-        source.close.assert_called_once()
-        assert limiter.in_flight == 0
+        assert result.state is DownloadManifestTransferState.SOURCE_CHANGED
+        assert result.lease is None
 
     @pytest.mark.asyncio
     async def test_verified_download_manifest_member_releases_transfer_slot_after_early_close(

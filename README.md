@@ -22,6 +22,19 @@
 
 RomM (ROM Manager) allows you to scan, enrich, browse and play your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes, and custom tags, RomM is a must-have for anyone who plays on emulators.
 
+## RomM PC Library Edition
+
+This repository is an independent fork of the original [RomM project](https://github.com/rommapp/romm), maintained for this edition by [@D1skanime](https://github.com/D1skanime). It retains RomM's core library experience and adds a PC-library workflow designed around an existing, immutable game archive.
+
+Compared with upstream RomM, this edition adds:
+
+- External PC library roots and platform mappings that are read-only by design. RomM can catalog and serve the archive without changing its files, folders, or organization.
+- PC game components, including installers, updates, DLC, optional files, and required archive sets, represented as explicit catalog data.
+- Immutable, hash-backed download manifests for selected PC components.
+- A browser download manager that delivers original files directly, supports verified resumable transfers where the browser permits it, and never creates whole-game ZIP archives.
+
+These PC-specific extensions are not part of the official RomM project. See the original repository for upstream releases, documentation, and community support.
+
 ## Features
 
 - Scan and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
