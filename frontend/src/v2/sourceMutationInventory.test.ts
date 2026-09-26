@@ -76,6 +76,41 @@ const routeAuthorities = [
   },
   {
     method: "POST",
+    route: /^\/roms\/\{[^}]+\}\/pc-components\/\{[^}]+\}\/media$/,
+    operation: "UPLOAD",
+    storageClass: "resources",
+    forbidden: false,
+  },
+  {
+    method: "DELETE",
+    route: /^\/roms\/\{[^}]+\}\/pc-components\/\{[^}]+\}\/media\/\{[^}]+\}$/,
+    operation: "DELETE",
+    storageClass: "resources",
+    forbidden: false,
+  },
+  {
+    method: "POST",
+    route: /^\/roms\/\{[^}]+\}\/pc-metadata-selection$/,
+    operation: "COVER_WRITE",
+    storageClass: "resources",
+    forbidden: false,
+  },
+  {
+    method: "POST",
+    route: /^\/roms\/\{[^}]+\}\/pc-components\/\{[^}]+\}\/metadata-selection$/,
+    operation: "COVER_WRITE",
+    storageClass: "resources",
+    forbidden: false,
+  },
+  {
+    method: "POST",
+    route: /^\/roms\/\{[^}]+\}\/pc-local-media-selection$/,
+    operation: "COVER_WRITE",
+    storageClass: "resources",
+    forbidden: false,
+  },
+  {
+    method: "POST",
     route: /^\/roms\/\{[^}]+\}\/manuals$/,
     operation: "UPLOAD",
     storageClass: "resources",
@@ -1126,16 +1161,20 @@ const reviewedMutationRoutes = [
   /^\/client-tokens(?:\/|$)/,
   /^\/collections(?:\/|$)/,
   /^\/config\/(?:system|exclude|scan)(?:\/|$)/,
+  /^\/download-transfer-sessions(?:\/|$)/,
   /^\/firmware\/delete$/,
   /^\/permissions(?:\/|$)/,
   /^\/platforms\/\{[^}]+\}$/,
   /^\/play-sessions$/,
   /^\/roms\/remove-from-catalog$/,
   /^\/roms\/\{[^}]+\}$/,
+  /^\/roms\/\{[^}]+\}\/download-manifests$/,
+  /^\/roms\/\{[^}]+\}\/pc-components\/\{[^}]+\}\/notes(?:\/|$)/,
   /^\/roms\/\{[^}]+\}\/(?:manuals|notes|props)(?:\/|\{|$)/,
   /^\/saves(?:\/|$)/,
   /^\/screenshots(?:\/|$)/,
   /^\/states(?:\/|$)/,
+  /^\/storage\/mappings(?:\/|$)/,
   /^\/streaming\/sessions(?:\/|$)/,
   /^\/tasks\/run\/\{[^}]+\}$/,
   /^\/users(?:\/|$)/,
@@ -1296,6 +1335,22 @@ function finalInventorySource(
 }
 
 describe("final active v2 semantic mutation closure", () => {
+  it("classifies PC download manifest creation as a control-plane request", () => {
+    const [authority] = finalInventorySource(
+      `import api from "@/services/api";
+       api.post(\`/roms/${"${romId}"}/download-manifests\`, {});`,
+      "v2/components/GameDetails/PcComponents.vue",
+    );
+
+    expect(authority).toMatchObject({
+      method: "POST",
+      route: "/roms/{rom_id}/download-manifests",
+      operation: "CONTROL_PLANE",
+      storageClass: "database",
+      forbidden: false,
+    });
+  });
+
   it("live_play_session_keepalive_is_inventoried", () => {
     const path = resolve(serviceRoot, "play-session.ts");
     expect(reachableServicePaths()).toContain(path);
