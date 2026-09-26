@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from handler.scan_handler import MetadataSource
 from utils import get_version
 
 
@@ -25,6 +26,7 @@ def test_heartbeat(client):
     assert isinstance(metadata["MOBY_API_ENABLED"], bool)
     assert isinstance(metadata["SS_API_ENABLED"], bool)
     assert isinstance(metadata["STEAMGRIDDB_API_ENABLED"], bool)
+    assert isinstance(metadata["STEAM_API_ENABLED"], bool)
     assert isinstance(metadata["RA_API_ENABLED"], bool)
     assert isinstance(metadata["LAUNCHBOX_API_ENABLED"], bool)
     assert isinstance(metadata["PLAYMATCH_API_ENABLED"], bool)
@@ -78,6 +80,29 @@ def test_heartbeat_metadata(client):
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() is True
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_metadata_steam_uses_only_steam_handler():
+    """Steam Storefront and SteamGridDB remain independent heartbeat sources."""
+    with (
+        patch(
+            "endpoints.heartbeat.meta_steam_handler.heartbeat",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as steam_heartbeat,
+        patch(
+            "endpoints.heartbeat.meta_sgdb_handler.heartbeat",
+            new_callable=AsyncMock,
+            return_value=False,
+        ) as sgdb_heartbeat,
+    ):
+        from endpoints.heartbeat import metadata_heartbeat
+
+        assert await metadata_heartbeat(MetadataSource.STEAM.value) is True
+
+    steam_heartbeat.assert_awaited_once_with()
+    sgdb_heartbeat.assert_not_awaited()
 
 
 def test_heartbeat_metadata_unknown_source(client):

@@ -35,6 +35,7 @@ const heartbeatStatus = ref<Record<string, boolean | undefined>>({
   flashpoint: undefined,
   hltb: undefined,
   sgdb: undefined,
+  steam: undefined,
   playmatch: undefined,
 });
 
@@ -47,7 +48,7 @@ interface Source {
    *  each one contributes without having to recognise the brand. */
   subtitle?: string;
   value: string;
-  logo: string;
+  logo: string | null;
   website: string;
   docsUrl: string;
   /** True when the provider is enabled by configuring an API key /
@@ -108,6 +109,16 @@ const catalogs = computed<Source[]>(() => [
     requiresKey: false,
     disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
     heartbeat: heartbeatStatus.value.flashpoint,
+  },
+  {
+    name: "Steam",
+    value: "steam",
+    logo: null,
+    website: "https://store.steampowered.com",
+    docsUrl: "https://store.steampowered.com",
+    requiresKey: false,
+    disabled: !heartbeat.value.METADATA_SOURCES?.STEAM_API_ENABLED,
+    heartbeat: heartbeatStatus.value.steam,
   },
 ]);
 
@@ -261,7 +272,7 @@ onMounted(() => {
         >
           <header class="r-v2-meta__header">
             <div class="r-v2-meta__logo">
-              <img :src="source.logo" :alt="source.name" />
+              <img v-if="source.logo" :src="source.logo" :alt="source.name" />
             </div>
             <div class="r-v2-meta__head-text">
               <span class="r-v2-meta__name">{{ source.name }}</span>
@@ -319,7 +330,7 @@ onMounted(() => {
         >
           <header class="r-v2-meta__header">
             <div class="r-v2-meta__logo">
-              <img :src="source.logo" :alt="source.name" />
+              <img v-if="source.logo" :src="source.logo" :alt="source.name" />
             </div>
             <div class="r-v2-meta__head-text">
               <span class="r-v2-meta__name">{{ source.name }}</span>
@@ -377,7 +388,7 @@ onMounted(() => {
         >
           <header class="r-v2-meta__header">
             <div class="r-v2-meta__logo">
-              <img :src="source.logo" :alt="source.name" />
+              <img v-if="source.logo" :src="source.logo" :alt="source.name" />
             </div>
             <div class="r-v2-meta__head-text">
               <span class="r-v2-meta__name">{{ source.name }}</span>

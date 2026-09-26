@@ -314,16 +314,15 @@ function openPcParentMatcher() {
   });
 }
 
-// The patcher tab is always available: a base game file can be patched with
-// one of the ROM's bundled patch files or with a patch uploaded from disk, so
-// users don't have to store patches in the library until they need them.
+// PC games are delivered as complete downloads, so only ROM platforms expose
+// the patch workflow.
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: t("rom.tab-overview") },
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
   ...(isPcRom.value
     ? [{ id: "pc-components", label: t("rom.game-downloads") }]
     : []),
-  { id: "patcher", label: t("common.patcher") },
+  ...(isPcRom.value ? [] : [{ id: "patcher", label: t("common.patcher") }]),
   { id: "media", label: t("rom.media") },
   { id: "notes", label: t("rom.tab-notes") },
   {
@@ -400,7 +399,7 @@ const tabs = computed<RTabNavItem[]>(() => [
               @applied="refreshPcDetails"
             />
           </template>
-          <PatcherTab v-if="tab === 'patcher'" :rom="currentRom" />
+          <PatcherTab v-if="tab === 'patcher' && !isPcRom" :rom="currentRom" />
           <MediaTab v-if="tab === 'media'" :rom="currentRom" />
           <NotesTab v-if="tab === 'notes'" :rom="currentRom" />
           <AchievementsTab

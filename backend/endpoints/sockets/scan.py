@@ -63,6 +63,7 @@ from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import get_preferred_media_types
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
+from handler.metadata.steam_merge import normalize_steam
 from handler.redis_handler import (
     get_job_func_name,
     high_prio_queue,
@@ -109,6 +110,11 @@ _PC_IGDB_MEDIA_ROLES = {
 }
 
 
+def _refresh_rom_for_scan_emit(rom: Rom) -> Rom:
+    """Load the fields required by the scan event before its session closes."""
+    return db_rom_handler.get_rom_simple(rom.id) or rom
+
+
 async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
     """Import an already-unambiguous DLC candidate into RomM-owned storage."""
     if component.kind != RomComponentKind.DLC:
@@ -128,6 +134,39 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
     )
     if saved_component is None:
         return
+
+    steam_candidate = await pc_metadata_match_handler.fetch_validated_steam_dlc(
+        rom, candidate
+    )
+    if steam_candidate is not None:
+        current_metadata = saved_component.component_metadata
+        current = {
+            "name": getattr(current_metadata, "name", None),
+            "summary": getattr(current_metadata, "summary", None),
+            "steam_metadata": (
+                getattr(current_metadata, "provider_metadata", {}).get("steam_metadata")
+                if current_metadata is not None
+                else None
+            ),
+            "metadata": {
+                "main_developer": getattr(current_metadata, "main_developer", None),
+                "publishers": getattr(current_metadata, "publishers", None),
+                "pc_release_date": getattr(current_metadata, "pc_release_date", None),
+            },
+        }
+        steam_data = normalize_steam(steam_candidate, current)
+        if steam_data:
+            steam_saved_component = (
+                db_rom_handler.apply_pc_component_metadata_candidate(
+                    rom.id,
+                    saved_component.id,
+                    saved_component.updated_at,
+                    "steam",
+                    steam_data,
+                )
+            )
+            if steam_saved_component is not None:
+                saved_component = steam_saved_component
 
     for position, media in enumerate(candidate.media):
         role = _PC_IGDB_MEDIA_ROLES.get(media.get("kind", ""))
@@ -619,10 +658,11 @@ async def _identify_rom(
         sha1_hash=fs_rom["sha1_hash"],
     )
 
-    if _added_rom.is_identified:
+    emitted_rom = _refresh_rom_for_scan_emit(_added_rom)
+    if emitted_rom.is_identified:
         await socket_manager.emit(
             "scan:scanning_rom",
-            SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
+            SimpleRomSchema.from_orm_with_factory(emitted_rom).model_dump(
                 exclude={
                     "created_at",
                     "updated_at",

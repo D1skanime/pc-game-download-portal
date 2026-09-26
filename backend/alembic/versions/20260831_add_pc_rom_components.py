@@ -7,6 +7,9 @@ Create Date: 2026-08-31 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM
+
+from utils.database import is_postgresql
 
 revision = "0115_pc_rom_components"
 down_revision = "0114_legacy_source_identities"
@@ -32,17 +35,32 @@ def _timestamps() -> list[sa.Column]:
 
 
 def upgrade() -> None:
-    component_kind = sa.Enum(
-        "base",
-        "update",
-        "dlc",
-        "hotfix",
-        "language_pack",
-        "extra",
-        "unresolved",
-        name="romcomponentkind",
-    )
-    component_kind.create(op.get_bind(), checkfirst=True)
+    connection = op.get_bind()
+
+    if is_postgresql(connection):
+        component_kind = ENUM(
+            "base",
+            "update",
+            "dlc",
+            "hotfix",
+            "language_pack",
+            "extra",
+            "unresolved",
+            name="romcomponentkind",
+            create_type=False,
+        )
+        component_kind.create(connection, checkfirst=True)
+    else:
+        component_kind = sa.Enum(
+            "base",
+            "update",
+            "dlc",
+            "hotfix",
+            "language_pack",
+            "extra",
+            "unresolved",
+            name="romcomponentkind",
+        )
 
     op.create_table(
         "rom_components",

@@ -312,6 +312,8 @@ class PcComponentMetadataSchema(BaseModel):
     moby_id: int | None
     sgdb_id: int | None
     launchbox_id: int | None
+    steam_id: int | None
+    steam_metadata: dict[str, object] | None
     name: str | None
     summary: str | None
     metadata_source: str | None
@@ -520,6 +522,8 @@ class RomSchema(BaseModel):
     hltb_id: int | None
     gamelist_id: str | None
     libretro_id: str | None
+    steam_id: int | None
+    steam_metadata: dict[str, object] | None
 
     platform_id: int
     platform_slug: str

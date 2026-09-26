@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import Any, Protocol
 
 from handler.metadata import (
@@ -13,6 +14,7 @@ from handler.metadata import (
     meta_launchbox_handler,
     meta_moby_handler,
     meta_sgdb_handler,
+    meta_steam_handler,
 )
 from models.rom import Rom, RomComponent
 
@@ -20,6 +22,7 @@ COMPACT_TITLE_BOUNDARY = re.compile(
     r"(?<=[a-z])(?=[A-Z])|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])"
 )
 GENERIC_DLC_COMPONENT_NAMES = frozenset({"dlc", "dlcs", "expansion", "expansions"})
+STEAM_DLC_MIN_SIMILARITY = 0.9
 INSTALLER_PREFIX = re.compile(r"^(?:setup|install|installer)[_. -]+", re.IGNORECASE)
 PARENTHESIZED_SUFFIX = re.compile(r"\([^)]*\)")
 VERSION_SUFFIX = re.compile(
@@ -56,6 +59,7 @@ class PcMetadataMatchHandler:
     def __init__(self, providers: dict[str, PcMetadataProvider] | None = None) -> None:
         self.providers = providers or {
             "igdb": meta_igdb_handler,
+            "steam": meta_steam_handler,
             "moby": meta_moby_handler,
             "sgdb": meta_sgdb_handler,
             "launchbox": meta_launchbox_handler,
@@ -100,12 +104,96 @@ class PcMetadataMatchHandler:
         igdb = self.providers.get("igdb")
         get_by_id = getattr(igdb, "get_matched_rom_by_id", None)
         if get_by_id is None:
-            return candidate
+            return None
         try:
             details = await get_by_id(rom, candidate.provider_ids["igdb_id"])
         except Exception:
-            return candidate
-        return self._candidate("igdb", details) if details else candidate
+            return None
+        if not isinstance(details, dict):
+            return None
+        hydrated = self._candidate("igdb", details)
+        if (
+            hydrated.provider_ids.get("igdb_id") != candidate.provider_ids["igdb_id"]
+            or not hydrated.title
+        ):
+            return None
+        return hydrated
+
+    @staticmethod
+    def _steam_fullgame_app_id(fullgame: object) -> int | None:
+        """Return a valid Steam parent App ID, never infer one from its name."""
+        if not isinstance(fullgame, dict):
+            return None
+        appid = fullgame.get("appid")
+        if isinstance(appid, bool):
+            return None
+        if isinstance(appid, int):
+            return appid if appid > 0 else None
+        if isinstance(appid, str) and appid.isdecimal():
+            parsed = int(appid)
+            return parsed if parsed > 0 else None
+        return None
+
+    async def fetch_validated_steam_dlc(
+        self, rom: Rom, igdb_candidate: PcMetadataCandidate
+    ) -> dict[str, Any] | None:
+        """Resolve one Steam DLC only after IGDB has established its identity."""
+        steam = self.providers.get("steam")
+        if steam is None or not steam.is_enabled():
+            return None
+        get_matches = getattr(steam, "get_matched_roms_by_name", None)
+        get_by_id = getattr(steam, "get_rom_by_id", None)
+        if get_matches is None or get_by_id is None:
+            return None
+        try:
+            matches = await get_matches(igdb_candidate.title, rom.platform_slug)
+        except Exception:
+            return None
+
+        validated: list[dict[str, Any]] = []
+        parent_id = self._positive_int(getattr(rom, "steam_id", None))
+        for match in matches:
+            steam_id = self._positive_int(match.get("steam_id"))
+            name = match.get("name")
+            if steam_id is None or not isinstance(name, str):
+                continue
+            if (
+                SequenceMatcher(
+                    None, igdb_candidate.title.casefold(), name.casefold()
+                ).ratio()
+                < STEAM_DLC_MIN_SIMILARITY
+            ):
+                continue
+            try:
+                details = await get_by_id(steam_id, rom.platform_slug)
+            except Exception:
+                return None
+            if not isinstance(details, dict) or details.get("steam_id") != steam_id:
+                continue
+            metadata = details.get("steam_metadata")
+            if not self._is_valid_steam_dlc_details(metadata, parent_id):
+                continue
+            validated.append(details)
+
+        return validated[0] if len(validated) == 1 else None
+
+    @staticmethod
+    def _positive_int(value: object) -> int | None:
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return value
+        return None
+
+    @classmethod
+    def _is_valid_steam_dlc_details(
+        cls, metadata: object, parent_id: int | None
+    ) -> bool:
+        if not isinstance(metadata, dict) or metadata.get("type") != "dlc":
+            return False
+        fullgame = metadata.get("fullgame")
+        relation = cls._steam_fullgame_app_id(fullgame)
+        if fullgame is not None and relation is None:
+            return False
+        return relation is None or relation == parent_id
 
     @staticmethod
     def _component_search_title(rom: Rom, component: RomComponent) -> str:
@@ -238,6 +326,10 @@ class PcMetadataMatchHandler:
             return await provider.get_matched_roms_by_name(  # type: ignore[attr-defined]
                 title, rom.platform_slug
             )
+        if provider_name == "steam":
+            return await provider.get_matched_roms_by_name(  # type: ignore[attr-defined]
+                title, rom.platform_slug
+            )
         return []
 
     @staticmethod
@@ -264,11 +356,13 @@ class PcMetadataMatchHandler:
                 "moby_id",
                 "sgdb_id",
                 "launchbox_id",
+                "steam_id",
                 "name",
                 "summary",
                 "igdb_metadata",
                 "moby_metadata",
                 "launchbox_metadata",
+                "steam_metadata",
             }
         }
         return PcMetadataCandidate(

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: complete
-stopped_at: Phase 17 accepted after isolated Chromium UAT
-last_updated: "2026-09-24T00:00:00Z"
-last_activity: 2026-09-24
+status: milestone_complete
+stopped_at: Milestone complete (Phase 18 was final phase)
+last_updated: 2026-09-25T15:35:41.444Z
+last_activity: 2026-09-25
 progress:
-  total_phases: 17
-  completed_phases: 15
-  total_plans: 150
-  completed_plans: 144
-  percent: 88
+  total_phases: 18
+  completed_phases: 14
+  total_plans: 166
+  completed_plans: 159
+  percent: 78
 ---
 
 # Project State
@@ -25,16 +25,16 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 ## Current Position
 
-Phase: 17 (browser-download-manager) — COMPLETE
-Plan: 13 of 13
-Status: Accepted after isolated Chromium UAT; Firefox and Edge waived by product decision
-Last activity: 2026-09-24 - Phase 17 browser download manager accepted
+Phase: 18
+Plan: Not started
+Status: Milestone complete
+Last activity: 2026-09-25
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 32
+- Total plans completed: 47
 - Average duration: 10 min
 - Total execution time: 1.41 hours
 
@@ -45,6 +45,7 @@ Last activity: 2026-09-24 - Phase 17 browser download manager accepted
 | 01    | 7     | -     | -        |
 | 08    | 4     | -     | -        |
 | 14    | 4     | -     | -        |
+| 18    | 15    | -     | -        |
 
 **Recent Trend:**
 
@@ -140,6 +141,20 @@ _Updated after each plan completion_
 | Phase 17 P09 | 15min | 1 tasks | 9 files |
 | Phase 17 P13 | 15m | 2 tasks | 6 files |
 | Phase 17 P12 | 20min | 2 tasks | 6 files |
+| Phase 18 P01 | 9min | 3 tasks | 8 files |
+| Phase 18 P02 | 7min | 3 tasks | 5 files |
+| Phase 18 P06 | 10min | 2 tasks | 8 files |
+| Phase 18 P03 | 211 min | 3 tasks | 10 files |
+| Phase 18 P04 | 9min | 2 tasks | 9 files |
+| Phase 18 P07 | 15min | 2 tasks | 3 files |
+| Phase 18 P09 | 5min | 2 tasks | 2 files |
+| Phase 18 P05 | 22min | 2 tasks | 7 files |
+| Phase 18 P08 | 14min | 2 tasks | 3 files |
+| Phase 18 P10 | 10min | 2 tasks | 3 files |
+| Phase 18 P12 | 4min | 2 tasks | 3 files |
+| Phase 18 P13 | 18min | 3 tasks | 3 files |
+| Phase 18 P14 | 8min | 2 tasks | 3 files |
+| Phase 18 P15 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -324,6 +339,7 @@ Recent decisions affecting current work:
 - Phase 11 added: Local PC Media and DLC Navigation
 - Phase 12 added: DLC detail pages for local PC components
 - Phase 13 added: PC IGDB metadata and DLC media
+- Phase 18 added: Steam Metadata Integration für PC Games und DLCs
 - [Phase 13]: Parent and DLC provider media remains RomM-owned; all DLC media previews use protected `/api` content routes.
 - [Phase 17]: Phase 17 is browser-only, reuses Phase 15 direct-transfer authority, and retains the Phase 16 prototype without requiring desktop distribution. — Phase 17 is browser-only, reuses Phase 15 direct-transfer authority, and retains the Phase 16 prototype without requiring desktop distribution.
 - [Phase 17]: An explicit archive_set_id selects the persisted policy, while selected_member_ids must contain every required member and only policy members.
@@ -337,6 +353,29 @@ Recent decisions affecting current work:
 - [Phase 17]: Plan 17-13 renders only safe transfer facts and reserves verified for enhanced mode.
 - [Phase 17]: Browser and MariaDB unavailability are recorded as BLOCKED evidence rather than inferred passes.
 - [Phase 17]: Browser destination validation rejects Windows drive-letter and UNC roots.
+- [Phase 18]: Steam locale fallback uses only the resolved App ID, never a second name search. Preserves product identity across localized Storefront responses.
+- [Phase 18]: Steam Storefront failures degrade to empty typed results and remain separate from SteamGridDB. Untrusted remote metadata must not abort other providers or alter SteamGridDB's artwork role.
+- [Phase 18]: Steam persistence follows revision 0125 with nullable provenance fields and no global component App-ID uniqueness. — Keeps Steam observational and avoids deduplicating shared DLC identities.
+- [Phase 18]: Phase 18 PostgreSQL verification uses a unique Compose-network container and database while preserving the first failure. — The verifier never touches shared databases or relies on a host port.
+- [Phase 18]: Steam identity and raw provenance use existing ROM/component response surfaces only, with no Steam-specific route or display field. — Keeps steam_metadata observational and preserves display-state authority.
+- [Phase 18]: Steam display fields are applied only by normalize_steam, with manual and legacy populated values protected. — A single policy prevents scan and manual selection paths from diverging.
+- [Phase 18]: Manual Steam selection re-resolves its App ID before persistence. — Search-list payloads are untrusted and cannot directly update catalog metadata.
+- [Phase 18]: Automatic Steam scans refresh persisted App IDs directly and reject mismatched responses. — Prevents filename changes or malformed provider replies from silently changing a stored Steam identity.
+- [Phase 18]: Steam name search is limited to win, linux, and mac; excluded PC platforms require a stored ID. — Preserves classic-ROM isolation while permitting explicit stored-ID refreshes for excluded PC platforms.
+- [Phase 18]: Component Steam updates reuse the selected optimistic-lock boundary, retain known provider provenance, and never allocate or uniquely identify components. — Steam provenance remains observational and cannot erase IGDB structured data or derive display state.
+- [Phase 18]: Steam DLC enrichment requires one hydrated IGDB identity, DLC type, matching parent App ID when exposed, and unique high-confidence title selection.
+- [Phase 18]: Compatibility record pins inspected origin/master e98fa77e and separates direct Steam ports from German-first, PC merge, stored-ID, and IGDB-first DLC safeguards. — Future upstream work needs an auditable port boundary.
+- [Phase 18]: Closure evidence retains unavailable backend MariaDB, fail-closed PostgreSQL credentials, and incomplete global Trunk as blockers rather than passes. — Required validation cannot be inferred from partial evidence.
+- [Phase 18]: Automatic Steam DLC enrichment accepts only matching, named hydrated IGDB details. — Cached IGDB relationship data cannot authorize Steam lookup after failed or invalid detail hydration.
+- [Phase 18]: Generated-contract evidence points to the generator-owned DetailedRomSchema.ts, never a synthetic RomSchema.ts. — The checked-in generator artifact declares steam_id and steam_metadata; RomSchema.ts does not exist.
+- [Phase 18]: Compose-network isolated MariaDB runner — The test runner uses romm-dev and romm-db-dev with a validated generated schema, avoiding host loopback and shared schema mutation.
+- [Phase 18]: Stop PostgreSQL repair at historical 0118 — 0115 and directly blocking 0116 enum lifecycles were corrected; the unrelated 0118 view-type migration requires a separately scoped compatibility fix.
+- [Phase 18]: Parent selections use the candidate-review version rather than an in-memory ORM timestamp. — MariaDB persists timestamp precision independently; the API review response is the authoritative optimistic-lock token.
+- [Phase 18]: Component metadata writes fully refresh the component before returning its lock version. — The next IGDB or Steam write must use MariaDB's persisted timestamp, not the pre-flush Python value.
+- [Phase 18]: Use a PostgreSQL-only text cast for 0118 player_count while retaining the MariaDB projection.
+- [Phase 18]: Preserve CREATE OR REPLACE VIEW and prove the full disposable PostgreSQL migration cycle.
+- [Phase 18]: Record the measured 189-pass Compose MariaDB suite count, superseding stale 186-plan and 187-summary counts.
+- [Phase 18]: Keep host-loopback pytest and scoped Trunk failures explicit rather than inferring a phase-wide verification pass.
 
 ### Blockers/Concerns
 
@@ -345,6 +384,12 @@ Recent decisions affecting current work:
 - [Phase 9]: Confirm NAS protocol, mount options, atime behavior, and a safe activation window before real-NAS rollout.
 - [Phase 16]: Authorized Windows, standard Linux, and Bazzite runners plus the isolated 30 GiB UAT volume are unavailable; Task 3 remains blocked and evidence is deferred in 16-UAT.md.
 - Phase 17 browser verification remains pending because Firefox, Chrome, Edge, and MariaDB are unavailable in the isolated Linux checkout; see 17-BROWSER-MATRIX.md and 17-DOWNLOAD-EVIDENCE.md.
+- Fresh PostgreSQL upgrade fails before 0126 because 20260831_add_pc_rom_components.py recreates enum romcomponentkind; recorded in Phase 18 deferred-items.md.
+- Focused backend pytest is blocked in the host checkout because backend/pytest.ini forces DB_HOST=127.0.0.1 while the available Compose MariaDB service is network-only. Reproduce: cd backend && uv run pytest tests/handler/metadata/test_steam_merge.py -q.
+- Phase 18 backend suite blocked before assertions: configured MariaDB endpoint 127.0.0.1:3306 is unavailable while romm-db-dev is Compose-network-only.
+- Phase 18 PostgreSQL verifier blocked fail-closed: docker compose config --environment lacks POSTGRES_USER.
+- Phase 18 repository-wide trunk check has no final status because the shared dirty tree scan did not complete in the execution window.
+- Phase 18 Plan 11: canonical-network suite has 184 passes but two product assertion failures; disposable PostgreSQL passes 0115/0116 then blocks at 0118 roms_metadata player_count view type change.
 
 ### Quick Tasks Completed
 
@@ -370,6 +415,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-18T07:56:02.985Z
-Stopped at: Completed 17-09-PLAN.md
+Last session: 2026-09-25T15:21:04.638Z
+Stopped at: Completed 18-15-PLAN.md
 Resume file: None

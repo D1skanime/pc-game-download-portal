@@ -159,6 +159,14 @@
 - [x] **SAFE-01**: Manifest preparation and every transfer leave the NAS and RomM source library read-only and unchanged.
 - [x] **TEST-01**: Automated coverage proves resume, source changes, incorrect checksums, disk-full recovery, 4 GiB-plus values, and Windows/Linux path safety.
 
+### Steam Metadata Integration
+
+- [x] **STEAM-01**: An operator can independently enable the official no-key Steam Storefront metadata provider, configure German-first locale defaults with English fallback, include it in metadata priority, and observe its health without changing SteamGridDB's artwork-only role.
+- [x] **STEAM-02**: Eligible PC games can persist and refresh a stable Steam App ID and localized structured Steam metadata, with same-App-ID fallback and non-destructive field-level merge that preserves manual values and IGDB-owned relationships.
+- [x] **STEAM-03**: An existing DLC component can receive Steam metadata only after one hydrated IGDB DLC identity and a uniquely safe Steam DLC match pass product-type, confidence, and parent validation; unsafe matches preserve existing IGDB metadata and never create a component.
+- [x] **STEAM-04**: API and v2 metadata-provider surfaces distinguish Steam Storefront from SteamGridDB and expose persisted Steam provenance consistently.
+- [x] **STEAM-05**: Steam timeout, rate-limit, regional, malformed-payload, and ambiguity failures are non-fatal to existing providers and are covered by backend, migration, and relevant frontend regression checks.
+
 ## Future Requirements
 
 ### Broader Visual Redesign
@@ -263,6 +271,11 @@ Roadmap creation populates this table. Every v1 requirement must map to exactly 
 | PCRP-01     | Phase 10 | Complete |
 | PCSAFE-01   | Phase 10 | Complete |
 | PCTEST-01   | Phase 10 | Complete |
+| STEAM-01    | Phase 18 | Planned  |
+| STEAM-02    | Phase 18 | Planned  |
+| STEAM-03    | Phase 18 | Planned  |
+| STEAM-04    | Phase 18 | Planned  |
+| STEAM-05    | Phase 18 | Planned  |
 | PCLM-01     | Phase 11 | Complete |
 | PCLM-02     | Phase 11 | Complete |
 | PCDLC-01    | Phase 11 | Complete |

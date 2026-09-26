@@ -30,7 +30,14 @@ from handler.metadata.ss_handler import SSHandler, SSRom
 from models.collection import Collection, SmartCollection
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
-from models.rom import Rom, RomFile, compute_name_sort_key
+from models.rom import (
+    Rom,
+    RomComponent,
+    RomComponentKind,
+    RomComponentMetadata,
+    RomFile,
+    compute_name_sort_key,
+)
 from models.storage import PlatformStorageMapping, StorageRoot
 from models.user import User
 
@@ -108,6 +115,51 @@ def test_get_rom(client: TestClient, access_token: str, rom: Rom):
 
     body = response.json()
     assert body["id"] == rom.id
+
+
+def test_get_rom_serializes_steam_identity_and_observational_provenance(
+    client: TestClient, access_token: str, rom: Rom
+):
+    """Steam provenance is observable without becoming display-state authority."""
+    components = db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    with sync_session.begin() as session:
+        saved_rom = session.get(Rom, rom.id)
+        component = session.get(RomComponent, components[0].id)
+        assert saved_rom is not None
+        assert component is not None
+        saved_rom.steam_id = 1091500
+        saved_rom.steam_metadata = {"app_id": 1091500, "source": "storefront"}
+        component.component_metadata = RomComponentMetadata(
+            steam_id=1091501,
+            steam_metadata={"app_id": 1091501, "source": "storefront"},
+        )
+
+    response = client.get(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["steam_id"] == 1091500
+    assert body["steam_metadata"] == {"app_id": 1091500, "source": "storefront"}
+    assert "steam_display" not in body
+    component_metadata = body["components"][0]["component_metadata"]
+    assert component_metadata["steam_id"] == 1091501
+    assert component_metadata["steam_metadata"] == {
+        "app_id": 1091501,
+        "source": "storefront",
+    }
+    assert "steam_display" not in component_metadata
 
 
 def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
@@ -756,6 +808,34 @@ def test_update_rom(
 
     assert rename_fs_rom_mock.called
     get_rom_by_id_mock.assert_not_called()
+
+
+def test_update_rom_records_manual_title_summary_and_pc_release_authority(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={
+            "fs_name": rom.fs_name,
+            "name": "User title",
+            "summary": "User summary",
+            "raw_manual_metadata": json.dumps(
+                {
+                    "first_release_date": 1_600_000_000,
+                    "pc_release_date": 1_700_000_000,
+                }
+            ),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert saved.manual_metadata["name"] is True
+    assert saved.manual_metadata["summary"] is True
+    assert saved.manual_metadata["pc_release_date"] is True
+    assert saved.manual_metadata["first_release_date"] == 1_600_000_000
 
 
 @patch.object(

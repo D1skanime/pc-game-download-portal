@@ -109,6 +109,8 @@ const syntheticRom = computed<SimpleRom>(() => ({
   hltb_id: null,
   gamelist_id: null,
   libretro_id: null,
+  steam_id: null,
+  steam_metadata: null,
   platform_id: 0,
   platform_slug: "",
   platform_fs_slug: "",

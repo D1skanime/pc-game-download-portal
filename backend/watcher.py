@@ -35,6 +35,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.redis_handler import low_prio_queue, redis_client
@@ -70,6 +71,7 @@ def _metadata_sources() -> list[str]:
         MetadataSource.HASHEOUS: meta_hasheous_handler.is_enabled(),
         MetadataSource.PLAYMATCH: meta_playmatch_handler.is_enabled(),
         MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
+        MetadataSource.STEAM: meta_steam_handler.is_enabled(),
         MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
         MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
         MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),

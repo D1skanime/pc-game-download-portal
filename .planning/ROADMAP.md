@@ -491,3 +491,28 @@ installers, and distribution are not part of this phase.
    expose source paths, and covers large-file and multi-file evidence.
 
 **Plans:** 13/13 plans complete. Chromium live UAT completed; Firefox and Edge explicitly waived by product decision.
+
+### Phase 18: Steam Metadata Integration für PC Games und DLCs
+
+**Goal:** Add the official Steam Storefront provider to eligible PC games and safely identified DLC components, with German-first text while preserving IGDB relationships, manual data, and SteamGridDB's artwork-only role.
+**Requirements**: [STEAM-01, STEAM-02, STEAM-03, STEAM-04, STEAM-05]
+**Depends on:** Phase 17
+**Plans:** 15/15 plans complete
+
+Plans:
+
+- [x] 18-01-PLAN.md — Harden the localized upstream-close Steam service, handler, and no-key configuration.
+- [x] 18-02-PLAN.md — Repair the migration graph, persist Steam IDs/provenance, and prove migrations against disposable PostgreSQL.
+- [x] 18-03-PLAN.md — Complete provider priority, heartbeat, distinct responsive/accessibility-verified v2 Steam presentation, and production build.
+- [x] 18-04-PLAN.md — Integrate Steam PC candidates through one manual-safe merge policy.
+- [x] 18-05-PLAN.md — Add IGDB-first safe Steam DLC enrichment.
+- [x] 18-06-PLAN.md — Expose the stable API schema and regenerate TypeScript contracts separately from model migrations.
+- [x] 18-07-PLAN.md — Add stored-ID-first PC automatic Steam scans without classic-ROM regressions.
+- [x] 18-08-PLAN.md — Run phase-wide evidence gates and record the upstream/fork compatibility boundary.
+- [x] 18-09-PLAN.md — Persist Steam provenance only on existing PC components without duplication or IGDB-field loss.
+- [x] 18-10-PLAN.md — Fail closed when IGDB DLC hydration cannot establish an authoritative identity.
+- [x] 18-11-PLAN.md — Run focused backend and MariaDB/PostgreSQL migration evidence in canonical Compose context.
+- [x] 18-12-PLAN.md — Correct the generated detailed-ROM contract key link and audit closure coverage.
+- [x] 18-13-PLAN.md — Diagnose and correct the two remaining parent-selection and component-persistence suite failures.
+- [x] 18-14-PLAN.md — Make the historical PostgreSQL 0118 metadata view replacement type-stable and portable.
+- [x] 18-15-PLAN.md — Re-run the 186-test Compose suite and full PostgreSQL cycle, then record final closure evidence.

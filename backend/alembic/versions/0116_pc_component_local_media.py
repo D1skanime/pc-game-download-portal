@@ -7,6 +7,9 @@ Create Date: 2026-09-01 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM
+
+from utils.database import is_postgresql
 
 revision = "0116_pc_component_local_media"
 down_revision = "0115_pc_rom_components"
@@ -32,13 +35,24 @@ def _timestamps() -> list[sa.Column]:
 
 
 def upgrade() -> None:
-    media_role = sa.Enum(
-        "cover",
-        "background",
-        "gallery",
-        name="romcomponentlocalmediarole",
-    )
-    media_role.create(op.get_bind(), checkfirst=True)
+    connection = op.get_bind()
+
+    if is_postgresql(connection):
+        media_role = ENUM(
+            "cover",
+            "background",
+            "gallery",
+            name="romcomponentlocalmediarole",
+            create_type=False,
+        )
+        media_role.create(connection, checkfirst=True)
+    else:
+        media_role = sa.Enum(
+            "cover",
+            "background",
+            "gallery",
+            name="romcomponentlocalmediarole",
+        )
 
     op.create_table(
         "rom_component_metadata",

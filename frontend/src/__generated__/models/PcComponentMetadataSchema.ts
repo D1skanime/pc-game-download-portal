@@ -7,6 +7,8 @@ export type PcComponentMetadataSchema = {
     moby_id: (number | null);
     sgdb_id: (number | null);
     launchbox_id: (number | null);
+    steam_id: (number | null);
+    steam_metadata: (Record<string, any> | null);
     name: (string | null);
     summary: (string | null);
     metadata_source: (string | null);
