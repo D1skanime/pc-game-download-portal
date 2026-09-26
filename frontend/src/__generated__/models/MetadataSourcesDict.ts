@@ -8,6 +8,7 @@ export type MetadataSourcesDict = {
     SS_API_ENABLED: boolean;
     MOBY_API_ENABLED: boolean;
     STEAMGRIDDB_API_ENABLED: boolean;
+    STEAM_API_ENABLED: boolean;
     RA_API_ENABLED: boolean;
     LAUNCHBOX_API_ENABLED: boolean;
     HASHEOUS_API_ENABLED: boolean;
@@ -17,4 +18,3 @@ export type MetadataSourcesDict = {
     HLTB_API_ENABLED: boolean;
     LIBRETRO_API_ENABLED: boolean;
 };
-
