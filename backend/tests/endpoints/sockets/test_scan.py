@@ -9,6 +9,7 @@ from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanStats,
     _identify_rom,
+    _refresh_rom_for_scan_emit,
     reject_unauthorized_scan,
     scan_handler,
     scan_platforms,
@@ -61,6 +62,21 @@ def test_scan_stats():
     assert stats.identified_roms == 1
     assert stats.scanned_firmware == 1
     assert stats.new_firmware == 1
+
+
+def test_scan_emit_refreshes_the_detached_rom_with_simple_details(mocker):
+    detached_rom = Mock(id=5)
+    refreshed_rom = Mock(id=5)
+    get_rom_simple = mocker.patch.object(
+        scan_module.db_rom_handler,
+        "get_rom_simple",
+        return_value=refreshed_rom,
+    )
+
+    result = _refresh_rom_for_scan_emit(detached_rom)
+
+    get_rom_simple.assert_called_once_with(5)
+    assert result is refreshed_rom
 
 
 async def test_scan_enrichment_imports_only_trusted_dlc_media(mocker):

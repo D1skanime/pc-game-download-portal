@@ -110,6 +110,11 @@ _PC_IGDB_MEDIA_ROLES = {
 }
 
 
+def _refresh_rom_for_scan_emit(rom: Rom) -> Rom:
+    """Load the fields required by the scan event before its session closes."""
+    return db_rom_handler.get_rom_simple(rom.id) or rom
+
+
 async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
     """Import an already-unambiguous DLC candidate into RomM-owned storage."""
     if component.kind != RomComponentKind.DLC:
@@ -653,10 +658,11 @@ async def _identify_rom(
         sha1_hash=fs_rom["sha1_hash"],
     )
 
-    if _added_rom.is_identified:
+    emitted_rom = _refresh_rom_for_scan_emit(_added_rom)
+    if emitted_rom.is_identified:
         await socket_manager.emit(
             "scan:scanning_rom",
-            SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
+            SimpleRomSchema.from_orm_with_factory(emitted_rom).model_dump(
                 exclude={
                     "created_at",
                     "updated_at",
