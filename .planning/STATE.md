@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: milestone_complete
-stopped_at: Milestone complete (Phase 18 was final phase)
-last_updated: 2026-09-25T15:35:41.444Z
+status: completed
+stopped_at: Phase 19 context gathered
+last_updated: "2026-09-28T09:50:16.694Z"
 last_activity: 2026-09-25
 progress:
-  total_phases: 18
+  total_phases: 19
   completed_phases: 14
   total_plans: 166
   completed_plans: 159
-  percent: 78
+  percent: 74
 ---
 
 # Project State
@@ -157,6 +157,10 @@ _Updated after each plan completion_
 | Phase 18 P15 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 19 added: Fix PC quick-scan IGDB matching and safe DLC/expansion enrichment.
 
 ### Decisions
 
@@ -415,6 +419,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-25T15:21:04.638Z
-Stopped at: Completed 18-15-PLAN.md
-Resume file: None
+Last session: 2026-09-28T09:50:16.678Z
+Stopped at: Phase 19 context gathered
+Resume file: .planning/phases/19-fix-pc-quick-scan-igdb-matching-and-safe-dlc-expansion-enric/19-CONTEXT.md
