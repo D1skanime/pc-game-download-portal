@@ -305,17 +305,13 @@ The active v2 Game Details PC Components tab renders `PcComponents`, and the fro
 
 All conclusions are backed by the live codebase and phase context. No external package, provider API, or operational policy claim is needed for this phase. [VERIFIED: codebase grep]
 
-## Open Questions
+## Resolved Scope Decisions
 
-1. **Should `linux` and `mac` receive the same recovery exception?**
-   - What we know: Steam supports `win`, `linux`, and `mac`, but D-01 and D-03 explicitly constrain this repair to the PC scan path demonstrated as Windows, and component reconciliation/enrichment is currently guarded by `UPS.WIN`. [VERIFIED: codebase grep]
-   - What's unclear: whether non-Windows PC roots need the same historical recovery semantics. [VERIFIED: codebase grep]
-   - Recommendation: keep Phase 19 to `UPS.WIN`; open a separate follow-up only with a reproducer and decision to expand scope. [VERIFIED: codebase grep]
+1. **Recovery platform scope is Windows-only in Phase 19.**
+   - Locked outcome: the exception is limited to `UPS.WIN`. Although Steam supports `win`, `linux`, and `mac`, D-01 and D-03 constrain this repair to the demonstrated Windows path, and component reconciliation/enrichment is currently guarded by `UPS.WIN`. Linux/macOS require a separate reproducer and explicit scope decision. [VERIFIED: codebase grep]
 
-2. **Should a user-facing refresh description be revised?**
-   - What we know: the existing dialog describes `update` as refetching by an existing ID, while the required recovery intentionally adds a narrowly controlled name lookup for Steam-only Windows records. [VERIFIED: codebase grep]
-   - What's unclear: whether product copy must expose that exception. [VERIFIED: codebase grep]
-   - Recommendation: no copy change for this bugfix unless product review requests it; changing copy would require all locale updates. [VERIFIED: codebase grep]
+2. **Refresh-dialog copy does not change in Phase 19.**
+   - Locked outcome: retain the existing user-facing refresh description. The narrow Steam-only Windows name-lookup exception needs no locale or copy update unless separately requested. [VERIFIED: codebase grep]
 
 ## Environment Availability
 
