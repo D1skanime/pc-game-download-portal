@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import functools
+from collections.abc import Collection
 from typing import Any
 
 import socketio  # type: ignore
@@ -160,7 +161,7 @@ def _is_steam_only_windows_igdb_recovery(
     steam_id: int | None,
     igdb_id: int | None,
     scan_type: ScanType,
-    metadata_sources: list[str],
+    metadata_sources: Collection[str],
 ) -> bool:
     return (
         platform_slug == UPS.WIN
