@@ -279,12 +279,11 @@ describe("maximum-grant source mutation controls", () => {
     expect(wrapper.html()).not.toContain("rom.convert-to-folder");
   });
 
-  it("keeps shared screenshots and soundtracks read-only while assets remain mutable", async () => {
+  it("keeps personal screenshots mutable without exposing source-library media controls", async () => {
     const screenshots = mountPanel(ScreenshotsSubtab);
     const screenshotPanels = screenshots.findAll("[data-screenshots]");
-    expect("data-deletable" in screenshotPanels[0].attributes()).toBe(false);
-    expect("data-deletable" in screenshotPanels[1].attributes()).toBe(true);
-    expect("data-togglable" in screenshotPanels[1].attributes()).toBe(true);
+    expect("data-deletable" in screenshotPanels[0].attributes()).toBe(true);
+    expect("data-togglable" in screenshotPanels[0].attributes()).toBe(true);
     expect(screenshots.findAll("[data-dropzone]")).toHaveLength(1);
 
     const media = mountPanel(MediaTab);
@@ -312,12 +311,14 @@ describe("maximum-grant source mutation controls", () => {
     expect(files.media).toContain("owned_media");
   });
 
-  it("shows scan-downloaded screenshots in the shared media gallery", () => {
-    const screenshots = mountPanel(ScreenshotsSubtab);
-
-    expect(screenshots.text()).toContain(
-      "/resources/roms/2/7/screenshots/provider-screenshot.jpg",
+  it("keeps provider screenshot candidates on owned-media content routes", () => {
+    const screenshots = source(
+      "src/v2/components/GameDetails/ScreenshotsSubtab.vue",
     );
+
+    expect(screenshots).toContain("/media/${mediaId}/content");
+    expect(screenshots).not.toContain("/files/content/");
+    expect(screenshots).not.toContain("full_path");
   });
 
   it("renders the source filename read-only and omits both match rename controls", async () => {

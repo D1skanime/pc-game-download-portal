@@ -1,195 +1,249 @@
 <script setup lang="ts">
-// The Media tab presents three screenshot sections:
-//
-//   * ROM        is the read-only shared library view.
-//   * Mine       is per-user storage under the user's asset folder.
-//                  Private by default, with a per-item public/private toggle.
-//   * Community  contains other users' public screenshots and is read-only.
-//
-// Only the RomM-owned personal asset section accepts uploads or deletes.
-import { RBtn, RDropzone } from "@v2/lib";
+import {
+  RBtn,
+  RCarousel,
+  RDropzone,
+  REmptyState,
+  RSkeletonBlock,
+  RTooltip,
+} from "@v2/lib";
 import axios from "axios";
 import { storeToRefs } from "pinia";
-import { computed, defineAsyncComponent, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import type {
+  RomOwnedMediaSchema,
+  RomOwnedMediaSurface,
+} from "@/__generated__";
 import romApi from "@/services/api/rom";
 import screenshotApi from "@/services/api/screenshot";
 import storeAuth from "@/stores/auth";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
-import type { ScreenshotItem } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import ScreenshotsTab, {
+  type ScreenshotItem,
+} from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
-const ScreenshotsTab = defineAsyncComponent(
-  () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
-);
-
-// Previewable image extensions for the per-ROM (RomFile) gallery. Mirrors the
-// canonical "Web Images" set.
-const IMAGE_EXTENSIONS = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "webp",
-  "gif",
-  "bmp",
-  "avif",
-]);
-
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : String(err);
-}
-
 const props = defineProps<{ rom: DetailedRom }>();
-
 const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
 const uploadStore = storeUpload();
-const authStore = storeAuth();
-const { user } = storeToRefs(authStore);
-
-// ---------- ROM (shared) screenshots — RomFile-backed ----------
-const romScreenshots = computed<ScreenshotItem[]>(() => {
-  const cacheBust = encodeURIComponent(props.rom.updated_at);
-  const out: ScreenshotItem[] = [];
-  for (const file of props.rom.files ?? []) {
-    const rel = file.full_path
-      .replace(props.rom.full_path, "")
-      .replace(/^\//, "");
-    const firstSegment = rel.split("/")[0]?.toLowerCase();
-    if (firstSegment !== "screenshots" && firstSegment !== "screenshot") {
-      continue;
-    }
-    const ext = file.file_name.split(".").pop()?.toLowerCase() ?? "";
-    if (!IMAGE_EXTENSIONS.has(ext)) continue;
-    out.push({
-      id: file.id,
-      url: `/api/roms/${file.id}/files/content/${encodeURIComponent(
-        file.file_name,
-      )}?v=${cacheBust}`,
-    });
-  }
-  return out;
-});
-
-// ---------- Per-user screenshots — asset-backed ----------
+const { user } = storeToRefs(storeAuth());
+const scope = { kind: "rom", id: props.rom.id } as const;
+const canManage = useCan("rom.edit", scope);
+const canRefresh = useCan("rom.refresh", scope);
+const canDelete = useCan("rom.delete", scope);
+const providerScreenshots = computed(() =>
+  (props.rom.owned_media ?? []).filter(
+    (item) =>
+      item.origin === "provider" &&
+      item.role === "screenshot" &&
+      item.state === "active",
+  ),
+);
+const providerUrls = computed(() =>
+  providerScreenshots.value.map((item) => mediaContentUrl(item.id)),
+);
+const providerLightboxOpen = ref(false);
+const providerLightboxIndex = ref(0);
+const refreshing = ref(false);
+const mutatingId = ref<number | null>(null);
 const allUserScreenshots = computed(() => props.rom.all_user_screenshots ?? []);
-
 const myScreenshots = computed<ScreenshotItem[]>(() =>
   allUserScreenshots.value
-    .filter((s) => user.value?.id != null && s.user_id === user.value.id)
-    .map((s) => ({
-      id: s.id,
-      url: s.download_path,
+    .filter((item) => user.value?.id != null && item.user_id === user.value.id)
+    .map((item) => ({
+      id: item.id,
+      url: item.download_path,
       isOwn: true,
-      isPublic: Boolean(s.is_public),
+      isPublic: Boolean(item.is_public),
     })),
 );
-
 const communityScreenshots = computed<ScreenshotItem[]>(() =>
   allUserScreenshots.value
-    .filter((s) => user.value?.id == null || s.user_id !== user.value.id)
-    .map((s) => ({
-      id: s.id,
-      url: s.download_path,
+    .filter((item) => user.value?.id == null || item.user_id !== user.value.id)
+    .map((item) => ({
+      id: item.id,
+      url: item.download_path,
       isOwn: false,
       isPublic: true,
-      username: s.username,
-      userId: s.user_id,
-      userAvatarPath: s.user_avatar_path,
-      userUpdatedAt: s.user_updated_at,
+      username: item.username,
+      userId: item.user_id,
+      userAvatarPath: item.user_avatar_path,
+      userUpdatedAt: item.user_updated_at,
     })),
 );
+const myDz = ref<InstanceType<typeof RDropzone> | null>(null);
+const togglingId = ref<number | null>(null);
 
+function mediaContentUrl(mediaId: number) {
+  return `/api/roms/${props.rom.id}/media/${mediaId}/content`;
+}
+function hasPlacement(
+  item: RomOwnedMediaSchema,
+  surface: RomOwnedMediaSurface,
+) {
+  return (
+    item.placements?.some((placement) => placement.surface === surface) ?? false
+  );
+}
+function placementPosition(
+  item: RomOwnedMediaSchema,
+  surface: RomOwnedMediaSurface,
+) {
+  return item.placements?.find((placement) => placement.surface === surface)
+    ?.position;
+}
+function errorMessage(error: unknown) {
+  if (axios.isAxiosError(error))
+    return typeof error.response?.data?.detail === "string"
+      ? error.response.data.detail
+      : error.message;
+  return error instanceof Error ? error.message : String(error);
+}
+async function refreshCanonical() {
+  await romsStore.refreshRom(props.rom.id);
+}
+async function recoverFromConflict(error: unknown) {
+  if (axios.isAxiosError(error) && error.response?.status === 409) {
+    await refreshCanonical();
+    snackbar.warning(t("common.error"));
+    return true;
+  }
+  return false;
+}
+async function togglePlacement(
+  item: RomOwnedMediaSchema,
+  surface: RomOwnedMediaSurface,
+) {
+  if (mutatingId.value !== null) return;
+  mutatingId.value = item.id;
+  try {
+    if (hasPlacement(item, surface))
+      await romApi.removeOwnedMediaPlacement({
+        romId: props.rom.id,
+        mediaId: item.id,
+        surface,
+        expectedVersion: props.rom.updated_at,
+      });
+    else
+      await romApi.setOwnedMediaPlacement({
+        romId: props.rom.id,
+        mediaId: item.id,
+        surface,
+        expectedVersion: props.rom.updated_at,
+      });
+    await refreshCanonical();
+  } catch (error) {
+    if (!(await recoverFromConflict(error)))
+      snackbar.error(errorMessage(error));
+  } finally {
+    mutatingId.value = null;
+  }
+}
+async function refreshProviderScreenshots() {
+  if (refreshing.value) return;
+  refreshing.value = true;
+  try {
+    await romApi.refreshOwnedMedia({
+      romId: props.rom.id,
+      expectedVersion: props.rom.updated_at,
+    });
+    await refreshCanonical();
+    snackbar.success(t("common.refresh"));
+  } catch (error) {
+    if (!(await recoverFromConflict(error)))
+      snackbar.error(errorMessage(error));
+  } finally {
+    refreshing.value = false;
+  }
+}
+async function deleteProviderScreenshot(item: RomOwnedMediaSchema) {
+  if (
+    !(await confirm({
+      title: t("rom.delete-screenshot-title"),
+      body: item.display_label,
+      confirmText: t("common.delete"),
+      tone: "danger",
+    }))
+  )
+    return;
+  mutatingId.value = item.id;
+  try {
+    await romApi.deleteOwnedMedia({
+      romId: props.rom.id,
+      mediaId: item.id,
+      expectedVersion: props.rom.updated_at,
+    });
+    await refreshCanonical();
+    snackbar.success(t("rom.screenshot-removed"));
+  } catch (error) {
+    if (!(await recoverFromConflict(error)))
+      snackbar.error(errorMessage(error));
+  } finally {
+    mutatingId.value = null;
+  }
+}
 async function refreshRom() {
   try {
-    const { data } = await romApi.getRom({ romId: props.rom.id });
-    romsStore.currentRom = data;
-    romsStore.update(data);
+    await refreshCanonical();
   } catch (error) {
     console.error(error);
   }
 }
-
-// ---------- Upload result toast (shared by both upload paths) ----------
 function reportUpload(responses: PromiseSettledResult<unknown>[]) {
-  const successful = responses.filter((r) => r.status === "fulfilled").length;
-  const failed = responses.length - successful;
-  if (failed === 0) uploadStore.reset();
-  if (successful > 0) {
-    snackbar.success(
-      failed
-        ? t("rom.screenshots-uploaded-with-failed", successful, {
-            named: { n: successful, failed },
-          })
-        : t("rom.screenshots-uploaded-n", successful, {
-            named: { n: successful },
-          }),
-      { icon: "mdi-check-bold", timeout: 3000 },
-    );
-  } else {
-    snackbar.warning(t("rom.no-screenshots-uploaded"), {
-      icon: "mdi-close-circle",
-      timeout: 5000,
-    });
-  }
+  const successful = responses.filter(
+    (item) => item.status === "fulfilled",
+  ).length;
+  if (successful === responses.length) uploadStore.reset();
+  successful
+    ? snackbar.success(
+        t("rom.screenshots-uploaded-n", successful, {
+          named: { n: successful },
+        }),
+      )
+    : snackbar.warning(t("rom.no-screenshots-uploaded"));
 }
-
-// ---------- Personal asset upload ----------
-const myDz = ref<InstanceType<typeof RDropzone> | null>(null);
-
 async function handleMyFiles(files: File[]) {
-  if (files.length === 0) return;
+  if (!files.length) return;
   const responses = await screenshotApi.uploadGalleryScreenshots({
     romId: props.rom.id,
     filesToUpload: files,
   });
   reportUpload(responses);
-  if (responses.some((r) => r.status === "fulfilled")) await refreshRom();
+  if (responses.some((item) => item.status === "fulfilled")) await refreshRom();
 }
-
-// ---------- Personal asset delete ----------
 async function deleteMyScreenshot(id: number) {
-  const ok = await confirm({
-    title: t("rom.delete-screenshot-title"),
-    body: t("rom.delete-screenshot-body"),
-    confirmText: t("common.delete"),
-    tone: "danger",
-  });
-  if (!ok) return;
+  if (
+    !(await confirm({
+      title: t("rom.delete-screenshot-title"),
+      body: t("rom.delete-screenshot-body"),
+      confirmText: t("common.delete"),
+      tone: "danger",
+    }))
+  )
+    return;
   try {
     await screenshotApi.deleteScreenshot({ id });
     await refreshRom();
-    snackbar.success(t("rom.screenshot-removed"), { icon: "mdi-check-bold" });
-  } catch (error: unknown) {
-    snackbar.error(
-      t("rom.screenshot-remove-failed", { error: errorMessage(error) }),
-      { icon: "mdi-close-circle" },
-    );
+    snackbar.success(t("rom.screenshot-removed"));
+  } catch (error) {
+    snackbar.error(errorMessage(error));
   }
 }
-
-// ---------- Visibility toggle ----------
-const togglingId = ref<number | null>(null);
 async function toggleVisibility(id: number, isPublic: boolean) {
-  if (togglingId.value != null) return;
+  if (togglingId.value !== null) return;
   togglingId.value = id;
   try {
     await screenshotApi.setScreenshotVisibility({ id, isPublic });
     await refreshRom();
-  } catch (error: unknown) {
-    snackbar.error(
-      t("rom.screenshot-visibility-failed", { error: errorMessage(error) }),
-      { icon: "mdi-close-circle" },
-    );
+  } catch (error) {
+    snackbar.error(errorMessage(error));
   } finally {
     togglingId.value = null;
   }
@@ -198,43 +252,118 @@ async function toggleVisibility(id: number, isPublic: boolean) {
 
 <template>
   <div class="r-v2-shots">
-    <!-- RomM presents shared screenshots read-only. -->
-    <section v-if="romScreenshots.length > 0" class="r-v2-shots__section">
+    <section
+      class="r-v2-shots__section"
+      aria-labelledby="provider-screenshots-heading"
+    >
       <header class="r-v2-shots__head">
-        <div class="r-v2-shots__head-text">
-          <h3 class="r-v2-shots__title">
-            {{ t("rom.screenshots-section-rom") }}
+        <div>
+          <h3 id="provider-screenshots-heading" class="r-v2-shots__title">
+            {{ t("rom.screenshots") }}
           </h3>
           <p class="r-v2-shots__subtitle">
             {{ t("rom.screenshots-section-rom-desc") }}
           </p>
         </div>
+        <RTooltip :text="t('common.refresh')"
+          ><RBtn
+            v-if="canRefresh"
+            icon="mdi-refresh"
+            :loading="refreshing"
+            :aria-label="t('common.refresh')"
+            @click="refreshProviderScreenshots"
+        /></RTooltip>
       </header>
-
-      <ScreenshotsTab :screenshots="romScreenshots" />
+      <div
+        v-if="refreshing && providerScreenshots.length === 0"
+        class="r-v2-shots__grid"
+      >
+        <RSkeletonBlock v-for="index in 3" :key="index" height="180" />
+      </div>
+      <REmptyState
+        v-else-if="providerScreenshots.length === 0"
+        :title="t('rom.screenshots-empty')"
+      />
+      <ul v-else class="r-v2-shots__grid">
+        <li
+          v-for="(item, index) in providerScreenshots"
+          :key="item.id"
+          class="r-v2-shots__candidate"
+        >
+          <button
+            type="button"
+            class="r-v2-shots__preview"
+            :aria-label="item.display_label"
+            @click="
+              providerLightboxIndex = index;
+              providerLightboxOpen = true;
+            "
+          >
+            <img :src="mediaContentUrl(item.id)" :alt="item.display_label" />
+          </button>
+          <p class="r-v2-shots__origin">
+            {{ item.provider ?? t("rom.screenshots") }}
+          </p>
+          <p v-if="hasPlacement(item, 'overview')" class="r-v2-shots__ordinal">
+            {{ placementPosition(item, "overview") }}
+          </p>
+          <div v-if="canManage" class="r-v2-shots__actions">
+            <RBtn
+              size="small"
+              :loading="mutatingId === item.id"
+              :aria-label="
+                hasPlacement(item, 'overview')
+                  ? t('common.remove')
+                  : t('common.add')
+              "
+              @click.stop="togglePlacement(item, 'overview')"
+              >{{
+                hasPlacement(item, "overview")
+                  ? t("common.remove")
+                  : t("common.add")
+              }}</RBtn
+            ><RBtn
+              size="small"
+              variant="outlined"
+              :loading="mutatingId === item.id"
+              :aria-label="
+                hasPlacement(item, 'background')
+                  ? t('common.remove')
+                  : t('common.add')
+              "
+              @click.stop="togglePlacement(item, 'background')"
+              >{{
+                hasPlacement(item, "background")
+                  ? t("common.remove")
+                  : t("common.add")
+              }}</RBtn
+            ><RTooltip :text="t('common.delete')"
+              ><RBtn
+                v-if="canDelete"
+                icon="mdi-delete-outline"
+                :loading="mutatingId === item.id"
+                :aria-label="t('common.delete')"
+                @click.stop="deleteProviderScreenshot(item)"
+            /></RTooltip>
+          </div>
+        </li>
+      </ul>
     </section>
-
-    <!-- My (per-user) screenshots -->
     <section class="r-v2-shots__section">
       <header class="r-v2-shots__head">
-        <div class="r-v2-shots__head-text">
-          <h3 class="r-v2-shots__title">
-            {{ t("rom.screenshots-section-mine") }}
-          </h3>
-        </div>
+        <h3 class="r-v2-shots__title">
+          {{ t("rom.screenshots-section-mine") }}
+        </h3>
         <RBtn
-          v-if="myScreenshots.length > 0"
+          v-if="myScreenshots.length"
           variant="outlined"
           size="small"
-          prepend-icon="mdi-cloud-upload-outline"
           @click="myDz?.open()"
+          >{{ t("common.upload") }}</RBtn
         >
-          {{ t("common.upload") }}
-        </RBtn>
       </header>
-
       <RDropzone
-        v-if="myScreenshots.length === 0"
+        v-if="!myScreenshots.length"
         :title="t('rom.screenshots-empty')"
         :hint="t('common.dropzone-hint')"
         :active-title="t('common.dropzone-drag-over')"
@@ -242,76 +371,118 @@ async function toggleVisibility(id: number, isPublic: boolean) {
         accept="image/*"
         multiple
         @files="handleMyFiles"
-      />
-      <RDropzone
+      /><RDropzone
         v-else
         ref="myDz"
         overlay
-        :release-label="t('common.dropzone-drag-over')"
         :input-label="t('rom.upload-screenshots')"
         accept="image/*"
         multiple
         @files="handleMyFiles"
-      >
-        <ScreenshotsTab
+        ><ScreenshotsTab
           :screenshots="myScreenshots"
           deletable
           togglable
           :toggling-id="togglingId"
           @delete="deleteMyScreenshot"
           @toggle-visibility="toggleVisibility"
-        />
-      </RDropzone>
+      /></RDropzone>
     </section>
-
-    <!-- Community (others' public) screenshots -->
-    <section v-if="communityScreenshots.length > 0" class="r-v2-shots__section">
-      <header class="r-v2-shots__head">
-        <div class="r-v2-shots__head-text">
-          <h3 class="r-v2-shots__title">
-            {{ t("rom.screenshots-section-community") }}
-          </h3>
-        </div>
-      </header>
+    <section v-if="communityScreenshots.length" class="r-v2-shots__section">
+      <h3 class="r-v2-shots__title">
+        {{ t("rom.screenshots-section-community") }}
+      </h3>
       <ScreenshotsTab :screenshots="communityScreenshots" />
     </section>
   </div>
+  <RCarousel
+    v-if="providerLightboxOpen"
+    v-model="providerLightboxIndex"
+    :items="providerUrls"
+    fullscreen
+    show-thumbnails
+    :aria-label="t('rom.screenshots')"
+    @close="providerLightboxOpen = false"
+    ><template #default="{ item, index }"
+      ><img
+        :src="item"
+        :alt="providerScreenshots[index]?.display_label" /></template
+    ><template #thumbnail="{ item, index }"
+      ><img
+        :src="item"
+        :alt="providerScreenshots[index]?.display_label" /></template
+  ></RCarousel>
 </template>
 
 <style scoped>
 .r-v2-shots {
   display: flex;
-  flex-direction: column;
-  gap: 24px;
   flex: 1;
+  flex-direction: column;
+  gap: var(--r-space-6);
   min-height: 0;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--r-color-border-strong) transparent;
-  padding-right: 4px;
 }
-
 .r-v2-shots__section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--r-space-4);
 }
-
 .r-v2-shots__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--r-space-4);
 }
 .r-v2-shots__title {
   margin: 0;
-  font-size: 14px;
-  font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
+  font-size: var(--r-font-size-lg);
+  font-weight: var(--r-font-weight-semibold);
 }
-.r-v2-shots__subtitle {
-  margin: 2px 0 0;
-  font-size: 12px;
+.r-v2-shots__subtitle,
+.r-v2-shots__origin,
+.r-v2-shots__ordinal {
+  margin: 0;
   color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-sm);
+}
+.r-v2-shots__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--r-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.r-v2-shots__candidate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-2);
+  padding: var(--r-space-4);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+  background: var(--r-color-bg-elevated);
+}
+.r-v2-shots__preview {
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--r-radius-md);
+  background: transparent;
+  cursor: pointer;
+}
+.r-v2-shots__preview img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--r-color-cover-placeholder);
+}
+.r-v2-shots__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r-space-2);
 }
 </style>
