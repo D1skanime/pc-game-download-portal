@@ -13,6 +13,9 @@ describe("ArtworkSubtab owned artwork management", () => {
     expect(source).toContain("hasPlacement");
     expect(source).toContain("togglePlacement");
     expect(source).toContain("replaceOwnedMediaPlacements");
+    expect(source).toContain('t("rom.backgrounds")');
+    expect(source).toContain('t("rom.add-as-background")');
+    expect(source).toContain('t("rom.remove-as-background")');
   });
 
   it("uses the owned-media upload and deletion lifecycle", () => {

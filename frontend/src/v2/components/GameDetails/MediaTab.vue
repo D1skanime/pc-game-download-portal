@@ -190,14 +190,7 @@ const subtabDefs = computed<SubtabDef[]>(() => [
         role="tabpanel"
         aria-label="Soundtrack"
       >
-        <REmptyState
-          v-if="
-            !rom.has_soundtrack &&
-            !rom.owned_media?.some((item) => item.role === 'soundtrack')
-          "
-          :title="t('rom.soundtrack-empty')"
-        />
-        <SoundtrackPanel v-else :rom="rom" class="r-v2-media__soundtrack" />
+        <SoundtrackPanel :rom="rom" class="r-v2-media__soundtrack" />
       </section>
     </div>
   </div>

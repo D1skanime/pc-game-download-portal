@@ -2,6 +2,7 @@
 import {
   RBtn,
   RCarousel,
+  RChip,
   RDropzone,
   REmptyState,
   RSkeletonBlock,
@@ -355,18 +356,23 @@ async function deleteArtwork(item: RomOwnedMediaSchema) {
             />
           </button>
           <p class="r-v2-art__origin">{{ item.origin }}</p>
-          <p v-if="backgroundPosition(item) != null" class="r-v2-art__ordinal">
-            {{ backgroundPosition(item)! + 1 }}
-          </p>
+          <RChip v-if="backgroundPosition(item) != null" size="small">
+            {{ t("rom.backgrounds") }} #{{ backgroundPosition(item)! + 1 }}
+          </RChip>
           <div v-if="canManage" class="r-v2-art__actions">
             <RBtn
               size="small"
               :loading="mutatingId === item.id"
+              :aria-label="
+                hasPlacement(item, 'background')
+                  ? t('rom.remove-as-background')
+                  : t('rom.add-as-background')
+              "
               @click="togglePlacement(item)"
               >{{
                 hasPlacement(item, "background")
-                  ? t("common.remove")
-                  : t("common.add")
+                  ? t("rom.remove-as-background")
+                  : t("rom.add-as-background")
               }}</RBtn
             ><RTooltip
               v-if="item.origin === 'upload' && canDelete"
