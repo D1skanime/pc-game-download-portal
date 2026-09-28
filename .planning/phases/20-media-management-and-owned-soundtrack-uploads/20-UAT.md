@@ -1,7 +1,7 @@
 ---
 phase: 20
 plan: "08"
-status: awaiting-human-browser-uat
+status: approved
 language: de
 created: 2026-09-28
 ---
@@ -16,7 +16,21 @@ oder Docker Compose.
 
 Automatisiert bestätigt: MariaDB- und PostgreSQL-Migrationszyklen, OpenAPI-
 Generierung, Typecheck, Produktions-Build, Locale-Prüfungen sowie 91 Vitest-
-Dateien mit 818 Tests. Die Browser-Prüfung selbst ist noch nicht erfolgt.
+Dateien mit 818 Tests.
+
+## Freigabeprotokoll
+
+**Ergebnis:** APPROVED
+
+Der Nutzer hat die Phase-20-UAT nach dem Legacy-Media-Backfill freigegeben.
+Für Witcher 3 zeigt Media die migrierten Screenshots und Artwork-Kandidaten;
+der Management-Workflow wurde akzeptiert. Diese Nachprüfung betrifft nur
+RomM-eigene Katalog- und Resource-Medien. Sie bestätigt keine Änderung an der
+Quellbibliothek, dem NAS, Team4s oder Docker Compose.
+
+**Erneut geprüfter Migrationsfall:** Legacy-ROM 13 (Witcher 3), dessen
+persistierte RomM-Medien durch Revision 0129 als verwaltbare Kandidaten
+sichtbar sind.
 
 ## Vorbereitung
 

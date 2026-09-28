@@ -1,7 +1,7 @@
 ---
 phase: 20
 slug: media-management-and-owned-soundtrack-uploads
-status: automated-evidence-recorded-awaiting-browser-uat
+status: browser-uat-approved-with-documented-automated-limitations
 nyquist_compliant: false
 updated: 2026-09-28
 ---
@@ -28,6 +28,17 @@ The new Phase-20 verifier preserves first failure and cleanup. It is derived fro
 the established Phase-18 verifier, with Phase-20-specific container, database,
 and authentication names.
 
+## Pending plan revision: legacy owned-media backfill
+
+Plan 20-10 adds revision `0129_backfill_legacy_rom_owned_media` after the recorded
+0127/0128 cross-dialect evidence. Its independent SQLite migration simulation and
+catalog-first UI regressions are recorded in `20-10-SUMMARY.md`, but this Plan-08
+record does not claim a rerun of the MariaDB/PostgreSQL cycle through 0129. The
+user-approved ROM 13 recheck confirms migrated screenshots and artwork are now
+visible and manageable in Media. The planned destructive tombstone/normal-scan/
+explicit-refresh sequence was not separately reported by the user and is not
+inferred here.
+
 ## Product evidence
 
 | Check                           | Command                                                                                                                                                                                                                                                                                                                                        | Outcome                                                                                                                                                                                                                                                                   | Log                                                                                  |
@@ -46,19 +57,29 @@ and authentication names.
 
 ## Requirement and threat matrix
 
-| Item         | Status                   | Evidence / remaining work                                                                                              |
-| ------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| MEDIA-01..03 | PARTIAL                  | Migration, generation, typecheck, build, and full Vitest pass. Backend suite is topology-blocked; browser UAT remains. |
-| MEDIA-04     | PARTIAL                  | Typecheck/build pass. Reduced-motion browser result remains.                                                           |
-| MEDIA-05     | PARTIAL                  | Both migration cycles pass. Cleanup tests are topology-blocked; browser UAT remains.                                   |
-| MEDIA-06     | PARTIAL                  | Typecheck, build, and full Vitest pass. Browser playback UAT remains.                                                  |
-| MEDIA-07     | PARTIAL                  | Typecheck, build, locale parity, and sort pass. Browser theme, input, and breakpoint checks remain.                    |
-| T-20-17      | MITIGATED FOR AUTOMATION | Exact commands, outcomes, and log paths are recorded.                                                                  |
-| T-20-18      | PENDING HUMAN UAT        | `20-UAT.md` confines verification to RomM-owned UI media.                                                              |
-| T-20-SC      | SATISFIED                | No package installation occurred.                                                                                      |
+| Item         | Status                   | Evidence / remaining work                                                                                                                            |
+| ------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MEDIA-01..03 | PARTIAL                  | Generation, typecheck, build, full Vitest, and browser UAT pass. Focused backend tests are topology-blocked; no cross-dialect 0129 rerun is claimed. |
+| MEDIA-04     | PARTIAL                  | Typecheck/build pass. Reduced-motion browser result remains.                                                                                         |
+| MEDIA-05     | PARTIAL                  | Both migration cycles pass. Cleanup tests are topology-blocked; browser UAT remains.                                                                 |
+| MEDIA-06     | PARTIAL                  | Typecheck, build, and full Vitest pass. Browser playback UAT remains.                                                                                |
+| MEDIA-07     | PARTIAL                  | Typecheck, build, locale parity, and sort pass. Browser theme, input, and breakpoint checks remain.                                                  |
+| T-20-17      | MITIGATED FOR AUTOMATION | Exact commands, outcomes, and log paths are recorded.                                                                                                |
+| T-20-18      | PENDING HUMAN UAT        | `20-UAT.md` confines verification to RomM-owned UI media.                                                                                            |
+| T-20-SC      | SATISFIED                | No package installation occurred.                                                                                                                    |
+
+## Browser UAT evidence
+
+The Phase 20 browser UAT is APPROVED by the user after the legacy-owned-media
+backfill. The Witcher 3 Media view was rechecked and displays migrated
+screenshots and artwork candidates; the owned-media management workflow was
+accepted. This observation is limited to RomM-owned catalog/resource media and
+does not authorize or evidence a source-library, NAS, Team4s, or Compose
+change. See `20-UAT.md` for the German user-facing record and retained detailed
+checklist.
 
 ## Phase gate
 
-Automation evidence is recorded, not approved. Browser UAT in `20-UAT.md` is
-the blocking human checkpoint. The backend topology blocker and incomplete
-repository-wide Trunk result remain visible and unmasked.
+Browser UAT in `20-UAT.md` is approved. The backend topology blocker, absent
+cross-dialect 0129 rerun, and incomplete repository-wide Trunk result remain
+visible and unmasked; none is represented as a passing automated gate.
