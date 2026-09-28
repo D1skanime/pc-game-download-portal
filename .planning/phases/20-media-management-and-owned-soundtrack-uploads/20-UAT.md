@@ -14,6 +14,10 @@ Bitte nur Witcher 3 in der v2-Media-Oberfläche prüfen. Alle Aktionen dürfen
 nur RomM-eigene Medien betreffen. Nicht ändern: Quellbibliothek, NAS, Team4s
 oder Docker Compose.
 
+Automatisiert bestätigt: MariaDB- und PostgreSQL-Migrationszyklen, OpenAPI-
+Generierung, Typecheck, Produktions-Build, Locale-Prüfungen sowie 91 Vitest-
+Dateien mit 818 Tests. Die Browser-Prüfung selbst ist noch nicht erfolgt.
+
 ## Vorbereitung
 
 - [ ] Angemeldet, v2 aktiviert, Witcher 3 geöffnet, Reiter **Media** gewählt.
