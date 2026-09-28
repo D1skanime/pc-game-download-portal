@@ -21,6 +21,8 @@ import type {
   PcLocalMediaSelectionRequest,
   PcLocalMediaSelectionResponse,
   RomOwnedMediaPlacementMutationRequest,
+  RomOwnedMediaReorderRequest,
+  RomOwnedMediaRole,
   RomOwnedMediaSchema,
   RomOwnedMediaSurface,
 } from "@/__generated__";
@@ -389,6 +391,47 @@ async function removeOwnedMediaPlacement({
 }) {
   return api.delete<DetailedRom>(`/roms/${romId}/media/placements/${mediaId}`, {
     params: { surface, expected_version: expectedVersion },
+  });
+}
+
+async function replaceOwnedMediaPlacements({
+  romId,
+  surface,
+  mediaIds,
+  expectedVersion,
+}: {
+  romId: number;
+  surface: RomOwnedMediaSurface;
+  mediaIds: number[];
+  expectedVersion: string;
+}) {
+  const payload: RomOwnedMediaReorderRequest = {
+    surface,
+    media_ids: mediaIds,
+    expected_version: expectedVersion,
+  };
+  return api.put<DetailedRom>(`/roms/${romId}/media/placements`, payload);
+}
+
+async function uploadOwnedMedia({
+  romId,
+  role,
+  file,
+  expectedVersion,
+  onUploadProgress,
+}: {
+  romId: number;
+  role: RomOwnedMediaRole;
+  file: File;
+  expectedVersion: string;
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void;
+}) {
+  const formData = new FormData();
+  formData.append("role", role);
+  formData.append("expected_version", expectedVersion);
+  formData.append("media", file, file.name);
+  return api.post<DetailedRom>(`/roms/${romId}/media/upload`, formData, {
+    onUploadProgress,
   });
 }
 
@@ -878,6 +921,8 @@ export default {
   refreshOwnedMedia,
   setOwnedMediaPlacement,
   removeOwnedMediaPlacement,
+  replaceOwnedMediaPlacements,
+  uploadOwnedMedia,
   deleteOwnedMedia,
   getPcMetadataCandidates,
   searchPcMetadataCandidates,
