@@ -69,11 +69,12 @@ The existing owned-soundtrack upload flow remains unchanged.
 
 On navigation to a ROM detail page, the view derives the selected local tracks
 from the detailed ROM, randomly selects one, and gives its protected file URL
-to the shared audio element. It uses the same lifecycle cleanup as visual
-background rotation. On route leave, selected-ROM change, failed fetch, empty
-selection, or an audio decoding/autoplay failure, it stops and clears the
-audio state. Browser autoplay restrictions may leave the page silent by
-design; no fallback play control is rendered.
+to a dedicated hidden background-audio element. It uses the same lifecycle
+cleanup as visual background rotation and does not use the interactive
+soundtrack player or its mini-player. On route leave, selected-ROM change,
+failed fetch, empty selection, or an audio decoding/autoplay failure, it stops
+and clears the audio state. Browser autoplay restrictions may leave the page
+silent by design; no fallback play control is rendered.
 
 ## Error Handling
 
