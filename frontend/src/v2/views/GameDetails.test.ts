@@ -55,6 +55,16 @@ describe("GameDetails", () => {
     expect(setBackground).toHaveBeenCalledTimes(3);
   });
 
+  it("restarts the rotation when the selected background list changes", () => {
+    const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
+
+    expect(source).toContain("watch(");
+    expect(source).toContain(
+      "[selectedBackgrounds, resolvedCover, isActiveDetailsRoute, reducedMotion]",
+    );
+    expect(source).toContain("{ immediate: true }");
+  });
+
   it("keeps the first background static when motion is reduced or a list is singular", () => {
     vi.useFakeTimers();
     const setBackground = vi.fn();

@@ -31,7 +31,7 @@ export function scheduleBackgroundRotation(
 import { RBtn, RTabNav, type RTabNavItem } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, ref, watch, watchEffect } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
@@ -211,20 +211,28 @@ const selectedBackgrounds = computed(() => {
 });
 const isActiveDetailsRoute = computed(() => route.name === ROUTES.ROM);
 
-watchEffect((onCleanup) => {
-  if (!isActiveDetailsRoute.value) {
-    setBgArt(resolvedCover.value);
-    return;
-  }
-  onCleanup(
-    scheduleBackgroundRotation(
-      selectedBackgrounds.value,
-      resolvedCover.value,
-      !reducedMotion.value,
-      setBgArt,
-    ),
-  );
-});
+watch(
+  [selectedBackgrounds, resolvedCover, isActiveDetailsRoute, reducedMotion],
+  (
+    [backgrounds, fallback, isDetailsRoute, motionReduced],
+    _previous,
+    onCleanup,
+  ) => {
+    if (!isDetailsRoute) {
+      setBgArt(fallback);
+      return;
+    }
+    onCleanup(
+      scheduleBackgroundRotation(
+        backgrounds,
+        fallback,
+        !motionReduced,
+        setBgArt,
+      ),
+    );
+  },
+  { immediate: true },
+);
 
 const lastPlayed = computed(() => {
   const ts = currentRom.value?.rom_user?.last_played;
