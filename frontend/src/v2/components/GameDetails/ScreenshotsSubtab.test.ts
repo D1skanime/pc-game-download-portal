@@ -32,4 +32,11 @@ describe("ScreenshotsSubtab provider candidates", () => {
     expect(source).toContain("aria-label");
     expect(source).toContain("RSkeletonBlock");
   });
+
+  it("renders migrated provider catalog entries without relying on legacy overview data", () => {
+    expect(source).toContain("props.rom.owned_media ?? []");
+    expect(source).toContain('item.role === "screenshot"');
+    expect(source).toContain("providerScreenshots.length");
+    expect(source).not.toContain("merged_screenshots");
+  });
 });

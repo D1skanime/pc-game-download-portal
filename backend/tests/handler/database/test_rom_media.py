@@ -50,6 +50,24 @@ def test_model_keeps_candidate_and_placements_independent(rom):
     assert candidate.rom_id == rom.id
 
 
+def test_detailed_rom_contract_loads_owned_catalog_before_any_legacy_refresh():
+    handler_source = (
+        Path(__file__).parents[3] / "handler/database/roms_handler.py"
+    ).read_text()
+    response_source = (
+        Path(__file__).parents[3] / "endpoints/responses/rom.py"
+    ).read_text()
+
+    assert (
+        "selectinload(Rom.owned_media).selectinload(RomOwnedMedia.placements)"
+        in handler_source
+    )
+    assert "owned_media: list[RomOwnedMediaSchema]" in response_source
+    assert (
+        "owned_media_placements: list[RomOwnedMediaPlacementSchema]" in response_source
+    )
+
+
 def test_cleanup_intent_only_accepts_generated_owned_resource_path(rom):
     intent = OwnedMediaCleanupIntent(
         rom_id=rom.id,
