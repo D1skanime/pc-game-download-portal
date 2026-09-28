@@ -407,6 +407,14 @@ def should_scan_rom(
                         for source in metadata_sources
                     )
                 )
+                or (
+                    scan_type == ScanType.UPDATE
+                    and rom.platform_slug == UPS.WIN
+                    and rom.steam_id is not None
+                    and rom.steam_id > 0
+                    and not rom.igdb_id
+                    and MetadataSource.IGDB in metadata_sources
+                )
                 # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
                 or (
                     scan_type == ScanType.UNMATCHED
