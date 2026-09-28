@@ -16,6 +16,13 @@ describe("ScreenshotsSubtab provider candidates", () => {
     expect(source).toContain("removeOwnedMediaPlacement");
   });
 
+  it("names each placement action by its destination", () => {
+    expect(source).toContain('t("rom.add-to-overview")');
+    expect(source).toContain('t("rom.remove-from-overview")');
+    expect(source).toContain('t("rom.add-as-background")');
+    expect(source).toContain('t("rom.remove-as-background")');
+  });
+
   it("uses guarded owned-media mutations with conflict recovery", () => {
     expect(source).toContain("useCan");
     expect(source).toContain('tone: "danger"');

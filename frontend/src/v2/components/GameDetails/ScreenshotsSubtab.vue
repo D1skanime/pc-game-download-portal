@@ -313,14 +313,14 @@ async function toggleVisibility(id: number, isPublic: boolean) {
               :loading="mutatingId === item.id"
               :aria-label="
                 hasPlacement(item, 'overview')
-                  ? t('common.remove')
-                  : t('common.add')
+                  ? t('rom.remove-from-overview')
+                  : t('rom.add-to-overview')
               "
               @click.stop="togglePlacement(item, 'overview')"
               >{{
                 hasPlacement(item, "overview")
-                  ? t("common.remove")
-                  : t("common.add")
+                  ? t("rom.remove-from-overview")
+                  : t("rom.add-to-overview")
               }}</RBtn
             ><RBtn
               size="small"
@@ -328,14 +328,14 @@ async function toggleVisibility(id: number, isPublic: boolean) {
               :loading="mutatingId === item.id"
               :aria-label="
                 hasPlacement(item, 'background')
-                  ? t('common.remove')
-                  : t('common.add')
+                  ? t('rom.remove-as-background')
+                  : t('rom.add-as-background')
               "
               @click.stop="togglePlacement(item, 'background')"
               >{{
                 hasPlacement(item, "background")
-                  ? t("common.remove")
-                  : t("common.add")
+                  ? t("rom.remove-as-background")
+                  : t("rom.add-as-background")
               }}</RBtn
             ><RTooltip :text="t('common.delete')"
               ><RBtn
