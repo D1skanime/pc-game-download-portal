@@ -529,13 +529,38 @@ Plans:
 **Goal:** Repair automatic Windows PC scans so compact names resolve with IGDB as reliably as Steam; repair existing Steam-only Windows PC records on IGDB-selected metadata refresh without duplicates; preserve fail-closed IGDB-first DLC/expansion enrichment and explicit manual component selection.
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06
 **Depends on:** Phase 18
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 **Wave 1**
 
-- [ ] 19-01-PLAN.md — Normalize compact Windows lookup titles only at the automatic IGDB name-search boundary.
+- [x] 19-01-PLAN.md — Normalize compact Windows lookup titles only at the automatic IGDB name-search boundary.
 
 **Wave 2** _(blocked on Wave 1 completion)_
 
-- [ ] 19-02-PLAN.md — Recover Steam-only Windows metadata in place and prove safe DLC/expansion enrichment.
+- [x] 19-02-PLAN.md — Recover Steam-only Windows metadata in place and prove safe DLC/expansion enrichment.
+
+### Phase 20: Media management and owned soundtrack uploads
+
+**Goal:** Let operators manage provider and RomM-owned game media, select ordered overview/background assets, and upload/order/play owned soundtracks without any write to the external source library.
+**Requirements**: MEDIA-01, MEDIA-02, MEDIA-03, MEDIA-04, MEDIA-05, MEDIA-06, MEDIA-07
+**Depends on:** Phase 19
+**Plans:** 5 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 20-01-PLAN.md — Persist parent-ROM owned-media candidates, tombstones, placements, and safe ordering.
+
+**Wave 2**
+
+- [ ] 20-02-PLAN.md — Expose protected owned-media storage and API contracts.
+
+**Wave 3**
+
+- [ ] 20-03-PLAN.md — Deliver provider screenshot management in v2 Media.
+- [ ] 20-04-PLAN.md — Deliver artwork/background ordering and reduced-motion-aware rotation.
+
+**Wave 4**
+
+- [ ] 20-05-PLAN.md — Deliver owned soundtrack queue/player behavior and Media translations.
