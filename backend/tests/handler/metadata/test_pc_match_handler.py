@@ -324,6 +324,49 @@ async def test_fetch_unique_related_dlc_match_accepts_valid_hydration():
     assert candidate.title == "Kingdom Come: Deliverance - A Woman's Lot"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("relationship", "relative_path", "title", "igdb_id"),
+    [
+        (
+            "dlcs",
+            "dlc/special-transport",
+            "Euro Truck Simulator 2: Special Transport",
+            187060,
+        ),
+        (
+            "expansions",
+            "dlc/italia",
+            "Euro Truck Simulator 2: Italia",
+            163602,
+        ),
+    ],
+)
+async def test_component_enrichment_hydrates_exact_euro_truck_relation(
+    relationship, relative_path, title, igdb_id
+):
+    igdb = Mock()
+    igdb.get_matched_rom_by_id = AsyncMock(
+        return_value={
+            "igdb_id": igdb_id,
+            "name": title,
+            "summary": "A related Euro Truck Simulator 2 component.",
+        }
+    )
+    handler = PcMetadataMatchHandler(providers={"igdb": igdb})
+    rom = Mock(name="Euro Truck Simulator 2")
+    rom.igdb_id = 3070
+    rom.igdb_metadata = {relationship: [{"id": igdb_id, "name": title}]}
+    component = Mock(relative_path=relative_path, manifest_members=[])
+
+    candidate = await handler.fetch_unique_related_igdb_candidate(rom, component)
+
+    assert candidate is not None
+    assert candidate.provider_ids == {"igdb_id": igdb_id}
+    assert candidate.title == title
+    igdb.get_matched_rom_by_id.assert_awaited_once_with(rom, igdb_id)
+
+
 @pytest.mark.parametrize(
     ("fullgame", "expected"),
     [

@@ -184,6 +184,42 @@ async def test_scan_enrichment_stops_after_igdb_hydration_failure(mocker):
     db.apply_pc_component_metadata_candidate.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("title", "igdb_id"),
+    [
+        ("Euro Truck Simulator 2: Special Transport", 187060),
+        ("Euro Truck Simulator 2: Italia", 163602),
+    ],
+)
+async def test_scan_enrichment_persists_exact_related_igdb_component_before_steam(
+    mocker, title, igdb_id
+):
+    rom = MagicMock(id=7, igdb_id=3070)
+    component = MagicMock(id=11, kind=RomComponentKind.DLC, updated_at=object())
+    candidate = PcMetadataCandidate(
+        id=f"candidate-igdb-{igdb_id}",
+        provider="igdb",
+        title=title,
+        provider_ids={"igdb_id": igdb_id},
+        description_available=True,
+        fields={"igdb_id": igdb_id, "name": title, "igdb_metadata": {}},
+        media=[],
+    )
+    saved = MagicMock(id=11, updated_at=object())
+    db = mocker.patch.object(scan_module, "db_rom_handler")
+    db.apply_pc_component_metadata_candidate.return_value = saved
+    matcher = mocker.patch.object(scan_module, "pc_metadata_match_handler")
+    matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=candidate)
+    matcher.fetch_validated_steam_dlc = AsyncMock(return_value=None)
+
+    await scan_module._enrich_pc_dlc_from_igdb(rom, component)
+
+    db.apply_pc_component_metadata_candidate.assert_called_once_with(
+        rom.id, component.id, component.updated_at, "igdb", candidate.fields
+    )
+    matcher.fetch_validated_steam_dlc.assert_awaited_once_with(rom, candidate)
+
+
 async def test_merging_scan_stats():
     stats = ScanStats(
         scanned_platforms=1,
