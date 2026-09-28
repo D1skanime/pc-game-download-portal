@@ -1,3 +1,26 @@
+<script lang="ts">
+import type { SetBackgroundArt } from "@/v2/composables/useBackgroundArt";
+
+export const BACKGROUND_ROTATION_MS = 10_000;
+
+export function scheduleBackgroundRotation(
+  backgrounds: string[],
+  fallback: string | null,
+  shouldRotate: boolean,
+  setBackground: SetBackgroundArt,
+): () => void {
+  setBackground(backgrounds[0] ?? fallback);
+  if (!shouldRotate || backgrounds.length < 2) return () => undefined;
+
+  let index = 0;
+  const interval = setInterval(() => {
+    index = (index + 1) % backgrounds.length;
+    setBackground(backgrounds[index]);
+  }, BACKGROUND_ROTATION_MS);
+  return () => clearInterval(interval);
+}
+</script>
+
 <script setup lang="ts">
 // GameDetails — artist-mockup layout.
 //
@@ -8,10 +31,11 @@
 import { RBtn, RTabNav, type RTabNavItem } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, ref, watch } from "vue";
+import { computed, inject, ref, watch, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
@@ -32,6 +56,7 @@ import PcLocalMediaReview from "@/v2/components/GameDetails/PcLocalMediaReview.v
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
@@ -46,6 +71,7 @@ const { locale, t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 
 const setBgArt = useBackgroundArt();
+const { enabled: reducedMotion } = useReducedMotion();
 
 // Param-change navigation guard — the route's `beforeEnter` in
 // `plugins/router.ts` only fires on initial entry; navigating between
@@ -151,22 +177,38 @@ const coverPath = computed(() => {
 
 const coverFallback = computed(() => currentRom.value?.url_cover ?? null);
 const resolvedCover = computed(() => coverPath.value ?? coverFallback.value);
-const selectedBackground = computed(() => {
-  const media = currentRom.value?.components
-    ?.flatMap((component) => component.local_media ?? [])
-    .find((entry) => entry.role === "background");
-  return media
-    ? `${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${currentRom.value?.updated_at}`
-    : null;
+const selectedBackgrounds = computed(() => {
+  const rom = currentRom.value;
+  if (!rom) return [];
+  const mediaById = new Map(
+    (rom.owned_media ?? []).map((item) => [item.id, item]),
+  );
+  return (rom.owned_media_placements ?? [])
+    .filter((placement) => placement.surface === "background")
+    .toSorted((a, b) => a.position - b.position)
+    .flatMap((placement) => {
+      const media = mediaById.get(placement.media_id);
+      return media?.owned_path
+        ? [`${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${rom.updated_at}`]
+        : [];
+    });
 });
+const isActiveDetailsRoute = computed(() => route.name === ROUTES.ROM);
 
-watch(
-  [resolvedCover, selectedBackground],
-  ([cover, background]) => {
-    if (cover || background) setBgArt(background ?? cover);
-  },
-  { immediate: true },
-);
+watchEffect((onCleanup) => {
+  if (!isActiveDetailsRoute.value) {
+    setBgArt(resolvedCover.value);
+    return;
+  }
+  onCleanup(
+    scheduleBackgroundRotation(
+      selectedBackgrounds.value,
+      resolvedCover.value,
+      !reducedMotion.value,
+      setBgArt,
+    ),
+  );
+});
 
 const lastPlayed = computed(() => {
   const ts = currentRom.value?.rom_user?.last_played;

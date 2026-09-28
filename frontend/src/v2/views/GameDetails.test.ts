@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { scheduleBackgroundRotation } from "./GameDetails.vue";
 
 describe("GameDetails", () => {
   it("passes the current parent ROM id to OverviewTab", () => {
@@ -24,4 +25,50 @@ describe("GameDetails", () => {
       /<PatcherTab\s+v-if="tab === 'patcher' && !isPcRom"\s+:rom="currentRom"\s+\/>/,
     );
   });
+
+  it("rotates backgrounds in confirmed server order and cleans up its interval", () => {
+    vi.useFakeTimers();
+    const setBackground = vi.fn();
+    const stop = scheduleBackgroundRotation(
+      ["first", "second", "third"],
+      "cover",
+      true,
+      setBackground,
+    );
+
+    expect(setBackground).toHaveBeenLastCalledWith("first");
+    vi.advanceTimersByTime(10_000);
+    expect(setBackground).toHaveBeenLastCalledWith("second");
+    vi.advanceTimersByTime(10_000);
+    expect(setBackground).toHaveBeenLastCalledWith("third");
+    stop();
+    vi.advanceTimersByTime(10_000);
+    expect(setBackground).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps the first background static when motion is reduced or a list is singular", () => {
+    vi.useFakeTimers();
+    const setBackground = vi.fn();
+    const reducedStop = scheduleBackgroundRotation(
+      ["first", "second"],
+      "cover",
+      false,
+      setBackground,
+    );
+    vi.advanceTimersByTime(30_000);
+    expect(setBackground).toHaveBeenCalledTimes(1);
+    reducedStop();
+
+    const singleStop = scheduleBackgroundRotation(
+      ["first"],
+      "cover",
+      true,
+      setBackground,
+    );
+    vi.advanceTimersByTime(30_000);
+    expect(setBackground).toHaveBeenCalledTimes(2);
+    singleStop();
+  });
 });
+
+afterEach(() => vi.useRealTimers());
