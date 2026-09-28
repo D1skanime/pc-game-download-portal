@@ -9,7 +9,7 @@ const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
 
 export interface PlayerTrack {
   romId: number;
-  fileId: number;
+  mediaId: number;
   fileName: string;
   url: string;
 }
@@ -119,7 +119,8 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const currentIndex = computed(() => {
     if (!track.value) return -1;
     return playlist.value.findIndex(
-      (p) => p.fileId === track.value!.fileId && p.romId === track.value!.romId,
+      (p) =>
+        p.mediaId === track.value!.mediaId && p.romId === track.value!.romId,
     );
   });
 
@@ -132,13 +133,13 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   function next() {
     if (!hasNext.value) return;
     const nextTrack = playlist.value[currentIndex.value + 1];
-    play(nextTrack, playlistMeta.value[nextTrack.fileId] ?? {});
+    play(nextTrack, playlistMeta.value[nextTrack.mediaId] ?? {});
   }
 
   function previous() {
     if (!hasPrevious.value) return;
     const prevTrack = playlist.value[currentIndex.value - 1];
-    play(prevTrack, playlistMeta.value[prevTrack.fileId] ?? {});
+    play(prevTrack, playlistMeta.value[prevTrack.mediaId] ?? {});
   }
 
   function stop() {
