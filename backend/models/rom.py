@@ -52,6 +52,7 @@ from models.base import (
     compute_file_name_parts,
 )
 from utils.database import CustomJSON
+from utils.filesystem import sanitize_filename
 
 # Max length of the precomputed natural-sort key column.
 NAME_SORT_KEY_MAX_LENGTH = 500
@@ -61,6 +62,7 @@ AUDIO_TAG_MAX_LENGTH = 512
 PC_COMPONENT_PATH_MAX_LENGTH = 700
 OWNED_MEDIA_PATH_MAX_LENGTH = 700
 OWNED_MEDIA_PROVIDER_ID_MAX_LENGTH = 450
+OWNED_MEDIA_DISPLAY_LABEL_MAX_LENGTH = 255
 ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
@@ -133,6 +135,12 @@ class RomOwnedMediaOrigin(enum.StrEnum):
     PROVIDER = "provider"
 
 
+class RomOwnedMediaRole(enum.StrEnum):
+    SCREENSHOT = "screenshot"
+    ARTWORK = "artwork"
+    SOUNDTRACK = "soundtrack"
+
+
 class RomOwnedMediaState(enum.StrEnum):
     ACTIVE = "active"
     TOMBSTONED = "tombstoned"
@@ -142,6 +150,38 @@ class RomOwnedMediaSurface(enum.StrEnum):
     OVERVIEW = "overview"
     BACKGROUND = "background"
     SOUNDTRACK = "soundtrack"
+
+
+def derive_owned_media_display_label(
+    filename: str, *, reject_unsafe_input: bool = False
+) -> str:
+    """Return a bounded, filename-only label for owned media intake."""
+    if not isinstance(filename, str) or any(ord(char) < 32 for char in filename):
+        raise ValueError("display label must not contain control characters")
+    if reject_unsafe_input and (
+        "/" in filename
+        or "\\" in filename
+        or "://" in filename
+        or filename.startswith(("/", "\\"))
+    ):
+        raise ValueError("display label must be a filename, not a path or URL")
+    filename = filename.replace("\\", "/")
+    return sanitize_filename(filename)[:OWNED_MEDIA_DISPLAY_LABEL_MAX_LENGTH]
+
+
+def validate_owned_media_display_label(label: str) -> str:
+    """Reject catalog labels that are not already safe filename-only values."""
+    if (
+        not isinstance(label, str)
+        or not label
+        or len(label) > OWNED_MEDIA_DISPLAY_LABEL_MAX_LENGTH
+        or any(ord(char) < 32 for char in label)
+        or "/" in label
+        or "\\" in label
+        or "://" in label
+    ):
+        raise ValueError("display label must be a bounded filename-only value")
+    return label
 
 
 class SiblingRom(BaseModel):
@@ -452,6 +492,9 @@ class RomOwnedMedia(BaseModel):
             "owned_path IS NULL OR (owned_path <> '' AND owned_path NOT LIKE '/%' AND owned_path NOT LIKE '%..%')",
             name="ck_rom_owned_media_owned_path_relative",
         ),
+        CheckConstraint(
+            "display_label <> ''", name="ck_rom_owned_media_display_label_nonempty"
+        ),
         UniqueConstraint(
             "rom_id",
             "provider",
@@ -472,6 +515,19 @@ class RomOwnedMedia(BaseModel):
             native_enum=False,
             create_constraint=True,
         )
+    )
+    role: Mapped[RomOwnedMediaRole] = mapped_column(
+        Enum(
+            RomOwnedMediaRole,
+            values_callable=lambda roles: [role.value for role in roles],
+            name="romownedmediarole",
+            native_enum=False,
+            create_constraint=True,
+        ),
+        default=RomOwnedMediaRole.SCREENSHOT,
+    )
+    display_label: Mapped[str] = mapped_column(
+        String(length=OWNED_MEDIA_DISPLAY_LABEL_MAX_LENGTH), default="Owned media"
     )
     state: Mapped[RomOwnedMediaState] = mapped_column(
         Enum(
@@ -499,6 +555,18 @@ class RomOwnedMedia(BaseModel):
         cascade="all, delete-orphan",
         order_by="RomOwnedMediaPlacement.position",
     )
+
+    @validates("role")
+    def validate_role_immutable(
+        self, _key: str, role: RomOwnedMediaRole
+    ) -> RomOwnedMediaRole:
+        if sa_inspect(self).persistent and role != self.role:
+            raise ValueError("owned media role is immutable")
+        return role
+
+    @validates("display_label")
+    def validate_display_label(self, _key: str, label: str) -> str:
+        return validate_owned_media_display_label(label)
 
 
 class RomOwnedMediaPlacement(BaseModel):

@@ -1,3 +1,8 @@
+import importlib.util
+from pathlib import Path
+
+import pytest
+from sqlalchemy.exc import IntegrityError
 from tests.conftest import session
 
 from handler.database import db_rom_handler
@@ -6,7 +11,9 @@ from models.rom import (
     RomOwnedMedia,
     RomOwnedMediaOrigin,
     RomOwnedMediaPlacement,
+    RomOwnedMediaRole,
     RomOwnedMediaSurface,
+    derive_owned_media_display_label,
 )
 
 
@@ -116,3 +123,102 @@ def test_complete_reorder_rejects_incomplete_membership(rom):
         )
         is None
     )
+
+
+@pytest.mark.parametrize(
+    "role",
+    [
+        RomOwnedMediaRole.SCREENSHOT,
+        RomOwnedMediaRole.ARTWORK,
+        RomOwnedMediaRole.SOUNDTRACK,
+    ],
+)
+def test_owned_media_persists_each_supported_role(rom, role):
+    candidate = RomOwnedMedia(
+        rom_id=rom.id,
+        origin=RomOwnedMediaOrigin.UPLOAD,
+        role=role,
+        display_label="operator-upload.webp",
+        mime_type="image/webp",
+        owned_path="roms/1/media/upload/operator-upload.webp",
+    )
+
+    with session.begin() as db:
+        db.add(candidate)
+        db.flush()
+
+    assert candidate.role == role
+
+
+def test_owned_media_database_rejects_invalid_role(rom):
+    candidate = RomOwnedMedia(
+        rom_id=rom.id,
+        origin=RomOwnedMediaOrigin.UPLOAD,
+        role="cover",
+        display_label="operator-upload.webp",
+        mime_type="image/webp",
+        owned_path="roms/1/media/upload/operator-upload.webp",
+    )
+
+    with pytest.raises(IntegrityError):
+        with session.begin() as db:
+            db.add(candidate)
+            db.flush()
+
+
+def test_owned_media_role_is_immutable_after_persistence(rom):
+    candidate = RomOwnedMedia(
+        rom_id=rom.id,
+        origin=RomOwnedMediaOrigin.UPLOAD,
+        role=RomOwnedMediaRole.ARTWORK,
+        display_label="operator-upload.webp",
+        mime_type="image/webp",
+        owned_path="roms/1/media/upload/operator-upload.webp",
+    )
+    with session.begin() as db:
+        db.add(candidate)
+        db.flush()
+
+    with pytest.raises(ValueError, match="immutable"):
+        candidate.role = RomOwnedMediaRole.SOUNDTRACK
+
+
+def test_display_label_is_a_bounded_sanitized_basename():
+    label = derive_owned_media_display_label("nested\\operator:mix?01.flac" + "x" * 400)
+
+    assert label.startswith("operator-mix01.flac")
+    assert len(label) <= 255
+    assert "/" not in label
+    assert "\\" not in label
+    assert not any(char.isspace() and ord(char) < 32 for char in label)
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "/absolute.webp",
+        "relative/path.webp",
+        "relative\\path.webp",
+        "label\n.webp",
+        "https://provider.example/image.webp",
+    ],
+)
+def test_display_label_rejects_path_control_and_provider_url_values(label):
+    with pytest.raises(ValueError):
+        derive_owned_media_display_label(label, reject_unsafe_input=True)
+
+
+def test_owned_media_role_migration_is_additive_and_reversible():
+    migration_path = (
+        Path(__file__).parents[3]
+        / "alembic/versions/0123_owned_media_role_and_display_label.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "owned_media_role_migration", migration_path
+    )
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    assert migration.down_revision == "0127_parent_rom_owned_media"
+    assert migration.revision == "0128_owned_media_role_and_display_label"
