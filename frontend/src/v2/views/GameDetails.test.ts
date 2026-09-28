@@ -9,6 +9,15 @@ describe("GameDetails", () => {
     expect(source).toContain(':parent-rom-id="currentRom.id"');
   });
 
+  it("derives overview screenshots from selected owned-media placements", () => {
+    const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
+
+    expect(source).toContain("selectedOverviewScreenshots");
+    expect(source).toContain('placement.surface === "overview"');
+    expect(source).toContain('media?.role === "screenshot"');
+    expect(source).toContain(':screenshots="selectedOverviewScreenshots"');
+  });
+
   it("labels the PC download tab for players instead of the internal model", () => {
     const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
 

@@ -177,6 +177,22 @@ const coverPath = computed(() => {
 
 const coverFallback = computed(() => currentRom.value?.url_cover ?? null);
 const resolvedCover = computed(() => coverPath.value ?? coverFallback.value);
+const selectedOverviewScreenshots = computed(() => {
+  const rom = currentRom.value;
+  if (!rom) return [];
+  const mediaById = new Map(
+    (rom.owned_media ?? []).map((item) => [item.id, item]),
+  );
+  return (rom.owned_media_placements ?? [])
+    .filter((placement) => placement.surface === "overview")
+    .toSorted((a, b) => a.position - b.position)
+    .flatMap((placement) => {
+      const media = mediaById.get(placement.media_id);
+      return media?.role === "screenshot" && media.owned_path
+        ? [`${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${rom.updated_at}`]
+        : [];
+    });
+});
 const selectedBackgrounds = computed(() => {
   const rom = currentRom.value;
   if (!rom) return [];
@@ -378,7 +394,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :hltb="currentRom.hltb_metadata"
             :last-played="lastPlayed"
             :revision="currentRom.revision ?? null"
-            :screenshots="currentRom.merged_screenshots ?? []"
+            :screenshots="selectedOverviewScreenshots"
             :expansions="expansions"
             :dlcs="dlcs"
             :local-dlc-component-ids="localDlcComponentIds"
