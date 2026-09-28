@@ -419,8 +419,10 @@ hash-backed download manifest without changing the source library.
 
 1. A user can select a whole game or exact components and receive a stable,
    server-authorized manifest.
+
 2. Every manifest member has a safe relative destination path, exact byte size,
    and SHA-256 snapshot.
+
 3. Changed, expired, or unsafe snapshots fail clearly and never authorize a
    mixed source version.
 
@@ -443,6 +445,7 @@ large partial files without packaging or extracting content.
 
 1. A 100-GB-class original file is delivered as itself, never as a whole-game
    ZIP or ZIP part.
+
 2. A valid Range request resumes exactly at the verified partial byte offset.
 3. A changed source snapshot fails rather than mixing data from two versions.
 4. Sizes and offsets above 4 GiB remain correct and concurrency is bounded.
@@ -461,6 +464,7 @@ and distribution are cancelled product scope.
 
 1. The client resumes interrupted downloads after restart without re-downloading
    verified bytes.
+
 2. It validates SHA-256 and atomically completes each original file.
 3. It creates only manifest-authorized paths below the selected destination and
    clearly handles disk-full and permission failures.
@@ -482,11 +486,14 @@ installers, and distribution are not part of this phase.
 1. v2 creates an immutable manifest for a valid component or allowed file
    selection and downloads its original files without desktop software or ZIP
    packaging.
+
 2. Standard browser downloads work as the compatible baseline; File System
    Access is capability-detected and never required.
+
 3. The queue, transfer history, source-change handling, range protocol, and
    terminology distinguish browser handoff from a server-served response and
    enhanced-mode local verification.
+
 4. The complete flow leaves the NAS and source library unchanged, does not
    expose source paths, and covers large-file and multi-file evidence.
 
@@ -516,3 +523,19 @@ Plans:
 - [x] 18-13-PLAN.md — Diagnose and correct the two remaining parent-selection and component-persistence suite failures.
 - [x] 18-14-PLAN.md — Make the historical PostgreSQL 0118 metadata view replacement type-stable and portable.
 - [x] 18-15-PLAN.md — Re-run the 186-test Compose suite and full PostgreSQL cycle, then record final closure evidence.
+
+### Phase 19: Fix PC quick-scan IGDB matching and safe DLC/expansion enrichment
+
+**Goal:** Repair automatic Windows PC scans so compact names resolve with IGDB as reliably as Steam; repair existing Steam-only Windows PC records on IGDB-selected metadata refresh without duplicates; preserve fail-closed IGDB-first DLC/expansion enrichment and explicit manual component selection.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06
+**Depends on:** Phase 18
+**Plans:** 2 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 19-01-PLAN.md — Normalize compact Windows lookup titles only at the automatic IGDB name-search boundary.
+
+**Wave 2** _(blocked on Wave 1 completion)_
+
+- [ ] 19-02-PLAN.md — Recover Steam-only Windows metadata in place and prove safe DLC/expansion enrichment.
