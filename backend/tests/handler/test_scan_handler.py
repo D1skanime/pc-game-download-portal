@@ -7,7 +7,9 @@ import pytest
 from handler.scan_handler import (
     MetadataSource,
     _apply_metadata_handler_fields,
+    _is_steam_only_windows_igdb_recovery,
     _steam_artwork_handler,
+    _windows_igdb_lookup_name,
     resolve_steam_scan_metadata,
 )
 from models.platform import Platform
@@ -67,6 +69,42 @@ def test_derived_igdb_artworks_are_not_passed_to_the_rom_model():
         "igdb_id": 1877,
         "url_screenshots": ["https://cdn.example/artwork.jpg"],
     }
+
+
+@pytest.mark.parametrize(
+    ("fs_name", "expected"),
+    [
+        ("EuroTruckSimulator2", "Euro Truck Simulator 2"),
+        ("Euro Truck Simulator 2", "Euro Truck Simulator 2"),
+        ("EuroTruckSimulator2 (USA)", "Euro Truck Simulator 2"),
+    ],
+)
+def test_windows_igdb_lookup_name_normalizes_only_compact_titles(
+    fs_name: str, expected: str
+):
+    assert _windows_igdb_lookup_name(fs_name) == expected
+
+
+@pytest.mark.parametrize(
+    ("platform_slug", "steam_id", "igdb_id", "scan_type", "metadata_sources"),
+    [
+        ("win", 227300, None, "update", [MetadataSource.IGDB]),
+    ],
+)
+def test_steam_only_windows_igdb_recovery_requires_all_fields(
+    platform_slug: str,
+    steam_id: int | None,
+    igdb_id: int | None,
+    scan_type: str,
+    metadata_sources: list[MetadataSource],
+):
+    assert _is_steam_only_windows_igdb_recovery(
+        platform_slug,
+        steam_id,
+        igdb_id,
+        scan_type,
+        metadata_sources,
+    )
 
 
 @pytest.mark.asyncio
