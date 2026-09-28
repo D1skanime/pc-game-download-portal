@@ -492,6 +492,43 @@ class TestShouldScanRom:
         result = should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
         assert result is False
 
+    @pytest.mark.parametrize(
+        (
+            "scan_type",
+            "platform_slug",
+            "steam_id",
+            "igdb_id",
+            "metadata_sources",
+            "expected",
+        ),
+        [
+            (ScanType.UPDATE, UPS.WIN, 227300, None, [MetadataSource.IGDB], True),
+            (ScanType.UPDATE, UPS.WIN, 227300, None, [], False),
+            (ScanType.UPDATE, UPS.WIN, None, None, [MetadataSource.IGDB], False),
+            (ScanType.UPDATE, UPS.WIN, 227300, 3070, [MetadataSource.IGDB], False),
+            (ScanType.UPDATE, UPS.LINUX, 227300, None, [MetadataSource.IGDB], False),
+            (ScanType.QUICK, UPS.WIN, 227300, None, [MetadataSource.IGDB], False),
+        ],
+    )
+    def test_update_scan_admits_only_steam_only_windows_igdb_recovery(
+        self,
+        scan_type,
+        platform_slug,
+        steam_id,
+        igdb_id,
+        metadata_sources,
+        expected,
+    ):
+        """A missing IGDB identity may recover only through the selected Windows path."""
+        rom = Mock(
+            is_identified=False,
+            platform_slug=platform_slug,
+            steam_id=steam_id,
+            igdb_id=igdb_id,
+        )
+
+        assert should_scan_rom(scan_type, rom, [], metadata_sources) is expected
+
     # Test rom_ids parameter
     def test_scan_when_rom_id_in_list(self, rom: Rom):
         """Should scan when rom.id is in roms_ids list regardless of scan type"""
