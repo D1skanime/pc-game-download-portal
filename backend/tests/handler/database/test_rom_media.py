@@ -9,6 +9,10 @@ from endpoints.responses.rom import RomOwnedMediaSchema
 from handler.database import db_rom_handler
 from models.owned_media_cleanup import OwnedMediaCleanupIntent
 from models.rom import (
+    Rom,
+    RomFile,
+    RomFileCategory,
+    RomLocalBackgroundAudio,
     RomOwnedMedia,
     RomOwnedMediaOrigin,
     RomOwnedMediaPlacement,
@@ -16,6 +20,83 @@ from models.rom import (
     RomOwnedMediaSurface,
     derive_owned_media_display_label,
 )
+
+
+def test_local_background_audio_rejects_foreign_and_non_soundtrack_files(rom, platform):
+    soundtrack = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="track.mp3",
+            file_path=f"{rom.fs_path}/OST",
+            category=RomFileCategory.SOUNDTRACK,
+        )
+    )
+    game_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="game.exe",
+            file_path=rom.fs_path,
+            category=RomFileCategory.GAME,
+        )
+    )
+    foreign_rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="foreign",
+            fs_name="foreign.zip",
+            fs_path=rom.fs_path,
+        )
+    )
+    foreign_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=foreign_rom.id,
+            file_name="foreign.mp3",
+            file_path=f"{foreign_rom.fs_path}/OST",
+            category=RomFileCategory.SOUNDTRACK,
+        )
+    )
+
+    selected = db_rom_handler.replace_local_background_audio(
+        rom.id, rom.updated_at, [soundtrack.id]
+    )
+
+    assert selected is not None
+    assert [item.rom_file_id for item in selected.local_background_audio] == [
+        soundtrack.id
+    ]
+    assert (
+        db_rom_handler.replace_local_background_audio(
+            rom.id, selected.updated_at, [foreign_file.id]
+        )
+        is None
+    )
+    assert (
+        db_rom_handler.replace_local_background_audio(
+            rom.id, selected.updated_at, [game_file.id]
+        )
+        is None
+    )
+
+
+def test_local_background_audio_cascades_when_source_file_is_removed(rom):
+    soundtrack = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="track.mp3",
+            file_path=f"{rom.fs_path}/OST",
+            category=RomFileCategory.SOUNDTRACK,
+        )
+    )
+    selected = db_rom_handler.replace_local_background_audio(
+        rom.id, rom.updated_at, [soundtrack.id]
+    )
+    assert selected is not None
+
+    with session.begin() as db:
+        db.delete(db.get(RomFile, soundtrack.id))
+
+    with session() as db:
+        assert db.query(RomLocalBackgroundAudio).count() == 0
 
 
 def test_model_keeps_candidate_and_placements_independent(rom):

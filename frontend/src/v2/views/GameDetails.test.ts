@@ -65,6 +65,15 @@ describe("GameDetails", () => {
     expect(source).toContain("{ immediate: true }");
   });
 
+  it("plays selected local soundtrack files only for the active detail route", () => {
+    const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
+
+    expect(source).toContain("selectedLocalBackgroundAudio");
+    expect(source).toContain('file.category === "soundtrack"');
+    expect(source).toContain("backgroundAudio.playRandom(tracks)");
+    expect(source).toContain("onCleanup(() => backgroundAudio.stop())");
+  });
+
   it("keeps the first background static when motion is reduced or a list is singular", () => {
     vi.useFakeTimers();
     const setBackground = vi.fn();

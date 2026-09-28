@@ -113,5 +113,6 @@ export type DetailedRomSchema = {
     all_user_notes: Array<UserNoteSchema>;
     owned_media?: Array<RomOwnedMediaSchema>;
     owned_media_placements?: Array<RomOwnedMediaPlacementSchema>;
+    local_background_audio_file_ids?: Array<number>;
 };
 

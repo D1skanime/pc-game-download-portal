@@ -69,6 +69,7 @@ from models.rom import (
     RomFacets,
     RomFile,
     RomFileCategory,
+    RomLocalBackgroundAudio,
     RomMetadata,
     RomNote,
     RomOwnedMedia,
@@ -394,6 +395,7 @@ def with_details(func):
             ),
             selectinload(Rom.owned_media).selectinload(RomOwnedMedia.placements),
             selectinload(Rom.owned_media_placements),
+            selectinload(Rom.local_background_audio),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
                 noload(Rom.metadatum),
@@ -512,6 +514,51 @@ class DBRomsHandler(DBBaseHandler):
             .where(and_(*predicates))
             .with_for_update()
         )
+
+    @staticmethod
+    def _get_locked_local_background_audio_rom(
+        session: Session, rom_id: int, expected_updated_at: datetime
+    ) -> Rom | None:
+        return session.scalar(
+            select(Rom)
+            .options(
+                selectinload(Rom.files),
+                selectinload(Rom.local_background_audio),
+            )
+            .where(Rom.id == rom_id, Rom.updated_at == expected_updated_at)
+            .with_for_update()
+        )
+
+    @begin_session
+    def replace_local_background_audio(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        file_ids: list[int],
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        if len(file_ids) != len(set(file_ids)):
+            return None
+        rom = self._get_locked_local_background_audio_rom(
+            session, rom_id, expected_updated_at
+        )
+        if rom is None:
+            return None
+        valid_file_ids = {
+            file.id for file in rom.files if file.category == RomFileCategory.SOUNDTRACK
+        }
+        if not set(file_ids).issubset(valid_file_ids):
+            return None
+        for selection in rom.local_background_audio:
+            session.delete(selection)
+        session.flush()
+        session.add_all(
+            RomLocalBackgroundAudio(rom=rom, rom_file_id=file_id)
+            for file_id in file_ids
+        )
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return rom
 
     @begin_session
     def get_owned_media_catalog(

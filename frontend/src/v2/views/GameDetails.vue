@@ -55,6 +55,10 @@ import PcComponents from "@/v2/components/GameDetails/PcComponents.vue";
 import PcLocalMediaReview from "@/v2/components/GameDetails/PcLocalMediaReview.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import {
+  type BackgroundAudioTrack,
+  useBackgroundAudio,
+} from "@/v2/composables/useBackgroundAudio";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
@@ -71,6 +75,7 @@ const { locale, t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 
 const setBgArt = useBackgroundArt();
+const backgroundAudio = useBackgroundAudio();
 const { enabled: reducedMotion } = useReducedMotion();
 
 // Param-change navigation guard — the route's `beforeEnter` in
@@ -210,6 +215,19 @@ const selectedBackgrounds = computed(() => {
     });
 });
 const isActiveDetailsRoute = computed(() => route.name === ROUTES.ROM);
+const selectedLocalBackgroundAudio = computed<BackgroundAudioTrack[]>(() => {
+  const rom = currentRom.value;
+  if (!rom) return [];
+  const selectedIds = new Set(rom.local_background_audio_file_ids ?? []);
+  return rom.files
+    .filter(
+      (file) => selectedIds.has(file.id) && file.category === "soundtrack",
+    )
+    .map((file) => ({
+      id: file.id,
+      url: `/api/roms/${file.id}/files/content/${encodeURIComponent(file.file_name)}`,
+    }));
+});
 
 watch(
   [selectedBackgrounds, resolvedCover, isActiveDetailsRoute, reducedMotion],
@@ -230,6 +248,17 @@ watch(
         setBgArt,
       ),
     );
+  },
+  { immediate: true },
+);
+
+watch(
+  [selectedLocalBackgroundAudio, isActiveDetailsRoute],
+  ([tracks, isDetailsRoute], _previous, onCleanup) => {
+    backgroundAudio.stop();
+    if (!isDetailsRoute) return;
+    backgroundAudio.playRandom(tracks);
+    onCleanup(() => backgroundAudio.stop());
   },
   { immediate: true },
 );

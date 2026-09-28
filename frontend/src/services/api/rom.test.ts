@@ -4,6 +4,7 @@ import * as romService from "@/services/api/rom";
 
 const mocks = vi.hoisted(() => ({
   apiPost: vi.fn(),
+  apiPut: vi.fn(),
   failOperation: vi.fn(),
   startOperation: vi.fn(),
   updateOperation: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/services/api", () => ({
   default: {
     post: mocks.apiPost,
+    put: mocks.apiPut,
   },
 }));
 
@@ -52,6 +54,33 @@ function progress(
 describe("rom service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("replaces selected local background audio through the protected media route", async () => {
+    const replaceLocalBackgroundAudio = (
+      romService.default as typeof romService.default & {
+        replaceLocalBackgroundAudio: (input: {
+          romId: number;
+          fileIds: number[];
+          expectedVersion: string;
+        }) => Promise<unknown>;
+      }
+    ).replaceLocalBackgroundAudio;
+    mocks.apiPut.mockResolvedValueOnce({ data: {} });
+
+    await replaceLocalBackgroundAudio({
+      romId: 41,
+      fileIds: [12, 13],
+      expectedVersion: "2026-09-28T20:00:00+00:00",
+    });
+
+    expect(mocks.apiPut).toHaveBeenCalledWith(
+      "/roms/41/media/local-background-audio",
+      {
+        file_ids: [12, 13],
+        expected_version: "2026-09-28T20:00:00+00:00",
+      },
+    );
   });
 
   it("uploadManual_sends_one_file_in_one_request", async () => {

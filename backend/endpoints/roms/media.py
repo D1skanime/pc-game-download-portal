@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from decorators.auth import protected_route
 from endpoints.responses.rom import (
     DetailedRomSchema,
+    RomLocalBackgroundAudioRequest,
     RomOwnedMediaPlacementMutationRequest,
     RomOwnedMediaReorderRequest,
     RomOwnedMediaSchema,
@@ -190,6 +191,19 @@ async def reorder_placements(
     _conflict(
         db_rom_handler.replace_owned_media_placements(
             id, payload.expected_version, payload.surface, payload.media_ids
+        )
+    )
+    return _detailed_rom_response(id, request)
+
+
+@protected_route(router.put, "/{id}/media/local-background-audio", [Scope.ROMS_WRITE])
+async def replace_local_background_audio(
+    request: Request, id: int, payload: RomLocalBackgroundAudioRequest
+) -> DetailedRomSchema:
+    _visible_rom(request, id)
+    _conflict(
+        db_rom_handler.replace_local_background_audio(
+            id, payload.expected_version, payload.file_ids
         )
     )
     return _detailed_rom_response(id, request)

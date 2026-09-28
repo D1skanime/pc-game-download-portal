@@ -6,7 +6,13 @@ from fastapi.testclient import TestClient
 
 from handler.database import db_rom_handler
 from handler.metadata.rom_media import discover_provider_media
-from models.rom import Rom, RomOwnedMediaRole, RomOwnedMediaSurface
+from models.rom import (
+    Rom,
+    RomFile,
+    RomFileCategory,
+    RomOwnedMediaRole,
+    RomOwnedMediaSurface,
+)
 
 
 def test_provider_discovery_normalizes_https_url_and_uses_digest_identity() -> None:
@@ -54,3 +60,28 @@ def test_setting_media_placement_returns_a_hydrated_detailed_rom(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["id"] == rom.id
+
+
+def test_replace_local_background_audio_requires_same_rom_soundtrack(
+    client: TestClient, access_token: str, rom: Rom
+) -> None:
+    soundtrack = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="track.mp3",
+            file_path=f"{rom.fs_path}/OST",
+            category=RomFileCategory.SOUNDTRACK,
+        )
+    )
+
+    response = client.put(
+        f"/api/roms/{rom.id}/media/local-background-audio",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "file_ids": [soundtrack.id],
+            "expected_version": rom.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["local_background_audio_file_ids"] == [soundtrack.id]

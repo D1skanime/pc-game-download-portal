@@ -34,6 +34,7 @@ const scope = { kind: "rom", id: props.rom.id } as const;
 const canManage = useCan("rom.edit", scope);
 const canDelete = useCan("rom.delete", scope);
 const uploading = ref(false);
+const localBackgroundAudioUpdating = ref(false);
 const movingId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
 const uploadFailures = ref<string[]>([]);
@@ -71,6 +72,12 @@ const includedTracks = computed(() =>
 );
 const availableTracks = computed(() =>
   ownedTracks.value.filter((item) => !soundtrackPlacement(item)),
+);
+const localTracks = computed(() =>
+  props.rom.files.filter((file) => file.category === "soundtrack"),
+);
+const selectedLocalTrackIds = computed(
+  () => new Set(props.rom.local_background_audio_file_ids ?? []),
 );
 const activeTrackId = computed(() =>
   activeStoreTrack.value?.romId === props.rom.id
@@ -180,6 +187,25 @@ async function toggleIncluded(item: RomOwnedMediaSchema) {
     movingId.value = null;
   }
 }
+async function toggleLocalBackgroundAudio(fileId: number) {
+  if (localBackgroundAudioUpdating.value) return;
+  localBackgroundAudioUpdating.value = true;
+  const nextFileIds = new Set(selectedLocalTrackIds.value);
+  if (nextFileIds.has(fileId)) nextFileIds.delete(fileId);
+  else nextFileIds.add(fileId);
+  try {
+    await romApi.replaceLocalBackgroundAudio({
+      romId: props.rom.id,
+      fileIds: [...nextFileIds],
+      expectedVersion: props.rom.updated_at,
+    });
+    await refreshCanonical();
+  } catch (error) {
+    if (!(await handleConflict(error))) snackbar.error(errorMessage(error));
+  } finally {
+    localBackgroundAudioUpdating.value = false;
+  }
+}
 async function moveTrack(index: number, direction: -1 | 1) {
   const nextIndex = index + direction;
   if (nextIndex < 0 || nextIndex >= includedTracks.value.length) return;
@@ -285,6 +311,35 @@ function fmt(seconds: number) {
     <ul v-if="uploadFailures.length" class="r-v2-stp__failures">
       <li v-for="name in uploadFailures" :key="name">{{ name }}</li>
     </ul>
+    <section
+      v-if="localTracks.length"
+      aria-labelledby="local-soundtrack-heading"
+    >
+      <h4 id="local-soundtrack-heading">{{ t("rom.soundtrack-local") }}</h4>
+      <ul class="r-v2-stp__list">
+        <li v-for="file in localTracks" :key="file.id">
+          <span>{{ file.file_name }}</span>
+          <div>
+            <span v-if="selectedLocalTrackIds.has(file.id)">
+              {{ t("rom.background-music") }}
+            </span>
+            <RBtn
+              v-if="canManage"
+              :loading="localBackgroundAudioUpdating"
+              :disabled="localBackgroundAudioUpdating"
+              :aria-label="`${selectedLocalTrackIds.has(file.id) ? t('rom.remove-as-background') : t('rom.add-as-background')}: ${file.file_name}`"
+              @click="toggleLocalBackgroundAudio(file.id)"
+            >
+              {{
+                selectedLocalTrackIds.has(file.id)
+                  ? t("rom.remove-as-background")
+                  : t("rom.add-as-background")
+              }}
+            </RBtn>
+          </div>
+        </li>
+      </ul>
+    </section>
     <div v-if="player.hasError" class="r-v2-stp__decode-error" role="alert">
       <span>{{ t("rom.soundtrack-playback-error") }}</span
       ><RBtn variant="text" size="small" @click="retryActiveTrack">{{

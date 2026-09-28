@@ -22,6 +22,7 @@ from handler.filesystem.roms_handler import (
     DownloadManifestTransferState,
     FileHash,
     FSRomsHandler,
+    category_matches,
     parse_pc_component_layout,
 )
 from handler.filesystem.storage_policy import _create_external_descriptor
@@ -40,6 +41,10 @@ from utils.rate_limiter import ConcurrencyLimiter
 PC_INTEGRATION_FIXTURE_ROOT = (
     Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "pc-integration-model"
 )
+
+
+def test_ost_directory_is_classified_as_soundtrack():
+    assert category_matches("soundtrack", ["game", "ost"])
 
 
 def _fixture_tree_digest(root: Path) -> str:
