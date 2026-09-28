@@ -73,9 +73,14 @@ completed: 2026-09-28
 - **Verification:** Focused Vitest and scoped Trunk checks pass.
 - **Committed in:** `2d523a454`
 
+## Verification
+
+- `npm run test -- SoundtrackPanel soundtrackPlayer` passed, 6 tests.
+- `npm run typecheck` passed.
+- Scoped `trunk check` passed for the four plan files.
+
 ## Issues Encountered
 
-- `npm run typecheck` is blocked by the unrelated missing `scheduleBackgroundRotation` export in `src/v2/views/GameDetails.test.ts`.
 - The shared `sourceMutationInventory` suite currently lacks a classification for the Plan 20-04 `refreshOwnedMedia` wrapper. This plan did not modify that shared inventory file.
 
 ## Known Stubs
