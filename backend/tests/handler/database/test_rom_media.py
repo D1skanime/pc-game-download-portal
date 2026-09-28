@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from tests.conftest import session
 
+from endpoints.responses.rom import RomOwnedMediaSchema
 from handler.database import db_rom_handler
 from models.owned_media_cleanup import OwnedMediaCleanupIntent
 from models.rom import (
@@ -69,6 +70,8 @@ def test_provider_refresh_reactivates_tombstone_without_placing_it(rom):
         expected_updated_at=rom.updated_at,
         provider="igdb",
         provider_media_id="image-1",
+        role=RomOwnedMediaRole.SCREENSHOT,
+        display_label="image-1.webp",
         mime_type="image/webp",
         owned_path="roms/1/media/provider/image-1.webp",
     )
@@ -87,6 +90,8 @@ def test_provider_refresh_reactivates_tombstone_without_placing_it(rom):
         expected_updated_at=deleted.rom.updated_at,
         provider="igdb",
         provider_media_id="image-1",
+        role=RomOwnedMediaRole.SCREENSHOT,
+        display_label="image-1.webp",
         mime_type="image/webp",
         owned_path="roms/1/media/provider/image-1.webp",
     )
@@ -97,12 +102,19 @@ def test_provider_refresh_reactivates_tombstone_without_placing_it(rom):
 
 def test_complete_reorder_rejects_incomplete_membership(rom):
     first = db_rom_handler.create_owned_upload_media(
-        rom.id, rom.updated_at, "image/webp", "roms/1/media/upload/first.webp"
+        rom.id,
+        rom.updated_at,
+        RomOwnedMediaRole.ARTWORK,
+        "first.webp",
+        "image/webp",
+        "roms/1/media/upload/first.webp",
     )
     assert first is not None
     second = db_rom_handler.create_owned_upload_media(
         rom.id,
         first.rom.updated_at,
+        RomOwnedMediaRole.ARTWORK,
+        "second.webp",
         "image/webp",
         "roms/1/media/upload/second.webp",
     )
@@ -222,3 +234,118 @@ def test_owned_media_role_migration_is_additive_and_reversible():
 
     assert migration.down_revision == "0127_parent_rom_owned_media"
     assert migration.revision == "0128_owned_media_role_and_display_label"
+
+
+def test_provider_reconciliation_requires_safe_server_owned_role_and_label(rom):
+    created = db_rom_handler.reconcile_provider_owned_media(
+        rom_id=rom.id,
+        expected_updated_at=rom.updated_at,
+        provider="igdb",
+        provider_media_id="artwork-1",
+        role=RomOwnedMediaRole.ARTWORK,
+        display_label="artwork-1.webp",
+        mime_type="image/webp",
+        owned_path="roms/1/media/provider/artwork-1.webp",
+    )
+
+    assert created is not None
+    assert created.media.role == RomOwnedMediaRole.ARTWORK
+    assert created.media.display_label == "artwork-1.webp"
+
+    assert (
+        db_rom_handler.reconcile_provider_owned_media(
+            rom_id=rom.id,
+            expected_updated_at=created.rom.updated_at,
+            provider="igdb",
+            provider_media_id="artwork-1",
+            role=RomOwnedMediaRole.SCREENSHOT,
+            display_label="artwork-1.webp",
+            mime_type="image/webp",
+            owned_path="roms/1/media/provider/artwork-1.webp",
+        )
+        is None
+    )
+
+
+def test_upload_creation_accepts_only_artwork_or_soundtrack_with_safe_label(rom):
+    artwork = db_rom_handler.create_owned_upload_media(
+        rom.id,
+        rom.updated_at,
+        RomOwnedMediaRole.ARTWORK,
+        "operator-artwork.webp",
+        "image/webp",
+        "roms/1/media/upload/operator-artwork.webp",
+    )
+    assert artwork is not None
+    assert artwork.media.display_label == "operator-artwork.webp"
+
+    assert (
+        db_rom_handler.create_owned_upload_media(
+            rom.id,
+            artwork.rom.updated_at,
+            RomOwnedMediaRole.SCREENSHOT,
+            "operator-screenshot.webp",
+            "image/webp",
+            "roms/1/media/upload/operator-screenshot.webp",
+        )
+        is None
+    )
+    assert (
+        db_rom_handler.create_owned_upload_media(
+            rom.id,
+            artwork.rom.updated_at,
+            RomOwnedMediaRole.SOUNDTRACK,
+            "https://provider.example/track.flac",
+            "audio/flac",
+            "roms/1/media/upload/track.flac",
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("role", "surface"),
+    [
+        (RomOwnedMediaRole.SOUNDTRACK, RomOwnedMediaSurface.OVERVIEW),
+        (RomOwnedMediaRole.SOUNDTRACK, RomOwnedMediaSurface.BACKGROUND),
+        (RomOwnedMediaRole.ARTWORK, RomOwnedMediaSurface.SOUNDTRACK),
+    ],
+)
+def test_placement_rejects_incompatible_owned_media_role(rom, role, surface):
+    media = db_rom_handler.create_owned_upload_media(
+        rom.id,
+        rom.updated_at,
+        role,
+        "operator-media.flac" if role == RomOwnedMediaRole.SOUNDTRACK else "art.webp",
+        "audio/flac" if role == RomOwnedMediaRole.SOUNDTRACK else "image/webp",
+        "roms/1/media/upload/operator-media",
+    )
+    assert media is not None
+
+    assert (
+        db_rom_handler.set_owned_media_placement(
+            rom.id,
+            media.media.id,
+            media.rom.updated_at,
+            surface,
+            selected=True,
+        )
+        is None
+    )
+
+
+def test_owned_media_schema_serializes_role_and_safe_display_label(rom):
+    media = db_rom_handler.create_owned_upload_media(
+        rom.id,
+        rom.updated_at,
+        RomOwnedMediaRole.SOUNDTRACK,
+        "operator-track.flac",
+        "audio/flac",
+        "roms/1/media/upload/operator-track.flac",
+    )
+    assert media is not None
+
+    schema = RomOwnedMediaSchema.model_validate(media.media)
+
+    assert schema.role == RomOwnedMediaRole.SOUNDTRACK
+    assert schema.display_label == "operator-track.flac"

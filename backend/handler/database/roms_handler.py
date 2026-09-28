@@ -74,12 +74,14 @@ from models.rom import (
     RomOwnedMedia,
     RomOwnedMediaOrigin,
     RomOwnedMediaPlacement,
+    RomOwnedMediaRole,
     RomOwnedMediaState,
     RomOwnedMediaSurface,
     RomUser,
     SiblingRom,
     TrackMeta,
     compute_name_sort_key,
+    validate_owned_media_display_label,
 )
 from models.user import User
 from utils import get_version
@@ -529,6 +531,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_id: int,
         expected_updated_at: datetime,
+        role: RomOwnedMediaRole,
+        display_label: str,
         mime_type: str,
         owned_path: str,
         session: Session = None,  # type: ignore
@@ -536,14 +540,25 @@ class DBRomsHandler(DBBaseHandler):
         rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
         if (
             rom is None
+            or role
+            not in {
+                RomOwnedMediaRole.ARTWORK,
+                RomOwnedMediaRole.SOUNDTRACK,
+            }
             or not owned_path
             or owned_path.startswith("/")
             or ".." in owned_path
         ):
             return None
+        try:
+            validate_owned_media_display_label(display_label)
+        except ValueError:
+            return None
         media = RomOwnedMedia(
             rom_id=rom.id,
             origin=RomOwnedMediaOrigin.UPLOAD,
+            role=role,
+            display_label=display_label,
             mime_type=mime_type,
             owned_path=owned_path,
         )
@@ -559,6 +574,8 @@ class DBRomsHandler(DBBaseHandler):
         expected_updated_at: datetime,
         provider: str,
         provider_media_id: str,
+        role: RomOwnedMediaRole,
+        display_label: str,
         mime_type: str,
         owned_path: str,
         session: Session = None,  # type: ignore
@@ -569,10 +586,15 @@ class DBRomsHandler(DBBaseHandler):
             rom is None
             or not provider
             or not provider_media_id
+            or role not in {RomOwnedMediaRole.SCREENSHOT, RomOwnedMediaRole.ARTWORK}
             or not owned_path
             or owned_path.startswith("/")
             or ".." in owned_path
         ):
+            return None
+        try:
+            validate_owned_media_display_label(display_label)
+        except ValueError:
             return None
         media = next(
             (
@@ -587,6 +609,8 @@ class DBRomsHandler(DBBaseHandler):
             media = RomOwnedMedia(
                 rom_id=rom.id,
                 origin=RomOwnedMediaOrigin.PROVIDER,
+                role=role,
+                display_label=display_label,
                 mime_type=mime_type,
                 owned_path=owned_path,
                 provider=provider,
@@ -594,12 +618,22 @@ class DBRomsHandler(DBBaseHandler):
             )
             session.add(media)
         else:
+            if media.role != role:
+                return None
             media.state = RomOwnedMediaState.ACTIVE
             media.mime_type = mime_type
             media.owned_path = owned_path
         rom.updated_at = datetime.now(timezone.utc)
         session.flush()
         return AppliedOwnedMedia(rom, media, [])
+
+    @staticmethod
+    def _is_owned_media_surface_compatible(
+        role: RomOwnedMediaRole, surface: RomOwnedMediaSurface
+    ) -> bool:
+        if surface == RomOwnedMediaSurface.SOUNDTRACK:
+            return role == RomOwnedMediaRole.SOUNDTRACK
+        return role in {RomOwnedMediaRole.SCREENSHOT, RomOwnedMediaRole.ARTWORK}
 
     @begin_session
     def set_owned_media_placement(
@@ -623,6 +657,8 @@ class DBRomsHandler(DBBaseHandler):
             None,
         )
         if media is None:
+            return None
+        if not self._is_owned_media_surface_compatible(media.role, surface):
             return None
         current = [
             item for item in rom.owned_media_placements if item.surface == surface
@@ -678,6 +714,12 @@ class DBRomsHandler(DBBaseHandler):
             if item.state == RomOwnedMediaState.ACTIVE
         }
         if not requested_ids.issubset(valid_ids):
+            return None
+        roles_by_id = {item.id: item.role for item in rom.owned_media}
+        if not all(
+            self._is_owned_media_surface_compatible(roles_by_id[media_id], surface)
+            for media_id in media_ids
+        ):
             return None
         for item in current:
             session.delete(item)

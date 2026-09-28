@@ -36,6 +36,7 @@ from models.rom import (
     RomFile,
     RomFileCategory,
     RomOwnedMediaOrigin,
+    RomOwnedMediaRole,
     RomOwnedMediaState,
     RomOwnedMediaSurface,
     RomUserStatus,
@@ -387,7 +388,9 @@ class RomOwnedMediaSchema(BaseModel):
 
     id: int
     origin: RomOwnedMediaOrigin
+    role: RomOwnedMediaRole
     state: RomOwnedMediaState
+    display_label: str = Field(min_length=1, max_length=255)
     mime_type: str
     owned_path: str | None
     provider: str | None
