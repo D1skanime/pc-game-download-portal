@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Phase 19 context gathered
-last_updated: "2026-09-28T10:11:39.539Z"
-last_activity: 2026-09-28 -- Phase 19 planning complete
+stopped_at: Completed 20-08-PLAN.md
+last_updated: "2026-09-28T15:29:24.291Z"
+last_activity: 2026-09-28
 progress:
-  total_phases: 19
-  completed_phases: 14
-  total_plans: 168
-  completed_plans: 159
-  percent: 74
+  total_phases: 20
+  completed_phases: 16
+  total_plans: 178
+  completed_plans: 171
+  percent: 80
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Milestone complete
+**Current focus:** Phase 20 — media-management-and-owned-soundtrack-uploads
 
 ## Current Position
 
-Phase: 18
-Plan: Not started
+Phase: 20 (media-management-and-owned-soundtrack-uploads) — EXECUTING
+Plan: 5 of 8
 Status: Ready to execute
-Last activity: 2026-09-28 -- Phase 19 planning complete
+Last activity: 2026-09-28
 
 ## Performance Metrics
 
@@ -155,12 +155,15 @@ _Updated after each plan completion_
 | Phase 18 P13 | 18min | 3 tasks | 3 files |
 | Phase 18 P14 | 8min | 2 tasks | 3 files |
 | Phase 18 P15 | 8min | 2 tasks | 3 files |
+| Phase 20 P09 | 12min | 2 tasks | 5 files |
+| Phase 20 P08 | 37min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 19 added: Fix PC quick-scan IGDB matching and safe DLC/expansion enrichment.
+- Phase 20 added: Media management and owned soundtrack uploads.
 
 ### Decisions
 
@@ -380,6 +383,10 @@ Recent decisions affecting current work:
 - [Phase 18]: Preserve CREATE OR REPLACE VIEW and prove the full disposable PostgreSQL migration cycle.
 - [Phase 18]: Record the measured 189-pass Compose MariaDB suite count, superseding stale 186-plan and 187-summary counts.
 - [Phase 18]: Keep host-loopback pytest and scoped Trunk failures explicit rather than inferring a phase-wide verification pass.
+- [Phase 20]: Backfill legacy provider candidates as screenshots and uploads as artwork using persisted origin only. — MIME values, tags, and source paths are not safe durable role authorities.
+- [Phase 20]: Owned-media roles are immutable and placement restricts image and soundtrack surfaces. — This prevents incompatible catalog state before ordering changes persist.
+- [Phase 20]: Classify exact parent-owned Media routes as resources or database operations while legacy source routes remain forbidden. — Keeps the mutation inventory fail-closed without permitting source-library mutations.
+- [Phase 20]: Record approved migrated-ROM UAT without inferring unreported 0129 migration-cycle or infrastructure results. — Browser approval covers observed RomM-owned Media behavior only.
 
 ### Blockers/Concerns
 
@@ -419,6 +426,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-28T09:50:16.678Z
-Stopped at: Phase 19 context gathered
-Resume file: .planning/phases/19-fix-pc-quick-scan-igdb-matching-and-safe-dlc-expansion-enric/19-CONTEXT.md
+Last session: 2026-09-28T15:29:24.273Z
+Stopped at: Completed 20-08-PLAN.md
+Resume file: None

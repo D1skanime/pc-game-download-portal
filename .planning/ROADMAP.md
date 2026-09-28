@@ -545,22 +545,42 @@ Plans:
 **Goal:** Let operators manage provider and RomM-owned game media, select ordered overview/background assets, and upload/order/play owned soundtracks without any write to the external source library.
 **Requirements**: MEDIA-01, MEDIA-02, MEDIA-03, MEDIA-04, MEDIA-05, MEDIA-06, MEDIA-07
 **Depends on:** Phase 19
-**Plans:** 5 plans
+**Plans:** 10/10 plans complete
 
 Plans:
 **Wave 1**
 
-- [ ] 20-01-PLAN.md — Persist parent-ROM owned-media candidates, tombstones, placements, and safe ordering.
+- [x] 20-01-PLAN.md — Persist parent-ROM owned-media candidates, tombstones, placements, and safe ordering.
 
 **Wave 2**
 
-- [ ] 20-02-PLAN.md — Expose protected owned-media storage and API contracts.
+- [x] 20-09-PLAN.md — Add parent-owned media role and safe display-label contracts.
 
 **Wave 3**
 
-- [ ] 20-03-PLAN.md — Deliver provider screenshot management in v2 Media.
-- [ ] 20-04-PLAN.md — Deliver artwork/background ordering and reduced-motion-aware rotation.
+- [x] 20-10-PLAN.md — Backfill existing RomM-owned legacy media into manageable candidates.
 
 **Wave 4**
 
-- [ ] 20-05-PLAN.md — Deliver owned soundtrack queue/player behavior and Media translations.
+- [x] 20-02-PLAN.md — Expose protected owned-media storage and API contracts.
+
+**Wave 5**
+
+- [x] 20-03-PLAN.md — Deliver provider screenshot management in v2 Media.
+
+**Wave 6**
+
+- [x] 20-04-PLAN.md — Deliver artwork/background ordering and reduced-motion-aware rotation.
+- [x] 20-05-PLAN.md — Deliver owned soundtrack queue/player behavior.
+
+**Wave 7**
+
+- [x] 20-06-PLAN.md — Translate the first bounded Media locale batch.
+
+**Wave 8**
+
+- [x] 20-07-PLAN.md — Complete locale parity for all supported languages.
+
+**Wave 9**
+
+- [x] 20-08-PLAN.md — Record cross-dialect, cross-stack, and browser UAT evidence.
