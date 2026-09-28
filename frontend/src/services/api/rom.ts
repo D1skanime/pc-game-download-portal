@@ -20,6 +20,9 @@ import type {
   PcLocalMediaCandidatesResponse,
   PcLocalMediaSelectionRequest,
   PcLocalMediaSelectionResponse,
+  RomOwnedMediaPlacementMutationRequest,
+  RomOwnedMediaSchema,
+  RomOwnedMediaSurface,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
@@ -336,6 +339,71 @@ async function getRomSimple({
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).
   return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
+}
+
+async function getOwnedMedia({ romId }: { romId: number }) {
+  return api.get<RomOwnedMediaSchema[]>(`/roms/${romId}/media`);
+}
+
+async function refreshOwnedMedia({
+  romId,
+  expectedVersion,
+}: {
+  romId: number;
+  expectedVersion: string;
+}) {
+  return api.post<DetailedRom>(`/roms/${romId}/media/refresh`, null, {
+    params: { expected_version: expectedVersion },
+  });
+}
+
+async function setOwnedMediaPlacement({
+  romId,
+  mediaId,
+  surface,
+  expectedVersion,
+}: {
+  romId: number;
+  mediaId: number;
+  surface: RomOwnedMediaSurface;
+  expectedVersion: string;
+}) {
+  const payload: RomOwnedMediaPlacementMutationRequest = {
+    media_id: mediaId,
+    surface,
+    expected_version: expectedVersion,
+  };
+  return api.post<DetailedRom>(`/roms/${romId}/media/placements`, payload);
+}
+
+async function removeOwnedMediaPlacement({
+  romId,
+  mediaId,
+  surface,
+  expectedVersion,
+}: {
+  romId: number;
+  mediaId: number;
+  surface: RomOwnedMediaSurface;
+  expectedVersion: string;
+}) {
+  return api.delete<DetailedRom>(`/roms/${romId}/media/placements/${mediaId}`, {
+    params: { surface, expected_version: expectedVersion },
+  });
+}
+
+async function deleteOwnedMedia({
+  romId,
+  mediaId,
+  expectedVersion,
+}: {
+  romId: number;
+  mediaId: number;
+  expectedVersion: string;
+}) {
+  return api.delete<DetailedRom>(`/roms/${romId}/media/${mediaId}`, {
+    params: { expected_version: expectedVersion },
+  });
 }
 
 async function getPcMetadataCandidates({ romId }: { romId: number }) {
@@ -806,6 +874,11 @@ export default {
   getRecentPlayedRoms,
   getRom,
   getRomSimple,
+  getOwnedMedia,
+  refreshOwnedMedia,
+  setOwnedMediaPlacement,
+  removeOwnedMediaPlacement,
+  deleteOwnedMedia,
   getPcMetadataCandidates,
   searchPcMetadataCandidates,
   selectPcMetadataCandidate,

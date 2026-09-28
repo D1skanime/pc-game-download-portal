@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Combined Manual + Screenshots + Artwork + Soundtrack tab for GameDetails.
 // This shell owns the subtab navigation (mirrored to `?subtab=`) and the
-// read-only soundtrack panel; each other subtab is self-contained.
+// soundtrack panel; each other subtab is self-contained.
 //
 // The soundtrack player is reused from v1 for now.
 import { REmptyState, RIcon } from "@v2/lib";
@@ -129,6 +129,7 @@ const subtabDefs = computed<SubtabDef[]>(() => [
               'r-v2-media__subtab-btn--active': subTab === tab.id,
             }"
             :aria-selected="subTab === tab.id"
+            :aria-controls="`media-panel-${tab.id}`"
             @click="subTab = tab.id"
           >
             <RIcon :icon="tab.icon" size="16" />
@@ -147,26 +148,53 @@ const subtabDefs = computed<SubtabDef[]>(() => [
            CSS toggle. -->
       <!-- Manual subtab — its own component (PDF / Markdown viewer with an
            entry selector; scrolls independently). -->
-      <section v-show="subTab === 'manual'" class="r-v2-media__panel">
+      <section
+        id="media-panel-manual"
+        v-show="subTab === 'manual'"
+        class="r-v2-media__panel"
+        role="tabpanel"
+        aria-label="Manual"
+      >
         <ManualSubtab :rom="rom" />
       </section>
 
       <!-- Screenshots subtab — its own component (ROM / Mine / Community
            sections, per-user public/private). -->
-      <section v-show="subTab === 'screenshots'" class="r-v2-media__panel">
+      <section
+        id="media-panel-screenshots"
+        v-show="subTab === 'screenshots'"
+        class="r-v2-media__panel"
+        role="tabpanel"
+        aria-label="Screenshots"
+      >
         <ScreenshotsSubtab :rom="rom" />
       </section>
 
       <!-- Artwork subtab — read-only gallery of scraped art assets
            (bezel / logo / marquee / box art / fan art / videos). -->
-      <section v-show="subTab === 'artwork'" class="r-v2-media__panel">
+      <section
+        id="media-panel-artwork"
+        v-show="subTab === 'artwork'"
+        class="r-v2-media__panel"
+        role="tabpanel"
+        aria-label="Artwork"
+      >
         <ArtworkSubtab :rom="rom" />
       </section>
 
       <!-- Soundtrack subtab -->
-      <section v-show="subTab === 'soundtrack'" class="r-v2-media__panel">
+      <section
+        id="media-panel-soundtrack"
+        v-show="subTab === 'soundtrack'"
+        class="r-v2-media__panel"
+        role="tabpanel"
+        aria-label="Soundtrack"
+      >
         <REmptyState
-          v-if="!rom.has_soundtrack"
+          v-if="
+            !rom.has_soundtrack &&
+            !rom.owned_media?.some((item) => item.role === 'soundtrack')
+          "
           :title="t('rom.soundtrack-empty')"
         />
         <SoundtrackPanel v-else :rom="rom" class="r-v2-media__soundtrack" />

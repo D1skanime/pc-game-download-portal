@@ -7,6 +7,7 @@ import type {
   SearchRomSchema,
 } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
+import romApi from "@/services/api/rom";
 import cachedApiService from "@/services/cache/api";
 import {
   type Collection,
@@ -93,6 +94,12 @@ export default defineStore("roms", {
   },
 
   actions: {
+    async refreshRom(romId: number): Promise<DetailedRom> {
+      const { data } = await romApi.getRom({ romId });
+      this.currentRom = data;
+      this.update(data);
+      return data;
+    },
     _shouldGroupRoms(): boolean {
       return isNull(localStorage.getItem("settings.groupRoms"))
         ? true
