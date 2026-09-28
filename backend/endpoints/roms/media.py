@@ -47,6 +47,14 @@ def _conflict(value):
     return value
 
 
+def _detailed_rom_response(rom_id: int, request: Request) -> DetailedRomSchema:
+    """Serialize a fully hydrated ROM after a media mutation commits."""
+    rom = db_rom_handler.get_rom(rom_id)
+    if rom is None:
+        raise RomNotFoundInDatabaseException(rom_id)
+    return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
 async def _download_provider_image(rom, candidate):
     """Download bounded provider bytes before publishing them to owned storage."""
     client = ctx_httpx_client.get()
@@ -83,7 +91,7 @@ async def refresh_media(
     provider = rom.metadata_source or "provider"
     source = {
         "url_screenshots": rom.url_screenshots or [],
-        "url_artworks": (rom.provider_metadata or {}).get("url_artworks", []),
+        "url_artworks": [rom.url_cover] if rom.url_cover else [],
     }
     for candidate in discover_provider_media(provider, source):
         path: str | None = None
@@ -110,7 +118,7 @@ async def refresh_media(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Provider media could not be refreshed",
             ) from None
-    return DetailedRomSchema.from_orm_with_request(rom, request)
+    return _detailed_rom_response(id, request)
 
 
 @protected_route(router.get, "/{id}/media/{media_id}/content", [Scope.ROMS_READ])
@@ -151,14 +159,12 @@ async def set_placement(
     request: Request, id: int, payload: RomOwnedMediaPlacementMutationRequest
 ) -> DetailedRomSchema:
     _visible_rom(request, id)
-    return DetailedRomSchema.from_orm_with_request(
-        _conflict(
-            db_rom_handler.set_owned_media_placement(
-                id, payload.media_id, payload.expected_version, payload.surface, True
-            )
-        ),
-        request,
+    _conflict(
+        db_rom_handler.set_owned_media_placement(
+            id, payload.media_id, payload.expected_version, payload.surface, True
+        )
     )
+    return _detailed_rom_response(id, request)
 
 
 @protected_route(router.delete, "/{id}/media/placements/{media_id}", [Scope.ROMS_WRITE])
@@ -168,14 +174,12 @@ async def remove_placement(
     _visible_rom(request, id)
     from models.rom import RomOwnedMediaSurface
 
-    return DetailedRomSchema.from_orm_with_request(
-        _conflict(
-            db_rom_handler.set_owned_media_placement(
-                id, media_id, expected_version, RomOwnedMediaSurface(surface), False
-            )
-        ),
-        request,
+    _conflict(
+        db_rom_handler.set_owned_media_placement(
+            id, media_id, expected_version, RomOwnedMediaSurface(surface), False
+        )
     )
+    return _detailed_rom_response(id, request)
 
 
 @protected_route(router.put, "/{id}/media/placements", [Scope.ROMS_WRITE])
@@ -183,14 +187,12 @@ async def reorder_placements(
     request: Request, id: int, payload: RomOwnedMediaReorderRequest
 ) -> DetailedRomSchema:
     _visible_rom(request, id)
-    return DetailedRomSchema.from_orm_with_request(
-        _conflict(
-            db_rom_handler.replace_owned_media_placements(
-                id, payload.expected_version, payload.surface, payload.media_ids
-            )
-        ),
-        request,
+    _conflict(
+        db_rom_handler.replace_owned_media_placements(
+            id, payload.expected_version, payload.surface, payload.media_ids
+        )
     )
+    return _detailed_rom_response(id, request)
 
 
 @protected_route(router.post, "/{id}/media/upload", [Scope.ROMS_WRITE])
@@ -232,7 +234,7 @@ async def upload_media(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc
-    return DetailedRomSchema.from_orm_with_request(applied.rom, request)
+    return _detailed_rom_response(id, request)
 
 
 @protected_route(router.delete, "/{id}/media/{media_id}", [Scope.ROMS_WRITE])
@@ -248,4 +250,4 @@ async def delete_media(
             await fs_resource_handler.remove_file(path)
         except OSError:
             db_rom_handler.create_owned_media_cleanup_intent(id, media_id, path)
-    return DetailedRomSchema.from_orm_with_request(applied.rom, request)
+    return _detailed_rom_response(id, request)

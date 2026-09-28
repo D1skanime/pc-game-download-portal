@@ -1,8 +1,12 @@
-"""Pure contracts for parent-owned media discovery and storage."""
+"""Contracts for parent-owned media discovery, storage, and mutation responses."""
 
 import pytest
+from fastapi import status
+from fastapi.testclient import TestClient
 
+from handler.database import db_rom_handler
 from handler.metadata.rom_media import discover_provider_media
+from models.rom import Rom, RomOwnedMediaRole, RomOwnedMediaSurface
 
 
 def test_provider_discovery_normalizes_https_url_and_uses_digest_identity() -> None:
@@ -23,3 +27,30 @@ def test_provider_discovery_rejects_non_https_urls() -> None:
         discover_provider_media(
             "igdb", {"url_screenshots": ["http://invalid/image.png"]}
         )
+
+
+def test_setting_media_placement_returns_a_hydrated_detailed_rom(
+    client: TestClient, access_token: str, rom: Rom
+) -> None:
+    media = db_rom_handler.create_owned_upload_media(
+        rom.id,
+        rom.updated_at,
+        RomOwnedMediaRole.ARTWORK,
+        "test-artwork.webp",
+        "image/webp",
+        "roms/1/media/upload/test-artwork.webp",
+    )
+    assert media is not None
+
+    response = client.post(
+        f"/api/roms/{rom.id}/media/placements",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "media_id": media.media.id,
+            "expected_version": media.rom.updated_at.isoformat(),
+            "surface": RomOwnedMediaSurface.OVERVIEW.value,
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["id"] == rom.id
