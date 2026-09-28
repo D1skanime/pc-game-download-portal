@@ -35,6 +35,9 @@ from models.rom import (
     RomComponentOwnedMediaRole,
     RomFile,
     RomFileCategory,
+    RomOwnedMediaOrigin,
+    RomOwnedMediaState,
+    RomOwnedMediaSurface,
     RomUserStatus,
 )
 
@@ -368,6 +371,55 @@ class PcComponentOwnedMediaCreateRequest(BaseModel):
 
 class PcComponentOwnedMediaUpdateRequest(PcComponentOwnedMediaCreateRequest):
     pass
+
+
+class RomOwnedMediaPlacementSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    media_id: int
+    surface: RomOwnedMediaSurface
+    position: int = Field(ge=0)
+
+
+class RomOwnedMediaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    origin: RomOwnedMediaOrigin
+    state: RomOwnedMediaState
+    mime_type: str
+    owned_path: str | None
+    provider: str | None
+    provider_media_id: str | None
+    placements: list[RomOwnedMediaPlacementSchema] = Field(default_factory=list)
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
+
+
+class RomOwnedMediaPlacementMutationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    media_id: int = Field(gt=0)
+    surface: RomOwnedMediaSurface
+    expected_version: UTCDatetime
+
+
+class RomOwnedMediaReorderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    surface: RomOwnedMediaSurface
+    media_ids: list[int] = Field(min_length=0, max_length=500)
+    expected_version: UTCDatetime
+
+    @field_validator("media_ids")
+    @classmethod
+    def validate_media_ids(cls, value: list[int]) -> list[int]:
+        if any(media_id < 1 for media_id in value):
+            raise ValueError("media ids must be positive")
+        if len(value) != len(set(value)):
+            raise ValueError("media ids must be unique")
+        return value
 
 
 class PcComponentNoteSchema(BaseModel):
@@ -770,6 +822,10 @@ class DetailedRomSchema(RomSchema):
     all_user_screenshots: list[UserScreenshotSchema]
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
+    owned_media: list[RomOwnedMediaSchema] = Field(default_factory=list)
+    owned_media_placements: list[RomOwnedMediaPlacementSchema] = Field(
+        default_factory=list
+    )
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:

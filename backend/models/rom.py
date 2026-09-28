@@ -13,6 +13,7 @@ from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
     Boolean,
+    CheckConstraint,
     Enum,
     Float,
     ForeignKey,
@@ -58,6 +59,8 @@ INCARNATION_TOKEN_LENGTH = 32
 # Max length for free-text audio tag columns (title/artist/album).
 AUDIO_TAG_MAX_LENGTH = 512
 PC_COMPONENT_PATH_MAX_LENGTH = 700
+OWNED_MEDIA_PATH_MAX_LENGTH = 700
+OWNED_MEDIA_PROVIDER_ID_MAX_LENGTH = 450
 ARTICLE_PREFIX_RE = re.compile(r"^(the|a|an)\s+")
 DIGIT_RUN_RE = re.compile(r"\d+")
 
@@ -123,6 +126,22 @@ class RomComponentOwnedMediaRole(enum.StrEnum):
 class RomComponentOwnedMediaOrigin(enum.StrEnum):
     UPLOAD = "upload"
     PROVIDER = "provider"
+
+
+class RomOwnedMediaOrigin(enum.StrEnum):
+    UPLOAD = "upload"
+    PROVIDER = "provider"
+
+
+class RomOwnedMediaState(enum.StrEnum):
+    ACTIVE = "active"
+    TOMBSTONED = "tombstoned"
+
+
+class RomOwnedMediaSurface(enum.StrEnum):
+    OVERVIEW = "overview"
+    BACKGROUND = "background"
+    SOUNDTRACK = "soundtrack"
 
 
 class SiblingRom(BaseModel):
@@ -420,6 +439,108 @@ class RomComponentOwnedMedia(BaseModel):
     )
 
     component: Mapped[RomComponent] = relationship(back_populates="owned_media")
+
+
+class RomOwnedMedia(BaseModel):
+    __tablename__ = "rom_owned_media"
+
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('active', 'tombstoned')", name="ck_rom_owned_media_state"
+        ),
+        CheckConstraint(
+            "owned_path IS NULL OR (owned_path <> '' AND owned_path NOT LIKE '/%' AND owned_path NOT LIKE '%..%')",
+            name="ck_rom_owned_media_owned_path_relative",
+        ),
+        UniqueConstraint(
+            "rom_id",
+            "provider",
+            "provider_media_id",
+            name="uq_rom_owned_media_provider_identity",
+        ),
+        Index("idx_rom_owned_media_rom_state", "rom_id", "state"),
+        Index("idx_rom_owned_media_origin", "origin"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    origin: Mapped[RomOwnedMediaOrigin] = mapped_column(
+        Enum(
+            RomOwnedMediaOrigin,
+            values_callable=lambda origins: [origin.value for origin in origins],
+            name="romownedmediaorigin",
+            native_enum=False,
+            create_constraint=True,
+        )
+    )
+    state: Mapped[RomOwnedMediaState] = mapped_column(
+        Enum(
+            RomOwnedMediaState,
+            values_callable=lambda states: [state.value for state in states],
+            name="romownedmediastate",
+            native_enum=False,
+            create_constraint=True,
+        ),
+        default=RomOwnedMediaState.ACTIVE,
+    )
+    mime_type: Mapped[str] = mapped_column(String(length=100))
+    owned_path: Mapped[str | None] = mapped_column(
+        String(length=OWNED_MEDIA_PATH_MAX_LENGTH), default=None
+    )
+    provider: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    provider_media_id: Mapped[str | None] = mapped_column(
+        String(length=OWNED_MEDIA_PROVIDER_ID_MAX_LENGTH), default=None
+    )
+
+    rom: Mapped[Rom] = relationship(back_populates="owned_media")
+    placements: Mapped[list[RomOwnedMediaPlacement]] = relationship(
+        lazy="raise",
+        back_populates="media",
+        cascade="all, delete-orphan",
+        order_by="RomOwnedMediaPlacement.position",
+    )
+
+
+class RomOwnedMediaPlacement(BaseModel):
+    __tablename__ = "rom_owned_media_placements"
+
+    __table_args__ = (
+        CheckConstraint("position >= 0", name="ck_rom_owned_media_placements_position"),
+        UniqueConstraint(
+            "media_id", "surface", name="uq_rom_owned_media_placements_media_surface"
+        ),
+        UniqueConstraint(
+            "rom_id",
+            "surface",
+            "position",
+            name="uq_rom_owned_media_placements_rom_surface_position",
+        ),
+        Index(
+            "idx_rom_owned_media_placements_rom_surface_position",
+            "rom_id",
+            "surface",
+            "position",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    media_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_owned_media.id", ondelete="CASCADE")
+    )
+    surface: Mapped[RomOwnedMediaSurface] = mapped_column(
+        Enum(
+            RomOwnedMediaSurface,
+            values_callable=lambda surfaces: [surface.value for surface in surfaces],
+            name="romownedmediasurface",
+            native_enum=False,
+            create_constraint=True,
+        )
+    )
+    position: Mapped[int] = mapped_column(Integer)
+
+    rom: Mapped[Rom] = relationship(back_populates="owned_media_placements")
+    media: Mapped[RomOwnedMedia] = relationship(back_populates="placements")
 
 
 class RomComponentNote(BaseModel):
@@ -726,6 +847,18 @@ class Rom(BaseModel):
         back_populates="rom",
         cascade="all, delete-orphan",
         order_by="RomComponent.relative_path",
+    )
+    owned_media: Mapped[list[RomOwnedMedia]] = relationship(
+        lazy="raise",
+        back_populates="rom",
+        cascade="all, delete-orphan",
+        order_by="RomOwnedMedia.id",
+    )
+    owned_media_placements: Mapped[list[RomOwnedMediaPlacement]] = relationship(
+        lazy="raise",
+        back_populates="rom",
+        cascade="all, delete-orphan",
+        order_by="RomOwnedMediaPlacement.position",
     )
     download_archive_sets: Mapped[list[DownloadArchiveSet]] = relationship(
         lazy="raise",
