@@ -837,6 +837,26 @@ class DBRomsHandler(DBBaseHandler):
         return intent
 
     @begin_session
+    def get_due_owned_media_cleanup_intent_ids(
+        self, now: datetime, session: Session = None  # type: ignore
+    ) -> list[int]:
+        return list(
+            session.scalars(
+                select(OwnedMediaCleanupIntent.id)
+                .where(
+                    and_(
+                        OwnedMediaCleanupIntent.state == OwnedMediaCleanupState.PENDING,
+                        or_(
+                            OwnedMediaCleanupIntent.next_attempt_at.is_(None),
+                            OwnedMediaCleanupIntent.next_attempt_at <= now,
+                        ),
+                    )
+                )
+                .limit(100)
+            )
+        )
+
+    @begin_session
     def complete_owned_media_cleanup_intent(
         self, intent_id: int, session: Session = None  # type: ignore
     ) -> OwnedMediaCleanupIntent | None:

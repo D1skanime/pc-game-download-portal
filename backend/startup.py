@@ -40,6 +40,7 @@ from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resource
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
 from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
+from tasks.scheduled.owned_media_cleanup import owned_media_cleanup_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.sync_retroachievements_progress import (
     sync_retroachievements_progress_task,
@@ -149,6 +150,7 @@ async def main() -> None:
         cleanup_zip_cache_task.init()
         cleanup_upload_tmp_task.init()
         cleanup_orphaned_resources_task.init()
+        owned_media_cleanup_task.init()
 
         if ENABLE_SCHEDULED_RESCAN:
             log.info("Starting scheduled rescan")
