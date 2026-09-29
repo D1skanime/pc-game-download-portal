@@ -164,6 +164,7 @@ _Updated after each plan completion_
 
 - Phase 19 added: Fix PC quick-scan IGDB matching and safe DLC/expansion enrichment.
 - Phase 20 added: Media management and owned soundtrack uploads.
+- Phase 21 added: Unify admin PC scans with German Steam metadata and media.
 
 ### Decisions
 

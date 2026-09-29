@@ -584,3 +584,14 @@ Plans:
 **Wave 9**
 
 - [x] 20-08-PLAN.md — Record cross-dialect, cross-stack, and browser UAT evidence.
+
+### Phase 21: Unify admin PC scans with German Steam metadata and media
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 20
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 21 to break down)
