@@ -191,6 +191,10 @@ const routes = [
         component: v2For(ROUTES.SMART_COLLECTION),
       },
       {
+        path: "rom",
+        redirect: { name: ROUTES.HOME },
+      },
+      {
         path: "rom/:rom",
         name: ROUTES.ROM,
         component: v2For(ROUTES.ROM),
