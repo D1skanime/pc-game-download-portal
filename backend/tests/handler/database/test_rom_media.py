@@ -13,10 +13,12 @@ from models.rom import (
     RomFile,
     RomFileCategory,
     RomLocalBackgroundAudio,
+    RomOwnedBackgroundAudio,
     RomOwnedMedia,
     RomOwnedMediaOrigin,
     RomOwnedMediaPlacement,
     RomOwnedMediaRole,
+    RomOwnedMediaState,
     RomOwnedMediaSurface,
     derive_owned_media_display_label,
 )
@@ -97,6 +99,111 @@ def test_local_background_audio_cascades_when_source_file_is_removed(rom):
 
     with session() as db:
         assert db.query(RomLocalBackgroundAudio).count() == 0
+
+
+def test_owned_background_audio_rejects_foreign_inactive_and_non_soundtrack_media(
+    rom, platform
+):
+    foreign_rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="foreign",
+            fs_name="foreign.zip",
+            fs_path=rom.fs_path,
+        )
+    )
+    track = RomOwnedMedia(
+        rom_id=rom.id,
+        origin=RomOwnedMediaOrigin.UPLOAD,
+        role=RomOwnedMediaRole.SOUNDTRACK,
+        display_label="track.mp3",
+        mime_type="audio/mpeg",
+        owned_path="roms/1/media/upload/track.mp3",
+    )
+    foreign_track = RomOwnedMedia(
+        rom_id=foreign_rom.id,
+        origin=RomOwnedMediaOrigin.UPLOAD,
+        role=RomOwnedMediaRole.SOUNDTRACK,
+        display_label="foreign.mp3",
+        mime_type="audio/mpeg",
+        owned_path="roms/2/media/upload/foreign.mp3",
+    )
+    artwork = RomOwnedMedia(
+        rom_id=rom.id,
+        origin=RomOwnedMediaOrigin.UPLOAD,
+        role=RomOwnedMediaRole.ARTWORK,
+        display_label="artwork.webp",
+        mime_type="image/webp",
+        owned_path="roms/1/media/upload/artwork.webp",
+    )
+    inactive_track = RomOwnedMedia(
+        rom_id=rom.id,
+        origin=RomOwnedMediaOrigin.UPLOAD,
+        role=RomOwnedMediaRole.SOUNDTRACK,
+        state=RomOwnedMediaState.TOMBSTONED,
+        display_label="inactive.mp3",
+        mime_type="audio/mpeg",
+        owned_path=None,
+    )
+    with session.begin() as db:
+        db.add_all((track, foreign_track, artwork, inactive_track))
+        db.flush()
+
+    selected = db_rom_handler.replace_owned_background_audio(
+        rom.id, rom.updated_at, [track.id]
+    )
+
+    assert selected is not None
+    assert selected.owned_background_audio_media_ids == [track.id]
+    assert (
+        db_rom_handler.replace_owned_background_audio(
+            rom.id, selected.updated_at, [foreign_track.id]
+        )
+        is None
+    )
+    assert (
+        db_rom_handler.replace_owned_background_audio(
+            rom.id, selected.updated_at, [artwork.id]
+        )
+        is None
+    )
+    assert (
+        db_rom_handler.replace_owned_background_audio(
+            rom.id, selected.updated_at, [inactive_track.id]
+        )
+        is None
+    )
+
+
+def test_owned_background_audio_keeps_inactive_selection_and_cascades_on_delete(rom):
+    track = RomOwnedMedia(
+        rom_id=rom.id,
+        origin=RomOwnedMediaOrigin.UPLOAD,
+        role=RomOwnedMediaRole.SOUNDTRACK,
+        display_label="track.mp3",
+        mime_type="audio/mpeg",
+        owned_path="roms/1/media/upload/track.mp3",
+    )
+    with session.begin() as db:
+        db.add(track)
+        db.flush()
+
+    selected = db_rom_handler.replace_owned_background_audio(
+        rom.id, rom.updated_at, [track.id]
+    )
+    assert selected is not None
+
+    with session.begin() as db:
+        db.get(RomOwnedMedia, track.id).state = RomOwnedMediaState.TOMBSTONED
+
+    with session() as db:
+        assert db.query(RomOwnedBackgroundAudio).count() == 1
+
+    with session.begin() as db:
+        db.delete(db.get(RomOwnedMedia, track.id))
+
+    with session() as db:
+        assert db.query(RomOwnedBackgroundAudio).count() == 0
 
 
 def test_model_keeps_candidate_and_placements_independent(rom):

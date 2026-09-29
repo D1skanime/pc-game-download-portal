@@ -441,6 +441,22 @@ class RomLocalBackgroundAudioRequest(BaseModel):
         return value
 
 
+class RomOwnedBackgroundAudioRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    media_ids: list[int] = Field(max_length=500)
+    expected_version: UTCDatetime
+
+    @field_validator("media_ids")
+    @classmethod
+    def validate_media_ids(cls, value: list[int]) -> list[int]:
+        if any(media_id < 1 for media_id in value):
+            raise ValueError("media ids must be positive")
+        if len(value) != len(set(value)):
+            raise ValueError("media ids must be unique")
+        return value
+
+
 class PcComponentNoteSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -846,6 +862,7 @@ class DetailedRomSchema(RomSchema):
         default_factory=list
     )
     local_background_audio_file_ids: list[int] = Field(default_factory=list)
+    owned_background_audio_media_ids: list[int] = Field(default_factory=list)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:

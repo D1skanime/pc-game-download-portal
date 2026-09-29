@@ -85,3 +85,29 @@ def test_replace_local_background_audio_requires_same_rom_soundtrack(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["local_background_audio_file_ids"] == [soundtrack.id]
+
+
+def test_replace_owned_background_audio_returns_hydrated_selection(
+    client: TestClient, access_token: str, rom: Rom
+) -> None:
+    track = db_rom_handler.create_owned_upload_media(
+        rom.id,
+        rom.updated_at,
+        RomOwnedMediaRole.SOUNDTRACK,
+        "track.mp3",
+        "audio/mpeg",
+        "roms/1/media/upload/track.mp3",
+    )
+    assert track is not None
+
+    response = client.put(
+        f"/api/roms/{rom.id}/media/owned-background-audio",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "media_ids": [track.media.id],
+            "expected_version": track.rom.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["owned_background_audio_media_ids"] == [track.media.id]

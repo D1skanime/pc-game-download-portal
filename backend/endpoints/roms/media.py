@@ -11,6 +11,7 @@ from decorators.auth import protected_route
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomLocalBackgroundAudioRequest,
+    RomOwnedBackgroundAudioRequest,
     RomOwnedMediaPlacementMutationRequest,
     RomOwnedMediaReorderRequest,
     RomOwnedMediaSchema,
@@ -204,6 +205,19 @@ async def replace_local_background_audio(
     _conflict(
         db_rom_handler.replace_local_background_audio(
             id, payload.expected_version, payload.file_ids
+        )
+    )
+    return _detailed_rom_response(id, request)
+
+
+@protected_route(router.put, "/{id}/media/owned-background-audio", [Scope.ROMS_WRITE])
+async def replace_owned_background_audio(
+    request: Request, id: int, payload: RomOwnedBackgroundAudioRequest
+) -> DetailedRomSchema:
+    _visible_rom(request, id)
+    _conflict(
+        db_rom_handler.replace_owned_background_audio(
+            id, payload.expected_version, payload.media_ids
         )
     )
     return _detailed_rom_response(id, request)

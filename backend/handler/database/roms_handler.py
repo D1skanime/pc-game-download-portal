@@ -72,6 +72,7 @@ from models.rom import (
     RomLocalBackgroundAudio,
     RomMetadata,
     RomNote,
+    RomOwnedBackgroundAudio,
     RomOwnedMedia,
     RomOwnedMediaOrigin,
     RomOwnedMediaPlacement,
@@ -396,6 +397,7 @@ def with_details(func):
             selectinload(Rom.owned_media).selectinload(RomOwnedMedia.placements),
             selectinload(Rom.owned_media_placements),
             selectinload(Rom.local_background_audio),
+            selectinload(Rom.owned_background_audio),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
                 noload(Rom.metadatum),
@@ -510,6 +512,7 @@ class DBRomsHandler(DBBaseHandler):
             .options(
                 selectinload(Rom.owned_media).selectinload(RomOwnedMedia.placements),
                 selectinload(Rom.owned_media_placements),
+                selectinload(Rom.owned_background_audio),
             )
             .where(and_(*predicates))
             .with_for_update()
@@ -555,6 +558,38 @@ class DBRomsHandler(DBBaseHandler):
         session.add_all(
             RomLocalBackgroundAudio(rom=rom, rom_file_id=file_id)
             for file_id in file_ids
+        )
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return rom
+
+    @begin_session
+    def replace_owned_background_audio(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        media_ids: list[int],
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        if len(media_ids) != len(set(media_ids)):
+            return None
+        rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
+        if rom is None:
+            return None
+        valid_media_ids = {
+            media.id
+            for media in rom.owned_media
+            if media.state == RomOwnedMediaState.ACTIVE
+            and media.role == RomOwnedMediaRole.SOUNDTRACK
+        }
+        if not set(media_ids).issubset(valid_media_ids):
+            return None
+        for selection in rom.owned_background_audio:
+            session.delete(selection)
+        session.flush()
+        session.add_all(
+            RomOwnedBackgroundAudio(rom=rom, media_id=media_id)
+            for media_id in media_ids
         )
         rom.updated_at = datetime.now(timezone.utc)
         session.flush()

@@ -560,6 +560,11 @@ class RomOwnedMedia(BaseModel):
         cascade="all, delete-orphan",
         order_by="RomOwnedMediaPlacement.position",
     )
+    background_audio: Mapped[list[RomOwnedBackgroundAudio]] = relationship(
+        lazy="raise",
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
 
     @validates("role")
     def validate_role_immutable(
@@ -634,6 +639,26 @@ class RomLocalBackgroundAudio(BaseModel):
 
     rom: Mapped[Rom] = relationship(back_populates="local_background_audio")
     rom_file: Mapped[RomFile] = relationship(back_populates="local_background_audio")
+
+
+class RomOwnedBackgroundAudio(BaseModel):
+    __tablename__ = "rom_owned_background_audio"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "rom_id", "media_id", name="uq_rom_owned_background_audio_media"
+        ),
+        Index("idx_rom_owned_background_audio_rom", "rom_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    media_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_owned_media.id", ondelete="CASCADE")
+    )
+
+    rom: Mapped[Rom] = relationship(back_populates="owned_background_audio")
+    media: Mapped[RomOwnedMedia] = relationship(back_populates="background_audio")
 
 
 class RomComponentNote(BaseModel):
@@ -959,6 +984,12 @@ class Rom(BaseModel):
         cascade="all, delete-orphan",
         order_by="RomLocalBackgroundAudio.rom_file_id",
     )
+    owned_background_audio: Mapped[list[RomOwnedBackgroundAudio]] = relationship(
+        lazy="raise",
+        back_populates="rom",
+        cascade="all, delete-orphan",
+        order_by="RomOwnedBackgroundAudio.media_id",
+    )
     download_archive_sets: Mapped[list[DownloadArchiveSet]] = relationship(
         lazy="raise",
         back_populates="rom",
@@ -1059,6 +1090,10 @@ class Rom(BaseModel):
     @property
     def local_background_audio_file_ids(self) -> list[int]:
         return [selection.rom_file_id for selection in self.local_background_audio]
+
+    @property
+    def owned_background_audio_media_ids(self) -> list[int]:
+        return [selection.media_id for selection in self.owned_background_audio]
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
