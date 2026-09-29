@@ -23,11 +23,13 @@ original library file.
   queue.
 - Persist the selection per ROM and keep it valid only while its source
   `RomFile` exists and remains categorized as a soundtrack.
-- Persist an owned-track selection only while the owned media candidate is
-  active, belongs to the ROM, and has the `soundtrack` role.
-- Randomly choose one selected local or owned track when the user enters that
-  ROM's detail route, and stop it when leaving the route or entering another
-  ROM.
+- Persist an owned-track selection only when the owned media candidate belongs
+  to the ROM and has the `soundtrack` role. A later inactive candidate may
+  retain its historical selection row, but is never eligible for playback.
+- Randomly choose one selected, valid local or active owned track from one
+  unified candidate collection when the user enters that ROM's detail route.
+  Each candidate has equal probability regardless of origin. Stop playback
+  when leaving the route or entering another ROM.
 
 Out of scope: metadata lookup, changes to legacy source-writing soundtrack
 routes, and automatic playback outside a ROM detail page. The existing
@@ -54,14 +56,15 @@ The database handler validates all mutations atomically:
 
 1. The ROM's version matches the request's expected version.
 2. Each selected resource belongs to that ROM.
-3. A local file category is `soundtrack`, while owned media is active and has
-   the `soundtrack` role.
+3. A local file category is `soundtrack`, while an owned media candidate is
+   active and has the `soundtrack` role.
 4. The caller's requested set contains no duplicates.
 
 The detailed ROM response exposes selected local soundtrack file ids and
 selected owned soundtrack media ids. The existing `files` and `owned_media`
 responses provide the immutable name, role, state, and protected content
-identity required by the UI.
+identity required by the UI. The UI filters invalid or inactive persisted
+selections before building the unified playback collection.
 
 ## API and Authorization
 
@@ -91,8 +94,9 @@ soundtrack upload, manual inclusion, ordering, player, download, and deletion
 flow remains unchanged. Selecting a background track neither adds it to nor
 removes it from the manual soundtrack queue.
 
-On navigation to a ROM detail page, the view derives selected local and owned
-tracks from the detailed ROM, randomly selects one unified candidate, and gives
+On navigation to a ROM detail page, the view derives selected local and active
+owned tracks from the detailed ROM, combines them into one collection, randomly
+selects one unified candidate with equal per-candidate probability, and gives
 its protected content URL to a dedicated hidden background-audio element. It
 uses the same lifecycle cleanup as visual background rotation and does not use
 the interactive soundtrack player or its mini-player. On route leave,
@@ -106,18 +110,20 @@ rendered.
 The Media action refreshes the authoritative ROM after success. A `409` from a
 stale version refreshes state and presents the existing conflict feedback. A
 missing, reclassified, or cross-ROM local file is rejected by the server. A
-scan that removes a local track cascades its selection. Deactivation or deletion
-of an owned track cascades its owned selection, so a later page load cannot try
-to play a stale path.
+scan that removes a local track cascades its selection. An inactive owned track
+is ignored for playback and cannot be newly written by a replacement request;
+its historical selection row may remain. Physical deletion of an owned track
+cascades its selection, so a later page load cannot try to play a stale path.
 
 ## Verification
 
 - Backend tests cover `ost` categorization, safe local and owned selection
-  mutations, cross-ROM rejection, role/category rejection, optimistic
-  conflicts, and cascade behavior.
+  mutations, cross-ROM rejection, role/category rejection, inactive-write
+  rejection, optimistic conflicts, and physical-delete cascade behavior.
 - Endpoint tests cover visibility, scopes, and response hydration.
 - Frontend tests cover local and owned candidate selected-state rendering,
-  mutation recovery, random selection only from marked unified tracks, route
-  cleanup, and the absence of source-library mutation calls.
+  mutation recovery, one combined equal-probability random candidate
+  collection that ignores inactive owned tracks, route cleanup, and the
+  absence of source-library mutation calls.
 - Run migration upgrade/downgrade checks plus backend tests, frontend Vitest,
   typecheck, locale parity/sorting when copy is added, and Trunk checks.
