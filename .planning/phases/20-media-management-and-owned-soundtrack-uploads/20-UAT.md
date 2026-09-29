@@ -32,6 +32,22 @@ Quellbibliothek, dem NAS, Team4s oder Docker Compose.
 persistierte RomM-Medien durch Revision 0129 als verwaltbare Kandidaten
 sichtbar sind.
 
+## Nachtrag: lokale und hochgeladene Hintergrundmusik (2026-09-29)
+
+**Ergebnis:** APPROVED
+
+Im isolierten Phase-9-UAT-Stack wurde Witcher 3 (ROM 13) geprüft. Zwei lokale
+MP3-Dateien im `OST`-Ordner wurden nach einem einmaligen Windows-Komplettscan
+als Soundtrack-Dateien erkannt. Zusätzlich wurde ein RomM-eigener,
+hochgeladener Soundtrack als Hintergrundkandidat ausgewählt. Die Wiedergabe
+funktionierte nach dem Wechsel auf die aktive Witcher-Detailseite. Der Nutzer
+hat diesen UAT-Fall ausdrücklich freigegeben.
+
+Der während der Prüfung aufgedeckte fehlende RQ-Worker im isolierten Stack
+wurde nur für den einzelnen Testscan temporär gestartet; drei wartende,
+veraltete UAT-Scan-Jobs wurden zuvor verworfen. Es gab keine Änderung an NAS,
+Team4s, Docker Compose oder einer echten Quellbibliothek.
+
 ## Vorbereitung
 
 - [ ] Angemeldet, v2 aktiviert, Witcher 3 geöffnet, Reiter **Media** gewählt.

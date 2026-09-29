@@ -70,11 +70,12 @@ inferred here.
 
 ## Browser UAT evidence
 
-The owned-upload background-audio extension requires an additional browser UAT
-observation. It must confirm a selected active upload is eligible alongside
-selected local OST tracks after a detail-route change, while an inactive or
-unselected upload is ignored. Browser autoplay policy and manual-player
-playback must be recorded separately.
+The owned-upload background-audio extension received its additional browser
+UAT observation on 2026-09-29. The isolated Witcher 3 fixture recognized two
+scanned local OST tracks, and a selected RomM-owned upload was approved for
+background playback after returning to the active detail route. The user
+explicitly approved this UAT case; see `20-UAT.md`. This is not evidence for
+unobserved inactive/unselected-track or browser-autoplay-policy branches.
 
 The Phase 20 browser UAT is APPROVED by the user after the legacy-owned-media
 backfill. The Witcher 3 Media view was rechecked and displays migrated
