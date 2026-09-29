@@ -81,6 +81,13 @@ horizontales Scrollen, verständliche Tooltips/Aria-Labels an Icon-Aktionen.
       Hintergründen und aktiver Detailseite wieder Rotation.
 - [ ] Erlaubte Audiodatei hochladen, in Soundtrack aufnehmen, zwei Tracks
       ordnen. Listenreihenfolge, Vorheriger/Nächster und Warteschlange sind gleich.
+- [ ] Einen hochgeladenen, RomM-eigenen Track unabhängig von der manuellen
+      Soundtrack-Warteschlange als Hintergrundmusik markieren. Witcher 3
+      verlassen und erneut auf der aktiven Detailseite öffnen: Die gemeinsame
+      Auswahl aus lokalen und aktiven hochgeladenen Hintergrund-Tracks ist
+      berechtigt zur zufälligen Wiedergabe. Ein nicht markierter oder inaktiver
+      Upload wird nicht gewählt. Eine Browser-Autoplay-Sperre wird getrennt
+      vom manuellen Player-Ergebnis dokumentiert.
 - [ ] Wiedergabe, Pause, Suche, Lautstärke, Download, Vorheriger und Nächster
       prüfen.
 - [ ] Aktiven Track löschen: Wiedergabe stoppt, Bestätigung ist erforderlich,
