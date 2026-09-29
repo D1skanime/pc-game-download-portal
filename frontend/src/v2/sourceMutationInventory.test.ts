@@ -89,6 +89,13 @@ const routeAuthorities = [
     forbidden: false,
   },
   {
+    method: "PUT",
+    route: /^\/roms\/\{[^}]+\}\/media\/(?:local|owned)-background-audio$/,
+    operation: "WRITE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
     method: "POST",
     route: /^\/roms\/\{[^}]+\}\/media\/upload$/,
     operation: "UPLOAD",
