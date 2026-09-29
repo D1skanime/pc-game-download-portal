@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { scheduleBackgroundRotation } from "./GameDetails.vue";
+import {
+  scheduleBackgroundRotation,
+  selectedBackgroundAudioTracks,
+} from "./GameDetails.vue";
 
 describe("GameDetails", () => {
   it("passes the current parent ROM id to OverviewTab", () => {
@@ -65,13 +68,44 @@ describe("GameDetails", () => {
     expect(source).toContain("{ immediate: true }");
   });
 
-  it("plays selected local soundtrack files only for the active detail route", () => {
+  it("passes selected local and active owned tracks to background audio as one collection", () => {
     const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
 
-    expect(source).toContain("selectedLocalBackgroundAudio");
+    expect(source).toContain("selectedBackgroundAudio");
     expect(source).toContain('file.category === "soundtrack"');
+    expect(source).toContain("owned_background_audio_media_ids");
+    expect(source).toContain('media.role === "soundtrack"');
+    expect(source).toContain('media.state === "active"');
+    expect(source).toContain("/media/${media.id}/content");
     expect(source).toContain("backgroundAudio.playRandom(tracks)");
     expect(source).toContain("onCleanup(() => backgroundAudio.stop())");
+  });
+
+  it("combines local and active owned background candidates without source weighting", () => {
+    const tracks = selectedBackgroundAudioTracks({
+      id: 44,
+      files: [
+        { id: 1, category: "soundtrack", file_name: "local.mp3" },
+        { id: 2, category: "game", file_name: "game.exe" },
+      ],
+      local_background_audio_file_ids: [1],
+      owned_background_audio_media_ids: [10, 11],
+      owned_media: [
+        { id: 10, role: "soundtrack", state: "active" },
+        { id: 11, role: "soundtrack", state: "tombstoned" },
+      ],
+    });
+
+    expect(tracks).toEqual([
+      {
+        id: 1,
+        url: "/api/roms/1/files/content/local.mp3",
+      },
+      {
+        id: 10,
+        url: "/api/roms/44/media/10/content",
+      },
+    ]);
   });
 
   it("keeps the first background static when motion is reduced or a list is singular", () => {

@@ -83,6 +83,33 @@ describe("rom service", () => {
     );
   });
 
+  it("replaces selected owned background audio through the protected media route", async () => {
+    const replaceOwnedBackgroundAudio = (
+      romService.default as typeof romService.default & {
+        replaceOwnedBackgroundAudio: (input: {
+          romId: number;
+          mediaIds: number[];
+          expectedVersion: string;
+        }) => Promise<unknown>;
+      }
+    ).replaceOwnedBackgroundAudio;
+    mocks.apiPut.mockResolvedValueOnce({ data: {} });
+
+    await replaceOwnedBackgroundAudio({
+      romId: 41,
+      mediaIds: [12, 13],
+      expectedVersion: "2026-09-29T00:00:00+00:00",
+    });
+
+    expect(mocks.apiPut).toHaveBeenCalledWith(
+      "/roms/41/media/owned-background-audio",
+      {
+        media_ids: [12, 13],
+        expected_version: "2026-09-29T00:00:00+00:00",
+      },
+    );
+  });
+
   it("uploadManual_sends_one_file_in_one_request", async () => {
     const uploadManual = uploadManualExport();
     const stackTraceLimit = Error.stackTraceLimit;

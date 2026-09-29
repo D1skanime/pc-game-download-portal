@@ -28,6 +28,7 @@ import type {
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import type { RomLocalBackgroundAudioRequest } from "@/__generated__/models/RomLocalBackgroundAudioRequest";
+import type { RomOwnedBackgroundAudioRequest } from "@/__generated__/models/RomOwnedBackgroundAudioRequest";
 import api from "@/services/api";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath } from "@/utils";
@@ -429,6 +430,25 @@ async function replaceLocalBackgroundAudio({
   };
   return api.put<DetailedRom>(
     `/roms/${romId}/media/local-background-audio`,
+    payload,
+  );
+}
+
+async function replaceOwnedBackgroundAudio({
+  romId,
+  mediaIds,
+  expectedVersion,
+}: {
+  romId: number;
+  mediaIds: number[];
+  expectedVersion: string;
+}) {
+  const payload: RomOwnedBackgroundAudioRequest = {
+    media_ids: mediaIds,
+    expected_version: expectedVersion,
+  };
+  return api.put<DetailedRom>(
+    `/roms/${romId}/media/owned-background-audio`,
     payload,
   );
 }
@@ -943,6 +963,7 @@ export default {
   removeOwnedMediaPlacement,
   replaceOwnedMediaPlacements,
   replaceLocalBackgroundAudio,
+  replaceOwnedBackgroundAudio,
   uploadOwnedMedia,
   deleteOwnedMedia,
   getPcMetadataCandidates,

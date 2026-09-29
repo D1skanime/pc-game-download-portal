@@ -1,7 +1,47 @@
 <script lang="ts">
 import type { SetBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import type { BackgroundAudioTrack } from "@/v2/composables/useBackgroundAudio";
 
 export const BACKGROUND_ROTATION_MS = 10_000;
+
+type BackgroundAudioRom = {
+  id: number;
+  files: Array<{ id: number; category?: string | null; file_name: string }>;
+  local_background_audio_file_ids?: number[];
+  owned_background_audio_media_ids?: number[];
+  owned_media?: Array<{
+    id: number;
+    role: string;
+    state: string;
+  }>;
+};
+
+export function selectedBackgroundAudioTracks(
+  rom: BackgroundAudioRom,
+): BackgroundAudioTrack[] {
+  const selectedLocalIds = new Set(rom.local_background_audio_file_ids ?? []);
+  const selectedOwnedIds = new Set(rom.owned_background_audio_media_ids ?? []);
+  const localTracks = rom.files
+    .filter(
+      (file) => selectedLocalIds.has(file.id) && file.category === "soundtrack",
+    )
+    .map((file) => ({
+      id: file.id,
+      url: `/api/roms/${file.id}/files/content/${encodeURIComponent(file.file_name)}`,
+    }));
+  const ownedTracks = (rom.owned_media ?? [])
+    .filter(
+      (media) =>
+        selectedOwnedIds.has(media.id) &&
+        media.role === "soundtrack" &&
+        media.state === "active",
+    )
+    .map((media) => ({
+      id: media.id,
+      url: `/api/roms/${rom.id}/media/${media.id}/content`,
+    }));
+  return [...localTracks, ...ownedTracks];
+}
 
 export function scheduleBackgroundRotation(
   backgrounds: string[],
@@ -55,10 +95,7 @@ import PcComponents from "@/v2/components/GameDetails/PcComponents.vue";
 import PcLocalMediaReview from "@/v2/components/GameDetails/PcLocalMediaReview.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
-import {
-  type BackgroundAudioTrack,
-  useBackgroundAudio,
-} from "@/v2/composables/useBackgroundAudio";
+import { useBackgroundAudio } from "@/v2/composables/useBackgroundAudio";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
@@ -215,18 +252,10 @@ const selectedBackgrounds = computed(() => {
     });
 });
 const isActiveDetailsRoute = computed(() => route.name === ROUTES.ROM);
-const selectedLocalBackgroundAudio = computed<BackgroundAudioTrack[]>(() => {
+const selectedBackgroundAudio = computed<BackgroundAudioTrack[]>(() => {
   const rom = currentRom.value;
   if (!rom) return [];
-  const selectedIds = new Set(rom.local_background_audio_file_ids ?? []);
-  return rom.files
-    .filter(
-      (file) => selectedIds.has(file.id) && file.category === "soundtrack",
-    )
-    .map((file) => ({
-      id: file.id,
-      url: `/api/roms/${file.id}/files/content/${encodeURIComponent(file.file_name)}`,
-    }));
+  return selectedBackgroundAudioTracks(rom);
 });
 
 watch(
@@ -253,7 +282,7 @@ watch(
 );
 
 watch(
-  [selectedLocalBackgroundAudio, isActiveDetailsRoute],
+  [selectedBackgroundAudio, isActiveDetailsRoute],
   ([tracks, isDetailsRoute], _previous, onCleanup) => {
     backgroundAudio.stop();
     if (!isDetailsRoute) return;

@@ -35,6 +35,7 @@ const canManage = useCan("rom.edit", scope);
 const canDelete = useCan("rom.delete", scope);
 const uploading = ref(false);
 const localBackgroundAudioUpdating = ref(false);
+const ownedBackgroundAudioUpdating = ref(false);
 const movingId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
 const uploadFailures = ref<string[]>([]);
@@ -78,6 +79,9 @@ const localTracks = computed(() =>
 );
 const selectedLocalTrackIds = computed(
   () => new Set(props.rom.local_background_audio_file_ids ?? []),
+);
+const selectedOwnedTrackIds = computed(
+  () => new Set(props.rom.owned_background_audio_media_ids ?? []),
 );
 const activeTrackId = computed(() =>
   activeStoreTrack.value?.romId === props.rom.id
@@ -204,6 +208,25 @@ async function toggleLocalBackgroundAudio(fileId: number) {
     if (!(await handleConflict(error))) snackbar.error(errorMessage(error));
   } finally {
     localBackgroundAudioUpdating.value = false;
+  }
+}
+async function toggleOwnedBackgroundAudio(mediaId: number) {
+  if (ownedBackgroundAudioUpdating.value) return;
+  ownedBackgroundAudioUpdating.value = true;
+  const nextMediaIds = new Set(selectedOwnedTrackIds.value);
+  if (nextMediaIds.has(mediaId)) nextMediaIds.delete(mediaId);
+  else nextMediaIds.add(mediaId);
+  try {
+    await romApi.replaceOwnedBackgroundAudio({
+      romId: props.rom.id,
+      mediaIds: [...nextMediaIds],
+      expectedVersion: props.rom.updated_at,
+    });
+    await refreshCanonical();
+  } catch (error) {
+    if (!(await handleConflict(error))) snackbar.error(errorMessage(error));
+  } finally {
+    ownedBackgroundAudioUpdating.value = false;
   }
 }
 async function moveTrack(index: number, direction: -1 | 1) {
@@ -393,6 +416,22 @@ function fmt(seconds: number) {
         <li v-for="(item, index) in includedTracks" :key="item.id">
           <span>{{ index + 1 }}. {{ item.display_label }}</span>
           <div>
+            <span v-if="selectedOwnedTrackIds.has(item.id)">
+              {{ t("rom.background-music") }}
+            </span>
+            <RBtn
+              v-if="canManage"
+              :loading="ownedBackgroundAudioUpdating"
+              :disabled="ownedBackgroundAudioUpdating"
+              :aria-label="`${selectedOwnedTrackIds.has(item.id) ? t('rom.remove-as-background') : t('rom.add-as-background')}: ${item.display_label}`"
+              @click="toggleOwnedBackgroundAudio(item.id)"
+            >
+              {{
+                selectedOwnedTrackIds.has(item.id)
+                  ? t("rom.remove-as-background")
+                  : t("rom.add-as-background")
+              }}
+            </RBtn>
             <RBtn
               icon="mdi-play"
               variant="text"
@@ -452,6 +491,22 @@ function fmt(seconds: number) {
         <li v-for="item in availableTracks" :key="item.id">
           <span>{{ item.display_label }}</span>
           <div>
+            <span v-if="selectedOwnedTrackIds.has(item.id)">
+              {{ t("rom.background-music") }}
+            </span>
+            <RBtn
+              v-if="canManage"
+              :loading="ownedBackgroundAudioUpdating"
+              :disabled="ownedBackgroundAudioUpdating"
+              :aria-label="`${selectedOwnedTrackIds.has(item.id) ? t('rom.remove-as-background') : t('rom.add-as-background')}: ${item.display_label}`"
+              @click="toggleOwnedBackgroundAudio(item.id)"
+            >
+              {{
+                selectedOwnedTrackIds.has(item.id)
+                  ? t("rom.remove-as-background")
+                  : t("rom.add-as-background")
+              }}
+            </RBtn>
             <RBtn
               v-if="canManage"
               :disabled="movingId !== null"

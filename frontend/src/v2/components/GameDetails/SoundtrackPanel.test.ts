@@ -25,11 +25,14 @@ describe("SoundtrackPanel owned-media queue", () => {
     expect(source).toContain("await refreshCanonical()");
   });
 
-  it("offers scanned local soundtrack files only as background-music candidates", () => {
+  it("offers local and owned soundtrack files as background-music candidates", () => {
     expect(source).toContain('file.category === "soundtrack"');
     expect(source).toContain("local_background_audio_file_ids");
     expect(source).toContain("replaceLocalBackgroundAudio");
     expect(source).toContain("toggleLocalBackgroundAudio");
+    expect(source).toContain("owned_background_audio_media_ids");
+    expect(source).toContain("replaceOwnedBackgroundAudio");
+    expect(source).toContain("toggleOwnedBackgroundAudio");
   });
 
   it("stops active tracks before confirmed owned deletion and retains decode retry", () => {
