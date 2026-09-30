@@ -4,7 +4,10 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 
-from endpoints.roms.pc_metadata import _candidate_media_id, pc_metadata_match_handler
+from endpoints.roms.pc_metadata import (
+    _candidate_media_id,
+    pc_metadata_match_handler,
+)
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
@@ -377,8 +380,7 @@ def test_pc_parent_steam_selection_resolves_details_before_guarded_persistence(
             return_value={"steam": PcMetadataProviderResult("steam", True, [candidate])}
         ),
     )
-    steam = type("Steam", (), {})()
-    steam.get_rom_by_id = AsyncMock(
+    resolve = AsyncMock(
         return_value={
             "steam_id": 1091500,
             "name": "Resolved German title",
@@ -386,7 +388,9 @@ def test_pc_parent_steam_selection_resolves_details_before_guarded_persistence(
             "steam_metadata": {"language": "de"},
         }
     )
-    monkeypatch.setitem(pc_metadata_match_handler.providers, "steam", steam)
+    monkeypatch.setattr(
+        "endpoints.roms.pc_metadata.resolve_steam_pc_enrichment", resolve
+    )
 
     review = client.get(
         f"/api/roms/{rom.id}/pc-metadata-candidates", headers=_headers(access_token)
@@ -406,7 +410,10 @@ def test_pc_parent_steam_selection_resolves_details_before_guarded_persistence(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    steam.get_rom_by_id.assert_awaited_once_with(1091500, rom.platform_slug)
+    request = resolve.await_args.args[0]
+    assert request.explicit_steam_id == 1091500
+    assert request.platform_slug == rom.platform_slug
+    assert request.metadata_sources == ["steam"]
     saved = db_rom_handler.get_rom(rom.id)
     assert saved is not None
     assert saved.steam_id == 1091500
@@ -424,11 +431,12 @@ def test_pc_parent_steam_selection_rejects_review_version_after_rom_changes(
             return_value={"steam": PcMetadataProviderResult("steam", True, [candidate])}
         ),
     )
-    steam = type("Steam", (), {})()
-    steam.get_rom_by_id = AsyncMock(
+    resolve = AsyncMock(
         return_value={"steam_id": 1091500, "steam_metadata": {"language": "de"}}
     )
-    monkeypatch.setitem(pc_metadata_match_handler.providers, "steam", steam)
+    monkeypatch.setattr(
+        "endpoints.roms.pc_metadata.resolve_steam_pc_enrichment", resolve
+    )
 
     review = client.get(
         f"/api/roms/{rom.id}/pc-metadata-candidates", headers=_headers(access_token)
@@ -455,6 +463,71 @@ def test_pc_parent_steam_selection_rejects_review_version_after_rom_changes(
     )
 
     assert response.status_code == status.HTTP_409_CONFLICT
+
+
+@pytest.mark.parametrize("reason", ["unavailable", "mismatched"])
+def test_d06_pc_parent_steam_selection_rejects_empty_shared_patch(
+    client, access_token, rom, monkeypatch, reason
+):
+    candidate = _steam_candidate()
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_candidates",
+        AsyncMock(
+            return_value={"steam": PcMetadataProviderResult("steam", True, [candidate])}
+        ),
+    )
+    resolve = AsyncMock(return_value={})
+    monkeypatch.setattr(
+        "endpoints.roms.pc_metadata.resolve_steam_pc_enrichment", resolve
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": candidate.id,
+            "query": "Cyberpunk 2077",
+            "selected_media_ids": [],
+            "expected_version": rom.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert reason in {"unavailable", "mismatched"}
+    resolve.assert_awaited_once()
+
+
+def test_d06_pc_parent_steam_selection_rejects_malformed_candidate_id(
+    client, access_token, rom, monkeypatch
+):
+    candidate = _steam_candidate()
+    candidate.provider_ids["steam_id"] = "not-an-app-id"
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_candidates",
+        AsyncMock(
+            return_value={"steam": PcMetadataProviderResult("steam", True, [candidate])}
+        ),
+    )
+    resolve = AsyncMock(return_value={"steam_id": 1091500})
+    monkeypatch.setattr(
+        "endpoints.roms.pc_metadata.resolve_steam_pc_enrichment", resolve
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": candidate.id,
+            "query": "Cyberpunk 2077",
+            "selected_media_ids": [],
+            "expected_version": rom.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    resolve.assert_not_awaited()
 
 
 def test_non_dlc_component_rejects_provider_media_selection(
