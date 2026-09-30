@@ -148,3 +148,28 @@ def test_normalize_steam_drops_malformed_data_without_clearing_existing_values()
     }
 
     assert normalize_steam({"steam_id": False, "name": ""}, current) == {}
+
+
+def test_d04_normalize_steam_preserves_manual_developer_and_publisher_fields():
+    updates = normalize_steam(
+        {
+            "steam_id": 1091500,
+            "main_developer": "Steam developer",
+            "publishers": ["Steam publisher"],
+        },
+        {
+            "manual_metadata": {
+                "main_developer": True,
+                "publishers": True,
+            },
+            "metadata": {
+                "main_developer": "Manual developer",
+                "publishers": ["Manual publisher"],
+            },
+        },
+    )
+
+    assert updates == {
+        "steam_id": 1091500,
+        "steam_metadata": {"app_id": 1091500, "source": "storefront"},
+    }
