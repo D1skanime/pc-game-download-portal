@@ -1374,10 +1374,18 @@ async def scan_rom(
     if has_steam_metadata or has_steam_media:
         durable_rom = db_rom_handler.add_rom(scanned_rom)
         if has_steam_metadata:
-            applied = db_rom_handler.apply_pc_metadata_candidate(
+            # `roms_metadata` derives its PC fields from `Rom.igdb_metadata`.
+            # Persist the guarded Steam structured-field overlay through the Rom
+            # row so MariaDB never attempts to update that derived view.
+            igdb_metadata = rom.igdb_metadata
+            merged_igdb_metadata = (
+                dict(igdb_metadata) if isinstance(igdb_metadata, dict) else {}
+            )
+            merged_igdb_metadata.update(steam_metadata)
+            applied = db_rom_handler.apply_pc_igdb_enrichment(
                 durable_rom.id,
                 durable_rom.updated_at,
-                {"metadata": steam_metadata},
+                {"igdb_metadata": merged_igdb_metadata},
             )
             if applied is not None:
                 durable_rom = applied

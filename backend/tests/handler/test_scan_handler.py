@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import ANY, AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, Mock, patch
 
 import pytest
 
@@ -40,6 +40,7 @@ def _igdb_scan_fixture(
     platform_slug: str = "win",
     igdb_id: int | None = None,
     steam_id: int | None = None,
+    igdb_metadata: dict | None = None,
 ) -> tuple[Platform, Rom]:
     platform = Platform(
         id=1,
@@ -60,6 +61,7 @@ def _igdb_scan_fixture(
         languages=[],
         tags=[],
         igdb_id=igdb_id,
+        igdb_metadata=igdb_metadata or {},
         steam_id=steam_id,
     )
     return platform, rom
@@ -249,8 +251,13 @@ async def _scan_steam_patch(
     steam_id: int | None = 292030,
     metadata_sources: list[str] | None = None,
     patch_data: dict | None = None,
+    igdb_metadata: dict | None = None,
 ):
-    platform, rom = _igdb_scan_fixture(platform_slug=platform_slug, steam_id=steam_id)
+    platform, rom = _igdb_scan_fixture(
+        platform_slug=platform_slug,
+        steam_id=steam_id,
+        igdb_metadata=igdb_metadata,
+    )
     resolver = AsyncMock(
         return_value=(
             patch_data
@@ -264,6 +271,8 @@ async def _scan_steam_patch(
         )
     )
     reconcile = AsyncMock(return_value=True)
+    persist_igdb_metadata = Mock(return_value=None)
+    persist_candidate_metadata = Mock(return_value=None)
     with (
         patch(
             "handler.scan_handler.db_rom_handler.add_rom", side_effect=lambda item: item
@@ -273,6 +282,14 @@ async def _scan_steam_patch(
         ),
         patch("handler.scan_handler.resolve_steam_pc_enrichment", resolver),
         patch("handler.scan_handler.reconcile_steam_patch_media", reconcile),
+        patch(
+            "handler.scan_handler.db_rom_handler.apply_pc_igdb_enrichment",
+            persist_igdb_metadata,
+        ),
+        patch(
+            "handler.scan_handler.db_rom_handler.apply_pc_metadata_candidate",
+            persist_candidate_metadata,
+        ),
         patch(
             "handler.scan_handler.fs_rom_handler.get_pico8_cover_url", return_value=None
         ),
@@ -298,7 +315,13 @@ async def _scan_steam_patch(
             ),
             newly_added=newly_added,
         )
-    return resolver, reconcile, result
+    return (
+        resolver,
+        reconcile,
+        result,
+        persist_igdb_metadata,
+        persist_candidate_metadata,
+    )
 
 
 @pytest.mark.asyncio
@@ -317,7 +340,7 @@ async def test_admin_pc_scans_use_the_shared_steam_patch(
     steam_id: int | None,
     platform_slug: str,
 ):
-    resolver, reconcile, result = await _scan_steam_patch(
+    resolver, reconcile, result, _, _ = await _scan_steam_patch(
         scan_type=scan_type,
         newly_added=newly_added,
         platform_slug=platform_slug,
@@ -349,7 +372,7 @@ async def test_non_parity_scan_paths_do_not_call_steam(
     platform_slug: str,
     metadata_sources: list[str],
 ):
-    resolver, reconcile, _ = await _scan_steam_patch(
+    resolver, reconcile, _, _, _ = await _scan_steam_patch(
         scan_type=scan_type,
         newly_added=newly_added,
         platform_slug=platform_slug,
@@ -363,7 +386,7 @@ async def test_non_parity_scan_paths_do_not_call_steam(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("patch_data", [{}, {"steam_id": 292030}])
 async def test_empty_or_text_only_steam_patch_never_reconciles_media(patch_data: dict):
-    resolver, reconcile, _ = await _scan_steam_patch(
+    resolver, reconcile, _, _, _ = await _scan_steam_patch(
         scan_type=ScanType.COMPLETE,
         newly_added=False,
         patch_data=patch_data,
@@ -371,3 +394,35 @@ async def test_empty_or_text_only_steam_patch_never_reconciles_media(patch_data:
 
     resolver.assert_awaited_once()
     reconcile.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_steam_structured_metadata_persists_through_rom_not_metadata_view():
+    structured_steam_metadata = {
+        "main_developer": "CD Projekt RED",
+        "publishers": ["CD Projekt RED"],
+        "pc_release_date": 1_432_080_000,
+    }
+    _, _, _, persist_igdb_metadata, persist_candidate_metadata = (
+        await _scan_steam_patch(
+            scan_type=ScanType.COMPLETE,
+            newly_added=False,
+            igdb_metadata={"themes": ["Fantasy"], "franchises": ["The Witcher"]},
+            patch_data={
+                "steam_id": 292030,
+                "steam_metadata": {"app_id": 292030, "source": "storefront"},
+                "metadata": structured_steam_metadata,
+                "media": {"cover": ["https://cdn.example/witcher.jpg"]},
+            },
+        )
+    )
+
+    persist_igdb_metadata.assert_called_once()
+    assert persist_igdb_metadata.call_args.args[2] == {
+        "igdb_metadata": {
+            "themes": ["Fantasy"],
+            "franchises": ["The Witcher"],
+            **structured_steam_metadata,
+        }
+    }
+    persist_candidate_metadata.assert_not_called()
