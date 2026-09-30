@@ -8,7 +8,9 @@ from typing import Any, Mapping
 DISPLAY_FIELDS = frozenset(
     {"name", "summary", "main_developer", "publishers", "pc_release_date"}
 )
-MANUAL_FIELDS = frozenset({"name", "summary", "pc_release_date"})
+MANUAL_FIELDS = frozenset(
+    {"name", "summary", "main_developer", "publishers", "pc_release_date"}
+)
 
 
 def normalize_steam(
