@@ -2401,6 +2401,20 @@ class DBRomsHandler(DBBaseHandler):
         """Apply a reviewed PC metadata candidate only at the expected version."""
         metadata_values = data.get("metadata")
         rom_values = {key: value for key, value in data.items() if key != "metadata"}
+        if isinstance(metadata_values, dict):
+            current_metadata = session.scalar(
+                select(Rom.igdb_metadata).where(
+                    and_(Rom.id == id, Rom.updated_at == expected_updated_at)
+                )
+            )
+            if current_metadata is None:
+                return None
+            igdb_metadata = rom_values.get("igdb_metadata", current_metadata)
+            merged_igdb_metadata = (
+                dict(igdb_metadata) if isinstance(igdb_metadata, dict) else {}
+            )
+            merged_igdb_metadata.update(metadata_values)
+            rom_values["igdb_metadata"] = merged_igdb_metadata
         result = session.execute(
             update(Rom)
             .where(and_(Rom.id == id, Rom.updated_at == expected_updated_at))
@@ -2409,14 +2423,6 @@ class DBRomsHandler(DBBaseHandler):
         )
         if result.rowcount != 1:
             return None
-        if isinstance(metadata_values, dict):
-            metadata = session.get(RomMetadata, id)
-            if metadata is None:
-                metadata = RomMetadata(rom_id=id)
-                session.add(metadata)
-            for field in ("main_developer", "publishers", "pc_release_date"):
-                if field in metadata_values:
-                    setattr(metadata, field, metadata_values[field])
         session.flush()
         session.expire_all()
         return session.query(Rom).filter_by(id=id).one()

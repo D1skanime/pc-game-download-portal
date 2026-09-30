@@ -1382,6 +1382,7 @@ async def scan_rom(
                 dict(igdb_metadata) if isinstance(igdb_metadata, dict) else {}
             )
             merged_igdb_metadata.update(steam_metadata)
+            scanned_rom.igdb_metadata = merged_igdb_metadata
             applied = db_rom_handler.apply_pc_igdb_enrichment(
                 durable_rom.id,
                 durable_rom.updated_at,
@@ -1391,7 +1392,7 @@ async def scan_rom(
                 durable_rom = applied
         if has_steam_media:
             await reconcile_steam_patch_media(durable_rom, steam_updates)
-        return durable_rom
+        return scanned_rom
     return scanned_rom
 
 

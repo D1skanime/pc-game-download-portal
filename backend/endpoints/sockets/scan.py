@@ -663,6 +663,9 @@ async def _identify_rom(
         )
         if enriched_parent is not None:
             _added_rom = enriched_parent
+            refreshed_rom = db_rom_handler.get_rom(_added_rom.id)
+            if refreshed_rom is not None:
+                _added_rom = refreshed_rom
         scan_target = db_rom_handler.get_rom(_added_rom.id)
         if scan_target is not None:
             for component in scan_target.components:
