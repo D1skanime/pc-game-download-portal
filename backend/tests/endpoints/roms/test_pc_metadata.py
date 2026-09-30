@@ -97,6 +97,38 @@ def test_classified_pc_component_metadata_candidates_use_explicit_query(
     assert collect.await_args.args[2] == "Selected PC Game"
 
 
+def test_pc_component_metadata_candidates_are_read_only(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/special-transport",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates",
+        AsyncMock(return_value=_candidate_results()),
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-candidates",
+        headers=_headers(access_token),
+        params={"query": "Euro Truck Simulator 2: Special Transport"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert saved.components[0].component_metadata is None
+
+
 def test_unresolved_pc_component_metadata_routes_return_404(client, access_token, rom):
     db_rom_handler.sync_rom_components(
         rom.id,

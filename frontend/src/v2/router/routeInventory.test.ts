@@ -12,6 +12,11 @@ describe("v2 route inventory", () => {
     expect(record?.path).toBe("/rom/:rom/dlc/:component");
   });
 
+  it("redirects the incomplete ROM path to the home screen", () => {
+    const record = router.getRoutes().find((route) => route.path === "/rom");
+    expect(record?.redirect).toEqual({ name: ROUTES.HOME });
+  });
+
   it("classifies every public route", () => {
     expect(Object.keys(routeInventory).sort()).toEqual(
       Object.values(ROUTES).sort(),

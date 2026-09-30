@@ -20,8 +20,15 @@ import type {
   PcLocalMediaCandidatesResponse,
   PcLocalMediaSelectionRequest,
   PcLocalMediaSelectionResponse,
+  RomOwnedMediaPlacementMutationRequest,
+  RomOwnedMediaReorderRequest,
+  RomOwnedMediaRole,
+  RomOwnedMediaSchema,
+  RomOwnedMediaSurface,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
+import type { RomLocalBackgroundAudioRequest } from "@/__generated__/models/RomLocalBackgroundAudioRequest";
+import type { RomOwnedBackgroundAudioRequest } from "@/__generated__/models/RomOwnedBackgroundAudioRequest";
 import api from "@/services/api";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath } from "@/utils";
@@ -336,6 +343,150 @@ async function getRomSimple({
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).
   return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
+}
+
+async function getOwnedMedia({ romId }: { romId: number }) {
+  return api.get<RomOwnedMediaSchema[]>(`/roms/${romId}/media`);
+}
+
+async function refreshOwnedMedia({
+  romId,
+  expectedVersion,
+}: {
+  romId: number;
+  expectedVersion: string;
+}) {
+  return api.post<DetailedRom>(`/roms/${romId}/media/refresh`, null, {
+    params: { expected_version: expectedVersion },
+  });
+}
+
+async function setOwnedMediaPlacement({
+  romId,
+  mediaId,
+  surface,
+  expectedVersion,
+}: {
+  romId: number;
+  mediaId: number;
+  surface: RomOwnedMediaSurface;
+  expectedVersion: string;
+}) {
+  const payload: RomOwnedMediaPlacementMutationRequest = {
+    media_id: mediaId,
+    surface,
+    expected_version: expectedVersion,
+  };
+  return api.post<DetailedRom>(`/roms/${romId}/media/placements`, payload);
+}
+
+async function removeOwnedMediaPlacement({
+  romId,
+  mediaId,
+  surface,
+  expectedVersion,
+}: {
+  romId: number;
+  mediaId: number;
+  surface: RomOwnedMediaSurface;
+  expectedVersion: string;
+}) {
+  return api.delete<DetailedRom>(`/roms/${romId}/media/placements/${mediaId}`, {
+    params: { surface, expected_version: expectedVersion },
+  });
+}
+
+async function replaceOwnedMediaPlacements({
+  romId,
+  surface,
+  mediaIds,
+  expectedVersion,
+}: {
+  romId: number;
+  surface: RomOwnedMediaSurface;
+  mediaIds: number[];
+  expectedVersion: string;
+}) {
+  const payload: RomOwnedMediaReorderRequest = {
+    surface,
+    media_ids: mediaIds,
+    expected_version: expectedVersion,
+  };
+  return api.put<DetailedRom>(`/roms/${romId}/media/placements`, payload);
+}
+
+async function replaceLocalBackgroundAudio({
+  romId,
+  fileIds,
+  expectedVersion,
+}: {
+  romId: number;
+  fileIds: number[];
+  expectedVersion: string;
+}) {
+  const payload: RomLocalBackgroundAudioRequest = {
+    file_ids: fileIds,
+    expected_version: expectedVersion,
+  };
+  return api.put<DetailedRom>(
+    `/roms/${romId}/media/local-background-audio`,
+    payload,
+  );
+}
+
+async function replaceOwnedBackgroundAudio({
+  romId,
+  mediaIds,
+  expectedVersion,
+}: {
+  romId: number;
+  mediaIds: number[];
+  expectedVersion: string;
+}) {
+  const payload: RomOwnedBackgroundAudioRequest = {
+    media_ids: mediaIds,
+    expected_version: expectedVersion,
+  };
+  return api.put<DetailedRom>(
+    `/roms/${romId}/media/owned-background-audio`,
+    payload,
+  );
+}
+
+async function uploadOwnedMedia({
+  romId,
+  role,
+  file,
+  expectedVersion,
+  onUploadProgress,
+}: {
+  romId: number;
+  role: RomOwnedMediaRole;
+  file: File;
+  expectedVersion: string;
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void;
+}) {
+  const formData = new FormData();
+  formData.append("role", role);
+  formData.append("expected_version", expectedVersion);
+  formData.append("media", file, file.name);
+  return api.post<DetailedRom>(`/roms/${romId}/media/upload`, formData, {
+    onUploadProgress,
+  });
+}
+
+async function deleteOwnedMedia({
+  romId,
+  mediaId,
+  expectedVersion,
+}: {
+  romId: number;
+  mediaId: number;
+  expectedVersion: string;
+}) {
+  return api.delete<DetailedRom>(`/roms/${romId}/media/${mediaId}`, {
+    params: { expected_version: expectedVersion },
+  });
 }
 
 async function getPcMetadataCandidates({ romId }: { romId: number }) {
@@ -806,6 +957,15 @@ export default {
   getRecentPlayedRoms,
   getRom,
   getRomSimple,
+  getOwnedMedia,
+  refreshOwnedMedia,
+  setOwnedMediaPlacement,
+  removeOwnedMediaPlacement,
+  replaceOwnedMediaPlacements,
+  replaceLocalBackgroundAudio,
+  replaceOwnedBackgroundAudio,
+  uploadOwnedMedia,
+  deleteOwnedMedia,
   getPcMetadataCandidates,
   searchPcMetadataCandidates,
   selectPcMetadataCandidate,

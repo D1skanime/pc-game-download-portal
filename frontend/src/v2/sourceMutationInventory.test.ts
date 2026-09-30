@@ -62,6 +62,55 @@ const routeAuthorities = [
   },
   {
     method: "POST",
+    route: /^\/roms\/\{[^}]+\}\/media\/refresh$/,
+    operation: "REFRESH",
+    storageClass: "resources",
+    forbidden: false,
+  },
+  {
+    method: "POST",
+    route: /^\/roms\/\{[^}]+\}\/media\/placements$/,
+    operation: "WRITE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
+    method: "DELETE",
+    route: /^\/roms\/\{[^}]+\}\/media\/placements\/\{[^}]+\}$/,
+    operation: "DELETE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
+    method: "PUT",
+    route: /^\/roms\/\{[^}]+\}\/media\/placements$/,
+    operation: "WRITE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
+    method: "PUT",
+    route: /^\/roms\/\{[^}]+\}\/media\/(?:local|owned)-background-audio$/,
+    operation: "WRITE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
+    method: "POST",
+    route: /^\/roms\/\{[^}]+\}\/media\/upload$/,
+    operation: "UPLOAD",
+    storageClass: "resources",
+    forbidden: false,
+  },
+  {
+    method: "DELETE",
+    route: /^\/roms\/\{[^}]+\}\/media\/\{[^}]+\}$/,
+    operation: "DELETE",
+    storageClass: "resources",
+    forbidden: false,
+  },
+  {
+    method: "POST",
     route: /^\/roms\/\{[^}]+\}\/screenshots$/,
     operation: "COVER_WRITE",
     storageClass: "external_read_only",
@@ -1349,6 +1398,42 @@ describe("final active v2 semantic mutation closure", () => {
       storageClass: "database",
       forbidden: false,
     });
+  });
+
+  it("classifies owned-media refresh without permitting source mutations", () => {
+    const [authority] = finalInventorySource(
+      `import api from "@/services/api";
+       api.post(\`/roms/${"${romId}"}/media/refresh\`, {});`,
+      "services/api/rom.ts",
+    );
+
+    expect(authority).toMatchObject({
+      method: "POST",
+      route: "/roms/{rom_id}/media/refresh",
+      operation: "REFRESH",
+      storageClass: "resources",
+      forbidden: false,
+    });
+  });
+
+  it("classifies owned-media placements and uploads by their owned boundary", () => {
+    const authorities = finalInventorySource(
+      `import api from "@/services/api";
+       api.post(\`/roms/${"${romId}"}/media/placements\`, {});
+       api.delete(\`/roms/${"${romId}"}/media/placements/${"${mediaId}"}\`);
+       api.put(\`/roms/${"${romId}"}/media/placements\`, {});
+       api.post(\`/roms/${"${romId}"}/media/upload\`, new FormData());
+       api.delete(\`/roms/${"${romId}"}/media/${"${mediaId}"}\`);`,
+      "services/api/rom.ts",
+    );
+
+    expect(authorities).toMatchObject([
+      { operation: "WRITE", storageClass: "database", forbidden: false },
+      { operation: "DELETE", storageClass: "database", forbidden: false },
+      { operation: "WRITE", storageClass: "database", forbidden: false },
+      { operation: "UPLOAD", storageClass: "resources", forbidden: false },
+      { operation: "DELETE", storageClass: "resources", forbidden: false },
+    ]);
   });
 
   it("live_play_session_keepalive_is_inventoried", () => {

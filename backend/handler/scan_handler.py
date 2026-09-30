@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import functools
+from collections.abc import Collection
 from typing import Any
 
 import socketio  # type: ignore
@@ -58,7 +59,7 @@ from handler.metadata.ss_handler import (
     SSRom,
     note_rate_limited_rom,
 )
-from handler.metadata.steam_handler import STEAM_PLATFORMS
+from handler.metadata.steam_handler import COMPACT_TITLE_BOUNDARY, STEAM_PLATFORMS
 from handler.metadata.steam_merge import normalize_steam
 from handler.scan_command import MappedScanCommand as _MappedScanCommand
 from handler.storage.read_context import MappingReadContext
@@ -148,6 +149,28 @@ class MetadataSource(enum.StrEnum):
     LIBRETRO = "libretro"  # Libretro thumbnails
     PLAYMATCH = "playmatch"  # Playmatch
     STEAM = "steam"  # Steam storefront
+
+
+def _windows_igdb_lookup_name(fs_name: str) -> str:
+    name = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+    return COMPACT_TITLE_BOUNDARY.sub(" ", name) if " " not in name else name
+
+
+def _is_steam_only_windows_igdb_recovery(
+    platform_slug: str,
+    steam_id: int | None,
+    igdb_id: int | None,
+    scan_type: ScanType,
+    metadata_sources: Collection[str],
+) -> bool:
+    return (
+        platform_slug == UPS.WIN
+        and steam_id is not None
+        and steam_id > 0
+        and not igdb_id
+        and scan_type is ScanType.UPDATE
+        and MetadataSource.IGDB in metadata_sources
+    )
 
 
 def _steam_scan_current(rom: Rom) -> dict[str, Any]:
@@ -675,6 +698,13 @@ async def scan_rom(
                 newly_added
                 or scan_type == ScanType.COMPLETE
                 or (scan_type == ScanType.UPDATE and rom.igdb_id)
+                or _is_steam_only_windows_igdb_recovery(
+                    platform.slug,
+                    rom.steam_id,
+                    rom.igdb_id,
+                    scan_type,
+                    metadata_sources,
+                )
                 or (
                     scan_type == ScanType.UNMATCHED
                     and (not rom.igdb_id or not rom.igdb_metadata)
@@ -710,9 +740,12 @@ async def scan_rom(
                 return await meta_igdb_handler.get_rom_by_id(rom, rom.igdb_id)
             else:
                 # If no matches found, use the file name to get the IGDB ID
+                lookup_name = rom_attrs["fs_name"]
+                if platform.slug == UPS.WIN:
+                    lookup_name = _windows_igdb_lookup_name(lookup_name)
                 return await meta_igdb_handler.get_rom(
                     rom,
-                    rom_attrs["fs_name"],
+                    lookup_name,
                     main_platform_igdb_id or platform.igdb_id,
                 )
 

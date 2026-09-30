@@ -1,3 +1,66 @@
+<script lang="ts">
+import type { SetBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import type { BackgroundAudioTrack } from "@/v2/composables/useBackgroundAudio";
+
+export const BACKGROUND_ROTATION_MS = 10_000;
+
+type BackgroundAudioRom = {
+  id: number;
+  files: Array<{ id: number; category?: string | null; file_name: string }>;
+  local_background_audio_file_ids?: number[];
+  owned_background_audio_media_ids?: number[];
+  owned_media?: Array<{
+    id: number;
+    role: string;
+    state: string;
+  }>;
+};
+
+export function selectedBackgroundAudioTracks(
+  rom: BackgroundAudioRom,
+): BackgroundAudioTrack[] {
+  const selectedLocalIds = new Set(rom.local_background_audio_file_ids ?? []);
+  const selectedOwnedIds = new Set(rom.owned_background_audio_media_ids ?? []);
+  const localTracks = rom.files
+    .filter(
+      (file) => selectedLocalIds.has(file.id) && file.category === "soundtrack",
+    )
+    .map((file) => ({
+      id: file.id,
+      url: `/api/roms/${file.id}/files/content/${encodeURIComponent(file.file_name)}`,
+    }));
+  const ownedTracks = (rom.owned_media ?? [])
+    .filter(
+      (media) =>
+        selectedOwnedIds.has(media.id) &&
+        media.role === "soundtrack" &&
+        media.state === "active",
+    )
+    .map((media) => ({
+      id: media.id,
+      url: `/api/roms/${rom.id}/media/${media.id}/content`,
+    }));
+  return [...localTracks, ...ownedTracks];
+}
+
+export function scheduleBackgroundRotation(
+  backgrounds: string[],
+  fallback: string | null,
+  shouldRotate: boolean,
+  setBackground: SetBackgroundArt,
+): () => void {
+  setBackground(backgrounds[0] ?? fallback);
+  if (!shouldRotate || backgrounds.length < 2) return () => undefined;
+
+  let index = 0;
+  const interval = setInterval(() => {
+    index = (index + 1) % backgrounds.length;
+    setBackground(backgrounds[index]);
+  }, BACKGROUND_ROTATION_MS);
+  return () => clearInterval(interval);
+}
+</script>
+
 <script setup lang="ts">
 // GameDetails — artist-mockup layout.
 //
@@ -13,6 +76,7 @@ import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
 import api from "@/services/api";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
@@ -33,7 +97,9 @@ import PcComponents from "@/v2/components/GameDetails/PcComponents.vue";
 import PcLocalMediaReview from "@/v2/components/GameDetails/PcLocalMediaReview.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useBackgroundAudio } from "@/v2/composables/useBackgroundAudio";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
@@ -48,6 +114,8 @@ const { locale, t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 
 const setBgArt = useBackgroundArt();
+const backgroundAudio = useBackgroundAudio();
+const { enabled: reducedMotion } = useReducedMotion();
 
 // Param-change navigation guard — the route's `beforeEnter` in
 // `plugins/router.ts` only fires on initial entry; navigating between
@@ -153,19 +221,75 @@ const coverPath = computed(() => {
 
 const coverFallback = computed(() => currentRom.value?.url_cover ?? null);
 const resolvedCover = computed(() => coverPath.value ?? coverFallback.value);
-const selectedBackground = computed(() => {
-  const media = currentRom.value?.components
-    ?.flatMap((component) => component.local_media ?? [])
-    .find((entry) => entry.role === "background");
-  return media
-    ? `${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${currentRom.value?.updated_at}`
-    : null;
+const selectedOverviewScreenshots = computed(() => {
+  const rom = currentRom.value;
+  if (!rom) return [];
+  const mediaById = new Map(
+    (rom.owned_media ?? []).map((item) => [item.id, item]),
+  );
+  return (rom.owned_media_placements ?? [])
+    .filter((placement) => placement.surface === "overview")
+    .toSorted((a, b) => a.position - b.position)
+    .flatMap((placement) => {
+      const media = mediaById.get(placement.media_id);
+      return media?.role === "screenshot" && media.owned_path
+        ? [`${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${rom.updated_at}`]
+        : [];
+    });
+});
+const selectedBackgrounds = computed(() => {
+  const rom = currentRom.value;
+  if (!rom) return [];
+  const mediaById = new Map(
+    (rom.owned_media ?? []).map((item) => [item.id, item]),
+  );
+  return (rom.owned_media_placements ?? [])
+    .filter((placement) => placement.surface === "background")
+    .toSorted((a, b) => a.position - b.position)
+    .flatMap((placement) => {
+      const media = mediaById.get(placement.media_id);
+      return media?.owned_path
+        ? [`${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${rom.updated_at}`]
+        : [];
+    });
+});
+const isActiveDetailsRoute = computed(() => route.name === ROUTES.ROM);
+const selectedBackgroundAudio = computed<BackgroundAudioTrack[]>(() => {
+  const rom = currentRom.value;
+  if (!rom) return [];
+  return selectedBackgroundAudioTracks(rom);
 });
 
 watch(
-  [resolvedCover, selectedBackground],
-  ([cover, background]) => {
-    if (cover || background) setBgArt(background ?? cover);
+  [selectedBackgrounds, resolvedCover, isActiveDetailsRoute, reducedMotion],
+  (
+    [backgrounds, fallback, isDetailsRoute, motionReduced],
+    _previous,
+    onCleanup,
+  ) => {
+    if (!isDetailsRoute) {
+      setBgArt(fallback);
+      return;
+    }
+    onCleanup(
+      scheduleBackgroundRotation(
+        backgrounds,
+        fallback,
+        !motionReduced,
+        setBgArt,
+      ),
+    );
+  },
+  { immediate: true },
+);
+
+watch(
+  [selectedBackgroundAudio, isActiveDetailsRoute],
+  ([tracks, isDetailsRoute], _previous, onCleanup) => {
+    backgroundAudio.stop();
+    if (!isDetailsRoute) return;
+    backgroundAudio.playRandom(tracks);
+    onCleanup(() => backgroundAudio.stop());
   },
   { immediate: true },
 );
@@ -370,7 +494,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :hltb="currentRom.hltb_metadata"
             :last-played="lastPlayed"
             :revision="currentRom.revision ?? null"
-            :screenshots="currentRom.merged_screenshots ?? []"
+            :screenshots="selectedOverviewScreenshots"
             :expansions="expansions"
             :dlcs="dlcs"
             :local-dlc-component-ids="localDlcComponentIds"

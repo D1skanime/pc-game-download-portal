@@ -13,6 +13,8 @@ import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
+import type { RomOwnedMediaPlacementSchema } from './RomOwnedMediaPlacementSchema';
+import type { RomOwnedMediaSchema } from './RomOwnedMediaSchema';
 import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
@@ -109,5 +111,9 @@ export type DetailedRomSchema = {
     all_user_screenshots: Array<UserScreenshotSchema>;
     user_collections: Array<UserCollectionSchema>;
     all_user_notes: Array<UserNoteSchema>;
+    owned_media?: Array<RomOwnedMediaSchema>;
+    owned_media_placements?: Array<RomOwnedMediaPlacementSchema>;
+    local_background_audio_file_ids?: Array<number>;
+    owned_background_audio_media_ids?: Array<number>;
 };
 

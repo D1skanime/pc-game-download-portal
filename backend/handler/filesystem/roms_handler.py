@@ -134,7 +134,10 @@ class FileHash(TypedDict):
 
 
 def category_matches(category: str, path_parts: list[str]):
-    return category in path_parts or f"{category}s" in path_parts
+    aliases = {category, f"{category}s"}
+    if category == RomFileCategory.SOUNDTRACK:
+        aliases.add("ost")
+    return bool(aliases.intersection(path_parts))
 
 
 DEFAULT_CRC_C = 0

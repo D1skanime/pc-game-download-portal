@@ -1,0 +1,92 @@
+---
+phase: 20
+slug: media-management-and-owned-soundtrack-uploads
+status: browser-uat-approved-with-documented-automated-limitations
+nyquist_compliant: false
+updated: 2026-09-28
+---
+
+# Phase 20 - Validation Record
+
+## Environment
+
+| Property | Value                                                                                               |
+| -------- | --------------------------------------------------------------------------------------------------- |
+| Checkout | `/home/d1sk/romm` on `team4slinux`, branch `codex/pc-module-analysis`                               |
+| Compose  | Existing `romm-dev`, `romm-db-dev`, and `romm-valkey-dev` only. No restart or configuration change. |
+| Logs     | `/tmp/phase20-evidence/`                                                                            |
+| Safety   | No NAS, Team4s, credential, Compose, or package-manager change occurred.                            |
+
+## Migration evidence
+
+| Dialect    | Command                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Outcome                                                                                                                                                                                                                                        | Log                      |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| MariaDB    | `docker compose exec -T romm-dev bash -lc 'cd /app/backend && ROMM_AUTH_SECRET_KEY=phase20-migration DB_HOST=romm-db-dev DB_PORT=3306 ROMM_DB_DRIVER=mariadb uv run alembic heads && ROMM_AUTH_SECRET_KEY=phase20-migration DB_HOST=romm-db-dev DB_PORT=3306 ROMM_DB_DRIVER=mariadb uv run alembic upgrade head && ROMM_AUTH_SECRET_KEY=phase20-migration DB_HOST=romm-db-dev DB_PORT=3306 ROMM_DB_DRIVER=mariadb uv run alembic downgrade -1 && ROMM_AUTH_SECRET_KEY=phase20-migration DB_HOST=romm-db-dev DB_PORT=3306 ROMM_DB_DRIVER=mariadb uv run alembic upgrade head'` | PASS, exit 0. Head: `0128_owned_media_role_and_display_label`; upgrade, downgrade one, re-upgrade succeeded.                                                                                                                                   | `mariadb-migration.log`  |
+| PostgreSQL | `bash backend/tools/verify_phase20_postgres_migration.sh`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | PASS, exit 0. A uniquely named PostgreSQL 16 container and database on the canonical Compose network ran `heads -> upgrade head -> downgrade -1 -> upgrade head`, including 0127 and 0128, then exit-trap cleanup removed only that container. | `postgres-migration.log` |
+
+The new Phase-20 verifier preserves first failure and cleanup. It is derived from
+the established Phase-18 verifier, with Phase-20-specific container, database,
+and authentication names.
+
+## Pending plan revision: legacy owned-media backfill
+
+Plan 20-10 adds revision `0129_backfill_legacy_rom_owned_media` after the recorded
+0127/0128 cross-dialect evidence. Its independent SQLite migration simulation and
+catalog-first UI regressions are recorded in `20-10-SUMMARY.md`, but this Plan-08
+record does not claim a rerun of the MariaDB/PostgreSQL cycle through 0129. The
+user-approved ROM 13 recheck confirms migrated screenshots and artwork are now
+visible and manageable in Media. The planned destructive tombstone/normal-scan/
+explicit-refresh sequence was not separately reported by the user and is not
+inferred here.
+
+## Product evidence
+
+| Check                           | Command                                                                                                                                                                                                                                                                                                                                        | Outcome                                                                                                                                                                                                                                                                   | Log                                                                                  |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Focused backend suite           | `cd backend && uv run pytest tests/handler/database/test_rom_media.py tests/endpoints/roms/test_media.py tests/endpoints/test_storage_policy_denials.py tests/tasks/test_owned_media_cleanup.py -x`                                                                                                                                            | BLOCKED, exit 1 after collecting 80 tests. Database setup cannot connect to forced `127.0.0.1:3306`, before a Phase-20 assertion.                                                                                                                                         | `backend-focused-host.log`                                                           |
+| Compose retry                   | `docker compose exec -T romm-dev bash -lc 'cd /app/backend && DB_HOST=romm-db-dev DB_PORT=3306 ROMM_DB_DRIVER=mariadb ROMM_AUTH_SECRET_KEY=phase20-tests uv run pytest tests/handler/database/test_rom_media.py tests/endpoints/roms/test_media.py tests/endpoints/test_storage_policy_denials.py tests/tasks/test_owned_media_cleanup.py -x'` | BLOCKED, exit 1 after 80 collected tests. `backend/pytest.ini` overrides the host to `127.0.0.1:3306`. The configuration was not changed to manufacture a pass.                                                                                                           | `backend-focused-compose.log`                                                        |
+| OpenAPI generation              | `cd frontend && npm run generate`                                                                                                                                                                                                                                                                                                              | PASS, exit 0, input `http://127.0.0.1:3344/openapi.json`. Existing generated-file edits were not staged.                                                                                                                                                                  | `frontend-full.log`                                                                  |
+| Typecheck                       | `cd frontend && npm run typecheck`                                                                                                                                                                                                                                                                                                             | PASS, exit 0.                                                                                                                                                                                                                                                             | `frontend-full.log`                                                                  |
+| Inventory RED evidence          | `cd frontend && npm run test -- src/v2/sourceMutationInventory.test.ts --reporter=verbose`                                                                                                                                                                                                                                                     | Expected RED, exit 1. The new refresh test and full inventory rejected unclassified `POST /roms/{rom_id}/media/refresh`; placements then exposed the same missing Phase-20 family classification.                                                                         | `source-mutation-inventory-red.log`, `source-mutation-inventory-owned-media-red.log` |
+| Inventory GREEN evidence        | `cd frontend && npm run test -- src/v2/sourceMutationInventory.test.ts --reporter=verbose`                                                                                                                                                                                                                                                     | PASS, exit 0, 20 passed. Exact parent-owned media refresh, placement, upload, and delete routes are classified as resources or database operations, while legacy source routes remain forbidden.                                                                          | `source-mutation-inventory-owned-media-green.log`                                    |
+| Full Vitest after inventory fix | `cd frontend && npm run test`                                                                                                                                                                                                                                                                                                                  | PASS, exit 0, 91 files and 818 tests passed.                                                                                                                                                                                                                              | `frontend-full-after-inventory-fix.log`                                              |
+| Production build                | `cd frontend && npm run build`                                                                                                                                                                                                                                                                                                                 | PASS, exit 0. Pre-existing warnings: old Browserslist data, legacy `:deep`, `vue3-pdf-app` direct `eval`, chunk size.                                                                                                                                                     | `frontend-build-locales.log`                                                         |
+| Locale parity and sort          | `cd frontend && python3 src/locales/check_i18n_locales.py && python3 src/locales/check_i18n_sorted.py`                                                                                                                                                                                                                                         | PASS, exit 0.                                                                                                                                                                                                                                                             | `frontend-build-locales.log`                                                         |
+| Scoped Trunk formatting         | `trunk fmt backend/tools/verify_phase20_postgres_migration.sh`                                                                                                                                                                                                                                                                                 | PASS, exit 0, one file, no issues.                                                                                                                                                                                                                                        | `trunk.log`                                                                          |
+| Repository Trunk check          | `trunk check`                                                                                                                                                                                                                                                                                                                                  | INCOMPLETE. It remained CPU-active without a final result after about 90 seconds against the shared dirty tree and was terminated. No pass or failure is inferred. Blanket `trunk fmt` was not run because it formats every changed file and would modify unrelated work. | `trunk.log`                                                                          |
+
+## Requirement and threat matrix
+
+| Item         | Status                   | Evidence / remaining work                                                                                                                            |
+| ------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MEDIA-01..03 | PARTIAL                  | Generation, typecheck, build, full Vitest, and browser UAT pass. Focused backend tests are topology-blocked; no cross-dialect 0129 rerun is claimed. |
+| MEDIA-04     | PARTIAL                  | Typecheck/build pass. Reduced-motion browser result remains.                                                                                         |
+| MEDIA-05     | PARTIAL                  | Both migration cycles pass. Cleanup tests are topology-blocked; browser UAT remains.                                                                 |
+| MEDIA-06     | PARTIAL                  | Typecheck, build, and full Vitest pass. Browser playback UAT remains.                                                                                |
+| MEDIA-07     | PARTIAL                  | Typecheck, build, locale parity, and sort pass. Browser theme, input, and breakpoint checks remain.                                                  |
+| T-20-17      | MITIGATED FOR AUTOMATION | Exact commands, outcomes, and log paths are recorded.                                                                                                |
+| T-20-18      | PENDING HUMAN UAT        | `20-UAT.md` confines verification to RomM-owned UI media.                                                                                            |
+| T-20-SC      | SATISFIED                | No package installation occurred.                                                                                                                    |
+
+## Browser UAT evidence
+
+The owned-upload background-audio extension received its additional browser
+UAT observation on 2026-09-29. The isolated Witcher 3 fixture recognized two
+scanned local OST tracks, and a selected RomM-owned upload was approved for
+background playback after returning to the active detail route. The user
+explicitly approved this UAT case; see `20-UAT.md`. This is not evidence for
+unobserved inactive/unselected-track or browser-autoplay-policy branches.
+
+The Phase 20 browser UAT is APPROVED by the user after the legacy-owned-media
+backfill. The Witcher 3 Media view was rechecked and displays migrated
+screenshots and artwork candidates; the owned-media management workflow was
+accepted. This observation is limited to RomM-owned catalog/resource media and
+does not authorize or evidence a source-library, NAS, Team4s, or Compose
+change. See `20-UAT.md` for the German user-facing record and retained detailed
+checklist.
+
+## Phase gate
+
+Browser UAT in `20-UAT.md` is approved. The backend topology blocker, absent
+cross-dialect 0129 rerun, and incomplete repository-wide Trunk result remain
+visible and unmasked; none is represented as a passing automated gate.

@@ -2,18 +2,22 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import HTTPException, status
+from sqlalchemy import func, select
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from handler.database import db_platform_handler, db_rom_handler
+from handler.database.base_handler import sync_session
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_hasheous_handler,
+    meta_igdb_handler,
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
 )
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.hasheous_handler import HasheousMetadata, HasheousRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.ss_handler import (
@@ -126,6 +130,84 @@ async def test_scan_rom():
     # assert rom.hasheous_id == 4872
     # assert rom.fs_size_bytes == 23175094
     # assert rom.tags == []
+
+
+async def test_steam_only_windows_update_enriches_euro_truck_in_place(
+    monkeypatch,
+):
+    """Removing the persisted row ID must make this recovery regression fail."""
+    platform = db_platform_handler.add_platform(
+        Platform(name="Windows", slug=UPS.WIN, fs_slug=UPS.WIN, igdb_id=6)
+    )
+    persisted = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="EuroTruckSimulator2",
+            fs_name_no_tags="EuroTruckSimulator2",
+            fs_name_no_ext="EuroTruckSimulator2",
+            fs_extension="",
+            fs_path=UPS.WIN,
+            name="EuroTruckSimulator2",
+            steam_id=227300,
+            tags=[],
+        )
+    )
+    name_lookup = AsyncMock(
+        return_value={
+            "igdb_id": 3070,
+            "name": "Euro Truck Simulator 2",
+            "summary": "A trucking simulation.",
+            "igdb_metadata": {"dlcs": [], "expansions": []},
+        }
+    )
+    id_lookup = AsyncMock()
+    monkeypatch.setattr(meta_igdb_handler, "get_rom", name_lookup)
+    monkeypatch.setattr(meta_igdb_handler, "get_rom_by_id", id_lookup)
+    monkeypatch.setattr(meta_playmatch_handler, "is_enabled", lambda: False)
+
+    scanned = await scan_rom(
+        platform=platform,
+        scan_type=ScanType.UPDATE,
+        rom=persisted,
+        fs_rom={
+            "fs_name": "EuroTruckSimulator2",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        },
+        metadata_sources=[MetadataSource.IGDB],
+        newly_added=False,
+    )
+    saved = db_rom_handler.add_rom(scanned)
+    enriched = db_rom_handler.apply_pc_igdb_enrichment(
+        saved.id,
+        saved.updated_at,
+        {
+            "igdb_id": saved.igdb_id,
+            "name": saved.name,
+            "summary": saved.summary,
+            "igdb_metadata": saved.igdb_metadata,
+        },
+    )
+
+    assert enriched is not None
+    assert enriched.id == persisted.id
+    assert enriched.igdb_id == 3070
+    assert enriched.name == "Euro Truck Simulator 2"
+    name_lookup.assert_awaited_once_with(persisted, "Euro Truck Simulator 2", 6)
+    id_lookup.assert_not_awaited()
+    with sync_session() as session:
+        count = session.scalar(
+            select(func.count())
+            .select_from(Rom)
+            .where(Rom.platform_id == platform.id)
+            .where(Rom.fs_name == "EuroTruckSimulator2")
+        )
+    assert count == 1
 
 
 def test_pc_component_reconciliation_preserves_unchanged_member_identity(rom: Rom):

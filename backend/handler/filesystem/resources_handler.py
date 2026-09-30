@@ -1,5 +1,6 @@
 import gzip
 import os
+import secrets
 from io import BytesIO
 from pathlib import Path
 
@@ -17,7 +18,12 @@ from config import (
 from config.config_manager import MetadataMediaType
 from logger.logger import log
 from models.collection import Collection
-from models.rom import Rom, RomComponentLocalMediaRole, RomComponentOwnedMediaRole
+from models.rom import (
+    Rom,
+    RomComponentLocalMediaRole,
+    RomComponentOwnedMediaRole,
+    RomOwnedMediaRole,
+)
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
 
@@ -123,6 +129,55 @@ class FSResourcesHandler(FSHandler):
 
     def get_platform_resources_path(self, platform_id: int) -> str:
         return os.path.join("roms", str(platform_id))
+
+    async def store_owned_media_image(
+        self, rom: Rom, role: RomOwnedMediaRole, content: bytes
+    ) -> tuple[str, str]:
+        """Verify an image and publish it below a server-generated owned path."""
+        try:
+            with Image.open(BytesIO(content)) as image:
+                image.verify()
+                media = {
+                    "JPEG": ("image/jpeg", "jpg"),
+                    "PNG": ("image/png", "png"),
+                    "WEBP": ("image/webp", "webp"),
+                }.get(image.format or "")
+        except (UnidentifiedImageError, OSError, ValueError) as exc:
+            raise ValueError("Owned media must be a PNG, JPEG, or WebP image") from exc
+        if media is None:
+            raise ValueError("Owned media image type is not supported")
+        mime_type, extension = media
+        directory = f"{rom.fs_resources_path}/owned-media"
+        filename = f"{role.value}-{secrets.token_hex(16)}.{extension}"
+        await self.write_file(content, directory, filename)
+        return f"{directory}/{filename}", mime_type
+
+    async def store_owned_media_audio(
+        self, rom: Rom, content: bytes, extension: str
+    ) -> tuple[str, str]:
+        """Store bounded, allowlisted audio without reading or writing tags."""
+        audio_types = {
+            "mp3": "audio/mpeg",
+            "aac": "audio/aac",
+            "flac": "audio/flac",
+            "ogg": "audio/ogg",
+            "opus": "audio/ogg",
+            "m4a": "audio/mp4",
+            "wav": "audio/wav",
+        }
+        normalized = extension.lower().lstrip(".")
+        if (
+            not content
+            or len(content) > 512 * 1024 * 1024
+            or normalized not in audio_types
+        ):
+            raise ValueError(
+                "Owned audio has an unsupported type or exceeds the 512 MiB limit"
+            )
+        directory = f"{rom.fs_resources_path}/owned-media"
+        filename = f"soundtrack-{secrets.token_hex(16)}.{normalized}"
+        await self.write_file(content, directory, filename)
+        return f"{directory}/{filename}", audio_types[normalized]
 
     async def store_pc_component_image(
         self,

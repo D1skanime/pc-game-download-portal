@@ -51,6 +51,7 @@ from models.base import compute_file_name_parts
 from models.collection import Collection, CollectionRom, SmartCollection
 from models.download_manifest import DownloadManifestMember
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
+from models.owned_media_cleanup import OwnedMediaCleanupIntent, OwnedMediaCleanupState
 from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
@@ -68,12 +69,21 @@ from models.rom import (
     RomFacets,
     RomFile,
     RomFileCategory,
+    RomLocalBackgroundAudio,
     RomMetadata,
     RomNote,
+    RomOwnedBackgroundAudio,
+    RomOwnedMedia,
+    RomOwnedMediaOrigin,
+    RomOwnedMediaPlacement,
+    RomOwnedMediaRole,
+    RomOwnedMediaState,
+    RomOwnedMediaSurface,
     RomUser,
     SiblingRom,
     TrackMeta,
     compute_name_sort_key,
+    validate_owned_media_display_label,
 )
 from models.user import User
 from utils import get_version
@@ -265,6 +275,12 @@ class AppliedPcComponentOwnedMedia(NamedTuple):
     replaced_owned_paths: list[str]
 
 
+class AppliedOwnedMedia(NamedTuple):
+    rom: Rom
+    media: RomOwnedMedia
+    owned_paths: list[str]
+
+
 class SyncedRomComponents(list[RomComponent]):
     def __init__(
         self, components: Sequence[RomComponent], orphaned_owned_paths: list[str]
@@ -378,6 +394,10 @@ def with_details(func):
                 selectinload(RomComponent.local_media),
                 selectinload(RomComponent.owned_media),
             ),
+            selectinload(Rom.owned_media).selectinload(RomOwnedMedia.placements),
+            selectinload(Rom.owned_media_placements),
+            selectinload(Rom.local_background_audio),
+            selectinload(Rom.owned_background_audio),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
                 noload(Rom.metadatum),
@@ -479,6 +499,457 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
+
+    @staticmethod
+    def _get_locked_owned_media_rom(
+        session: Session, rom_id: int, expected_updated_at: datetime | None = None
+    ) -> Rom | None:
+        predicates = [Rom.id == rom_id]
+        if expected_updated_at is not None:
+            predicates.append(Rom.updated_at == expected_updated_at)
+        return session.scalar(
+            select(Rom)
+            .options(
+                selectinload(Rom.owned_media).selectinload(RomOwnedMedia.placements),
+                selectinload(Rom.owned_media_placements),
+                selectinload(Rom.owned_background_audio),
+            )
+            .where(and_(*predicates))
+            .with_for_update()
+        )
+
+    @staticmethod
+    def _get_locked_local_background_audio_rom(
+        session: Session, rom_id: int, expected_updated_at: datetime
+    ) -> Rom | None:
+        return session.scalar(
+            select(Rom)
+            .options(
+                selectinload(Rom.files),
+                selectinload(Rom.local_background_audio),
+            )
+            .where(Rom.id == rom_id, Rom.updated_at == expected_updated_at)
+            .with_for_update()
+        )
+
+    @begin_session
+    def replace_local_background_audio(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        file_ids: list[int],
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        if len(file_ids) != len(set(file_ids)):
+            return None
+        rom = self._get_locked_local_background_audio_rom(
+            session, rom_id, expected_updated_at
+        )
+        if rom is None:
+            return None
+        valid_file_ids = {
+            file.id for file in rom.files if file.category == RomFileCategory.SOUNDTRACK
+        }
+        if not set(file_ids).issubset(valid_file_ids):
+            return None
+        for selection in rom.local_background_audio:
+            session.delete(selection)
+        session.flush()
+        session.add_all(
+            RomLocalBackgroundAudio(rom=rom, rom_file_id=file_id)
+            for file_id in file_ids
+        )
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return rom
+
+    @begin_session
+    def replace_owned_background_audio(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        media_ids: list[int],
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        if len(media_ids) != len(set(media_ids)):
+            return None
+        rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
+        if rom is None:
+            return None
+        valid_media_ids = {
+            media.id
+            for media in rom.owned_media
+            if media.state == RomOwnedMediaState.ACTIVE
+            and media.role == RomOwnedMediaRole.SOUNDTRACK
+        }
+        if not set(media_ids).issubset(valid_media_ids):
+            return None
+        for selection in rom.owned_background_audio:
+            session.delete(selection)
+        session.flush()
+        session.add_all(
+            RomOwnedBackgroundAudio(rom=rom, media_id=media_id)
+            for media_id in media_ids
+        )
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return rom
+
+    @begin_session
+    def get_owned_media_catalog(
+        self, rom_id: int, session: Session = None  # type: ignore
+    ) -> list[RomOwnedMedia]:
+        rom = self._get_locked_owned_media_rom(session, rom_id)
+        if rom is None:
+            return []
+        return [
+            media
+            for media in rom.owned_media
+            if media.state == RomOwnedMediaState.ACTIVE
+        ]
+
+    @begin_session
+    def create_owned_upload_media(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        role: RomOwnedMediaRole,
+        display_label: str,
+        mime_type: str,
+        owned_path: str,
+        session: Session = None,  # type: ignore
+    ) -> AppliedOwnedMedia | None:
+        rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
+        if (
+            rom is None
+            or role
+            not in {
+                RomOwnedMediaRole.ARTWORK,
+                RomOwnedMediaRole.SOUNDTRACK,
+            }
+            or not owned_path
+            or owned_path.startswith("/")
+            or ".." in owned_path
+        ):
+            return None
+        try:
+            validate_owned_media_display_label(display_label)
+        except ValueError:
+            return None
+        media = RomOwnedMedia(
+            rom_id=rom.id,
+            origin=RomOwnedMediaOrigin.UPLOAD,
+            role=role,
+            display_label=display_label,
+            mime_type=mime_type,
+            owned_path=owned_path,
+        )
+        session.add(media)
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return AppliedOwnedMedia(rom, media, [])
+
+    @begin_session
+    def reconcile_provider_owned_media(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        provider: str,
+        provider_media_id: str,
+        role: RomOwnedMediaRole,
+        display_label: str,
+        mime_type: str,
+        owned_path: str,
+        session: Session = None,  # type: ignore
+    ) -> AppliedOwnedMedia | None:
+        """Reconcile a provider candidate for explicit refresh only."""
+        rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
+        if (
+            rom is None
+            or not provider
+            or not provider_media_id
+            or role not in {RomOwnedMediaRole.SCREENSHOT, RomOwnedMediaRole.ARTWORK}
+            or not owned_path
+            or owned_path.startswith("/")
+            or ".." in owned_path
+        ):
+            return None
+        try:
+            validate_owned_media_display_label(display_label)
+        except ValueError:
+            return None
+        media = next(
+            (
+                item
+                for item in rom.owned_media
+                if item.provider == provider
+                and item.provider_media_id == provider_media_id
+            ),
+            None,
+        )
+        if media is None:
+            media = RomOwnedMedia(
+                rom_id=rom.id,
+                origin=RomOwnedMediaOrigin.PROVIDER,
+                role=role,
+                display_label=display_label,
+                mime_type=mime_type,
+                owned_path=owned_path,
+                provider=provider,
+                provider_media_id=provider_media_id,
+            )
+            session.add(media)
+        else:
+            if media.role != role:
+                return None
+            media.state = RomOwnedMediaState.ACTIVE
+            media.mime_type = mime_type
+            media.owned_path = owned_path
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return AppliedOwnedMedia(rom, media, [])
+
+    @staticmethod
+    def _is_owned_media_surface_compatible(
+        role: RomOwnedMediaRole, surface: RomOwnedMediaSurface
+    ) -> bool:
+        if surface == RomOwnedMediaSurface.SOUNDTRACK:
+            return role == RomOwnedMediaRole.SOUNDTRACK
+        return role in {RomOwnedMediaRole.SCREENSHOT, RomOwnedMediaRole.ARTWORK}
+
+    @begin_session
+    def set_owned_media_placement(
+        self,
+        rom_id: int,
+        media_id: int,
+        expected_updated_at: datetime,
+        surface: RomOwnedMediaSurface,
+        selected: bool,
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
+        if rom is None:
+            return None
+        media = next(
+            (
+                item
+                for item in rom.owned_media
+                if item.id == media_id and item.state == RomOwnedMediaState.ACTIVE
+            ),
+            None,
+        )
+        if media is None:
+            return None
+        if not self._is_owned_media_surface_compatible(media.role, surface):
+            return None
+        current = [
+            item for item in rom.owned_media_placements if item.surface == surface
+        ]
+        placement = next((item for item in current if item.media_id == media_id), None)
+        if selected and placement is None:
+            session.add(
+                RomOwnedMediaPlacement(
+                    rom_id=rom.id,
+                    media_id=media.id,
+                    surface=surface,
+                    position=len(current),
+                )
+            )
+        elif not selected and placement is not None:
+            session.delete(placement)
+            session.flush()
+            for position, item in enumerate(
+                sorted(
+                    (item for item in current if item.id != placement.id),
+                    key=lambda item: item.position,
+                )
+            ):
+                item.position = position
+        else:
+            return rom
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return rom
+
+    @begin_session
+    def replace_owned_media_placements(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        surface: RomOwnedMediaSurface,
+        media_ids: list[int],
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
+        if rom is None or len(media_ids) != len(set(media_ids)):
+            return None
+        current = [
+            item for item in rom.owned_media_placements if item.surface == surface
+        ]
+        current_ids = {item.media_id for item in current}
+        requested_ids = set(media_ids)
+        if current_ids != requested_ids:
+            return None
+        valid_ids = {
+            item.id
+            for item in rom.owned_media
+            if item.state == RomOwnedMediaState.ACTIVE
+        }
+        if not requested_ids.issubset(valid_ids):
+            return None
+        roles_by_id = {item.id: item.role for item in rom.owned_media}
+        if not all(
+            self._is_owned_media_surface_compatible(roles_by_id[media_id], surface)
+            for media_id in media_ids
+        ):
+            return None
+        for item in current:
+            session.delete(item)
+        session.flush()
+        session.add_all(
+            RomOwnedMediaPlacement(
+                rom_id=rom.id, media_id=media_id, surface=surface, position=position
+            )
+            for position, media_id in enumerate(media_ids)
+        )
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return rom
+
+    @begin_session
+    def delete_owned_media(
+        self,
+        rom_id: int,
+        media_id: int,
+        expected_updated_at: datetime,
+        session: Session = None,  # type: ignore
+    ) -> AppliedOwnedMedia | None:
+        rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
+        if rom is None:
+            return None
+        media = next(
+            (
+                item
+                for item in rom.owned_media
+                if item.id == media_id and item.state == RomOwnedMediaState.ACTIVE
+            ),
+            None,
+        )
+        if media is None:
+            return None
+        owned_paths = [media.owned_path] if media.owned_path else []
+        if media.origin == RomOwnedMediaOrigin.PROVIDER:
+            for placement in list(media.placements):
+                session.delete(placement)
+            media.owned_path = None
+            media.state = RomOwnedMediaState.TOMBSTONED
+        else:
+            session.delete(media)
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return AppliedOwnedMedia(rom, media, owned_paths)
+
+    @begin_session
+    def create_owned_media_cleanup_intent(
+        self,
+        rom_id: int,
+        media_id: int,
+        owned_path: str,
+        session: Session = None,  # type: ignore
+    ) -> OwnedMediaCleanupIntent | None:
+        if not owned_path or owned_path.startswith("/") or ".." in owned_path:
+            return None
+        existing = session.scalar(
+            select(OwnedMediaCleanupIntent).where(
+                OwnedMediaCleanupIntent.owned_path == owned_path
+            )
+        )
+        if existing is not None:
+            return existing
+        intent = OwnedMediaCleanupIntent(
+            rom_id=rom_id, media_id=media_id, owned_path=owned_path
+        )
+        session.add(intent)
+        session.flush()
+        return intent
+
+    @begin_session
+    def mark_owned_media_cleanup_failed(
+        self,
+        intent_id: int,
+        error_code: str,
+        next_attempt_at: datetime | None,
+        session: Session = None,  # type: ignore
+    ) -> OwnedMediaCleanupIntent | None:
+        intent = session.get(OwnedMediaCleanupIntent, intent_id)
+        if intent is None or intent.state in {
+            OwnedMediaCleanupState.COMPLETED,
+            OwnedMediaCleanupState.FAILED,
+        }:
+            return None
+        intent.attempt_count = min(intent.attempt_count + 1, 8)
+        intent.error_code = error_code[:100]
+        intent.next_attempt_at = next_attempt_at
+        intent.state = (
+            OwnedMediaCleanupState.FAILED
+            if intent.attempt_count >= 8
+            else OwnedMediaCleanupState.PENDING
+        )
+        session.flush()
+        return intent
+
+    @begin_session
+    def claim_owned_media_cleanup_intent(
+        self, intent_id: int, session: Session = None  # type: ignore
+    ) -> OwnedMediaCleanupIntent | None:
+        intent = session.scalar(
+            select(OwnedMediaCleanupIntent)
+            .where(
+                and_(
+                    OwnedMediaCleanupIntent.id == intent_id,
+                    OwnedMediaCleanupIntent.state == OwnedMediaCleanupState.PENDING,
+                )
+            )
+            .with_for_update()
+        )
+        if intent is None:
+            return None
+        intent.state = OwnedMediaCleanupState.PROCESSING
+        session.flush()
+        return intent
+
+    @begin_session
+    def get_due_owned_media_cleanup_intent_ids(
+        self, now: datetime, session: Session = None  # type: ignore
+    ) -> list[int]:
+        return list(
+            session.scalars(
+                select(OwnedMediaCleanupIntent.id)
+                .where(
+                    and_(
+                        OwnedMediaCleanupIntent.state == OwnedMediaCleanupState.PENDING,
+                        or_(
+                            OwnedMediaCleanupIntent.next_attempt_at.is_(None),
+                            OwnedMediaCleanupIntent.next_attempt_at <= now,
+                        ),
+                    )
+                )
+                .limit(100)
+            )
+        )
+
+    @begin_session
+    def complete_owned_media_cleanup_intent(
+        self, intent_id: int, session: Session = None  # type: ignore
+    ) -> OwnedMediaCleanupIntent | None:
+        intent = session.get(OwnedMediaCleanupIntent, intent_id)
+        if intent is None or intent.state != OwnedMediaCleanupState.PROCESSING:
+            return None
+        intent.state = OwnedMediaCleanupState.COMPLETED
+        intent.next_attempt_at = None
+        intent.error_code = None
+        session.flush()
+        return intent
 
     @begin_session
     @with_simple_details

@@ -171,6 +171,9 @@ const rom = {
   path_manual: "pc/example/manual.pdf",
   url_manual: "https://example.invalid/manual.pdf",
   has_soundtrack: true,
+  merged_screenshots: [
+    "/resources/roms/2/7/screenshots/provider-screenshot.jpg",
+  ],
   files: [
     {
       id: 101,
@@ -239,9 +242,9 @@ const stubs = {
     template: '<div data-soundtrack :data-deletable="deletable" />',
   },
   ScreenshotsTab: {
-    props: ["deletable", "togglable"],
+    props: ["screenshots", "deletable", "togglable"],
     template:
-      '<div data-screenshots :data-deletable="deletable" :data-togglable="togglable" />',
+      '<div data-screenshots :data-deletable="deletable" :data-togglable="togglable"><span v-for="shot in screenshots" :key="shot.url" data-screenshot-url>{{ shot.url }}</span></div>',
   },
 };
 
@@ -276,18 +279,46 @@ describe("maximum-grant source mutation controls", () => {
     expect(wrapper.html()).not.toContain("rom.convert-to-folder");
   });
 
-  it("keeps shared screenshots and soundtracks read-only while assets remain mutable", async () => {
+  it("keeps personal screenshots mutable without exposing source-library media controls", async () => {
     const screenshots = mountPanel(ScreenshotsSubtab);
     const screenshotPanels = screenshots.findAll("[data-screenshots]");
-    expect("data-deletable" in screenshotPanels[0].attributes()).toBe(false);
-    expect("data-deletable" in screenshotPanels[1].attributes()).toBe(true);
-    expect("data-togglable" in screenshotPanels[1].attributes()).toBe(true);
+    expect("data-deletable" in screenshotPanels[0].attributes()).toBe(true);
+    expect("data-togglable" in screenshotPanels[0].attributes()).toBe(true);
     expect(screenshots.findAll("[data-dropzone]")).toHaveLength(1);
 
     const media = mountPanel(MediaTab);
     await flushPromises();
     expect(media.findAll("[data-dropzone]")).toHaveLength(0);
     expect(media.html()).not.toContain("common.upload");
+  });
+
+  it("uses parent-owned media routes and exposes linked Media tabs", () => {
+    const files = {
+      service: source("src/services/api/rom.ts"),
+      media: source("src/v2/components/GameDetails/MediaTab.vue"),
+      screenshots: source(
+        "src/v2/components/GameDetails/ScreenshotsSubtab.vue",
+      ),
+    };
+
+    expect(files.service).toContain("getOwnedMedia");
+    expect(files.service).toContain("refreshOwnedMedia");
+    expect(files.service).toContain("/roms/${romId}/media/refresh");
+    expect(files.media).not.toMatch(/\/soundtracks(?:\/|`|'|\")/);
+    expect(files.screenshots).not.toMatch(/\/soundtracks(?:\/|`|'|\")/);
+    expect(files.media).toContain(":aria-controls=");
+    expect(files.media).toContain('id="media-panel-screenshots"');
+    expect(files.media).toContain("owned_media");
+  });
+
+  it("keeps provider screenshot candidates on owned-media content routes", () => {
+    const screenshots = source(
+      "src/v2/components/GameDetails/ScreenshotsSubtab.vue",
+    );
+
+    expect(screenshots).toContain("/media/${mediaId}/content");
+    expect(screenshots).not.toContain("/files/content/");
+    expect(screenshots).not.toContain("full_path");
   });
 
   it("renders the source filename read-only and omits both match rename controls", async () => {
