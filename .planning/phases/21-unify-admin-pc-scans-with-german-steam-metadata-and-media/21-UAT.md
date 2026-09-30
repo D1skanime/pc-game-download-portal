@@ -48,6 +48,17 @@ catalog contains the reconciled Steam candidates and retained uploads/placements
 No authenticated browser session was available to inspect the Media tab itself,
 so visual visibility/editability is not claimed as verified.
 
+Fresh NEW-fixture attempt: FAIL. With explicit authorization, a new labelled
+Phase-9 stack `phase21-witcher-uat` was created from a checksum-verified clone
+of the prior isolated source (`f510419dc429fa057226ec8dcda7e13e994258297abf418178e09c3cb02d2b86`,
+103 files). It used its own database and named volumes, then was removed with
+`docker compose down -v --remove-orphans`; the source clone was deleted. The
+documented Phase-9 seeder creates the cloned `pc` platform as not identified and
+only maps/scans Arcade. Adding isolated `pc` and `win` mappings still yielded
+zero NEW-ROM scans, so the fresh fixture could not produce a Steam/Witcher row
+or browser manual-override evidence. The original Phase-9 UAT stack, dev,
+Team4s, NAS, and original source clone were not changed.
+
 Outcome: FAIL
 
 Evidence: commands executed in the authorized stack were the isolated app reload,

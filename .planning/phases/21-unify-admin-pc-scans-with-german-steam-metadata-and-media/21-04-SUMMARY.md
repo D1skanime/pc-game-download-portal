@@ -43,7 +43,11 @@ Administrator Steam scans persist guarded structured fields through `Rom.igdb_me
 
 ## UAT
 
-`21-UAT.md` records an explicit FAIL. Existing UPDATE/COMPLETE evidence passes, but the authorized fixture cannot produce a new-ROM scan on its already-existing platform, and no authenticated browser session was available for manual-override or Media-tab evidence.
+`21-UAT.md` records an explicit FAIL. Existing UPDATE/COMPLETE evidence passes.
+A new labelled Phase-9 stack cloned from the isolated source was also attempted,
+then removed with its own volumes. Its documented seeder does not identify/map
+the PC fixture for a NEW scan, so it could not provide NEW or browser
+manual-override evidence.
 
 ## Deviations from Plan
 
