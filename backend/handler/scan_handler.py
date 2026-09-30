@@ -33,7 +33,6 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
-    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -48,6 +47,10 @@ from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST, LibretroRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
 from handler.metadata.pc_match_handler import pc_metadata_match_handler
+from handler.metadata.pc_steam_enrichment import (
+    SteamPcEnrichmentRequest,
+    resolve_steam_pc_enrichment,
+)
 from handler.metadata.playmatch_handler import (
     PLAYMATCH_SUPPORTED_SOURCES,
     PlaymatchRomMatch,
@@ -60,7 +63,7 @@ from handler.metadata.ss_handler import (
     note_rate_limited_rom,
 )
 from handler.metadata.steam_handler import COMPACT_TITLE_BOUNDARY, STEAM_PLATFORMS
-from handler.metadata.steam_merge import normalize_steam
+from handler.metadata.steam_owned_media import reconcile_steam_patch_media
 from handler.scan_command import MappedScanCommand as _MappedScanCommand
 from handler.storage.read_context import MappingReadContext
 from logger.formatter import BLUE, LIGHTYELLOW
@@ -75,8 +78,6 @@ from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
-
-STEAM_EXPLICIT_ID_PLATFORMS = frozenset({*STEAM_PLATFORMS, "dos", "win3x", "win9x"})
 
 
 @enum.unique
@@ -188,58 +189,12 @@ def _steam_scan_current(rom: Rom) -> dict[str, Any]:
     }
 
 
-async def resolve_steam_scan_metadata(
-    rom: Rom,
-    platform: Platform,
-    fs_name: str,
-    metadata_sources: list[str],
-) -> dict[str, Any]:
-    """Resolve one PC Storefront match without broadening classic scan dispatch."""
-    if (
-        MetadataSource.STEAM not in metadata_sources
-        or platform.slug not in STEAM_EXPLICIT_ID_PLATFORMS
-    ):
-        return {}
-
-    try:
-        if isinstance(rom.steam_id, int) and not isinstance(rom.steam_id, bool):
-            result = await meta_steam_handler.get_rom_by_id(rom.steam_id, platform.slug)
-            if result.get("steam_id") != rom.steam_id:
-                return {}
-        elif platform.slug in STEAM_PLATFORMS:
-            result = await meta_steam_handler.get_rom(fs_name, platform.slug)
-        else:
-            return {}
-    except Exception:
-        log.warning(
-            "Steam metadata lookup failed",
-            extra={**LOGGER_MODULE_NAME, "platform": platform.slug},
-        )
-        return {}
-
-    return normalize_steam(result, _steam_scan_current(rom))
-
-
-def _steam_artwork_handler(steam_updates: dict[str, Any]) -> dict[str, Any]:
-    media = steam_updates.get("media")
-    if not isinstance(media, dict):
-        return {"steam_id": steam_updates.get("steam_id")}
-
-    cover = media.get("cover")
-    screenshots = media.get("screenshots")
-    return {
-        "steam_id": steam_updates.get("steam_id"),
-        "url_cover": cover[0] if isinstance(cover, list) and cover else "",
-        "url_screenshots": screenshots if isinstance(screenshots, list) else [],
-    }
-
-
 def _apply_metadata_handler_fields(
     rom_attrs: dict[str, Any], handler_data: dict[str, Any]
 ) -> None:
     """Apply persisted provider fields while keeping derived media out of the model."""
     for key, field_value in handler_data.items():
-        if key == "url_artworks":
+        if key in {"url_artworks", "media", "metadata"}:
             continue
         if field_value:
             rom_attrs[key] = field_value
@@ -1049,8 +1004,31 @@ async def scan_rom(
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
     async def fetch_steam_updates() -> dict[str, Any]:
-        return await resolve_steam_scan_metadata(
-            rom, platform, rom_attrs["fs_name"], metadata_sources
+        # D-03: Steam parity covers new-platform, UPDATE, and COMPLETE scans
+        # for the supported PC platforms only. QUICK/HASHES remain unchanged.
+        if (
+            platform.slug not in STEAM_PLATFORMS
+            or MetadataSource.STEAM not in metadata_sources
+            or not (
+                (newly_added and scan_type is ScanType.NEW_PLATFORMS)
+                or scan_type is ScanType.COMPLETE
+                or (
+                    scan_type is ScanType.UPDATE
+                    and isinstance(rom.steam_id, int)
+                    and not isinstance(rom.steam_id, bool)
+                    and rom.steam_id > 0
+                )
+            )
+        ):
+            return {}
+        return await resolve_steam_pc_enrichment(
+            SteamPcEnrichmentRequest(
+                scan_context=scan_type.value,
+                current=_steam_scan_current(rom),
+                platform_slug=platform.slug,
+                fs_name=rom_attrs["fs_name"],
+                metadata_sources=metadata_sources,
+            )
         )
 
     # Run metadata fetches concurrently. One provider raising must not discard the
@@ -1111,7 +1089,7 @@ async def scan_rom(
 
     metadata_handlers: dict[MetadataSource, dict] = {
         MetadataSource.STEAM: {
-            "handler": _steam_artwork_handler(steam_updates),
+            "handler": steam_updates,
             "id_field": "steam_id",
             "metadata_field": "steam_metadata",
         },
@@ -1268,6 +1246,11 @@ async def scan_rom(
         for field in ("steam_id", "steam_metadata", "name", "summary"):
             if field in steam_updates:
                 rom_attrs[field] = steam_updates[field]
+        metadata = steam_updates.get("metadata")
+        if isinstance(metadata, dict):
+            for field, value in metadata.items():
+                if value:
+                    rom_attrs[field] = value
 
     # A rehash that no longer matches must drop the previous Hasheous match, or
     # the ROM keeps showing verification flags earned by hashes it no longer has.
@@ -1384,7 +1367,15 @@ async def scan_rom(
             )
 
     rom_attrs["missing_from_fs"] = False
-    return Rom(**rom_attrs)
+    scanned_rom = Rom(**rom_attrs)
+
+    # D-06/D-07: A complete Steam media patch is reconciled only after its text
+    # patch has a durable ROM identity. Steam candidates never use legacy URLs.
+    if isinstance(steam_updates.get("media"), dict) and steam_updates["media"]:
+        durable_rom = db_rom_handler.add_rom(scanned_rom)
+        await reconcile_steam_patch_media(durable_rom, steam_updates)
+        return durable_rom
+    return scanned_rom
 
 
 async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False):

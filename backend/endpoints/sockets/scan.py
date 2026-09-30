@@ -63,6 +63,7 @@ from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import get_preferred_media_types
 from handler.metadata.ss_handler import log_quota as log_ss_quota
 from handler.metadata.ss_handler import log_scan_summary as log_ss_scan_summary
+from handler.metadata.steam_handler import STEAM_PLATFORMS
 from handler.metadata.steam_merge import normalize_steam
 from handler.redis_handler import (
     get_job_func_name,
@@ -414,6 +415,16 @@ def should_scan_rom(
                     and rom.steam_id > 0
                     and not rom.igdb_id
                     and MetadataSource.IGDB in metadata_sources
+                )
+                or (
+                    # D-03/T-21-10: Steam-only UPDATE parity is limited to
+                    # supported PC platforms with a persisted Steam identity.
+                    scan_type == ScanType.UPDATE
+                    and rom.platform_slug in STEAM_PLATFORMS
+                    and isinstance(rom.steam_id, int)
+                    and not isinstance(rom.steam_id, bool)
+                    and rom.steam_id > 0
+                    and MetadataSource.STEAM in metadata_sources
                 )
                 # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
                 or (
