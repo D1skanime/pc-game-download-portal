@@ -1246,11 +1246,6 @@ async def scan_rom(
         for field in ("steam_id", "steam_metadata", "name", "summary"):
             if field in steam_updates:
                 rom_attrs[field] = steam_updates[field]
-        metadata = steam_updates.get("metadata")
-        if isinstance(metadata, dict):
-            for field, value in metadata.items():
-                if value:
-                    rom_attrs[field] = value
 
     # A rehash that no longer matches must drop the previous Hasheous match, or
     # the ROM keeps showing verification flags earned by hashes it no longer has.
@@ -1355,7 +1350,7 @@ async def scan_rom(
                 rom_attrs["url_cover"] = sgdb_cover
 
     log.info(
-        f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+        f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs.get('name', rom.fs_name), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
         extra=LOGGER_MODULE_NAME,
     )
 
@@ -1369,11 +1364,25 @@ async def scan_rom(
     rom_attrs["missing_from_fs"] = False
     scanned_rom = Rom(**rom_attrs)
 
-    # D-06/D-07: A complete Steam media patch is reconciled only after its text
-    # patch has a durable ROM identity. Steam candidates never use legacy URLs.
-    if isinstance(steam_updates.get("media"), dict) and steam_updates["media"]:
+    steam_metadata = steam_updates.get("metadata")
+    has_steam_metadata = isinstance(steam_metadata, dict) and bool(steam_metadata)
+    has_steam_media = isinstance(steam_updates.get("media"), dict) and bool(
+        steam_updates["media"]
+    )
+    # D-04/D-06/D-07: Structured Steam data and provider candidates are applied
+    # only after the ROM has a durable identity. Media never uses legacy URLs.
+    if has_steam_metadata or has_steam_media:
         durable_rom = db_rom_handler.add_rom(scanned_rom)
-        await reconcile_steam_patch_media(durable_rom, steam_updates)
+        if has_steam_metadata:
+            applied = db_rom_handler.apply_pc_metadata_candidate(
+                durable_rom.id,
+                durable_rom.updated_at,
+                {"metadata": steam_metadata},
+            )
+            if applied is not None:
+                durable_rom = applied
+        if has_steam_media:
+            await reconcile_steam_patch_media(durable_rom, steam_updates)
         return durable_rom
     return scanned_rom
 
