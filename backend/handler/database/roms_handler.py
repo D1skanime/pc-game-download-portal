@@ -703,6 +703,7 @@ class DBRomsHandler(DBBaseHandler):
             if media.role != role:
                 return None
             media.state = RomOwnedMediaState.ACTIVE
+            media.operator_suppressed = False
             media.mime_type = mime_type
             media.owned_path = owned_path
         rom.updated_at = datetime.now(timezone.utc)
@@ -843,6 +844,7 @@ class DBRomsHandler(DBBaseHandler):
                 session.delete(placement)
             media.owned_path = None
             media.state = RomOwnedMediaState.TOMBSTONED
+            media.operator_suppressed = True
         else:
             session.delete(media)
         rom.updated_at = datetime.now(timezone.utc)

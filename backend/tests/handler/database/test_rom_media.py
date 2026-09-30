@@ -290,6 +290,7 @@ def test_provider_refresh_reactivates_tombstone_without_placing_it(rom):
     )
     assert deleted is not None
     assert deleted.owned_paths == ["roms/1/media/provider/image-1.webp"]
+    assert deleted.media.operator_suppressed is True
 
     refreshed = db_rom_handler.reconcile_provider_owned_media(
         rom_id=rom.id,
@@ -304,6 +305,69 @@ def test_provider_refresh_reactivates_tombstone_without_placing_it(rom):
     assert refreshed is not None
     assert refreshed.media.id == created.media.id
     assert refreshed.media.placements == []
+    assert refreshed.media.operator_suppressed is False
+
+
+def test_operator_delete_suppresses_only_provider_media_and_keeps_upload(rom):
+    provider = db_rom_handler.reconcile_provider_owned_media(
+        rom.id,
+        rom.updated_at,
+        "steam",
+        "cover-1",
+        RomOwnedMediaRole.ARTWORK,
+        "cover.webp",
+        "image/webp",
+        "roms/1/media/provider/cover.webp",
+    )
+    assert provider is not None
+    upload = db_rom_handler.create_owned_upload_media(
+        rom.id,
+        provider.rom.updated_at,
+        RomOwnedMediaRole.ARTWORK,
+        "operator.webp",
+        "image/webp",
+        "roms/1/media/upload/operator.webp",
+    )
+    assert upload is not None
+    selected = db_rom_handler.set_owned_media_placement(
+        rom.id,
+        provider.media.id,
+        upload.rom.updated_at,
+        RomOwnedMediaSurface.OVERVIEW,
+        selected=True,
+    )
+    assert selected is not None
+
+    deleted = db_rom_handler.delete_owned_media(
+        rom.id, provider.media.id, selected.updated_at
+    )
+    assert deleted is not None
+    assert deleted.media.state == RomOwnedMediaState.TOMBSTONED
+    assert deleted.media.operator_suppressed is True
+    assert deleted.media.placements == []
+
+    with session() as db:
+        persisted_upload = db.get(RomOwnedMedia, upload.media.id)
+        assert persisted_upload is not None
+        assert persisted_upload.origin == RomOwnedMediaOrigin.UPLOAD
+        assert persisted_upload.state == RomOwnedMediaState.ACTIVE
+        assert persisted_upload.operator_suppressed is False
+
+
+def test_steam_scan_owned_media_state_migration_has_verified_ancestry():
+    migration_path = (
+        Path(__file__).parents[3]
+        / "alembic/versions/0132_steam_scan_owned_media_state.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "steam_scan_owned_media_state_migration", migration_path
+    )
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    assert migration.revision == "0132_steam_scan_owned_media_state"
+    assert migration.down_revision == "0131_owned_background_audio"
 
 
 def test_complete_reorder_rejects_incomplete_membership(rom):

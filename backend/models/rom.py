@@ -544,6 +544,9 @@ class RomOwnedMedia(BaseModel):
         ),
         default=RomOwnedMediaState.ACTIVE,
     )
+    operator_suppressed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     mime_type: Mapped[str] = mapped_column(String(length=100))
     owned_path: Mapped[str | None] = mapped_column(
         String(length=OWNED_MEDIA_PATH_MAX_LENGTH), default=None
