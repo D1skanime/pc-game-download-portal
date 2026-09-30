@@ -528,6 +528,45 @@ class TestShouldScanRom:
         result = should_scan_rom(ScanType.UPDATE, rom, [], ["igdb"])
         assert result is False
 
+    @pytest.mark.parametrize("platform_slug", [UPS.WIN, UPS.LINUX, UPS.MAC])
+    def test_update_scan_admits_selected_steam_pc_rom_without_other_provider_id(
+        self, platform_slug: str
+    ):
+        rom = Mock(
+            is_identified=False,
+            platform_slug=platform_slug,
+            steam_id=292030,
+            igdb_id=None,
+        )
+
+        assert should_scan_rom(ScanType.UPDATE, rom, [], [MetadataSource.STEAM.value])
+
+    @pytest.mark.parametrize(
+        ("scan_type", "platform_slug", "steam_id", "metadata_sources"),
+        [
+            (ScanType.QUICK, UPS.WIN, 292030, [MetadataSource.STEAM.value]),
+            (ScanType.HASHES, UPS.WIN, 292030, [MetadataSource.STEAM.value]),
+            (ScanType.UPDATE, "snes", 292030, [MetadataSource.STEAM.value]),
+            (ScanType.UPDATE, UPS.WIN, None, [MetadataSource.STEAM.value]),
+            (ScanType.UPDATE, UPS.WIN, 292030, [MetadataSource.IGDB.value]),
+        ],
+    )
+    def test_steam_update_parity_does_not_broaden_other_scan_rules(
+        self,
+        scan_type: ScanType,
+        platform_slug: str,
+        steam_id: int | None,
+        metadata_sources: list[str],
+    ):
+        rom = Mock(
+            is_identified=False,
+            platform_slug=platform_slug,
+            steam_id=steam_id,
+            igdb_id=None,
+        )
+
+        assert not should_scan_rom(scan_type, rom, [], metadata_sources)
+
     @pytest.mark.parametrize(
         (
             "scan_type",

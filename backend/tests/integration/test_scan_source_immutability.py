@@ -57,3 +57,6 @@ def test_scan_source_uses_policy_capability_not_legacy_derivation():
     assert (
         "def execute_mapped_scan" in source
     ), "Phase 5 RED: immutable mapped scan execution is not implemented"
+    assert "resolve_steam_pc_enrichment" in source
+    assert "reconcile_steam_patch_media" in source
+    assert "_steam_artwork_handler" not in source
