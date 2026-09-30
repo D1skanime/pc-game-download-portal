@@ -308,7 +308,7 @@ describe("maximum-grant source mutation controls", () => {
     expect(files.screenshots).not.toMatch(/\/soundtracks(?:\/|`|'|\")/);
     expect(files.media).toContain(":aria-controls=");
     expect(files.media).toContain('id="media-panel-screenshots"');
-    expect(files.media).toContain("owned_media");
+    expect(files.screenshots).toContain("owned_media");
   });
 
   it("keeps provider screenshot candidates on owned-media content routes", () => {
