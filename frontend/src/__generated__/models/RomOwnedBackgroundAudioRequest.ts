@@ -6,4 +6,3 @@ export type RomOwnedBackgroundAudioRequest = {
     media_ids: Array<number>;
     expected_version: string;
 };
-

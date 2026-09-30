@@ -8,4 +8,3 @@ export type RomOwnedMediaPlacementMutationRequest = {
     surface: RomOwnedMediaSurface;
     expected_version: string;
 };
-
