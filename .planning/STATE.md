@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 20-08-PLAN.md
-last_updated: "2026-09-30T11:40:42.322Z"
+stopped_at: Phase 22 context gathered
+last_updated: "2026-10-01T20:44:21.594Z"
 last_activity: 2026-09-30 -- Phase 21 planning complete
 progress:
-  total_phases: 21
-  completed_phases: 16
+  total_phases: 22
+  completed_phases: 17
   total_plans: 182
-  completed_plans: 171
-  percent: 76
+  completed_plans: 175
+  percent: 77
 ---
 
 # Project State
@@ -165,6 +165,7 @@ _Updated after each plan completion_
 - Phase 19 added: Fix PC quick-scan IGDB matching and safe DLC/expansion enrichment.
 - Phase 20 added: Media management and owned soundtrack uploads.
 - Phase 21 added: Unify admin PC scans with German Steam metadata and media.
+- Phase 22 added: Bulk-automatisierung für PC-Spiel- und DLC-Zuordnung.
 
 ### Decisions
 
@@ -427,6 +428,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-28T15:29:24.273Z
-Stopped at: Completed 20-08-PLAN.md
-Resume file: None
+Last session: 2026-10-01T20:44:21.570Z
+Stopped at: Phase 22 context gathered
+Resume file: .planning/phases/22-bulk-automatisierung-f-r-pc-spiel-und-dlc-zuordnung/22-CONTEXT.md

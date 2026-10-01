@@ -606,3 +606,14 @@ Plans:
 **Wave 3**
 
 - [ ] 21-04-PLAN.md — Wire new/update/complete scans, source-boundary tests, and Witcher-only UAT evidence.
+
+### Phase 22: Bulk-automatisierung für PC-Spiel- und DLC-Zuordnung
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 21
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 22 to break down)
