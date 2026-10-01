@@ -245,8 +245,15 @@ ENABLE_SCHEDULED_RESCAN: Final[bool] = safe_str_to_bool(
 )
 SCHEDULED_RESCAN_CRON: Final[str] = _get_env(
     "SCHEDULED_RESCAN_CRON",
-    "0 3 * * *",  # At 3:00 AM every day
+    "*/15 * * * *",
 )
+PC_AUTOMATION_UAT_INTERVAL_SECONDS: Final[int] = safe_int(
+    _get_env("PC_AUTOMATION_UAT_INTERVAL_SECONDS"), 0
+)
+if PC_AUTOMATION_UAT_INTERVAL_SECONDS not in {0, 10}:
+    raise ValueError("PC_AUTOMATION_UAT_INTERVAL_SECONDS must be 0 or 10")
+if PC_AUTOMATION_UAT_INTERVAL_SECONDS and not DEV_MODE:
+    raise ValueError("PC_AUTOMATION_UAT_INTERVAL_SECONDS requires DEV_MODE=true")
 ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB")
 )

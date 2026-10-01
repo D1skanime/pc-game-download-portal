@@ -1,5 +1,6 @@
 from config import (
     ENABLE_SCHEDULED_RESCAN,
+    PC_AUTOMATION_UAT_INTERVAL_SECONDS,
     SCHEDULED_RESCAN_CRON,
 )
 from endpoints.sockets.scan import (
@@ -19,12 +20,20 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.scan_command import ScanScope, ScanTrigger
 from handler.scan_handler import MetadataSource, ScanType
 from logger.logger import log
-from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, PeriodicTask, TaskType
+from tasks.tasks import (
+    SCAN_LIBRARY_TASK_FUNC,
+    DevelopmentIntervalTask,
+    PeriodicTask,
+    TaskType,
+)
+
+PC_AUTOMATION_UAT_SCAN_TASK_FUNC = SCAN_LIBRARY_TASK_FUNC
 
 
 class ScanLibraryTask(PeriodicTask):
@@ -60,6 +69,7 @@ class ScanLibraryTask(PeriodicTask):
             MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
             MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
             MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
+            MetadataSource.STEAM: meta_steam_handler.is_enabled(),
         }
 
         metadata_sources = [source for source, flag in source_mapping.items() if flag]
@@ -84,3 +94,24 @@ class ScanLibraryTask(PeriodicTask):
 
 
 scan_library_task = ScanLibraryTask()
+
+
+class PcAutomationUatIntervalTask(DevelopmentIntervalTask):
+    """Development-only ten-second runner for the authorized mapped scan."""
+
+    def __init__(self):
+        super().__init__(
+            title="PC automation UAT scan",
+            description="Runs mapped library scans every 10 seconds in development",
+            task_type=TaskType.SCAN,
+            enabled=PC_AUTOMATION_UAT_INTERVAL_SECONDS == 10,
+            manual_run=False,
+            func=PC_AUTOMATION_UAT_SCAN_TASK_FUNC,
+            interval_seconds=10,
+        )
+
+    async def run(self) -> dict[str, str]:
+        return await scan_library_task.run()
+
+
+pc_automation_uat_interval_task = PcAutomationUatIntervalTask()

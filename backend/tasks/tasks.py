@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from enum import Enum
 from itertools import chain
 from typing import Any, Final
@@ -155,6 +156,32 @@ class PeriodicTask(Task, ABC):
         tasks_scheduler.cancel(job)
         log.info(f"{self.description.capitalize()} unscheduled.")
         return True
+
+
+class DevelopmentIntervalTask(PeriodicTask):
+    """Development-only periodic task scheduled with RQ's interval API."""
+
+    def __init__(self, *args: Any, interval_seconds: int, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.interval_seconds = interval_seconds
+
+    async def run(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError
+
+    def schedule(self) -> Job | None:
+        if not self.enabled:
+            raise SchedulerException(f"Scheduled {self.description} is not enabled.")
+        if self._get_existing_job():
+            log.info(f"{self.description.capitalize()} is already scheduled.")
+            return None
+        return tasks_scheduler.schedule(
+            datetime.now(timezone.utc),
+            func=self.func,
+            interval=self.interval_seconds,
+            repeat=None,
+            timeout=self.timeout,
+            meta={"task_name": self.title, "task_type": self.task_type.value},
+        )
 
 
 class RemoteFilePullTask(PeriodicTask, ABC):

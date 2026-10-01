@@ -16,7 +16,13 @@ from handler.metadata.ss_handler import SSHandler
 from handler.metadata.tgdb_handler import TGDBHandler
 from handler.scan_command import ScanScope, ScanTrigger
 from handler.scan_handler import MetadataSource, ScanType
-from tasks.scheduled.scan_library import ScanLibraryTask, scan_library_task
+from tasks.scheduled.scan_library import (
+    PC_AUTOMATION_UAT_SCAN_TASK_FUNC,
+    PcAutomationUatIntervalTask,
+    ScanLibraryTask,
+    scan_library_task,
+)
+from tasks.tasks import DevelopmentIntervalTask
 
 
 class TestScanLibraryTask:
@@ -92,3 +98,68 @@ class TestScanLibraryTask:
             scan_library_task.func
             == "tasks.scheduled.scan_library.scan_library_task.run"
         )
+
+    def test_scheduled_scan_includes_enabled_steam_source(self, task, mocker):
+        mocker.patch(
+            "tasks.scheduled.scan_library.meta_steam_handler.is_enabled",
+            return_value=True,
+        )
+        mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", True)
+        mocker.patch(
+            "tasks.scheduled.scan_library.mapping_scan_commands", return_value=[]
+        )
+        execute = mocker.patch(
+            "tasks.scheduled.scan_library.execute_mapping_scans",
+            new=AsyncMock(return_value=MagicMock(to_dict=MagicMock(return_value={}))),
+        )
+        for handler in (
+            "meta_hasheous_handler",
+            "meta_igdb_handler",
+            "meta_launchbox_handler",
+            "meta_moby_handler",
+            "meta_playmatch_handler",
+            "meta_ra_handler",
+            "meta_sgdb_handler",
+            "meta_ss_handler",
+            "meta_flashpoint_handler",
+            "meta_hltb_handler",
+            "meta_tgdb_handler",
+            "meta_libretro_handler",
+        ):
+            mocker.patch.object(
+                getattr(
+                    __import__("tasks.scheduled.scan_library", fromlist=[handler]),
+                    handler,
+                ),
+                "is_enabled",
+                return_value=False,
+            )
+
+        import asyncio
+
+        asyncio.run(task.run())
+
+        assert execute.await_args.kwargs["metadata_sources"] == [MetadataSource.STEAM]
+
+    def test_development_interval_uses_exact_rq_interval_schedule(self, mocker):
+        scheduler = mocker.patch("tasks.tasks.tasks_scheduler")
+        task = DevelopmentIntervalTask(
+            title="PC automation UAT scan",
+            description="Runs mapped scan in development",
+            task_type=ScanLibraryTask().task_type,
+            enabled=True,
+            func=PC_AUTOMATION_UAT_SCAN_TASK_FUNC,
+            interval_seconds=10,
+        )
+        mocker.patch.object(task, "_get_existing_job", return_value=None)
+
+        task.schedule()
+
+        scheduler.schedule.assert_called_once()
+        assert scheduler.schedule.call_args.kwargs["interval"] == 10
+
+    def test_uat_interval_task_calls_the_mapped_scan_function(self):
+        task = PcAutomationUatIntervalTask()
+
+        assert task.func == PC_AUTOMATION_UAT_SCAN_TASK_FUNC
+        assert PC_AUTOMATION_UAT_SCAN_TASK_FUNC == ScanLibraryTask().func

@@ -13,6 +13,7 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     ENABLE_SYNC_PUSH_PULL,
+    PC_AUTOMATION_UAT_INTERVAL_SECONDS,
     SENTRY_DSN,
     TASK_TIMEOUT,
 )
@@ -41,7 +42,10 @@ from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
 from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.owned_media_cleanup import owned_media_cleanup_task
-from tasks.scheduled.scan_library import scan_library_task
+from tasks.scheduled.scan_library import (
+    pc_automation_uat_interval_task,
+    scan_library_task,
+)
 from tasks.scheduled.sync_retroachievements_progress import (
     sync_retroachievements_progress_task,
 )
@@ -154,7 +158,10 @@ async def main() -> None:
 
         if ENABLE_SCHEDULED_RESCAN:
             log.info("Starting scheduled rescan")
-            scan_library_task.init()
+            if PC_AUTOMATION_UAT_INTERVAL_SECONDS == 10:
+                pc_automation_uat_interval_task.init()
+            else:
+                scan_library_task.init()
         if ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:
             log.info("Starting scheduled update switch titledb")
             update_switch_titledb_task.init()
