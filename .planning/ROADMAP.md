@@ -612,7 +612,7 @@ Plans:
 **Goal:** Automatically discover newly added, correctly named PC game folders on a safe periodic schedule, apply only unambiguous Steam/IGDB/DLC metadata and media, and route every uncertain case to one protected, efficient administrator review queue.
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08
 **Depends on:** Phase 21
-**Plans:** 5 plans
+**Plans:** 6 plans
 
 Plans:
 
@@ -630,8 +630,12 @@ Plans:
 
 **Wave 4**
 
-- [ ] 22-04-PLAN.md — Deliver the v2 centralized review queue, manual-match reuse, and complete locale support.
+- [ ] 22-04-PLAN.md — Deliver the v2 centralized review queue and manual-match reuse.
 
 **Wave 5**
 
-- [ ] 22-05-PLAN.md — Prove isolated source immutability and complete browser UAT for scheduled bulk automation.
+- [ ] 22-05-PLAN.md — Translate the centralized queue through the full locale set and prove locale parity.
+
+**Wave 6**
+
+- [ ] 22-06-PLAN.md — Prove isolated source immutability and complete browser UAT for scheduled bulk automation.
