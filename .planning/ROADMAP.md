@@ -623,12 +623,15 @@ Plans:
 **Wave 2**
 
 - [ ] 22-02-PLAN.md — Add fail-closed automatic PC matching and scheduled mapped discovery with Steam coverage and a tested UAT override.
-- [ ] 22-03-PLAN.md — Expose protected generated queue APIs with server-side candidate revalidation and safe batch application.
 
 **Wave 3**
 
-- [ ] 22-04-PLAN.md — Deliver the v2 centralized review queue, manual-match reuse, and complete locale support.
+- [ ] 22-03-PLAN.md — Expose protected generated queue APIs with server-side candidate revalidation and safe batch application.
 
 **Wave 4**
+
+- [ ] 22-04-PLAN.md — Deliver the v2 centralized review queue, manual-match reuse, and complete locale support.
+
+**Wave 5**
 
 - [ ] 22-05-PLAN.md — Prove isolated source immutability and complete browser UAT for scheduled bulk automation.
