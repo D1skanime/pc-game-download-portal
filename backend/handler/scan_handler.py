@@ -46,6 +46,7 @@ from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST, LibretroRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
+from handler.metadata.pc_automation import pc_automation_handler
 from handler.metadata.pc_match_handler import pc_metadata_match_handler
 from handler.metadata.pc_steam_enrichment import (
     SteamPcEnrichmentRequest,
@@ -1444,6 +1445,19 @@ async def scan_rom(
                 auto_link_pc_dlc_components(refreshed_rom, components)
                 await auto_link_parent_listed_steam_dlc_components(refreshed_rom)
         return scanned_rom
+    if platform.slug == UPS.WIN and (newly_added or not scanned_rom.steam_id):
+        # The mapped scan already created this durable catalog target. Never pass
+        # a filesystem path to automation, only the persisted ROM and components.
+        durable_rom = db_rom_handler.add_rom(scanned_rom)
+        refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
+        if refreshed_rom is not None:
+            await pc_automation_handler.process_parent(refreshed_rom)
+            refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
+            if refreshed_rom is not None and refreshed_rom.steam_id:
+                for component in getattr(refreshed_rom, "components", []):
+                    await pc_automation_handler.process_component(
+                        refreshed_rom, component
+                    )
     return scanned_rom
 
 
