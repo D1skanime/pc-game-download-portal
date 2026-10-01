@@ -4,12 +4,12 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Phase 22 context gathered
-last_updated: "2026-10-01T20:44:21.594Z"
+last_updated: "2026-10-01T21:18:50.559Z"
 last_activity: 2026-09-30 -- Phase 21 planning complete
 progress:
   total_phases: 22
   completed_phases: 17
-  total_plans: 182
+  total_plans: 187
   completed_plans: 175
   percent: 77
 ---
@@ -166,6 +166,7 @@ _Updated after each plan completion_
 - Phase 20 added: Media management and owned soundtrack uploads.
 - Phase 21 added: Unify admin PC scans with German Steam metadata and media.
 - Phase 22 added: Bulk-automatisierung für PC-Spiel- und DLC-Zuordnung.
+- Phase 22 edited: defined bulk automation goal, requirements, and plan structure after plan review
 
 ### Decisions
 

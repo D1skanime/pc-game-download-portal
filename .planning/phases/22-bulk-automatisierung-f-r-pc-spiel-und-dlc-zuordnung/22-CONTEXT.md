@@ -46,9 +46,11 @@ queue for exceptions rather than requiring a per-ROM workflow.
 ### Background processing
 
 - **D-07:** New PC folders are discovered by a configurable periodic background
-  scan, with a 15-minute production default and a development/UAT interval as
-  low as 10 seconds, rather than a filesystem watcher. Newly discovered
-  eligible games then enter the automatic matching flow.
+  scan, with a production `*/15 * * * *` cron default. A separate
+  `PC_AUTOMATION_UAT_INTERVAL_SECONDS=10` development/UAT override is disabled
+  by default, rejects production configuration, and uses an explicitly tested
+  interval runner rather than a six-field cron or filesystem watcher. Newly
+  discovered eligible games then enter the automatic matching flow.
 - **D-08:** The UI exposes processing progress and outstanding review items.
   Background work never writes to, renames, moves, or deletes source-library
   content.
@@ -60,6 +62,9 @@ queue for exceptions rather than requiring a per-ROM workflow.
   and media reconciliation contracts.
 - Define safe batch-action eligibility so each application is still traceable
   and cannot silently apply an ambiguous candidate.
+- A skip is terminal only for the current target incarnation and decision
+  fingerprint; target changes or an explicit authorized requeue make it
+  eligible for review again.
 
 </decisions>
 

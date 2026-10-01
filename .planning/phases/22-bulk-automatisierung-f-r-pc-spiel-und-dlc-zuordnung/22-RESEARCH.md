@@ -251,16 +251,22 @@ The current DLC implementation uses `SequenceMatcher` with `STEAM_DLC_MIN_SIMILA
 | A4  | Batch requests should require identical candidate fingerprint and per-target version check. | Pattern 4 | Batch UX may require a stricter grouping contract.    |
 | A5  | Exact queue authorization scope needs comparison against existing PC metadata routes.       | Security  | Wrong scope harms access consistency.                 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **How should the 10-second UAT interval be represented?**
-   - Known: production uses a configurable periodic scan; current rescan configuration is cron-based. [VERIFIED: codebase, `backend/config/__init__.py`, `22-CONTEXT.md`]
-   - Recommendation: plan a development-only interval override or direct task invocation with an automated scheduler test, while keeping production at `*/15 * * * *`.
-2. **Which authorization scope owns queue review?**
-   - Known: task status uses `tasks.run`; current manual PC metadata routes have their own protection. [VERIFIED: codebase, `backend/endpoints/tasks.py`, `backend/endpoints/roms/pc_metadata.py`]
-   - Recommendation: reuse the narrowest existing manual PC metadata write scope and test access denials.
-3. **What does skip mean after a target changes?**
-   - Recommendation: make it terminal for the same target incarnation, with an explicit requeue action. [ASSUMED]
+1. **10-second UAT interval:** Add
+   `PC_AUTOMATION_UAT_INTERVAL_SECONDS=10` as a disabled-by-default,
+   development/UAT-only override. It must be rejected by production
+   configuration and drive a dedicated supported interval runner, with a test
+   that proves ten-second execution. Production remains exactly
+   `*/15 * * * *`; six-field cron is forbidden.
+2. **Queue review authorization:** Reuse the established PC metadata route
+   contract: `Scope.ROMS_READ` for listing and `Scope.ROMS_WRITE` for accept,
+   correction/requeue, skip, and batch application, plus server-side
+   `assert_rom_visible` for every target. [VERIFIED: codebase,
+   `backend/endpoints/roms/pc_metadata.py`]
+3. **Skip lifecycle:** A skip is terminal only for the exact target incarnation
+   and decision fingerprint. A target version/fingerprint change or an explicit
+   authorized requeue creates a new review opportunity.
 
 ## Environment Availability
 

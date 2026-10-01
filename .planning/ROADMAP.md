@@ -609,11 +609,26 @@ Plans:
 
 ### Phase 22: Bulk-automatisierung für PC-Spiel- und DLC-Zuordnung
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Automatically discover newly added, correctly named PC game folders on a safe periodic schedule, apply only unambiguous Steam/IGDB/DLC metadata and media, and route every uncertain case to one protected, efficient administrator review queue.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08
 **Depends on:** Phase 21
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 22 to break down)
+**Wave 1**
+
+- [ ] 22-01-PLAN.md — Persist an idempotent, version-bound PC automation review queue and guarded state machine.
+
+**Wave 2**
+
+- [ ] 22-02-PLAN.md — Add fail-closed automatic PC matching and scheduled mapped discovery with Steam coverage and a tested UAT override.
+- [ ] 22-03-PLAN.md — Expose protected generated queue APIs with server-side candidate revalidation and safe batch application.
+
+**Wave 3**
+
+- [ ] 22-04-PLAN.md — Deliver the v2 centralized review queue, manual-match reuse, and complete locale support.
+
+**Wave 4**
+
+- [ ] 22-05-PLAN.md — Prove isolated source immutability and complete browser UAT for scheduled bulk automation.
