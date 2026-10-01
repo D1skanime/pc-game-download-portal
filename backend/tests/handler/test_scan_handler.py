@@ -9,10 +9,11 @@ from handler.scan_handler import (
     _apply_metadata_handler_fields,
     _is_steam_only_windows_igdb_recovery,
     _windows_igdb_lookup_name,
+    auto_link_pc_dlc_components,
     scan_rom,
 )
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomComponentKind
 
 
 def _rom(*, steam_id: int | None = None) -> SimpleNamespace:
@@ -135,6 +136,31 @@ def test_derived_igdb_artworks_are_not_passed_to_the_rom_model():
         "igdb_id": 1877,
         "url_screenshots": ["https://cdn.example/artwork.jpg"],
     }
+
+
+def test_auto_link_pc_dlc_adds_igdb_to_a_component_already_identified_by_steam():
+    rom = SimpleNamespace(id=41)
+    component = SimpleNamespace(
+        id=7,
+        kind=RomComponentKind.DLC,
+        updated_at="version",
+        component_metadata=SimpleNamespace(steam_id=123, igdb_id=None),
+    )
+    candidate = SimpleNamespace(provider="igdb", fields={"igdb_id": 456})
+
+    with (
+        patch(
+            "handler.scan_handler.pc_metadata_match_handler.find_unique_related_igdb_candidate",
+            return_value=candidate,
+        ) as find_candidate,
+        patch(
+            "handler.scan_handler.db_rom_handler.apply_pc_component_metadata_candidate"
+        ) as apply_candidate,
+    ):
+        auto_link_pc_dlc_components(rom, [component])
+
+    find_candidate.assert_called_once_with(rom, component)
+    apply_candidate.assert_called_once_with(41, 7, "version", "igdb", {"igdb_id": 456})
 
 
 @pytest.mark.parametrize(
@@ -394,6 +420,53 @@ async def test_empty_or_text_only_steam_patch_never_reconciles_media(patch_data:
 
     resolver.assert_awaited_once()
     reconcile.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_steam_media_reconciliation_uses_the_persisted_rom_timestamp():
+    platform, rom = _igdb_scan_fixture(platform_slug="win", steam_id=292030)
+    persisted = SimpleNamespace(id=rom.id, updated_at="stale-in-memory-timestamp")
+    refreshed = SimpleNamespace(id=rom.id, updated_at="database-timestamp")
+    resolver = AsyncMock(
+        return_value={
+            "steam_id": 292030,
+            "steam_metadata": {"app_id": 292030, "source": "storefront"},
+            "media": {"cover": ["https://cdn.example/witcher.jpg"]},
+        }
+    )
+    reconcile = AsyncMock(return_value=True)
+
+    with (
+        patch("handler.scan_handler.db_rom_handler.add_rom", return_value=persisted),
+        patch("handler.scan_handler.db_rom_handler.get_rom", return_value=refreshed),
+        patch(
+            "handler.scan_handler.meta_playmatch_handler.is_enabled", return_value=False
+        ),
+        patch("handler.scan_handler.resolve_steam_pc_enrichment", resolver),
+        patch("handler.scan_handler.reconcile_steam_patch_media", reconcile),
+        patch(
+            "handler.scan_handler.fs_rom_handler.get_pico8_cover_url", return_value=None
+        ),
+    ):
+        await scan_rom(
+            scan_type=ScanType.COMPLETE,
+            platform=platform,
+            rom=rom,
+            fs_rom={
+                "fs_name": "The Witcher.exe",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.STEAM.value],
+            newly_added=False,
+        )
+
+    reconcile.assert_awaited_once_with(refreshed, resolver.return_value)
 
 
 @pytest.mark.asyncio

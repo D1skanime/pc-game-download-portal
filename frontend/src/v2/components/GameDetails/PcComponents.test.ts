@@ -144,7 +144,11 @@ describe("PcComponents", () => {
     const showMatcher = vi.fn();
     emitter.on("showPcMatchRomDialog", showMatcher);
     const wrapper = mount(PcComponents, {
-      props: { components: componentGroups, romId: 1 },
+      props: {
+        components: componentGroups,
+        romId: 1,
+        parentName: "Euro Truck Simulator 2",
+      },
       global: {
         provide: { emitter },
         stubs: {
@@ -180,14 +184,26 @@ describe("PcComponents", () => {
     expect(
       wrapper.find("[data-testid='find-pc-component-metadata-7']").exists(),
     ).toBe(false);
-    await launchers[2].trigger("click");
+    await launchers[0].trigger("click");
     expect(showMatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({
+          kind: "rom",
+          romId: 1,
+          label: "Euro Truck Simulator 2",
+        }),
+      }),
+    );
+
+    await launchers[2].trigger("click");
+    expect(showMatcher).toHaveBeenLastCalledWith(
       expect.objectContaining({
         target: expect.objectContaining({
           kind: "component",
           romId: 1,
           componentId: 3,
           componentKind: "dlc",
+          label: "Euro Truck Simulator 2 DLC",
         }),
       }),
     );

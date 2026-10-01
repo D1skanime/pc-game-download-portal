@@ -94,22 +94,25 @@ async function recoverFromConflict(error: unknown) {
   }
   return false;
 }
-async function togglePlacement(item: RomOwnedMediaSchema) {
+async function togglePlacement(
+  item: RomOwnedMediaSchema,
+  surface: RomOwnedMediaSurface,
+) {
   if (mutatingId.value !== null) return;
   mutatingId.value = item.id;
   try {
-    if (hasPlacement(item, "background"))
+    if (hasPlacement(item, surface))
       await romApi.removeOwnedMediaPlacement({
         romId: props.rom.id,
         mediaId: item.id,
-        surface: "background",
+        surface,
         expectedVersion: props.rom.updated_at,
       });
     else
       await romApi.setOwnedMediaPlacement({
         romId: props.rom.id,
         mediaId: item.id,
-        surface: "background",
+        surface,
         expectedVersion: props.rom.updated_at,
       });
     await refreshCanonical();
@@ -364,11 +367,25 @@ async function deleteArtwork(item: RomOwnedMediaSchema) {
               size="small"
               :loading="mutatingId === item.id"
               :aria-label="
+                hasPlacement(item, 'overview')
+                  ? t('rom.remove-from-overview')
+                  : t('rom.add-to-overview')
+              "
+              @click="togglePlacement(item, 'overview')"
+              >{{
+                hasPlacement(item, "overview")
+                  ? t("rom.remove-from-overview")
+                  : t("rom.add-to-overview")
+              }}</RBtn
+            ><RBtn
+              size="small"
+              :loading="mutatingId === item.id"
+              :aria-label="
                 hasPlacement(item, 'background')
                   ? t('rom.remove-as-background')
                   : t('rom.add-as-background')
               "
-              @click="togglePlacement(item)"
+              @click="togglePlacement(item, 'background')"
               >{{
                 hasPlacement(item, "background")
                   ? t("rom.remove-as-background")

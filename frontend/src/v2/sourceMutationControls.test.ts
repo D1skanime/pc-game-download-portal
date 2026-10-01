@@ -296,6 +296,7 @@ describe("maximum-grant source mutation controls", () => {
     const files = {
       service: source("src/services/api/rom.ts"),
       media: source("src/v2/components/GameDetails/MediaTab.vue"),
+      artwork: source("src/v2/components/GameDetails/ArtworkSubtab.vue"),
       screenshots: source(
         "src/v2/components/GameDetails/ScreenshotsSubtab.vue",
       ),
@@ -308,7 +309,7 @@ describe("maximum-grant source mutation controls", () => {
     expect(files.screenshots).not.toMatch(/\/soundtracks(?:\/|`|'|\")/);
     expect(files.media).toContain(":aria-controls=");
     expect(files.media).toContain('id="media-panel-screenshots"');
-    expect(files.media).toContain("owned_media");
+    expect(files.artwork).toContain("owned_media");
   });
 
   it("keeps provider screenshot candidates on owned-media content routes", () => {
@@ -553,9 +554,7 @@ describe("external source mutation authority inventory", () => {
     const forbiddenSeams =
       /\b(?:lookupProviderMetadata|applyProviderMetadata|selectLocalMedia|uploadLocalMedia|downloadIntoSource|deleteFromSource|mutateFilesystem)\b/;
 
-    expect(files.parentOverview).toContain(
-      "url.startsWith(`${FRONTEND_RESOURCES_PATH}/`)",
-    );
+    expect(files.parentOverview).toContain('url.startsWith("/api/roms/")');
     expect(files.parentOverview).not.toMatch(forbiddenSeams);
     expect(files.dlcDetail).toContain("props.component.owned_media");
     expect(files.dlcDetail).not.toContain("source_relative_path");

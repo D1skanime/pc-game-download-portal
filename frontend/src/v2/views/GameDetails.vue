@@ -219,6 +219,24 @@ const coverPath = computed(() => {
 
 const coverFallback = computed(() => currentRom.value?.url_cover ?? null);
 const resolvedCover = computed(() => coverPath.value ?? coverFallback.value);
+const selectedOverviewArtwork = computed(() => {
+  const rom = currentRom.value;
+  if (!rom) return null;
+  const mediaById = new Map(
+    (rom.owned_media ?? []).map((item) => [item.id, item]),
+  );
+  const artwork = (rom.owned_media_placements ?? [])
+    .filter((placement) => placement.surface === "overview")
+    .toSorted((a, b) => a.position - b.position)
+    .map((placement) => mediaById.get(placement.media_id))
+    .find(
+      (media) =>
+        media?.role === "artwork" &&
+        media.state === "active" &&
+        Boolean(media.owned_path),
+    );
+  return artwork ? `/api/roms/${rom.id}/media/${artwork.id}/content` : null;
+});
 const selectedOverviewScreenshots = computed(() => {
   const rom = currentRom.value;
   if (!rom) return [];
@@ -231,7 +249,7 @@ const selectedOverviewScreenshots = computed(() => {
     .flatMap((placement) => {
       const media = mediaById.get(placement.media_id);
       return media?.role === "screenshot" && media.owned_path
-        ? [`${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${rom.updated_at}`]
+        ? [`/api/roms/${rom.id}/media/${media.id}/content`]
         : [];
     });
 });
@@ -432,7 +450,11 @@ const tabs = computed<RTabNavItem[]>(() => [
 <template>
   <section v-if="currentRom" class="r-v2-det">
     <div class="r-v2-det__body">
-      <CoverColumn :rom="currentRom" :alt="title" />
+      <CoverColumn
+        :rom="currentRom"
+        :alt="title"
+        :cover-src="selectedOverviewArtwork"
+      />
 
       <div class="r-v2-det__info">
         <GameHeader
@@ -484,6 +506,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             <PcComponents
               :rom-id="currentRom.id"
               :components="currentRom.components ?? []"
+              :parent-name="currentRom.name ?? currentRom.fs_name_no_tags"
               @applied="refreshPcDetails"
             />
           </template>

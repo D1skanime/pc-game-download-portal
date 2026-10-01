@@ -24,6 +24,7 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{
   rom: DetailedRom;
   alt: string;
+  coverSrc?: string | null;
 }>();
 
 const { t } = useI18n();
@@ -57,6 +58,7 @@ const box3d = computed(() => {
       class="r-v2-det-cover__art"
       :rom="rom"
       :title="alt"
+      :cover-src="coverSrc"
       :identified="rom.is_identified"
       :morph-id="rom.id"
       style-context="details"

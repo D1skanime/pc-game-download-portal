@@ -63,6 +63,7 @@ from handler.metadata.ss_handler import (
     note_rate_limited_rom,
 )
 from handler.metadata.steam_handler import COMPACT_TITLE_BOUNDARY, STEAM_PLATFORMS
+from handler.metadata.steam_merge import normalize_steam
 from handler.metadata.steam_owned_media import reconcile_steam_patch_media
 from handler.scan_command import MappedScanCommand as _MappedScanCommand
 from handler.storage.read_context import MappingReadContext
@@ -99,7 +100,7 @@ def auto_link_pc_dlc_components(rom: Rom, components: list[RomComponent]) -> Non
     for component in components:
         if (
             component.kind != RomComponentKind.DLC
-            or component.component_metadata is not None
+            or getattr(component.component_metadata, "igdb_id", None) is not None
         ):
             continue
         candidate = pc_metadata_match_handler.find_unique_related_igdb_candidate(
@@ -114,6 +115,45 @@ def auto_link_pc_dlc_components(rom: Rom, components: list[RomComponent]) -> Non
             candidate.provider,
             candidate.fields,
         )
+
+
+async def auto_link_parent_listed_steam_dlc_components(rom: Rom) -> None:
+    """Attach Steam identity only to existing local DLC components."""
+    for component in getattr(rom, "components", []):
+        if (
+            component.kind != RomComponentKind.DLC
+            or getattr(component.component_metadata, "steam_id", None) is not None
+        ):
+            continue
+        candidate = await pc_metadata_match_handler.fetch_parent_listed_steam_dlc(
+            rom, component
+        )
+        if candidate is None:
+            continue
+        metadata = component.component_metadata
+        current = {
+            "name": getattr(metadata, "name", None),
+            "summary": getattr(metadata, "summary", None),
+            "steam_metadata": (
+                getattr(metadata, "provider_metadata", {}).get("steam_metadata")
+                if metadata is not None
+                else None
+            ),
+            "metadata": {
+                "main_developer": getattr(metadata, "main_developer", None),
+                "publishers": getattr(metadata, "publishers", None),
+                "pc_release_date": getattr(metadata, "pc_release_date", None),
+            },
+        }
+        steam_data = normalize_steam(candidate, current)
+        if steam_data:
+            db_rom_handler.apply_pc_component_metadata_candidate(
+                rom.id,
+                component.id,
+                component.updated_at,
+                "steam",
+                steam_data,
+            )
 
 
 async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
@@ -1373,11 +1413,16 @@ async def scan_rom(
     # only after the ROM has a durable identity. Media never uses legacy URLs.
     if has_steam_metadata or has_steam_media:
         durable_rom = db_rom_handler.add_rom(scanned_rom)
+        # MariaDB rounds the optimistic-lock timestamp at persistence. Reload it
+        # before the owned-media transaction so its compare-and-swap can succeed.
+        refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
+        if refreshed_rom is not None:
+            durable_rom = refreshed_rom
         if has_steam_metadata:
             # `roms_metadata` derives its PC fields from `Rom.igdb_metadata`.
             # Persist the guarded Steam structured-field overlay through the Rom
             # row so MariaDB never attempts to update that derived view.
-            igdb_metadata = rom.igdb_metadata
+            igdb_metadata = scanned_rom.igdb_metadata
             merged_igdb_metadata = (
                 dict(igdb_metadata) if isinstance(igdb_metadata, dict) else {}
             )
@@ -1392,6 +1437,12 @@ async def scan_rom(
                 durable_rom = applied
         if has_steam_media:
             await reconcile_steam_patch_media(durable_rom, steam_updates)
+        if has_steam_metadata:
+            refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
+            if refreshed_rom is not None:
+                components = getattr(refreshed_rom, "components", [])
+                auto_link_pc_dlc_components(refreshed_rom, components)
+                await auto_link_parent_listed_steam_dlc_components(refreshed_rom)
         return scanned_rom
     return scanned_rom
 

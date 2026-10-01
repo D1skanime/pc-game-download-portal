@@ -479,6 +479,52 @@ def test_d08_steam_inventory_only_places_unclaimed_surfaces(rom):
     ) == 1
 
 
+def test_steam_inventory_places_cover_and_every_screenshot_on_unclaimed_overview(rom):
+    reconciled = db_rom_handler.reconcile_steam_owned_media_inventory(
+        rom.id,
+        rom.updated_at,
+        [
+            SteamOwnedMediaInventoryItem(
+                "cover-1",
+                RomOwnedMediaRole.ARTWORK,
+                "cover.webp",
+                "image/webp",
+                "roms/1/media/provider/cover.webp",
+            ),
+            SteamOwnedMediaInventoryItem(
+                "shot-1",
+                RomOwnedMediaRole.SCREENSHOT,
+                "shot-1.webp",
+                "image/webp",
+                "roms/1/media/provider/shot-1.webp",
+            ),
+            SteamOwnedMediaInventoryItem(
+                "shot-2",
+                RomOwnedMediaRole.SCREENSHOT,
+                "shot-2.webp",
+                "image/webp",
+                "roms/1/media/provider/shot-2.webp",
+            ),
+        ],
+    )
+
+    assert reconciled is not None
+    overview = sorted(
+        (
+            item
+            for item in reconciled.rom.owned_media_placements
+            if item.surface == RomOwnedMediaSurface.OVERVIEW
+        ),
+        key=lambda item: item.position,
+    )
+    assert [item.position for item in overview] == [0, 1, 2]
+    assert [item.media.role for item in overview] == [
+        RomOwnedMediaRole.ARTWORK,
+        RomOwnedMediaRole.SCREENSHOT,
+        RomOwnedMediaRole.SCREENSHOT,
+    ]
+
+
 def test_d07_steam_inventory_keeps_operator_suppressed_candidate_tombstoned(rom):
     created = db_rom_handler.reconcile_provider_owned_media(
         rom.id,

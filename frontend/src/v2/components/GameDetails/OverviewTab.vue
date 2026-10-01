@@ -28,7 +28,7 @@ import type {
 } from "@/__generated__";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
-import { FRONTEND_RESOURCES_PATH, toBrowserLocale } from "@/utils";
+import { toBrowserLocale } from "@/utils";
 import CollectionTile, {
   type Kind,
 } from "@/v2/components/Collections/CollectionTile.vue";
@@ -199,9 +199,7 @@ const hasPcFacts = computed(
     !!pcMetadata.value?.themes?.length,
 );
 const ownedScreenshots = computed(() =>
-  props.screenshots.filter((url) =>
-    url.startsWith(`${FRONTEND_RESOURCES_PATH}/`),
-  ),
+  props.screenshots.filter((url) => url.startsWith("/api/roms/")),
 );
 </script>
 

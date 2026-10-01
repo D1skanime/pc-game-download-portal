@@ -96,6 +96,48 @@ def test_normalize_steam_keeps_existing_text_when_only_english_fallback_exists()
     assert "summary" not in updates
 
 
+def test_normalize_steam_parses_german_release_dates():
+    updates = normalize_steam(
+        {
+            "steam_id": 292030,
+            "steam_metadata": {"release_date": {"date": "18. Mai 2015"}},
+        },
+        {"manual_metadata": {}, "steam_metadata": {}, "metadata": {}},
+    )
+
+    assert updates["metadata"] == {"pc_release_date": 1_431_907_200}
+
+
+def test_normalize_steam_fills_empty_genres_but_preserves_igdb_and_manual_values():
+    empty_updates = normalize_steam(
+        {
+            "steam_id": 1091500,
+            "steam_metadata": {
+                "genres": ["Rollenspiel"],
+                "categories": ["Einzelspieler", "Steam-Cloud"],
+            },
+        },
+        {"manual_metadata": {}, "steam_metadata": {}, "metadata": {"genres": []}},
+    )
+
+    assert empty_updates["metadata"] == {"genres": ["Rollenspiel"]}
+    assert empty_updates["steam_metadata"]["categories"] == [
+        "Einzelspieler",
+        "Steam-Cloud",
+    ]
+
+    preserved_updates = normalize_steam(
+        {"steam_id": 1091500, "steam_metadata": {"genres": ["Rollenspiel"]}},
+        {
+            "manual_metadata": {"genres": True},
+            "steam_metadata": {},
+            "metadata": {"genres": ["Action"]},
+        },
+    )
+
+    assert "metadata" not in preserved_updates
+
+
 def test_normalize_steam_replaces_only_steam_owned_or_empty_fields_and_drops_empty_values():
     updates = normalize_steam(
         {

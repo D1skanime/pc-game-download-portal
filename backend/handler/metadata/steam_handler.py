@@ -30,6 +30,9 @@ class SteamMetadata(TypedDict):
     fallback_fields: NotRequired[list[str]]
     type: NotRequired[str]
     fullgame: NotRequired[SteamFullGame]
+    genres: NotRequired[list[str]]
+    categories: NotRequired[list[str]]
+    dlc_ids: NotRequired[list[int]]
 
 
 class SteamRom(BaseRom):
@@ -74,15 +77,25 @@ class SteamHandler(MetadataHandler):
         apps = await self.steam_service.search_apps(
             term, country=STEAM_API_COUNTRY, language=STEAM_API_LANGUAGE
         )
-        apps = [item for item in apps if item.get("type") == "app"]
-        match, _ = self.find_best_match(
-            term, [item["name"] for item in apps], self.min_similarity_score
-        )
-        if not match:
-            return SteamRom(steam_id=None)
-        return await self.get_rom_by_id(
-            next(item["id"] for item in apps if item["name"] == match), platform_slug
-        )
+        remaining_apps = [item for item in apps if item.get("type") == "app"]
+        while remaining_apps:
+            match, _ = self.find_best_match(
+                term,
+                [item["name"] for item in remaining_apps],
+                self.min_similarity_score,
+            )
+            if not match:
+                break
+            app_index = next(
+                index
+                for index, item in enumerate(remaining_apps)
+                if item["name"] == match
+            )
+            app = remaining_apps.pop(app_index)
+            rom = await self.get_rom_by_id(app["id"], platform_slug)
+            if rom["steam_id"] is not None:
+                return rom
+        return SteamRom(steam_id=None)
 
     async def get_rom_by_id(
         self, steam_id: int, platform_slug: str | None = None
@@ -152,6 +165,28 @@ class SteamHandler(MetadataHandler):
             result["coming_soon"] = value["coming_soon"]
         return result
 
+    @staticmethod
+    def _store_labels(value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [
+            item["description"].strip()
+            for item in value
+            if isinstance(item, dict)
+            and isinstance(item.get("description"), str)
+            and item["description"].strip()
+        ]
+
+    @staticmethod
+    def _positive_ids(value: object) -> list[int]:
+        if not isinstance(value, list):
+            return []
+        return [
+            item
+            for item in value
+            if isinstance(item, int) and not isinstance(item, bool) and item > 0
+        ]
+
     async def _build_rom(
         self, preferred: SteamAppDetails, fallback: SteamAppDetails | None
     ) -> SteamRom:
@@ -184,6 +219,13 @@ class SteamHandler(MetadataHandler):
             metadata["type"] = preferred["type"]
         if isinstance(preferred.get("fullgame"), dict):
             metadata["fullgame"] = preferred["fullgame"]
+        for field in ("genres", "categories"):
+            if value := self._store_labels(
+                preferred.get(field) or fallback_details.get(field)
+            ):
+                metadata[field] = value
+        if value := self._positive_ids(preferred.get("dlc")):
+            metadata["dlc_ids"] = value
         for field in ("developers", "publishers"):
             if value := self._string_list(
                 preferred.get(field) or fallback_details.get(field)

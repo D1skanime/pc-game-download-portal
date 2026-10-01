@@ -95,7 +95,15 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.permission import PermAction, PermEntity
-from models.rom import Rom, RomComponent, RomUserStatus, compute_name_sort_key
+from models.rom import (
+    Rom,
+    RomComponent,
+    RomOwnedMediaRole,
+    RomOwnedMediaState,
+    RomOwnedMediaSurface,
+    RomUserStatus,
+    compute_name_sort_key,
+)
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
@@ -971,16 +979,40 @@ def get_roms(
                         item, latest_saves.get(item.id)
                     )
 
-            return [
-                SimpleRomSchema.from_orm_with_request(
-                    db_rom=item,
-                    request=request,
-                    files=files_by_rom.get(item.id, []),
-                    siblings=siblings_by_rom.get(item.id, []),
-                    screenshot_path=screenshot_by_rom.get(item.id),
+            result: list[SimpleRomSchema] = []
+            for item in items:
+                original_cover = item.url_cover
+                if not original_cover:
+                    media_by_id = {media.id: media for media in item.owned_media}
+                    cover = next(
+                        (
+                            media_by_id.get(placement.media_id)
+                            for placement in sorted(
+                                item.owned_media_placements,
+                                key=lambda placement: placement.position,
+                            )
+                            if placement.surface == RomOwnedMediaSurface.OVERVIEW
+                        ),
+                        None,
+                    )
+                    if (
+                        cover is not None
+                        and cover.role == RomOwnedMediaRole.ARTWORK
+                        and cover.state == RomOwnedMediaState.ACTIVE
+                        and cover.owned_path
+                    ):
+                        item.url_cover = f"/api/roms/{item.id}/media/{cover.id}/content"
+                result.append(
+                    SimpleRomSchema.from_orm_with_request(
+                        db_rom=item,
+                        request=request,
+                        files=files_by_rom.get(item.id, []),
+                        siblings=siblings_by_rom.get(item.id, []),
+                        screenshot_path=screenshot_by_rom.get(item.id),
+                    )
                 )
-                for item in items
-            ]
+                item.url_cover = original_cover
+            return result
 
         def resolve_total() -> int | None:
             if with_rom_id_index:
@@ -1001,7 +1033,9 @@ def get_roms(
                 selectinload(RomComponent.component_metadata),
                 selectinload(RomComponent.owned_media),
                 selectinload(RomComponent.local_media),
-            )
+            ),
+            selectinload(Rom.owned_media),
+            selectinload(Rom.owned_media_placements),
         )
         if with_rom_id_index:
             page_ids = list(rom_id_index[params.offset : params.offset + params.limit])

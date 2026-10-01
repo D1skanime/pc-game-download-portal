@@ -464,6 +464,8 @@ def with_simple_details(func):
                 selectinload(RomComponent.local_media),
                 selectinload(RomComponent.owned_media),
             ),
+            selectinload(Rom.owned_media),
+            selectinload(Rom.owned_media_placements),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
                 noload(Rom.metadatum),
@@ -836,22 +838,55 @@ class DBRomsHandler(DBBaseHandler):
             media.operator_suppressed = False
             changed = True
 
-        surfaces = {
-            RomOwnedMediaSurface.OVERVIEW: RomOwnedMediaRole.ARTWORK,
-            RomOwnedMediaSurface.BACKGROUND: RomOwnedMediaRole.SCREENSHOT,
-        }
-        for surface, role in surfaces.items():
-            if any(item.surface == surface for item in rom.owned_media_placements):
-                continue
-            media = next((item for item in active_inventory if item.role == role), None)
-            if media is None:
-                continue
-            session.add(
-                RomOwnedMediaPlacement(
-                    rom=rom, media=media, surface=surface, position=0
+        if not any(
+            item.surface == RomOwnedMediaSurface.OVERVIEW
+            for item in rom.owned_media_placements
+        ):
+            overview_media = [
+                *(
+                    item
+                    for item in active_inventory
+                    if item.role == RomOwnedMediaRole.ARTWORK
+                ),
+                *(
+                    item
+                    for item in active_inventory
+                    if item.role == RomOwnedMediaRole.SCREENSHOT
+                ),
+            ]
+            for position, media in enumerate(overview_media):
+                session.add(
+                    RomOwnedMediaPlacement(
+                        rom=rom,
+                        media=media,
+                        surface=RomOwnedMediaSurface.OVERVIEW,
+                        position=position,
+                    )
                 )
+            changed = changed or bool(overview_media)
+
+        if not any(
+            item.surface == RomOwnedMediaSurface.BACKGROUND
+            for item in rom.owned_media_placements
+        ):
+            media = next(
+                (
+                    item
+                    for item in active_inventory
+                    if item.role == RomOwnedMediaRole.SCREENSHOT
+                ),
+                None,
             )
-            changed = True
+            if media is not None:
+                session.add(
+                    RomOwnedMediaPlacement(
+                        rom=rom,
+                        media=media,
+                        surface=RomOwnedMediaSurface.BACKGROUND,
+                        position=0,
+                    )
+                )
+                changed = True
 
         if not changed:
             return ReconciledSteamOwnedMediaInventory(rom, [])
@@ -2651,7 +2686,16 @@ class DBRomsHandler(DBBaseHandler):
                 and_(
                     RomComponent.id == component_id,
                     RomComponent.rom_id == rom_id,
-                    RomComponent.kind == "dlc",
+                    RomComponent.kind.in_(
+                        (
+                            RomComponentKind.BASE,
+                            RomComponentKind.UPDATE,
+                            RomComponentKind.DLC,
+                            RomComponentKind.HOTFIX,
+                            RomComponentKind.LANGUAGE_PACK,
+                            RomComponentKind.EXTRA,
+                        )
+                    ),
                 )
             )
         )

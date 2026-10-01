@@ -19,6 +19,11 @@ class SteamFullGame(TypedDict):
     name: NotRequired[str]
 
 
+class SteamStoreCategory(TypedDict):
+    id: int | str
+    description: str
+
+
 class SteamAppDetails(TypedDict):
     type: str
     name: str
@@ -31,3 +36,6 @@ class SteamAppDetails(TypedDict):
     screenshots: NotRequired[list[dict[str, str | int]]]
     release_date: NotRequired[dict[str, str | bool]]
     fullgame: NotRequired[SteamFullGame]
+    genres: NotRequired[list[SteamStoreCategory]]
+    categories: NotRequired[list[SteamStoreCategory]]
+    dlc: NotRequired[list[int]]

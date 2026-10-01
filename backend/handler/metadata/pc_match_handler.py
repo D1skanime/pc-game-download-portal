@@ -177,6 +177,82 @@ class PcMetadataMatchHandler:
 
         return validated[0] if len(validated) == 1 else None
 
+    async def fetch_unique_steam_match(
+        self, rom: Rom, title: str
+    ) -> dict[str, Any] | None:
+        """Return one exact Steam Store match for a reviewed PC title."""
+        steam = self.providers.get("steam")
+        if steam is None or not steam.is_enabled():
+            return None
+        get_matches = getattr(steam, "get_matched_roms_by_name", None)
+        get_by_id = getattr(steam, "get_rom_by_id", None)
+        if get_matches is None or get_by_id is None:
+            return None
+        try:
+            matches = await get_matches(title, rom.platform_slug)
+        except Exception:
+            return None
+
+        resolved: list[dict[str, Any]] = []
+        for match in matches:
+            steam_id = self._positive_int(match.get("steam_id"))
+            name = match.get("name")
+            if steam_id is None or not isinstance(name, str):
+                continue
+            if (
+                SequenceMatcher(None, title.casefold(), name.casefold()).ratio()
+                < STEAM_DLC_MIN_SIMILARITY
+            ):
+                continue
+            try:
+                details = await get_by_id(steam_id, rom.platform_slug)
+            except Exception:
+                return None
+            if isinstance(details, dict) and details.get("steam_id") == steam_id:
+                resolved.append(details)
+        return resolved[0] if len(resolved) == 1 else None
+
+    async def fetch_parent_listed_steam_dlc(
+        self, rom: Rom, component: RomComponent
+    ) -> dict[str, Any] | None:
+        """Resolve one local DLC component against the parent's Steam DLC list."""
+        steam = self.providers.get("steam")
+        if steam is None or not steam.is_enabled():
+            return None
+        get_by_id = getattr(steam, "get_rom_by_id", None)
+        if get_by_id is None:
+            return None
+        parent_id = self._positive_int(getattr(rom, "steam_id", None))
+        metadata = getattr(rom, "steam_metadata", None)
+        dlc_ids = metadata.get("dlc_ids") if isinstance(metadata, dict) else None
+        if parent_id is None or not isinstance(dlc_ids, list):
+            return None
+
+        title = self._component_search_title(rom, component)
+        validated: list[dict[str, Any]] = []
+        for app_id in dlc_ids:
+            steam_id = self._positive_int(app_id)
+            if steam_id is None:
+                continue
+            try:
+                details = await get_by_id(steam_id)
+            except Exception:
+                return None
+            if not isinstance(details, dict) or details.get("steam_id") != steam_id:
+                continue
+            name = details.get("name")
+            if not isinstance(name, str) or (
+                SequenceMatcher(None, title.casefold(), name.casefold()).ratio()
+                < STEAM_DLC_MIN_SIMILARITY
+            ):
+                continue
+            if self._is_valid_steam_dlc_details(
+                details.get("steam_metadata"), parent_id
+            ):
+                validated.append(details)
+
+        return validated[0] if len(validated) == 1 else None
+
     @staticmethod
     def _positive_int(value: object) -> int | None:
         if isinstance(value, int) and not isinstance(value, bool) and value > 0:
