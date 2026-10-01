@@ -20,6 +20,7 @@ from handler.metadata.pc_steam_enrichment import (
 from handler.metadata.steam_merge import normalize_steam
 from handler.metadata.steam_owned_media import reconcile_steam_patch_media
 from models.pc_automation import PcAutomationTargetKind
+from models.rom import RomComponentKind
 
 
 class AutomationDecision(enum.StrEnum):
@@ -66,7 +67,7 @@ class PcAutomationHandler:
 
     async def process_parent(self, rom: Any) -> AutomationResult:
         query = normalize_automation_query(
-            getattr(rom, "fs_name_no_ext", None) or getattr(rom, "fs_name", "")
+            str(getattr(rom, "fs_name_no_ext", None) or getattr(rom, "fs_name", ""))
         )
         if not query:
             return AutomationResult(AutomationDecision.SKIPPED, query, "empty_query")
@@ -87,6 +88,7 @@ class PcAutomationHandler:
             return AutomationResult(
                 AutomationDecision.PENDING, query, "no_unique_steam_match"
             )
+        assert isinstance(candidate, dict)
         if await self._apply_parent_callback(rom, candidate):
             return AutomationResult(
                 AutomationDecision.APPLIED, query, "unique_steam_match"
@@ -96,6 +98,13 @@ class PcAutomationHandler:
 
     async def process_component(self, rom: Any, component: Any) -> AutomationResult:
         query = normalize_automation_query(getattr(component, "relative_path", ""))
+        if getattr(component, "kind", None) not in {
+            RomComponentKind.DLC,
+            RomComponentKind.EXTRA,
+        }:
+            return AutomationResult(
+                AutomationDecision.SKIPPED, query, "ineligible_component"
+            )
         if not self._positive_int(getattr(rom, "steam_id", None)):
             self._queue(rom, component, query, None, "untrusted_parent_steam")
             return AutomationResult(
@@ -124,6 +133,7 @@ class PcAutomationHandler:
             return AutomationResult(
                 AutomationDecision.PENDING, query, "no_unique_parent_listed_dlc"
             )
+        assert isinstance(candidate, dict)
         if await self._apply_component_callback(rom, component, candidate):
             return AutomationResult(
                 AutomationDecision.APPLIED, query, "unique_parent_listed_dlc"
@@ -193,7 +203,7 @@ class PcAutomationHandler:
         self, rom: Any, component: Any, candidate: dict[str, Any]
     ) -> bool:
         metadata = getattr(component, "component_metadata", None)
-        current = {
+        current: dict[str, Any] = {
             "name": getattr(metadata, "name", None),
             "summary": getattr(metadata, "summary", None),
             "steam_metadata": (
