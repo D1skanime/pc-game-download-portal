@@ -91,6 +91,23 @@ async def main() -> int:
             metadata_sources=[],
             scan_type=ScanType.QUICK,
         )
+    windows = db_platform_handler.get_platform_by_fs_slug("win")
+    if windows is not None:
+        try:
+            db_storage_handler.get_active_mapping(windows.id)
+        except MissingPlatformStorageMappingError as error:
+            admin = db_user_handler.get_user_by_username(PHASE9_E2E_ADMIN_USERNAME)
+            if admin is None:
+                raise RuntimeError(
+                    "Phase 9 browser seed requires the e2e admin user"
+                ) from error
+            db_storage_handler.create_mapping(
+                windows.id,
+                root.id,
+                "pc",
+                actor_user_id=admin.id,
+                actor_display_name=admin.username,
+            )
     return 0
 
 

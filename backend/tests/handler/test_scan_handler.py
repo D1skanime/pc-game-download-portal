@@ -1,6 +1,5 @@
 from types import SimpleNamespace
-from typing import cast
-from unittest.mock import ANY, AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, Mock, patch
 
 import pytest
 
@@ -9,13 +8,12 @@ from handler.scan_handler import (
     ScanType,
     _apply_metadata_handler_fields,
     _is_steam_only_windows_igdb_recovery,
-    _steam_artwork_handler,
     _windows_igdb_lookup_name,
-    resolve_steam_scan_metadata,
+    auto_link_pc_dlc_components,
     scan_rom,
 )
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomComponentKind
 
 
 def _rom(*, steam_id: int | None = None) -> SimpleNamespace:
@@ -43,6 +41,7 @@ def _igdb_scan_fixture(
     platform_slug: str = "win",
     igdb_id: int | None = None,
     steam_id: int | None = None,
+    igdb_metadata: dict | None = None,
 ) -> tuple[Platform, Rom]:
     platform = Platform(
         id=1,
@@ -63,6 +62,7 @@ def _igdb_scan_fixture(
         languages=[],
         tags=[],
         igdb_id=igdb_id,
+        igdb_metadata=igdb_metadata or {},
         steam_id=steam_id,
     )
     return platform, rom
@@ -119,22 +119,6 @@ async def _scan_igdb_name_fallback(
     return name_lookup, id_lookup
 
 
-def test_steam_media_enters_the_existing_artwork_priority_handler():
-    assert _steam_artwork_handler(
-        {
-            "steam_id": 1903340,
-            "media": {
-                "cover": ["https://cdn.example/cover.jpg"],
-                "screenshots": ["https://cdn.example/shot.jpg"],
-            },
-        }
-    ) == {
-        "steam_id": 1903340,
-        "url_cover": "https://cdn.example/cover.jpg",
-        "url_screenshots": ["https://cdn.example/shot.jpg"],
-    }
-
-
 def test_derived_igdb_artworks_are_not_passed_to_the_rom_model():
     rom_attrs = {"name": "Existing"}
 
@@ -152,6 +136,31 @@ def test_derived_igdb_artworks_are_not_passed_to_the_rom_model():
         "igdb_id": 1877,
         "url_screenshots": ["https://cdn.example/artwork.jpg"],
     }
+
+
+def test_auto_link_pc_dlc_adds_igdb_to_a_component_already_identified_by_steam():
+    rom = SimpleNamespace(id=41)
+    component = SimpleNamespace(
+        id=7,
+        kind=RomComponentKind.DLC,
+        updated_at="version",
+        component_metadata=SimpleNamespace(steam_id=123, igdb_id=None),
+    )
+    candidate = SimpleNamespace(provider="igdb", fields={"igdb_id": 456})
+
+    with (
+        patch(
+            "handler.scan_handler.pc_metadata_match_handler.find_unique_related_igdb_candidate",
+            return_value=candidate,
+        ) as find_candidate,
+        patch(
+            "handler.scan_handler.db_rom_handler.apply_pc_component_metadata_candidate"
+        ) as apply_candidate,
+    ):
+        auto_link_pc_dlc_components(rom, [component])
+
+    find_candidate.assert_called_once_with(rom, component)
+    apply_candidate.assert_called_once_with(41, 7, "version", "igdb", {"igdb_id": 456})
 
 
 @pytest.mark.parametrize(
@@ -260,121 +269,233 @@ async def test_steam_only_windows_update_recovers_igdb_by_normalized_name():
 
 
 @pytest.mark.asyncio
-async def test_stored_steam_id_refreshes_directly_after_filename_change():
-    direct = AsyncMock(return_value={"steam_id": 1091500, "name": "Steam title"})
-    search = AsyncMock()
+async def _scan_steam_patch(
+    *,
+    scan_type: ScanType,
+    newly_added: bool,
+    platform_slug: str = "win",
+    steam_id: int | None = 292030,
+    metadata_sources: list[str] | None = None,
+    patch_data: dict | None = None,
+    igdb_metadata: dict | None = None,
+):
+    platform, rom = _igdb_scan_fixture(
+        platform_slug=platform_slug,
+        steam_id=steam_id,
+        igdb_metadata=igdb_metadata,
+    )
+    resolver = AsyncMock(
+        return_value=(
+            patch_data
+            if patch_data is not None
+            else {
+                "steam_id": 292030,
+                "steam_metadata": {"app_id": 292030, "source": "storefront"},
+                "name": "The Witcher",
+                "media": {"cover": ["https://cdn.example/witcher.jpg"]},
+            }
+        )
+    )
+    reconcile = AsyncMock(return_value=True)
+    persist_igdb_metadata = Mock(return_value=None)
+    persist_candidate_metadata = Mock(return_value=None)
     with (
-        patch("handler.scan_handler.meta_steam_handler.get_rom_by_id", direct),
-        patch("handler.scan_handler.meta_steam_handler.get_rom", search),
+        patch(
+            "handler.scan_handler.db_rom_handler.add_rom", side_effect=lambda item: item
+        ),
+        patch(
+            "handler.scan_handler.meta_playmatch_handler.is_enabled", return_value=False
+        ),
+        patch("handler.scan_handler.resolve_steam_pc_enrichment", resolver),
+        patch("handler.scan_handler.reconcile_steam_patch_media", reconcile),
+        patch(
+            "handler.scan_handler.db_rom_handler.apply_pc_igdb_enrichment",
+            persist_igdb_metadata,
+        ),
+        patch(
+            "handler.scan_handler.db_rom_handler.apply_pc_metadata_candidate",
+            persist_candidate_metadata,
+        ),
+        patch(
+            "handler.scan_handler.fs_rom_handler.get_pico8_cover_url", return_value=None
+        ),
     ):
-        updates = await resolve_steam_scan_metadata(
-            cast("Rom", _rom(steam_id=1091500)),
-            cast("Platform", _platform("win")),
-            "Renamed game.exe",
-            [MetadataSource.STEAM],
+        result = await scan_rom(
+            scan_type=scan_type,
+            platform=platform,
+            rom=rom,
+            fs_rom={
+                "fs_name": "The Witcher.exe",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=(
+                metadata_sources
+                if metadata_sources is not None
+                else [MetadataSource.STEAM.value]
+            ),
+            newly_added=newly_added,
         )
-
-    direct.assert_awaited_once_with(1091500, "win")
-    search.assert_not_awaited()
-    assert updates["steam_id"] == 1091500
+    return (
+        resolver,
+        reconcile,
+        result,
+        persist_igdb_metadata,
+        persist_candidate_metadata,
+    )
 
 
 @pytest.mark.asyncio
-async def test_stored_steam_id_rejects_a_different_resolved_app_id():
-    direct = AsyncMock(return_value={"steam_id": 1091501, "name": "Other game"})
-    with patch("handler.scan_handler.meta_steam_handler.get_rom_by_id", direct):
-        updates = await resolve_steam_scan_metadata(
-            cast("Rom", _rom(steam_id=1091500)),
-            cast("Platform", _platform("win")),
-            "Renamed game.exe",
-            [MetadataSource.STEAM],
-        )
-
-    direct.assert_awaited_once_with(1091500, "win")
-    assert updates == {}
-
-
-@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("scan_type", "newly_added", "steam_id"),
+    [
+        (ScanType.NEW_PLATFORMS, True, None),
+        (ScanType.UPDATE, False, 292030),
+        (ScanType.COMPLETE, False, 292030),
+    ],
+)
 @pytest.mark.parametrize("platform_slug", ["win", "linux", "mac"])
-async def test_eligible_pc_platforms_search_steam_only_without_a_stored_id(
+async def test_admin_pc_scans_use_the_shared_steam_patch(
+    scan_type: ScanType,
+    newly_added: bool,
+    steam_id: int | None,
     platform_slug: str,
 ):
-    direct = AsyncMock()
-    search = AsyncMock(return_value={"steam_id": 1091500})
-    with (
-        patch("handler.scan_handler.meta_steam_handler.get_rom_by_id", direct),
-        patch("handler.scan_handler.meta_steam_handler.get_rom", search),
-    ):
-        await resolve_steam_scan_metadata(
-            cast("Rom", _rom()),
-            cast("Platform", _platform(platform_slug)),
-            "Game.exe",
-            [MetadataSource.STEAM],
-        )
+    resolver, reconcile, result, _, _ = await _scan_steam_patch(
+        scan_type=scan_type,
+        newly_added=newly_added,
+        platform_slug=platform_slug,
+        steam_id=steam_id,
+    )
 
-    direct.assert_not_awaited()
-    search.assert_awaited_once_with("Game.exe", platform_slug)
+    resolver.assert_awaited_once()
+    request = resolver.await_args.args[0]
+    assert request.scan_context == scan_type.value
+    assert request.platform_slug == platform_slug
+    assert request.fs_name == "The Witcher.exe"
+    assert result.name == "The Witcher"
+    reconcile.assert_awaited_once_with(result, resolver.return_value)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("platform_slug", ["dos", "win3x", "win9x"])
-async def test_excluded_pc_platforms_use_only_an_explicit_stored_steam_id(
+@pytest.mark.parametrize(
+    ("scan_type", "newly_added", "platform_slug", "metadata_sources"),
+    [
+        (ScanType.QUICK, True, "win", [MetadataSource.STEAM]),
+        (ScanType.HASHES, False, "win", [MetadataSource.STEAM]),
+        (ScanType.UPDATE, False, "snes", [MetadataSource.STEAM]),
+        (ScanType.UPDATE, False, "win", [MetadataSource.IGDB]),
+    ],
+)
+async def test_non_parity_scan_paths_do_not_call_steam(
+    scan_type: ScanType,
+    newly_added: bool,
     platform_slug: str,
+    metadata_sources: list[str],
 ):
-    direct = AsyncMock(return_value={"steam_id": 1091500})
-    search = AsyncMock()
-    with (
-        patch("handler.scan_handler.meta_steam_handler.get_rom_by_id", direct),
-        patch("handler.scan_handler.meta_steam_handler.get_rom", search),
-    ):
-        await resolve_steam_scan_metadata(
-            cast("Rom", _rom(steam_id=1091500)),
-            cast("Platform", _platform(platform_slug)),
-            "Game.exe",
-            [MetadataSource.STEAM],
-        )
-        await resolve_steam_scan_metadata(
-            cast("Rom", _rom()),
-            cast("Platform", _platform(platform_slug)),
-            "Game.exe",
-            [MetadataSource.STEAM],
-        )
+    resolver, reconcile, _, _, _ = await _scan_steam_patch(
+        scan_type=scan_type,
+        newly_added=newly_added,
+        platform_slug=platform_slug,
+        metadata_sources=metadata_sources,
+    )
 
-    direct.assert_awaited_once_with(1091500, platform_slug)
-    search.assert_not_awaited()
+    resolver.assert_not_awaited()
+    reconcile.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_classic_roms_never_call_steam():
-    direct = AsyncMock()
-    search = AsyncMock()
-    with (
-        patch("handler.scan_handler.meta_steam_handler.get_rom_by_id", direct),
-        patch("handler.scan_handler.meta_steam_handler.get_rom", search),
-    ):
-        updates = await resolve_steam_scan_metadata(
-            cast("Rom", _rom(steam_id=1091500)),
-            cast("Platform", _platform("snes")),
-            "Game.sfc",
-            [MetadataSource.STEAM],
-        )
+@pytest.mark.parametrize("patch_data", [{}, {"steam_id": 292030}])
+async def test_empty_or_text_only_steam_patch_never_reconciles_media(patch_data: dict):
+    resolver, reconcile, _, _, _ = await _scan_steam_patch(
+        scan_type=ScanType.COMPLETE,
+        newly_added=False,
+        patch_data=patch_data,
+    )
 
-    assert updates == {}
-    direct.assert_not_awaited()
-    search.assert_not_awaited()
+    resolver.assert_awaited_once()
+    reconcile.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_steam_failure_is_empty_and_preserves_existing_state():
-    with patch(
-        "handler.scan_handler.meta_steam_handler.get_rom_by_id",
-        AsyncMock(side_effect=TimeoutError()),
+async def test_steam_media_reconciliation_uses_the_persisted_rom_timestamp():
+    platform, rom = _igdb_scan_fixture(platform_slug="win", steam_id=292030)
+    persisted = SimpleNamespace(id=rom.id, updated_at="stale-in-memory-timestamp")
+    refreshed = SimpleNamespace(id=rom.id, updated_at="database-timestamp")
+    resolver = AsyncMock(
+        return_value={
+            "steam_id": 292030,
+            "steam_metadata": {"app_id": 292030, "source": "storefront"},
+            "media": {"cover": ["https://cdn.example/witcher.jpg"]},
+        }
+    )
+    reconcile = AsyncMock(return_value=True)
+
+    with (
+        patch("handler.scan_handler.db_rom_handler.add_rom", return_value=persisted),
+        patch("handler.scan_handler.db_rom_handler.get_rom", return_value=refreshed),
+        patch(
+            "handler.scan_handler.meta_playmatch_handler.is_enabled", return_value=False
+        ),
+        patch("handler.scan_handler.resolve_steam_pc_enrichment", resolver),
+        patch("handler.scan_handler.reconcile_steam_patch_media", reconcile),
+        patch(
+            "handler.scan_handler.fs_rom_handler.get_pico8_cover_url", return_value=None
+        ),
     ):
-        updates = await resolve_steam_scan_metadata(
-            cast("Rom", _rom(steam_id=1091500)),
-            cast("Platform", _platform("win")),
-            "Game.exe",
-            [MetadataSource.STEAM],
+        await scan_rom(
+            scan_type=ScanType.COMPLETE,
+            platform=platform,
+            rom=rom,
+            fs_rom={
+                "fs_name": "The Witcher.exe",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.STEAM.value],
+            newly_added=False,
         )
 
-    assert updates == {}
+    reconcile.assert_awaited_once_with(refreshed, resolver.return_value)
+
+
+@pytest.mark.asyncio
+async def test_steam_structured_metadata_persists_through_rom_not_metadata_view():
+    structured_steam_metadata = {
+        "main_developer": "CD Projekt RED",
+        "publishers": ["CD Projekt RED"],
+        "pc_release_date": 1_432_080_000,
+    }
+    _, _, _, persist_igdb_metadata, persist_candidate_metadata = (
+        await _scan_steam_patch(
+            scan_type=ScanType.COMPLETE,
+            newly_added=False,
+            igdb_metadata={"themes": ["Fantasy"], "franchises": ["The Witcher"]},
+            patch_data={
+                "steam_id": 292030,
+                "steam_metadata": {"app_id": 292030, "source": "storefront"},
+                "metadata": structured_steam_metadata,
+                "media": {"cover": ["https://cdn.example/witcher.jpg"]},
+            },
+        )
+    )
+
+    persist_igdb_metadata.assert_called_once()
+    assert persist_igdb_metadata.call_args.args[2] == {
+        "igdb_metadata": {
+            "themes": ["Fantasy"],
+            "franchises": ["The Witcher"],
+            **structured_steam_metadata,
+        }
+    }
+    persist_candidate_metadata.assert_not_called()

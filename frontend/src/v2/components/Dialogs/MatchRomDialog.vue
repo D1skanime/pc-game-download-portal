@@ -38,6 +38,7 @@ defineOptions({ inheritAttrs: false });
 
 type SourceName =
   | "IGDB"
+  | "Steam"
   | "Mobygames"
   | "Screenscraper"
   | "Flashpoint"
@@ -109,6 +110,7 @@ const variantComponent = computed(() =>
 );
 
 const isIGDBFiltered = ref(true);
+const isSteamFiltered = ref(true);
 const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
 const isFlashpointFiltered = ref(true);
@@ -122,6 +124,13 @@ const sourceFilters = computed<SourceFilter[]>(() => [
     logo: "/assets/scrappers/igdb.png",
     enabled: !!heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
     active: isIGDBFiltered.value,
+  },
+  {
+    name: "Steam",
+    label: "Steam",
+    logo: "/assets/scrappers/steam.svg",
+    enabled: !!heartbeat.value.METADATA_SOURCES.STEAM_API_ENABLED,
+    active: isSteamFiltered.value,
   },
   {
     name: "Mobygames",
@@ -164,6 +173,7 @@ function toggleSourceFilter(name: SourceName) {
   const source = sourceFilters.value.find((s) => s.name === name);
   if (!source || !source.enabled) return;
   if (name === "IGDB") isIGDBFiltered.value = !isIGDBFiltered.value;
+  else if (name === "Steam") isSteamFiltered.value = !isSteamFiltered.value;
   else if (name === "Mobygames") isMobyFiltered.value = !isMobyFiltered.value;
   else if (name === "Screenscraper") isSSFiltered.value = !isSSFiltered.value;
   else if (name === "Flashpoint")
@@ -175,15 +185,19 @@ function toggleSourceFilter(name: SourceName) {
 }
 
 const filteredMatchedRoms = computed(() =>
-  matchedRoms.value.filter(
-    (r) =>
+  matchedRoms.value.filter((r) => {
+    const pcProvider =
+      typeof r.id === "number" ? pcCandidates.value.get(r.id)?.provider : null;
+    if (pcProvider === "steam") return isSteamFiltered.value;
+    return (
       (r.igdb_id && isIGDBFiltered.value) ||
       (r.moby_id && isMobyFiltered.value) ||
       (r.ss_id && isSSFiltered.value) ||
       (r.flashpoint_id && isFlashpointFiltered.value) ||
       (r.launchbox_id && isLaunchboxFiltered.value) ||
-      (r.libretro_id && isLibretroFiltered.value),
-  ),
+      (r.libretro_id && isLibretroFiltered.value)
+    );
+  }),
 );
 
 const openHandler = (romToSearch: SimpleRom) => {

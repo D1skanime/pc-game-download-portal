@@ -33,7 +33,6 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
-    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -48,6 +47,10 @@ from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST, LibretroRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
 from handler.metadata.pc_match_handler import pc_metadata_match_handler
+from handler.metadata.pc_steam_enrichment import (
+    SteamPcEnrichmentRequest,
+    resolve_steam_pc_enrichment,
+)
 from handler.metadata.playmatch_handler import (
     PLAYMATCH_SUPPORTED_SOURCES,
     PlaymatchRomMatch,
@@ -61,6 +64,7 @@ from handler.metadata.ss_handler import (
 )
 from handler.metadata.steam_handler import COMPACT_TITLE_BOUNDARY, STEAM_PLATFORMS
 from handler.metadata.steam_merge import normalize_steam
+from handler.metadata.steam_owned_media import reconcile_steam_patch_media
 from handler.scan_command import MappedScanCommand as _MappedScanCommand
 from handler.storage.read_context import MappingReadContext
 from logger.formatter import BLUE, LIGHTYELLOW
@@ -75,8 +79,6 @@ from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
-
-STEAM_EXPLICIT_ID_PLATFORMS = frozenset({*STEAM_PLATFORMS, "dos", "win3x", "win9x"})
 
 
 @enum.unique
@@ -98,7 +100,7 @@ def auto_link_pc_dlc_components(rom: Rom, components: list[RomComponent]) -> Non
     for component in components:
         if (
             component.kind != RomComponentKind.DLC
-            or component.component_metadata is not None
+            or getattr(component.component_metadata, "igdb_id", None) is not None
         ):
             continue
         candidate = pc_metadata_match_handler.find_unique_related_igdb_candidate(
@@ -113,6 +115,45 @@ def auto_link_pc_dlc_components(rom: Rom, components: list[RomComponent]) -> Non
             candidate.provider,
             candidate.fields,
         )
+
+
+async def auto_link_parent_listed_steam_dlc_components(rom: Rom) -> None:
+    """Attach Steam identity only to existing local DLC components."""
+    for component in getattr(rom, "components", []):
+        if (
+            component.kind != RomComponentKind.DLC
+            or getattr(component.component_metadata, "steam_id", None) is not None
+        ):
+            continue
+        candidate = await pc_metadata_match_handler.fetch_parent_listed_steam_dlc(
+            rom, component
+        )
+        if candidate is None:
+            continue
+        metadata = component.component_metadata
+        current = {
+            "name": getattr(metadata, "name", None),
+            "summary": getattr(metadata, "summary", None),
+            "steam_metadata": (
+                getattr(metadata, "provider_metadata", {}).get("steam_metadata")
+                if metadata is not None
+                else None
+            ),
+            "metadata": {
+                "main_developer": getattr(metadata, "main_developer", None),
+                "publishers": getattr(metadata, "publishers", None),
+                "pc_release_date": getattr(metadata, "pc_release_date", None),
+            },
+        }
+        steam_data = normalize_steam(candidate, current)
+        if steam_data:
+            db_rom_handler.apply_pc_component_metadata_candidate(
+                rom.id,
+                component.id,
+                component.updated_at,
+                "steam",
+                steam_data,
+            )
 
 
 async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
@@ -188,58 +229,12 @@ def _steam_scan_current(rom: Rom) -> dict[str, Any]:
     }
 
 
-async def resolve_steam_scan_metadata(
-    rom: Rom,
-    platform: Platform,
-    fs_name: str,
-    metadata_sources: list[str],
-) -> dict[str, Any]:
-    """Resolve one PC Storefront match without broadening classic scan dispatch."""
-    if (
-        MetadataSource.STEAM not in metadata_sources
-        or platform.slug not in STEAM_EXPLICIT_ID_PLATFORMS
-    ):
-        return {}
-
-    try:
-        if isinstance(rom.steam_id, int) and not isinstance(rom.steam_id, bool):
-            result = await meta_steam_handler.get_rom_by_id(rom.steam_id, platform.slug)
-            if result.get("steam_id") != rom.steam_id:
-                return {}
-        elif platform.slug in STEAM_PLATFORMS:
-            result = await meta_steam_handler.get_rom(fs_name, platform.slug)
-        else:
-            return {}
-    except Exception:
-        log.warning(
-            "Steam metadata lookup failed",
-            extra={**LOGGER_MODULE_NAME, "platform": platform.slug},
-        )
-        return {}
-
-    return normalize_steam(result, _steam_scan_current(rom))
-
-
-def _steam_artwork_handler(steam_updates: dict[str, Any]) -> dict[str, Any]:
-    media = steam_updates.get("media")
-    if not isinstance(media, dict):
-        return {"steam_id": steam_updates.get("steam_id")}
-
-    cover = media.get("cover")
-    screenshots = media.get("screenshots")
-    return {
-        "steam_id": steam_updates.get("steam_id"),
-        "url_cover": cover[0] if isinstance(cover, list) and cover else "",
-        "url_screenshots": screenshots if isinstance(screenshots, list) else [],
-    }
-
-
 def _apply_metadata_handler_fields(
     rom_attrs: dict[str, Any], handler_data: dict[str, Any]
 ) -> None:
     """Apply persisted provider fields while keeping derived media out of the model."""
     for key, field_value in handler_data.items():
-        if key == "url_artworks":
+        if key in {"url_artworks", "media", "metadata"}:
             continue
         if field_value:
             rom_attrs[key] = field_value
@@ -1049,8 +1044,31 @@ async def scan_rom(
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
     async def fetch_steam_updates() -> dict[str, Any]:
-        return await resolve_steam_scan_metadata(
-            rom, platform, rom_attrs["fs_name"], metadata_sources
+        # D-03: Steam parity covers new-platform, UPDATE, and COMPLETE scans
+        # for the supported PC platforms only. QUICK/HASHES remain unchanged.
+        if (
+            platform.slug not in STEAM_PLATFORMS
+            or MetadataSource.STEAM not in metadata_sources
+            or not (
+                (newly_added and scan_type is ScanType.NEW_PLATFORMS)
+                or scan_type is ScanType.COMPLETE
+                or (
+                    scan_type is ScanType.UPDATE
+                    and isinstance(rom.steam_id, int)
+                    and not isinstance(rom.steam_id, bool)
+                    and rom.steam_id > 0
+                )
+            )
+        ):
+            return {}
+        return await resolve_steam_pc_enrichment(
+            SteamPcEnrichmentRequest(
+                scan_context=scan_type.value,
+                current=_steam_scan_current(rom),
+                platform_slug=platform.slug,
+                fs_name=rom_attrs["fs_name"],
+                metadata_sources=metadata_sources,
+            )
         )
 
     # Run metadata fetches concurrently. One provider raising must not discard the
@@ -1111,7 +1129,7 @@ async def scan_rom(
 
     metadata_handlers: dict[MetadataSource, dict] = {
         MetadataSource.STEAM: {
-            "handler": _steam_artwork_handler(steam_updates),
+            "handler": steam_updates,
             "id_field": "steam_id",
             "metadata_field": "steam_metadata",
         },
@@ -1372,7 +1390,7 @@ async def scan_rom(
                 rom_attrs["url_cover"] = sgdb_cover
 
     log.info(
-        f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+        f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs.get('name', rom.fs_name), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
         extra=LOGGER_MODULE_NAME,
     )
 
@@ -1384,7 +1402,49 @@ async def scan_rom(
             )
 
     rom_attrs["missing_from_fs"] = False
-    return Rom(**rom_attrs)
+    scanned_rom = Rom(**rom_attrs)
+
+    steam_metadata = steam_updates.get("metadata")
+    has_steam_metadata = isinstance(steam_metadata, dict) and bool(steam_metadata)
+    has_steam_media = isinstance(steam_updates.get("media"), dict) and bool(
+        steam_updates["media"]
+    )
+    # D-04/D-06/D-07: Structured Steam data and provider candidates are applied
+    # only after the ROM has a durable identity. Media never uses legacy URLs.
+    if has_steam_metadata or has_steam_media:
+        durable_rom = db_rom_handler.add_rom(scanned_rom)
+        # MariaDB rounds the optimistic-lock timestamp at persistence. Reload it
+        # before the owned-media transaction so its compare-and-swap can succeed.
+        refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
+        if refreshed_rom is not None:
+            durable_rom = refreshed_rom
+        if has_steam_metadata:
+            # `roms_metadata` derives its PC fields from `Rom.igdb_metadata`.
+            # Persist the guarded Steam structured-field overlay through the Rom
+            # row so MariaDB never attempts to update that derived view.
+            igdb_metadata = scanned_rom.igdb_metadata
+            merged_igdb_metadata = (
+                dict(igdb_metadata) if isinstance(igdb_metadata, dict) else {}
+            )
+            merged_igdb_metadata.update(steam_metadata)
+            scanned_rom.igdb_metadata = merged_igdb_metadata
+            applied = db_rom_handler.apply_pc_igdb_enrichment(
+                durable_rom.id,
+                durable_rom.updated_at,
+                {"igdb_metadata": merged_igdb_metadata},
+            )
+            if applied is not None:
+                durable_rom = applied
+        if has_steam_media:
+            await reconcile_steam_patch_media(durable_rom, steam_updates)
+        if has_steam_metadata:
+            refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
+            if refreshed_rom is not None:
+                components = getattr(refreshed_rom, "components", [])
+                auto_link_pc_dlc_components(refreshed_rom, components)
+                await auto_link_parent_listed_steam_dlc_components(refreshed_rom)
+        return scanned_rom
+    return scanned_rom
 
 
 async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False):

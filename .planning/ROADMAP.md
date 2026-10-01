@@ -587,11 +587,22 @@ Plans:
 
 ### Phase 21: Unify admin PC scans with German Steam metadata and media
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Administrator scans for eligible Windows, Linux, and macOS PC games share targeted Steam enrichment: German-first same-App-ID text, non-destructive provenance/manual protection, and idempotent RomM-owned Steam-media reconciliation without source-library writes.
+**Requirements**: STEAM-02, STEAM-05 (reused and extended for administrator-scan parity)
 **Depends on:** Phase 20
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 21 to break down)
+**Wave 1**
+
+- [ ] 21-01-PLAN.md — Create the shared pure Steam PC patch and selected-candidate parity.
+- [ ] 21-02-PLAN.md — Add durable safe Steam provider-media inventory reconciliation.
+
+**Wave 2**
+
+- [ ] 21-03-PLAN.md — Reconcile validated Steam media through RomM-owned storage.
+
+**Wave 3**
+
+- [ ] 21-04-PLAN.md — Wire new/update/complete scans, source-boundary tests, and Witcher-only UAT evidence.

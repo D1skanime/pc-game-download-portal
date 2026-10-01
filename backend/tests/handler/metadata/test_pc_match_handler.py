@@ -6,6 +6,64 @@ from handler.metadata.pc_match_handler import PcMetadataMatchHandler
 
 
 @pytest.mark.asyncio
+async def test_parent_listed_steam_dlc_matches_only_an_existing_component():
+    steam = Mock(is_enabled=Mock(return_value=True))
+    steam.get_rom_by_id = AsyncMock(
+        return_value={
+            "steam_id": 2138330,
+            "name": "Cyberpunk 2077: Phantom Liberty",
+            "steam_metadata": {
+                "type": "dlc",
+                "fullgame": {"appid": 1091500},
+            },
+        }
+    )
+    handler = PcMetadataMatchHandler(providers={"steam": steam})
+    rom = Mock(
+        steam_id=1091500,
+        steam_metadata={"dlc_ids": [2138330]},
+        name="Cyberpunk 2077",
+    )
+    component = Mock(
+        relative_path="dlc",
+        manifest_members=[
+            Mock(relative_path="dlc/setup_cyberpunk_2077_phantom_liberty.exe")
+        ],
+    )
+
+    match = await handler.fetch_parent_listed_steam_dlc(rom, component)
+
+    assert match is not None
+    assert match["steam_id"] == 2138330
+    steam.get_rom_by_id.assert_awaited_once_with(2138330, None)
+
+
+@pytest.mark.asyncio
+async def test_unique_steam_match_requires_one_exact_storefront_result():
+    steam = Mock(is_enabled=Mock(return_value=True))
+    steam.get_matched_roms_by_name = AsyncMock(
+        return_value=[{"steam_id": 645220, "name": "Civilization VI: Rise and Fall"}]
+    )
+    steam.get_rom_by_id = AsyncMock(
+        return_value={
+            "steam_id": 645220,
+            "name": "Civilization VI: Rise and Fall",
+            "summary": "Deutsche Steam-Beschreibung",
+        }
+    )
+    handler = PcMetadataMatchHandler(providers={"steam": steam})
+    rom = Mock(platform_slug="win")
+
+    match = await handler.fetch_unique_steam_match(
+        rom, "Civilization VI: Rise and Fall"
+    )
+
+    assert match is not None
+    assert match["summary"] == "Deutsche Steam-Beschreibung"
+    steam.get_rom_by_id.assert_awaited_once_with(645220, "win")
+
+
+@pytest.mark.asyncio
 async def test_collect_candidates_attributes_results_to_their_provider():
     igdb = Mock(is_enabled=Mock(return_value=True))
     igdb.get_matched_roms_by_name = AsyncMock(

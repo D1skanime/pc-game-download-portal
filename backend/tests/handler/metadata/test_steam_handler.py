@@ -79,6 +79,33 @@ async def test_fallback_fills_empty_release_and_header_fields_for_the_same_app_i
     ]
 
 
+async def test_store_details_keep_localized_genres_categories_and_dlc_ids(handler):
+    handler.steam_service.get_app_details = AsyncMock(
+        return_value={
+            "type": "game",
+            "name": "Cyberpunk 2077",
+            "steam_appid": 1091500,
+            "genres": [{"id": "3", "description": "Rollenspiel"}],
+            "categories": [
+                {"id": 2, "description": "Einzelspieler"},
+                {"id": 29, "description": "Steam-Cloud"},
+            ],
+            "dlc": [2138330, "bad", 0],
+        }
+    )
+
+    result = await handler.get_rom_by_id(1091500)
+
+    assert result["steam_metadata"] == {
+        "language": "german",
+        "fallback_language": "",
+        "type": "game",
+        "genres": ["Rollenspiel"],
+        "categories": ["Einzelspieler", "Steam-Cloud"],
+        "dlc_ids": [2138330],
+    }
+
+
 @pytest.mark.parametrize("platform", ["dos", "win3x", "win9x"])
 async def test_excluded_pc_platforms_do_not_name_search(handler, platform):
     handler.steam_service.search_apps = AsyncMock()
@@ -122,6 +149,42 @@ async def test_compact_pc_filename_is_split_before_steam_search(handler):
     handler.steam_service.search_apps.assert_awaited_once_with(
         "clair obscur expedition 33", country="CH", language="german"
     )
+
+
+async def test_name_search_skips_soundtrack_and_uses_next_valid_game(handler):
+    """A better fuzzy soundtrack match must not hide the actual game."""
+    handler.steam_service.search_apps = AsyncMock(
+        return_value=[
+            {
+                "id": 292031,
+                "name": "The Witcher 3: Wild Hunt Soundtrack",
+                "type": "app",
+            },
+            {
+                "id": 292030,
+                "name": "The Witcher 3: Wild Hunt - Complete Edition",
+                "type": "app",
+            },
+        ]
+    )
+
+    def details(steam_id, **_kwargs):
+        if steam_id == 292031:
+            return {"type": "music", "steam_appid": steam_id}
+        return {
+            "type": "game",
+            "name": "The Witcher 3: Wild Hunt",
+            "steam_appid": steam_id,
+        }
+
+    handler.steam_service.get_app_details = AsyncMock(side_effect=details)
+
+    result = await handler.get_rom("TheWitcher3WildHunt", "win")
+
+    assert result["steam_id"] == 292030
+    assert [
+        call.args[0] for call in handler.steam_service.get_app_details.await_args_list
+    ] == [292031, 292030, 292030]
 
 
 async def test_invalid_store_type_and_disabled_provider_return_no_match(handler):

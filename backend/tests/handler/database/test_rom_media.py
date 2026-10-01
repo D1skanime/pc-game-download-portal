@@ -7,6 +7,7 @@ from tests.conftest import session
 
 from endpoints.responses.rom import RomOwnedMediaSchema
 from handler.database import db_rom_handler
+from handler.database.roms_handler import SteamOwnedMediaInventoryItem
 from models.owned_media_cleanup import OwnedMediaCleanupIntent
 from models.rom import (
     Rom,
@@ -290,6 +291,7 @@ def test_provider_refresh_reactivates_tombstone_without_placing_it(rom):
     )
     assert deleted is not None
     assert deleted.owned_paths == ["roms/1/media/provider/image-1.webp"]
+    assert deleted.media.operator_suppressed is True
 
     refreshed = db_rom_handler.reconcile_provider_owned_media(
         rom_id=rom.id,
@@ -304,6 +306,291 @@ def test_provider_refresh_reactivates_tombstone_without_placing_it(rom):
     assert refreshed is not None
     assert refreshed.media.id == created.media.id
     assert refreshed.media.placements == []
+    assert refreshed.media.operator_suppressed is False
+
+
+def test_operator_delete_suppresses_only_provider_media_and_keeps_upload(rom):
+    provider = db_rom_handler.reconcile_provider_owned_media(
+        rom.id,
+        rom.updated_at,
+        "steam",
+        "cover-1",
+        RomOwnedMediaRole.ARTWORK,
+        "cover.webp",
+        "image/webp",
+        "roms/1/media/provider/cover.webp",
+    )
+    assert provider is not None
+    upload = db_rom_handler.create_owned_upload_media(
+        rom.id,
+        provider.rom.updated_at,
+        RomOwnedMediaRole.ARTWORK,
+        "operator.webp",
+        "image/webp",
+        "roms/1/media/upload/operator.webp",
+    )
+    assert upload is not None
+    selected = db_rom_handler.set_owned_media_placement(
+        rom.id,
+        provider.media.id,
+        upload.rom.updated_at,
+        RomOwnedMediaSurface.OVERVIEW,
+        selected=True,
+    )
+    assert selected is not None
+
+    deleted = db_rom_handler.delete_owned_media(
+        rom.id, provider.media.id, selected.updated_at
+    )
+    assert deleted is not None
+    assert deleted.media.state == RomOwnedMediaState.TOMBSTONED
+    assert deleted.media.operator_suppressed is True
+    assert deleted.media.placements == []
+
+    with session() as db:
+        persisted_upload = db.get(RomOwnedMedia, upload.media.id)
+        assert persisted_upload is not None
+        assert persisted_upload.origin == RomOwnedMediaOrigin.UPLOAD
+        assert persisted_upload.state == RomOwnedMediaState.ACTIVE
+        assert persisted_upload.operator_suppressed is False
+
+
+def test_steam_scan_owned_media_state_migration_has_verified_ancestry():
+    migration_path = (
+        Path(__file__).parents[3]
+        / "alembic/versions/0132_steam_scan_owned_media_state.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "steam_scan_owned_media_state_migration", migration_path
+    )
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    assert migration.revision == "0132_steam_scan_owned_media_state"
+    assert migration.down_revision == "0131_owned_background_audio"
+
+
+def test_d07_steam_inventory_tombstones_stale_candidates_without_uploads(rom):
+    first = db_rom_handler.reconcile_steam_owned_media_inventory(
+        rom.id,
+        rom.updated_at,
+        [
+            SteamOwnedMediaInventoryItem(
+                "cover-1",
+                RomOwnedMediaRole.ARTWORK,
+                "cover.webp",
+                "image/webp",
+                "roms/1/media/provider/cover.webp",
+            ),
+            SteamOwnedMediaInventoryItem(
+                "shot-1",
+                RomOwnedMediaRole.SCREENSHOT,
+                "shot.webp",
+                "image/webp",
+                "roms/1/media/provider/shot.webp",
+            ),
+        ],
+    )
+    assert first is not None
+    upload = db_rom_handler.create_owned_upload_media(
+        rom.id,
+        first.rom.updated_at,
+        RomOwnedMediaRole.ARTWORK,
+        "operator.webp",
+        "image/webp",
+        "roms/1/media/upload/operator.webp",
+    )
+    assert upload is not None
+
+    second = db_rom_handler.reconcile_steam_owned_media_inventory(
+        rom.id,
+        upload.rom.updated_at,
+        [
+            SteamOwnedMediaInventoryItem(
+                "cover-1",
+                RomOwnedMediaRole.ARTWORK,
+                "cover.webp",
+                "image/webp",
+                "roms/1/media/provider/cover.webp",
+            )
+        ],
+    )
+    assert second is not None
+    assert second.unreferenced_owned_paths == ["roms/1/media/provider/shot.webp"]
+
+    with session() as db:
+        stale = db.query(RomOwnedMedia).filter_by(provider_media_id="shot-1").one()
+        persisted_upload = db.get(RomOwnedMedia, upload.media.id)
+        assert stale.state == RomOwnedMediaState.TOMBSTONED
+        assert stale.operator_suppressed is False
+        assert stale.owned_path is None
+        assert persisted_upload is not None
+        assert persisted_upload.state == RomOwnedMediaState.ACTIVE
+
+
+def test_d08_steam_inventory_only_places_unclaimed_surfaces(rom):
+    existing = db_rom_handler.create_owned_upload_media(
+        rom.id,
+        rom.updated_at,
+        RomOwnedMediaRole.ARTWORK,
+        "operator.webp",
+        "image/webp",
+        "roms/1/media/upload/operator.webp",
+    )
+    assert existing is not None
+    claimed = db_rom_handler.set_owned_media_placement(
+        rom.id,
+        existing.media.id,
+        existing.rom.updated_at,
+        RomOwnedMediaSurface.OVERVIEW,
+        selected=True,
+    )
+    assert claimed is not None
+
+    reconciled = db_rom_handler.reconcile_steam_owned_media_inventory(
+        rom.id,
+        claimed.updated_at,
+        [
+            SteamOwnedMediaInventoryItem(
+                "cover-1",
+                RomOwnedMediaRole.ARTWORK,
+                "cover.webp",
+                "image/webp",
+                "roms/1/media/provider/cover.webp",
+            ),
+            SteamOwnedMediaInventoryItem(
+                "shot-1",
+                RomOwnedMediaRole.SCREENSHOT,
+                "shot.webp",
+                "image/webp",
+                "roms/1/media/provider/shot.webp",
+            ),
+        ],
+    )
+    assert reconciled is not None
+    assert [
+        item.media_id
+        for item in reconciled.rom.owned_media_placements
+        if item.surface == RomOwnedMediaSurface.OVERVIEW
+    ] == [existing.media.id]
+    assert [item.surface for item in reconciled.rom.owned_media_placements].count(
+        RomOwnedMediaSurface.BACKGROUND
+    ) == 1
+
+
+def test_steam_inventory_places_cover_and_every_screenshot_on_unclaimed_overview(rom):
+    reconciled = db_rom_handler.reconcile_steam_owned_media_inventory(
+        rom.id,
+        rom.updated_at,
+        [
+            SteamOwnedMediaInventoryItem(
+                "cover-1",
+                RomOwnedMediaRole.ARTWORK,
+                "cover.webp",
+                "image/webp",
+                "roms/1/media/provider/cover.webp",
+            ),
+            SteamOwnedMediaInventoryItem(
+                "shot-1",
+                RomOwnedMediaRole.SCREENSHOT,
+                "shot-1.webp",
+                "image/webp",
+                "roms/1/media/provider/shot-1.webp",
+            ),
+            SteamOwnedMediaInventoryItem(
+                "shot-2",
+                RomOwnedMediaRole.SCREENSHOT,
+                "shot-2.webp",
+                "image/webp",
+                "roms/1/media/provider/shot-2.webp",
+            ),
+        ],
+    )
+
+    assert reconciled is not None
+    overview = sorted(
+        (
+            item
+            for item in reconciled.rom.owned_media_placements
+            if item.surface == RomOwnedMediaSurface.OVERVIEW
+        ),
+        key=lambda item: item.position,
+    )
+    assert [item.position for item in overview] == [0, 1, 2]
+    assert [item.media.role for item in overview] == [
+        RomOwnedMediaRole.ARTWORK,
+        RomOwnedMediaRole.SCREENSHOT,
+        RomOwnedMediaRole.SCREENSHOT,
+    ]
+
+
+def test_d07_steam_inventory_keeps_operator_suppressed_candidate_tombstoned(rom):
+    created = db_rom_handler.reconcile_provider_owned_media(
+        rom.id,
+        rom.updated_at,
+        "steam",
+        "shot-1",
+        RomOwnedMediaRole.SCREENSHOT,
+        "shot.webp",
+        "image/webp",
+        "roms/1/media/provider/shot.webp",
+    )
+    assert created is not None
+    deleted = db_rom_handler.delete_owned_media(
+        rom.id, created.media.id, created.rom.updated_at
+    )
+    assert deleted is not None
+
+    reconciled = db_rom_handler.reconcile_steam_owned_media_inventory(
+        rom.id,
+        deleted.rom.updated_at,
+        [
+            SteamOwnedMediaInventoryItem(
+                "shot-1",
+                RomOwnedMediaRole.SCREENSHOT,
+                "shot.webp",
+                "image/webp",
+                "roms/1/media/provider/retried-shot.webp",
+            )
+        ],
+    )
+    assert reconciled is not None
+
+    with session() as db:
+        suppressed = db.get(RomOwnedMedia, created.media.id)
+        assert suppressed is not None
+        assert suppressed.state == RomOwnedMediaState.TOMBSTONED
+        assert suppressed.operator_suppressed is True
+        assert suppressed.owned_path is None
+
+
+def test_d07_steam_inventory_is_idempotent_and_keeps_shared_path(rom):
+    item = SteamOwnedMediaInventoryItem(
+        "cover-1",
+        RomOwnedMediaRole.ARTWORK,
+        "cover.webp",
+        "image/webp",
+        "roms/1/media/provider/shared.webp",
+    )
+    first = db_rom_handler.reconcile_steam_owned_media_inventory(
+        rom.id, rom.updated_at, [item]
+    )
+    assert first is not None
+    second = db_rom_handler.reconcile_steam_owned_media_inventory(
+        rom.id, first.rom.updated_at, [item]
+    )
+    assert second is not None
+    assert second.unreferenced_owned_paths == []
+    assert second.rom.updated_at == first.rom.updated_at
+
+    with session() as db:
+        assert (
+            db.query(RomOwnedMedia)
+            .filter_by(provider="steam", provider_media_id="cover-1")
+            .count()
+            == 1
+        )
 
 
 def test_complete_reorder_rejects_incomplete_membership(rom):

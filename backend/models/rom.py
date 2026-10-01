@@ -544,6 +544,9 @@ class RomOwnedMedia(BaseModel):
         ),
         default=RomOwnedMediaState.ACTIVE,
     )
+    operator_suppressed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     mime_type: Mapped[str] = mapped_column(String(length=100))
     owned_path: Mapped[str | None] = mapped_column(
         String(length=OWNED_MEDIA_PATH_MAX_LENGTH), default=None
@@ -748,7 +751,9 @@ class RomMetadata(BaseModel):
     pc_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
     average_rating: Mapped[float | None] = mapped_column(default=None)
 
-    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
+    rom: Mapped[Rom] = relationship(
+        lazy="joined", back_populates="metadatum", viewonly=True
+    )
 
 
 class RomFacets(BaseModel):
@@ -1004,7 +1009,7 @@ class Rom(BaseModel):
     rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="rom")
     notes: Mapped[list[RomNote]] = relationship(lazy="raise", back_populates="rom")
     metadatum: Mapped[RomMetadata] = relationship(
-        lazy="joined", back_populates="rom", uselist=False
+        lazy="joined", back_populates="rom", uselist=False, viewonly=True
     )
     collections: Mapped[list[Collection]] = relationship(
         "Collection",

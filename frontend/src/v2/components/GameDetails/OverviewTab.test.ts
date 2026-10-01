@@ -124,7 +124,7 @@ describe("OverviewTab", () => {
     expect(wrapper.text()).toContain("Cyberpunk");
   });
 
-  it("renders only owned parent screenshot paths and omits absent PC metadata", () => {
+  it("renders selected owned screenshots through the protected media endpoint", () => {
     const wrapper = mount(OverviewTab, {
       props: {
         rom,
@@ -136,7 +136,7 @@ describe("OverviewTab", () => {
         lastPlayed: null,
         revision: null,
         screenshots: [
-          "/assets/romm/resources/roms/1/screenshots/owned.webp",
+          "/api/roms/42/media/7/content",
           "https://images.igdb.com/provider-only.webp",
         ],
         expansions: [],
@@ -149,7 +149,7 @@ describe("OverviewTab", () => {
       },
     });
 
-    expect(wrapper.html()).toContain("owned.webp");
+    expect(wrapper.html()).toContain("/api/roms/42/media/7/content");
     expect(wrapper.html()).not.toContain("provider-only.webp");
     expect(wrapper.text()).not.toContain("rom.pc-release");
     expect(wrapper.text()).not.toContain("rom.main-developer");

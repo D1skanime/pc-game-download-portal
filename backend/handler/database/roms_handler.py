@@ -281,6 +281,19 @@ class AppliedOwnedMedia(NamedTuple):
     owned_paths: list[str]
 
 
+class SteamOwnedMediaInventoryItem(NamedTuple):
+    provider_media_id: str
+    role: RomOwnedMediaRole
+    display_label: str
+    mime_type: str
+    owned_path: str
+
+
+class ReconciledSteamOwnedMediaInventory(NamedTuple):
+    rom: Rom
+    unreferenced_owned_paths: list[str]
+
+
 class SyncedRomComponents(list[RomComponent]):
     def __init__(
         self, components: Sequence[RomComponent], orphaned_owned_paths: list[str]
@@ -451,6 +464,8 @@ def with_simple_details(func):
                 selectinload(RomComponent.local_media),
                 selectinload(RomComponent.owned_media),
             ),
+            selectinload(Rom.owned_media),
+            selectinload(Rom.owned_media_placements),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform),
                 noload(Rom.metadatum),
@@ -703,11 +718,191 @@ class DBRomsHandler(DBBaseHandler):
             if media.role != role:
                 return None
             media.state = RomOwnedMediaState.ACTIVE
+            media.operator_suppressed = False
             media.mime_type = mime_type
             media.owned_path = owned_path
         rom.updated_at = datetime.now(timezone.utc)
         session.flush()
         return AppliedOwnedMedia(rom, media, [])
+
+    @begin_session
+    def get_steam_owned_media_inventory(
+        self,
+        rom_id: int,
+        provider_media_ids: Sequence[str],
+        session: Session = None,  # type: ignore
+    ) -> dict[str, RomOwnedMedia]:
+        """Return known Steam candidates so scans can reuse or skip their paths."""
+        identities = {identity for identity in provider_media_ids if identity}
+        if not identities:
+            return {}
+        return {
+            media.provider_media_id: media
+            for media in session.scalars(
+                select(RomOwnedMedia).where(
+                    RomOwnedMedia.rom_id == rom_id,
+                    RomOwnedMedia.origin == RomOwnedMediaOrigin.PROVIDER,
+                    RomOwnedMedia.provider == "steam",
+                    RomOwnedMedia.provider_media_id.in_(identities),
+                )
+            )
+            if media.provider_media_id is not None
+        }
+
+    @begin_session
+    def reconcile_steam_owned_media_inventory(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        inventory: Sequence[SteamOwnedMediaInventoryItem],
+        session: Session = None,  # type: ignore
+    ) -> ReconciledSteamOwnedMediaInventory | None:
+        """Atomically reconcile a complete, already-stored Steam inventory for a scan."""
+        identities = [item.provider_media_id for item in inventory]
+        if len(identities) != len(set(identities)):
+            return None
+        for item in inventory:
+            if (
+                not item.provider_media_id
+                or item.role
+                not in {RomOwnedMediaRole.SCREENSHOT, RomOwnedMediaRole.ARTWORK}
+                or not item.owned_path
+                or item.owned_path.startswith("/")
+                or ".." in item.owned_path
+            ):
+                return None
+            try:
+                validate_owned_media_display_label(item.display_label)
+            except ValueError:
+                return None
+
+        rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
+        if rom is None:
+            return None
+        steam_media = {
+            media.provider_media_id: media
+            for media in rom.owned_media
+            if media.origin == RomOwnedMediaOrigin.PROVIDER
+            and media.provider == "steam"
+            and media.provider_media_id is not None
+        }
+        inventory_by_id = {item.provider_media_id: item for item in inventory}
+        changed = False
+        retired: list[tuple[int, str]] = []
+        active_inventory: list[RomOwnedMedia] = []
+        for item in inventory:
+            media = steam_media.get(item.provider_media_id)
+            if media is not None and media.operator_suppressed:
+                continue
+            if media is None:
+                media = RomOwnedMedia(
+                    rom_id=rom.id,
+                    origin=RomOwnedMediaOrigin.PROVIDER,
+                    provider="steam",
+                    provider_media_id=item.provider_media_id,
+                    role=item.role,
+                    display_label=item.display_label,
+                    mime_type=item.mime_type,
+                    owned_path=item.owned_path,
+                )
+                session.add(media)
+                changed = True
+            else:
+                if media.role != item.role:
+                    return None
+                if media.owned_path != item.owned_path and media.owned_path:
+                    retired.append((media.id, media.owned_path))
+                if (
+                    media.state != RomOwnedMediaState.ACTIVE
+                    or media.owned_path != item.owned_path
+                    or media.mime_type != item.mime_type
+                    or media.display_label != item.display_label
+                ):
+                    media.state = RomOwnedMediaState.ACTIVE
+                    media.operator_suppressed = False
+                    media.owned_path = item.owned_path
+                    media.mime_type = item.mime_type
+                    media.display_label = item.display_label
+                    changed = True
+            active_inventory.append(media)
+
+        for identity, media in steam_media.items():
+            if identity in inventory_by_id or media.state != RomOwnedMediaState.ACTIVE:
+                continue
+            if media.owned_path:
+                retired.append((media.id, media.owned_path))
+            for placement in list(media.placements):
+                session.delete(placement)
+            media.owned_path = None
+            media.state = RomOwnedMediaState.TOMBSTONED
+            media.operator_suppressed = False
+            changed = True
+
+        if not any(
+            item.surface == RomOwnedMediaSurface.OVERVIEW
+            for item in rom.owned_media_placements
+        ):
+            overview_media = [
+                *(
+                    item
+                    for item in active_inventory
+                    if item.role == RomOwnedMediaRole.ARTWORK
+                ),
+                *(
+                    item
+                    for item in active_inventory
+                    if item.role == RomOwnedMediaRole.SCREENSHOT
+                ),
+            ]
+            for position, media in enumerate(overview_media):
+                session.add(
+                    RomOwnedMediaPlacement(
+                        rom=rom,
+                        media=media,
+                        surface=RomOwnedMediaSurface.OVERVIEW,
+                        position=position,
+                    )
+                )
+            changed = changed or bool(overview_media)
+
+        if not any(
+            item.surface == RomOwnedMediaSurface.BACKGROUND
+            for item in rom.owned_media_placements
+        ):
+            media = next(
+                (
+                    item
+                    for item in active_inventory
+                    if item.role == RomOwnedMediaRole.SCREENSHOT
+                ),
+                None,
+            )
+            if media is not None:
+                session.add(
+                    RomOwnedMediaPlacement(
+                        rom=rom,
+                        media=media,
+                        surface=RomOwnedMediaSurface.BACKGROUND,
+                        position=0,
+                    )
+                )
+                changed = True
+
+        if not changed:
+            return ReconciledSteamOwnedMediaInventory(rom, [])
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        retired_paths: list[str] = []
+        for media_id, path in retired:
+            still_referenced = session.scalar(
+                select(RomOwnedMedia.id).where(
+                    RomOwnedMedia.id != media_id,
+                    RomOwnedMedia.owned_path == path,
+                )
+            )
+            if still_referenced is None and path not in retired_paths:
+                retired_paths.append(path)
+        return ReconciledSteamOwnedMediaInventory(rom, retired_paths)
 
     @staticmethod
     def _is_owned_media_surface_compatible(
@@ -843,6 +1038,7 @@ class DBRomsHandler(DBBaseHandler):
                 session.delete(placement)
             media.owned_path = None
             media.state = RomOwnedMediaState.TOMBSTONED
+            media.operator_suppressed = True
         else:
             session.delete(media)
         rom.updated_at = datetime.now(timezone.utc)
@@ -2240,6 +2436,20 @@ class DBRomsHandler(DBBaseHandler):
         """Apply a reviewed PC metadata candidate only at the expected version."""
         metadata_values = data.get("metadata")
         rom_values = {key: value for key, value in data.items() if key != "metadata"}
+        if isinstance(metadata_values, dict):
+            current_metadata = session.scalar(
+                select(Rom.igdb_metadata).where(
+                    and_(Rom.id == id, Rom.updated_at == expected_updated_at)
+                )
+            )
+            if current_metadata is None:
+                return None
+            igdb_metadata = rom_values.get("igdb_metadata", current_metadata)
+            merged_igdb_metadata = (
+                dict(igdb_metadata) if isinstance(igdb_metadata, dict) else {}
+            )
+            merged_igdb_metadata.update(metadata_values)
+            rom_values["igdb_metadata"] = merged_igdb_metadata
         result = session.execute(
             update(Rom)
             .where(and_(Rom.id == id, Rom.updated_at == expected_updated_at))
@@ -2248,14 +2458,6 @@ class DBRomsHandler(DBBaseHandler):
         )
         if result.rowcount != 1:
             return None
-        if isinstance(metadata_values, dict):
-            metadata = session.get(RomMetadata, id)
-            if metadata is None:
-                metadata = RomMetadata(rom_id=id)
-                session.add(metadata)
-            for field in ("main_developer", "publishers", "pc_release_date"):
-                if field in metadata_values:
-                    setattr(metadata, field, metadata_values[field])
         session.flush()
         session.expire_all()
         return session.query(Rom).filter_by(id=id).one()
@@ -2484,7 +2686,16 @@ class DBRomsHandler(DBBaseHandler):
                 and_(
                     RomComponent.id == component_id,
                     RomComponent.rom_id == rom_id,
-                    RomComponent.kind == "dlc",
+                    RomComponent.kind.in_(
+                        (
+                            RomComponentKind.BASE,
+                            RomComponentKind.UPDATE,
+                            RomComponentKind.DLC,
+                            RomComponentKind.HOTFIX,
+                            RomComponentKind.LANGUAGE_PACK,
+                            RomComponentKind.EXTRA,
+                        )
+                    ),
                 )
             )
         )

@@ -98,6 +98,28 @@ def test_pc_igdb_enrichment_rejects_stale_parent_or_component(rom):
     )
 
 
+def test_pc_metadata_candidate_persists_structured_fields_on_rom(rom):
+    parent = db_rom_handler.get_rom(rom.id)
+    assert parent is not None
+
+    updated = db_rom_handler.apply_pc_metadata_candidate(
+        rom.id,
+        parent.updated_at,
+        {
+            "metadata": {
+                "main_developer": "CD Projekt RED",
+                "publishers": ["CD Projekt RED"],
+                "pc_release_date": 1_432_080_000,
+            }
+        },
+    )
+
+    assert updated is not None
+    assert updated.igdb_metadata["main_developer"] == "CD Projekt RED"
+    assert updated.igdb_metadata["publishers"] == ["CD Projekt RED"]
+    assert updated.igdb_metadata["pc_release_date"] == 1_432_080_000
+
+
 def test_pc_component_steam_provenance_preserves_existing_provider_metadata(rom):
     component = RomComponent(
         rom_id=rom.id,

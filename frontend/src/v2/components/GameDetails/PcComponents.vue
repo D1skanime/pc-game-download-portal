@@ -24,6 +24,7 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{
   components: PcComponentSchema[];
   romId: number;
+  parentName?: string;
   archiveSets?: DownloadArchiveSet[];
   archiveSetsState?: "idle" | "loading" | "ready" | "error";
 }>();
@@ -41,14 +42,22 @@ const currentSessionId = computed(() => queue.sessionId.value);
 
 function openComponentMatcher(component: PcComponentSchema) {
   if (component.kind === "unresolved") return;
+  const target =
+    component.kind === "base"
+      ? {
+          kind: "rom" as const,
+          romId: props.romId,
+          label: componentSearchLabel(component),
+        }
+      : {
+          kind: "component" as const,
+          romId: props.romId,
+          componentId: component.id,
+          componentKind: component.kind as PcMatchableComponentKind,
+          label: componentSearchLabel(component),
+        };
   emitter?.emit("showPcMatchRomDialog", {
-    target: {
-      kind: "component",
-      romId: props.romId,
-      componentId: component.id,
-      componentKind: component.kind as PcMatchableComponentKind,
-      label: componentLabel(component),
-    },
+    target,
     refresh: () => emit("applied"),
   });
 }
@@ -134,6 +143,42 @@ function componentLabel(component: PcComponentSchema) {
   return t(COMPONENT_LABELS[component.kind]);
 }
 
+function componentSearchLabel(component: PcComponentSchema) {
+  const parentName = props.parentName?.trim();
+  if (!parentName) return componentLabel(component);
+  if (component.kind === "base") return parentName;
+
+  // A component folder is often just "DLC". Its installer name, however,
+  // normally carries the store title (for example ..._going_east.exe).
+  const member = component.manifest_members[0]?.relative_path;
+  const stem = member
+    ?.split("/")
+    .at(-1)
+    ?.replace(/\.[^.]+$/, "")
+    .replace(/^(?:setup|install|installer)[_. -]+/i, "")
+    .replace(/(?:[_. -]+v?\d+(?:[._]\d+)+[a-z]*(?:[._ -]+\d+)*)$/i, "")
+    .replace(/[_.-]+/g, " ")
+    .trim();
+  if (stem) {
+    const parentWords = parentName.toLocaleLowerCase().split(/\s+/);
+    const words = stem.toLocaleLowerCase().split(/\s+/);
+    if (
+      words.slice(0, parentWords.length).join(" ") === parentWords.join(" ") &&
+      words.length > parentWords.length
+    ) {
+      return `${parentName} ${words
+        .slice(parentWords.length)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")}`;
+    }
+  }
+  return `${parentName} ${componentLabel(component)}`;
+}
+
+function componentTitle(component: PcComponentSchema) {
+  return component.component_metadata?.name ?? component.relative_path;
+}
+
 const GROUPS: Array<{ kind: PcComponentSchema["kind"]; label: string }> = [
   { kind: "base", label: "rom.pc-base-game" },
   { kind: "update", label: "rom.pc-updates" },
@@ -209,7 +254,7 @@ const groupedComponents = computed(() =>
         :key="component.relative_path"
         :data-testid="`pc-component-${component.relative_path}`"
         :title="
-          component.kind === 'base' ? group.label : component.relative_path
+          component.kind === 'base' ? group.label : componentTitle(component)
         "
         icon="mdi-folder-outline"
       >

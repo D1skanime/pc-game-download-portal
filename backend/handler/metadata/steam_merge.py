@@ -6,9 +6,39 @@ from datetime import UTC, datetime
 from typing import Any, Mapping
 
 DISPLAY_FIELDS = frozenset(
-    {"name", "summary", "main_developer", "publishers", "pc_release_date"}
+    {
+        "name",
+        "summary",
+        "main_developer",
+        "publishers",
+        "genres",
+        "pc_release_date",
+    }
 )
-MANUAL_FIELDS = frozenset({"name", "summary", "pc_release_date"})
+MANUAL_FIELDS = frozenset(
+    {
+        "name",
+        "summary",
+        "main_developer",
+        "publishers",
+        "genres",
+        "pc_release_date",
+    }
+)
+GERMAN_MONTH_NAMES = {
+    "Januar": "January",
+    "Februar": "February",
+    "März": "March",
+    "April": "April",
+    "Mai": "May",
+    "Juni": "June",
+    "Juli": "July",
+    "August": "August",
+    "September": "September",
+    "Oktober": "October",
+    "November": "November",
+    "Dezember": "December",
+}
 
 
 def normalize_steam(
@@ -40,6 +70,7 @@ def normalize_steam(
             steam.get("publishers"),
             _mapping(steam.get("steam_metadata")).get("publishers"),
         ),
+        "genres": _string_list(_mapping(steam.get("steam_metadata")).get("genres")),
         "pc_release_date": _release_timestamp(
             steam.get("pc_release_date"),
             _mapping(steam.get("steam_metadata")).get("release_date"),
@@ -126,10 +157,13 @@ def _release_timestamp(*values: object) -> int | None:
         date = _mapping(value).get("date") if isinstance(value, Mapping) else value
         if not isinstance(date, str) or not date.strip():
             continue
-        for date_format in ("%d %b, %Y", "%b %d, %Y", "%Y-%m-%d"):
+        normalized_date = date.strip()
+        for german_month, english_month in GERMAN_MONTH_NAMES.items():
+            normalized_date = normalized_date.replace(german_month, english_month)
+        for date_format in ("%d %b, %Y", "%b %d, %Y", "%Y-%m-%d", "%d. %B %Y"):
             try:
                 return int(
-                    datetime.strptime(date.strip(), date_format)
+                    datetime.strptime(normalized_date, date_format)
                     .replace(tzinfo=UTC)
                     .timestamp()
                 )
