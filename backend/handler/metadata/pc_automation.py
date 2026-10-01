@@ -5,10 +5,14 @@ from __future__ import annotations
 import enum
 import re
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable
+from datetime import datetime
+from typing import Any, Awaitable, Callable, NamedTuple, Sequence
 
 from handler.database import db_rom_handler
-from handler.database.pc_automation_handler import DBPcAutomationHandler
+from handler.database.pc_automation_handler import (
+    DBPcAutomationHandler,
+    PcAutomationQueueResult,
+)
 from handler.metadata.pc_match_handler import (
     PcMetadataMatchHandler,
     pc_metadata_match_handler,
@@ -19,7 +23,7 @@ from handler.metadata.pc_steam_enrichment import (
 )
 from handler.metadata.steam_merge import normalize_steam
 from handler.metadata.steam_owned_media import reconcile_steam_patch_media
-from models.pc_automation import PcAutomationTargetKind
+from models.pc_automation import PcAutomationOutcome, PcAutomationTargetKind
 from models.rom import RomComponentKind
 
 
@@ -35,6 +39,18 @@ class AutomationResult:
     decision: AutomationDecision
     normalized_query: str
     reason: str
+
+
+class ReviewAction(NamedTuple):
+    queue_id: int
+    expected_queue_updated_at: datetime
+    expected_target_updated_at: datetime
+
+
+class ReviewBatchAction(NamedTuple):
+    target_kind: PcAutomationTargetKind
+    candidate_fingerprint: str
+    items: Sequence[ReviewAction]
 
 
 _WORD_BOUNDARY = re.compile(
@@ -140,6 +156,114 @@ class PcAutomationHandler:
             )
         self._queue(rom, component, query, candidate, "stale_target")
         return AutomationResult(AutomationDecision.PENDING, query, "stale_target")
+
+    async def list_pending(self, *, limit: int, offset: int):
+        """Expose bounded durable evidence, never browser-supplied candidates."""
+        return self.queue_handler.list_pending(limit=limit, offset=offset)
+
+    def get_review_item(self, queue_id: int):
+        """Load a queue row so the endpoint can authorize its target."""
+        return self.queue_handler.get_review_item(queue_id)
+
+    async def apply_review_item(
+        self,
+        *,
+        queue_id: int,
+        expected_queue_updated_at: datetime,
+        expected_target_updated_at: datetime,
+        candidate_fingerprint: str,
+    ):
+        """Rebuild one Steam candidate and apply it only through guarded writes."""
+        item = self.queue_handler.get_review_item(queue_id)
+        if (
+            item is None
+            or item.candidate_fingerprint != candidate_fingerprint
+            or item.target_updated_at != expected_target_updated_at
+        ):
+            return PcAutomationQueueResult(PcAutomationOutcome.CONFLICT, None)
+        if item.target_kind not in {
+            PcAutomationTargetKind.PARENT,
+            PcAutomationTargetKind.COMPONENT,
+        }:
+            return PcAutomationQueueResult(PcAutomationOutcome.CONFLICT, None)
+        target = self._review_target(item)
+        if target is None:
+            return PcAutomationQueueResult(PcAutomationOutcome.MISSING_TARGET, None)
+        rom, component = target
+        candidate = await self._reconstruct_candidate(item, rom, component)
+        if candidate is None:
+            return PcAutomationQueueResult(PcAutomationOutcome.CONFLICT, None)
+        claimed = self.queue_handler.claim(
+            queue_id, expected_queue_updated_at, expected_target_updated_at
+        )
+        if claimed.outcome != PcAutomationOutcome.CLAIMED or claimed.item is None:
+            return claimed
+        if component is None:
+            applied = await self._apply_parent(rom, candidate)
+        else:
+            applied = await self._apply_component(rom, component, candidate)
+        if not applied:
+            return PcAutomationQueueResult(PcAutomationOutcome.CONFLICT, None)
+        return claimed
+
+    async def apply_review_batch(self, action: ReviewBatchAction):
+        """Prevalidate each durable row before accepting any member of a batch."""
+        if not action.items or len(action.items) > 100:
+            return []
+        prevalidated: list[ReviewAction] = []
+        for request in action.items:
+            item = self.queue_handler.get_review_item(request.queue_id)
+            if (
+                item is None
+                or item.target_kind != action.target_kind
+                or item.candidate_fingerprint != action.candidate_fingerprint
+                or item.target_updated_at != request.expected_target_updated_at
+            ):
+                return []
+            target = self._review_target(item)
+            if target is None:
+                return []
+            candidate = await self._reconstruct_candidate(item, *target)
+            if candidate is None:
+                return []
+            prevalidated.append(request)
+        return [
+            await self.apply_review_item(
+                queue_id=request.queue_id,
+                expected_queue_updated_at=request.expected_queue_updated_at,
+                expected_target_updated_at=request.expected_target_updated_at,
+                candidate_fingerprint=action.candidate_fingerprint,
+            )
+            for request in prevalidated
+        ]
+
+    def _review_target(self, item: Any) -> tuple[Any, Any | None] | None:
+        if item.target_kind == PcAutomationTargetKind.PARENT:
+            rom = self.queue_handler.get_parent_target(item.rom_id)
+            return (rom, None) if rom is not None else None
+        component = self.queue_handler.get_component_target(
+            item.rom_id, item.component_id
+        )
+        if component is None:
+            return None
+        rom = self.queue_handler.get_parent_target(item.rom_id)
+        return (rom, component) if rom is not None else None
+
+    async def _reconstruct_candidate(self, item: Any, rom: Any, component: Any | None):
+        if component is None:
+            candidate = await self.match_handler.fetch_unique_steam_match(
+                rom, item.normalized_query
+            )
+            valid = self._valid_steam_parent(candidate)
+        else:
+            candidate = await self.match_handler.fetch_parent_listed_steam_dlc(
+                rom, component
+            )
+            valid = self._valid_steam_dlc(candidate, getattr(rom, "steam_id", None))
+        if not valid or not isinstance(candidate, dict):
+            return None
+        fingerprint = f"steam:{candidate['steam_id']}:{item.reason}"
+        return candidate if fingerprint == item.candidate_fingerprint else None
 
     def _queue(
         self, rom: Any, component: Any | None, query: str, candidate: Any, reason: str

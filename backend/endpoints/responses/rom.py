@@ -26,6 +26,7 @@ from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.collection import Collection, SmartCollection
+from models.pc_automation import PcAutomationQueueState, PcAutomationTargetKind
 from models.rom import (
     Rom,
     RomArchiveMember,
@@ -129,6 +130,66 @@ class PcMetadataSelectionResponse(BaseModel):
 
 class PcComponentMetadataSelectionResponse(PcMetadataSelectionResponse):
     component_id: int
+
+
+class PcAutomationQueueItemSchema(BaseModel):
+    id: int
+    rom_id: int
+    component_id: int | None
+    target_kind: PcAutomationTargetKind
+    candidate_fingerprint: str
+    candidate_title: str | None
+    candidate_cover_url: str | None
+    provider: str | None
+    reason: str | None
+    state: PcAutomationQueueState
+    expected_queue_version: UTCDatetime
+    expected_target_version: UTCDatetime
+
+
+class PcAutomationQueueResponse(BaseModel):
+    items: list[PcAutomationQueueItemSchema]
+    total: int = Field(ge=0)
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+
+
+class PcAutomationReviewActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_queue_version: UTCDatetime
+    expected_target_version: UTCDatetime
+    candidate_fingerprint: str = Field(min_length=1, max_length=255)
+
+
+class PcAutomationBatchItemRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    queue_id: int = Field(ge=1)
+    expected_queue_version: UTCDatetime
+    expected_target_version: UTCDatetime
+
+
+class PcAutomationBatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_kind: PcAutomationTargetKind
+    candidate_fingerprint: str = Field(min_length=1, max_length=255)
+    items: list[PcAutomationBatchItemRequest] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def unique_queue_ids(self) -> "PcAutomationBatchRequest":
+        if len({item.queue_id for item in self.items}) != len(self.items):
+            raise ValueError("queue ids must be unique")
+        return self
+
+
+class PcAutomationReviewActionResponse(BaseModel):
+    item: PcAutomationQueueItemSchema
+
+
+class PcAutomationBatchResponse(BaseModel):
+    items: list[PcAutomationQueueItemSchema]
 
 
 class UserNoteSchema(BaseModel):

@@ -154,6 +154,12 @@ class DBPcAutomationHandler(DBBaseHandler):
         return items, total or 0
 
     @begin_session
+    def get_review_item(
+        self, queue_id: int, session: Session = None  # type: ignore
+    ) -> PcAutomationQueue | None:
+        return session.get(PcAutomationQueue, queue_id)
+
+    @begin_session
     def mark_skipped(
         self,
         queue_id: int,

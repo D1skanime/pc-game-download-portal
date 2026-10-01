@@ -120,6 +120,11 @@ def test_accept_delegates_only_server_revalidated_identifiers(
         return_value=PcAutomationQueueResult(PcAutomationOutcome.CLAIMED, item)
     )
     monkeypatch.setattr(
+        pc_automation_endpoint.pc_automation_handler,
+        "get_review_item",
+        lambda _id: item,
+    )
+    monkeypatch.setattr(
         pc_automation_endpoint.pc_automation_handler, "apply_review_item", apply
     )
 
@@ -146,6 +151,11 @@ def test_individual_actions_return_conflict_for_stale_versions(
         return_value=PcAutomationQueueResult(PcAutomationOutcome.STALE_TARGET, None)
     )
     monkeypatch.setattr(
+        pc_automation_endpoint.pc_automation_handler,
+        "get_review_item",
+        lambda _id: item,
+    )
+    monkeypatch.setattr(
         pc_automation_endpoint.pc_automation_handler, "apply_review_item", stale
     )
 
@@ -163,7 +173,12 @@ def test_batch_delegates_one_fingerprint_and_kind_for_all_items(
 ):
     item = _item(rom.id)
     apply = AsyncMock(
-        return_value=PcAutomationQueueResult(PcAutomationOutcome.CLAIMED, item)
+        return_value=[PcAutomationQueueResult(PcAutomationOutcome.CLAIMED, item)]
+    )
+    monkeypatch.setattr(
+        pc_automation_endpoint.pc_automation_handler,
+        "get_review_item",
+        lambda _id: item,
     )
     monkeypatch.setattr(
         pc_automation_endpoint.pc_automation_handler, "apply_review_batch", apply
