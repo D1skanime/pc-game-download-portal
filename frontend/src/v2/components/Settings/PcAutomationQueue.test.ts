@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type Component } from "vue";
+import { ref, type Component } from "vue";
 
 const mocks = vi.hoisted(() => ({
   fetchQueue: vi.fn(),
@@ -9,7 +9,11 @@ const mocks = vi.hoisted(() => ({
   skip: vi.fn(),
   batchAccept: vi.fn(),
   snackbar: { error: vi.fn(), success: vi.fn() },
-  canReview: { value: true },
+  route: {
+    path: "/settings/administration",
+    query: {} as Record<string, string>,
+  },
+  router: { replace: vi.fn() },
   store: {
     items: [] as unknown[],
     loading: false,
@@ -24,6 +28,8 @@ const mocks = vi.hoisted(() => ({
     selectedGroupIsSafe: false,
   },
 }));
+
+const canReview = ref(true);
 
 const queueItem = {
   id: 4,
@@ -54,7 +60,7 @@ vi.mock("@/stores/pcAutomation", () => ({
 }));
 
 vi.mock("@/v2/composables/useCan", () => ({
-  useCan: () => mocks.canReview,
+  useCan: () => canReview,
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
@@ -65,9 +71,26 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRoute: () => mocks.route,
+  useRouter: () => mocks.router,
+}));
+
+vi.mock("@/stores/auth", () => ({
+  default: () => ({ scopes: [] }),
+}));
+
 const modules = import.meta.glob("./PcAutomationQueue.vue", { eager: true });
 const Queue = modules["./PcAutomationQueue.vue"] as
   { default: Component } | undefined;
+const administrationModules = import.meta.glob(
+  "../../views/Settings/Administration.vue",
+  { eager: true },
+);
+const Administration = administrationModules[
+  "../../views/Settings/Administration.vue"
+] as { default: Component } | undefined;
 
 function mountQueue() {
   if (!Queue) return null;
@@ -95,7 +118,9 @@ describe("PcAutomationQueue", () => {
     mocks.batchAccept.mockReset();
     mocks.snackbar.error.mockReset();
     mocks.snackbar.success.mockReset();
-    mocks.canReview.value = true;
+    canReview.value = true;
+    mocks.route.query = {};
+    mocks.router.replace.mockReset();
     Object.assign(mocks.store, {
       items: [],
       loading: false,
@@ -120,7 +145,7 @@ describe("PcAutomationQueue", () => {
   });
 
   it("does not render review controls without the edit permission", () => {
-    mocks.canReview.value = false;
+    canReview.value = false;
     const wrapper = mountQueue();
 
     expect(wrapper?.find("[data-testid='pc-automation-queue']").exists()).toBe(
@@ -205,5 +230,40 @@ describe("PcAutomationQueue", () => {
     expect(
       safe.get(".r-v2-pc-automation__batch button").attributes("disabled"),
     ).toBeUndefined();
+  });
+
+  it("keeps the permitted queue tab in the route query and removes denied deep links", async () => {
+    const wrapper = mount(Administration!.default, {
+      global: {
+        stubs: {
+          RTabNav: {
+            props: ["modelValue", "items"],
+            template:
+              '<button data-testid=\'automation-tab\' @click=\'$emit("update:modelValue", "pc-automation")\'>{{ items.map((item) => item.label).join(" ") }}</button>',
+          },
+          UsersSection: true,
+          PermissionGroupsSection: true,
+          TasksSection: true,
+          PcAutomationQueue: true,
+          CreateUserDialog: true,
+          EditUserDialog: true,
+          InviteLinkDialog: true,
+          GroupFormDialog: true,
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain("pc-automation.title");
+    await wrapper.get("[data-testid='automation-tab']").trigger("click");
+    await flushPromises();
+    expect(mocks.router.replace).toHaveBeenCalledWith(
+      expect.objectContaining({ query: { tab: "pc-automation" } }),
+    );
+
+    canReview.value = false;
+    await flushPromises();
+    expect(mocks.router.replace).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: { tab: "users" } }),
+    );
   });
 });

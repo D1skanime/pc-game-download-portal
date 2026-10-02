@@ -17,17 +17,20 @@ import CreateUserDialog from "@/v2/components/Settings/CreateUserDialog.vue";
 import EditUserDialog from "@/v2/components/Settings/EditUserDialog.vue";
 import GroupFormDialog from "@/v2/components/Settings/GroupFormDialog.vue";
 import InviteLinkDialog from "@/v2/components/Settings/InviteLinkDialog.vue";
+import PcAutomationQueue from "@/v2/components/Settings/PcAutomationQueue.vue";
 import PermissionGroupsSection from "@/v2/components/Settings/PermissionGroupsSection.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
+import { useCan } from "@/v2/composables/useCan";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
 
-type Tab = "users" | "groups" | "tasks";
-const validTabs: Tab[] = ["users", "groups", "tasks"];
+type Tab = "users" | "groups" | "tasks" | "pc-automation";
+const validTabs: Tab[] = ["users", "groups", "tasks", "pc-automation"];
+const canReviewPcAutomation = useCan("rom.edit");
 
 const tab = ref<Tab>(
   (validTabs as string[]).includes(route.query.tab as string)
@@ -56,6 +59,14 @@ watch(
   { immediate: true },
 );
 
+watch(
+  canReviewPcAutomation,
+  (allowed) => {
+    if (!allowed && tab.value === "pc-automation") tab.value = "users";
+  },
+  { immediate: true },
+);
+
 const tabs = computed<RTabNavItem[]>(() => {
   const items: RTabNavItem[] = [
     {
@@ -78,6 +89,13 @@ const tabs = computed<RTabNavItem[]>(() => {
       icon: "mdi-pulse",
     });
   }
+  if (canReviewPcAutomation.value) {
+    items.push({
+      id: "pc-automation",
+      label: t("pc-automation.title"),
+      icon: "mdi-robot-outline",
+    });
+  }
   return items;
 });
 
@@ -97,6 +115,7 @@ const tabModel = computed<string>({
     <UsersSection v-if="tab === 'users'" />
     <PermissionGroupsSection v-else-if="tab === 'groups'" />
     <TasksSection v-else-if="tab === 'tasks'" />
+    <PcAutomationQueue v-else-if="tab === 'pc-automation'" />
 
     <CreateUserDialog />
     <EditUserDialog />
