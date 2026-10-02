@@ -1468,17 +1468,11 @@ async def scan_rom(
                 components = getattr(refreshed_rom, "components", [])
                 auto_link_pc_dlc_components(refreshed_rom, components)
                 await auto_link_parent_listed_steam_dlc_components(refreshed_rom)
-        await process_pc_automation_after_scan(
-            platform, scanned_rom, durable_rom, newly_added
-        )
         return scanned_rom
     if platform.slug == UPS.WIN and (newly_added or not scanned_rom.steam_id):
         # The mapped scan already created this durable catalog target. Never pass
         # a filesystem path to automation, only the persisted ROM and components.
         durable_rom = db_rom_handler.add_rom(scanned_rom)
-        await process_pc_automation_after_scan(
-            platform, scanned_rom, durable_rom, newly_added
-        )
     return scanned_rom
 
 

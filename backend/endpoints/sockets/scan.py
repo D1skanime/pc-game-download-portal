@@ -78,6 +78,7 @@ from handler.scan_handler import (
     ScanType,
     execute_mapped_scan,
     persist_soundtrack_cover,
+    process_pc_automation_after_scan,
     scan_firmware,
     scan_platform,
     scan_rom,
@@ -808,6 +809,10 @@ async def _identify_rom(
                 "sibling_roms",
             }
         ),
+    )
+
+    await process_pc_automation_after_scan(
+        platform, scanned_rom, _added_rom, newly_added
     )
 
 

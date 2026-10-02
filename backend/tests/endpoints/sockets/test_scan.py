@@ -886,6 +886,94 @@ class TestIdentifyRomReassociation:
         # Rows are reconciled against the scan, so file ids survive the rescan.
         db.sync_rom_files.assert_called_once_with(99, [])
 
+    async def test_pc_automation_runs_after_the_final_scan_write(self, patched, mocker):
+        """Fresh review evidence must observe the final post-scan version."""
+        db = patched
+        platform = Platform(name="Windows", slug="win", fs_slug="win")
+        platform.id = 1
+        scanned_rom = MagicMock(is_identified=False, steam_id=None)
+        durable_rom = MagicMock(
+            id=99,
+            is_identified=False,
+            igdb_metadata=None,
+            url_cover="",
+            url_manual="",
+            url_screenshots=[],
+            ss_metadata={},
+            gamelist_metadata={},
+            launchbox_metadata={},
+            ra_metadata={},
+        )
+        db.add_rom.side_effect = [durable_rom, durable_rom]
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+        mocker.patch.object(
+            scan_module, "scan_rom", AsyncMock(return_value=scanned_rom)
+        )
+        mocker.patch.object(
+            scan_module.SimpleRomSchema,
+            "from_orm_with_factory",
+            return_value=MagicMock(model_dump=MagicMock(return_value={})),
+        )
+        process_automation = mocker.patch.object(
+            scan_module,
+            "process_pc_automation_after_scan",
+            AsyncMock(),
+            create=True,
+        )
+        mocker.patch.object(
+            scan_module.fs_resource_handler,
+            "get_cover",
+            AsyncMock(return_value=("", "")),
+        )
+        mocker.patch.object(
+            scan_module.fs_resource_handler,
+            "get_manual",
+            AsyncMock(return_value=""),
+        )
+        mocker.patch.object(
+            scan_module.fs_resource_handler,
+            "get_rom_screenshots",
+            AsyncMock(return_value=[]),
+        )
+
+        await _identify_rom(
+            platform=platform,
+            fs_rom={
+                "fs_name": "Civilization VI.iso",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            rom=None,
+            scan_type=ScanType.NEW_PLATFORMS,
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+        db.update_rom.assert_called_once_with(
+            99,
+            {
+                "path_cover_s": "",
+                "path_cover_l": "",
+                "path_screenshots": [],
+                "path_manual": "",
+            },
+        )
+        process_automation.assert_awaited_once_with(
+            platform, scanned_rom, durable_rom, True
+        )
+
     async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):
         db = patched
         db.get_matching_missing_rom.return_value = None

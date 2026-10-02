@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import ANY, AsyncMock, Mock, patch
 
 import pytest
@@ -14,7 +15,7 @@ from handler.scan_handler import (
     scan_rom,
 )
 from models.platform import Platform
-from models.rom import Rom, RomComponentKind
+from models.rom import Rom, RomComponent, RomComponentKind
 
 
 def _rom(*, steam_id: int | None = None) -> SimpleNamespace:
@@ -158,7 +159,7 @@ def test_auto_link_pc_dlc_adds_igdb_to_a_component_already_identified_by_steam()
             "handler.scan_handler.db_rom_handler.apply_pc_component_metadata_candidate"
         ) as apply_candidate,
     ):
-        auto_link_pc_dlc_components(rom, [component])
+        auto_link_pc_dlc_components(cast(Rom, rom), [cast(RomComponent, component)])
 
     find_candidate.assert_called_once_with(rom, component)
     apply_candidate.assert_called_once_with(41, 7, "version", "igdb", {"igdb_id": 456})
@@ -503,17 +504,11 @@ async def test_steam_structured_metadata_persists_through_rom_not_metadata_view(
 
 
 @pytest.mark.asyncio
-async def test_steam_scan_queues_automation_from_the_final_durable_rom_version():
-    """Automation evidence must be based on the last scan write, not an old ORM row."""
+async def test_steam_scan_defers_automation_until_the_final_scan_write():
+    """The caller owns automation after all scan-side writes are durable."""
     platform, rom = _igdb_scan_fixture(platform_slug="win")
     persisted = SimpleNamespace(id=rom.id, updated_at="initial-version")
     after_structured_overlay = SimpleNamespace(id=rom.id, updated_at="overlay-version")
-    final_rom = SimpleNamespace(
-        id=rom.id,
-        updated_at="final-version",
-        steam_id=None,
-        components=[],
-    )
     resolver = AsyncMock(
         return_value={
             "steam_id": 1091500,
@@ -537,8 +532,6 @@ async def test_steam_scan_queues_automation_from_the_final_durable_rom_version()
             side_effect=[
                 after_structured_overlay,
                 after_structured_overlay,
-                final_rom,
-                final_rom,
             ],
         ),
         patch(
@@ -574,7 +567,7 @@ async def test_steam_scan_queues_automation_from_the_final_durable_rom_version()
             newly_added=True,
         )
 
-    process_parent.assert_awaited_once_with(final_rom)
+    process_parent.assert_not_awaited()
     assert add_rom.call_args_list[-1].args[0].summary == "Deutsche Zusammenfassung"
 
 
