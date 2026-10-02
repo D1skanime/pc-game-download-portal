@@ -22,7 +22,7 @@ def _component(
 ) -> RomComponent:
     component = RomComponent(
         rom_id=rom_id,
-        relative_path="dlc/automation-test",
+        relative_path=f"{kind.value}/automation-test",
         kind=kind,
     )
     with session.begin() as db:
@@ -161,7 +161,7 @@ def test_claim_rejects_a_stale_target_version(rom):
     assert stale.item is None
 
 
-def test_manual_resolution_claims_only_the_exact_old_pending_target(rom):
+def test_manual_resolution_claims_pending_evidence_older_than_selection(rom):
     handler = _handler()
     target = handler.get_parent_target(rom.id)
     assert target is not None
@@ -178,13 +178,16 @@ def test_manual_resolution_claims_only_the_exact_old_pending_target(rom):
     with session.begin() as db:
         managed = db.get(type(rom), rom.id)
         assert managed is not None
-        managed.summary = "Manual correction persisted"
+        managed.summary = "Target changed before manual correction"
+
+    selection_target = handler.get_parent_target(rom.id)
+    assert selection_target is not None
 
     resolved = handler.resolve_after_manual_selection(
         target_kind=PcAutomationTargetKind.PARENT,
         rom_id=rom.id,
         component_id=None,
-        consumed_target_updated_at=target.updated_at,
+        consumed_target_updated_at=selection_target.updated_at,
     )
     assert resolved.outcome == PcAutomationOutcome.CLAIMED
     assert resolved.item is not None
@@ -197,7 +200,7 @@ def test_manual_resolution_claims_only_the_exact_old_pending_target(rom):
         target_kind=PcAutomationTargetKind.PARENT,
         rom_id=rom.id,
         component_id=None,
-        consumed_target_updated_at=target.updated_at,
+        consumed_target_updated_at=selection_target.updated_at,
     )
     assert repeated.outcome == PcAutomationOutcome.UNCHANGED
     assert repeated.item is None
@@ -233,6 +236,10 @@ def test_manual_resolution_preserves_a_reopened_or_unrelated_pending_target(rom)
     )
     assert reopened.outcome == PcAutomationOutcome.REOPENED
     assert reopened.item is not None
+    with session.begin() as db:
+        managed = db.get(PcAutomationQueue, reopened.item.id)
+        assert managed is not None
+        managed.target_updated_at = target.updated_at + timedelta(seconds=1)
 
     stale = handler.resolve_after_manual_selection(
         target_kind=PcAutomationTargetKind.PARENT,

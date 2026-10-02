@@ -274,7 +274,7 @@ class DBPcAutomationHandler(DBBaseHandler):
         consumed_target_updated_at: datetime,
         session: Session = None,  # type: ignore
     ) -> PcAutomationQueueResult:
-        """Claim the exact pending review item consumed by a manual selection."""
+        """Claim pending review evidence consumed by a manual selection."""
         snapshot = self._load_target(
             session, target_kind, rom_id, component_id, for_update=True
         )
@@ -286,14 +286,15 @@ class DBPcAutomationHandler(DBBaseHandler):
                 PcAutomationQueue.target_identity
                 == self._target_identity(target_kind, rom_id, component_id)
             )
+            .where(PcAutomationQueue.state == PcAutomationQueueState.PENDING)
+            .where(
+                PcAutomationQueue.target_incarnation
+                == snapshot.parent.incarnation_token
+            )
+            .where(PcAutomationQueue.target_updated_at <= consumed_target_updated_at)
             .with_for_update()
         )
-        if (
-            item is None
-            or item.state != PcAutomationQueueState.PENDING
-            or item.target_incarnation != snapshot.parent.incarnation_token
-            or item.target_updated_at != consumed_target_updated_at
-        ):
+        if item is None:
             return PcAutomationQueueResult(PcAutomationOutcome.UNCHANGED, None)
         item.state = PcAutomationQueueState.CLAIMED
         item.last_attempt_at = datetime.now(timezone.utc)
