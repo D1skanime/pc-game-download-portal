@@ -4,10 +4,12 @@
 /* eslint-disable */
 import type { PcAutomationQueueState } from './PcAutomationQueueState';
 import type { PcAutomationTargetKind } from './PcAutomationTargetKind';
+import type { RomComponentKind } from './RomComponentKind';
 export type PcAutomationQueueItemSchema = {
     id: number;
     rom_id: number;
     component_id: (number | null);
+    component_kind: (RomComponentKind | null);
     target_kind: PcAutomationTargetKind;
     candidate_fingerprint: string;
     candidate_title: (string | null);
