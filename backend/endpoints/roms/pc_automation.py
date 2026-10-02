@@ -22,17 +22,29 @@ from handler.metadata.pc_automation import (
     ReviewBatchAction,
     pc_automation_handler,
 )
-from models.pc_automation import PcAutomationOutcome
+from models.pc_automation import PcAutomationOutcome, PcAutomationTargetKind
+from models.rom import RomComponentKind
 from utils.router import APIRouter
 
 router = APIRouter()
 
 
 def _schema(item) -> PcAutomationQueueItemSchema:
+    component_kind = None
+    if item.component_id is not None:
+        component = db_rom_handler.get_pc_component_by_id(
+            item.rom_id, item.component_id
+        )
+        if component is not None and component.kind in {
+            RomComponentKind.DLC,
+            RomComponentKind.EXTRA,
+        }:
+            component_kind = component.kind
     return PcAutomationQueueItemSchema(
         id=item.id,
         rom_id=item.rom_id,
         component_id=item.component_id,
+        component_kind=component_kind,
         target_kind=item.target_kind,
         candidate_fingerprint=item.candidate_fingerprint,
         candidate_title=item.candidate_title,
@@ -79,7 +91,13 @@ async def get_review_queue(
             if exc.status_code != status.HTTP_404_NOT_FOUND:
                 raise
             continue
-        visible.append(_schema(item))
+        response_item = _schema(item)
+        if (
+            item.target_kind == PcAutomationTargetKind.COMPONENT
+            and response_item.component_kind is None
+        ):
+            continue
+        visible.append(response_item)
     # Do not let a hidden target change a count visible to this caller.
     return PcAutomationQueueResponse(
         items=visible, total=len(visible), limit=limit, offset=offset

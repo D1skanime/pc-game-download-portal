@@ -136,6 +136,7 @@ class PcAutomationQueueItemSchema(BaseModel):
     id: int
     rom_id: int
     component_id: int | None
+    component_kind: RomComponentKind | None
     target_kind: PcAutomationTargetKind
     candidate_fingerprint: str
     candidate_title: str | None
