@@ -84,6 +84,9 @@ class ScanLibraryTask(PeriodicTask):
             scope=ScanScope.LIBRARY,
             scan_type=ScanType.QUICK,
         )
+        if not commands:
+            log.info("Scheduled library scan skipped, no active storage mappings")
+            return scan_stats.to_dict()
         scan_stats = await execute_mapping_scans(
             commands,
             metadata_sources=metadata_sources,

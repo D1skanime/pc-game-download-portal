@@ -92,6 +92,49 @@ class TestScanLibraryTask:
         task.unschedule.assert_called_once()
         mock_execute.assert_not_called()
 
+    async def test_run_skips_execution_when_no_active_mappings_exist(
+        self, task, mocker
+    ):
+        """An unmapped platform must not make a scheduled library scan fail."""
+        mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", True)
+        for handler in (
+            "meta_hasheous_handler",
+            "meta_igdb_handler",
+            "meta_launchbox_handler",
+            "meta_moby_handler",
+            "meta_playmatch_handler",
+            "meta_ra_handler",
+            "meta_sgdb_handler",
+            "meta_ss_handler",
+            "meta_flashpoint_handler",
+            "meta_hltb_handler",
+            "meta_tgdb_handler",
+            "meta_libretro_handler",
+            "meta_steam_handler",
+        ):
+            mocker.patch.object(
+                getattr(
+                    __import__("tasks.scheduled.scan_library", fromlist=[handler]),
+                    handler,
+                ),
+                "is_enabled",
+                return_value=False,
+            )
+        mocker.patch(
+            "tasks.scheduled.scan_library.meta_igdb_handler.is_enabled",
+            return_value=True,
+        )
+        mocker.patch(
+            "tasks.scheduled.scan_library.mapping_scan_commands", return_value=[]
+        )
+        execute = mocker.patch(
+            "tasks.scheduled.scan_library.execute_mapping_scans", new=AsyncMock()
+        )
+
+        await task.run()
+
+        execute.assert_not_awaited()
+
     def test_task_instance(self):
         assert isinstance(scan_library_task, ScanLibraryTask)
         assert (
@@ -157,6 +200,7 @@ class TestScanLibraryTask:
 
         scheduler.schedule.assert_called_once()
         assert scheduler.schedule.call_args.kwargs["interval"] == 10
+        assert scheduler.schedule.call_args.kwargs["repeat"] is None
 
     def test_uat_interval_task_calls_the_mapped_scan_function(self):
         task = PcAutomationUatIntervalTask()
