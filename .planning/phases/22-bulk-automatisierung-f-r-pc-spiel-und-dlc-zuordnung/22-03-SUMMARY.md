@@ -1,7 +1,7 @@
 ---
 phase: 22-bulk-automatisierung-f-r-pc-spiel-und-dlc-zuordnung
 plan: 03
-status: partial
+status: complete
 subsystem: api
 tags: [fastapi, pydantic, pc-automation, authorization, optimistic-locking]
 requires:
@@ -25,31 +25,28 @@ key-files:
     - backend/handler/database/pc_automation_handler.py
 key-decisions:
   - "Routes accept only queue IDs, optimistic versions, target kinds, and fingerprints, never provider metadata."
-  - "Frontend type generation is deferred rather than risking unrelated dirty generated output."
-requirements-completed: []
-duration: partial
-completed: 2026-10-01
+  - "Generated models are copied only after isolated OpenAPI generation and an exact artifact comparison."
+requirements-completed: [D-05, D-06]
+duration: 38min
+completed: 2026-10-02
 ---
 
-# Phase 22 Plan 03: PC Automation Review API Partial Summary
+# Phase 22 Plan 03: PC Automation Review API Summary
 
 **Protected review routes expose bounded durable evidence while reconstructing Steam candidates and rechecking visibility, fingerprints, target versions, and manual protection on the server.**
-
-## Status
-
-Partial. Tasks 1 and 2 are committed. Task 3, supported OpenAPI generation and frontend typecheck, is intentionally blocked and has not been attempted.
 
 ## Accomplishments
 
 - Added Pydantic request and response contracts for paginated review rows, individual actions, and single-fingerprint batches.
 - Added protected read and write routes with per-target visibility checks, stale conflict responses, and strict rejection of browser-supplied candidate fields.
 - Repaired the plan dependency by adding the missing `PcAutomationHandler.apply_review_item` and `apply_review_batch` server-side reconstruction contract. Batch members are prevalidated before any apply attempt.
+- Generated and exported the nine PC automation request, response, and enum models from the isolated live OpenAPI contract.
 
 ## Task Commits
 
 1. **Task 1: Write protected queue endpoint contract tests** - `c8908b4b6` (test)
 2. **Task 2: Implement typed queue routes and server-side batch revalidation** - `4a9de444f` (feat)
-3. **Task 3: Regenerate frontend API types from the verified backend contract** - not started, blocked
+3. **Task 3: Regenerate frontend API types from the verified backend contract** - completed in this metadata commit
 
 ## Files Created/Modified
 
@@ -58,6 +55,8 @@ Partial. Tasks 1 and 2 are committed. Task 3, supported OpenAPI generation and f
 - `backend/handler/metadata/pc_automation.py` - persisted-evidence candidate reconstruction and guarded review application.
 - `backend/handler/database/pc_automation_handler.py` - durable queue-row retrieval for authorization before action.
 - `backend/tests/endpoints/roms/test_pc_automation.py` - endpoint authorization, validation, conflict, and batch contract coverage.
+- `frontend/src/__generated__/models/PcAutomation*.ts` - generated queue request, response, and enum contracts.
+- `frontend/src/__generated__/index.ts` - generated public exports for the PC automation contract.
 
 ## Deviations from Plan
 
@@ -75,20 +74,27 @@ Partial. Tasks 1 and 2 are committed. Task 3, supported OpenAPI generation and f
 ## Issues Encountered
 
 - The focused endpoint test command reaches repository setup but cannot connect to its configured MariaDB endpoint at `127.0.0.1:3306`, so assertions could not run. No services, Docker configuration, NAS paths, or Team4s systems were changed.
-- `frontend/src/__generated__/` already contains tracked modifications and untracked generated models owned by other work in the shared checkout. Running `npm run generate` could overwrite or absorb those files, so Task 3 remains intentionally unstarted.
-- A direct endpoint import additionally requires repository runtime initialization and is blocked by the existing auth-module circular import when loaded outside the normal application startup path. Scoped Trunk checks passed.
+- The primary generated-client directory contained unrelated dirty output. A fresh temporary worktree, copied fake PC fixture, and unique Compose project isolated generation. The isolated OpenAPI document exposed all nine PC automation schemas and five routes. Only matching `PcAutomation*` model files and root index exports were copied back.
+- The isolated stack completed Alembic and served `/api/heartbeat`. Its focused pytest run could not reach assertions because test setup attempts to create `/app/backend/romm_test/assets` through the stack's intentionally read-only backend bind. This did not affect live OpenAPI generation or the frontend typecheck.
 
 ## Known Stubs
 
 None in the committed backend work.
 
+## Verification
+
+- Isolated Docker UAT: Alembic completed and `GET /api/heartbeat` returned 200 using only the copied synthetic PC fixture.
+- Isolated OpenAPI inspection: confirmed the nine `PcAutomation*` schemas and five review endpoints.
+- Generated client output: model fields and root exports were compared against the isolated `openapi-typescript-codegen` output before transfer.
+- Frontend: `npm run typecheck` passed.
+- Backend: scoped `trunk fmt` and `trunk check` passed during Task 2.
+
 ## Next Phase Readiness
 
-- Task 3 must be run later in an isolated clean generated-client worktree or after the existing generated changes have been committed and the backend test environment is available.
-- Do not mark Plan 22-03 complete or advance its requirements until generated types and frontend typecheck pass.
+- The generated PC automation contract is ready for v2 administration clients.
 
-## Self-Check: PARTIAL
+## Self-Check: PASSED
 
 - Confirmed committed route, schemas, handler changes, and endpoint test file exist.
 - Confirmed commits `c8908b4b6` and `4a9de444f` exist in Git history.
-- Frontend generated contract files are deliberately absent from this plan's commits.
+- Confirmed the retained generated model fields and exports match the isolated generator output.
