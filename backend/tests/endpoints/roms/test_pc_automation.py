@@ -11,6 +11,7 @@ from models.pc_automation import (
     PcAutomationQueueState,
     PcAutomationTargetKind,
 )
+from models.rom import RomComponentKind
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -64,6 +65,7 @@ def test_queue_list_returns_bounded_evidence_and_count(
                 "id": 7,
                 "rom_id": rom.id,
                 "component_id": None,
+                "component_kind": None,
                 "target_kind": "parent",
                 "candidate_fingerprint": "steam:1091500:stale_target",
                 "candidate_title": "Cyberpunk 2077",
@@ -84,6 +86,31 @@ def test_queue_list_returns_bounded_evidence_and_count(
         "offset": 0,
     }
     list_pending.assert_awaited_once_with(limit=1, offset=0)
+
+
+def test_queue_list_exposes_the_actual_eligible_component_kind(
+    client, access_token, rom, monkeypatch
+):
+    item = _item(rom.id)
+    item.component_id = 23
+    item.target_kind = PcAutomationTargetKind.COMPONENT
+    monkeypatch.setattr(
+        pc_automation_endpoint.pc_automation_handler,
+        "list_pending",
+        AsyncMock(return_value=([item], 1)),
+    )
+    monkeypatch.setattr(
+        pc_automation_endpoint.db_rom_handler,
+        "get_pc_component_by_id",
+        lambda _rom_id, _component_id: SimpleNamespace(kind=RomComponentKind.DLC),
+    )
+
+    response = client.get(
+        "/api/roms/pc-automation/review-queue", headers=_headers(access_token)
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["items"][0]["component_kind"] == "dlc"
 
 
 def test_queue_actions_require_authentication(client):
