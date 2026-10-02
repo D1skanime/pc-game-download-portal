@@ -149,7 +149,8 @@ class TestScanLibraryTask:
         )
         mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", True)
         mocker.patch(
-            "tasks.scheduled.scan_library.mapping_scan_commands", return_value=[]
+            "tasks.scheduled.scan_library.mapping_scan_commands",
+            return_value=[MagicMock()],
         )
         execute = mocker.patch(
             "tasks.scheduled.scan_library.execute_mapping_scans",

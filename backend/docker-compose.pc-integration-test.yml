@@ -11,7 +11,7 @@ services:
       romm.phase: "10"
       romm.phase.slug: pc-integration-model
     environment:
-      ROMM_AUTH_SECRET_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      ROMM_AUTH_SECRET_KEY: "${ROMM_AUTH_SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
       DB_HOST: database
       DB_PORT: "3306"
       DB_NAME: romm
@@ -21,6 +21,9 @@ services:
       REDIS_PORT: "6379"
       ROMM_BASE_PATH: /romm
       DEV_HOST: 0.0.0.0
+      DEV_MODE: "${DEV_MODE:-false}"
+      ENABLE_SCHEDULED_RESCAN: "${ENABLE_SCHEDULED_RESCAN:-false}"
+      PC_AUTOMATION_UAT_INTERVAL_SECONDS: "${PC_AUTOMATION_UAT_INTERVAL_SECONDS:-0}"
       PYTHONDONTWRITEBYTECODE: "1"
     entrypoint:
       - /bin/bash
@@ -62,6 +65,116 @@ services:
       - type: bind
         source: ${PHASE10_ARTIFACTS:?set PHASE10_ARTIFACTS}
         target: /phase10-artifacts
+  scheduler:
+    image: romm-romm-dev:latest
+    working_dir: /app/backend
+    depends_on:
+      database:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
+    labels:
+      romm.phase: "10"
+      romm.phase.slug: pc-integration-model
+    environment:
+      ROMM_AUTH_SECRET_KEY: "${ROMM_AUTH_SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
+      DB_HOST: database
+      DB_PORT: "3306"
+      DB_NAME: romm
+      DB_USER: romm
+      DB_PASSWD: romm
+      REDIS_HOST: queue
+      REDIS_PORT: "6379"
+      ROMM_BASE_PATH: /romm
+      DEV_MODE: "${DEV_MODE:-false}"
+      ENABLE_SCHEDULED_RESCAN: "${ENABLE_SCHEDULED_RESCAN:-false}"
+      PC_AUTOMATION_UAT_INTERVAL_SECONDS: "${PC_AUTOMATION_UAT_INTERVAL_SECONDS:-0}"
+      PYTHONDONTWRITEBYTECODE: "1"
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+        set -euo pipefail
+        cd /app/backend
+        PYTHONPATH=/app/backend rqscheduler \
+          --url redis://queue:6379/0 \
+          --path /app/backend \
+          --interval 1
+    volumes:
+      - type: bind
+        source: ${PHASE10_REPO_ROOT:?set PHASE10_REPO_ROOT}
+        target: /workspace
+        read_only: true
+      - type: bind
+        source: ${PHASE10_REPO_ROOT:?set PHASE10_REPO_ROOT}/backend
+        target: /app/backend
+        read_only: true
+      - type: bind
+        source: ${PHASE10_FIXTURE_SOURCE:?set PHASE10_FIXTURE_SOURCE}/roms
+        target: /romm/library/roms
+        read_only: true
+      - phase10-assets:/romm/assets
+      - phase10-cache:/romm/cache
+      - phase10-config:/romm/config
+      - phase10-database:/romm/database
+      - phase10-resources:/romm/resources
+      - phase10-tmp:/romm/tmp
+  worker:
+    image: romm-romm-dev:latest
+    working_dir: /app/backend
+    depends_on:
+      database:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
+    labels:
+      romm.phase: "10"
+      romm.phase.slug: pc-integration-model
+    environment:
+      ROMM_AUTH_SECRET_KEY: "${ROMM_AUTH_SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
+      DB_HOST: database
+      DB_PORT: "3306"
+      DB_NAME: romm
+      DB_USER: romm
+      DB_PASSWD: romm
+      REDIS_HOST: queue
+      REDIS_PORT: "6379"
+      ROMM_BASE_PATH: /romm
+      DEV_MODE: "${DEV_MODE:-false}"
+      ENABLE_SCHEDULED_RESCAN: "${ENABLE_SCHEDULED_RESCAN:-false}"
+      PC_AUTOMATION_UAT_INTERVAL_SECONDS: "${PC_AUTOMATION_UAT_INTERVAL_SECONDS:-0}"
+      PYTHONDONTWRITEBYTECODE: "1"
+    entrypoint:
+      - /bin/bash
+      - -lc
+      - |
+        set -euo pipefail
+        cd /app/backend
+        PYTHONPATH=/app/backend rq worker \
+          --url redis://queue:6379/0 \
+          --path /app/backend \
+          --worker-class handler.rq_worker.RomMWorker \
+          --logging_level INFO \
+          low
+    volumes:
+      - type: bind
+        source: ${PHASE10_REPO_ROOT:?set PHASE10_REPO_ROOT}
+        target: /workspace
+        read_only: true
+      - type: bind
+        source: ${PHASE10_REPO_ROOT:?set PHASE10_REPO_ROOT}/backend
+        target: /app/backend
+        read_only: true
+      - type: bind
+        source: ${PHASE10_FIXTURE_SOURCE:?set PHASE10_FIXTURE_SOURCE}/roms
+        target: /romm/library/roms
+        read_only: true
+      - phase10-assets:/romm/assets
+      - phase10-cache:/romm/cache
+      - phase10-config:/romm/config
+      - phase10-database:/romm/database
+      - phase10-resources:/romm/resources
+      - phase10-tmp:/romm/tmp
   nginx:
     image: nginx:1.29-alpine
     depends_on:

@@ -160,3 +160,80 @@ No isolated Docker stack or browser action has been run while preparing this
 record. Task 3 must append the actual unique project name, isolated URL,
 pre/post digest outputs, observed queue count/progress, action outcomes, and
 cleanup result. Do not mark this UAT approved until that evidence is recorded.
+
+## Fresh Manual-Correction Proof
+
+Run this proof only in a new disposable project. Do not reuse a running UAT
+database, fixture directory, volume, or Compose project.
+
+1. Create a new `mktemp -d` root containing the established 20 text-only
+   Windows fixtures. The fixture names may use real title text, but the file
+   contents must be synthetic text only. Use the fixture root's `roms` child
+   as `PHASE10_FIXTURE_SOURCE` and mount it read-only.
+2. Select a unique `COMPOSE_PROJECT_NAME` of the form
+   `romm-phase22-correction-<timestamp>`. Create an untracked environment
+   override under that same temporary root. The override sets only
+   `DEV_MODE=true`, `PC_AUTOMATION_UAT_INTERVAL_SECONDS=10`, and the normal
+   local provider configuration. Never put a provider key, login secret, or
+   production path in this record or an override.
+3. Capture the complete manifest as `before.json`. Start only the named
+   project with `backend/docker-compose.pc-integration-test.yml`, wait for its
+   app and database to become healthy, then run
+   `python /app/backend/tools/seed_phase22_uat_database.py` twice inside its
+   app service. Both runs must report the same non-secret root, platform, and
+   mapping ids. Confirm the root is `/romm/library/roms`, has mode
+   `external_read_only`, and has an active `win` mapping at relative path
+   `win`.
+4. In the browser through the established SSH tunnel on port 3344, log in to
+   this disposable stack and run **Library scan, Quick scan**. Record the
+   pending-review count after the scan and preserve an authenticated API or
+   disposable database query that identifies the Cyberpunk 2077: Phantom
+   Liberty component queue row.
+5. Use the existing MatchRomDialog to select the canonical Cyberpunk 2077:
+   Phantom Liberty Steam candidate, app id `2138330`. After a successful
+   save, reload the queue. The exact component row must be terminal `claimed`
+   and absent from the pending response. The pending count must decrease by
+   one and unrelated rows must remain pending.
+6. Perform the stale proof in the same disposable project by first retaining
+   or creating a newer component target incarnation and pending queue version.
+   A later resolution using the consumed old target version must be a no-op;
+   the newer pending row must remain visible.
+7. Capture the manifest after scan and after every browser action. Compare
+   each capture byte-for-byte with `before.json`. Record only the comparison
+   outcome, project name, non-secret identifiers, and queue outcomes.
+8. After the final comparison, run `docker compose down --volumes
+--remove-orphans` with this exact project name and remove only this exact
+   `mktemp -d` root. Do not use global Docker prune commands.
+
+The manual-correction proof passes only when the exact consumed row becomes
+`claimed`, stale replacement evidence stays `pending`, and all fixture
+manifests remain identical.
+
+## Automated Interval-Scan Evidence, 2026-10-02
+
+The scheduler proof used the disposable Compose project
+`romm-phase22-qut-1790974495` and a new temporary fixture root. It ran the
+repository Compose definition with `app`, `database`, `queue`, `scheduler`,
+`worker`, and `nginx`, with the development-only ten-second interval enabled.
+All fixture files were synthetic text files and the source bind was read-only.
+
+- The first two scheduled executions ran before seeding and logged an empty
+  active-mapping set without failing. This proves an unmapped platform cannot
+  abort the recurring job.
+- The seeded active `win` mapping was then detected by the next interval
+  execution. The low-priority worker completed a full mapped scan without a
+  browser-started scan.
+- `Sekiro Shadows Die Twice/Sekiro Shadows Die Twice.iso` was added only after
+  the baseline setup. A later ten-second interval discovered it automatically
+  as `Sekiro: Shadows Die Twice`; the disposable catalog contains one ROM and
+  one pending review item with normalized query `Sekiro Shadows Die Twice`.
+- The fixture manifest captured immediately after adding Sekiro matched the
+  manifest captured after two further interval windows byte-for-byte. A worker
+  mount check also confirmed the source file was not writable.
+- Cleanup ran only for project `romm-phase22-qut-1790974495` with
+  `down --volumes --remove-orphans`. Its temporary fixture root was moved to
+  the local trash after the manifest comparison.
+
+This is automated scheduler evidence only. The browser review, correction,
+skip, and stale-conflict checks remain required before Phase 22 can be marked
+UAT-approved.
