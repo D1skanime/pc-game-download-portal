@@ -23,6 +23,7 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
+from handler.database.pc_automation_handler import DBPcAutomationHandler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.metadata.pc_match_handler import (
     PcMetadataCandidate,
@@ -32,6 +33,7 @@ from handler.metadata.pc_steam_enrichment import (
     SteamPcEnrichmentRequest,
     resolve_steam_pc_enrichment,
 )
+from models.pc_automation import PcAutomationTargetKind
 from models.rom import (
     RomComponentKind,
     RomComponentOwnedMediaOrigin,
@@ -40,6 +42,7 @@ from models.rom import (
 from utils.router import APIRouter
 
 router = APIRouter()
+pc_automation_queue_handler = DBPcAutomationHandler()
 
 
 MATCHABLE_PC_COMPONENT_KINDS = frozenset(
@@ -278,6 +281,12 @@ async def select_pc_component_metadata_candidate(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT, detail=str(exc)
             ) from exc
+    pc_automation_queue_handler.resolve_after_manual_selection(
+        target_kind=PcAutomationTargetKind.COMPONENT,
+        rom_id=id,
+        component_id=component_id,
+        consumed_target_updated_at=selection.expected_version,
+    )
     return PcComponentMetadataSelectionResponse(
         candidate_id=candidate.id,
         component_id=component_id,
@@ -621,6 +630,13 @@ async def select_pc_metadata_candidate(
         )
     if media_updates:
         db_rom_handler.update_rom(id, media_updates)
+
+    pc_automation_queue_handler.resolve_after_manual_selection(
+        target_kind=PcAutomationTargetKind.PARENT,
+        rom_id=id,
+        component_id=None,
+        consumed_target_updated_at=selection.expected_version,
+    )
 
     return PcMetadataSelectionResponse(
         candidate_id=candidate.id, expected_version=updated.updated_at

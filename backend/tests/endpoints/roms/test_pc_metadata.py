@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import status
 
+from endpoints.roms import pc_metadata as pc_metadata_endpoint
 from endpoints.roms.pc_metadata import (
     _candidate_media_id,
     pc_metadata_match_handler,
@@ -15,6 +16,7 @@ from handler.metadata.pc_match_handler import (
     PcMetadataCandidate,
     PcMetadataProviderResult,
 )
+from models.pc_automation import PcAutomationTargetKind
 from models.permission import HiddenEntity, PermEntity
 from models.rom import (
     RomComponent,
@@ -199,6 +201,139 @@ def test_pc_component_metadata_selection_recomputes_submitted_query(
     assert response.status_code == status.HTTP_200_OK
     assert collect.await_args is not None
     assert collect.await_args.args[2] == "Phantom Liberty"
+
+
+def test_successful_component_selection_resolves_only_the_consumed_queue_item(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    resolve = Mock()
+    monkeypatch.setattr(
+        pc_metadata_endpoint.pc_automation_queue_handler,
+        "resolve_after_manual_selection",
+        resolve,
+    )
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates",
+        AsyncMock(return_value=_candidate_results()),
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": _candidate().id,
+            "query": "Phantom Liberty",
+            "expected_version": component.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    resolve.assert_called_once_with(
+        target_kind=PcAutomationTargetKind.COMPONENT,
+        rom_id=rom.id,
+        component_id=component.id,
+        consumed_target_updated_at=component.updated_at,
+    )
+
+
+def test_stale_component_selection_does_not_resolve_a_queue_item(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    resolve = Mock()
+    monkeypatch.setattr(
+        pc_metadata_endpoint.pc_automation_queue_handler,
+        "resolve_after_manual_selection",
+        resolve,
+    )
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates",
+        AsyncMock(return_value=_candidate_results()),
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": _candidate().id,
+            "query": "Phantom Liberty",
+            "expected_version": (component.updated_at - timedelta(days=1)).isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    resolve.assert_not_called()
+
+
+def test_failed_component_media_import_does_not_resolve_a_queue_item(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    resolve = Mock()
+    monkeypatch.setattr(
+        pc_metadata_endpoint.pc_automation_queue_handler,
+        "resolve_after_manual_selection",
+        resolve,
+    )
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates",
+        AsyncMock(return_value=_candidate_results()),
+    )
+    monkeypatch.setattr(
+        fs_resource_handler,
+        "store_pc_component_provider_image",
+        AsyncMock(side_effect=ValueError("media import failed")),
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": _candidate().id,
+            "query": "Phantom Liberty",
+            "selected_media_ids": [
+                _candidate_media_id(_candidate(), _candidate().media[0])
+            ],
+            "expected_version": component.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    resolve.assert_not_called()
 
 
 def test_dlc_metadata_selection_imports_only_selected_candidate_media(
@@ -1009,6 +1144,40 @@ def test_select_pc_metadata_candidate_updates_once(
     assert persisted.igdb_id == 101
     assert persisted.name == "Selected PC Game"
     assert persisted.summary == "Selected only after review"
+
+
+def test_successful_parent_selection_resolves_only_the_consumed_queue_item(
+    client, access_token, rom, monkeypatch
+):
+    resolve = Mock()
+    monkeypatch.setattr(
+        pc_metadata_endpoint.pc_automation_queue_handler,
+        "resolve_after_manual_selection",
+        resolve,
+    )
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_candidates",
+        AsyncMock(return_value=_candidate_results()),
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": _candidate().id,
+            "query": "Selected PC Game",
+            "expected_version": rom.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    resolve.assert_called_once_with(
+        target_kind=PcAutomationTargetKind.PARENT,
+        rom_id=rom.id,
+        component_id=None,
+        consumed_target_updated_at=rom.updated_at,
+    )
 
 
 def test_select_pc_metadata_candidate_rejects_stale_version(
