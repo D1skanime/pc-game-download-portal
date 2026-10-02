@@ -175,6 +175,11 @@ def test_manual_resolution_claims_only_the_exact_old_pending_target(rom):
     )
     assert queued.item is not None
 
+    with session.begin() as db:
+        managed = db.get(type(rom), rom.id)
+        assert managed is not None
+        managed.summary = "Manual correction persisted"
+
     resolved = handler.resolve_after_manual_selection(
         target_kind=PcAutomationTargetKind.PARENT,
         rom_id=rom.id,
