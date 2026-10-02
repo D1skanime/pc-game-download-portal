@@ -90,6 +90,8 @@ def test_classified_pc_component_metadata_candidates_use_explicit_query(
     monkeypatch.setattr(
         pc_metadata_match_handler, "collect_component_candidates", collect
     )
+    collect_parent = AsyncMock(return_value=_candidate_results())
+    monkeypatch.setattr(pc_metadata_match_handler, "collect_candidates", collect_parent)
 
     response = client.get(
         f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-candidates",
@@ -98,8 +100,9 @@ def test_classified_pc_component_metadata_candidates_use_explicit_query(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert collect.await_args is not None
-    assert collect.await_args.args[2] == "Selected PC Game"
+    expected_collect = collect_parent if kind == RomComponentKind.BASE else collect
+    assert expected_collect.await_args is not None
+    assert expected_collect.await_args.args[-1] == "Selected PC Game"
 
 
 def test_pc_component_metadata_candidates_are_read_only(
@@ -1160,6 +1163,11 @@ def test_successful_parent_selection_resolves_only_the_consumed_queue_item(
         "collect_candidates",
         AsyncMock(return_value=_candidate_results()),
     )
+    review = client.get(
+        f"/api/roms/{rom.id}/pc-metadata-candidates", headers=_headers(access_token)
+    )
+    assert review.status_code == status.HTTP_200_OK
+    expected_version = review.json()["expected_version"]
 
     response = client.post(
         f"/api/roms/{rom.id}/pc-metadata-selection",
@@ -1167,7 +1175,7 @@ def test_successful_parent_selection_resolves_only_the_consumed_queue_item(
         json={
             "candidate_id": _candidate().id,
             "query": "Selected PC Game",
-            "expected_version": rom.updated_at.isoformat(),
+            "expected_version": expected_version,
         },
     )
 
@@ -1176,7 +1184,7 @@ def test_successful_parent_selection_resolves_only_the_consumed_queue_item(
         target_kind=PcAutomationTargetKind.PARENT,
         rom_id=rom.id,
         component_id=None,
-        consumed_target_updated_at=rom.updated_at,
+        consumed_target_updated_at=datetime.fromisoformat(expected_version),
     )
 
 
