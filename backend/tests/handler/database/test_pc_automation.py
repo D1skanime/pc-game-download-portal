@@ -161,6 +161,87 @@ def test_claim_rejects_a_stale_target_version(rom):
     assert stale.item is None
 
 
+def test_manual_resolution_claims_only_the_exact_old_pending_target(rom):
+    handler = _handler()
+    target = handler.get_parent_target(rom.id)
+    assert target is not None
+    queued = handler.upsert_pending(
+        target_kind=PcAutomationTargetKind.PARENT,
+        rom_id=rom.id,
+        component_id=None,
+        expected_target_updated_at=target.updated_at,
+        normalized_query="automation test",
+        candidate_fingerprint="steam:100",
+    )
+    assert queued.item is not None
+
+    resolved = handler.resolve_after_manual_selection(
+        target_kind=PcAutomationTargetKind.PARENT,
+        rom_id=rom.id,
+        component_id=None,
+        consumed_target_updated_at=target.updated_at,
+    )
+    assert resolved.outcome == PcAutomationOutcome.CLAIMED
+    assert resolved.item is not None
+    assert resolved.item.id == queued.item.id
+    assert resolved.item.state == PcAutomationQueueState.CLAIMED
+    assert resolved.item.last_attempt_at is not None
+    assert handler.list_pending()[1] == 0
+
+    repeated = handler.resolve_after_manual_selection(
+        target_kind=PcAutomationTargetKind.PARENT,
+        rom_id=rom.id,
+        component_id=None,
+        consumed_target_updated_at=target.updated_at,
+    )
+    assert repeated.outcome == PcAutomationOutcome.UNCHANGED
+    assert repeated.item is None
+
+
+def test_manual_resolution_preserves_a_reopened_or_unrelated_pending_target(rom):
+    handler = _handler()
+    target = handler.get_parent_target(rom.id)
+    assert target is not None
+    queued = handler.upsert_pending(
+        target_kind=PcAutomationTargetKind.PARENT,
+        rom_id=rom.id,
+        component_id=None,
+        expected_target_updated_at=target.updated_at,
+        normalized_query="automation test",
+        candidate_fingerprint="steam:100",
+    )
+    assert queued.item is not None
+
+    with session.begin() as db:
+        managed = db.get(type(rom), rom.id)
+        assert managed is not None
+        managed.summary = "A newer target version"
+    newer_target = handler.get_parent_target(rom.id)
+    assert newer_target is not None
+    reopened = handler.upsert_pending(
+        target_kind=PcAutomationTargetKind.PARENT,
+        rom_id=rom.id,
+        component_id=None,
+        expected_target_updated_at=newer_target.updated_at,
+        normalized_query="automation test",
+        candidate_fingerprint="steam:200",
+    )
+    assert reopened.outcome == PcAutomationOutcome.REOPENED
+    assert reopened.item is not None
+
+    stale = handler.resolve_after_manual_selection(
+        target_kind=PcAutomationTargetKind.PARENT,
+        rom_id=rom.id,
+        component_id=None,
+        consumed_target_updated_at=target.updated_at,
+    )
+    assert stale.outcome == PcAutomationOutcome.UNCHANGED
+    assert stale.item is None
+    pending, total = handler.list_pending()
+    assert total == 1
+    assert [item.id for item in pending] == [reopened.item.id]
+
+
 def test_manual_parent_or_component_is_never_queued(rom):
     handler = _handler()
     with session.begin() as db:

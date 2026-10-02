@@ -264,6 +264,43 @@ class DBPcAutomationHandler(DBBaseHandler):
         session.refresh(item)
         return PcAutomationQueueResult(PcAutomationOutcome.CLAIMED, item)
 
+    @begin_session
+    def resolve_after_manual_selection(
+        self,
+        *,
+        target_kind: PcAutomationTargetKind,
+        rom_id: int,
+        component_id: int | None,
+        consumed_target_updated_at: datetime,
+        session: Session = None,  # type: ignore
+    ) -> PcAutomationQueueResult:
+        """Claim the exact pending review item consumed by a manual selection."""
+        snapshot = self._load_target(
+            session, target_kind, rom_id, component_id, for_update=True
+        )
+        if snapshot is None:
+            return PcAutomationQueueResult(PcAutomationOutcome.MISSING_TARGET, None)
+        item = session.scalar(
+            select(PcAutomationQueue)
+            .where(
+                PcAutomationQueue.target_identity
+                == self._target_identity(target_kind, rom_id, component_id)
+            )
+            .with_for_update()
+        )
+        if (
+            item is None
+            or item.state != PcAutomationQueueState.PENDING
+            or item.target_incarnation != snapshot.parent.incarnation_token
+            or item.target_updated_at != consumed_target_updated_at
+        ):
+            return PcAutomationQueueResult(PcAutomationOutcome.UNCHANGED, None)
+        item.state = PcAutomationQueueState.CLAIMED
+        item.last_attempt_at = datetime.now(timezone.utc)
+        session.flush()
+        session.refresh(item)
+        return PcAutomationQueueResult(PcAutomationOutcome.CLAIMED, item)
+
     @staticmethod
     def _target_identity(
         target_kind: PcAutomationTargetKind, rom_id: int, component_id: int | None
