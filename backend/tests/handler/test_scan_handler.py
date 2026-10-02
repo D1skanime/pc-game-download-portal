@@ -3,6 +3,7 @@ from unittest.mock import ANY, AsyncMock, Mock, patch
 
 import pytest
 
+from handler.database import db_platform_handler, db_rom_handler
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
@@ -575,3 +576,83 @@ async def test_steam_scan_queues_automation_from_the_final_durable_rom_version()
 
     process_parent.assert_awaited_once_with(final_rom)
     assert add_rom.call_args_list[-1].args[0].summary == "Deutsche Zusammenfassung"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("steam_id", "german_summary"),
+    [
+        (1091500, "Cyberpunk 2077 ist ein Open-World-Action-Adventure."),
+        (2138330, "Phantom Liberty ist eine Spionage-Thriller-Erweiterung."),
+    ],
+)
+async def test_update_scan_persists_german_steam_summary_to_the_durable_catalog(
+    steam_id: int, german_summary: str
+):
+    windows = db_platform_handler.add_platform(
+        Platform(name="Windows", slug="win", fs_slug="win")
+    )
+    rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=windows.id,
+            name="English catalog title",
+            summary="English catalog summary",
+            fs_name=f"Steam-{steam_id}.exe",
+            fs_name_no_tags=f"Steam-{steam_id}",
+            fs_name_no_ext=f"Steam-{steam_id}",
+            fs_extension="exe",
+            fs_path="win",
+            steam_id=steam_id,
+            steam_metadata={
+                "app_id": steam_id,
+                "language": "german",
+                "fallback_fields": [],
+                "fields": ["summary"],
+            },
+        )
+    )
+    resolver = AsyncMock(
+        return_value={
+            "steam_id": steam_id,
+            "steam_metadata": {
+                "app_id": steam_id,
+                "language": "german",
+                "fallback_fields": [],
+                "fields": ["summary"],
+            },
+            "summary": german_summary,
+        }
+    )
+
+    with (
+        patch(
+            "handler.scan_handler.meta_playmatch_handler.is_enabled", return_value=False
+        ),
+        patch("handler.scan_handler.resolve_steam_pc_enrichment", resolver),
+        patch(
+            "handler.scan_handler.fs_rom_handler.get_pico8_cover_url", return_value=None
+        ),
+    ):
+        await scan_rom(
+            scan_type=ScanType.UPDATE,
+            platform=windows,
+            rom=rom,
+            fs_rom={
+                "fs_name": rom.fs_name,
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.STEAM],
+            newly_added=False,
+        )
+
+    durable_rom = db_rom_handler.get_rom(rom.id)
+    assert durable_rom is not None
+    assert durable_rom.summary == german_summary
+    assert durable_rom.steam_metadata["language"] == "german"
+    assert "summary" not in durable_rom.steam_metadata["fallback_fields"]

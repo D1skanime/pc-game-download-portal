@@ -1433,9 +1433,10 @@ async def scan_rom(
     has_steam_media = isinstance(steam_updates.get("media"), dict) and bool(
         steam_updates["media"]
     )
+    has_steam_patch = bool(steam_updates)
     # D-04/D-06/D-07: Structured Steam data and provider candidates are applied
     # only after the ROM has a durable identity. Media never uses legacy URLs.
-    if has_steam_metadata or has_steam_media:
+    if has_steam_patch:
         durable_rom = db_rom_handler.add_rom(scanned_rom)
         # MariaDB rounds the optimistic-lock timestamp at persistence. Reload it
         # before the owned-media transaction so its compare-and-swap can succeed.
