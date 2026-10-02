@@ -499,3 +499,79 @@ async def test_steam_structured_metadata_persists_through_rom_not_metadata_view(
         }
     }
     persist_candidate_metadata.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_steam_scan_queues_automation_from_the_final_durable_rom_version():
+    """Automation evidence must be based on the last scan write, not an old ORM row."""
+    platform, rom = _igdb_scan_fixture(platform_slug="win")
+    persisted = SimpleNamespace(id=rom.id, updated_at="initial-version")
+    after_structured_overlay = SimpleNamespace(id=rom.id, updated_at="overlay-version")
+    final_rom = SimpleNamespace(
+        id=rom.id,
+        updated_at="final-version",
+        steam_id=None,
+        components=[],
+    )
+    resolver = AsyncMock(
+        return_value={
+            "steam_id": 1091500,
+            "steam_metadata": {
+                "app_id": 1091500,
+                "language": "german",
+                "fallback_fields": [],
+            },
+            "summary": "Deutsche Zusammenfassung",
+            "metadata": {"main_developer": "CD PROJEKT RED"},
+        }
+    )
+    process_parent = AsyncMock()
+
+    with (
+        patch(
+            "handler.scan_handler.db_rom_handler.add_rom", return_value=persisted
+        ) as add_rom,
+        patch(
+            "handler.scan_handler.db_rom_handler.get_rom",
+            side_effect=[
+                after_structured_overlay,
+                after_structured_overlay,
+                final_rom,
+                final_rom,
+            ],
+        ),
+        patch(
+            "handler.scan_handler.db_rom_handler.apply_pc_igdb_enrichment",
+            return_value=after_structured_overlay,
+        ),
+        patch(
+            "handler.scan_handler.meta_playmatch_handler.is_enabled", return_value=False
+        ),
+        patch("handler.scan_handler.resolve_steam_pc_enrichment", resolver),
+        patch(
+            "handler.scan_handler.pc_automation_handler.process_parent", process_parent
+        ),
+        patch(
+            "handler.scan_handler.fs_rom_handler.get_pico8_cover_url", return_value=None
+        ),
+    ):
+        await scan_rom(
+            scan_type=ScanType.NEW_PLATFORMS,
+            platform=platform,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Cyberpunk 2077.exe",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.STEAM],
+            newly_added=True,
+        )
+
+    process_parent.assert_awaited_once_with(final_rom)
+    assert add_rom.call_args_list[-1].args[0].summary == "Deutsche Zusammenfassung"

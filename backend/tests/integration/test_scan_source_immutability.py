@@ -10,9 +10,12 @@ from unittest.mock import AsyncMock
 import pytest
 
 from handler.database.pc_automation_handler import DBPcAutomationHandler
+from handler.filesystem.roms_handler import FSRomsHandler
+from handler.filesystem.storage_policy import _create_external_descriptor
 from handler.metadata.pc_automation import AutomationDecision, PcAutomationHandler
 from handler.metadata.pc_match_handler import PcMetadataMatchHandler
-from models.rom import RomComponentKind
+from models.platform import Platform
+from models.rom import Rom, RomComponentKind
 from tasks.scheduled import scan_library
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -93,6 +96,39 @@ def test_scan_source_uses_policy_capability_not_legacy_derivation():
     assert "_steam_artwork_handler" not in source
     assert "StorageOperation.SCAN" in source
     assert "StorageOperation.WRITE" not in source
+
+
+@pytest.mark.asyncio
+async def test_cyberpunk_parent_dlc_fixture_builds_one_immutable_dlc_component(
+    tmp_path: Path,
+):
+    """The disposable UAT layout must exercise the scanner's real DLC shape."""
+    source_root = tmp_path / "library"
+    parent = source_root / "roms" / "win" / "Cyberpunk 2077"
+    dlc = parent / "dlc" / "Phantom Liberty"
+    dlc.mkdir(parents=True)
+    (parent / "Cyberpunk 2077.iso").write_text("base fixture", encoding="utf-8")
+    payload = dlc / "Phantom Liberty.zip"
+    payload.write_text("dlc fixture", encoding="utf-8")
+    before = _source_evidence(source_root)
+
+    handler = FSRomsHandler(_create_external_descriptor(1, source_root, mapping_id=1))
+    rom = Rom(
+        id=1,
+        fs_name="Cyberpunk 2077",
+        fs_path="roms/win",
+        platform=Platform(name="Windows", slug="win", fs_slug="win"),
+    )
+
+    components = await handler.get_pc_components(rom)
+
+    assert [(component.relative_path, component.kind) for component in components] == [
+        ("dlc/Phantom Liberty", RomComponentKind.DLC)
+    ]
+    assert [member.relative_path for member in components[0].manifest_members] == [
+        "dlc/Phantom Liberty/Phantom Liberty.zip"
+    ]
+    assert _source_evidence(source_root) == before
 
 
 @pytest.mark.asyncio

@@ -157,6 +157,29 @@ async def auto_link_parent_listed_steam_dlc_components(rom: Rom) -> None:
             )
 
 
+async def process_pc_automation_after_scan(
+    platform: Platform,
+    scanned_rom: Rom,
+    durable_rom: Rom,
+    newly_added: bool,
+) -> None:
+    """Queue PC automation only from the final durable scan target."""
+    if platform.slug != UPS.WIN or (not newly_added and scanned_rom.steam_id):
+        return
+
+    refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
+    if refreshed_rom is None:
+        return
+
+    await pc_automation_handler.process_parent(refreshed_rom)
+    refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
+    if refreshed_rom is None or not refreshed_rom.steam_id:
+        return
+
+    for component in getattr(refreshed_rom, "components", []):
+        await pc_automation_handler.process_component(refreshed_rom, component)
+
+
 async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
     """Execute discovery against one immutable mapping revision.
 
@@ -1444,20 +1467,17 @@ async def scan_rom(
                 components = getattr(refreshed_rom, "components", [])
                 auto_link_pc_dlc_components(refreshed_rom, components)
                 await auto_link_parent_listed_steam_dlc_components(refreshed_rom)
+        await process_pc_automation_after_scan(
+            platform, scanned_rom, durable_rom, newly_added
+        )
         return scanned_rom
     if platform.slug == UPS.WIN and (newly_added or not scanned_rom.steam_id):
         # The mapped scan already created this durable catalog target. Never pass
         # a filesystem path to automation, only the persisted ROM and components.
         durable_rom = db_rom_handler.add_rom(scanned_rom)
-        refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
-        if refreshed_rom is not None:
-            await pc_automation_handler.process_parent(refreshed_rom)
-            refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
-            if refreshed_rom is not None and refreshed_rom.steam_id:
-                for component in getattr(refreshed_rom, "components", []):
-                    await pc_automation_handler.process_component(
-                        refreshed_rom, component
-                    )
+        await process_pc_automation_after_scan(
+            platform, scanned_rom, durable_rom, newly_added
+        )
     return scanned_rom
 
 

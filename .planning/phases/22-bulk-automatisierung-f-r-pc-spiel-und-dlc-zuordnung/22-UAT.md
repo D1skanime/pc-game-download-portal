@@ -37,6 +37,34 @@ Use deterministic, non-game text payloads such as `phase22-safe-main`,
 to exactly one configured Steam candidate. The ambiguous title must resolve to
 zero or multiple candidates and create exactly one pending review row.
 
+## Required 20-File DLC Layout
+
+The fresh browser UAT uses 20 synthetic text files with real-title names, but
+the Cyberpunk pair has one mandatory scanner-compatible shape. It is one parent
+directory and one DLC child directory, never two sibling ROM fixtures:
+
+```text
+library/roms/win/Cyberpunk 2077/Cyberpunk 2077.iso
+library/roms/win/Cyberpunk 2077/dlc/Phantom Liberty/Phantom Liberty.zip
+```
+
+Do not create a flat sibling such as `win/Cyberpunk 2077: Phantom Liberty.zip`.
+That shape is intentionally a second parent ROM and cannot exercise DLC
+component scanning. The other 18 text-only files may cover the established
+real-title cases. Capture their complete manifest before starting the stack.
+
+Before opening the browser queue, query the disposable catalog or authenticated
+API and record these non-secret assertions:
+
+1. exactly one parent ROM is named Cyberpunk 2077;
+2. that parent exposes a `dlc/Phantom Liberty` component of kind `DLC`;
+3. no second Cyberpunk parent exists for Phantom Liberty.
+
+For Steam app ids `1091500` and `2138330`, also record that the disposable
+catalog summary is the German Storefront description, with Steam provenance
+`language=german` and without `summary` in `fallback_fields`. Do not record
+provider credentials, session credentials, full API responses, or real paths.
+
 ## Evidence Capture Command
 
 Run this command before starting the stack and again after every browser review
