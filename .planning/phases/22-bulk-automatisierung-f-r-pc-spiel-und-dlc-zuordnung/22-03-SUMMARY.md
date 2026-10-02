@@ -41,6 +41,7 @@ completed: 2026-10-02
 - Added protected read and write routes with per-target visibility checks, stale conflict responses, and strict rejection of browser-supplied candidate fields.
 - Repaired the plan dependency by adding the missing `PcAutomationHandler.apply_review_item` and `apply_review_batch` server-side reconstruction contract. Batch members are prevalidated before any apply attempt.
 - Generated and exported the nine PC automation request, response, and enum models from the isolated live OpenAPI contract.
+- Repaired the review-row contract with a bounded `component_kind`, null only for parent rows and otherwise the eligible persisted DLC or extra kind.
 
 ## Task Commits
 
@@ -57,6 +58,7 @@ completed: 2026-10-02
 - `backend/tests/endpoints/roms/test_pc_automation.py` - endpoint authorization, validation, conflict, and batch contract coverage.
 - `frontend/src/__generated__/models/PcAutomation*.ts` - generated queue request, response, and enum contracts.
 - `frontend/src/__generated__/index.ts` - generated public exports for the PC automation contract.
+- `frontend/src/__generated__/models/PcAutomationQueueItemSchema.ts` - generated concrete component kind for correction routing.
 
 ## Deviations from Plan
 
@@ -91,10 +93,11 @@ None in the committed backend work.
 
 ## Next Phase Readiness
 
-- The generated PC automation contract is ready for v2 administration clients.
+- The generated PC automation contract now exposes concrete component kinds for Plan 22-04 correction routing.
 
 ## Self-Check: PASSED
 
 - Confirmed committed route, schemas, handler changes, and endpoint test file exist.
 - Confirmed commits `c8908b4b6` and `4a9de444f` exist in Git history.
 - Confirmed the retained generated model fields and exports match the isolated generator output.
+- Confirmed the isolated generator emits `component_kind` as `RomComponentKind | null` and frontend typecheck passes.
