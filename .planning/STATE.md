@@ -420,6 +420,7 @@ Recent decisions affecting current work:
 | 260923-history-flicker | Prevent per-file queue changes from reloading history                  | 2026-09-23 | 7bebbfd77    | [260923-history-refresh-flicker](./quick/260923-history-refresh-flicker/)                                           |
 | 260923-ikx             | Add a per-file enhanced-download retry action                          | 2026-09-23 | d7b7246e9    | [260923-ikx-add-a-per-file-enhanced-download-retry-a](./quick/260923-ikx-add-a-per-file-enhanced-download-retry-a/) |
 | 260923-jvj             | Prevent manifest-referenced PC members from blocking rescans           | 2026-09-23 | b05fd4cce    | [260923-jvj-prevent-pc-component-rescans-from-failin](./quick/260923-jvj-prevent-pc-component-rescans-from-failin/) |
+| 261002-hft             | Seed isolated Phase 22 UAT database mapping                            | 2026-10-02 | 2fcbf7262    | [261002-hft-seed-the-isolated-phase-22-uat-database-](./quick/261002-hft-seed-the-isolated-phase-22-uat-database-/) |
 
 ## Deferred Items
 
