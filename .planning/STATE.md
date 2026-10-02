@@ -422,6 +422,7 @@ Recent decisions affecting current work:
 | 260923-jvj             | Prevent manifest-referenced PC members from blocking rescans            | 2026-09-23 | b05fd4cce    | [260923-jvj-prevent-pc-component-rescans-from-failin](./quick/260923-jvj-prevent-pc-component-rescans-from-failin/) |
 | 261002-hft             | Seed isolated Phase 22 UAT database mapping                             | 2026-10-02 | 2fcbf7262    | [261002-hft-seed-the-isolated-phase-22-uat-database-](./quick/261002-hft-seed-the-isolated-phase-22-uat-database-/) |
 | 261002-lj2             | Fix Phase 22 scan lifecycle, German Steam summaries, and DLC UAT layout | 2026-10-02 | 8f144300b    | [261002-lj2-fix-phase-22-scan-lifecycle-and-german-s](./quick/261002-lj2-fix-phase-22-scan-lifecycle-and-german-s/) |
+| 261002-qut             | Fix Phase 22 isolated scheduled UAT and queue target visibility         | 2026-10-02 | 31fe3b577    | [261002-qut-fix-the-phase-22-isolated-uat-scheduled-](./quick/261002-qut-fix-the-phase-22-isolated-uat-scheduled-/) |
 
 ## Deferred Items
 
