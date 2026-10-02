@@ -10,7 +10,7 @@ const FETCH_LIMIT = 50;
 function errorMessage(error: unknown): string {
   const detail = (error as { response?: { data?: { detail?: string } } })
     ?.response?.data?.detail;
-  return detail ?? "pc-automation.request-failed";
+  return detail ?? "settings.pc-automation.request-failed";
 }
 
 export default defineStore("pcAutomation", {

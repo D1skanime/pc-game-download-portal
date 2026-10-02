@@ -68,7 +68,12 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string, values?: { title?: string }) =>
+      ({
+        "settings.pc-automation.unnamed-candidate": "Unbenannter Eintrag",
+      })[key] ?? (values?.title ? `${key}: ${values.title}` : key),
+  }),
 }));
 
 vi.mock("vue-router", async (importOriginal) => ({
@@ -180,9 +185,9 @@ describe("PcAutomationQueue", () => {
       .findAll("[data-testid='pc-automation-row-4'] button")
       .map((button) => button.attributes("aria-label"));
     expect(actions).toEqual([
-      "pc-automation.accept",
-      "pc-automation.correct",
-      "pc-automation.skip",
+      "settings.pc-automation.accept: Road to the Black Sea",
+      "settings.pc-automation.correct: Road to the Black Sea",
+      "settings.pc-automation.skip: Road to the Black Sea",
     ]);
 
     await wrapper
@@ -195,6 +200,49 @@ describe("PcAutomationQueue", () => {
           componentId: 12,
           componentKind: "dlc",
         }),
+      }),
+    );
+  });
+
+  it("renders the localized fallback for missing and blank candidate titles", async () => {
+    mocks.store.items = [
+      { ...queueItem, id: 5, candidate_title: null },
+      { ...queueItem, id: 6, candidate_title: "   " },
+    ];
+    const emitter = mitt();
+    const openMatcher = vi.fn();
+    emitter.on("showPcMatchRomDialog", openMatcher);
+    const wrapper = mount(Queue!.default, {
+      global: {
+        provide: { emitter },
+        stubs: {
+          RBtn: {
+            props: ["disabled", "loading"],
+            template:
+              "<button v-bind='$attrs' :disabled='disabled' @click='$emit(\"click\")'><slot /></button>",
+          },
+          RProgressLinear: true,
+          RSkeletonBlock: true,
+        },
+      },
+    });
+
+    for (const id of [5, 6]) {
+      const row = wrapper.get(`[data-testid='pc-automation-row-${id}']`);
+      expect(row.text()).toContain("Unbenannter Eintrag");
+      expect(row.find("img").attributes("alt")).toBe("Unbenannter Eintrag");
+      expect(row.findAll("button")[0].attributes("aria-label")).toContain(
+        "Unbenannter Eintrag",
+      );
+    }
+
+    await wrapper
+      .get("[data-testid='pc-automation-row-5']")
+      .findAll("button")[1]
+      .trigger("click");
+    expect(openMatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({ label: "Unbenannter Eintrag" }),
       }),
     );
   });
@@ -253,7 +301,7 @@ describe("PcAutomationQueue", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("pc-automation.title");
+    expect(wrapper.text()).toContain("settings.pc-automation.title");
     await wrapper.get("[data-testid='automation-tab']").trigger("click");
     await flushPromises();
     expect(mocks.router.replace).toHaveBeenCalledWith(

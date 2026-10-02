@@ -32,10 +32,17 @@ const canReview = useCan("rom.edit");
 const selectedCount = computed(() => queue.selection.size);
 const selectedGroupIsSafe = computed(() => queue.selectedGroupIsSafe);
 
+function candidateTitle(item: PcAutomationQueueItemSchema) {
+  return (
+    item.candidate_title?.trim() ||
+    t("settings.pc-automation.unnamed-candidate")
+  );
+}
+
 function queueError(error: unknown) {
   return (
     (error as { response?: { data?: { detail?: string } } })?.response?.data
-      ?.detail ?? t("pc-automation.request-failed")
+      ?.detail ?? t("settings.pc-automation.request-failed")
   );
 }
 
@@ -46,7 +53,7 @@ function componentTarget(
     return {
       kind: "rom",
       romId: item.rom_id,
-      label: item.candidate_title ?? t("pc-automation.unnamed-candidate"),
+      label: candidateTitle(item),
     };
   }
 
@@ -62,7 +69,7 @@ function componentTarget(
     return {
       kind: "rom",
       romId: item.rom_id,
-      label: item.candidate_title ?? t("pc-automation.unnamed-candidate"),
+      label: candidateTitle(item),
     };
   }
 
@@ -71,7 +78,7 @@ function componentTarget(
     romId: item.rom_id,
     componentId: item.component_id,
     componentKind: item.component_kind as PcMatchableComponentKind,
-    label: item.candidate_title ?? t("pc-automation.unnamed-candidate"),
+    label: candidateTitle(item),
   };
 }
 
@@ -86,7 +93,9 @@ async function loadQueue(reset = false) {
 async function accept(item: PcAutomationQueueItemSchema) {
   try {
     await queue.accept(item);
-    snackbar.success(t("pc-automation.accepted"), { icon: "mdi-check-bold" });
+    snackbar.success(t("settings.pc-automation.accepted"), {
+      icon: "mdi-check-bold",
+    });
   } catch (error) {
     snackbar.error(queueError(error), { icon: "mdi-close-circle" });
   }
@@ -95,7 +104,9 @@ async function accept(item: PcAutomationQueueItemSchema) {
 async function skip(item: PcAutomationQueueItemSchema) {
   try {
     await queue.skip(item);
-    snackbar.success(t("pc-automation.skipped"), { icon: "mdi-check-bold" });
+    snackbar.success(t("settings.pc-automation.skipped"), {
+      icon: "mdi-check-bold",
+    });
   } catch (error) {
     snackbar.error(queueError(error), { icon: "mdi-close-circle" });
   }
@@ -105,7 +116,7 @@ async function batchAccept() {
   if (!selectedGroupIsSafe.value) return;
   try {
     await queue.batchAccept();
-    snackbar.success(t("pc-automation.batch-accepted"), {
+    snackbar.success(t("settings.pc-automation.batch-accepted"), {
       icon: "mdi-check-bold",
     });
   } catch (error) {
@@ -116,7 +127,7 @@ async function batchAccept() {
 function correct(item: PcAutomationQueueItemSchema) {
   const target = componentTarget(item);
   if (!target) {
-    snackbar.error(t("pc-automation.correction-unavailable"), {
+    snackbar.error(t("settings.pc-automation.correction-unavailable"), {
       icon: "mdi-close-circle",
     });
     return;
@@ -136,16 +147,18 @@ onMounted(() => {
   <SettingsSection
     v-if="canReview"
     data-testid="pc-automation-queue"
-    :title="t('pc-automation.title')"
+    :title="t('settings.pc-automation.title')"
     icon="mdi-robot-outline"
   >
     <div class="r-v2-pc-automation__summary">
       <span>{{
-        t("pc-automation.outstanding", { count: queue.outstandingCount })
+        t("settings.pc-automation.outstanding", {
+          count: queue.outstandingCount,
+        })
       }}</span>
       <RProgressLinear
         :model-value="queue.progress"
-        :aria-label="t('pc-automation.progress')"
+        :aria-label="t('settings.pc-automation.progress')"
       />
     </div>
 
@@ -157,26 +170,28 @@ onMounted(() => {
       v-else-if="queue.error && queue.items.length === 0"
       class="r-v2-pc-automation__empty"
     >
-      <p>{{ t("pc-automation.load-failed") }}</p>
+      <p>{{ t("settings.pc-automation.load-failed") }}</p>
       <RBtn variant="outlined" @click="loadQueue(true)">
         {{ t("common.retry") }}
       </RBtn>
     </div>
 
     <div v-else-if="queue.items.length === 0" class="r-v2-pc-automation__empty">
-      {{ t("pc-automation.empty") }}
+      {{ t("settings.pc-automation.empty") }}
     </div>
 
     <template v-else>
       <div class="r-v2-pc-automation__batch">
-        <span>{{ t("pc-automation.selected", { count: selectedCount }) }}</span>
+        <span>{{
+          t("settings.pc-automation.selected", { count: selectedCount })
+        }}</span>
         <RBtn
           :disabled="!selectedGroupIsSafe"
           :loading="queue.batchLoading"
           prepend-icon="mdi-check-all"
           @click="batchAccept"
         >
-          {{ t("pc-automation.accept-selected") }}
+          {{ t("settings.pc-automation.accept-selected") }}
         </RBtn>
       </div>
 
@@ -190,7 +205,9 @@ onMounted(() => {
           <RCheckbox
             :model-value="queue.selection.has(item.id)"
             :aria-label="
-              t('pc-automation.select-row', { title: item.candidate_title })
+              t('settings.pc-automation.select-row', {
+                title: candidateTitle(item),
+              })
             "
             bare
             @update:model-value="queue.toggleSelection(item.id)"
@@ -198,13 +215,13 @@ onMounted(() => {
           <RImg
             class="r-v2-pc-automation__cover"
             :src="item.candidate_cover_url ?? undefined"
-            :alt="item.candidate_title ?? t('pc-automation.unnamed-candidate')"
+            :alt="candidateTitle(item)"
           />
           <div class="r-v2-pc-automation__details">
-            <strong>{{
-              item.candidate_title ?? t("pc-automation.unnamed-candidate")
-            }}</strong>
-            <span>{{ item.reason ?? t("pc-automation.review-required") }}</span>
+            <strong>{{ candidateTitle(item) }}</strong>
+            <span>{{
+              item.reason ?? t("settings.pc-automation.review-required")
+            }}</span>
             <div class="r-v2-pc-automation__tags">
               <RChip size="small">{{ item.target_kind }}</RChip>
               <RChip v-if="item.component_kind" size="small">{{
@@ -221,10 +238,14 @@ onMounted(() => {
               color="success"
               :loading="queue.actionLoadingIds.has(item.id)"
               :aria-label="
-                t('pc-automation.accept', { title: item.candidate_title })
+                t('settings.pc-automation.accept', {
+                  title: candidateTitle(item),
+                })
               "
               :tooltip="
-                t('pc-automation.accept', { title: item.candidate_title })
+                t('settings.pc-automation.accept', {
+                  title: candidateTitle(item),
+                })
               "
               @click="accept(item)"
             />
@@ -232,10 +253,14 @@ onMounted(() => {
               icon="mdi-magnify"
               :disabled="componentTarget(item) === null"
               :aria-label="
-                t('pc-automation.correct', { title: item.candidate_title })
+                t('settings.pc-automation.correct', {
+                  title: candidateTitle(item),
+                })
               "
               :tooltip="
-                t('pc-automation.correct', { title: item.candidate_title })
+                t('settings.pc-automation.correct', {
+                  title: candidateTitle(item),
+                })
               "
               @click="correct(item)"
             />
@@ -243,10 +268,14 @@ onMounted(() => {
               icon="mdi-skip-next"
               :loading="queue.actionLoadingIds.has(item.id)"
               :aria-label="
-                t('pc-automation.skip', { title: item.candidate_title })
+                t('settings.pc-automation.skip', {
+                  title: candidateTitle(item),
+                })
               "
               :tooltip="
-                t('pc-automation.skip', { title: item.candidate_title })
+                t('settings.pc-automation.skip', {
+                  title: candidateTitle(item),
+                })
               "
               @click="skip(item)"
             />
@@ -256,7 +285,7 @@ onMounted(() => {
 
       <div v-if="queue.hasMore" class="r-v2-pc-automation__load-more">
         <RBtn :loading="queue.loading" variant="outlined" @click="loadQueue()">
-          {{ t("pc-automation.load-more") }}
+          {{ t("settings.pc-automation.load-more") }}
         </RBtn>
       </div>
     </template>

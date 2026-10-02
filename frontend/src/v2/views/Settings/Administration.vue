@@ -92,7 +92,7 @@ const tabs = computed<RTabNavItem[]>(() => {
   if (canReviewPcAutomation.value) {
     items.push({
       id: "pc-automation",
-      label: t("pc-automation.title"),
+      label: t("settings.pc-automation.title"),
       icon: "mdi-robot-outline",
     });
   }
