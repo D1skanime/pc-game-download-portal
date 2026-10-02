@@ -15,7 +15,13 @@ const emit = defineEmits<{
   (event: "cancel", fileId: string): void;
   (event: "cancel-item", sessionId: string, itemId: number): void;
   (event: "resume", fileId: string): void;
-  (event: "resume-session", sessionId: string, memberId?: string): void;
+  (event: "restart", fileId: string): void;
+  (
+    event: "resume-session",
+    sessionId: string,
+    memberId?: string,
+    restartFromZero?: boolean,
+  ): void;
   (event: "clear-terminal", fileIds: string[]): void;
 }>();
 
@@ -165,8 +171,12 @@ async function cancelItem(sessionId: string, itemId: number) {
   }
 }
 
-function resumeSession(sessionId: string, memberId?: string) {
-  emit("resume-session", sessionId, memberId);
+function resumeSession(
+  sessionId: string,
+  memberId?: string,
+  restartFromZero = false,
+) {
+  emit("resume-session", sessionId, memberId, restartFromZero);
 }
 
 watch(() => [props.romId, props.selectedManifestId, props.sessionId], hydrate, {
@@ -193,6 +203,7 @@ onBeforeUnmount(() => {
     @cancel="emit('cancel', $event)"
     @cancel-item="cancelItem"
     @resume="emit('resume', $event)"
+    @restart="emit('restart', $event)"
     @resume-session="resumeSession"
     @remove="removeSession"
     @remove-item="removeItem"

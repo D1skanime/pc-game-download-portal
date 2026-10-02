@@ -26,6 +26,8 @@ const session = (status: string): DownloadTransferResponse => ({
   schema_version: 1,
   id: `opaque-${status}`,
   manifest_id: "manifest-a",
+  parent_session_id: null,
+  attempt_no: 1,
   rom_id: 7,
   mode: status === "verified" ? "enhanced" : "standard",
   status: "active",
@@ -198,7 +200,7 @@ describe("DownloadTransferHistory", () => {
     ]);
   });
 
-  it("shows only the newest attempt when a file has repeated sessions", () => {
+  it("keeps previous attempts visible when a file is retried", () => {
     const older = session("failed");
     older.id = "older-session";
     const newer = session("served");
@@ -210,6 +212,6 @@ describe("DownloadTransferHistory", () => {
 
     expect(
       wrapper.findAll("[data-testid='download-history-list'] > li"),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
   });
 });

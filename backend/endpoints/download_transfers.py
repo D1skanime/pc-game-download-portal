@@ -11,7 +11,7 @@ from endpoints.responses.download_transfer import (
     DownloadTransferResponse,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import db_download_manifest_handler, db_download_transfer_handler
 from models.download_transfer import DownloadTransferMode
 from utils.router import APIRouter
@@ -24,6 +24,24 @@ def _not_found() -> NoReturn:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
 
 
+def _conflict(error: ValueError) -> HTTPException:
+    message = str(error)
+    if "digest" in message:
+        code = "integrity_mismatch"
+    elif "observed bytes" in message:
+        code = "invalid_observation"
+    elif "closed or unavailable" in message:
+        code = "session_closed"
+    elif "event history" in message:
+        code = "event_limit_reached"
+    else:
+        code = "invalid_transition"
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"code": code, "message": message},
+    )
+
+
 def _serialize(transfer) -> DownloadTransferResponse:
     manifest_members = {
         member.public_id: member
@@ -33,6 +51,8 @@ def _serialize(transfer) -> DownloadTransferResponse:
     return DownloadTransferResponse(
         id=transfer.id,
         manifest_id=transfer.manifest_id,
+        parent_session_id=transfer.parent_session_id,
+        attempt_no=transfer.attempt_no,
         rom_id=transfer.rom_id,
         mode=transfer.mode.value,
         status=transfer.status.value,
@@ -60,6 +80,7 @@ def _serialize(transfer) -> DownloadTransferResponse:
                 ended_at=item.ended_at,
             )
             for item in transfer.items
+            if item.dismissed_at is None
         ],
         events=[
             DownloadTransferEventResponse(
@@ -100,6 +121,7 @@ async def create_download_transfer(
             payload.manifest_id,
             DownloadTransferMode(payload.mode),
             member_ids=set(payload.member_ids) if payload.member_ids else None,
+            previous_session_id=payload.previous_session_id,
         )
     except ValueError:
         _not_found()
@@ -117,10 +139,15 @@ async def list_download_transfers(
     rom_id: Annotated[int | None, Query(gt=0)] = None,
     manifest_id: Annotated[str | None, Query(pattern=r"^[0-9a-f-]{36}$")] = None,
 ) -> list[DownloadTransferResponse]:
+    permissions = get_permissions(request)
     return [
         _serialize(item)
         for item in db_download_transfer_handler.get_sessions(
-            request.user.id, rom_id=rom_id, manifest_id=manifest_id
+            request.user.id,
+            rom_id=rom_id,
+            manifest_id=manifest_id,
+            hidden_platform_ids=permissions.hidden_platform_ids,
+            hidden_rom_ids=permissions.hidden_rom_ids,
         )
     ]
 
@@ -149,9 +176,7 @@ async def delete_download_transfer(request: Request, transfer_id: str) -> None:
             transfer_id, request.user.id
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from exc
+        raise _conflict(exc) from exc
     if not deleted:
         _not_found()
 
@@ -170,9 +195,7 @@ async def delete_download_transfer_item(
             transfer_id, request.user.id, item_id
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from exc
+        raise _conflict(exc) from exc
     if not deleted:
         _not_found()
 
@@ -214,9 +237,7 @@ async def append_download_transfer_event(
             payload.sha256,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from exc
+        raise _conflict(exc) from exc
     return DownloadTransferEventResponse(
         ordinal=event.ordinal,
         event_type=event.event_type,

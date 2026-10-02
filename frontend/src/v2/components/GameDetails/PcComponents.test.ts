@@ -111,6 +111,20 @@ describe("PcComponents", () => {
     ).toContain("align-self-start");
   });
 
+  it("does not permit a component fallback while archive-set policy failed", () => {
+    const wrapper = mount(PcComponents, {
+      props: {
+        components: componentGroups,
+        romId: 1,
+        archiveSetsState: "error",
+      },
+    });
+
+    expect(
+      wrapper.get("[data-testid='download-components']").attributes("disabled"),
+    ).toBeDefined();
+  });
+
   it("uses the main game label instead of the technical base folder name", () => {
     const wrapper = mount(PcComponents, {
       props: {

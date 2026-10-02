@@ -275,8 +275,8 @@ def test_create_policy_manifest_masks_incomplete_selection_before_capture(
         json={"archive_set_id": archive_set_id, "selected_member_ids": []},
     )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert response.json() == {"detail": "Download manifest not found"}
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.json() == {"detail": "Invalid download manifest request"}
     assert str(archive_set_id) not in response.text
     assert "required-policy" not in response.text
 
@@ -496,9 +496,6 @@ def test_completed_range_body_does_not_claim_full_served(monkeypatch):
         lease,
         2,
         3,
-        lambda: download_manifests_endpoint.db_download_transfer_handler.mark_served(
-            "transfer-id", 7, 42
-        ),
     )
 
     assert b"".join(chunks) == b"mpl"

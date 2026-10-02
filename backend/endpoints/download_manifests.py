@@ -246,11 +246,28 @@ async def get_download_manifest_member(
         if attributed is None:
             _not_found()
 
+    def mark_attributed_stale() -> None:
+        if transfer_id is None or item_id is None:
+            return
+        try:
+            db_download_transfer_handler.mark_stale(
+                transfer_id,
+                request.user.id,
+                item_id,
+                status.HTTP_412_PRECONDITION_FAILED,
+            )
+        except ValueError:
+            # The transfer may have reached a terminal state while the stream
+            # request was being validated.
+            return
+
     range_header = request.headers.get("range")
     if_match = request.headers.get("if-match")
     if if_match is not None and if_match != persisted_member.snapshot:
+        mark_attributed_stale()
         _precondition_failed()
     if range_header is not None and if_match is None:
+        mark_attributed_stale()
         _precondition_failed()
     bounds = _transfer_range_bounds(range_header, persisted_member.size_bytes)
 
@@ -258,6 +275,7 @@ async def get_download_manifest_member(
         manifest.rom, persisted_member
     )
     if result.state is not DownloadManifestTransferState.READY or result.lease is None:
+        mark_attributed_stale()
         raise HTTPException(
             status_code=status.HTTP_412_PRECONDITION_FAILED,
             detail={"code": "source_changed"},
@@ -269,6 +287,7 @@ async def get_download_manifest_member(
         or lease.snapshot != persisted_member.snapshot
     ):
         lease.close()
+        mark_attributed_stale()
         raise HTTPException(
             status_code=status.HTTP_412_PRECONDITION_FAILED,
             detail={"code": "source_changed"},

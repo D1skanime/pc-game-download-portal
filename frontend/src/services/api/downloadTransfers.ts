@@ -10,6 +10,7 @@ export type DownloadTransferCreatePayload = {
   manifest_id: string;
   mode: DownloadTransferMode;
   member_ids?: string[];
+  previous_session_id?: string;
 };
 export type DownloadTransferEvent = {
   event_type:

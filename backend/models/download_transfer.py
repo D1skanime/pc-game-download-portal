@@ -64,6 +64,12 @@ class DownloadTransferSession(BaseModel):
     manifest_id: Mapped[str] = mapped_column(
         ForeignKey("download_manifests.id", ondelete="CASCADE"), index=True
     )
+    parent_session_id: Mapped[str | None] = mapped_column(
+        ForeignKey("download_transfer_sessions.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    attempt_no: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     mode: Mapped[DownloadTransferMode] = mapped_column(
         Enum(
             DownloadTransferMode,
@@ -107,6 +113,7 @@ class DownloadTransferSession(BaseModel):
         default=utc_now, onupdate=utc_now, nullable=False
     )
     ended_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    dismissed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     user: Mapped[User] = relationship(lazy="joined")
     rom: Mapped[Rom] = relationship(lazy="joined")
@@ -116,6 +123,10 @@ class DownloadTransferSession(BaseModel):
     )
     events: Mapped[list[DownloadTransferEvent]] = relationship(
         back_populates="session", cascade="all, delete-orphan", lazy="selectin"
+    )
+    parent_session: Mapped[DownloadTransferSession | None] = relationship(
+        remote_side="DownloadTransferSession.id",
+        lazy="joined",
     )
 
 
@@ -153,6 +164,7 @@ class DownloadTransferItem(BaseModel):
     started_at: Mapped[datetime | None] = mapped_column(nullable=True)
     last_activity_at: Mapped[datetime | None] = mapped_column(nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    dismissed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     session: Mapped[DownloadTransferSession] = relationship(back_populates="items")
     events: Mapped[list[DownloadTransferEvent]] = relationship(

@@ -65,8 +65,9 @@ def test_owner_scoped_session_creation_copies_manifest_members(
         admin_user.id, manifest.id, DownloadTransferMode.STANDARD
     )
     assert transfer.user_id == admin_user.id
-    assert len(transfer.items) == len(manifest.members)
-    assert transfer.items[0].manifest_member_id == manifest.members[0].id
+    manifest_member = manifest.components[0].members[0]
+    assert len(transfer.items) == 1
+    assert transfer.items[0].manifest_member_id == manifest_member.id
     assert transfer.events == []
     assert all(
         item.status is DownloadTransferItemStatus.QUEUED for item in transfer.items
@@ -75,7 +76,7 @@ def test_owner_scoped_session_creation_copies_manifest_members(
 
 def test_session_creation_can_limit_transfer_to_manifest_members(admin_user, manifest):
     handler = DBDownloadTransfersHandler()
-    member_id = manifest.members[0].public_id
+    member_id = manifest.components[0].members[0].public_id
 
     transfer = handler.create_session(
         admin_user.id,
@@ -134,7 +135,7 @@ def test_foreign_owner_is_masked_and_events_are_append_only(
             "served",
             observed_bytes=item.expected_bytes,
         )
-    with pytest.raises(ValueError, match="monotonic"):
+    with pytest.raises(ValueError, match="standard transfers do not report progress"):
         handler.append_observation(
             transfer.id, admin_user.id, item.id, "progress", observed_bytes=1
         )
@@ -157,6 +158,58 @@ def test_get_sessions_applies_owner_scoped_rom_and_manifest_filters(
     ] == [transfer.id]
     assert handler.get_sessions(admin_user.id, rom_id=rom.id + 1) == []
     assert handler.get_sessions(admin_user.id, manifest_id="0" * 36) == []
+
+
+def test_get_sessions_excludes_currently_hidden_roms_and_platforms(
+    admin_user, manifest, rom
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.STANDARD
+    )
+
+    assert handler.get_sessions(admin_user.id, hidden_rom_ids=[rom.id]) == []
+    assert (
+        handler.get_sessions(admin_user.id, hidden_platform_ids=[rom.platform_id]) == []
+    )
+    assert [
+        session.id for session in handler.get_sessions(admin_user.id, hidden_rom_ids=[])
+    ] == [transfer.id]
+
+
+def test_retry_session_records_terminal_parent_attempt(admin_user, manifest):
+    handler = DBDownloadTransfersHandler()
+    previous = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.ENHANCED
+    )
+    handler.cancel_session(previous.id, admin_user.id)
+
+    retry = handler.create_session(
+        admin_user.id,
+        manifest.id,
+        DownloadTransferMode.ENHANCED,
+        previous_session_id=previous.id,
+    )
+
+    assert retry.parent_session_id == previous.id
+    assert retry.attempt_no == 2
+
+
+def test_history_removal_hides_terminal_session_without_deleting_audit_rows(
+    admin_user, manifest
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.ENHANCED
+    )
+    handler.cancel_session(transfer.id, admin_user.id)
+
+    assert handler.delete_session(transfer.id, admin_user.id)
+    assert handler.get_sessions(admin_user.id) == []
+    saved = handler.get_session(transfer.id, admin_user.id)
+    assert saved is not None
+    assert saved.dismissed_at is not None
+    assert saved.items[0].status is DownloadTransferItemStatus.CANCELLED
 
 
 def test_standard_cannot_claim_verified_and_enhanced_can_verify_only_digest_match(
@@ -235,8 +288,26 @@ def test_reconciliation_completes_failed_session_with_failed_result(
     )
 
     saved = handler.get_session(transfer.id, admin_user.id)
-    assert saved.status is DownloadTransferSessionStatus.COMPLETED
+    assert saved.status is DownloadTransferSessionStatus.FAILED
     assert saved.result is DownloadTransferSessionResult.FAILED
+
+
+def test_reconciliation_marks_all_cancelled_items_as_cancelled_session(
+    admin_user, manifest
+):
+    handler = DBDownloadTransfersHandler()
+    transfer = handler.create_session(
+        admin_user.id, manifest.id, DownloadTransferMode.ENHANCED
+    )
+
+    for item in transfer.items:
+        handler.append_observation(
+            transfer.id, admin_user.id, item.id, "cancel", observed_bytes=0
+        )
+
+    saved = handler.get_session(transfer.id, admin_user.id)
+    assert saved.status is DownloadTransferSessionStatus.CANCELLED
+    assert saved.result is DownloadTransferSessionResult.CANCELLED
 
 
 def test_standard_progress_is_rejected_before_it_can_claim_activity(

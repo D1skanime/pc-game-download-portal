@@ -8,4 +8,3 @@ export type Body_upload_media_api_roms__id__media_upload_post = {
     role: RomOwnedMediaRole;
     media: string;
 };
-

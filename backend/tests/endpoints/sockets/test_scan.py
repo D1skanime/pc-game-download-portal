@@ -65,8 +65,8 @@ def test_scan_stats():
 
 
 def test_scan_emit_refreshes_the_detached_rom_with_simple_details(mocker):
-    detached_rom = Mock(id=5)
-    refreshed_rom = Mock(id=5)
+    detached_rom = Rom(id=5)
+    refreshed_rom = Rom(id=5)
     get_rom_simple = mocker.patch.object(
         scan_module.db_rom_handler,
         "get_rom_simple",

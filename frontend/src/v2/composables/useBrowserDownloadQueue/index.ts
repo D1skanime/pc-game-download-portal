@@ -9,6 +9,8 @@ import { getBrowserDownloadQueueConcurrency } from "./config";
 
 /** A blocked FSA prompt/write must not hold the queue forever. */
 export const ENHANCED_MEMBER_TIMEOUT_MS = 30_000;
+const PROGRESS_SYNC_INTERVAL_MS = 1_000;
+const PROGRESS_SYNC_INTERVAL_BYTES = 8 * 1024 * 1024;
 
 /**
  * A member may take longer than the watchdog while it is actively streaming
@@ -235,13 +237,14 @@ async function enhancedMember(
   abortReason: () => "pause" | "cancel" | null,
   onProgress: (bytes: number) => void,
   onActivity: () => void,
+  restartFromZero = false,
 ) {
   const { file, existing } = await openDestination(
     root,
     member.destination,
     true,
   );
-  const offset = existing.size;
+  const offset = restartFromZero ? 0 : existing.size;
   onProgress(offset);
   if (offset > member.size) throw new Error("local_file_too_large");
   const hasher = createHasher();
@@ -266,7 +269,11 @@ async function enhancedMember(
     });
     if (!validateEnhancedResponse(response, offset, member.size)) {
       throw new Error(
-        response.status === 412 ? "source_changed" : "invalid_resume_response",
+        response.status === 412
+          ? "source_changed"
+          : response.status === 410
+            ? "manifest_expired"
+            : "invalid_resume_response",
       );
     }
     writable = await file.createWritable({
@@ -317,7 +324,8 @@ export type BrowserQueueItem = DownloadManifestResponse["members"][number] & {
     | "paused"
     | "verified"
     | "failed"
-    | "cancelled";
+    | "cancelled"
+    | "stale";
 };
 export function useBrowserDownloadQueue() {
   const items = ref<BrowserQueueItem[]>([]);
@@ -438,8 +446,10 @@ export function useBrowserDownloadQueue() {
     root: FileSystemDirectoryHandle,
     item: BrowserQueueItem,
     transferId: string,
+    restartFromZero = false,
   ) {
     if (item.transferItemId === undefined) return;
+    if (item.status === "cancelled") return;
     const wasPaused = item.status === "paused";
     item.status = "downloading";
     const operation = { controller: new AbortController(), reason: null } as {
@@ -447,6 +457,37 @@ export function useBrowserDownloadQueue() {
       reason: "pause" | "cancel" | "timeout" | null;
     };
     operations.set(item.file_id, operation);
+    let lastSyncedBytes = item.observedBytes ?? 0;
+    let lastSyncedAt = Date.now();
+    let progressSync = Promise.resolve();
+    const syncProgress = (force = false) => {
+      const observedBytes = item.observedBytes ?? 0;
+      if (
+        !force &&
+        observedBytes - lastSyncedBytes < PROGRESS_SYNC_INTERVAL_BYTES &&
+        Date.now() - lastSyncedAt < PROGRESS_SYNC_INTERVAL_MS
+      ) {
+        return progressSync;
+      }
+      progressSync = progressSync
+        .then(async () => {
+          if (observedBytes <= lastSyncedBytes) return;
+          await downloadTransfersApi.observe(transferId, item.transferItemId!, {
+            event_type: "progress",
+            observed_bytes: observedBytes,
+          });
+          lastSyncedBytes = observedBytes;
+          lastSyncedAt = Date.now();
+        })
+        .catch((error) => {
+          console.error("[RomM] Could not persist download progress", {
+            fileId: item.file_id,
+            error:
+              error instanceof Error ? error.message : "journal_sync_failed",
+          });
+        });
+      return progressSync;
+    };
     const timeout = createEnhancedInactivityTimeout(() => {
       operation.reason = "timeout";
       operation.controller.abort();
@@ -474,27 +515,55 @@ export function useBrowserDownloadQueue() {
             : null,
         (bytes) => {
           item.observedBytes = bytes;
+          void syncProgress();
         },
         timeout.refresh,
+        restartFromZero,
       );
       await transfer;
-      await downloadTransfersApi.observe(transferId, item.transferItemId, {
-        event_type: "verified",
-        observed_bytes: item.size,
-        sha256: item.sha256,
-      });
+      await syncProgress(true);
+      try {
+        await downloadTransfersApi.observe(transferId, item.transferItemId, {
+          event_type: "verified",
+          observed_bytes: item.size,
+          sha256: item.sha256,
+        });
+      } catch (error) {
+        console.error("[RomM] Could not persist download verification", {
+          fileId: item.file_id,
+          error: error instanceof Error ? error.message : "journal_sync_failed",
+        });
+      }
       item.status = "verified";
     } catch (error) {
       const reason = operation.reason;
       if (reason === "pause" || reason === "cancel") {
-        await downloadTransfersApi.observe(transferId, item.transferItemId, {
-          event_type: reason,
-          observed_bytes: item.observedBytes ?? 0,
-        });
+        await syncProgress(true);
+        try {
+          await downloadTransfersApi.observe(transferId, item.transferItemId, {
+            event_type: reason,
+            observed_bytes: item.observedBytes ?? 0,
+          });
+        } catch (observationError) {
+          console.error("[RomM] Could not persist download lifecycle event", {
+            fileId: item.file_id,
+            error:
+              observationError instanceof Error
+                ? observationError.message
+                : "journal_sync_failed",
+          });
+        }
         item.status = reason === "pause" ? "paused" : "cancelled";
       } else {
         const errorCode =
           error instanceof Error ? error.message : "enhanced_download_failed";
+        if (
+          errorCode === "source_changed" ||
+          errorCode === "manifest_expired"
+        ) {
+          item.status = "stale";
+          return;
+        }
         console.error("[RomM] Enhanced download failed", {
           fileId: item.file_id,
           destination: item.destination,
@@ -532,6 +601,7 @@ export function useBrowserDownloadQueue() {
   async function resumeSession(
     transferId: string,
     manifestMemberId?: string | null,
+    restartFromZero = false,
   ) {
     const root = await pickEnhancedDirectory();
     if (!root) return false;
@@ -542,14 +612,15 @@ export function useBrowserDownloadQueue() {
     );
     const config = await configApi.getBrowserDownloadQueueConfig();
     const limit = getBrowserDownloadQueueConcurrency(config.data);
-    const session = await downloadTransfersApi.create({
-      manifest_id: manifest.data.id,
-      mode: "enhanced",
-      ...(manifestMemberId ? { member_ids: [manifestMemberId] } : {}),
-    });
     if (previous.data.status === "active") {
       await downloadTransfersApi.cancel(transferId);
     }
+    const session = await downloadTransfersApi.create({
+      manifest_id: manifest.data.id,
+      mode: "enhanced",
+      previous_session_id: transferId,
+      ...(manifestMemberId ? { member_ids: [manifestMemberId] } : {}),
+    });
     enhancedRoot = root;
     sessionId.value = session.data.id;
     const members = manifest.data.members.filter(
@@ -571,10 +642,16 @@ export function useBrowserDownloadQueue() {
       await Promise.all(
         pending
           .slice(index, index + limit)
-          .map((item) => runEnhancedItem(root, item, session.data.id)),
+          .map((item) =>
+            runEnhancedItem(root, item, session.data.id, restartFromZero),
+          ),
       );
     }
     return true;
+  }
+  async function restart(fileId: string) {
+    if (!sessionId.value) return false;
+    return resumeSession(sessionId.value, fileId, true);
   }
   function pause(fileId: string) {
     const operation = operations.get(fileId);
@@ -583,14 +660,32 @@ export function useBrowserDownloadQueue() {
       operation.controller.abort();
     }
   }
-  function cancel(fileId: string) {
+  async function cancel(fileId: string) {
     const operation = operations.get(fileId);
     if (operation) {
       operation.reason = "cancel";
       operation.controller.abort();
     }
     const item = items.value.find((candidate) => candidate.file_id === fileId);
-    if (item) item.status = "cancelled";
+    if (!item || item.status === "cancelled") return;
+    item.status = "cancelled";
+    if (!operation && sessionId.value && item.transferItemId !== undefined) {
+      try {
+        await downloadTransfersApi.observe(
+          sessionId.value,
+          item.transferItemId,
+          {
+            event_type: "cancel",
+            observed_bytes: item.observedBytes ?? 0,
+          },
+        );
+      } catch (error) {
+        console.error("[RomM] Could not persist queued download cancellation", {
+          fileId: item.file_id,
+          error: error instanceof Error ? error.message : "journal_sync_failed",
+        });
+      }
+    }
   }
   function clearTerminal(fileIds: string[]) {
     const fileIdSet = new Set(fileIds);
@@ -610,6 +705,7 @@ export function useBrowserDownloadQueue() {
     startEnhanced,
     resume,
     resumeSession,
+    restart,
     pause,
     cancel,
     clearTerminal,

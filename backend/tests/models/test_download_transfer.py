@@ -1,8 +1,13 @@
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import BigInteger, inspect
 from tests.conftest import session
 
 from models.base import BaseModel
+from models.download_manifest import (
+    DownloadManifest,
+    DownloadManifestComponent,
+    DownloadManifestMember,
+)
 from models.download_transfer import (
     DownloadTransferEvent,
     DownloadTransferItem,
@@ -11,6 +16,7 @@ from models.download_transfer import (
     DownloadTransferSession,
     DownloadTransferSessionStatus,
 )
+from models.rom import RomComponent, RomComponentKind, RomComponentManifestMember
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -39,10 +45,37 @@ def clear_transfer_rows():
 
 
 def test_transfer_snapshot_is_path_free_and_owner_cascades(admin_user, rom):
+    component = RomComponent(
+        rom_id=rom.id, relative_path="base", kind=RomComponentKind.BASE
+    )
+    source_member = RomComponentManifestMember(
+        component=component,
+        relative_path="base/game.iso",
+        size_bytes=2**32 + 3,
+        sha256="a" * 64,
+    )
+    manifest = DownloadManifest(user_id=admin_user.id, rom_id=rom.id)
+    selected_component = DownloadManifestComponent(
+        manifest=manifest, component=component
+    )
+    manifest_member = DownloadManifestMember(
+        component=selected_component,
+        manifest_member=source_member,
+        destination="game.iso",
+        size_bytes=2**32 + 3,
+        sha256="a" * 64,
+        snapshot='"snapshot"',
+        mtime_ns=1,
+    )
+    with session.begin() as db:
+        db.add(manifest)
+        db.flush()
+        manifest_member_id = manifest_member.id
+        manifest_member_public_id = manifest_member.public_id
     transfer = DownloadTransferSession(
         user_id=admin_user.id,
         rom_id=rom.id,
-        manifest_id="manifest-id",
+        manifest=manifest,
         mode=DownloadTransferMode.STANDARD,
         selected_items=1,
         selected_bytes=2**32 + 3,
@@ -50,8 +83,8 @@ def test_transfer_snapshot_is_path_free_and_owner_cascades(admin_user, rom):
     )
     item = DownloadTransferItem(
         session=transfer,
-        manifest_member_id=7,
-        manifest_member_public_id="opaque-member-id",
+        manifest_member_id=manifest_member_id,
+        manifest_member_public_id=manifest_member_public_id,
         expected_bytes=2**32 + 3,
         status=DownloadTransferItemStatus.QUEUED,
     )
@@ -105,8 +138,5 @@ def test_transfer_statuses_distinguish_server_facts_from_browser_observations():
 
 def test_event_bounds_and_timestamps_are_explicit():
     assert DownloadTransferEvent.__table__.c.error_code.type.length <= 64
-    assert (
-        DownloadTransferEvent.__table__.c.observed_bytes.type.__class__.__name__
-        == "BIGINT"
-    )
+    assert isinstance(DownloadTransferEvent.__table__.c.observed_bytes.type, BigInteger)
     assert DownloadTransferSession.__table__.c.started_at.nullable is False
