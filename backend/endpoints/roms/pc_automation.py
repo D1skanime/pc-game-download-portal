@@ -38,22 +38,39 @@ def _match_stored_timestamp(value: datetime, stored: datetime) -> datetime:
 
 
 def _schema(item) -> PcAutomationQueueItemSchema:
+    rom = db_rom_handler.get_rom(item.rom_id)
+    target_title = item.normalized_query
     component_kind = None
     if item.component_id is not None:
-        component = db_rom_handler.get_pc_component_by_id(
-            item.rom_id, item.component_id
+        component = next(
+            (
+                component
+                for component in (rom.components if rom is not None else [])
+                if component.id == item.component_id
+            ),
+            None,
         )
         if component is not None and component.kind in {
             RomComponentKind.DLC,
             RomComponentKind.EXTRA,
         }:
             component_kind = component.kind
+            metadata_name = (
+                component.component_metadata.name
+                if component.component_metadata is not None
+                else None
+            )
+            target_title = metadata_name or component.relative_path
+    elif rom is not None:
+        target_title = rom.name or item.normalized_query
     return PcAutomationQueueItemSchema(
         id=item.id,
         rom_id=item.rom_id,
         component_id=item.component_id,
         component_kind=component_kind,
         target_kind=item.target_kind,
+        normalized_query=item.normalized_query,
+        target_title=target_title,
         candidate_fingerprint=item.candidate_fingerprint,
         candidate_title=item.candidate_title,
         candidate_cover_url=item.candidate_cover_url,

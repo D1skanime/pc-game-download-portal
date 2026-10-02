@@ -11,6 +11,8 @@ export type PcAutomationQueueItemSchema = {
     component_id: (number | null);
     component_kind: (RomComponentKind | null);
     target_kind: PcAutomationTargetKind;
+    normalized_query: string;
+    target_title: string;
     candidate_fingerprint: string;
     candidate_title: (string | null);
     candidate_cover_url: (string | null);

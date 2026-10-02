@@ -138,6 +138,8 @@ class PcAutomationQueueItemSchema(BaseModel):
     component_id: int | None
     component_kind: RomComponentKind | None
     target_kind: PcAutomationTargetKind
+    normalized_query: str
+    target_title: str = Field(min_length=1, max_length=350)
     candidate_fingerprint: str
     candidate_title: str | None
     candidate_cover_url: str | None

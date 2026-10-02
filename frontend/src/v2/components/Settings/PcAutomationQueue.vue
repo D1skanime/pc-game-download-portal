@@ -32,11 +32,12 @@ const canReview = useCan("rom.edit");
 const selectedCount = computed(() => queue.selection.size);
 const selectedGroupIsSafe = computed(() => queue.selectedGroupIsSafe);
 
-function candidateTitle(item: PcAutomationQueueItemSchema) {
-  return (
-    item.candidate_title?.trim() ||
-    t("settings.pc-automation.unnamed-candidate")
-  );
+function targetTitle(item: PcAutomationQueueItemSchema) {
+  return item.target_title;
+}
+
+function proposedTitle(item: PcAutomationQueueItemSchema) {
+  return item.candidate_title?.trim() ?? null;
 }
 
 function queueError(error: unknown) {
@@ -53,7 +54,7 @@ function componentTarget(
     return {
       kind: "rom",
       romId: item.rom_id,
-      label: candidateTitle(item),
+      label: targetTitle(item),
     };
   }
 
@@ -69,7 +70,7 @@ function componentTarget(
     return {
       kind: "rom",
       romId: item.rom_id,
-      label: candidateTitle(item),
+      label: targetTitle(item),
     };
   }
 
@@ -78,7 +79,7 @@ function componentTarget(
     romId: item.rom_id,
     componentId: item.component_id,
     componentKind: item.component_kind as PcMatchableComponentKind,
-    label: candidateTitle(item),
+    label: targetTitle(item),
   };
 }
 
@@ -206,7 +207,7 @@ onMounted(() => {
             :model-value="queue.selection.has(item.id)"
             :aria-label="
               t('settings.pc-automation.select-row', {
-                title: candidateTitle(item),
+                title: targetTitle(item),
               })
             "
             bare
@@ -215,10 +216,13 @@ onMounted(() => {
           <RImg
             class="r-v2-pc-automation__cover"
             :src="item.candidate_cover_url ?? undefined"
-            :alt="candidateTitle(item)"
+            :alt="targetTitle(item)"
           />
           <div class="r-v2-pc-automation__details">
-            <strong>{{ candidateTitle(item) }}</strong>
+            <strong>{{ targetTitle(item) }}</strong>
+            <span v-if="proposedTitle(item) !== null">
+              {{ proposedTitle(item) }}
+            </span>
             <span>{{
               item.reason ?? t("settings.pc-automation.review-required")
             }}</span>
@@ -239,12 +243,12 @@ onMounted(() => {
               :loading="queue.actionLoadingIds.has(item.id)"
               :aria-label="
                 t('settings.pc-automation.accept', {
-                  title: candidateTitle(item),
+                  title: targetTitle(item),
                 })
               "
               :tooltip="
                 t('settings.pc-automation.accept', {
-                  title: candidateTitle(item),
+                  title: targetTitle(item),
                 })
               "
               @click="accept(item)"
@@ -254,12 +258,12 @@ onMounted(() => {
               :disabled="componentTarget(item) === null"
               :aria-label="
                 t('settings.pc-automation.correct', {
-                  title: candidateTitle(item),
+                  title: targetTitle(item),
                 })
               "
               :tooltip="
                 t('settings.pc-automation.correct', {
-                  title: candidateTitle(item),
+                  title: targetTitle(item),
                 })
               "
               @click="correct(item)"
@@ -269,12 +273,12 @@ onMounted(() => {
               :loading="queue.actionLoadingIds.has(item.id)"
               :aria-label="
                 t('settings.pc-automation.skip', {
-                  title: candidateTitle(item),
+                  title: targetTitle(item),
                 })
               "
               :tooltip="
                 t('settings.pc-automation.skip', {
-                  title: candidateTitle(item),
+                  title: targetTitle(item),
                 })
               "
               @click="skip(item)"

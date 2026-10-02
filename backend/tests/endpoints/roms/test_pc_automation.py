@@ -25,6 +25,7 @@ def _item(rom_id: int, *, queue_id: int = 7):
         rom_id=rom_id,
         component_id=None,
         target_kind=PcAutomationTargetKind.PARENT,
+        normalized_query="Cyberpunk 2077",
         candidate_fingerprint="steam:1091500:stale_target",
         candidate_title="Cyberpunk 2077",
         candidate_cover_url="https://cdn.example/cover.jpg",
@@ -67,18 +68,16 @@ def test_queue_list_returns_bounded_evidence_and_count(
                 "component_id": None,
                 "component_kind": None,
                 "target_kind": "parent",
+                "normalized_query": "Cyberpunk 2077",
+                "target_title": "test_rom",
                 "candidate_fingerprint": "steam:1091500:stale_target",
                 "candidate_title": "Cyberpunk 2077",
                 "candidate_cover_url": "https://cdn.example/cover.jpg",
                 "provider": "steam",
                 "reason": "stale_target",
                 "state": "pending",
-                "expected_queue_version": item.updated_at.isoformat().replace(
-                    "+00:00", "Z"
-                ),
-                "expected_target_version": item.target_updated_at.isoformat().replace(
-                    "+00:00", "Z"
-                ),
+                "expected_queue_version": item.updated_at.isoformat(),
+                "expected_target_version": item.target_updated_at.isoformat(),
             }
         ],
         "total": 1,
@@ -89,28 +88,65 @@ def test_queue_list_returns_bounded_evidence_and_count(
 
 
 def test_queue_list_exposes_the_actual_eligible_component_kind(
+    mocker,
+):
+    item = _item(7)
+    item.component_id = 23
+    item.target_kind = PcAutomationTargetKind.COMPONENT
+    component = SimpleNamespace(
+        id=23,
+        kind=RomComponentKind.DLC,
+        relative_path="dlc/Phantom Liberty",
+        component_metadata=None,
+    )
+    mocker.patch.object(
+        pc_automation_endpoint.db_rom_handler,
+        "get_rom",
+        return_value=SimpleNamespace(name="Cyberpunk 2077", components=[component]),
+    )
+
+    assert pc_automation_endpoint._schema(item).component_kind == RomComponentKind.DLC
+
+
+def test_queue_schema_prefers_component_metadata_name_then_relative_path(mocker):
+    item = _item(7)
+    item.component_id = 23
+    item.target_kind = PcAutomationTargetKind.COMPONENT
+    component = SimpleNamespace(
+        id=23,
+        kind=RomComponentKind.DLC,
+        relative_path="dlc/Phantom Liberty",
+        component_metadata=SimpleNamespace(name="Cyberpunk 2077: Phantom Liberty"),
+    )
+    mocker.patch.object(
+        pc_automation_endpoint.db_rom_handler,
+        "get_rom",
+        return_value=SimpleNamespace(name="Cyberpunk 2077", components=[component]),
+    )
+    schema = pc_automation_endpoint._schema(item)
+
+    assert schema.target_title == "Cyberpunk 2077: Phantom Liberty"
+    component.component_metadata.name = None
+    assert pc_automation_endpoint._schema(item).target_title == "dlc/Phantom Liberty"
+
+
+def test_queue_list_exposes_the_normalized_query_for_unmatched_titles(
     client, access_token, rom, monkeypatch
 ):
     item = _item(rom.id)
-    item.component_id = 23
-    item.target_kind = PcAutomationTargetKind.COMPONENT
+    item.normalized_query = "Civilization VI"
+    item.candidate_title = None
     monkeypatch.setattr(
         pc_automation_endpoint.pc_automation_handler,
         "list_pending",
         AsyncMock(return_value=([item], 1)),
-    )
-    monkeypatch.setattr(
-        pc_automation_endpoint.db_rom_handler,
-        "get_pc_component_by_id",
-        lambda _rom_id, _component_id: SimpleNamespace(kind=RomComponentKind.DLC),
     )
 
     response = client.get(
         "/api/roms/pc-automation/review-queue", headers=_headers(access_token)
     )
 
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json()["items"][0]["component_kind"] == "dlc"
+    assert response.json()["items"][0]["normalized_query"] == "Civilization VI"
 
 
 def test_queue_actions_require_authentication(client):
