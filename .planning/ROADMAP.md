@@ -618,24 +618,24 @@ Plans:
 
 **Wave 1**
 
-- [ ] 22-01-PLAN.md — Persist an idempotent, version-bound PC automation review queue and guarded state machine.
+- [x] 22-01-PLAN.md — Persist an idempotent, version-bound PC automation review queue and guarded state machine.
 
 **Wave 2**
 
-- [ ] 22-02-PLAN.md — Add fail-closed automatic PC matching and scheduled mapped discovery with Steam coverage and a tested UAT override.
+- [x] 22-02-PLAN.md — Add fail-closed automatic PC matching and scheduled mapped discovery with Steam coverage and a tested UAT override.
 
 **Wave 3**
 
-- [ ] 22-03-PLAN.md — Expose protected generated queue APIs with server-side candidate revalidation and safe batch application.
+- [x] 22-03-PLAN.md — Expose protected generated queue APIs with server-side candidate revalidation and safe batch application.
 
 **Wave 4**
 
-- [ ] 22-04-PLAN.md — Deliver the v2 centralized review queue and manual-match reuse.
+- [x] 22-04-PLAN.md — Deliver the v2 centralized review queue and manual-match reuse.
 
 **Wave 5**
 
-- [ ] 22-05-PLAN.md — Translate the centralized queue through the full locale set and prove locale parity.
+- [x] 22-05-PLAN.md — Translate the centralized queue through the full locale set and prove locale parity.
 
 **Wave 6**
 
-- [ ] 22-06-PLAN.md — Prove isolated source immutability and complete browser UAT for scheduled bulk automation.
+- [x] 22-06-PLAN.md — Prove isolated source immutability and complete browser UAT for scheduled bulk automation.

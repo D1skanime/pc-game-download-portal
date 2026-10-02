@@ -237,3 +237,12 @@ All fixture files were synthetic text files and the source bind was read-only.
 This is automated scheduler evidence only. The browser review, correction,
 skip, and stale-conflict checks remain required before Phase 22 can be marked
 UAT-approved.
+
+## UAT Approval, 2026-10-02
+
+The operator completed and approved the isolated Phase 22 UAT on the disposable
+port-3344 stack. A DLC was manually matched and its review row was claimed;
+a normal review row was skipped without a Conflict response; and, after a
+baseline scan, a newly added synthetic `NieR Automata.iso` was discovered by
+the ten-second scheduler without another manual scan. No real game content or
+real library mount was used.
