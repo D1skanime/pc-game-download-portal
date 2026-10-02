@@ -1,14 +1,14 @@
 """Add parent-ROM owned media catalog and cleanup intents.
 
 Revision ID: 0127_parent_rom_owned_media
-Revises: 0126_add_steam_metadata
+Revises: 0128_add_steam_metadata
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "0127_parent_rom_owned_media"
-down_revision = "0126_add_steam_metadata"
+down_revision = "0128_add_steam_metadata"
 branch_labels = None
 depends_on = None
 

@@ -145,3 +145,10 @@ def test_steam_metadata_migration_has_the_current_download_head():
         assert f'op.drop_column("{table}", "{column}")' in migration
     assert migration.count("sa.JSON()") == 2
     assert "unique=True" not in migration
+
+
+def test_parent_owned_media_migration_follows_steam_metadata():
+    migration = Path("alembic/versions/0122_parent_rom_owned_media.py").read_text()
+
+    assert 'revision = "0127_parent_rom_owned_media"' in migration
+    assert 'down_revision = "0128_add_steam_metadata"' in migration
