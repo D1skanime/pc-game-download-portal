@@ -195,6 +195,42 @@ def test_individual_actions_return_conflict_for_stale_versions(
     assert response.status_code == status.HTTP_409_CONFLICT
 
 
+def test_skip_accepts_utc_versions_returned_for_naive_mariadb_timestamps(
+    client, access_token, rom, monkeypatch
+):
+    item = _item(rom.id)
+    item.updated_at = datetime(2026, 10, 2, 17, 12, 31)
+    item.target_updated_at = datetime(2026, 10, 2, 17, 12, 31)
+    skipped = PcAutomationQueueResult(PcAutomationOutcome.SKIPPED, item)
+    monkeypatch.setattr(
+        pc_automation_endpoint.pc_automation_handler,
+        "get_review_item",
+        lambda _id: item,
+    )
+    monkeypatch.setattr(
+        pc_automation_endpoint.pc_automation_handler.queue_handler,
+        "mark_skipped",
+        lambda queue_id, expected_queue_version: (
+            skipped
+            if queue_id == item.id
+            and expected_queue_version == datetime(2026, 10, 2, 17, 12, 31)
+            else PcAutomationQueueResult(PcAutomationOutcome.CONFLICT, None)
+        ),
+    )
+
+    response = client.post(
+        f"/api/roms/pc-automation/review-queue/{item.id}/skip",
+        headers=_headers(access_token),
+        json={
+            "expected_queue_version": "2026-10-02T17:12:31Z",
+            "expected_target_version": "2026-10-02T17:12:31Z",
+            "candidate_fingerprint": item.candidate_fingerprint,
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+
+
 def test_batch_delegates_one_fingerprint_and_kind_for_all_items(
     client, access_token, rom, monkeypatch
 ):

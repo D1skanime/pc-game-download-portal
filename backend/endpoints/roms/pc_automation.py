@@ -1,5 +1,6 @@
 """Protected review routes for durable PC metadata automation evidence."""
 
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import HTTPException, Path, Query, Request, status
@@ -27,6 +28,13 @@ from models.rom import RomComponentKind
 from utils.router import APIRouter
 
 router = APIRouter()
+
+
+def _match_stored_timestamp(value: datetime, stored: datetime) -> datetime:
+    """Match the timezone shape returned by the configured database driver."""
+    if stored.tzinfo is None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value.astimezone(timezone.utc)
 
 
 def _schema(item) -> PcAutomationQueueItemSchema:
@@ -112,11 +120,15 @@ async def accept_review_item(
     queue_id: Annotated[int, Path(ge=1)],
     action: PcAutomationReviewActionRequest,
 ) -> PcAutomationReviewActionResponse:
-    _visible_item(request, queue_id)
+    item = _visible_item(request, queue_id)
     result = await pc_automation_handler.apply_review_item(
         queue_id=queue_id,
-        expected_queue_updated_at=action.expected_queue_version,
-        expected_target_updated_at=action.expected_target_version,
+        expected_queue_updated_at=_match_stored_timestamp(
+            action.expected_queue_version, item.updated_at
+        ),
+        expected_target_updated_at=_match_stored_timestamp(
+            action.expected_target_version, item.target_updated_at
+        ),
         candidate_fingerprint=action.candidate_fingerprint,
     )
     _raise_for_outcome(result)
@@ -132,13 +144,17 @@ async def skip_review_item(
     action: PcAutomationReviewActionRequest,
 ) -> PcAutomationReviewActionResponse:
     item = _visible_item(request, queue_id)
+    expected_target_version = _match_stored_timestamp(
+        action.expected_target_version, item.target_updated_at
+    )
     if (
         item.candidate_fingerprint != action.candidate_fingerprint
-        or item.target_updated_at != action.expected_target_version
+        or item.target_updated_at != expected_target_version
     ):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT)
     result = pc_automation_handler.queue_handler.mark_skipped(
-        queue_id, action.expected_queue_version
+        queue_id,
+        _match_stored_timestamp(action.expected_queue_version, item.updated_at),
     )
     if result.outcome != PcAutomationOutcome.SKIPPED or result.item is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT)
@@ -154,13 +170,17 @@ async def requeue_review_item(
     action: PcAutomationReviewActionRequest,
 ) -> PcAutomationReviewActionResponse:
     item = _visible_item(request, queue_id)
+    expected_target_version = _match_stored_timestamp(
+        action.expected_target_version, item.target_updated_at
+    )
     if (
         item.candidate_fingerprint != action.candidate_fingerprint
-        or item.target_updated_at != action.expected_target_version
+        or item.target_updated_at != expected_target_version
     ):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT)
     result = pc_automation_handler.queue_handler.requeue(
-        queue_id, action.expected_queue_version
+        queue_id,
+        _match_stored_timestamp(action.expected_queue_version, item.updated_at),
     )
     if result.outcome != PcAutomationOutcome.REQUEUED or result.item is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT)
@@ -173,8 +193,9 @@ async def requeue_review_item(
 async def batch_accept_review_items(
     request: Request, action: PcAutomationBatchRequest
 ) -> PcAutomationBatchResponse:
+    queue_items = {}
     for batch_item in action.items:
-        _visible_item(request, batch_item.queue_id)
+        queue_items[batch_item.queue_id] = _visible_item(request, batch_item.queue_id)
     results = await pc_automation_handler.apply_review_batch(
         ReviewBatchAction(
             target_kind=action.target_kind,
@@ -182,8 +203,14 @@ async def batch_accept_review_items(
             items=[
                 ReviewAction(
                     queue_id=item.queue_id,
-                    expected_queue_updated_at=item.expected_queue_version,
-                    expected_target_updated_at=item.expected_target_version,
+                    expected_queue_updated_at=_match_stored_timestamp(
+                        item.expected_queue_version,
+                        queue_items[item.queue_id].updated_at,
+                    ),
+                    expected_target_updated_at=_match_stored_timestamp(
+                        item.expected_target_version,
+                        queue_items[item.queue_id].target_updated_at,
+                    ),
                 )
                 for item in action.items
             ],
