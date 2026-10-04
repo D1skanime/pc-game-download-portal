@@ -254,6 +254,8 @@ export type { SoundtrackTrackMetaSchema } from './models/SoundtrackTrackMetaSche
 export type { SSAgeRating } from './models/SSAgeRating';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
+export type { SteamMetadataSchema } from './models/SteamMetadataSchema';
+export type { SteamTextVariantSchema } from './models/SteamTextVariantSchema';
 export type { StorageConflictDetail } from './models/StorageConflictDetail';
 export type { StorageConflictErrorCode } from './models/StorageConflictErrorCode';
 export type { StorageConflictResponse } from './models/StorageConflictResponse';

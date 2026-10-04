@@ -373,6 +373,31 @@ class PcComponentManifestMemberSchema(BaseModel):
     sha256: str
 
 
+class SteamTextVariantSchema(BaseModel):
+    source_language: str
+    name: str | None = None
+    summary: str | None = None
+
+
+class SteamMetadataSchema(BaseModel):
+    app_id: int | None = None
+    source: str | None = None
+    developers: list[str] | None = None
+    publishers: list[str] | None = None
+    platforms: dict[str, bool] | None = None
+    release_date: dict[str, str | bool] | None = None
+    language: str | None = None
+    fallback_language: str | None = None
+    fallback_fields: list[str] | None = None
+    fields: list[str] | None = None
+    type: str | None = None
+    fullgame: dict[str, int | str] | None = None
+    genres: list[str] | None = None
+    categories: list[str] | None = None
+    dlc_ids: list[int] | None = None
+    text_variants: dict[str, SteamTextVariantSchema] | None = None
+
+
 class PcComponentMetadataSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -381,7 +406,7 @@ class PcComponentMetadataSchema(BaseModel):
     sgdb_id: int | None
     launchbox_id: int | None
     steam_id: int | None
-    steam_metadata: dict[str, object] | None
+    steam_metadata: SteamMetadataSchema | None
     name: str | None
     summary: str | None
     metadata_source: str | None
@@ -674,7 +699,6 @@ class RomSchema(BaseModel):
     gamelist_id: str | None
     libretro_id: str | None
     steam_id: int | None
-    steam_metadata: dict[str, object] | None
 
     platform_id: int
     platform_slug: str
@@ -913,6 +937,7 @@ class UserCollectionSchema(BaseModel):
 
 
 class DetailedRomSchema(RomSchema):
+    steam_metadata: SteamMetadataSchema | None
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     all_user_saves: list[UserSaveSchema]

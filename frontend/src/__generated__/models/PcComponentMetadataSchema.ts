@@ -2,13 +2,14 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { SteamMetadataSchema } from './SteamMetadataSchema';
 export type PcComponentMetadataSchema = {
     igdb_id: (number | null);
     moby_id: (number | null);
     sgdb_id: (number | null);
     launchbox_id: (number | null);
     steam_id: (number | null);
-    steam_metadata: (Record<string, any> | null);
+    steam_metadata: (SteamMetadataSchema | null);
     name: (string | null);
     summary: (string | null);
     metadata_source: (string | null);
@@ -18,4 +19,3 @@ export type PcComponentMetadataSchema = {
     themes?: Array<string>;
     pc_release_date: (number | null);
 };
-

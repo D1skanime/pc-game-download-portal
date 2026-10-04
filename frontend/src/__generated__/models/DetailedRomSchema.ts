@@ -22,6 +22,7 @@ import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
+import type { SteamMetadataSchema } from './SteamMetadataSchema';
 import type { UserCollectionSchema } from './UserCollectionSchema';
 import type { UserNoteSchema } from './UserNoteSchema';
 import type { UserSaveSchema } from './UserSaveSchema';
@@ -42,7 +43,6 @@ export type DetailedRomSchema = {
     gamelist_id: (string | null);
     libretro_id: (string | null);
     steam_id: (number | null);
-    steam_metadata: (Record<string, any> | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -103,6 +103,7 @@ export type DetailedRomSchema = {
     files: Array<RomFileSchema>;
     components?: Array<PcComponentSchema>;
     sibling_roms: Array<SiblingRomSchema>;
+    steam_metadata: (SteamMetadataSchema | null);
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     all_user_saves: Array<UserSaveSchema>;
@@ -116,4 +117,3 @@ export type DetailedRomSchema = {
     local_background_audio_file_ids?: Array<number>;
     owned_background_audio_media_ids?: Array<number>;
 };
-

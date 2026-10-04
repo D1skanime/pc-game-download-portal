@@ -182,40 +182,38 @@ def test_get_rom_serializes_steam_identity_and_observational_provenance(
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert body["steam_id"] == 1091500
-    assert body["steam_metadata"] == {
-        "app_id": 1091500,
-        "source": "storefront",
-        "language": "german",
-        "text_variants": {
-            "de": {
-                "source_language": "german",
-                "name": "Cyberpunk 2077",
-                "summary": "Deutsche Steam-Beschreibung",
-            },
-            "en": {
-                "source_language": "english",
-                "name": "Cyberpunk 2077",
-                "summary": "English Steam description",
-            },
+    parent_steam_metadata = body["steam_metadata"]
+    assert parent_steam_metadata["app_id"] == 1091500
+    assert parent_steam_metadata["source"] == "storefront"
+    assert parent_steam_metadata["language"] == "german"
+    assert parent_steam_metadata["text_variants"] == {
+        "de": {
+            "source_language": "german",
+            "name": "Cyberpunk 2077",
+            "summary": "Deutsche Steam-Beschreibung",
+        },
+        "en": {
+            "source_language": "english",
+            "name": "Cyberpunk 2077",
+            "summary": "English Steam description",
         },
     }
     assert "steam_display" not in body
     component_metadata = body["components"][0]["component_metadata"]
     assert component_metadata["steam_id"] == 1091501
-    assert component_metadata["steam_metadata"] == {
-        "app_id": 1091501,
-        "source": "storefront",
-        "text_variants": {
-            "de": {
-                "source_language": "german",
-                "name": "Phantom Liberty",
-                "summary": "Deutsche DLC-Beschreibung",
-            },
-            "en": {
-                "source_language": "english",
-                "name": "Phantom Liberty",
-                "summary": "English DLC description",
-            },
+    component_steam_metadata = component_metadata["steam_metadata"]
+    assert component_steam_metadata["app_id"] == 1091501
+    assert component_steam_metadata["source"] == "storefront"
+    assert component_steam_metadata["text_variants"] == {
+        "de": {
+            "source_language": "german",
+            "name": "Phantom Liberty",
+            "summary": "Deutsche DLC-Beschreibung",
+        },
+        "en": {
+            "source_language": "english",
+            "name": "Phantom Liberty",
+            "summary": "English DLC description",
         },
     }
     assert "steam_display" not in component_metadata
