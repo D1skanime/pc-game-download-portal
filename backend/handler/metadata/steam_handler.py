@@ -9,6 +9,8 @@ from config import (
     STEAM_API_FALLBACK_COUNTRY,
     STEAM_API_FALLBACK_LANGUAGE,
     STEAM_API_LANGUAGE,
+    STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG,
+    STEAM_API_TEXT_LANGUAGES,
 )
 
 from .base_handler import BaseRom, MetadataHandler
@@ -18,6 +20,12 @@ STEAM_PLATFORMS = frozenset({UPS.WIN, UPS.LINUX, UPS.MAC})
 COMPACT_TITLE_BOUNDARY = re.compile(
     r"(?<=[a-z])(?=[A-Z])|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])"
 )
+
+
+class SteamTextVariant(TypedDict):
+    source_language: str
+    name: NotRequired[str]
+    summary: NotRequired[str]
 
 
 class SteamMetadata(TypedDict):
@@ -33,6 +41,7 @@ class SteamMetadata(TypedDict):
     genres: NotRequired[list[str]]
     categories: NotRequired[list[str]]
     dlc_ids: NotRequired[list[int]]
+    text_variants: NotRequired[dict[str, SteamTextVariant]]
 
 
 class SteamRom(BaseRom):
@@ -102,24 +111,32 @@ class SteamHandler(MetadataHandler):
     ) -> SteamRom:
         if not self.is_enabled():
             return SteamRom(steam_id=None)
-        preferred = await self.steam_service.get_app_details(
-            steam_id, country=STEAM_API_COUNTRY, language=STEAM_API_LANGUAGE
-        )
-        if (
-            not preferred
-            or preferred.get("type") not in {"game", "dlc"}
-            or not isinstance(preferred.get("steam_appid"), int)
-            or isinstance(preferred["steam_appid"], bool)
-        ):
-            return SteamRom(steam_id=None)
-        fallback = None
-        if self._needs_fallback(preferred):
-            fallback = await self.steam_service.get_app_details(
+        localized_details: dict[str, SteamAppDetails] = {}
+        for language in STEAM_API_TEXT_LANGUAGES:
+            details = await self.steam_service.get_app_details(
                 steam_id,
-                country=STEAM_API_FALLBACK_COUNTRY,
-                language=STEAM_API_FALLBACK_LANGUAGE,
+                country=(
+                    STEAM_API_COUNTRY
+                    if language == STEAM_API_LANGUAGE
+                    else STEAM_API_FALLBACK_COUNTRY
+                ),
+                language=language,
             )
-        return await self._build_rom(preferred, fallback)
+            if validated_details := self._valid_app_details(details, steam_id):
+                localized_details[language] = validated_details
+        preferred = localized_details.get(STEAM_API_LANGUAGE) or next(
+            iter(localized_details.values()), None
+        )
+        if preferred is None:
+            return SteamRom(steam_id=None)
+        fallback: SteamAppDetails | None = None
+        if self._needs_fallback(preferred):
+            fallback = localized_details.get(STEAM_API_FALLBACK_LANGUAGE)
+        return await self._build_rom(
+            preferred,
+            fallback,
+            self._text_variants(localized_details),
+        )
 
     async def get_matched_roms_by_name(
         self, search_term: str, platform_slug: str
@@ -149,6 +166,39 @@ class SteamHandler(MetadataHandler):
                 "release_date",
             )
         )
+
+    @staticmethod
+    def _valid_app_details(
+        details: SteamAppDetails | None, steam_id: int
+    ) -> SteamAppDetails | None:
+        if (
+            not details
+            or details.get("type") not in {"game", "dlc"}
+            or not isinstance(details.get("steam_appid"), int)
+            or isinstance(details["steam_appid"], bool)
+            or details["steam_appid"] != steam_id
+        ):
+            return None
+        return details
+
+    @staticmethod
+    def _text_variants(
+        localized_details: dict[str, SteamAppDetails],
+    ) -> dict[str, SteamTextVariant]:
+        variants: dict[str, SteamTextVariant] = {}
+        for language, details in localized_details.items():
+            base_tag = STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG[language]
+            variant: SteamTextVariant = {"source_language": language}
+            if isinstance(details.get("name"), str) and details["name"].strip():
+                variant["name"] = details["name"].strip()
+            if (
+                isinstance(details.get("short_description"), str)
+                and details["short_description"].strip()
+            ):
+                variant["summary"] = details["short_description"].strip()
+            if len(variant) > 1:
+                variants[base_tag] = variant
+        return variants
 
     @staticmethod
     def _string_list(value: object) -> list[str]:
@@ -188,7 +238,10 @@ class SteamHandler(MetadataHandler):
         ]
 
     async def _build_rom(
-        self, preferred: SteamAppDetails, fallback: SteamAppDetails | None
+        self,
+        preferred: SteamAppDetails,
+        fallback: SteamAppDetails | None,
+        text_variants: dict[str, SteamTextVariant],
     ) -> SteamRom:
         app_id = preferred["steam_appid"]
         fallback_details: SteamAppDetails = fallback or {
@@ -204,6 +257,8 @@ class SteamHandler(MetadataHandler):
             "language": STEAM_API_LANGUAGE,
             "fallback_language": STEAM_API_FALLBACK_LANGUAGE if fallback else "",
         }
+        if text_variants:
+            metadata["text_variants"] = text_variants
         fallback_fields: list[str] = []
         if fallback and not preferred.get("name") and fallback_details.get("name"):
             fallback_fields.append("name")
@@ -224,13 +279,16 @@ class SteamHandler(MetadataHandler):
                 preferred.get(field) or fallback_details.get(field)
             ):
                 metadata[field] = value
-        if value := self._positive_ids(preferred.get("dlc")):
-            metadata["dlc_ids"] = value
-        for field in ("developers", "publishers"):
-            if value := self._string_list(
-                preferred.get(field) or fallback_details.get(field)
-            ):
-                metadata[field] = value
+        if dlc_ids := self._positive_ids(preferred.get("dlc")):
+            metadata["dlc_ids"] = dlc_ids
+        if developers := self._string_list(
+            preferred.get("developers") or fallback_details.get("developers")
+        ):
+            metadata["developers"] = developers
+        if publishers := self._string_list(
+            preferred.get("publishers") or fallback_details.get("publishers")
+        ):
+            metadata["publishers"] = publishers
         if release_date := self._release_date(
             preferred.get("release_date") or fallback_details.get("release_date")
         ):

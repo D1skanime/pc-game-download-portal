@@ -99,7 +99,11 @@ async def test_store_details_keep_localized_genres_categories_and_dlc_ids(handle
 
     assert result["steam_metadata"] == {
         "language": "german",
-        "fallback_language": "",
+        "fallback_language": "english",
+        "text_variants": {
+            "de": {"source_language": "german", "name": "Cyberpunk 2077"},
+            "en": {"source_language": "english", "name": "Cyberpunk 2077"},
+        },
         "type": "game",
         "genres": ["Rollenspiel"],
         "categories": ["Einzelspieler", "Steam-Cloud"],
@@ -185,7 +189,7 @@ async def test_name_search_skips_soundtrack_and_uses_next_valid_game(handler):
     assert result["steam_id"] == 292030
     assert [
         call.args[0] for call in handler.steam_service.get_app_details.await_args_list
-    ] == [292031, 292030, 292030]
+    ] == [292031, 292031, 292030, 292030]
 
 
 async def test_invalid_store_type_and_disabled_provider_return_no_match(handler):

@@ -120,6 +120,41 @@ SCREENSCRAPER_DEV_PASSWORD: Final[str | None] = _get_env("SCREENSCRAPER_DEV_PASS
 STEAMGRIDDB_API_KEY: Final[str | None] = _get_env("STEAMGRIDDB_API_KEY")
 
 # STEAM
+STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG: Final[dict[str, str]] = {
+    "english": "en",
+    "french": "fr",
+    "german": "de",
+    "russian": "ru",
+    "brazilian": "pt",
+    "romanian": "ro",
+    "spanish": "es",
+    "schinese": "zh",
+    "koreana": "ko",
+    "japanese": "ja",
+    "italian": "it",
+    "polish": "pl",
+    "czech": "cs",
+    "hungarian": "hu",
+    "bulgarian": "bg",
+    "turkish": "tr",
+}
+
+
+def parse_steam_api_text_languages(value: str | None) -> tuple[str, ...]:
+    """Return a bounded, ordered set of supported Steam text languages."""
+    if not value:
+        return ()
+    languages: list[str] = []
+    for raw_language in value.split(","):
+        language = raw_language.strip().lower()
+        if (
+            language in STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG
+            and language not in languages
+        ):
+            languages.append(language)
+    return tuple(languages)
+
+
 STEAM_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("STEAM_API_ENABLED"))
 STEAM_API_LANGUAGE: Final[str] = _get_env("STEAM_API_LANGUAGE", "german")
 STEAM_API_COUNTRY: Final[str] = _get_env("STEAM_API_COUNTRY", "CH")
@@ -127,6 +162,9 @@ STEAM_API_FALLBACK_LANGUAGE: Final[str] = _get_env(
     "STEAM_API_FALLBACK_LANGUAGE", "english"
 )
 STEAM_API_FALLBACK_COUNTRY: Final[str] = _get_env("STEAM_API_FALLBACK_COUNTRY", "US")
+STEAM_API_TEXT_LANGUAGES: Final[tuple[str, ...]] = parse_steam_api_text_languages(
+    _get_env("STEAM_API_TEXT_LANGUAGES", f"{STEAM_API_LANGUAGE},english")
+)
 
 # RETROACHIEVEMENTS
 RETROACHIEVEMENTS_API_KEY: Final[str | None] = _get_env("RETROACHIEVEMENTS_API_KEY")
