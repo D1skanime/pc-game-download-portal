@@ -11,6 +11,7 @@ import { FRONTEND_RESOURCES_PATH, formatBytes, toBrowserLocale } from "@/utils";
 import PcDlcFiles from "@/v2/components/GameDetails/PcDlcFiles.vue";
 import PcDlcMediaTab from "@/v2/components/GameDetails/PcDlcMediaTab.vue";
 import PcDlcNotesTab from "@/v2/components/GameDetails/PcDlcNotesTab.vue";
+import { resolveSteamTextVariant } from "@/v2/utils/steamTextVariants";
 
 defineOptions({ inheritAttrs: false });
 
@@ -62,7 +63,15 @@ const title = computed(
       relativePath: props.component.relative_path,
     }),
 );
-const summary = computed(() => props.component.component_metadata?.summary);
+const summary = computed(() => {
+  const metadata = props.component.component_metadata;
+  return resolveSteamTextVariant({
+    steamMetadata: metadata?.steam_metadata,
+    legacySummary: metadata?.summary,
+    locale: locale.value,
+    steamSummaryIsAuthoritative: metadata?.metadata_source === "steam",
+  });
+});
 const cover = computed(
   () =>
     props.component.owned_media?.find((media) => media.role === "cover") ??

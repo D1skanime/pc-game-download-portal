@@ -103,6 +103,7 @@ import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
+import { resolveSteamTextVariant } from "@/v2/utils/steamTextVariants";
 
 const route = useRoute();
 const router = useRouter();
@@ -172,6 +173,19 @@ const title = computed(() => {
   const r = currentRom.value;
   if (!r) return "";
   return r.name || r.fs_name_no_ext;
+});
+
+const overviewSummary = computed(() => {
+  const rom = currentRom.value;
+  if (!rom) return null;
+  return resolveSteamTextVariant({
+    steamMetadata: rom.steam_metadata,
+    legacySummary: rom.summary,
+    locale: locale.value,
+    steamSummaryIsAuthoritative:
+      Boolean(rom.steam_metadata?.fields?.includes("summary")) &&
+      !Boolean(rom.manual_metadata?.summary),
+  });
 });
 
 usePageTitle(() => title.value);
@@ -509,7 +523,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             v-if="tab === 'overview'"
             :rom="currentRom"
             :parent-rom-id="currentRom.id"
-            :summary="currentRom.summary ?? null"
+            :summary="overviewSummary"
             :sections="overviewSections"
             :player-count="playerCount"
             :user-collections="userCollections"

@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type ManualMetadata = {
+    name?: (boolean | null);
+    summary?: (boolean | null);
     genres?: (Array<string> | null);
     franchises?: (Array<string> | null);
     companies?: (Array<string> | null);
@@ -11,4 +13,3 @@ export type ManualMetadata = {
     first_release_date?: (number | null);
     youtube_video_id?: (string | null);
 };
-

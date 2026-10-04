@@ -260,6 +260,8 @@ RomGamelistMetadata = TypedDict(  # type: ignore[misc]
 ManualMetadata = TypedDict(
     "ManualMetadata",
     {
+        "name": bool | None,
+        "summary": bool | None,
         "genres": list[str] | None,
         "franchises": list[str] | None,
         "companies": list[str] | None,
