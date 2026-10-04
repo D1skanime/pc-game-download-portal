@@ -1,4 +1,5 @@
 from itertools import count
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -129,6 +130,73 @@ async def test_scan_enrichment_imports_only_trusted_dlc_media(mocker):
     assert {
         call.args[3] for call in db.import_pc_component_provider_media.call_args_list
     } == {RomComponentOwnedMediaRole.COVER, RomComponentOwnedMediaRole.ARTWORK}
+
+
+async def test_scan_enrichment_retains_component_steam_text_variants(mocker):
+    rom = MagicMock(id=7, igdb_metadata={"dlcs": []})
+    component = MagicMock(id=11, kind=RomComponentKind.DLC, updated_at=object())
+    candidate = PcMetadataCandidate(
+        id="candidate-id",
+        provider="igdb",
+        title="Trusted DLC",
+        provider_ids={"igdb_id": 77},
+        description_available=True,
+        fields={"igdb_id": 77, "igdb_metadata": {}},
+        media=[],
+    )
+    metadata = SimpleNamespace(
+        name="Trusted DLC",
+        summary="English description",
+        steam_metadata={
+            "text_variants": {
+                "en": {
+                    "name": "Trusted DLC",
+                    "summary": "English description",
+                    "source_language": "english",
+                }
+            }
+        },
+        provider_metadata={"igdb_metadata": {"id": 77}},
+        main_developer=None,
+        publishers=None,
+        pc_release_date=None,
+    )
+    saved = SimpleNamespace(id=11, updated_at=object(), component_metadata=metadata)
+    db = mocker.patch.object(scan_module, "db_rom_handler")
+    db.apply_pc_component_metadata_candidate.return_value = saved
+    matcher = mocker.patch.object(scan_module, "pc_metadata_match_handler")
+    matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=candidate)
+    matcher.fetch_validated_steam_dlc = AsyncMock(
+        return_value={
+            "steam_id": 2138330,
+            "steam_metadata": {
+                "text_variants": {
+                    "de": {
+                        "name": "Trusted DLC",
+                        "summary": "Deutsche Beschreibung",
+                        "source_language": "german",
+                    }
+                }
+            },
+        }
+    )
+
+    await scan_module._enrich_pc_dlc_from_igdb(rom, component)
+
+    assert db.apply_pc_component_metadata_candidate.call_args_list[-1].args[-1][
+        "steam_metadata"
+    ]["text_variants"] == {
+        "de": {
+            "name": "Trusted DLC",
+            "summary": "Deutsche Beschreibung",
+            "source_language": "german",
+        },
+        "en": {
+            "name": "Trusted DLC",
+            "summary": "English description",
+            "source_language": "english",
+        },
+    }
 
 
 async def test_scan_enrichment_ignores_ambiguous_dlc_and_media_failure(mocker):

@@ -215,3 +215,86 @@ def test_d04_normalize_steam_preserves_manual_developer_and_publisher_fields():
         "steam_id": 1091500,
         "steam_metadata": {"app_id": 1091500, "source": "storefront"},
     }
+
+
+def test_normalize_steam_merges_valid_text_variants_by_language():
+    updates = normalize_steam(
+        {
+            "steam_id": 1091500,
+            "steam_metadata": {
+                "text_variants": {
+                    "de": {
+                        "name": "Cyberpunk 2077",
+                        "summary": "Neue deutsche Beschreibung",
+                        "source_language": "german",
+                    }
+                }
+            },
+        },
+        {
+            "manual_metadata": {},
+            "steam_metadata": {
+                "app_id": 1091500,
+                "source": "storefront",
+                "text_variants": {
+                    "en": {
+                        "name": "Cyberpunk 2077",
+                        "summary": "English description",
+                        "source_language": "english",
+                    },
+                    "de": {
+                        "name": "Cyberpunk 2077",
+                        "summary": "Alte deutsche Beschreibung",
+                        "source_language": "german",
+                    },
+                },
+            },
+        },
+    )
+
+    assert updates["steam_metadata"]["text_variants"] == {
+        "de": {
+            "name": "Cyberpunk 2077",
+            "summary": "Neue deutsche Beschreibung",
+            "source_language": "german",
+        },
+        "en": {
+            "name": "Cyberpunk 2077",
+            "summary": "English description",
+            "source_language": "english",
+        },
+    }
+
+
+def test_normalize_steam_rejects_malformed_text_variants_without_clearing_existing_data():
+    updates = normalize_steam(
+        {
+            "steam_id": 1091500,
+            "steam_metadata": {
+                "text_variants": {
+                    "german": {"name": "Wrong key", "summary": "Ignored"},
+                    "de": {"name": "", "summary": "Also ignored"},
+                }
+            },
+        },
+        {
+            "manual_metadata": {},
+            "steam_metadata": {
+                "text_variants": {
+                    "en": {
+                        "name": "Cyberpunk 2077",
+                        "summary": "English description",
+                        "source_language": "english",
+                    }
+                }
+            },
+        },
+    )
+
+    assert updates["steam_metadata"]["text_variants"] == {
+        "en": {
+            "name": "Cyberpunk 2077",
+            "summary": "English description",
+            "source_language": "english",
+        }
+    }

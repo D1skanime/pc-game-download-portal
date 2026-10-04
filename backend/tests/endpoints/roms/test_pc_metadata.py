@@ -206,6 +206,67 @@ def test_pc_component_metadata_selection_recomputes_submitted_query(
     assert collect.await_args.args[2] == "Phantom Liberty"
 
 
+def test_pc_component_selection_persists_steam_variants_in_component_column(
+    client, access_token, rom, monkeypatch
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [
+            RomComponent(
+                relative_path="dlc/phantom-liberty",
+                kind=RomComponentKind.DLC,
+                manifest_members=[],
+            )
+        ],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+    candidate = _candidate()
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates",
+        AsyncMock(
+            return_value={"igdb": PcMetadataProviderResult("igdb", True, [candidate])}
+        ),
+    )
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "fetch_unique_steam_match",
+        AsyncMock(
+            return_value={
+                "steam_id": 2138330,
+                "steam_metadata": {
+                    "text_variants": {
+                        "de": {
+                            "name": "Phantom Liberty",
+                            "summary": "Deutsche Beschreibung",
+                            "source_language": "german",
+                        }
+                    }
+                },
+            }
+        ),
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/metadata-selection",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": candidate.id,
+            "query": "Phantom Liberty",
+            "expected_version": component.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    saved = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert saved is not None and saved.component_metadata is not None
+    assert (
+        saved.component_metadata.steam_metadata["text_variants"]["de"]["summary"]
+        == "Deutsche Beschreibung"
+    )
+    assert "steam_metadata" not in (saved.component_metadata.provider_metadata or {})
+
+
 def test_successful_component_selection_resolves_only_the_consumed_queue_item(
     client, access_token, rom, monkeypatch
 ):

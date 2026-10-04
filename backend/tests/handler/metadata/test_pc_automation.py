@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from handler.metadata import pc_automation as pc_automation_module
 from handler.metadata.pc_automation import (
     AutomationDecision,
     PcAutomationHandler,
@@ -109,6 +110,65 @@ async def test_dlc_requires_parent_listed_unique_relation_before_apply():
     apply_component.assert_awaited_once_with(
         rom, component, matcher.fetch_parent_listed_steam_dlc.return_value
     )
+
+
+@pytest.mark.asyncio
+async def test_component_apply_retains_existing_steam_text_variants(mocker):
+    metadata = SimpleNamespace(
+        name="Phantom Liberty",
+        summary="English description",
+        steam_metadata={
+            "text_variants": {
+                "en": {
+                    "name": "Phantom Liberty",
+                    "summary": "English description",
+                    "source_language": "english",
+                }
+            }
+        },
+        provider_metadata={"igdb_metadata": {"id": 77}},
+    )
+    component = SimpleNamespace(
+        id=7,
+        updated_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        component_metadata=metadata,
+    )
+    apply = mocker.patch.object(
+        pc_automation_module.db_rom_handler,
+        "apply_pc_component_metadata_candidate",
+        return_value=component,
+    )
+
+    applied = await PcAutomationHandler()._apply_component(
+        _rom(id=41),
+        component,
+        {
+            "steam_id": 2138330,
+            "steam_metadata": {
+                "text_variants": {
+                    "de": {
+                        "name": "Phantom Liberty",
+                        "summary": "Deutsche Beschreibung",
+                        "source_language": "german",
+                    }
+                }
+            },
+        },
+    )
+
+    assert applied is True
+    assert apply.call_args.args[-1]["steam_metadata"]["text_variants"] == {
+        "de": {
+            "name": "Phantom Liberty",
+            "summary": "Deutsche Beschreibung",
+            "source_language": "german",
+        },
+        "en": {
+            "name": "Phantom Liberty",
+            "summary": "English description",
+            "source_language": "english",
+        },
+    }
 
 
 @pytest.mark.asyncio

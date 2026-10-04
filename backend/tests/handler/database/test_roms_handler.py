@@ -15,7 +15,14 @@ from handler.database import (
 )
 from models.assets import Save, State
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
+from models.rom import (
+    Rom,
+    RomComponent,
+    RomComponentKind,
+    RomFile,
+    RomFileCategory,
+    TrackMeta,
+)
 from models.user import User
 
 
@@ -90,6 +97,48 @@ class TestUniquePlatformFsName:
         second = db_rom_handler.add_rom(_make_rom(other, "Patched Game.gba"))
 
         assert first.id != second.id
+
+
+def test_component_steam_metadata_uses_its_authoritative_column(rom):
+    component = RomComponent(
+        rom_id=rom.id,
+        relative_path="dlc/phantom-liberty",
+        kind=RomComponentKind.DLC,
+    )
+    from tests.conftest import session
+
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+
+    saved = db_rom_handler.apply_pc_component_metadata_candidate(
+        rom.id,
+        component.id,
+        component.updated_at,
+        "steam",
+        {
+            "steam_id": 2138330,
+            "steam_metadata": {
+                "app_id": 2138330,
+                "source": "storefront",
+                "text_variants": {
+                    "de": {
+                        "name": "Phantom Liberty",
+                        "summary": "Deutsche Beschreibung",
+                        "source_language": "german",
+                    }
+                },
+            },
+        },
+    )
+
+    assert saved is not None
+    assert saved.component_metadata is not None
+    assert (
+        saved.component_metadata.steam_metadata["text_variants"]["de"]["summary"]
+        == "Deutsche Beschreibung"
+    )
+    assert "steam_metadata" not in (saved.component_metadata.provider_metadata or {})
 
 
 class TestHasSavesStatesFilter:
