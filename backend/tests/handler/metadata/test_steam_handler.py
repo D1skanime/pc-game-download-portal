@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from handler.metadata import steam_handler
 from handler.metadata.steam_handler import SteamHandler
 
 GERMAN_PARTIAL = {
@@ -196,3 +197,134 @@ async def test_invalid_store_type_and_disabled_provider_return_no_match(handler)
 
     with patch("handler.metadata.steam_handler.STEAM_API_ENABLED", False):
         assert await handler.get_rom_by_id(1091500) == {"steam_id": None}
+
+
+async def test_default_languages_retain_german_and_english_text_variants(handler):
+    handler.steam_service.get_app_details = AsyncMock(
+        side_effect=[
+            {
+                "type": "game",
+                "steam_appid": 1091500,
+                "name": "Cyberpunk 2077",
+                "short_description": "Ein Open-World-Rollenspiel.",
+            },
+            {
+                "type": "game",
+                "steam_appid": 1091500,
+                "name": "Cyberpunk 2077",
+                "short_description": "An open-world RPG.",
+            },
+        ]
+    )
+
+    result = await handler.get_rom_by_id(1091500)
+
+    assert result["name"] == "Cyberpunk 2077"
+    assert result["summary"] == "Ein Open-World-Rollenspiel."
+    assert result["steam_metadata"]["text_variants"] == {
+        "de": {
+            "source_language": "german",
+            "name": "Cyberpunk 2077",
+            "summary": "Ein Open-World-Rollenspiel.",
+        },
+        "en": {
+            "source_language": "english",
+            "name": "Cyberpunk 2077",
+            "summary": "An open-world RPG.",
+        },
+    }
+    assert [
+        call.args[0] for call in handler.steam_service.get_app_details.await_args_list
+    ] == [1091500, 1091500]
+
+
+async def test_configured_supported_language_adds_one_same_app_text_variant(handler):
+    handler.steam_service.get_app_details = AsyncMock(
+        side_effect=[
+            {
+                "type": "game",
+                "steam_appid": 1091500,
+                "name": "Cyberpunk 2077",
+                "short_description": "Ein Open-World-Rollenspiel.",
+            },
+            {
+                "type": "game",
+                "steam_appid": 1091500,
+                "name": "Cyberpunk 2077",
+                "short_description": "Un jeu de rôle en monde ouvert.",
+            },
+            {
+                "type": "game",
+                "steam_appid": 1091500,
+                "name": "Cyberpunk 2077",
+                "short_description": "An open-world RPG.",
+            },
+        ]
+    )
+
+    with patch.object(
+        steam_handler,
+        "STEAM_API_TEXT_LANGUAGES",
+        ("german", "french", "english"),
+        create=True,
+    ):
+        result = await handler.get_rom_by_id(1091500)
+
+    assert result["steam_metadata"]["text_variants"]["fr"] == {
+        "source_language": "french",
+        "name": "Cyberpunk 2077",
+        "summary": "Un jeu de rôle en monde ouvert.",
+    }
+    assert [
+        call.args[0] for call in handler.steam_service.get_app_details.await_args_list
+    ] == [1091500, 1091500, 1091500]
+
+
+def test_text_language_configuration_is_canonicalized_and_bounded():
+    from config import parse_steam_api_text_languages
+
+    assert parse_steam_api_text_languages(
+        " german, english, german, french, unsupported, , ENGLISH "
+    ) == ("german", "english", "french")
+
+
+async def test_invalid_localized_responses_do_not_discard_valid_text_variants(handler):
+    handler.steam_service.get_app_details = AsyncMock(
+        side_effect=[
+            {
+                "type": "game",
+                "steam_appid": 1091500,
+                "name": " Cyberpunk 2077 ",
+                "short_description": " Ein Open-World-Rollenspiel. ",
+            },
+            {"type": "game", "steam_appid": 999, "name": "Wrong game"},
+            {
+                "type": "game",
+                "steam_appid": 1091500,
+                "name": "   ",
+                "short_description": "",
+            },
+            None,
+        ]
+    )
+
+    with patch.object(
+        steam_handler,
+        "STEAM_API_TEXT_LANGUAGES",
+        ("german", "english", "french", "spanish"),
+        create=True,
+    ):
+        result = await handler.get_rom_by_id(1091500)
+
+    assert result["name"] == " Cyberpunk 2077 "
+    assert result["summary"] == " Ein Open-World-Rollenspiel. "
+    assert result["steam_metadata"]["text_variants"] == {
+        "de": {
+            "source_language": "german",
+            "name": "Cyberpunk 2077",
+            "summary": "Ein Open-World-Rollenspiel.",
+        }
+    }
+    assert [
+        call.args[0] for call in handler.steam_service.get_app_details.await_args_list
+    ] == [1091500, 1091500, 1091500, 1091500]
