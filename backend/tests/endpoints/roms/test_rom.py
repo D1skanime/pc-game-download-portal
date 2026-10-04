@@ -137,10 +137,41 @@ def test_get_rom_serializes_steam_identity_and_observational_provenance(
         assert saved_rom is not None
         assert component is not None
         saved_rom.steam_id = 1091500
-        saved_rom.steam_metadata = {"app_id": 1091500, "source": "storefront"}
+        saved_rom.steam_metadata = {
+            "app_id": 1091500,
+            "source": "storefront",
+            "language": "german",
+            "text_variants": {
+                "de": {
+                    "source_language": "german",
+                    "name": "Cyberpunk 2077",
+                    "summary": "Deutsche Steam-Beschreibung",
+                },
+                "en": {
+                    "source_language": "english",
+                    "name": "Cyberpunk 2077",
+                    "summary": "English Steam description",
+                },
+            },
+        }
         component.component_metadata = RomComponentMetadata(
             steam_id=1091501,
-            steam_metadata={"app_id": 1091501, "source": "storefront"},
+            steam_metadata={
+                "app_id": 1091501,
+                "source": "storefront",
+                "text_variants": {
+                    "de": {
+                        "source_language": "german",
+                        "name": "Phantom Liberty",
+                        "summary": "Deutsche DLC-Beschreibung",
+                    },
+                    "en": {
+                        "source_language": "english",
+                        "name": "Phantom Liberty",
+                        "summary": "English DLC description",
+                    },
+                },
+            },
         )
 
     response = client.get(
@@ -151,13 +182,41 @@ def test_get_rom_serializes_steam_identity_and_observational_provenance(
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert body["steam_id"] == 1091500
-    assert body["steam_metadata"] == {"app_id": 1091500, "source": "storefront"}
+    assert body["steam_metadata"] == {
+        "app_id": 1091500,
+        "source": "storefront",
+        "language": "german",
+        "text_variants": {
+            "de": {
+                "source_language": "german",
+                "name": "Cyberpunk 2077",
+                "summary": "Deutsche Steam-Beschreibung",
+            },
+            "en": {
+                "source_language": "english",
+                "name": "Cyberpunk 2077",
+                "summary": "English Steam description",
+            },
+        },
+    }
     assert "steam_display" not in body
     component_metadata = body["components"][0]["component_metadata"]
     assert component_metadata["steam_id"] == 1091501
     assert component_metadata["steam_metadata"] == {
         "app_id": 1091501,
         "source": "storefront",
+        "text_variants": {
+            "de": {
+                "source_language": "german",
+                "name": "Phantom Liberty",
+                "summary": "Deutsche DLC-Beschreibung",
+            },
+            "en": {
+                "source_language": "english",
+                "name": "Phantom Liberty",
+                "summary": "English DLC description",
+            },
+        },
     }
     assert "steam_display" not in component_metadata
 
@@ -178,6 +237,32 @@ def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
     assert "user_screenshots" not in body
     assert "user_collections" not in body
     assert "all_user_notes" not in body
+
+
+def test_get_rom_simple_does_not_include_steam_text_variants(
+    client: TestClient, access_token: str, rom: Rom
+):
+    with sync_session.begin() as session:
+        saved_rom = session.get(Rom, rom.id)
+        assert saved_rom is not None
+        saved_rom.steam_metadata = {
+            "app_id": 1091500,
+            "source": "storefront",
+            "text_variants": {
+                "de": {
+                    "source_language": "german",
+                    "summary": "Deutsche Steam-Beschreibung",
+                }
+            },
+        }
+
+    response = client.get(
+        f"/api/roms/{rom.id}/simple",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert "steam_metadata" not in response.json()
 
 
 def test_get_rom_simple_missing_returns_404(client: TestClient, access_token: str):
