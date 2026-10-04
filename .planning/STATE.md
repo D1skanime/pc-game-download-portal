@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Phase 22 complete
-last_updated: "2026-10-01T21:34:12.552Z"
-last_activity: 2026-09-30 -- Phase 21 planning complete
+last_updated: "2026-10-04T19:59:31.805Z"
+last_activity: 2026-10-04 -- Phase 23 planning complete
 progress:
-  total_phases: 22
-  completed_phases: 17
-  total_plans: 188
-  completed_plans: 175
-  percent: 77
+  total_phases: 23
+  completed_phases: 18
+  total_plans: 191
+  completed_plans: 181
+  percent: 78
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 20 (media-management-and-owned-soundtrack-uploads) — COMPLETE
 Plan: 10 of 10
 Status: Ready to execute
-Last activity: 2026-09-30 -- Phase 21 planning complete
+Last activity: 2026-10-04 -- Phase 23 planning complete
 
 ## Performance Metrics
 
@@ -164,6 +164,7 @@ _Updated after each plan completion_
 
 - Phase 19 added: Fix PC quick-scan IGDB matching and safe DLC/expansion enrichment.
 - Phase 20 added: Media management and owned soundtrack uploads.
+- Phase 23 added: Mehrsprachige Steam-Metadaten mit englischem Standard-Fallback.
 - Phase 21 added: Unify admin PC scans with German Steam metadata and media.
 - Phase 22 added: Bulk-automatisierung für PC-Spiel- und DLC-Zuordnung.
 - Phase 22 edited: defined bulk automation goal, requirements, and plan structure after plan review

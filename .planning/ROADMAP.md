@@ -639,3 +639,25 @@ Plans:
 **Wave 6**
 
 - [x] 22-06-PLAN.md — Prove isolated source immutability and complete browser UAT for scheduled bulk automation.
+
+### Phase 23: Mehrsprachige Steam-Metadaten: deutsche, englische und weitere verfügbare Beschreibungstexte je Steam-App dauerhaft speichern und nach UI-Sprache anzeigen.
+
+**Goal:** Persist German, English, and further configured Steam text variants per app, then display the stored variant that matches the selected UI language while preserving manual and non-Steam display authority.
+**Requirements**: STEAM-02, STEAM-04, STEAM-05
+**Depends on:** Phase 22
+**Cross-cutting constraints:** Use only bounded server-side Steam language configuration and the existing `steam_metadata` JSON ownership boundary. Keep enrichment non-destructive and same-App-ID validated, expose variants only on detailed responses, resolve UI locale selection locally with English fallback, and use only isolated synthetic fixtures for UAT. No browser-to-Steam requests, database migration, NAS, Team4s, real library, or production data access is permitted.
+**Plans:** 3 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 23-01-PLAN.md: Acquire bounded, validated Steam text variants for the same app ID.
+
+**Wave 2** (depends on 23-01)
+
+- [ ] 23-02-PLAN.md: Persist guarded parent and DLC Steam text variants through all enrichment paths.
+
+**Wave 3** (depends on 23-02)
+
+- [ ] 23-03-PLAN.md: Publish typed detail metadata, resolve the selected UI language, and prove isolated browser UAT.
