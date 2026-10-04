@@ -135,11 +135,7 @@ async def auto_link_parent_listed_steam_dlc_components(rom: Rom) -> None:
         current = {
             "name": getattr(metadata, "name", None),
             "summary": getattr(metadata, "summary", None),
-            "steam_metadata": (
-                getattr(metadata, "provider_metadata", {}).get("steam_metadata")
-                if metadata is not None
-                else None
-            ),
+            "steam_metadata": getattr(metadata, "steam_metadata", None),
             "metadata": {
                 "main_developer": getattr(metadata, "main_developer", None),
                 "publishers": getattr(metadata, "publishers", None),

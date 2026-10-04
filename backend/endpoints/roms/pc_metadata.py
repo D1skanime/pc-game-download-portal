@@ -226,6 +226,44 @@ async def select_pc_component_metadata_candidate(
             detail="Unknown PC component provider media selection",
         )
     candidate_fields = await _prefer_localized_steam_summary(rom, candidate)
+    if candidate.provider == "steam":
+        steam_id = candidate.provider_ids.get("steam_id")
+        if not isinstance(steam_id, int) or isinstance(steam_id, bool) or steam_id <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Unknown or unavailable Steam component metadata candidate",
+            )
+        metadata = component.component_metadata
+        candidate_fields = await resolve_steam_pc_enrichment(
+            SteamPcEnrichmentRequest(
+                scan_context="targeted-component-selection",
+                current={
+                    "steam_id": getattr(metadata, "steam_id", None),
+                    "name": getattr(metadata, "name", None),
+                    "summary": getattr(metadata, "summary", None),
+                    "manual_metadata": {
+                        "name": getattr(metadata, "metadata_source", None) == "manual",
+                        "summary": getattr(metadata, "metadata_source", None)
+                        == "manual",
+                    },
+                    "steam_metadata": getattr(metadata, "steam_metadata", None),
+                    "metadata": {
+                        "main_developer": getattr(metadata, "main_developer", None),
+                        "publishers": getattr(metadata, "publishers", None),
+                        "pc_release_date": getattr(metadata, "pc_release_date", None),
+                    },
+                },
+                platform_slug=rom.platform_slug,
+                fs_name=component.relative_path,
+                metadata_sources=["steam"],
+                explicit_steam_id=steam_id,
+            )
+        )
+        if not candidate_fields:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Unknown or unavailable Steam component metadata candidate",
+            )
     updated = db_rom_handler.apply_pc_component_metadata_candidate(
         id,
         component_id,

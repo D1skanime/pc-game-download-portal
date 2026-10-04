@@ -609,7 +609,9 @@ def test_pc_parent_steam_selection_resolves_details_before_guarded_persistence(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    request = resolve.await_args.args[0]
+    resolve_call = resolve.await_args
+    assert resolve_call is not None
+    request = resolve_call.args[0]
     assert request.explicit_steam_id == 1091500
     assert request.platform_slug == rom.platform_slug
     assert request.metadata_sources == ["steam"]

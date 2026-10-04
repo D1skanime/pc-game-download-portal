@@ -147,11 +147,7 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
         current = {
             "name": getattr(current_metadata, "name", None),
             "summary": getattr(current_metadata, "summary", None),
-            "steam_metadata": (
-                getattr(current_metadata, "provider_metadata", {}).get("steam_metadata")
-                if current_metadata is not None
-                else None
-            ),
+            "steam_metadata": getattr(current_metadata, "steam_metadata", None),
             "metadata": {
                 "main_developer": getattr(current_metadata, "main_developer", None),
                 "publishers": getattr(current_metadata, "publishers", None),

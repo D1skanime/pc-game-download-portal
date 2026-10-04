@@ -2535,11 +2535,13 @@ class DBRomsHandler(DBBaseHandler):
             if field in data:
                 setattr(metadata, field, data[field])
         metadata.metadata_source = provider
+        steam_metadata = data.get("steam_metadata")
+        if isinstance(steam_metadata, dict):
+            metadata.steam_metadata = steam_metadata
         provider_metadata = dict(metadata.provider_metadata or {})
         for field in (
             "igdb_metadata",
             "moby_metadata",
-            "steam_metadata",
             "ss_metadata",
             "ra_metadata",
             "launchbox_metadata",

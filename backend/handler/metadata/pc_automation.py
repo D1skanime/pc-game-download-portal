@@ -330,11 +330,7 @@ class PcAutomationHandler:
         current: dict[str, Any] = {
             "name": getattr(metadata, "name", None),
             "summary": getattr(metadata, "summary", None),
-            "steam_metadata": (
-                getattr(metadata, "provider_metadata", {}).get("steam_metadata")
-                if metadata
-                else None
-            ),
+            "steam_metadata": getattr(metadata, "steam_metadata", None),
             "metadata": {},
         }
         data = normalize_steam(candidate, current)
