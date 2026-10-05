@@ -27,6 +27,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
+    "v2:maintainability": "tsx scripts/check-v2-maintainability.ts",
     "generate": "openapi --input http://127.0.0.1:3344/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false",
     "test": "vitest run",
     "test:watch": "vitest",

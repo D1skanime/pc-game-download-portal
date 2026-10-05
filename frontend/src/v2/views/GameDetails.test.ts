@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   scheduleBackgroundRotation,
   selectedBackgroundAudioTracks,
-} from "./GameDetails.vue";
+} from "@/v2/composables/useGameDetailsMedia";
 
 describe("GameDetails", () => {
   it("passes the current parent ROM id to OverviewTab", () => {
@@ -78,11 +78,15 @@ describe("GameDetails", () => {
 
   it("passes selected local and active owned tracks to background audio as one collection", () => {
     const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
+    const mediaSource = readFileSync(
+      "src/v2/composables/useGameDetailsMedia.ts",
+      "utf8",
+    );
 
     expect(source).toContain("selectedBackgroundAudio");
-    expect(source).toContain('file.category === "soundtrack"');
-    expect(source).toContain("owned_background_audio_media_ids");
-    expect(source).toContain('media.role === "soundtrack"');
+    expect(mediaSource).toContain('file.category === "soundtrack"');
+    expect(mediaSource).toContain("owned_background_audio_media_ids");
+    expect(mediaSource).toContain('media.role === "soundtrack"');
     expect(source).toContain('media.state === "active"');
     expect(source).toContain("/media/${media.id}/content");
     expect(source).toContain("backgroundAudio.playRandom(tracks)");
