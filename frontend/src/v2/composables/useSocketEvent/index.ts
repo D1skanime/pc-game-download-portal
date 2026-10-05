@@ -21,7 +21,7 @@
 // lands, we re-export an overload keyed on the event-map and the cast
 // inside disappears.
 import { onScopeDispose } from "vue";
-import socket from "@/services/socket";
+import socket from "@/v2/data/adapters/legacy/services/socket";
 
 interface Options {
   /** Connect the socket if it isn't already (default true). */

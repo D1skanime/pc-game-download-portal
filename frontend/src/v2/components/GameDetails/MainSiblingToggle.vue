@@ -14,10 +14,10 @@ import { RBtn, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserData } from "@/__generated__";
-import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
-import type { DetailedRom } from "@/stores/roms";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import storeRoms from "@/v2/data/adapters/legacy/stores/roms";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

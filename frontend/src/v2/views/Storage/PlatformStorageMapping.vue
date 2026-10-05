@@ -15,11 +15,11 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import storageApi from "@/services/api/storage";
-import storePlatforms from "@/stores/platforms";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 
 interface Draft {
   rootId: number | null;

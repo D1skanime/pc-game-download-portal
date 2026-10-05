@@ -46,14 +46,16 @@ import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
-import socket from "@/services/socket";
-import storeConfig from "@/stores/config";
-import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
-import storePlatforms from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import socket from "@/v2/data/adapters/legacy/services/socket";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
+import storeHeartbeat, {
+  type MetadataOption,
+} from "@/v2/data/adapters/legacy/stores/heartbeat";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
+import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =

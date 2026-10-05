@@ -15,9 +15,9 @@
 import { RBtn, RSelect, RTextField, RTooltip, RVirtualScroller } from "@v2/lib";
 import { computed, nextTick, onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import api from "@/services/api";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import api from "@/v2/data/adapters/legacy/services/api";
 
 const { t } = useI18n();
 const snackbar = useSnackbar();

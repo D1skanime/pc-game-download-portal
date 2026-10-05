@@ -19,9 +19,6 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import userApi from "@/services/api/user";
-import storeAuth from "@/stores/auth";
-import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { formatTimestamp, getRoleIcon } from "@/utils";
@@ -30,6 +27,9 @@ import RetroAchievementsSection from "@/v2/components/Settings/RetroAchievements
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import userApi from "@/v2/data/adapters/legacy/services/api/user";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeUsers from "@/v2/data/adapters/legacy/stores/users";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 const { t, locale } = useI18n();

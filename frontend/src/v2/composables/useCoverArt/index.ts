@@ -34,13 +34,13 @@ import {
   type MaybeRefOrGetter,
 } from "vue";
 import { useUISettings } from "@/composables/useUISettings";
-import type { SimpleRom } from "@/stores/roms";
 import {
   FRONTEND_RESOURCES_PATH,
   isCDBasedSystem,
   isArcadeSystem,
 } from "@/utils";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 export type BoxartStyle =
   | "cover_path"

@@ -15,7 +15,7 @@
 // keyboard + spatial navigation as `a[href]`.
 import { RIcon } from "@v2/lib";
 import { ROUTES } from "@/plugins/router";
-import type { FilterType } from "@/stores/galleryFilter";
+import type { FilterType } from "@/v2/data/adapters/legacy/stores/galleryFilter";
 
 defineOptions({ inheritAttrs: false });
 

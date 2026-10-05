@@ -17,7 +17,6 @@ import { RBtn, RIcon, RSelect, RSliderBtnGroup } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
-import storeCollections from "@/stores/collections";
 import CrtWarmup from "@/v2/components/AppShell/CrtWarmup.vue";
 import WidgetReorderList from "@/v2/components/Home/Widgets/WidgetReorderList.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
@@ -28,6 +27,7 @@ import { isBoxartStyle } from "@/v2/composables/useCoverArt";
 import { useCrtMode } from "@/v2/composables/useCrtMode";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
+import storeCollections from "@/v2/data/adapters/legacy/stores/collections";
 
 const { t } = useI18n();
 const { enabled: debugEnabled } = useDebugMode();

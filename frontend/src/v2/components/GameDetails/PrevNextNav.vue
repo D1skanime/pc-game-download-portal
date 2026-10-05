@@ -11,8 +11,8 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import romApi from "@/services/api/rom";
 import { useGalleryProvenance } from "@/v2/composables/useGalleryProvenance";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 defineOptions({ inheritAttrs: false });

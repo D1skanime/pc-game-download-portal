@@ -7,11 +7,11 @@ import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import storeConfig from "@/stores/config";
 import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
 import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
 import MissingGamesSection from "@/v2/components/Settings/MissingGamesSection.vue";
 import StorageRootsSection from "@/v2/components/Settings/StorageRootsSection.vue";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
 
 const { t } = useI18n();
 const route = useRoute();

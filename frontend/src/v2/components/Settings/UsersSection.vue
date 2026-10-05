@@ -25,14 +25,14 @@ import { storeToRefs } from "pinia";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PermissionGroupSchema } from "@/__generated__";
-import userApi from "@/services/api/user";
-import storeAuth from "@/stores/auth";
-import storePermissionGroups from "@/stores/permissionGroups";
-import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import { formatTimestamp } from "@/utils";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import userApi from "@/v2/data/adapters/legacy/services/api/user";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storePermissionGroups from "@/v2/data/adapters/legacy/stores/permissionGroups";
+import storeUsers, { type User } from "@/v2/data/adapters/legacy/stores/users";
 import { groupColor } from "@/v2/utils/groupColor";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 

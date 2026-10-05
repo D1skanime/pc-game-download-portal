@@ -31,13 +31,6 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
-import firmwareApi from "@/services/api/firmware";
-import romApi from "@/services/api/rom";
-import socket from "@/services/socket";
-import storeAuth from "@/stores/auth";
-import storeConfig from "@/stores/config";
-import storePlaying from "@/stores/playing";
-import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
@@ -50,6 +43,16 @@ import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import firmwareApi from "@/v2/data/adapters/legacy/services/api/firmware";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import socket from "@/v2/data/adapters/legacy/services/socket";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
+import storePlaying from "@/v2/data/adapters/legacy/stores/playing";
+import storeRoms, {
+  type DetailedRom,
+  type SimpleRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { installIOSFullscreenShim } from "@/v2/utils/emulatorjs";

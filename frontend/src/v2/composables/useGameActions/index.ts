@@ -16,11 +16,6 @@ import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import { useUISettings } from "@/composables/useUISettings";
-import romApi from "@/services/api/rom";
-import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
-import type { SimpleRom } from "@/stores/roms";
-import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
@@ -30,6 +25,11 @@ import { useClipboard } from "@/v2/composables/useClipboard";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeRoms from "@/v2/data/adapters/legacy/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
+import { useStreamingStore } from "@/v2/data/adapters/legacy/stores/streaming";
 
 export interface GameActionsOptions {
   /** Resolver for the cover element to morph from when `play()` navigates to

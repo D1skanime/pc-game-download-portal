@@ -8,8 +8,8 @@
 import { RBtn, RPlatformIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { Platform } from "@/stores/platforms";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
 
 defineOptions({ inheritAttrs: false });
 

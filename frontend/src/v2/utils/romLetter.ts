@@ -7,7 +7,7 @@
 // Backend reference: STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+" applied to
 // `lower(name)` before extracting the first character (see
 // backend/handler/database/roms_handler.py).
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 const STRIP_ARTICLES = /^\s*(?:the|a|an)\s+/i;
 

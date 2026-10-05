@@ -7,9 +7,9 @@
 // network. flush() is idempotent, so the several exit paths a player has
 // (stop button, save-and-exit, back navigation, unmount) can each call it
 // without risking a double submission.
-import playSessionApi from "@/services/api/play-session";
-import storeAuth from "@/stores/auth";
-import type { SimpleRom } from "@/stores/roms";
+import playSessionApi from "@/v2/data/adapters/legacy/services/api/play-session";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 // Sessions shorter than a second carry no meaningful playtime and would be
 // rejected anyway: the backend floors timestamps to whole seconds and

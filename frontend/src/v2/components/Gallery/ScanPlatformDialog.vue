@@ -23,12 +23,14 @@ import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import socket from "@/services/socket";
-import storeConfig from "@/stores/config";
-import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
-import type { Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import socket from "@/v2/data/adapters/legacy/services/socket";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
+import storeHeartbeat, {
+  type MetadataOption,
+} from "@/v2/data/adapters/legacy/stores/heartbeat";
+import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
+import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
 
 defineOptions({ inheritAttrs: false });
 

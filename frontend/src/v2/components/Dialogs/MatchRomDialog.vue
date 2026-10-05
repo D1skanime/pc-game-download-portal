@@ -19,9 +19,6 @@ import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
-import romApi, { type PcMatcherCandidate } from "@/services/api/rom";
-import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import MatchRomBodyGrid from "@/v2/components/MatchRom/MatchRomBodyGrid.vue";
 import MatchRomBodyList from "@/v2/components/MatchRom/MatchRomBodyList.vue";
@@ -33,6 +30,14 @@ import type {
 } from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi, {
+  type PcMatcherCandidate,
+} from "@/v2/data/adapters/legacy/services/api/rom";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
+import storeRoms, {
+  type SimpleRom,
+  type SearchRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

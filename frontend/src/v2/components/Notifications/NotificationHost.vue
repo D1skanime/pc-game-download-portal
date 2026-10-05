@@ -9,8 +9,8 @@ import { RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import storeNotifications from "@/stores/notifications";
 import type { Events, SnackbarStatus } from "@/types/emitter";
+import storeNotifications from "@/v2/data/adapters/legacy/stores/notifications";
 
 defineOptions({ inheritAttrs: false });
 

@@ -19,14 +19,6 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import collectionApi from "@/services/api/collection";
-import romApi from "@/services/api/rom";
-import storeAuth from "@/stores/auth";
-import storeCollections, {
-  type Collection,
-  type SmartCollection,
-  type VirtualCollection,
-} from "@/stores/collections";
 import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import CollectionHead from "@/v2/components/Gallery/CollectionHead.vue";
 import CollectionSettingsTab from "@/v2/components/Gallery/CollectionSettingsTab.vue";
@@ -36,6 +28,15 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { collectionApi } from "@/v2/data/adapters/catalog";
+import { romApi } from "@/v2/data/adapters/catalog";
+import { storeAuth } from "@/v2/data/adapters/catalog";
+import {
+  storeCollections,
+  type Collection,
+  type SmartCollection,
+  type VirtualCollection,
+} from "@/v2/data/adapters/catalog";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 

@@ -6,9 +6,9 @@
 import { onBeforeMount, ref } from "vue";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
-import api from "@/services/api";
 import PlatformsStatsSection from "@/v2/components/Settings/PlatformsStatsSection.vue";
 import SummaryStatsSection from "@/v2/components/Settings/SummaryStatsSection.vue";
+import api from "@/v2/data/adapters/legacy/services/api";
 
 const stats = ref({
   PLATFORMS: 0,

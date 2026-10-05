@@ -11,11 +11,11 @@ import { computed, nextTick, onMounted, ref } from "vue";
 import type { ComponentPublicInstance } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
-import romApi from "@/services/api/rom";
-import type { SimpleRom } from "@/stores/roms";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });

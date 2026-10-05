@@ -22,16 +22,16 @@ import {
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import configApi from "@/services/api/config";
-import platformApi from "@/services/api/platform";
-import storeAuth from "@/stores/auth";
-import storeConfig from "@/stores/config";
-import storeHeartbeat from "@/stores/heartbeat";
-import type { Platform } from "@/stores/platforms";
 import FolderMappingPlatformCell from "@/v2/components/Settings/FolderMappingPlatformCell.vue";
 import FolderMappingTypeCell from "@/v2/components/Settings/FolderMappingTypeCell.vue";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import configApi from "@/v2/data/adapters/legacy/services/api/config";
+import platformApi from "@/v2/data/adapters/legacy/services/api/platform";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
+import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
 
 defineOptions({ inheritAttrs: false });
 

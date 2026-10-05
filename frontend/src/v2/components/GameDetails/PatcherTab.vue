@@ -14,10 +14,10 @@ import {
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
-import api from "@/services/api";
 import { formatBytes } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import api from "@/v2/data/adapters/legacy/services/api";
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
 

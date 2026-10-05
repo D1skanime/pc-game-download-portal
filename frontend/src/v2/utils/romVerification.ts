@@ -5,7 +5,7 @@
 // "verified" filter all agree. Merely having a computed hash
 // (crc/md5/sha1) does NOT make a ROM verified.
 import type { RomHasheousMetadata } from "@/__generated__";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 // Each database this ROM's hash can be checked against, with the Hasheous
 // match flag(s) that count as a hit. MAME reports Arcade and MESS

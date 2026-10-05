@@ -1,9 +1,9 @@
 import { createSHA256 } from "hash-wasm";
 import { computed, ref } from "vue";
 import type { DownloadManifestResponse } from "@/__generated__";
-import api from "@/services/api";
-import configApi from "@/services/api/config";
-import downloadTransfersApi from "@/services/api/downloadTransfers";
+import api from "@/v2/data/adapters/legacy/services/api";
+import configApi from "@/v2/data/adapters/legacy/services/api/config";
+import downloadTransfersApi from "@/v2/data/adapters/legacy/services/api/downloadTransfers";
 import { validateDownloadDestination } from "@/v2/utils/downloadManifestPath";
 import { getBrowserDownloadQueueConcurrency } from "./config";
 

@@ -12,9 +12,9 @@
 import { RCollapsible, RPlatformIcon, RTag, RVirtualScroller } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SimpleRom } from "@/stores/roms";
-import type { ScanningPlatform } from "@/stores/scanning";
 import ScanPlatformRow from "@/v2/components/Scan/ScanPlatformRow.vue";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
+import type { ScanningPlatform } from "@/v2/data/adapters/legacy/stores/scanning";
 
 defineOptions({ inheritAttrs: false });
 

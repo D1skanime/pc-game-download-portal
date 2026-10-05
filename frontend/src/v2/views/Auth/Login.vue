@@ -5,11 +5,11 @@
 // "forgot password".
 import { RDivider, RExpandTransition } from "@v2/lib";
 import { onMounted, ref } from "vue";
-import storeHeartbeat from "@/stores/heartbeat";
 import LoginForm from "@/v2/components/Auth/LoginForm.vue";
 import OIDCButton from "@/v2/components/Auth/OIDCButton.vue";
 import ResetForm from "@/v2/components/Auth/ResetForm.vue";
 import AuthCard from "@/v2/components/shared/AuthCard.vue";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 const heartbeatStore = storeHeartbeat();
 

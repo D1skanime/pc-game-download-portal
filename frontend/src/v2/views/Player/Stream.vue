@@ -20,16 +20,19 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import romApi from "@/services/api/rom";
-import streamingApi from "@/services/api/streaming";
-import storePlaying from "@/stores/playing";
-import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
-import { useStreamingStore } from "@/stores/streaming";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import streamingApi from "@/v2/data/adapters/legacy/services/api/streaming";
+import storePlaying from "@/v2/data/adapters/legacy/stores/playing";
+import storeRoms, {
+  type DetailedRom,
+  type SimpleRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
+import { useStreamingStore } from "@/v2/data/adapters/legacy/stores/streaming";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";

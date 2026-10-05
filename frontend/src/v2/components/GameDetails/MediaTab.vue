@@ -8,7 +8,7 @@ import { REmptyState, RIcon } from "@v2/lib";
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type { DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 const ManualSubtab = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/ManualSubtab.vue"),

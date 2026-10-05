@@ -16,11 +16,13 @@ import { RBtn, RForm, RIcon, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
-import platformApi from "@/services/api/platform";
-import storePlatforms, { type Platform } from "@/stores/platforms";
 import { formatBytes } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import platformApi from "@/v2/data/adapters/legacy/services/api/platform";
+import storePlatforms, {
+  type Platform,
+} from "@/v2/data/adapters/legacy/stores/platforms";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { required } from "@/v2/utils/validation";
 

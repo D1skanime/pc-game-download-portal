@@ -3,9 +3,9 @@
 // Linked providers come first, unlinked ones follow in a muted row so
 // users can see what's missing. Card visuals are owned by ProviderCard.
 import { computed } from "vue";
-import type { DetailedRom } from "@/stores/roms";
 import ProviderCard from "@/v2/components/GameDetails/ProviderCard.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

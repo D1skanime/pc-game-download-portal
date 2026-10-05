@@ -12,10 +12,10 @@
 // of truth and rejects unauthorised actions regardless of what the UI showed.
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef, watch } from "vue";
-import permissionsService from "@/services/api/permissions";
-import storeAuth from "@/stores/auth";
-import storePermissions from "@/stores/permissions";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import permissionsService from "@/v2/data/adapters/legacy/services/api/permissions";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storePermissions from "@/v2/data/adapters/legacy/stores/permissions";
 import type { ActionKey, Grant, PermissionScope } from "./actions";
 
 export type { ActionKey, Grant, PermissionScope };

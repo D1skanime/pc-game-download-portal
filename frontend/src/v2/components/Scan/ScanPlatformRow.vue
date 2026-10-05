@@ -9,8 +9,8 @@ import { RImg, RTag } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
-import type { SimpleRom } from "@/stores/roms";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import {
   getMissingCoverImage,
   getUnmatchedCoverImage,

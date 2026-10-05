@@ -2,11 +2,11 @@
 import { onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DownloadTransferResponse } from "@/__generated__";
-import downloadTransfersApi from "@/services/api/downloadTransfers";
 import {
   isEnhancedDownloadSupported,
   type BrowserQueueItem,
 } from "@/v2/composables/useBrowserDownloadQueue";
+import downloadTransfersApi from "@/v2/data/adapters/legacy/services/api/downloadTransfers";
 import DownloadTransferHistory from "./DownloadTransferHistory.vue";
 
 const { t } = useI18n();

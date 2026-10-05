@@ -8,8 +8,8 @@ import { RBtn, RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
+import storeUpload from "@/v2/data/adapters/legacy/stores/upload";
 
 defineOptions({ inheritAttrs: false });
 

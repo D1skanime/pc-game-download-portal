@@ -18,9 +18,9 @@ import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
 import VolumeControl from "@/v2/components/Soundtrack/VolumeControl.vue";
+import useSoundtrackPlayer from "@/v2/data/adapters/legacy/stores/soundtrackPlayer";
 
 defineOptions({ inheritAttrs: false });
 

@@ -15,9 +15,6 @@ import {
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import romApi from "@/services/api/rom";
-import storePlaying from "@/stores/playing";
-import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
 import GameCover from "@/v2/components/shared/GameCover.vue";
@@ -25,6 +22,12 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import storePlaying from "@/v2/data/adapters/legacy/stores/playing";
+import storeRoms, {
+  type DetailedRom,
+  type SimpleRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { colorCanvas } from "@/v2/tokens";
 

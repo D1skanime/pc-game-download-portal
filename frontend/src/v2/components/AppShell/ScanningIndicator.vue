@@ -21,7 +21,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import storeScanning from "@/stores/scanning";
+import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
 
 defineOptions({ inheritAttrs: false });
 

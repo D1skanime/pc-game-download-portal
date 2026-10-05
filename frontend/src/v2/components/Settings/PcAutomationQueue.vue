@@ -11,7 +11,6 @@ import type { Emitter } from "mitt";
 import { computed, inject, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PcAutomationQueueItemSchema } from "@/__generated__";
-import storePcAutomation from "@/stores/pcAutomation";
 import type { Events } from "@/types/emitter";
 import type {
   PcMatchTarget,
@@ -20,6 +19,7 @@ import type {
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import storePcAutomation from "@/v2/data/adapters/legacy/stores/pcAutomation";
 
 defineOptions({ inheritAttrs: false });
 

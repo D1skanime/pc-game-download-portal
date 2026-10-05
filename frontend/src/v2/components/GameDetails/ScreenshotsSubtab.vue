@@ -15,17 +15,19 @@ import type {
   RomOwnedMediaSchema,
   RomOwnedMediaSurface,
 } from "@/__generated__";
-import romApi from "@/services/api/rom";
-import screenshotApi from "@/services/api/screenshot";
-import storeAuth from "@/stores/auth";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
-import storeUpload from "@/stores/upload";
 import ScreenshotsTab, {
   type ScreenshotItem,
 } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import screenshotApi from "@/v2/data/adapters/legacy/services/api/screenshot";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeRoms, {
+  type DetailedRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
+import storeUpload from "@/v2/data/adapters/legacy/stores/upload";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();

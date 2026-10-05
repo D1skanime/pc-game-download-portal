@@ -16,7 +16,7 @@
 import { RIcon, RImg, RTag } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
 

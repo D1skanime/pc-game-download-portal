@@ -1,9 +1,9 @@
 import Bowser from "bowser";
 import { type SaveSchema } from "@/__generated__";
 import { type StateSchema } from "@/__generated__";
-import saveApi from "@/services/api/save";
-import stateApi from "@/services/api/state";
-import { type DetailedRom } from "@/stores/roms";
+import saveApi from "@/v2/data/adapters/legacy/services/api/save";
+import stateApi from "@/v2/data/adapters/legacy/services/api/state";
+import { type DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 function buildStateName(rom: DetailedRom): string {
   const romName = rom.fs_name_no_ext.trim();

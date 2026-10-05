@@ -4,8 +4,8 @@
 import { RBtn, RTextField } from "@v2/lib";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import identityApi from "@/services/api/identity";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import identityApi from "@/v2/data/adapters/legacy/services/api/identity";
 
 defineOptions({ inheritAttrs: false });
 

@@ -20,13 +20,15 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import socket from "@/services/socket";
-import storeConfig from "@/stores/config";
-import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
-import { type SimpleRom } from "@/stores/roms";
-import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import socket from "@/v2/data/adapters/legacy/services/socket";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
+import storeHeartbeat, {
+  type MetadataOption,
+} from "@/v2/data/adapters/legacy/stores/heartbeat";
+import { type SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
+import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
 
 defineOptions({ inheritAttrs: false });
 

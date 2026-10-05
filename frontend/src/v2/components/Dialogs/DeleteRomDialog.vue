@@ -7,12 +7,14 @@ import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter, useRoute } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import configApi from "@/services/api/config";
-import romApi from "@/services/api/rom";
-import storeConfig from "@/stores/config";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import configApi from "@/v2/data/adapters/legacy/services/api/config";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
+import storeRoms, {
+  type SimpleRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 

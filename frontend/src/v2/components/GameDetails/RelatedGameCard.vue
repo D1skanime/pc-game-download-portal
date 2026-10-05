@@ -24,9 +24,9 @@ import type {
   RomUserSchema,
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
-import romApi from "@/services/api/rom";
-import type { SimpleRom } from "@/stores/roms";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

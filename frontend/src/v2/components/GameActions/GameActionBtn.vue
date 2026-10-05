@@ -39,7 +39,6 @@ import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref, toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserStatus } from "@/__generated__";
-import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
@@ -49,6 +48,7 @@ import {
   GAME_ACTIONS_KEY,
   useGameActions,
 } from "@/v2/composables/useGameActions";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import {
   ENUM_KEYS,
   FLAG_KEYS,

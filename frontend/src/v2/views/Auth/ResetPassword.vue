@@ -3,13 +3,13 @@ import { RAlert, RBtn } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import { refetchCSRFToken } from "@/services/api";
-import identityApi from "@/services/api/identity";
-import storeAuth from "@/stores/auth";
 import AuthBackLink from "@/v2/components/shared/AuthBackLink.vue";
 import AuthCard from "@/v2/components/shared/AuthCard.vue";
 import PasswordField from "@/v2/components/shared/PasswordField.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { refetchCSRFToken } from "@/v2/data/adapters/legacy/services/api";
+import identityApi from "@/v2/data/adapters/legacy/services/api/identity";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 
 const { t } = useI18n();
 const authStore = storeAuth();

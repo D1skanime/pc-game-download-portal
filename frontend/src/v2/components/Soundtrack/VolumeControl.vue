@@ -13,7 +13,7 @@ import { RMenu, RSlider } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
+import useSoundtrackPlayer from "@/v2/data/adapters/legacy/stores/soundtrackPlayer";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 
 defineOptions({ inheritAttrs: false });

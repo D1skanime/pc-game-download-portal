@@ -8,12 +8,12 @@ import { useRouter } from "vue-router";
 import type { PcComponentSchema } from "@/__generated__";
 import type { DownloadManifestResponse } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
-import api from "@/services/api";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { PcMatchableComponentKind } from "@/v2/components/MatchRom/types";
 import { useBrowserDownloadQueue } from "@/v2/composables/useBrowserDownloadQueue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import api from "@/v2/data/adapters/legacy/services/api";
 import DownloadManager from "./DownloadManager.vue";
 import DownloadSelectionDialog, {
   type DownloadArchiveSet,

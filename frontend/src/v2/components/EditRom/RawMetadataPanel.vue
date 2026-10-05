@@ -13,8 +13,8 @@ import { RBtn, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { UpdateRom } from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
+import type { UpdateRom } from "@/v2/data/adapters/legacy/services/api/rom";
 
 interface Props {
   rom: UpdateRom;

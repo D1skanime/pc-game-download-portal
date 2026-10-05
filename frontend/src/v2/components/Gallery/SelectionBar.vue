@@ -45,15 +45,15 @@ import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
-import collectionApi from "@/services/api/collection";
-import romApi from "@/services/api/rom";
-import storeCollections from "@/stores/collections";
-import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import collectionApi from "@/v2/data/adapters/legacy/services/api/collection";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import storeCollections from "@/v2/data/adapters/legacy/stores/collections";
+import storeRoms from "@/v2/data/adapters/legacy/stores/roms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   ENUM_KEYS,

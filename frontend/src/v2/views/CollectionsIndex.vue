@@ -18,11 +18,6 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import storeCollections, {
-  type Collection,
-  type SmartCollection,
-  type VirtualCollection,
-} from "@/stores/collections";
 import CollectionListHeader from "@/v2/components/Collections/CollectionListHeader.vue";
 import CollectionListRow from "@/v2/components/Collections/CollectionListRow.vue";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
@@ -38,6 +33,12 @@ import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
+import {
+  storeCollections,
+  type Collection,
+  type SmartCollection,
+  type VirtualCollection,
+} from "@/v2/data/adapters/catalog";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 import { patchQuery } from "@/v2/utils/routeQuery";
 

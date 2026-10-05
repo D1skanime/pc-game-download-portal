@@ -25,7 +25,7 @@
 // behaviour when `handleActivate` returns `true`. Owning the long-
 // press state inside the composable keeps the GameCard / GameListRow
 // markup free of pointer-tracking boilerplate.
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 

@@ -6,11 +6,11 @@ import { RBtn, RIcon, RSelect } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import userApi from "@/services/api/user";
 import type { Events } from "@/types/emitter";
 import { getRoleIcon } from "@/utils";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import userApi from "@/v2/data/adapters/legacy/services/api/user";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
 defineOptions({ inheritAttrs: false });

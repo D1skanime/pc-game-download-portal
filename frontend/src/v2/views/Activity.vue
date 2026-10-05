@@ -12,13 +12,13 @@ import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
-import type { ActivityEntry } from "@/services/api/activity";
-import storeActivity from "@/stores/activity";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import ActivityCard from "@/v2/components/Activity/ActivityCard.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
+import type { ActivityEntry } from "@/v2/data/adapters/legacy/services/api/activity";
+import storeActivity from "@/v2/data/adapters/legacy/stores/activity";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 const { t } = useI18n();

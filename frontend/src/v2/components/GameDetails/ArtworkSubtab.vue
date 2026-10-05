@@ -15,11 +15,13 @@ import type {
   RomOwnedMediaSchema,
   RomOwnedMediaSurface,
 } from "@/__generated__";
-import romApi from "@/services/api/rom";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import storeRoms, {
+  type DetailedRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();

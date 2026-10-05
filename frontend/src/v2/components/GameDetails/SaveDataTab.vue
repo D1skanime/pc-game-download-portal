@@ -28,15 +28,15 @@ import type {
   UserSaveSchema,
   UserStateSchema,
 } from "@/__generated__";
-import romApi from "@/services/api/rom";
-import saveApi from "@/services/api/save";
-import stateApi from "@/services/api/state";
-import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import saveApi from "@/v2/data/adapters/legacy/services/api/save";
+import stateApi from "@/v2/data/adapters/legacy/services/api/state";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeRoms from "@/v2/data/adapters/legacy/stores/roms";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
 // narrow it back to the concrete schema the section's handlers expect.

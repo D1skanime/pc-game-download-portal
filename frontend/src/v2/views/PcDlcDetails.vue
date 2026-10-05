@@ -5,9 +5,9 @@ import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
-import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
 import PcDlcDetail from "@/v2/components/GameDetails/PcDlcDetail.vue";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import storeRoms from "@/v2/data/adapters/legacy/stores/roms";
 
 type PageState = "loading" | "ready" | "unavailable";
 

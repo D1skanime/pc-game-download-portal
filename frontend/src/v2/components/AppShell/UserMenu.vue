@@ -29,13 +29,13 @@ import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import { refetchCSRFToken } from "@/services/api";
-import identityApi from "@/services/api/identity";
-import storeAuth from "@/stores/auth";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { refetchCSRFToken } from "@/v2/data/adapters/legacy/services/api";
+import identityApi from "@/v2/data/adapters/legacy/services/api/identity";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });

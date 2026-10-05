@@ -12,7 +12,6 @@ import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import storeAuth from "@/stores/auth";
 import CreateUserDialog from "@/v2/components/Settings/CreateUserDialog.vue";
 import EditUserDialog from "@/v2/components/Settings/EditUserDialog.vue";
 import GroupFormDialog from "@/v2/components/Settings/GroupFormDialog.vue";
@@ -22,6 +21,7 @@ import PermissionGroupsSection from "@/v2/components/Settings/PermissionGroupsSe
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
 import { useCan } from "@/v2/composables/useCan";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 
 const { t } = useI18n();
 const route = useRoute();

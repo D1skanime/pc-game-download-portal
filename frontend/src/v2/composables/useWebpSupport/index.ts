@@ -12,7 +12,7 @@
 //   <img :src="toWebp(rom.path_cover_large)" />
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 interface FrontendWithWebp {
   FRONTEND?: { IMAGES_WEBP?: boolean };

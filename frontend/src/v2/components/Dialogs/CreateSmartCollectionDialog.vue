@@ -33,13 +33,13 @@ import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import collectionApi from "@/services/api/collection";
-import storeCollections from "@/stores/collections";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import collectionApi from "@/v2/data/adapters/legacy/services/api/collection";
+import storeCollections from "@/v2/data/adapters/legacy/stores/collections";
+import storeGalleryFilter from "@/v2/data/adapters/legacy/stores/galleryFilter";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import {
   buildSmartFilterCriteria,

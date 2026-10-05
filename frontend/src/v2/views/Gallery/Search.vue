@@ -7,10 +7,10 @@ import { RTag } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import storeGalleryFilter from "@/stores/galleryFilter";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
+import storeGalleryFilter from "@/v2/data/adapters/legacy/stores/galleryFilter";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 const { t } = useI18n();

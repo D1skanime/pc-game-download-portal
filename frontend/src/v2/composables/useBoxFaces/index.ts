@@ -19,9 +19,9 @@ import {
   type ComputedRef,
   type MaybeRefOrGetter,
 } from "vue";
-import type { SimpleRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 /** The face-relevant slice of a rom — satisfied by both `SimpleRom` and
  *  `DetailedRom`. */

@@ -8,7 +8,6 @@
 import { RBtn, REmptyState, RIcon, RProgressCircular } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SearchRom, SimpleRom } from "@/stores/roms";
 import {
   type ConfirmPayload,
   firstAvailableCover,
@@ -16,6 +15,10 @@ import {
   matchKey,
   type MatchedSource,
 } from "@/v2/components/MatchRom/types";
+import type {
+  SearchRom,
+  SimpleRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

@@ -14,13 +14,13 @@
 // Writes are optimistic via useGameActions.setScore.
 import { computed, ref, toRef } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import MetricMenuBtn from "@/v2/components/GameActions/MetricMenuBtn.vue";
 import { METRICS } from "@/v2/components/GameActions/metrics";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGameActions } from "@/v2/composables/useGameActions";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

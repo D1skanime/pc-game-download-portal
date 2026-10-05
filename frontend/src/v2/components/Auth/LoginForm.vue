@@ -5,11 +5,11 @@ import { RBtn, RTextField } from "@v2/lib";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import { refetchCSRFToken } from "@/services/api";
-import identityApi from "@/services/api/identity";
-import storeAuth from "@/stores/auth";
 import PasswordField from "@/v2/components/shared/PasswordField.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { refetchCSRFToken } from "@/v2/data/adapters/legacy/services/api";
+import identityApi from "@/v2/data/adapters/legacy/services/api/identity";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 
 defineOptions({ inheritAttrs: false });
 

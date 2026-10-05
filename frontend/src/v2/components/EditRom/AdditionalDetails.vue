@@ -11,7 +11,7 @@
 import { RComboboxField, RDateField, RTextField } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { UpdateRom } from "@/services/api/rom";
+import type { UpdateRom } from "@/v2/data/adapters/legacy/services/api/rom";
 
 const props = defineProps<{ rom: UpdateRom }>();
 

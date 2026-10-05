@@ -20,10 +20,10 @@ import {
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import configApi from "@/services/api/config";
-import storeConfig from "@/stores/config";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import configApi from "@/v2/data/adapters/legacy/services/api/config";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
 defineOptions({ inheritAttrs: false });

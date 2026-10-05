@@ -21,9 +21,9 @@
 import { RAvatar, RIcon, RPlatformIcon, RSelect, RTag } from "@v2/lib";
 import { computed, useSlots } from "vue";
 import { useI18n } from "vue-i18n";
-import type { Platform } from "@/stores/platforms";
 import { platformCategoryToIcon } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
 
 // Per-platform scrapper match indicators — mini avatar per metadata
 // source the platform has an ID for. Mixed `_id` / `_slug` fields

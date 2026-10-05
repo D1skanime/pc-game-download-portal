@@ -18,10 +18,10 @@
 import { RBtn, RChip, RPlatformIcon, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { computed } from "vue";
-import type { Platform } from "@/stores/platforms";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
 
 defineOptions({ inheritAttrs: false });
 

@@ -14,10 +14,10 @@
 import { RBox3D } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { DetailedRom } from "@/stores/roms";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useBoxFaces } from "@/v2/composables/useBoxFaces";
 import { useBoxartStyle } from "@/v2/composables/useCoverArt";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

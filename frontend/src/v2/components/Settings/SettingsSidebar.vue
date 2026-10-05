@@ -22,9 +22,9 @@ import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
-import storeAuth from "@/stores/auth";
-import storeHeartbeat from "@/stores/heartbeat";
 import { useCan } from "@/v2/composables/useCan";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
 

@@ -30,7 +30,7 @@
 //     to a platform should drop the selection, but we let the view
 //     decide so an in-page filter change can preserve it.
 import { defineStore } from "pinia";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 interface State {
   selected: Map<number, SimpleRom>;

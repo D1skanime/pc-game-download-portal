@@ -17,11 +17,11 @@ import type { Emitter } from "mitt";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PermissionGroupSchema } from "@/__generated__";
-import permissionsApi from "@/services/api/permissions";
-import storePermissionGroups from "@/stores/permissionGroups";
 import type { Events } from "@/types/emitter";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import permissionsApi from "@/v2/data/adapters/legacy/services/api/permissions";
+import storePermissionGroups from "@/v2/data/adapters/legacy/stores/permissionGroups";
 import { groupColor } from "@/v2/utils/groupColor";
 
 defineOptions({ inheritAttrs: false });

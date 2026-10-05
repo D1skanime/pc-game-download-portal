@@ -6,12 +6,12 @@ import { RBtn, RIcon, RSelect, RSwitch, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import permissionsApi from "@/services/api/permissions";
-import userApi from "@/services/api/user";
-import storePermissionGroups from "@/stores/permissionGroups";
-import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import permissionsApi from "@/v2/data/adapters/legacy/services/api/permissions";
+import userApi from "@/v2/data/adapters/legacy/services/api/user";
+import storePermissionGroups from "@/v2/data/adapters/legacy/stores/permissionGroups";
+import storeUsers from "@/v2/data/adapters/legacy/stores/users";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
 defineOptions({ inheritAttrs: false });

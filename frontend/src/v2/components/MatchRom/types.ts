@@ -2,7 +2,7 @@
 // list). The dialog shell owns search state and API calls; each body
 // variant renders results and the per-match cover picker in
 // its own visual language.
-import type { SearchRom } from "@/stores/roms";
+import type { SearchRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 export type PcMatchableComponentKind =
   "base" | "update" | "dlc" | "hotfix" | "language_pack" | "extra";

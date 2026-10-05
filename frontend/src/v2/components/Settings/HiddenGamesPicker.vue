@@ -8,9 +8,9 @@ import { RBtn, RIcon, RSpinner, RTextField } from "@v2/lib";
 import { debounce } from "lodash";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import romApi from "@/services/api/rom";
-import type { SimpleRom } from "@/stores/roms";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

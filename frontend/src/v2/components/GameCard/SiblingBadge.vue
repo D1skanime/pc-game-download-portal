@@ -16,7 +16,7 @@ import { RIcon, RMenu, RMenuItem } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

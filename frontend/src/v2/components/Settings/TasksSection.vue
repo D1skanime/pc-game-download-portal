@@ -12,12 +12,12 @@ import { RBtn, RIcon, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
-import taskApi from "@/services/api/task";
-import storeTasks from "@/stores/tasks";
 import { convertCronExperssion, formatTimestamp } from "@/utils";
 import { TaskStatusItem, type TaskStatusResponse } from "@/utils/tasks";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import taskApi from "@/v2/data/adapters/legacy/services/api/task";
+import storeTasks from "@/v2/data/adapters/legacy/stores/tasks";
 
 defineOptions({ inheritAttrs: false });
 

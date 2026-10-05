@@ -3,7 +3,7 @@
 // rows, future surfaces). One entry per provider gives label + logo
 // path + (optional) brand-colour background; consumers iterate and
 // filter to the providers whose id field is populated on the ROM.
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 /** Subset of `SimpleRom` fields that hold a matched provider id. Keying
  * the list against this type means a typo or a removed field is a

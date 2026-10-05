@@ -10,7 +10,7 @@
 // even without artwork.
 import { RIcon, RTooltip } from "@v2/lib";
 import { computed, reactive } from "vue";
-import type { DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 // IGDB hosts every rating icon at a conventional URL, but not every
 // `category_rating` combo is actually populated — old/regional ratings

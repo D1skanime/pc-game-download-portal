@@ -11,12 +11,6 @@ import type {
   NetplayICEServer,
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
-import { saveApi as api } from "@/services/api/save";
-import storeAuth from "@/stores/auth";
-import storeConfig from "@/stores/config";
-import storeLanguage from "@/stores/language";
-import storePlaying from "@/stores/playing";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
   areThreadsRequiredForEJSCore,
@@ -24,6 +18,14 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
+import { saveApi as api } from "@/v2/data/adapters/legacy/services/api/save";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
+import storeLanguage from "@/v2/data/adapters/legacy/stores/language";
+import storePlaying from "@/v2/data/adapters/legacy/stores/playing";
+import storeRoms, {
+  type DetailedRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
 import {
   saveSave,
   saveState,

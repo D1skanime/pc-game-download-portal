@@ -15,9 +15,9 @@
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { Platform } from "@/stores/platforms";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
 
 type RowType = "alias" | "variant" | "auto" | null;
 

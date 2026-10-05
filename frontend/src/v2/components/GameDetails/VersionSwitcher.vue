@@ -11,7 +11,7 @@
 import { RBtn, RIcon, RMenu, RMenuItem } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

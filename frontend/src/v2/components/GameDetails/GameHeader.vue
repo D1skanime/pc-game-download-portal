@@ -10,12 +10,12 @@
 // Genre/franchise belong in the Overview tab info grid.
 import { RIcon, RPlatformIcon, RTag, RTooltip } from "@v2/lib";
 import { useI18n } from "vue-i18n";
-import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
 import PrevNextNav from "@/v2/components/GameDetails/PrevNextNav.vue";
 import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

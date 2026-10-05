@@ -2,7 +2,7 @@
 // list rendered by ProviderGrid (and any future surface that needs
 // per-ROM provider links). Each entry binds a DetailedRom field to a
 // brand colour token + logo + URL builder.
-import type { DetailedRom } from "@/stores/roms";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 export type Provider = {
   /** Field on DetailedRom that holds the provider's external ID. */

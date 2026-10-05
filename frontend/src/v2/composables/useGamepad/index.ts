@@ -31,8 +31,8 @@
 //     are muted so every button can be pressed and inspected in place.
 import { onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import storePlaying from "@/stores/playing";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import storePlaying from "@/v2/data/adapters/legacy/stores/playing";
 import {
   closeTopEscapable,
   hasOpenEscapable,

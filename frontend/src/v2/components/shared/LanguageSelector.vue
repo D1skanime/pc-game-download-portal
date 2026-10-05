@@ -12,7 +12,7 @@ import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
-import storeLanguage from "@/stores/language";
+import storeLanguage from "@/v2/data/adapters/legacy/stores/language";
 
 defineOptions({ inheritAttrs: false });
 

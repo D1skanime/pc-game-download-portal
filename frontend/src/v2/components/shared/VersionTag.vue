@@ -4,7 +4,7 @@
 // (linked to the GitHub release). Pass `link` to render as an anchor
 // to the release notes page.
 import { computed } from "vue";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
 

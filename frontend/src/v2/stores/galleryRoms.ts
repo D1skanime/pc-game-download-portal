@@ -26,15 +26,17 @@ import axios from "axios";
 import { defineStore } from "pinia";
 import type { SimpleRomSchema } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
-import romApi from "@/services/api/rom";
+import type { ExtractPiniaStoreType } from "@/types";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 import {
   type Collection,
   type SmartCollection,
   type VirtualCollection,
-} from "@/stores/collections";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import storePlatforms, { type Platform } from "@/stores/platforms";
-import type { ExtractPiniaStoreType } from "@/types";
+} from "@/v2/data/adapters/legacy/stores/collections";
+import storeGalleryFilter from "@/v2/data/adapters/legacy/stores/galleryFilter";
+import storePlatforms, {
+  type Platform,
+} from "@/v2/data/adapters/legacy/stores/platforms";
 
 export type SimpleRom = SimpleRomSchema;
 

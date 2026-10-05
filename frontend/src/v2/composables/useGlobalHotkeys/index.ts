@@ -14,7 +14,7 @@
 import { onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import storePlaying from "@/stores/playing";
+import storePlaying from "@/v2/data/adapters/legacy/stores/playing";
 
 let installed = false;
 

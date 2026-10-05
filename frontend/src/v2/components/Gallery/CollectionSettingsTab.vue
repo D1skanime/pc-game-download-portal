@@ -32,20 +32,20 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import collectionApi, {
-  type UpdatedCollection,
-} from "@/services/api/collection";
-import storeAuth from "@/stores/auth";
-import storeCollections, {
-  type Collection,
-  type SmartCollection,
-} from "@/stores/collections";
-import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import collectionApi, {
+  type UpdatedCollection,
+} from "@/v2/data/adapters/legacy/services/api/collection";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeCollections, {
+  type Collection,
+  type SmartCollection,
+} from "@/v2/data/adapters/legacy/stores/collections";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import {
   summarizeSmartFilterCriteria,

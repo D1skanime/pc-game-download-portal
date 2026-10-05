@@ -20,13 +20,13 @@ import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { UserNoteSchema } from "@/__generated__";
-import romApi from "@/services/api/rom";
-import storeAuth from "@/stores/auth";
-import type { DetailedRom } from "@/stores/roms";
-import storeRoms from "@/stores/roms";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
+import storeRoms from "@/v2/data/adapters/legacy/stores/roms";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });

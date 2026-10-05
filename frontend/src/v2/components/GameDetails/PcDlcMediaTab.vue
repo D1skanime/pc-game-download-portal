@@ -7,9 +7,9 @@ import type {
   PcComponentSchema,
   RomComponentOwnedMediaRole,
 } from "@/__generated__";
-import { romApi as api } from "@/services/api/rom";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { romApi as api } from "@/v2/data/adapters/legacy/services/api/rom";
 
 defineOptions({ inheritAttrs: false });
 

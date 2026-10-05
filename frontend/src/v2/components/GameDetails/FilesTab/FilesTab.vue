@@ -32,9 +32,9 @@ import type {
   RomFileCategory,
   RomFileSchema,
 } from "@/__generated__";
-import romApi from "@/services/api/rom";
 import { getDownloadLink } from "@/utils";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 import FileRow from "./FileRow.vue";
 import FilesSummary from "./FilesSummary.vue";
 

@@ -8,8 +8,8 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
-import type { SimpleRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 const props = defineProps<{ rom: SimpleRom }>();
 

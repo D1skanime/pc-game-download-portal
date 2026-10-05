@@ -25,9 +25,6 @@ import type {
   SearchRomSchema,
   SGDBResource,
 } from "@/__generated__";
-import romApi from "@/services/api/rom";
-import sgdbApi from "@/services/api/sgdb";
-import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
   getMatchSources,
@@ -35,6 +32,9 @@ import {
 } from "@/v2/components/MatchRom/types";
 import { useCoverFilters } from "@/v2/composables/useCoverFilters";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
+import sgdbApi from "@/v2/data/adapters/legacy/services/api/sgdb";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import RSelect from "@/v2/lib/forms/RSelect/RSelect.vue";
 import RSwitch from "@/v2/lib/forms/RSwitch/RSwitch.vue";
 import RTextField from "@/v2/lib/forms/RTextField/RTextField.vue";

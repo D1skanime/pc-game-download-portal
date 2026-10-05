@@ -4,10 +4,10 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import storageApi from "@/services/api/storage";
-import storePlatforms from "@/stores/platforms";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useCan } from "@/v2/composables/useCan";
+import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 
 const { t } = useI18n();
 const router = useRouter();

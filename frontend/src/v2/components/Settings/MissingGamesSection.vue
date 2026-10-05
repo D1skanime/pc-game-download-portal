@@ -27,9 +27,6 @@ import {
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import taskApi from "@/services/api/task";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import storePlatforms, { type Platform } from "@/stores/platforms";
 import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
@@ -41,6 +38,11 @@ import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import taskApi from "@/v2/data/adapters/legacy/services/api/task";
+import storeGalleryFilter from "@/v2/data/adapters/legacy/stores/galleryFilter";
+import storePlatforms, {
+  type Platform,
+} from "@/v2/data/adapters/legacy/stores/platforms";
 import storeGalleryRoms, { type SidecarOptions } from "@/v2/stores/galleryRoms";
 
 interface PlatformItem {

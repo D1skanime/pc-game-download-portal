@@ -22,13 +22,13 @@ import type { Emitter } from "mitt";
 import qrcode from "qrcode";
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import clientTokenApi, {
-  type ClientTokenSchema,
-} from "@/services/api/client-token";
-import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import clientTokenApi, {
+  type ClientTokenSchema,
+} from "@/v2/data/adapters/legacy/services/api/client-token";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
 defineOptions({ inheritAttrs: false });

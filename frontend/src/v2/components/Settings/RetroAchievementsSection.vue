@@ -8,10 +8,10 @@
 import { RBtn, RTag, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import userApi from "@/services/api/user";
-import storeAuth from "@/stores/auth";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import userApi from "@/v2/data/adapters/legacy/services/api/user";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 
 defineOptions({ inheritAttrs: false });
 

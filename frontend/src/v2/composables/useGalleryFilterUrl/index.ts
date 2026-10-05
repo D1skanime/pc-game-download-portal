@@ -53,8 +53,8 @@ import {
 } from "vue-router";
 import storeGalleryFilter, {
   type FilterLogicOperator,
-} from "@/stores/galleryFilter";
-import storePlatforms from "@/stores/platforms";
+} from "@/v2/data/adapters/legacy/stores/galleryFilter";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 
 // Pure helpers — no Vue context. Easier to reason about and test if we
 // ever want to.

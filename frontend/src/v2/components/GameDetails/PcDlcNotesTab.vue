@@ -8,10 +8,10 @@ import type {
   PcComponentNoteSchema,
   PcComponentSchema,
 } from "@/__generated__";
-import { romApi as api } from "@/services/api/rom";
-import storeAuth from "@/stores/auth";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { romApi as api } from "@/v2/data/adapters/legacy/services/api/rom";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 
 defineOptions({ inheritAttrs: false });
 

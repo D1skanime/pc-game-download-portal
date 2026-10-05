@@ -14,7 +14,7 @@
 // `filter_criteria`. It mirrors v1's serialization exactly so existing
 // smart collections continue to load.
 import type { Composer } from "vue-i18n";
-import type { Platform } from "@/stores/platforms";
+import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
 
 export type FilterLogic = "any" | "all" | "none";
 

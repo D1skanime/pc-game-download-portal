@@ -11,15 +11,17 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import type { MetadataMediaType, ScanSettingsPayload } from "@/__generated__";
-import configApi from "@/services/api/config";
-import storeAuth from "@/stores/auth";
-import storeConfig, { type Config } from "@/stores/config";
 import ScanPriorityList from "@/v2/components/Settings/ScanPriorityList.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsSubsection from "@/v2/components/Settings/SettingsSubsection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import configApi from "@/v2/data/adapters/legacy/services/api/config";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
+import storeConfig, {
+  type Config,
+} from "@/v2/data/adapters/legacy/stores/config";
 
 const { t } = useI18n();
 const confirm = useConfirm();

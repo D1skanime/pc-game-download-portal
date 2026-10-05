@@ -26,8 +26,6 @@ import type {
   RomHLTBMetadata,
   UserCollectionSchema,
 } from "@/__generated__";
-import storeCollections from "@/stores/collections";
-import type { DetailedRom } from "@/stores/roms";
 import { toBrowserLocale } from "@/utils";
 import CollectionTile, {
   type Kind,
@@ -41,6 +39,8 @@ import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import storeCollections from "@/v2/data/adapters/legacy/stores/collections";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 import { resolveRomArtwork } from "@/v2/utils/romArtwork";
 

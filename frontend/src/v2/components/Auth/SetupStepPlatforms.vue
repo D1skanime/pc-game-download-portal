@@ -2,7 +2,7 @@
 import { RAlert, RPlatformIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SetupLibraryInfo } from "@/services/api/setup";
+import type { SetupLibraryInfo } from "@/v2/data/adapters/legacy/services/api/setup";
 
 const props = defineProps<{ libraryInfo: SetupLibraryInfo }>();
 const { t } = useI18n();

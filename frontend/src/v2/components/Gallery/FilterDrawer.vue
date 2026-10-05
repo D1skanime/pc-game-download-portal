@@ -26,13 +26,15 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
-import storeGalleryFilter, {
-  type FilterLogicOperator,
-} from "@/stores/galleryFilter";
-import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import { romStatusMap, type PlayingStatus } from "@/utils";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import storeGalleryFilter, {
+  type FilterLogicOperator,
+} from "@/v2/data/adapters/legacy/stores/galleryFilter";
+import storePlatforms, {
+  type Platform,
+} from "@/v2/data/adapters/legacy/stores/platforms";
 import { METADATA_PROVIDER_FILTER_OPTIONS } from "@/v2/utils/metadataProviders";
 
 defineOptions({ inheritAttrs: false });

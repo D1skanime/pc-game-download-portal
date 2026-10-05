@@ -13,10 +13,10 @@ import type { AxiosError } from "axios";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
+import { usePageTitle } from "@/v2/composables/usePageTitle";
 import deviceAuthApi, {
   type DeviceAuthPendingSchema,
-} from "@/services/api/device-auth";
-import { usePageTitle } from "@/v2/composables/usePageTitle";
+} from "@/v2/data/adapters/legacy/services/api/device-auth";
 
 type ApiError = AxiosError<{ detail?: string }>;
 

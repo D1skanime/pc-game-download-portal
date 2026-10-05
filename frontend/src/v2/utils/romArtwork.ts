@@ -13,8 +13,8 @@
 // Covers, screenshots, the manual and the soundtrack are intentionally left
 // out: they each have their own surface elsewhere in the details view.
 import i18n from "@/locales";
-import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 export type RomArtworkEntry = {
   key: string;

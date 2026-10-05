@@ -12,8 +12,8 @@
 //   </MoreMenu>
 import { RMenu } from "@v2/lib";
 import { ref } from "vue";
-import type { SimpleRom } from "@/stores/roms";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

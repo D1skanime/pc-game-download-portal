@@ -21,9 +21,6 @@ import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
-import romApi, { type UpdateRom } from "@/services/api/rom";
-import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import AdditionalDetails from "@/v2/components/EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "@/v2/components/EditRom/MetadataIdSection.vue";
@@ -31,6 +28,14 @@ import RawMetadataPanel from "@/v2/components/EditRom/RawMetadataPanel.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi, {
+  type UpdateRom,
+} from "@/v2/data/adapters/legacy/services/api/rom";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
+import storeRoms, {
+  type DetailedRom,
+  type SimpleRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
 import { getMissingCoverImage } from "@/v2/utils/covers";
 
 defineOptions({ inheritAttrs: false });

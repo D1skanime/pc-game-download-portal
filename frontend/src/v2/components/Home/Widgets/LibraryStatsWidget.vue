@@ -15,9 +15,9 @@ import { RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import api from "@/services/api";
-import storeCollections from "@/stores/collections";
 import { formatBytes } from "@/utils";
+import api from "@/v2/data/adapters/legacy/services/api";
+import storeCollections from "@/v2/data/adapters/legacy/stores/collections";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });

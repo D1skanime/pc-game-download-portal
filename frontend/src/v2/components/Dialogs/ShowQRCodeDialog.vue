@@ -7,10 +7,10 @@ import type { Emitter } from "mitt";
 import qrcode from "qrcode";
 import { inject, nextTick, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getNintendoDSFiles, getDownloadLink, isNintendoDSFile } from "@/utils";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import { colorCanvas, colorOverlay } from "@/v2/tokens";
 
 defineOptions({ inheritAttrs: false });

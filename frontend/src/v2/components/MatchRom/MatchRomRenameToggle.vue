@@ -10,7 +10,7 @@
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import RSwitch from "@/v2/lib/forms/RSwitch/RSwitch.vue";
 
 defineOptions({ inheritAttrs: false });

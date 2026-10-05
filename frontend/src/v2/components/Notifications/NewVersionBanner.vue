@@ -18,7 +18,7 @@ import { useLocalStorage } from "@vueuse/core";
 import semver from "semver";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
 

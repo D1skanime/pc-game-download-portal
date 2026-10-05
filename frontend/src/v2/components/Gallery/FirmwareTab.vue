@@ -3,14 +3,14 @@ import { RBtn, RChip, RCheckbox, REmptyState, RIcon, RTooltip } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { FirmwareSchema } from "@/__generated__";
-import firmwareApi from "@/services/api/firmware";
-import type { Platform } from "@/stores/platforms";
-import storePlatforms from "@/stores/platforms";
 import { formatBytes } from "@/utils";
 import DeleteFirmwareDialog from "@/v2/components/Gallery/DeleteFirmwareDialog.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import firmwareApi from "@/v2/data/adapters/legacy/services/api/firmware";
+import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 defineOptions({ inheritAttrs: false });

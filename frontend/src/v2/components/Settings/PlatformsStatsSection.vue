@@ -22,9 +22,9 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
-import storeHeartbeat from "@/stores/heartbeat";
-import storePlatforms from "@/stores/platforms";
 import { formatBytes, regionToEmoji } from "@/utils";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 
 defineOptions({ inheritAttrs: false });
 

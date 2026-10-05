@@ -10,10 +10,10 @@
 // route (EJS vs Ruffle).
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
-import storeConfig from "@/stores/config";
-import storeHeartbeat from "@/stores/heartbeat";
-import type { SimpleRom } from "@/stores/roms";
 import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   canPlay: ComputedRef<boolean>;

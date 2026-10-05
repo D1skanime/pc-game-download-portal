@@ -3,12 +3,12 @@ import { RBtn, RTextField } from "@v2/lib";
 import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import userApi from "@/services/api/user";
-import storeUsers from "@/stores/users";
 import AuthBackLink from "@/v2/components/shared/AuthBackLink.vue";
 import AuthCard from "@/v2/components/shared/AuthCard.vue";
 import PasswordField from "@/v2/components/shared/PasswordField.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import userApi from "@/v2/data/adapters/legacy/services/api/user";
+import storeUsers from "@/v2/data/adapters/legacy/stores/users";
 
 const { t } = useI18n();
 const snackbar = useSnackbar();

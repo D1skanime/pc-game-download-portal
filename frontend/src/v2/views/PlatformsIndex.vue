@@ -19,7 +19,6 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import storePlatforms, { type Platform } from "@/stores/platforms";
 import GalleryToolbar, {
   type GroupByItem,
   type SegmentFilter,
@@ -40,6 +39,7 @@ import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
+import { storePlatforms, type Platform } from "@/v2/data/adapters/catalog";
 import { patchQuery } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();

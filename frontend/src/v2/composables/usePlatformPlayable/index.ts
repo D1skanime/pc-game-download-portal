@@ -15,13 +15,17 @@
 // and `null` when nothing on the server can run it.
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
-import storeConfig, { type Config } from "@/stores/config";
-import storeHeartbeat, { type Heartbeat } from "@/stores/heartbeat";
 import {
   getSupportedEJSCores,
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
 } from "@/utils";
+import storeConfig, {
+  type Config,
+} from "@/v2/data/adapters/legacy/stores/config";
+import storeHeartbeat, {
+  type Heartbeat,
+} from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 export type PlatformEmulator = "emulatorjs" | "ruffle" | "dosbox" | null;
 

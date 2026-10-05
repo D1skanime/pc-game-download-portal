@@ -6,8 +6,8 @@ import { RDialog, RIcon, RImg } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
 

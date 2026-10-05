@@ -7,10 +7,10 @@
 import { RDivider } from "@v2/lib";
 import { toRef } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SimpleRom } from "@/stores/roms";
 import MetricSection from "@/v2/components/GameActions/MetricSection.vue";
 import { METRICS } from "@/v2/components/GameActions/metrics";
 import { useGameActions } from "@/v2/composables/useGameActions";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

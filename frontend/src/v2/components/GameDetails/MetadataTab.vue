@@ -10,10 +10,10 @@
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import ProviderGrid from "@/v2/components/GameDetails/ProviderGrid.vue";
 import HashChip from "@/v2/components/shared/HashChip.vue";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 import {
   matchesDatabase,
   VERIFICATION_DATABASES,

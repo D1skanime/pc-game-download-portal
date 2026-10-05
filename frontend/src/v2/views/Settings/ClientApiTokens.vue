@@ -21,16 +21,16 @@ import type { Emitter } from "mitt";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DeviceSchema } from "@/__generated__/models/DeviceSchema";
-import api from "@/services/api";
-import clientTokenApi, {
-  type ClientTokenSchema,
-} from "@/services/api/client-token";
 import type { Events } from "@/types/emitter";
 import { formatTimestamp } from "@/utils";
 import CreateClientTokenDialog from "@/v2/components/Settings/CreateClientTokenDialog.vue";
 import ScopeCell from "@/v2/components/Settings/ScopeCell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import api from "@/v2/data/adapters/legacy/services/api";
+import clientTokenApi, {
+  type ClientTokenSchema,
+} from "@/v2/data/adapters/legacy/services/api/client-token";
 
 const { t, locale } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");

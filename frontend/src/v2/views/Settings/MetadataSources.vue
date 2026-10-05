@@ -15,9 +15,9 @@
 import { RBtn, RTag } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import storeConfig from "@/stores/config";
-import storeHeartbeat from "@/stores/heartbeat";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import storeConfig from "@/v2/data/adapters/legacy/stores/config";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
 

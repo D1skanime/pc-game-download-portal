@@ -18,9 +18,6 @@ import {
   watch,
 } from "vue";
 import { useRouter } from "vue-router";
-import storeCollections from "@/stores/collections";
-import storePlatforms from "@/stores/platforms";
-import { useStreamingStore } from "@/stores/streaming";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import BottomNav from "@/v2/components/AppShell/BottomNav.vue";
@@ -39,6 +36,9 @@ import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
+import storeCollections from "@/v2/data/adapters/legacy/stores/collections";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
+import { useStreamingStore } from "@/v2/data/adapters/legacy/stores/streaming";
 
 installPermissionsHydration();
 // Global scan socket → store wiring so `scanning` flips back to false on

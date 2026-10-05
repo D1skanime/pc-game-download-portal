@@ -15,14 +15,14 @@
 import { RBtn, RChip, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { useI18n } from "vue-i18n";
+import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
+import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
+import Stat from "@/v2/components/shared/Stat.vue";
 import type {
   Collection,
   SmartCollection,
   VirtualCollection,
-} from "@/stores/collections";
-import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
-import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
-import Stat from "@/v2/components/shared/Stat.vue";
+} from "@/v2/data/adapters/legacy/stores/collections";
 
 defineOptions({ inheritAttrs: false });
 

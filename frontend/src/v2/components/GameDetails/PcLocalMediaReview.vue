@@ -6,8 +6,8 @@ import type {
   PcLocalMediaCandidatesResponse,
   RomComponentLocalMediaRole,
 } from "@/__generated__";
-import romApi from "@/services/api/rom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 
 defineOptions({ inheritAttrs: false });
 

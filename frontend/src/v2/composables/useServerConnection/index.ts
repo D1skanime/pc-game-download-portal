@@ -18,7 +18,7 @@
 // reactive `isOffline` flag and triggers the install.
 import { debounce } from "lodash";
 import { computed, effectScope, watch } from "vue";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 // While online, probe only occasionally — a network blip shouldn't rush to
 // flag the backend as down. Passive interceptor events still flip us offline

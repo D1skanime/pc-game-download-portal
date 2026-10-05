@@ -25,12 +25,16 @@ import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 import type { ScanStats } from "@/__generated__";
-import platformApi from "@/services/api/platform";
-import storePlatforms from "@/stores/platforms";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
-import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import platformApi from "@/v2/data/adapters/legacy/services/api/platform";
+import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
+import storeRoms, {
+  type SimpleRom,
+} from "@/v2/data/adapters/legacy/stores/roms";
+import storeScanning, {
+  type ScanningPlatform,
+} from "@/v2/data/adapters/legacy/stores/scanning";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 export function installScanLifecycle() {
