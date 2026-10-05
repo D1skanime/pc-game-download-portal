@@ -1,6 +1,6 @@
 from itertools import count
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock
 
 import pytest
 import socketio
@@ -525,10 +525,71 @@ class TestShouldScanRom:
         result = should_scan_rom(ScanType.QUICK, None, [], ["igdb"])
         assert result is True
 
-    def test_quick_scan_with_existing_rom(self, rom: Rom):
-        """QUICK should not scan when rom exists"""
-        result = should_scan_rom(ScanType.QUICK, rom, [], ["igdb"])
-        assert result is False
+    @pytest.mark.parametrize(
+        ("platform_slug", "nested", "expected"),
+        [
+            (UPS.WIN, True, True),
+            (UPS.WIN, False, False),
+            ("snes", True, False),
+        ],
+    )
+    def test_quick_scan_admits_only_existing_nested_windows_roms(
+        self, platform_slug: str, nested: bool, expected: bool
+    ):
+        rom = Mock(id=42, platform_slug=platform_slug)
+        fs_rom: FSRom = {
+            "fs_name": "The Witcher 3 Wild Hunt",
+            "flat": not nested,
+            "nested": nested,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+
+        assert should_scan_rom(ScanType.QUICK, rom, [], [], fs_rom=fs_rom) is expected
+
+    def test_quick_scan_skips_existing_rom_when_filesystem_shape_is_unknown(self):
+        rom = Mock(id=42, platform_slug=UPS.WIN)
+
+        assert should_scan_rom(ScanType.QUICK, rom, [], []) is False
+
+    def test_scoped_quick_scan_keeps_rom_id_selection_authoritative(self):
+        rom = Mock(id=42, platform_slug="snes")
+        flat_fs_rom: FSRom = {
+            "fs_name": "Example Game",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+
+        assert should_scan_rom(ScanType.QUICK, rom, [rom.id], [], fs_rom=flat_fs_rom)
+
+    def test_non_quick_scan_does_not_use_windows_component_admission(self):
+        rom = Mock(
+            id=42,
+            platform_slug=UPS.WIN,
+            is_identified=False,
+            steam_id=None,
+            igdb_id=None,
+        )
+        nested_fs_rom: FSRom = {
+            "fs_name": "The Witcher 3 Wild Hunt",
+            "flat": False,
+            "nested": True,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+
+        assert not should_scan_rom(ScanType.UPDATE, rom, [], [], fs_rom=nested_fs_rom)
 
     # Test COMPLETE scan type
     def test_complete_scan_always_scans(self, rom: Rom):
@@ -1125,6 +1186,106 @@ class TestIdentifyRomReassociation:
         assert all(
             call.kwargs["rom_id"] == 99
             for call in lifecycle.reconnect_retained_identity.call_args_list
+        )
+
+
+class TestIdentifyPlatformQuickPcComponents:
+    async def test_dispatches_only_existing_nested_windows_roms(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+        platform = Platform(name="Windows", slug=UPS.WIN, fs_slug=UPS.WIN)
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        db_platform.add_platform.return_value = platform
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        mocker.patch.object(
+            scan_module.PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={})),
+        )
+        mocker.patch.object(
+            scan_module.fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=[]),
+        )
+        nested_windows: FSRom = {
+            "fs_name": "The Witcher 3 Wild Hunt",
+            "flat": False,
+            "nested": True,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        flat_windows: FSRom = {
+            "fs_name": "Flat Windows Game.iso",
+            "flat": True,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        nested_non_pc: FSRom = {
+            "fs_name": "Nested Console Game",
+            "flat": False,
+            "nested": True,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+        mocker.patch.object(
+            scan_module.fs_rom_handler,
+            "get_roms",
+            AsyncMock(return_value=[nested_windows, flat_windows, nested_non_pc]),
+        )
+        witcher = Mock(id=1, platform_slug=UPS.WIN)
+        flat = Mock(id=2, platform_slug=UPS.WIN)
+        console = Mock(id=3, platform_slug="snes")
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {
+            nested_windows["fs_name"]: witcher,
+            flat_windows["fs_name"]: flat,
+            nested_non_pc["fs_name"]: console,
+        }
+        db_rom.get_missing_rom_ids.return_value = set()
+        db_rom.mark_missing_roms.return_value = []
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+        identify = mocker.patch.object(scan_module, "_identify_rom", AsyncMock())
+
+        await scan_module._identify_platform(
+            platform_slug=UPS.WIN,
+            scan_type=ScanType.QUICK,
+            fs_platforms=[UPS.WIN],
+            roms_ids=[],
+            metadata_sources=[MetadataSource.IGDB],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+        identify.assert_awaited_once_with(
+            platform=platform,
+            fs_rom=nested_windows,
+            rom=witcher,
+            scan_type=ScanType.QUICK,
+            roms_ids=[],
+            metadata_sources=[MetadataSource.IGDB],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=ANY,
+            scan_stats=ANY,
         )
 
 

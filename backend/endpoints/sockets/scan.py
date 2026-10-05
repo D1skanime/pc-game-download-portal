@@ -373,6 +373,7 @@ def should_scan_rom(
     rom: Rom | None,
     roms_ids: list[int],
     metadata_sources: list[str],
+    fs_rom: FSRom | None = None,
 ) -> bool:
     """Decide if a rom should be scanned or not
 
@@ -381,6 +382,7 @@ def should_scan_rom(
         rom (Rom | None): The rom to be scanned.
         roms_ids (list[int]): List of selected roms to be scanned.
         metadata_sources (list[str]): List of metadata sources to be used.
+        fs_rom (FSRom | None): Current filesystem scan-entry shape.
     """
 
     # When roms_ids is provided, the scan is scoped to those roms only
@@ -398,8 +400,16 @@ def should_scan_rom(
         or (
             rom
             and (
-                # Update scan should scan ROMs identified by the selected metadata sources
+                # Existing directory-backed Windows games refresh their PC
+                # component manifests during unscoped quick scans.
                 (
+                    scan_type == ScanType.QUICK
+                    and rom.platform_slug == UPS.WIN
+                    and fs_rom is not None
+                    and fs_rom["nested"] is True
+                )
+                # Update scan should scan ROMs identified by the selected metadata sources
+                or (
                     scan_type == ScanType.UPDATE
                     and rom.is_identified
                     and any(
@@ -954,6 +964,7 @@ async def _identify_platform(
                 rom=rom,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
+                fs_rom=fs_rom,
             ):
                 roms_to_scan.append((fs_rom, rom))
             elif rom:
