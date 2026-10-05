@@ -1,7 +1,7 @@
 ---
 phase: 23
 plan: 03
-status: blocked-after-genuine-isolated-scan-awaiting-dlc-steam-evidence
+status: prepared-fresh-expanded-fixture-awaiting-manual-scan
 scope: disposable-synthetic-multilingual-detail-stack
 ---
 
@@ -35,6 +35,15 @@ Capture `before.json` before starting the stack and `after.json` after the
 scan and every browser observation. Every entry contains its relative path,
 entry type, byte size, modification timestamp, and file SHA-256. The JSON
 files must compare byte-for-byte.
+
+For the rebuilt disposable run, retain that scanner-compatible pair and add
+ten tiny, deterministic text-only parent fixtures. Every added parent has one
+explicitly named DLC, update, or expansion subdirectory. Their names are
+synthetic and are not provider or catalog metadata.
+
+| Parents                                                              | Parent extensions            | Component directories                                                                 | Component extensions         |
+| -------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------- | ---------------------------- |
+| `Cyberpunk 2077` plus `Phase23 Test Game 01` through `10` (11 total) | 4 `.zip`, 4 `.iso`, 3 `.rar` | 4 `dlc`, 3 `update`, 3 `expansion` plus the original `Phantom Liberty` DLC (11 total) | 4 `.zip`, 4 `.iso`, 3 `.rar` |
 
 ```bash
 python3 - "$UAT_ROOT/library" <<'PY'
@@ -96,6 +105,9 @@ services:
       PC_AUTOMATION_UAT_INTERVAL_SECONDS: "0"
       STEAM_API_ENABLED: "true"
       STEAM_API_TEXT_LANGUAGES: "german,english"
+  nginx:
+    ports:
+      - "127.0.0.1:3344:80"
 ```
 
 3. Start only this new project with
@@ -146,82 +158,34 @@ Open only the new disposable nginx URL through the established SSH tunnel.
 
 ## Evidence Record
 
-| Check                                                   | Result                | Observed value |
-| ------------------------------------------------------- | --------------------- | -------------- |
-| New project/database/volume identity                    | Pending isolated scan |                |
-| Read-only synthetic fixture mount                       | Pending isolated scan |                |
-| `PC_AUTOMATION_UAT_INTERVAL_SECONDS=0`                  | Pending isolated scan |                |
-| Scheduled rescans disabled, cron retained at 15 minutes | Pending isolated scan |                |
-| Parent German and English variant readback              | Pending isolated scan |                |
-| DLC German and English variant readback                 | Pending isolated scan |                |
-| Parent German, English, and fallback                    | Pending browser UAT   |                |
-| DLC German, English, and fallback                       | Pending browser UAT   |                |
-| Before/after fixture manifest                           | Pending browser UAT   |                |
-| Exact-project cleanup                                   | Pending browser UAT   |                |
+| Check                                                   | Result              | Observed value |
+| ------------------------------------------------------- | ------------------- | -------------- |
+| New project/database/volume identity                    | Pending fresh UAT   |                |
+| Read-only synthetic fixture mount                       | Pending fresh UAT   |                |
+| `PC_AUTOMATION_UAT_INTERVAL_SECONDS=0`                  | Pending fresh UAT   |                |
+| Scheduled rescans disabled, cron retained at 15 minutes | Pending fresh UAT   |                |
+| Parent German and English variant readback              | Pending fresh UAT   |                |
+| DLC German and English variant readback                 | Pending fresh UAT   |                |
+| Parent German, English, and fallback                    | Pending browser UAT |                |
+| DLC German, English, and fallback                       | Pending browser UAT |                |
+| Before/after fixture manifest                           | Pending browser UAT |                |
+| Exact-project cleanup                                   | Pending browser UAT |                |
 
-## Isolated Scan Evidence, 2026-10-05
+## Fresh Expanded Fixture Environment, 2026-10-05
 
-The one permitted immediate quick scan was run in the new project
-`romm-phase23-1791196505`. This was not a Phase 22 project or a reused Docker
-resource: it created its own `phase10-database` volume together with seven
-other project-labelled disposable volumes and its own default network. Before
-the fixture root, mapping, and scan were registered, its catalog counts were
-`roms=0` and `rom_components=0`.
+The preceding `romm-phase23-1791196505` project was stopped and removed with
+only its own labelled containers, volumes, and network; its exact temporary
+root was recoverably removed. The rebuilt project is a separate disposable
+project with a new empty database volume and a new network. Its catalog counts
+are `roms=0` and `rom_components=0`; no scan or catalog write has occurred.
 
-The fixture was the two-file parent/DLC shape above, with the specified
-synthetic contents only. The mount was verified non-writable from the app.
-The running services reported:
-
-```text
-ENABLE_SCHEDULED_RESCAN=false
-PC_AUTOMATION_UAT_INTERVAL_SECONDS=0
-SCHEDULED_RESCAN_CRON=*/15 * * * *
-STEAM_API_TEXT_LANGUAGES=(german, english)
-```
-
-No 10-second job or scheduled rescan was enabled. A locally-created,
-disposable admin was required only to create the new project's storage mapping;
-no account, credential, catalog record, metadata, or database state was
-imported from Phase 22.
-
-The normal `scan_platforms(..., metadata_sources=[STEAM],
-scan_type=QUICK)` path then ran once against the external Steam storefront.
-It created the parent catalog record and populated its Steam metadata without
-any direct database write:
-
-| Target                    | Observed isolated database readback                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Parent `Cyberpunk 2077`   | App ID `1091500`; `de` source `german`: `Cyberpunk 2077 ist ein Open-World-Action-Adventure-RPG, das in Night City spielt – einer gefährlichen Metropole, deren Bewohner von Macht, Glamour und Körpermodifikationen besessen sind.`; `en` source `english`: `Cyberpunk 2077 is an open-world, action-adventure RPG set in the dark future of Night City — a dangerous megalopolis obsessed with power, glamor, and ceaseless body modification.` |
-| DLC `dlc/Phantom Liberty` | Component was discovered at relative path `dlc/Phantom Liberty`, but has no Steam app ID, Steam metadata, or `de`/`en` text variants.                                                                                                                                                                                                                                                                                                             |
-
-The scanner output reported `scanned_roms=1`, `new_roms=1`, and
-`identified_roms=0`, with `Cyberpunk 2077 not identified`; the parent metadata
-readback above nevertheless proves the parent Steam storefront enrichment
-persisted. The required DLC matching/enrichment did not occur, so its two
-localized variants are absent. This is the concrete live-scan blocker. No
-retry, direct seeding, manufactured metadata, or browser check was performed.
-
-The post-scan synthetic fixture manifest contains seven entries and has SHA-256
-`47bf03d9b21c243b0cc1040d7fe3967933e9926f2eba730637781e378d0fa034`.
-The initial operator captured the two synthetic file hashes before the scan,
-but did not persist the required full `before.json`; therefore a byte-for-byte
-manifest comparison is intentionally **not claimed**. This procedural gap and
-the absent DLC Steam variants both prevent approval.
-
-The former `romm-phase22-live` project was separately stopped and verified
-absent (`0` project-labelled containers, volumes, and networks). Only its two
-known override files and exact temporary root were moved to the recoverable
-trash; no Docker-wide cleanup or other Compose project was touched.
-
-## Browser Check Status
-
-Browser UAT is blocked and has not started because the DLC database proof is
-missing. Once a fresh isolated reproduction produces both parent and DLC
-variants, still verify: parent and DLC German summaries, English switch,
-French-to-English fallback, immediate switch-back to German, then a
-byte-for-byte before/after fixture-manifest comparison. Keep this exact
-disposable project isolated and scheduled automation disabled while awaiting
-that decision.
+The full immutable pre-service manifest is persisted at
+`$UAT_ROOT/artifacts/before.json`. It contains 57 entries (22 files) and has
+SHA-256 `ed162480ec944e5bcba127f0a5621002eb06d7783371d387fbe57fbd83cffb65`.
+It is the sole baseline for the later byte-for-byte comparison. The fixture
+mount is read-only, scheduled rescans are disabled, and the 10-second path is
+disabled. Do not claim scan, Steam metadata, browser, after-manifest, or UAT
+approval evidence until the next explicitly authorized action.
 
 ## Automated Preparation Evidence
 
