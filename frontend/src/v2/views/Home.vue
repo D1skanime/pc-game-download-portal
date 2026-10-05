@@ -8,15 +8,10 @@
 // or pressed) we autofocus the first cell so the synthetic keys
 // dispatched by `useGamepad` have somewhere to go.
 import { RChip, RIcon, RSkeletonBlock } from "@v2/lib";
-import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
-import setupApi, { type SetupLibraryInfo } from "@/services/api/setup";
-import storeCollections from "@/stores/collections";
-import storePlatforms from "@/stores/platforms";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import CardRow from "@/v2/components/Home/CardRow.vue";
@@ -24,13 +19,22 @@ import WidgetBar from "@/v2/components/Home/Widgets/WidgetBar.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import {
+  useHomeData,
+  type SetupLibraryInfo,
+  type SimpleRom,
+} from "@/v2/data/adapters/home";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 const { t } = useI18n();
 
-const romsStore = storeRoms();
-const platformsStore = storePlatforms();
-const collectionsStore = storeCollections();
+const {
+  setupApi,
+  romsStore,
+  platformsStore,
+  collectionsStore,
+  refs: { roms: romRefs, platforms: platformRefs, collections: collectionRefs },
+} = useHomeData();
 const { supportsWebp, toWebp } = useWebpSupport();
 const {
   showHomeWidgets,
@@ -43,8 +47,8 @@ const {
   virtualCollectionType,
 } = useUISettings();
 
-const { recentRoms, continuePlayingRoms } = storeToRefs(romsStore);
-const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
+const { recentRoms, continuePlayingRoms } = romRefs;
+const { filledPlatforms, fetchingPlatforms } = platformRefs;
 const {
   allCollections,
   smartCollections,
@@ -53,7 +57,7 @@ const {
   fetchingCollections,
   fetchingSmartCollections,
   fetchingVirtualCollections,
-} = storeToRefs(collectionsStore);
+} = collectionRefs;
 
 const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);

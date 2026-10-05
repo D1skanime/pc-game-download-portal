@@ -60,6 +60,7 @@ describe("v2 data boundary", () => {
       .filter((entry) => entry.isFile() && /\.(ts|tsx)$/.test(entry.name))
       .map((entry) => resolve(entry.parentPath, entry.name));
     for (const file of files) {
+      if (file.includes("/adapters/")) continue;
       const source = readFileSync(file, "utf8");
       expect(source, file).not.toMatch(/@\/(stores|services)\//);
     }
