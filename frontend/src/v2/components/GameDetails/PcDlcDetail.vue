@@ -69,7 +69,7 @@ const summary = computed(() => {
     steamMetadata: metadata?.steam_metadata,
     legacySummary: metadata?.summary,
     locale: locale.value,
-    steamSummaryIsAuthoritative: metadata?.metadata_source === "steam",
+    steamSummaryIsAuthoritative: metadata?.metadata_source !== "manual",
   });
 });
 const cover = computed(
