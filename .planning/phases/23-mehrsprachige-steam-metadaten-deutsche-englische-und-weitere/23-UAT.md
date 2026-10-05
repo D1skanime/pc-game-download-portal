@@ -28,6 +28,9 @@ extensions:
 ```text
 library/roms/win/Cyberpunk 2077/Cyberpunk 2077.iso
 library/roms/win/Cyberpunk 2077/dlc/Phantom Liberty/Phantom Liberty.zip
+library/roms/gb/Tetris/Tetris.gb
+library/roms/nds/Mario Kart DS/Mario Kart DS.nds
+library/roms/switch/The Legend of Zelda - Tears of the Kingdom/The Legend of Zelda - Tears of the Kingdom.nsp
 ```
 
 Write only `phase23-parent-fixture` and `phase23-dlc-fixture` as file content.
@@ -37,13 +40,17 @@ entry type, byte size, modification timestamp, and file SHA-256. The JSON
 files must compare byte-for-byte.
 
 For the rebuilt disposable run, retain that scanner-compatible pair and add
-ten tiny, deterministic text-only parent fixtures. Every added parent has one
-explicitly named DLC, update, or expansion subdirectory. Their names are
-synthetic and are not provider or catalog metadata.
+ten tiny, deterministic Windows parents with real game names. Every added
+Windows parent has one explicitly named DLC, update, or expansion subdirectory.
+The three console fixtures are separate single-ROM platform directories. File
+contents remain synthetic text and are never game data.
 
-| Parents                                                              | Parent extensions            | Component directories                                                                 | Component extensions         |
-| -------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------- | ---------------------------- |
-| `Cyberpunk 2077` plus `Phase23 Test Game 01` through `10` (11 total) | 4 `.zip`, 4 `.iso`, 3 `.rar` | 4 `dlc`, 3 `update`, 3 `expansion` plus the original `Phantom Liberty` DLC (11 total) | 4 `.zip`, 4 `.iso`, 3 `.rar` |
+| Platform                   | Parents                                                                                                                                                                                                 | Extensions                   | Components                                                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows (`win`)            | `Cyberpunk 2077`, `Baldur's Gate 3`, `The Witcher 3 Wild Hunt`, `Elden Ring`, `Hades`, `Stardew Valley`, `Red Dead Redemption 2`, `DOOM Eternal`, `Hollow Knight`, `Forza Horizon 5`, `Resident Evil 4` | 4 `.zip`, 4 `.iso`, 3 `.rar` | 4 `dlc`, 3 `update`, 3 `expansion`, including `Phantom Liberty`, `Shadow of the Erdtree`, `Hearts of Stone`, and `Separate Ways` (4 `.zip`, 4 `.iso`, 3 `.rar`) |
+| Game Boy (`gb`)            | `Tetris`                                                                                                                                                                                                | `.gb`                        | none                                                                                                                                                            |
+| Nintendo DS (`nds`)        | `Mario Kart DS`                                                                                                                                                                                         | `.nds`                       | none                                                                                                                                                            |
+| Nintendo Switch (`switch`) | `The Legend of Zelda - Tears of the Kingdom`                                                                                                                                                            | `.nsp`                       | none                                                                                                                                                            |
 
 ```bash
 python3 - "$UAT_ROOT/library" <<'PY'
@@ -114,8 +121,9 @@ services:
    `backend/docker-compose.pc-integration-test.yml` and its exact override.
    Confirm every new volume and network has this exact project prefix, the
    database volume is new and empty, and `/romm/library/roms` is read-only.
-4. Register only the fixture Windows root and create its `win` mapping in the
-   new app. Perform exactly one immediate manual quick scan. Scheduled
+4. Register the one fixture root and create active mappings for `win`, `gb`,
+   `nds`, and `switch` in the new app. Perform exactly one immediate manual
+   quick scan. Scheduled
    automation remains disabled for this UAT; the 10-second automation path is
    prohibited. If scheduled rescans are enabled in a future reproduction,
    retain `SCHEDULED_RESCAN_CRON=*/15 * * * *` and
