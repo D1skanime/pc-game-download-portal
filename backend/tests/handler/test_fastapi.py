@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
+from handler.database.roms_handler import SyncedRomComponents
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_hasheous_handler,
@@ -487,6 +488,155 @@ async def test_nested_pc_component_reconciliation_failure_still_emits_parent_rom
     assert payload["fs_name"] == "Example Game"
     assert db_rom_handler.get_roms_by_fs_name(platform.id, {"Example Game"})
     log_exception.assert_called_once()
+
+
+async def test_quick_rescan_reconciles_existing_nested_windows_components():
+    """Quick Windows rescans retain metadata while refreshing durable manifests."""
+    platform = db_platform_handler.add_platform(
+        Platform(name="Windows", slug=UPS.WIN, fs_slug=UPS.WIN)
+    )
+    existing = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="The Witcher 3 Wild Hunt",
+            fs_path="roms/win",
+            name="The Witcher 3: Wild Hunt",
+            summary="A stable user-visible summary.",
+            url_cover="https://example.invalid/cover.jpg",
+            igdb_id=1942,
+            igdb_metadata={"provider": "igdb"},
+            tags=[],
+        )
+    )
+    components = [
+        RomComponent(
+            relative_path="base",
+            kind=RomComponentKind.BASE,
+            manifest_members=[
+                RomComponentManifestMember(
+                    relative_path="The Witcher 3 Wild Hunt.iso",
+                    size_bytes=4,
+                    sha256="a" * 64,
+                )
+            ],
+        ),
+        RomComponent(
+            relative_path="dlc/blood-and-wine",
+            kind=RomComponentKind.DLC,
+            manifest_members=[
+                RomComponentManifestMember(
+                    relative_path="dlc/blood-and-wine/content.bin",
+                    size_bytes=8,
+                    sha256="b" * 64,
+                )
+            ],
+        ),
+    ]
+    synced_components = SyncedRomComponents([], [])
+
+    with (
+        patch(
+            "handler.scan_handler.fs_rom_handler.get_pc_components",
+            new_callable=AsyncMock,
+            return_value=components,
+        ) as get_pc_components,
+        patch(
+            "handler.scan_handler.db_rom_handler.sync_rom_components",
+            return_value=synced_components,
+        ) as sync_rom_components,
+    ):
+        async with initialize_context():
+            result = await scan_rom(
+                platform=platform,
+                scan_type=ScanType.QUICK,
+                rom=existing,
+                fs_rom={
+                    "fs_name": "The Witcher 3 Wild Hunt",
+                    "flat": False,
+                    "nested": True,
+                    "files": [],
+                    "crc_hash": "",
+                    "md5_hash": "",
+                    "sha1_hash": "",
+                    "ra_hash": "",
+                },
+                metadata_sources=[],
+                newly_added=False,
+            )
+
+    get_pc_components.assert_awaited_once()
+    assert get_pc_components.await_args is not None
+    durable_rom = get_pc_components.await_args.args[0]
+    assert durable_rom.id == existing.id
+    sync_rom_components.assert_called_once_with(existing.id, components)
+    assert sync_rom_components.call_args is not None
+    assert [
+        (
+            component.relative_path,
+            component.kind,
+            component.manifest_members[0].relative_path,
+        )
+        for component in sync_rom_components.call_args.args[1]
+    ] == [
+        ("base", RomComponentKind.BASE, "The Witcher 3 Wild Hunt.iso"),
+        ("dlc/blood-and-wine", RomComponentKind.DLC, "dlc/blood-and-wine/content.bin"),
+    ]
+    assert result.name == existing.name
+    assert result.summary == existing.summary
+    assert result.url_cover == existing.url_cover
+    assert result.igdb_id == existing.igdb_id
+    assert result.igdb_metadata == existing.igdb_metadata
+
+
+@pytest.mark.parametrize(
+    ("platform_slug", "nested"),
+    [("snes", True), (UPS.WIN, False)],
+)
+async def test_quick_rescan_only_reconciles_nested_windows_components(
+    platform_slug: str, nested: bool
+):
+    platform = db_platform_handler.add_platform(
+        Platform(name=platform_slug, slug=platform_slug, fs_slug=platform_slug)
+    )
+    existing = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            fs_name="Example Game",
+            fs_path=platform_slug,
+            tags=[],
+        )
+    )
+
+    with (
+        patch(
+            "handler.scan_handler.fs_rom_handler.get_pc_components",
+            new_callable=AsyncMock,
+        ) as get_pc_components,
+        patch(
+            "handler.scan_handler.db_rom_handler.sync_rom_components"
+        ) as sync_rom_components,
+    ):
+        async with initialize_context():
+            await scan_rom(
+                platform=platform,
+                scan_type=ScanType.QUICK,
+                rom=existing,
+                fs_rom={
+                    "fs_name": "Example Game",
+                    "flat": not nested,
+                    "nested": nested,
+                    "files": [],
+                    "crc_hash": "",
+                    "md5_hash": "",
+                    "sha1_hash": "",
+                    "ra_hash": "",
+                },
+                metadata_sources=[],
+                newly_added=False,
+            )
+
+    get_pc_components.assert_not_awaited()
+    sync_rom_components.assert_not_called()
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
