@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Phase 22 complete
-last_updated: "2026-10-04T19:59:31.805Z"
-last_activity: 2026-10-04 -- Phase 23 planning complete
+last_updated: "2026-10-04T20:27:15.018Z"
+last_activity: 2026-10-04 -- Phase 23 execution started
 progress:
   total_phases: 23
   completed_phases: 18
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 20 complete. Phase 21 is awaiting definition.
+**Current focus:** Phase 23 — mehrsprachige-steam-metadaten-deutsche-englische-und-weitere
 
 ## Current Position
 
-Phase: 20 (media-management-and-owned-soundtrack-uploads) — COMPLETE
-Plan: 10 of 10
-Status: Ready to execute
-Last activity: 2026-10-04 -- Phase 23 planning complete
+Phase: 23 (mehrsprachige-steam-metadaten-deutsche-englische-und-weitere) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 23
+Last activity: 2026-10-05 - Completed quick task 261005-gqn: Keep Steam localized text variants authoritative for DLC display after an IGDB metadata selection, while preserving manual-text precedence.
 
 ## Performance Metrics
 
@@ -424,6 +424,7 @@ Recent decisions affecting current work:
 | 261002-hft             | Seed isolated Phase 22 UAT database mapping                             | 2026-10-02 | 2fcbf7262    | [261002-hft-seed-the-isolated-phase-22-uat-database-](./quick/261002-hft-seed-the-isolated-phase-22-uat-database-/) |
 | 261002-lj2             | Fix Phase 22 scan lifecycle, German Steam summaries, and DLC UAT layout | 2026-10-02 | 8f144300b    | [261002-lj2-fix-phase-22-scan-lifecycle-and-german-s](./quick/261002-lj2-fix-phase-22-scan-lifecycle-and-german-s/) |
 | 261002-qut             | Fix Phase 22 isolated scheduled UAT and queue target visibility         | 2026-10-02 | 31fe3b577    | [261002-qut-fix-the-phase-22-isolated-uat-scheduled-](./quick/261002-qut-fix-the-phase-22-isolated-uat-scheduled-/) |
+| 261005-gqn             | Keep Steam localized DLC text after an IGDB metadata selection          | 2026-10-05 | 57e4376e1    | [261005-gqn-keep-steam-localized-text-variants-autho](./quick/261005-gqn-keep-steam-localized-text-variants-autho/) |
 
 ## Deferred Items
 
