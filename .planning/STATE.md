@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 23 (mehrsprachige-steam-metadaten-deutsche-englische-und-weitere) — EXECUTING
 Plan: 1 of 3
 Status: Executing Phase 23
-Last activity: 2026-10-05 - Completed quick task 261005-gqn: Keep Steam localized text variants authoritative for DLC display after an IGDB metadata selection, while preserving manual-text precedence.
+Last activity: 2026-10-05 - Completed quick task 261005-h08: Include root-level PC game files as a base component for Game Download.
 
 ## Performance Metrics
 
@@ -425,6 +425,7 @@ Recent decisions affecting current work:
 | 261002-lj2             | Fix Phase 22 scan lifecycle, German Steam summaries, and DLC UAT layout | 2026-10-02 | 8f144300b    | [261002-lj2-fix-phase-22-scan-lifecycle-and-german-s](./quick/261002-lj2-fix-phase-22-scan-lifecycle-and-german-s/) |
 | 261002-qut             | Fix Phase 22 isolated scheduled UAT and queue target visibility         | 2026-10-02 | 31fe3b577    | [261002-qut-fix-the-phase-22-isolated-uat-scheduled-](./quick/261002-qut-fix-the-phase-22-isolated-uat-scheduled-/) |
 | 261005-gqn             | Keep Steam localized DLC text after an IGDB metadata selection          | 2026-10-05 | 57e4376e1    | [261005-gqn-keep-steam-localized-text-variants-autho](./quick/261005-gqn-keep-steam-localized-text-variants-autho/) |
+| 261005-h08             | Include root-level PC game files as a base component for Game Download  | 2026-10-05 | 46274d6aa    | [261005-h08-include-root-level-pc-game-files-as-a-ba](./quick/261005-h08-include-root-level-pc-game-files-as-a-ba/) |
 
 ## Deferred Items
 
