@@ -676,7 +676,7 @@ Plans:
 
 **Wave 2** (depends on 24-01)
 
-- [ ] 24-02-PLAN.md: Close i18n parity, accessibility, and design-token governance gaps.
+- [x] 24-02-PLAN.md: Close i18n parity, accessibility, and design-token governance gaps.
 - [ ] 24-03-PLAN.md: Harden router parameters, bootstrap behavior, and stale compatibility remnants.
 
 **Wave 3** (depends on 24-02 and 24-03)
