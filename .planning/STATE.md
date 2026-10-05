@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 23 (mehrsprachige-steam-metadaten-deutsche-englische-und-weitere) — EXECUTING
 Plan: 1 of 3
 Status: Executing Phase 23
-Last activity: 2026-10-05 - Completed quick task 261005-j7u: Synchronize existing nested Windows games during quick scans for Game Download.
+Last activity: 2026-10-05 - Completed quick task 261005-l3d: Show local PC DLC and expansion cards on game overviews.
 
 ## Performance Metrics
 
@@ -427,6 +427,7 @@ Recent decisions affecting current work:
 | 261005-gqn             | Keep Steam localized DLC text after an IGDB metadata selection          | 2026-10-05 | 57e4376e1    | [261005-gqn-keep-steam-localized-text-variants-autho](./quick/261005-gqn-keep-steam-localized-text-variants-autho/) |
 | 261005-h08             | Include root-level PC game files as a base component for Game Download  | 2026-10-05 | 46274d6aa    | [261005-h08-include-root-level-pc-game-files-as-a-ba](./quick/261005-h08-include-root-level-pc-game-files-as-a-ba/) |
 | 261005-j7u             | Synchronize existing nested Windows games during quick scans            | 2026-10-05 | dabb232bd    | [261005-j7u-synchronize-pc-download-components-durin](./quick/261005-j7u-synchronize-pc-download-components-durin/) |
+| 261005-l3d             | Show local PC DLC and expansion cards on game overviews                 | 2026-10-05 | 887e35cea    | [261005-l3d-show-locally-matched-pc-dlc-components-w](./quick/261005-l3d-show-locally-matched-pc-dlc-components-w/) |
 
 ## Deferred Items
 
