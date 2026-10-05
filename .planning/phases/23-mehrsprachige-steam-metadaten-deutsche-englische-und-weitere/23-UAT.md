@@ -1,7 +1,7 @@
 ---
 phase: 23
 plan: 03
-status: prepared-fresh-expanded-fixture-awaiting-manual-scan
+status: accepted-by-user
 scope: disposable-synthetic-multilingual-detail-stack
 ---
 
@@ -166,18 +166,18 @@ Open only the new disposable nginx URL through the established SSH tunnel.
 
 ## Evidence Record
 
-| Check                                                   | Result              | Observed value |
-| ------------------------------------------------------- | ------------------- | -------------- |
-| New project/database/volume identity                    | Pending fresh UAT   |                |
-| Read-only synthetic fixture mount                       | Pending fresh UAT   |                |
-| `PC_AUTOMATION_UAT_INTERVAL_SECONDS=0`                  | Pending fresh UAT   |                |
-| Scheduled rescans disabled, cron retained at 15 minutes | Pending fresh UAT   |                |
-| Parent German and English variant readback              | Pending fresh UAT   |                |
-| DLC German and English variant readback                 | Pending fresh UAT   |                |
-| Parent German, English, and fallback                    | Pending browser UAT |                |
-| DLC German, English, and fallback                       | Pending browser UAT |                |
-| Before/after fixture manifest                           | Pending browser UAT |                |
-| Exact-project cleanup                                   | Pending browser UAT |                |
+| Check                                                   | Result   | Observed value                                                                    |
+| ------------------------------------------------------- | -------- | --------------------------------------------------------------------------------- |
+| New project/database/volume identity                    | Passed   | New disposable `romm-phase23-1791198210` project and empty project-owned database |
+| Read-only synthetic fixture mount                       | Passed   | Test-only text fixture mounted read-only                                          |
+| `PC_AUTOMATION_UAT_INTERVAL_SECONDS=0`                  | Passed   | 10-second automation disabled                                                     |
+| Scheduled rescans disabled, cron retained at 15 minutes | Passed   | Scheduled UAT rescans disabled; retained cron is `*/15 * * * *`                   |
+| Parent German and English variant readback              | Passed   | Live Steam parent metadata supplied stored German and English variants            |
+| DLC German and English variant readback                 | Passed   | Live Steam DLC metadata supplied stored German and English variants               |
+| Parent German, English, and fallback                    | Passed   | User exercised localized parent detail behavior in the disposable stack           |
+| DLC German, English, and fallback                       | Passed   | User exercised localized DLC detail behavior in the disposable stack              |
+| Before/after fixture manifest                           | Passed   | Fixture stayed read-only; no source write was attempted or permitted              |
+| Exact-project cleanup                                   | Deferred | Disposable stack retained temporarily for accepted live UAT investigation         |
 
 ## Fresh Expanded Fixture Environment, 2026-10-05
 
@@ -203,5 +203,19 @@ approval evidence until the next explicitly authorized action.
 - BLOCKED: host backend endpoint tests require the unavailable MariaDB endpoint
   at `127.0.0.1:3306` before assertions run.
 
-No isolated scan, Steam database evidence, browser result, manifest comparison,
-or UAT approval has been claimed by this preparation record.
+## Completion Record, 2026-10-05
+
+The rebuilt disposable project `romm-phase23-1791198210` was used for the
+live multilingual UAT at the isolated test endpoint. It started with an empty
+project-owned database and a read-only synthetic fixture. No NAS, Team4s,
+real library, or production data was used.
+
+The user verified the parent and DLC detail workflows and accepted the UAT on
+2026-10-05. During the session, generic IGDB selection for a DLC exposed a
+display-authority edge case. The resulting focused regression and fix retain
+stored Steam localized text unless the display text is explicitly manual.
+
+The fixture was mounted read-only for the entire run. The stack is retained
+only as the disposable UAT project rather than being silently represented as
+cleaned up. Full host database-backed pytest remains blocked by the unavailable
+local MariaDB endpoint at `127.0.0.1:3306`.

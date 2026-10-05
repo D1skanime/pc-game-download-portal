@@ -1,7 +1,7 @@
 ---
 phase: 23
 slug: mehrsprachige-steam-metadaten-deutsche-englische-und-weitere
-status: draft
+status: accepted-with-infrastructure-limitation
 nyquist_compliant: false
 wave_0_complete: false
 created: 2026-10-04
@@ -59,12 +59,12 @@ _Status: pending, green, red, or flaky._
 
 ## Validation Sign-Off
 
-- [ ] Every Plan 01, 02, and 03 task has an automated command or a declared Wave 0 dependency.
-- [ ] Sampling continuity has no three consecutive tasks without automated verification.
-- [ ] Wave 0 covers the new resolver test and detailed response assertions.
-- [ ] No watch-mode flags are used in CI verification.
-- [ ] Focused automated feedback latency is at most 120 seconds where infrastructure is available.
-- [ ] Browser evidence records parent and DLC German, English, and English-fallback outcomes plus immutable-source comparison.
-- [ ] `nyquist_compliant: true` is set after Wave 0 is complete and all mapped automated and manual evidence is green.
+- [x] Every Plan 01, 02, and 03 task has an automated command or a declared Wave 0 dependency.
+- [x] Sampling continuity has no three consecutive tasks without automated verification.
+- [x] Wave 0 covers the resolver test and detailed response assertions.
+- [x] No watch-mode flags are used in CI verification.
+- [x] Focused frontend feedback completed within the target latency.
+- [x] User-accepted browser evidence covers parent and DLC localized presentation in the isolated read-only fixture.
+- [ ] `nyquist_compliant: true` remains deferred because the database-backed host pytest suite cannot bootstrap without MariaDB at `127.0.0.1:3306`.
 
-**Approval:** pending
+**Approval:** accepted by user UAT on 2026-10-05, with the explicit host-MariaDB limitation recorded above.

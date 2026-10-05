@@ -640,7 +640,7 @@ Plans:
 
 - [x] 22-06-PLAN.md — Prove isolated source immutability and complete browser UAT for scheduled bulk automation.
 
-### Phase 23: Mehrsprachige Steam-Metadaten: deutsche, englische und weitere verfügbare Beschreibungstexte je Steam-App dauerhaft speichern und nach UI-Sprache anzeigen.
+### Phase 23: Mehrsprachige Steam-Metadaten: deutsche, englische und weitere verfügbare Beschreibungstexte je Steam-App dauerhaft speichern und nach UI-Sprache anzeigen. (accepted 2026-10-05)
 
 **Goal:** Persist German, English, and further configured Steam text variants per app, then display the stored variant that matches the selected UI language while preserving manual and non-Steam display authority.
 **Requirements**: STEAM-02, STEAM-04, STEAM-05
@@ -652,12 +652,12 @@ Plans:
 
 **Wave 1**
 
-- [ ] 23-01-PLAN.md: Acquire bounded, validated Steam text variants for the same app ID.
+- [x] 23-01-PLAN.md: Acquire bounded, validated Steam text variants for the same app ID.
 
 **Wave 2** (depends on 23-01)
 
-- [ ] 23-02-PLAN.md: Persist guarded parent and DLC Steam text variants through all enrichment paths.
+- [x] 23-02-PLAN.md: Persist guarded parent and DLC Steam text variants through all enrichment paths.
 
 **Wave 3** (depends on 23-02)
 
-- [ ] 23-03-PLAN.md: Publish typed detail metadata, resolve the selected UI language, and prove isolated browser UAT.
+- [x] 23-03-PLAN.md: Publish typed detail metadata, resolve the selected UI language, and prove isolated browser UAT.
