@@ -721,6 +721,7 @@ function closeMenu() {
   if (props.searchable && internalSearch.value) setSearch("");
 }
 function toggleMenu() {
+  if (props.disabled || props.readonly) return;
   if (isOpen.value) closeMenu();
   else openMenu();
 }
@@ -897,11 +898,12 @@ const hasPrependInner = computed(
     <!-- Activator — a single button that opens the menu. Renders the
          current selection inside (chips or plain text). Keyboard
          navigation routes through this button. -->
-    <button
+    <div
       ref="activatorRef"
-      type="button"
       class="r-select__field"
-      :disabled="disabled"
+      role="group"
+      tabindex="0"
+      :aria-disabled="disabled || undefined"
       :aria-haspopup="'listbox'"
       :aria-expanded="isOpen"
       :aria-label="effectiveAriaLabel"
@@ -1092,7 +1094,7 @@ const hasPrependInner = computed(
           size="x-small"
         />
       </span>
-    </button>
+    </div>
 
     <!-- Details row — error or hint. -->
     <div

@@ -211,10 +211,7 @@ export const Validation: Story = {
 // ── Clearable ──────────────────────────────────────────────────────
 
 export const Clearable: Story = {
-  // a11y todo (#1848): clear <button> nested in the activator <button>
-  // (nested-interactive). Fix = lift clear/chip-close out as siblings; a
-  // visual-layout refactor deferred pending in-browser verification.
-  parameters: { a11y: { test: "todo" } },
+  parameters: { a11y: { test: "error" } },
   render: () => ({
     components: { RSelect },
     setup: () => ({ value: ref("psx"), items: PLATFORMS }),
