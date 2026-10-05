@@ -1,7 +1,7 @@
 ---
 phase: 23
 plan: 03
-status: prepared-awaiting-browser-checkpoint
+status: prepared-awaiting-isolated-scan-and-browser-checkpoint
 scope: disposable-synthetic-multilingual-detail-stack
 ---
 
@@ -9,29 +9,32 @@ scope: disposable-synthetic-multilingual-detail-stack
 
 ## Safety Boundary
 
-Use one new `mktemp -d` root and a new Compose project name beginning with
-`romm-phase23-`. The only source fixture is two small, synthetic text files.
-The Compose source bind must be read-only at `/romm/library/roms`.
+Use one new `mktemp -d` root and one new Compose project named
+`romm-phase23-<random>`. The project must start with an empty, project-owned
+database volume. Never import, copy, reuse, or seed Phase 22 database state.
+The scan must create this project's catalog records from the fixture below.
 
 Do not use a NAS path, Team4s service, production library, real game file,
-existing Compose project, or production credential. Do not edit a repository
-Compose file. Do not run a Docker-wide cleanup command. Cleanup is limited to
-the exact project name and exact temporary root created for this UAT.
+production credential, existing Compose project, existing volume, or existing
+network. Do not edit a repository Compose file or run Docker-wide cleanup.
+Cleanup is limited to the exact Phase 23 project and temporary root.
 
-## Fixture and Manifest
+## Fixture and Immutable Manifest
 
-Create only this text-file fixture under the new temporary root:
+Copy the established Phase 22 scanner-compatible parent/DLC shape into the new
+temporary root. The files are deliberately small synthetic text despite their
+extensions:
 
 ```text
-library/roms/win/Phase 23 Parent/Phase 23 Parent.iso
-library/roms/win/Phase 23 Parent/dlc/Phase 23 DLC/Phase 23 DLC.zip
+library/roms/win/Cyberpunk 2077/Cyberpunk 2077.iso
+library/roms/win/Cyberpunk 2077/dlc/Phantom Liberty/Phantom Liberty.zip
 ```
 
-Write the literal synthetic payloads `phase23-parent-fixture` and
-`phase23-dlc-fixture`. Capture `before.json` before starting the stack and
-`after.json` after every browser observation. Each manifest entry must contain
-the relative path, entry type, byte size, and SHA-256 for files. Compare the
-two JSON files byte-for-byte. They must match.
+Write only `phase23-parent-fixture` and `phase23-dlc-fixture` as file content.
+Capture `before.json` before starting the stack and `after.json` after the
+scan and every browser observation. Every entry contains its relative path,
+entry type, byte size, modification timestamp, and file SHA-256. The JSON
+files must compare byte-for-byte.
 
 ```bash
 python3 - "$UAT_ROOT/library" <<'PY'
@@ -48,6 +51,7 @@ for path in sorted(root.rglob("*"), key=lambda item: item.relative_to(root).as_p
         "path": path.relative_to(root).as_posix(),
         "type": "directory" if path.is_dir() else "file",
         "size": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
     }
     if path.is_file():
         entry["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -56,160 +60,109 @@ print(json.dumps(entries, sort_keys=True, separators=(",", ":")))
 PY
 ```
 
-## Disposable Stack and Synthetic Metadata Seed
+## New Empty Disposable Stack
 
-1. Set `UAT_ROOT` to the exact new temporary directory and
-   `COMPOSE_PROJECT_NAME` to `romm-phase23-<random>`. Set
-   `PHASE10_FIXTURE_SOURCE="$UAT_ROOT/library"`.
-2. Create an untracked override inside `UAT_ROOT` that only enables
-   `DEV_MODE: "true"`. Do not put credentials, host paths, or provider keys in
-   it. Start only the database, queue, app, worker, scheduler, and nginx
-   services from `backend/docker-compose.pc-integration-test.yml` with that
-   project name.
-3. Verify the running app container sees `/romm/library/roms` and cannot write
-   there. Verify the source tree contains only the two files above. Register
-   the isolated Windows mapping and scan it once so one parent and one DLC
-   component exist.
-4. In the disposable app container, seed only the scanned parent and its DLC
-   component with these persisted values. The parent has `fields: ["summary"]`
-   and no manual summary marker. The DLC has `metadata_source: "steam"`.
+1. Set `UAT_ROOT` to the exact new temporary directory,
+   `COMPOSE_PROJECT_NAME` to the new `romm-phase23-<random>` name,
+   `PHASE10_FIXTURE_SOURCE="$UAT_ROOT/library"`, and
+   `PHASE10_REPO_ROOT=/home/d1sk/romm`.
+2. Create an untracked override under `UAT_ROOT`. It may contain only these
+   configuration values, never a secret, credential, host path, or provider
+   key:
 
-```json
-{
-  "parent": {
-    "summary": "Phase 23 German parent summary",
-    "steam_metadata": {
-      "app_id": 230001,
-      "source": "storefront",
-      "fields": ["summary"],
-      "text_variants": {
-        "de": {
-          "source_language": "german",
-          "summary": "Phase 23 German parent summary"
-        },
-        "en": {
-          "source_language": "english",
-          "summary": "Phase 23 English parent summary"
-        }
-      }
-    }
-  },
-  "dlc": {
-    "summary": "Phase 23 German DLC summary",
-    "metadata_source": "steam",
-    "steam_metadata": {
-      "app_id": 230002,
-      "source": "storefront",
-      "text_variants": {
-        "de": {
-          "source_language": "german",
-          "summary": "Phase 23 German DLC summary"
-        },
-        "en": {
-          "source_language": "english",
-          "summary": "Phase 23 English DLC summary"
-        }
-      }
-    }
-  }
-}
+```yaml
+services:
+  app:
+    environment:
+      DEV_MODE: "true"
+      ENABLE_SCHEDULED_RESCAN: "false"
+      SCHEDULED_RESCAN_CRON: "*/15 * * * *"
+      PC_AUTOMATION_UAT_INTERVAL_SECONDS: "0"
+      STEAM_API_ENABLED: "true"
+  worker:
+    environment:
+      DEV_MODE: "true"
+      ENABLE_SCHEDULED_RESCAN: "false"
+      SCHEDULED_RESCAN_CRON: "*/15 * * * *"
+      PC_AUTOMATION_UAT_INTERVAL_SECONDS: "0"
+      STEAM_API_ENABLED: "true"
+  scheduler:
+    environment:
+      DEV_MODE: "true"
+      ENABLE_SCHEDULED_RESCAN: "false"
+      SCHEDULED_RESCAN_CRON: "*/15 * * * *"
+      PC_AUTOMATION_UAT_INTERVAL_SECONDS: "0"
+      STEAM_API_ENABLED: "true"
 ```
 
-The seed is local database state for this one disposable project. It makes no
-Steam request and does not modify either text fixture. Do not seed production
-or an existing UAT database.
+3. Start only this new project with
+   `backend/docker-compose.pc-integration-test.yml` and its exact override.
+   Confirm every new volume and network has this exact project prefix, the
+   database volume is new and empty, and `/romm/library/roms` is read-only.
+4. Register only the fixture Windows root and create its `win` mapping in the
+   new app. Perform exactly one immediate manual quick scan. Scheduled
+   automation remains disabled for this UAT; the 10-second automation path is
+   prohibited. If scheduled rescans are enabled in a future reproduction,
+   retain `SCHEDULED_RESCAN_CRON=*/15 * * * *` and
+   `PC_AUTOMATION_UAT_INTERVAL_SECONDS=0`.
 
-Run this seed only through the exact disposable project after confirming the
-scanned names and DLC path. It updates no source files and does not call a
-provider:
+## Genuine Steam Enrichment and Database Evidence
 
-```bash
-docker compose -p "$COMPOSE_PROJECT_NAME" -f backend/docker-compose.pc-integration-test.yml exec -T app python - <<'PY'
-from sqlalchemy import select
+Use the normal Phase 23 Steam enrichment/scan path only. Do not write or seed
+`steam_metadata`, `text_variants`, summaries, App IDs, or component metadata
+directly in the disposable database. Do not manufacture a fallback result.
 
-from handler.database.base_handler import sync_session
-from models.rom import Rom, RomComponent, RomComponentMetadata
+After the scan, query only this new project's isolated database and record
+non-secret, bounded evidence for the scanned parent and DLC component:
 
-with sync_session.begin() as session:
-    parent = session.scalars(
-        select(Rom).where(Rom.fs_name_no_ext == "Phase 23 Parent")
-    ).one()
-    dlc = session.scalars(
-        select(RomComponent).where(
-            RomComponent.rom_id == parent.id,
-            RomComponent.relative_path == "dlc/Phase 23 DLC",
-        )
-    ).one()
-    parent.summary = "Phase 23 German parent summary"
-    parent.steam_id = 230001
-    parent.steam_metadata = {
-        "app_id": 230001,
-        "source": "storefront",
-        "fields": ["summary"],
-        "text_variants": {
-            "de": {"source_language": "german", "summary": "Phase 23 German parent summary"},
-            "en": {"source_language": "english", "summary": "Phase 23 English parent summary"},
-        },
-    }
-    metadata = dlc.component_metadata
-    if metadata is None:
-        metadata = RomComponentMetadata(component_id=dlc.id)
-        dlc.component_metadata = metadata
-    metadata.summary = "Phase 23 German DLC summary"
-    metadata.metadata_source = "steam"
-    metadata.steam_id = 230002
-    metadata.steam_metadata = {
-        "app_id": 230002,
-        "source": "storefront",
-        "text_variants": {
-            "de": {"source_language": "german", "summary": "Phase 23 German DLC summary"},
-            "en": {"source_language": "english", "summary": "Phase 23 English DLC summary"},
-        },
-    }
-PY
-```
+| Target                    | Required readback                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Parent `Cyberpunk 2077`   | Steam app ID; `text_variants.de` source language and summary; `text_variants.en` source language and summary |
+| DLC `dlc/Phantom Liberty` | Steam app ID; `text_variants.de` source language and summary; `text_variants.en` source language and summary |
 
-## Browser Checks
+The proof may record only app IDs, language tags, source-language provenance,
+and the two visible summaries. Do not record database credentials, full API
+responses, session data, or host paths. If either German or English variant is
+absent because Steam's live response is unavailable or non-deterministic, stop
+the UAT and report that concrete blocker. Do not proceed to browser checks.
 
-Open only the disposable nginx URL through the established SSH tunnel.
+## Browser Checks, Only After Database Proof
 
-1. Open the seeded parent detail. In German, record `Phase 23 German parent
-summary`. Switch to English and record `Phase 23 English parent summary`
-   without a scan or provider request.
-2. Select a shipped UI locale that has no stored variant, such as French. The
-   parent must show `Phase 23 English parent summary`. Switch back to German
-   and verify the German text returns immediately.
-3. Open the parent DLC detail and repeat German, English, and French fallback.
-   Record the corresponding distinct DLC strings.
-4. Capture `after.json`, compare it byte-for-byte with `before.json`, then
-   stop only the exact `romm-phase23-<random>` project with its volumes and
-   remove only that exact temporary root.
+Open only the new disposable nginx URL through the established SSH tunnel.
+
+1. On the parent detail, German must show the persisted German Steam summary.
+   Switch to English and verify the persisted English summary appears without a
+   rescan or provider request.
+2. Select a shipped UI locale with no stored variant, such as French. The
+   parent must show English. Switch back to German and verify an immediate
+   return to German.
+3. Open the parent DLC detail and repeat German, English, French fallback, and
+   immediate switch-back checks.
+4. Capture `after.json` and compare it byte-for-byte with `before.json`.
+   Stop only the exact Phase 23 project after the checkpoint is approved.
 
 ## Evidence Record
 
-| Check                             | Result              | Observed value |
-| --------------------------------- | ------------------- | -------------- |
-| Read-only synthetic fixture mount | Pending browser UAT |                |
-| Parent German                     | Pending browser UAT |                |
-| Parent English                    | Pending browser UAT |                |
-| Parent missing-language fallback  | Pending browser UAT |                |
-| DLC German                        | Pending browser UAT |                |
-| DLC English                       | Pending browser UAT |                |
-| DLC missing-language fallback     | Pending browser UAT |                |
-| Before/after fixture manifest     | Pending browser UAT |                |
-| Exact-project cleanup             | Pending browser UAT |                |
+| Check                                                   | Result                | Observed value |
+| ------------------------------------------------------- | --------------------- | -------------- |
+| New project/database/volume identity                    | Pending isolated scan |                |
+| Read-only synthetic fixture mount                       | Pending isolated scan |                |
+| `PC_AUTOMATION_UAT_INTERVAL_SECONDS=0`                  | Pending isolated scan |                |
+| Scheduled rescans disabled, cron retained at 15 minutes | Pending isolated scan |                |
+| Parent German and English variant readback              | Pending isolated scan |                |
+| DLC German and English variant readback                 | Pending isolated scan |                |
+| Parent German, English, and fallback                    | Pending browser UAT   |                |
+| DLC German, English, and fallback                       | Pending browser UAT   |                |
+| Before/after fixture manifest                           | Pending browser UAT   |                |
+| Exact-project cleanup                                   | Pending browser UAT   |                |
 
 ## Automated Preparation Evidence
 
-- PASS: Isolated OpenAPI generation produced `SteamMetadataSchema` and
-  `SteamTextVariantSchema`, with typed detailed parent and DLC metadata links.
+- PASS: isolated OpenAPI generation produced typed Steam parent and DLC links.
 - PASS: `npm run test -- steamTextVariants`, 6 tests passed.
-- PASS: `npm run typecheck`.
-- PASS: scoped `trunk fmt` and `trunk check --no-fix` for the modified source
-  files.
-- BLOCKED: `cd backend && uv run pytest tests/endpoints/roms/test_rom.py -q`
-  cannot establish the pre-existing host test connection to
-  `127.0.0.1:3306`, before test assertions run.
+- PASS: `npm run typecheck` and scoped `trunk check --no-fix`.
+- BLOCKED: host backend endpoint tests require the unavailable MariaDB endpoint
+  at `127.0.0.1:3306` before assertions run.
 
-No browser stack, fixture manifest comparison, or UAT outcome has been claimed
-by this preparation record.
+No isolated scan, Steam database evidence, browser result, manifest comparison,
+or UAT approval has been claimed by this preparation record.
