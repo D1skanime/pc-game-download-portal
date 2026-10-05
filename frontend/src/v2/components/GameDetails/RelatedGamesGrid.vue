@@ -6,33 +6,68 @@
 // tab? Render this component multiple times — one per section. Each
 // card is a RelatedGameCard, which owns the per-card cross-reference
 // against the local RomM library — so this grid stays a thin renderer.
+import { computed } from "vue";
 import type { IGDBRelatedGame } from "@/__generated__";
 import RelatedGameCard from "@/v2/components/GameDetails/RelatedGameCard.vue";
 
 defineOptions({ inheritAttrs: false });
 
-defineProps<{
+const props = defineProps<{
   title?: string;
   items: IGDBRelatedGame[];
   isDlc?: boolean;
   parentRomId?: number;
-  localComponentIds?: Record<number, number>;
+  localCandidates?: Array<{
+    igdbId: number;
+    componentId: number;
+    name: string;
+    coverUrl: string;
+  }>;
 }>();
+
+const cards = computed(() => {
+  const localByIgdbId = new Map(
+    (props.localCandidates ?? []).map((candidate) => [
+      candidate.igdbId,
+      candidate,
+    ]),
+  );
+  const remoteIds = new Set(props.items.map((item) => item.id));
+  return [
+    ...props.items.map((game) => ({
+      game,
+      local: localByIgdbId.get(game.id),
+    })),
+    ...(props.localCandidates ?? [])
+      .filter((candidate) => !remoteIds.has(candidate.igdbId))
+      .map((candidate) => ({
+        game: {
+          id: candidate.igdbId,
+          name: candidate.name,
+          slug: "",
+          type: "dlc",
+          cover_url: "",
+        } satisfies IGDBRelatedGame,
+        local: candidate,
+      })),
+  ];
+});
 </script>
 
 <template>
-  <section v-if="items.length" class="r-v2-related">
+  <section v-if="cards.length" class="r-v2-related">
     <h3 v-if="title" class="r-v2-related__title">
       {{ title }}
     </h3>
     <div class="r-v2-related__grid">
       <RelatedGameCard
-        v-for="g in items"
-        :key="g.id"
-        :game="g"
+        v-for="card in cards"
+        :key="card.game.id"
+        :game="card.game"
         :is-dlc="isDlc"
         :parent-rom-id="parentRomId"
-        :local-component-id="localComponentIds?.[g.id]"
+        :local-component-id="card.local?.componentId"
+        :local-cover-url="card.local?.coverUrl"
       />
     </div>
   </section>

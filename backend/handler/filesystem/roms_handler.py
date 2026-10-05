@@ -161,6 +161,8 @@ PC_COMPONENT_LAYOUTS = {
     "base": RomComponentKind.BASE,
     "update": RomComponentKind.UPDATE,
     "dlc": RomComponentKind.DLC,
+    "expansion": RomComponentKind.DLC,
+    "expansions": RomComponentKind.DLC,
     "hotfix": RomComponentKind.HOTFIX,
     "language-pack": RomComponentKind.LANGUAGE_PACK,
     "extra": RomComponentKind.EXTRA,

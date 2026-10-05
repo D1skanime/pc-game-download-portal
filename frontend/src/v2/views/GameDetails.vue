@@ -391,18 +391,58 @@ const expansions = computed<IGDBRelatedGame[]>(
   () => igdb.value?.expansions ?? [],
 );
 const dlcs = computed<IGDBRelatedGame[]>(() => igdb.value?.dlcs ?? []);
-const localDlcComponentIds = computed<Record<number, number>>(() =>
-  Object.fromEntries(
-    (currentRom.value?.components ?? [])
-      .filter(
-        (component) =>
-          component.kind === "dlc" && component.component_metadata?.igdb_id,
-      )
-      .map((component) => [
-        component.component_metadata!.igdb_id!,
-        component.id,
-      ]),
-  ),
+type LocalDlcOverviewCandidate = {
+  igdbId: number;
+  componentId: number;
+  name: string;
+  coverUrl: string;
+};
+
+const localDlcOverviewCandidates = computed<LocalDlcOverviewCandidate[]>(() =>
+  (currentRom.value?.components ?? []).flatMap((component) => {
+    const metadata = component.component_metadata;
+    const cover =
+      component.owned_media?.find((media) => media.role === "cover") ??
+      component.local_media?.find((media) => media.role === "cover");
+    const name = metadata?.name?.trim();
+    if (
+      component.kind !== "dlc" ||
+      !metadata?.igdb_id ||
+      metadata.igdb_id <= 0 ||
+      !name ||
+      !cover
+    ) {
+      return [];
+    }
+    return [
+      {
+        igdbId: metadata.igdb_id,
+        componentId: component.id,
+        name,
+        coverUrl: `${FRONTEND_RESOURCES_PATH}/${cover.owned_path}`,
+      },
+    ];
+  }),
+);
+const localExpansionCandidates = computed(() =>
+  localDlcOverviewCandidates.value.filter((candidate) => {
+    const component = currentRom.value?.components?.find(
+      (item) => item.id === candidate.componentId,
+    );
+    return ["expansion", "expansions"].includes(
+      component?.relative_path.split("/", 1)[0] ?? "",
+    );
+  }),
+);
+const localDlcCandidates = computed(() =>
+  localDlcOverviewCandidates.value.filter((candidate) => {
+    const component = currentRom.value?.components?.find(
+      (item) => item.id === candidate.componentId,
+    );
+    return !["expansion", "expansions"].includes(
+      component?.relative_path.split("/", 1)[0] ?? "",
+    );
+  }),
 );
 
 const savesCount = computed(() => currentRom.value?.user_saves?.length ?? 0);
@@ -533,7 +573,8 @@ const tabs = computed<RTabNavItem[]>(() => [
             :screenshots="selectedOverviewScreenshots"
             :expansions="expansions"
             :dlcs="dlcs"
-            :local-dlc-component-ids="localDlcComponentIds"
+            :local-dlc-candidates="localDlcCandidates"
+            :local-expansion-candidates="localExpansionCandidates"
             :remakes="remakes"
             :remasters="remasters"
             :similar-games="similarGames"

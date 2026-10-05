@@ -59,7 +59,18 @@ const props = defineProps<{
   screenshots: string[];
   expansions: IGDBRelatedGame[];
   dlcs: IGDBRelatedGame[];
-  localDlcComponentIds: Record<number, number>;
+  localDlcCandidates: Array<{
+    igdbId: number;
+    componentId: number;
+    name: string;
+    coverUrl: string;
+  }>;
+  localExpansionCandidates: Array<{
+    igdbId: number;
+    componentId: number;
+    name: string;
+    coverUrl: string;
+  }>;
   remakes: IGDBRelatedGame[];
   remasters: IGDBRelatedGame[];
   similarGames: IGDBRelatedGame[];
@@ -133,6 +144,8 @@ const hasRelated = computed(
   () =>
     props.expansions.length +
       props.dlcs.length +
+      props.localExpansionCandidates.length +
+      props.localDlcCandidates.length +
       props.remakes.length +
       props.remasters.length +
       props.similarGames.length >
@@ -344,7 +357,10 @@ const ownedScreenshots = computed(() =>
          metadata, and the empty sections are already hidden by their
          own `v-if`. -->
     <template v-if="hasRelated">
-      <div v-if="expansions.length" class="overview-tab__section">
+      <div
+        v-if="expansions.length || localExpansionCandidates.length"
+        class="overview-tab__section"
+      >
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-puzzle-outline" size="14" />
           Expansions
@@ -354,10 +370,13 @@ const ownedScreenshots = computed(() =>
           :items="expansions"
           is-dlc
           :parent-rom-id="parentRomId"
-          :local-component-ids="localDlcComponentIds"
+          :local-candidates="localExpansionCandidates"
         />
       </div>
-      <div v-if="dlcs.length" class="overview-tab__section">
+      <div
+        v-if="dlcs.length || localDlcCandidates.length"
+        class="overview-tab__section"
+      >
         <h4 class="overview-tab__section-heading">
           <RIcon icon="mdi-package-variant-closed" size="14" />
           DLC
@@ -367,7 +386,7 @@ const ownedScreenshots = computed(() =>
           :items="dlcs"
           is-dlc
           :parent-rom-id="parentRomId"
-          :local-component-ids="localDlcComponentIds"
+          :local-candidates="localDlcCandidates"
         />
       </div>
       <div v-if="remakes.length" class="overview-tab__section">

@@ -35,6 +35,7 @@ const props = defineProps<{
   isDlc?: boolean;
   parentRomId?: number;
   localComponentId?: number;
+  localCoverUrl?: string;
 }>();
 
 const { t } = useI18n();
@@ -202,7 +203,7 @@ function onClick(e: MouseEvent) {
     :rom="syntheticRom"
     static
     :show-platform-icon="false"
-    :cover-src="game.cover_url"
+    :cover-src="localCoverUrl ?? game.cover_url"
     @click="onClick"
   >
     <!-- "Available" tag at the top of the cover, signals the content is
