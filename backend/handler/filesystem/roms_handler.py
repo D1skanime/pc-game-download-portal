@@ -552,7 +552,7 @@ class FSRomsHandler(ExternalFSHandler):
             kind: RomComponentKind,
             *,
             recursive: bool,
-        ) -> RomComponent:
+        ) -> RomComponent | None:
             manifest_members: list[RomComponentManifestMember] = []
             pending_directories = [component_path] if recursive else []
 
@@ -589,10 +589,31 @@ class FSRomsHandler(ExternalFSHandler):
                         )
                     )
 
+            if not manifest_members:
+                return None
+
             return RomComponent(
                 relative_path=relative_path,
                 kind=kind,
                 manifest_members=manifest_members,
+            )
+
+        async def add_component(
+            component_path: str,
+            relative_path: str,
+            kind: RomComponentKind,
+            *,
+            recursive: bool,
+        ) -> None:
+            component = await build_component(
+                component_path, relative_path, kind, recursive=recursive
+            )
+            if component is not None:
+                components.append(component)
+
+        if await self.list_files(rom_path):
+            await add_component(
+                rom_path, "base", RomComponentKind.BASE, recursive=False
             )
 
         for component_name in sorted(await self.list_directories(rom_path)):
@@ -601,31 +622,20 @@ class FSRomsHandler(ExternalFSHandler):
             nested_directories = sorted(await self.list_directories(component_path))
             if kind == RomComponentKind.DLC and nested_directories:
                 if await self.list_files(component_path):
-                    components.append(
-                        await build_component(
-                            component_path,
-                            component_name,
-                            kind,
-                            recursive=False,
-                        )
+                    await add_component(
+                        component_path, component_name, kind, recursive=False
                     )
                 for nested_name in nested_directories:
-                    components.append(
-                        await build_component(
-                            f"{component_path}/{nested_name}",
-                            f"{component_name}/{nested_name}",
-                            kind,
-                            recursive=True,
-                        )
+                    await add_component(
+                        f"{component_path}/{nested_name}",
+                        f"{component_name}/{nested_name}",
+                        kind,
+                        recursive=True,
                     )
                 continue
-            components.append(
-                await build_component(
-                    component_path, component_name, kind, recursive=True
-                )
-            )
+            await add_component(component_path, component_name, kind, recursive=True)
 
-        return components
+        return sorted(components, key=lambda component: component.relative_path)
 
     @staticmethod
     def open_mapped_scan(context: "MappingReadContext", relative_path: str = ""):
