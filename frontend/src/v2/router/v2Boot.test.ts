@@ -59,6 +59,9 @@ describe("v2-only boot graph", () => {
 
     expect(root).toContain("<router-view />");
     expect(root).not.toContain('name="v2"');
+    expect(
+      readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8"),
+    ).not.toContain("settings.uiVersion");
     expect(router).not.toContain("components:");
     expect(registry).not.toContain("fallbackComponent");
     expect(registry).not.toContain("NotReady");
