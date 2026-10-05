@@ -54,7 +54,7 @@ const dlc = {
 } as IGDBRelatedGame;
 
 describe("OverviewTab", () => {
-  it("passes its parent ROM id to the local DLC grid", () => {
+  it("renders a local DLC overview section without IGDB suggestions", () => {
     const wrapper = mount(OverviewTab, {
       props: {
         rom,
@@ -67,8 +67,16 @@ describe("OverviewTab", () => {
         revision: null,
         screenshots: [],
         expansions: [],
-        dlcs: [dlc],
-        localDlcComponentIds: { 123: 7 },
+        dlcs: [],
+        localDlcCandidates: [
+          {
+            igdbId: 123,
+            componentId: 7,
+            name: "Phantom Liberty",
+            coverUrl: "/assets/romm/resources/roms/42/components/7/cover.webp",
+          },
+        ],
+        localExpansionCandidates: [],
         remakes: [],
         remasters: [],
         similarGames: [],
@@ -78,9 +86,9 @@ describe("OverviewTab", () => {
         stubs: {
           RCollapsible: { template: "<section><slot /></section>" },
           RelatedGamesGrid: {
-            props: ["parentRomId"],
+            props: ["parentRomId", "localCandidates"],
             template:
-              "<div data-testid='dlc-grid' :data-parent-rom-id='parentRomId' />",
+              "<div data-testid='dlc-grid' :data-parent-rom-id='parentRomId' :data-local-count='localCandidates.length' />",
           },
         },
       },
@@ -89,6 +97,9 @@ describe("OverviewTab", () => {
     expect(
       wrapper.get("[data-testid='dlc-grid']").attributes("data-parent-rom-id"),
     ).toBe("42");
+    expect(
+      wrapper.get("[data-testid='dlc-grid']").attributes("data-local-count"),
+    ).toBe("1");
   });
 
   it("prefers the PC release and renders distinct PC metadata groups", () => {
@@ -105,7 +116,8 @@ describe("OverviewTab", () => {
         screenshots: [],
         expansions: [],
         dlcs: [],
-        localDlcComponentIds: {},
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
         remakes: [],
         remasters: [],
         similarGames: [],
@@ -141,7 +153,8 @@ describe("OverviewTab", () => {
         ],
         expansions: [],
         dlcs: [],
-        localDlcComponentIds: {},
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
         remakes: [],
         remasters: [],
         similarGames: [],

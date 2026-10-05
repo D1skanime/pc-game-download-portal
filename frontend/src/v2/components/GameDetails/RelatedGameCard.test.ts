@@ -39,13 +39,27 @@ describe("RelatedGameCard", () => {
 
   it("marks a locally matched DLC as available", () => {
     const wrapper = mount(RelatedGameCard, {
-      props: { game, localComponentId: 7, isDlc: true },
+      props: {
+        game,
+        localComponentId: 7,
+        localCoverUrl: "/assets/romm/resources/roms/1/components/7/cover.webp",
+        isDlc: true,
+      },
       global: {
-        stubs: { GameCard: { template: "<div><slot name='overlay' /></div>" } },
+        stubs: {
+          GameCard: {
+            props: ["coverSrc"],
+            template:
+              "<div :data-cover='coverSrc'><slot name='overlay' /></div>",
+          },
+        },
       },
     });
 
     expect(wrapper.get(".related-card__owned").text()).toBe("common.owned");
+    expect(wrapper.get("[data-cover]").attributes("data-cover")).toContain(
+      "components/7/cover.webp",
+    );
   });
 
   it("opens a locally matched DLC at its parent-owned detail route", async () => {

@@ -1796,6 +1796,8 @@ class TestPcComponentManifests:
             "base": RomComponentKind.BASE,
             "update": RomComponentKind.UPDATE,
             "dlc": RomComponentKind.DLC,
+            "expansion": RomComponentKind.DLC,
+            "expansions": RomComponentKind.DLC,
             "hotfix": RomComponentKind.HOTFIX,
             "language-pack": RomComponentKind.LANGUAGE_PACK,
             "extra": RomComponentKind.EXTRA,
@@ -1816,8 +1818,14 @@ class TestPcComponentManifests:
         components = await handler.get_pc_components(rom)
 
         expected_components = {
-            **{name: kind for name, kind in expected.items() if name != "dlc"},
+            **{
+                name: kind
+                for name, kind in expected.items()
+                if name not in {"dlc", "expansion", "expansions"}
+            },
             "dlc/nested": RomComponentKind.DLC,
+            "expansion/nested": RomComponentKind.DLC,
+            "expansions/nested": RomComponentKind.DLC,
         }
         assert [
             (component.relative_path, component.kind) for component in components
@@ -1828,7 +1836,8 @@ class TestPcComponentManifests:
             expected_bytes = f"{source_folder}-bytes".encode()
             member_path = (
                 f"{component.relative_path}/{source_folder}.bin"
-                if component.relative_path.startswith("dlc/")
+                if component.relative_path.split("/", 1)[0]
+                in {"dlc", "expansion", "expansions"}
                 else f"{component.relative_path}/nested/{source_folder}.bin"
             )
             assert member.relative_path == member_path
@@ -1957,6 +1966,12 @@ class TestPcComponentManifests:
     def test_ambiguous_or_traversal_component_paths_are_not_classified(self):
         """Weak names and traversal must not become component authority."""
         assert parse_pc_component_layout("mods") == RomComponentKind.UNRESOLVED
+        assert parse_pc_component_layout("redmod") == RomComponentKind.UNRESOLVED
+        assert parse_pc_component_layout("expansion") == RomComponentKind.DLC
+        assert parse_pc_component_layout("expansions") == RomComponentKind.DLC
+        assert (
+            parse_pc_component_layout("expansion/nested") == RomComponentKind.UNRESOLVED
+        )
         assert parse_pc_component_layout("update/nested") == RomComponentKind.UNRESOLVED
         with pytest.raises(ValueError, match="relative"):
             parse_pc_component_layout("../update")
