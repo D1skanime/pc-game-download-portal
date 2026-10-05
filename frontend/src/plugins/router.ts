@@ -69,7 +69,7 @@ function v2For(routeName: string) {
 
 const DECIMAL_ROUTE_PARAM = /^(?:0|[1-9]\d*)$/;
 
-function parseSafeRouteId(value: unknown): number | null {
+export function parseSafeRouteId(value: unknown): number | null {
   if (typeof value !== "string" || !DECIMAL_ROUTE_PARAM.test(value)) {
     return null;
   }
@@ -199,19 +199,21 @@ const routes = [
         name: ROUTES.ROM,
         component: v2For(ROUTES.ROM),
         beforeEnter: (async (to, _from, next) => {
-          const romsStore = storeRoms();
+          const romId = parseSafeRouteId(to.params.rom);
+          if (romId === null) {
+            next({ name: ROUTES.NOT_FOUND });
+            return;
+          }
 
-          if (
-            !romsStore.currentRom ||
-            romsStore.currentRom.id !== parseInt(to.params.rom as string)
-          ) {
+          const romsStore = storeRoms();
+          if (!romsStore.currentRom || romsStore.currentRom.id !== romId) {
             try {
-              const data = await romApi.getRom({
-                romId: parseInt(to.params.rom as string),
-              });
+              const data = await romApi.getRom({ romId });
               romsStore.setCurrentRom(data.data);
             } catch (error) {
               console.error(error);
+              next({ name: ROUTES.NOT_FOUND });
+              return;
             }
           }
           next();
@@ -225,7 +227,7 @@ const routes = [
           const romId = parseSafeRouteId(to.params.rom);
           const componentId = parseSafeRouteId(to.params.component);
           if (romId === null || componentId === null) {
-            next();
+            next({ name: ROUTES.NOT_FOUND });
             return;
           }
 
@@ -268,6 +270,7 @@ const routes = [
       // `passthrough` default named view.
       {
         path: "",
+        name: "settings-layout",
         component: v2Layouts.settings,
         children: [
           {

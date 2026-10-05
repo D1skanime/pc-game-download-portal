@@ -8,7 +8,10 @@ import HashChip from "@/v2/components/shared/HashChip.vue";
 import FirmwareTab from "./FirmwareTab.vue";
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string, fallback?: string) => fallback ?? key }),
+  useI18n: () => ({
+    t: (key: string, values?: unknown) =>
+      typeof values === "string" ? values : key,
+  }),
 }));
 
 vi.mock("@/services/api/firmware", () => ({

@@ -33,7 +33,11 @@ const selectedCount = computed(() => queue.selection.size);
 const selectedGroupIsSafe = computed(() => queue.selectedGroupIsSafe);
 
 function targetTitle(item: PcAutomationQueueItemSchema) {
-  return item.target_title;
+  return (
+    item.target_title?.trim() ||
+    item.candidate_title?.trim() ||
+    t("settings.pc-automation.unnamed-candidate")
+  );
 }
 
 function proposedTitle(item: PcAutomationQueueItemSchema) {
