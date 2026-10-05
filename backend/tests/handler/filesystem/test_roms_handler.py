@@ -1874,6 +1874,86 @@ class TestPcComponentManifests:
             ("dlc/phantom-liberty", RomComponentKind.DLC),
         ]
 
+    @pytest.mark.asyncio
+    async def test_root_files_form_a_deterministic_base_component(self, tmp_path: Path):
+        root = tmp_path / "roms" / "win" / "The Witcher 3 Wild Hunt"
+        root_members = {
+            "A Root Archive.zip": b"root archive bytes",
+            "The Witcher 3 Wild Hunt.iso": b"witcher game image bytes",
+        }
+        for name, content in root_members.items():
+            (root / name).parent.mkdir(parents=True, exist_ok=True)
+            (root / name).write_bytes(content)
+        for name in ("blood-and-wine", "hearts-of-stone"):
+            path = root / "dlc" / name / "content.7z"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(name.encode())
+
+        handler = FSRomsHandler(_create_external_descriptor(1, tmp_path, mapping_id=1))
+        rom = Rom(
+            id=1,
+            fs_name="The Witcher 3 Wild Hunt",
+            fs_path="roms/win",
+            platform=Platform(name="Windows", slug="win", fs_slug="win"),
+        )
+
+        components = await handler.get_pc_components(rom)
+
+        assert [
+            (component.relative_path, component.kind) for component in components
+        ] == [
+            ("base", RomComponentKind.BASE),
+            ("dlc/blood-and-wine", RomComponentKind.DLC),
+            ("dlc/hearts-of-stone", RomComponentKind.DLC),
+        ]
+        assert [
+            (
+                member.relative_path,
+                member.size_bytes,
+                member.sha256,
+            )
+            for member in components[0].manifest_members
+        ] == [
+            (
+                "A Root Archive.zip",
+                len(root_members["A Root Archive.zip"]),
+                hashlib.sha256(root_members["A Root Archive.zip"]).hexdigest(),
+            ),
+            (
+                "The Witcher 3 Wild Hunt.iso",
+                len(root_members["The Witcher 3 Wild Hunt.iso"]),
+                hashlib.sha256(root_members["The Witcher 3 Wild Hunt.iso"]).hexdigest(),
+            ),
+        ]
+        assert [
+            member.relative_path
+            for component in components[1:]
+            for member in component.manifest_members
+        ] == [
+            "dlc/blood-and-wine/content.7z",
+            "dlc/hearts-of-stone/content.7z",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_empty_pc_root_does_not_create_a_base_component(self, tmp_path: Path):
+        root = tmp_path / "roms" / "win" / "Example Game" / "dlc" / "bonus-pack"
+        root.mkdir(parents=True)
+        (root / "content.7z").write_bytes(b"bonus pack")
+
+        handler = FSRomsHandler(_create_external_descriptor(1, tmp_path, mapping_id=1))
+        rom = Rom(
+            id=1,
+            fs_name="Example Game",
+            fs_path="roms/win",
+            platform=Platform(name="Windows", slug="win", fs_slug="win"),
+        )
+
+        components = await handler.get_pc_components(rom)
+
+        assert [
+            (component.relative_path, component.kind) for component in components
+        ] == [("dlc/bonus-pack", RomComponentKind.DLC)]
+
     def test_ambiguous_or_traversal_component_paths_are_not_classified(self):
         """Weak names and traversal must not become component authority."""
         assert parse_pc_component_layout("mods") == RomComponentKind.UNRESOLVED
