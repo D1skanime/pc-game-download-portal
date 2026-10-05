@@ -6,6 +6,7 @@ import PcDlcDetail from "./PcDlcDetail.vue";
 
 const route = { path: "/roms/1/dlc/2", query: {} as Record<string, string> };
 const replace = vi.fn();
+const { locale } = vi.hoisted(() => ({ locale: { value: "en-US" } }));
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -21,7 +22,7 @@ vi.mock("vue-i18n", () => ({
         "rom.pc-dlc-back-to-game": `Back to ${values?.game}`,
         "rom.pc-dlc-fallback-title": `DLC: ${values?.relativePath}`,
       })[key] ?? key,
-    locale: { value: "en-US" },
+    locale,
   }),
 }));
 
@@ -277,6 +278,58 @@ describe("PcDlcDetail", () => {
     expect(wrapper.text()).not.toContain("rom.main-developer");
     expect(wrapper.find("[data-testid='pc-dlc-screenshots']").exists()).toBe(
       false,
+    );
+  });
+
+  it("uses retained Steam text variants after IGDB metadata selection", () => {
+    locale.value = "de-DE";
+    const wrapper = mountDetail({
+      ...selectedDlc,
+      component_metadata: {
+        ...selectedDlc.component_metadata,
+        summary: "IGDB summary that must not replace the Steam text.",
+        metadata_source: "igdb",
+        steam_metadata: {
+          text_variants: {
+            de: {
+              source_language: "german",
+              summary: "Deutsche Steam-Beschreibung des DLC.",
+            },
+            en: {
+              source_language: "english",
+              summary: "English Steam DLC description.",
+            },
+          },
+        },
+      },
+    });
+
+    expect(wrapper.get(".pc-dlc-detail__summary").text()).toBe(
+      "Deutsche Steam-Beschreibung des DLC.",
+    );
+  });
+
+  it("keeps manual DLC summaries ahead of retained Steam text variants", () => {
+    locale.value = "de-DE";
+    const wrapper = mountDetail({
+      ...selectedDlc,
+      component_metadata: {
+        ...selectedDlc.component_metadata,
+        summary: "Operator-authored DLC summary.",
+        metadata_source: "manual",
+        steam_metadata: {
+          text_variants: {
+            de: {
+              source_language: "german",
+              summary: "Deutsche Steam-Beschreibung des DLC.",
+            },
+          },
+        },
+      },
+    });
+
+    expect(wrapper.get(".pc-dlc-detail__summary").text()).toBe(
+      "Operator-authored DLC summary.",
     );
   });
 });
