@@ -685,7 +685,7 @@ Plans:
 
 **Wave 4** (depends on 24-04)
 
-- [ ] 24-05-PLAN.md: Migrate v2 domains from legacy stores and services in bounded slices.
+- [x] 24-05-PLAN.md: Migrate v2 domains from legacy stores and services in bounded slices.
 - [ ] 24-06-PLAN.md: Decompose oversized v2 components and remove presentation coupling.
 
 **Wave 5** (depends on 24-05 and 24-06)
