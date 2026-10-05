@@ -681,7 +681,7 @@ Plans:
 
 **Wave 3** (depends on 24-02 and 24-03)
 
-- [ ] 24-04-PLAN.md: Introduce the v2 typed data-access boundary without behavior changes.
+- [x] 24-04-PLAN.md: Introduce the v2 typed data-access boundary without behavior changes.
 
 **Wave 4** (depends on 24-04)
 
