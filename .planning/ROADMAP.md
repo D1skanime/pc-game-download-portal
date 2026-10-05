@@ -661,3 +661,33 @@ Plans:
 **Wave 3** (depends on 23-02)
 
 - [x] 23-03-PLAN.md: Publish typed detail metadata, resolve the selected UI language, and prove isolated browser UAT.
+
+### Phase 24: V2 quality stabilization and legacy boundary cleanup
+
+**Goal:** Make direct-v2 reliable and maintainable by fixing the observed test, router, i18n, prop-type, accessibility, and token issues, then establish and execute a typed data-access boundary that removes direct v2 dependence on legacy stores and services. Split oversized components and finish with production build and browser verification without changing read-only source-library guarantees.
+**Requirements**: QA-01, QA-02, QA-03, QA-04, QA-05, QA-06, QA-07, QA-08
+**Depends on:** Phase 23
+**Cross-cutting constraints:** Preserve direct-v2 boot and all supported routes. Do not restore v1. Do not modify external libraries or use NAS, Team4s, real library data, or production credentials. Keep API contracts backend-owned, regenerate generated types after schema changes, preserve manual/provider ownership rules, and keep source-mutation controls fail-closed.
+**Plans:** 7 plans
+
+**Wave 1**
+
+- [x] 24-01-PLAN.md: Repair current v2 test failures and runtime contract warnings.
+
+**Wave 2** (depends on 24-01)
+
+- [ ] 24-02-PLAN.md: Close i18n parity, accessibility, and design-token governance gaps.
+- [ ] 24-03-PLAN.md: Harden router parameters, bootstrap behavior, and stale compatibility remnants.
+
+**Wave 3** (depends on 24-02 and 24-03)
+
+- [ ] 24-04-PLAN.md: Introduce the v2 typed data-access boundary without behavior changes.
+
+**Wave 4** (depends on 24-04)
+
+- [ ] 24-05-PLAN.md: Migrate v2 domains from legacy stores and services in bounded slices.
+- [ ] 24-06-PLAN.md: Decompose oversized v2 components and remove presentation coupling.
+
+**Wave 5** (depends on 24-05 and 24-06)
+
+- [ ] 24-07-PLAN.md: Run final import, token, locale, test, build, accessibility, and browser gates.

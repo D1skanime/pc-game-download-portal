@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Phase 23 accepted
+stopped_at: Phase 24 planned
 last_updated: "2026-10-05T00:00:00Z"
-last_activity: 2026-10-05 -- Phase 23 accepted after user live UAT
+last_activity: 2026-10-05 -- Phase 24 planning created from v2 quality and legacy-boundary review
 progress:
-  total_phases: 23
+  total_phases: 24
   completed_phases: 18
-  total_plans: 191
-  completed_plans: 181
+  total_plans: 198
+  completed_plans: 182
   percent: 78
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Milestone reconciliation after Phase 23 acceptance
+**Current focus:** Phase 24 v2 quality stabilization and legacy boundary cleanup
 
 ## Current Position
 
-Phase: 23 (mehrsprachige-steam-metadaten-deutsche-englische-und-weitere) — ACCEPTED
-Plan: 3 of 3
-Status: User live UAT accepted; host database-backed pytest is infrastructure-blocked.
-Last activity: 2026-10-05 - Completed Phase 23 closure and user-accepted live UAT.
+Phase: 24 (v2-quality-stabilization-and-legacy-boundary-cleanup) - PLANNED
+Plan: 1 of 7
+Status: Plan 24-01 complete; Plan 24-02 ready.
+Last activity: 2026-10-05 - Completed Phase 24 Plan 01.
 
 ## Performance Metrics
 
