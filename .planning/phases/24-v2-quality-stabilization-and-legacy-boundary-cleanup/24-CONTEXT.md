@@ -50,6 +50,7 @@ Complete the existing v2 quality work and unify storage-aware scan, matching, me
 - Every write path must calculate a field/media patch first, apply ownership protection, and abort the whole item on policy or validation error. Partial writes require an explicit backend transaction contract.
 - Migration proceeds one vertical slice at a time: main scan, platform scan, ROM refresh, then manual/PC/DLC matching. Do not migrate all callers in parallel.
 - Every scan UI uses stable operation IDs and translation keys, never translated labels as logic. The canonical operations are library scan, metadata refresh, media refresh, file check, and folder mapping; platform scan is a scoped library scan, not a second implementation.
+- Files above 1,000 logical lines are an explicit maintainability target. Runtime monoliths are decomposed in focused, behavior-preserving slices after parity coverage exists; generated files, migrations, fixtures, and verification tools are audited separately rather than blindly split.
 
 ## Migration safety
 

@@ -63,3 +63,6 @@ The existing Steam behavior demonstrates a data-loss risk: a second language can
 - Existing values may be labeled 'de-DE' only when evidence supports that migration; otherwise preserve them as unknown-language legacy data.
 - Add German/English fixtures for metadata, fallback, manual protection, provider precedence, media language/region, and migration before enabling writes.
 - Provider precedence must be evaluated per field, locale, and region. Test an IGDB English baseline plus linked Steam German text/media, missing German fallback, and a provider returning an unexpected locale.
+- Run a repository-wide file-size inventory before implementation. Prioritize hand-written runtime files above 1,000 logical lines, especially scan, ROM, metadata, storage, and active v2 UI files. Exclude generated files, migrations, fixtures, and verification tools from automatic extraction, but record them separately.
+- Refactor only with characterization/parity tests and one responsibility per extracted module. Do not move code across boundaries if that creates a second storage mapper, PC matcher, provider resolver, lifecycle, or ownership policy.
+- Treat a file-size reduction as successful only when behavior, imports, route contracts, socket events, and ownership semantics remain unchanged.
