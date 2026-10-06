@@ -520,6 +520,7 @@ async def scan_rom(
     playmatch_enabled: bool = True,
     metadata_locale: str | None = None,
     socket_manager: socketio.AsyncRedisManager | None = None,
+    metadata_only: bool = False,
 ) -> Rom:
     rom_attrs = {
         "id": rom.id,
@@ -551,7 +552,7 @@ async def scan_rom(
         )
 
     # Update properties from existing rom if not a complete rescan
-    if not newly_added and scan_type != ScanType.COMPLETE:
+    if not newly_added and (scan_type != ScanType.COMPLETE or metadata_only):
         rom_attrs.update(
             {
                 "name": rom.name,
@@ -668,7 +669,7 @@ async def scan_rom(
             },
         )
 
-    if platform.slug == UPS.WIN and fs_rom["nested"]:
+    if not metadata_only and platform.slug == UPS.WIN and fs_rom["nested"]:
         try:
             pc_components = await fs_rom_handler.get_pc_components(_added_rom)
             for component in pc_components:
@@ -1226,18 +1227,19 @@ async def scan_rom(
                 if fields["metadata_field"]:
                     rom_attrs[fields["metadata_field"]] = {}
 
-        # Reset artwork fields so stale values are cleared when no source supplies them
-        rom_attrs.update(
-            {
-                "url_cover": "",
-                "url_screenshots": [],
-                "url_manual": "",
-                "path_cover_s": "",
-                "path_cover_l": "",
-                "path_screenshots": [],
-                "path_manual": "",
-            }
-        )
+        # Reset artwork fields only for a normal complete rescan.
+        if not metadata_only:
+            rom_attrs.update(
+                {
+                    "url_cover": "",
+                    "url_screenshots": [],
+                    "url_manual": "",
+                    "path_cover_s": "",
+                    "path_cover_l": "",
+                    "path_screenshots": [],
+                    "path_manual": "",
+                }
+            )
 
     # Determine which metadata sources are available
     available_sources = [
@@ -1255,18 +1257,32 @@ async def scan_rom(
         handler_data = metadata_handlers[source_name]["handler"]
         _apply_metadata_handler_fields(rom_attrs, handler_data)
 
+    if metadata_only:
+        rom_attrs.update(
+            {
+                "url_cover": rom.url_cover,
+                "url_screenshots": rom.url_screenshots,
+                "url_manual": rom.url_manual,
+                "path_cover_s": rom.path_cover_s,
+                "path_cover_l": rom.path_cover_l,
+                "path_screenshots": rom.path_screenshots,
+                "path_manual": rom.path_manual,
+            }
+        )
+
     # Artwork sources are prioritized separately, and each field can carry its
     # own override on top of the shared artwork priority.
-    for field in ["url_cover", "url_screenshots", "url_manual"]:
-        priority_ordered_artwork = get_priority_ordered_metadata_sources(
-            available_sources, field
-        )
-        # Reverse priority order to apply highest priority last
-        for source_name in reversed(priority_ordered_artwork):
-            # Only update fields that have valid values
-            field_value = metadata_handlers[source_name]["handler"].get(field)
-            if field_value:
-                rom_attrs[field] = field_value
+    if not metadata_only:
+        for field in ["url_cover", "url_screenshots", "url_manual"]:
+            priority_ordered_artwork = get_priority_ordered_metadata_sources(
+                available_sources, field
+            )
+            # Reverse priority order to apply highest priority last
+            for source_name in reversed(priority_ordered_artwork):
+                # Only update fields that have valid values
+                field_value = metadata_handlers[source_name]["handler"].get(field)
+                if field_value:
+                    rom_attrs[field] = field_value
 
     # Don't overwrite existing base fields on update, unmatched and hashes scans
     if not newly_added and scan_type in (
@@ -1324,7 +1340,11 @@ async def scan_rom(
     # Use PICO-8 cartridge PNG as cover art if no cover is set.
     # PICO-8 .p8.png files are valid PNG images whose visual content is the
     # cartridge label, so the ROM file itself serves as the cover art.
-    if not rom_attrs.get("url_cover") and not rom_attrs.get("path_cover_s"):
+    if (
+        not metadata_only
+        and not rom_attrs.get("url_cover")
+        and not rom_attrs.get("path_cover_s")
+    ):
         pico8_url = fs_rom_handler.get_pico8_cover_url(
             platform.slug, rom_attrs["fs_name"], rom_attrs["fs_path"]
         )
@@ -1386,7 +1406,11 @@ async def scan_rom(
 
         return SGDBRom(sgdb_id=None)
 
-    sgdb_hander_rom = await fetch_sgdb_details(playmatch_hash_match)
+    sgdb_hander_rom = (
+        SGDBRom(sgdb_id=None)
+        if metadata_only
+        else await fetch_sgdb_details(playmatch_hash_match)
+    )
     if sgdb_hander_rom.get("sgdb_id"):
         rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
 
@@ -1458,16 +1482,20 @@ async def scan_rom(
             )
             if applied is not None:
                 durable_rom = applied
-        if has_steam_media:
+        if has_steam_media and not metadata_only:
             await reconcile_steam_patch_media(durable_rom, steam_updates)
-        if has_steam_metadata:
+        if has_steam_metadata and not metadata_only:
             refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
             if refreshed_rom is not None:
                 components = getattr(refreshed_rom, "components", [])
                 auto_link_pc_dlc_components(refreshed_rom, components)
                 await auto_link_parent_listed_steam_dlc_components(refreshed_rom)
         return scanned_rom
-    if platform.slug == UPS.WIN and (newly_added or not scanned_rom.steam_id):
+    if (
+        not metadata_only
+        and platform.slug == UPS.WIN
+        and (newly_added or not scanned_rom.steam_id)
+    ):
         # The mapped scan already created this durable catalog target. Never pass
         # a filesystem path to automation, only the persisted ROM and components.
         durable_rom = db_rom_handler.add_rom(scanned_rom)

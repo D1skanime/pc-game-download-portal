@@ -491,6 +491,7 @@ async def _identify_rom(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     metadata_locale: str | None = None,
+    metadata_only: bool = False,
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -649,6 +650,7 @@ async def _identify_rom(
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,
         metadata_locale=metadata_locale,
+        metadata_only=metadata_only,
         socket_manager=socket_manager,
     )
 
@@ -661,7 +663,11 @@ async def _identify_rom(
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
-    if platform.slug == UPS.WIN and isinstance(_added_rom.igdb_metadata, dict):
+    if (
+        not metadata_only
+        and platform.slug == UPS.WIN
+        and isinstance(_added_rom.igdb_metadata, dict)
+    ):
         enriched_parent = db_rom_handler.apply_pc_igdb_enrichment(
             _added_rom.id,
             _added_rom.updated_at,
@@ -719,6 +725,8 @@ async def _identify_rom(
 
     # Short circuit if the scan type is hashes
     if scan_type == ScanType.HASHES:
+        return
+    if metadata_only:
         return
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
@@ -835,6 +843,7 @@ async def _identify_platform(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     metadata_locale: str | None = None,
+    metadata_only: bool = False,
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -946,6 +955,7 @@ async def _identify_platform(
                 launchbox_remote_enabled=launchbox_remote_enabled,
                 playmatch_enabled=playmatch_enabled,
                 metadata_locale=metadata_locale,
+                metadata_only=metadata_only,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -1054,6 +1064,7 @@ async def scan_platforms(
     playmatch_enabled: bool = True,
     platform_fs_slugs: list[str] | None = None,
     metadata_locale: str | None = None,
+    metadata_only: bool = False,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -1179,6 +1190,7 @@ async def scan_platforms(
                 launchbox_remote_enabled=launchbox_remote_enabled,
                 playmatch_enabled=playmatch_enabled,
                 metadata_locale=metadata_locale,
+                metadata_only=metadata_only,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -1289,6 +1301,7 @@ async def execute_mapping_scan(
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
     metadata_locale: str | None = None,
+    metadata_only: bool = False,
 ) -> ScanStats:
     """Run a scan from immutable mapping identity, never a caller-supplied path."""
     mapping = db_storage_handler.get_mapping(command.mapping_id)
@@ -1304,6 +1317,7 @@ async def execute_mapping_scan(
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
             metadata_locale=metadata_locale,
+            metadata_only=metadata_only,
         )
 
     return await execute_mapped_scan(
@@ -1348,6 +1362,7 @@ async def execute_mapping_scans(
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
     metadata_locale: str | None = None,
+    metadata_only: bool = False,
 ) -> ScanStats:
     """Execute mapping commands through the common executor."""
     combined = ScanStats()
@@ -1359,6 +1374,7 @@ async def execute_mapping_scans(
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
             metadata_locale=metadata_locale,
+            metadata_only=metadata_only,
         )
         for field in result.to_dict():
             setattr(combined, field, getattr(combined, field) + getattr(result, field))
@@ -1422,6 +1438,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         and requested_metadata_locale.strip()
         else None
     )
+    metadata_only = bool(options.get("metadata_only", False))
     try:
         commands = mapping_scan_commands(
             platform_ids,
@@ -1445,6 +1462,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
             metadata_locale=metadata_locale,
+            metadata_only=metadata_only,
         )
 
     return high_prio_queue.enqueue(
@@ -1455,6 +1473,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,
         metadata_locale=metadata_locale,
+        metadata_only=metadata_only,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={

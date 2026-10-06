@@ -904,10 +904,15 @@ class TestScanAuthorization:
 
         await scan_handler(
             "sid",
-            {"type": "complete", "metadata_locale": "fr-FR"},
+            {
+                "type": "complete",
+                "metadata_locale": "fr-FR",
+                "metadata_only": True,
+            },
         )
 
         assert enqueue.call_args.kwargs["metadata_locale"] == "fr-FR"
+        assert enqueue.call_args.kwargs["metadata_only"] is True
 
     async def test_stop_scan_handler_does_not_cancel_when_unauthorized(
         self, mocker, emit
@@ -1123,6 +1128,85 @@ class TestIdentifyRomReassociation:
         )
         process_automation.assert_awaited_once_with(
             platform, scanned_rom, durable_rom, True
+        )
+
+    async def test_metadata_only_preserves_existing_resource_paths(
+        self, patched, mocker
+    ):
+        db = patched
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        scanned_rom = MagicMock(is_identified=True, steam_id=None)
+        durable_rom = MagicMock(
+            id=99,
+            is_identified=True,
+            igdb_metadata=None,
+            url_cover="new-cover",
+            url_manual="new-manual",
+            url_screenshots=["new-shot"],
+            path_cover_s="existing-cover",
+            path_cover_l="existing-cover-large",
+            path_screenshots=["existing-shot"],
+            path_manual="existing-manual",
+        )
+        db.add_rom.return_value = durable_rom
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+        scan_rom = mocker.patch.object(
+            scan_module, "scan_rom", AsyncMock(return_value=scanned_rom)
+        )
+        get_cover = mocker.patch.object(
+            scan_module.fs_resource_handler, "get_cover", AsyncMock()
+        )
+        get_manual = mocker.patch.object(
+            scan_module.fs_resource_handler, "get_manual", AsyncMock()
+        )
+        get_screenshots = mocker.patch.object(
+            scan_module.fs_resource_handler, "get_rom_screenshots", AsyncMock()
+        )
+        mocker.patch.object(
+            scan_module.catalog_lifecycle_handler,
+            "reconnect_retained_identity",
+        )
+        mocker.patch.object(
+            scan_module.SimpleRomSchema,
+            "from_orm_with_factory",
+            return_value=Mock(model_dump=Mock(return_value={})),
+        )
+
+        await _identify_rom(
+            platform=platform,
+            fs_rom={
+                "fs_name": "Game.zip",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            rom=MagicMock(id=99, fs_name="Game.zip"),
+            scan_type=ScanType.UPDATE,
+            roms_ids=[99],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            metadata_locale=None,
+            metadata_only=True,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
+
+        assert scan_rom.call_args.kwargs["metadata_only"] is True
+        get_cover.assert_not_awaited()
+        get_manual.assert_not_awaited()
+        get_screenshots.assert_not_awaited()
+        assert not any(
+            len(call.args) > 1 and "path_cover_s" in call.args[1]
+            for call in db.update_rom.call_args_list
         )
 
     async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):

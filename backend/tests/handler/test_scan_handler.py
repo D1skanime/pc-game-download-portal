@@ -280,6 +280,7 @@ async def _scan_steam_patch(
     metadata_sources: list[str] | None = None,
     patch_data: dict | None = None,
     igdb_metadata: dict | None = None,
+    metadata_only: bool = False,
 ):
     platform, rom = _igdb_scan_fixture(
         platform_slug=platform_slug,
@@ -310,6 +311,7 @@ async def _scan_steam_patch(
         ),
         patch("handler.scan_handler.resolve_steam_pc_enrichment", resolver),
         patch("handler.scan_handler.reconcile_steam_patch_media", reconcile),
+        patch("handler.scan_handler.db_rom_handler.get_rom", return_value=None),
         patch(
             "handler.scan_handler.db_rom_handler.apply_pc_igdb_enrichment",
             persist_igdb_metadata,
@@ -342,6 +344,7 @@ async def _scan_steam_patch(
                 else [MetadataSource.STEAM.value]
             ),
             newly_added=newly_added,
+            metadata_only=metadata_only,
         )
     return (
         resolver,
@@ -469,6 +472,53 @@ async def test_steam_media_reconciliation_uses_the_persisted_rom_timestamp():
         )
 
     reconcile.assert_awaited_once_with(refreshed, resolver.return_value)
+
+
+@pytest.mark.asyncio
+async def test_metadata_only_keeps_text_metadata_but_skips_artwork_side_effects(mocker):
+    sgdb_lookup = mocker.patch(
+        "handler.scan_handler.meta_sgdb_handler.get_details_by_names",
+        new_callable=AsyncMock,
+    )
+    resolver, reconcile, result, _, _ = await _scan_steam_patch(
+        scan_type=ScanType.COMPLETE,
+        newly_added=False,
+        metadata_sources=[MetadataSource.STEAM, MetadataSource.SGDB],
+        metadata_only=True,
+        patch_data={
+            "steam_id": 292030,
+            "steam_metadata": {"app_id": 292030, "source": "storefront"},
+            "summary": "Updated text metadata",
+            "media": {"cover": ["https://cdn.example/witcher.jpg"]},
+        },
+    )
+
+    assert result.summary == "Updated text metadata"
+    resolver.assert_awaited_once()
+    reconcile.assert_not_awaited()
+    sgdb_lookup.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_metadata_only_skips_pc_component_linking(mocker):
+    auto_link_igdb = mocker.patch("handler.scan_handler.auto_link_pc_dlc_components")
+    auto_link_steam = mocker.patch(
+        "handler.scan_handler.auto_link_parent_listed_steam_dlc_components",
+        new_callable=AsyncMock,
+    )
+
+    await _scan_steam_patch(
+        scan_type=ScanType.COMPLETE,
+        newly_added=False,
+        metadata_only=True,
+        patch_data={
+            "steam_id": 292030,
+            "steam_metadata": {"app_id": 292030, "source": "storefront"},
+        },
+    )
+
+    auto_link_igdb.assert_not_called()
+    auto_link_steam.assert_not_awaited()
 
 
 @pytest.mark.asyncio
