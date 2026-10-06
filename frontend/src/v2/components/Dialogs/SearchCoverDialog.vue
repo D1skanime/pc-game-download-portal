@@ -128,6 +128,7 @@ function openHandler({
   platformId?: number;
   rom?: SimpleRom;
 }) {
+  searchSeq++;
   searchText.value = term;
   covers.value = [];
   providerCovers.value = [];
@@ -138,6 +139,10 @@ function openHandler({
 }
 emitter?.on("showSearchCoverDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showSearchCoverDialog", openHandler));
+
+// Bumped per search and on close, so a response for a search the user
+// already left never fills a later session of the dialog.
+let searchSeq = 0;
 
 // Score a `/search/roms` result by how many of its provider IDs match
 // the source rom's IDs. The highest-scoring result is the same game
@@ -160,6 +165,7 @@ function scoreAgainstSourceRom(
 
 async function doSearch() {
   if (searching.value || !searchText.value.trim()) return;
+  const seq = ++searchSeq;
   searching.value = true;
   covers.value = [];
   providerCovers.value = [];
@@ -180,6 +186,8 @@ async function doSearch() {
           })
         : Promise.resolve(null),
     ]);
+
+    if (seq !== searchSeq) return;
 
     if (sgdbResult.status === "fulfilled") {
       covers.value = sgdbResult.value.data;
@@ -225,7 +233,7 @@ async function doSearch() {
         : [];
     }
   } finally {
-    searching.value = false;
+    if (seq === searchSeq) searching.value = false;
   }
 }
 
@@ -246,6 +254,7 @@ function pickProviderCover(url: string) {
 }
 
 function closeDialog() {
+  searchSeq++;
   show.value = false;
   covers.value = [];
   providerCovers.value = [];

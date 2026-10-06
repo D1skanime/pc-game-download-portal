@@ -370,7 +370,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     return;
   }
   const { matchedRom, cover } = payload;
-  rom.value = {
+  const updatedRom = {
     ...targetRom,
     igdb_id: matchedRom.igdb_id || null,
     ss_id: matchedRom.ss_id || null,
@@ -391,8 +391,6 @@ async function onBodyConfirm(payload: ConfirmPayload) {
       matchedRom.libretro_url_cover ||
       null,
   };
-
-  const updatedRom = rom.value;
   if (updatedRom.url_cover) {
     updatedRom.url_cover = updatedRom.url_cover.replace(
       "t_cover_big",
@@ -407,6 +405,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     });
     romsStore.update(data as SimpleRom);
     if (route.name === "rom") romsStore.currentRom = data;
+    closeDialog();
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(axiosErr.response?.data?.detail ?? t("rom.update-failed"), {
@@ -414,7 +413,6 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     });
   } finally {
     matching.value = false;
-    closeDialog();
   }
 }
 
