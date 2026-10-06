@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Phase 24 replanned
-last_updated: "2026-10-05T00:00:00Z"
-last_activity: 2026-10-05 -- Phase 24 planning created from v2 quality and legacy-boundary review
+stopped_at: Completed 24-08-PLAN.md
+last_updated: "2026-10-06T12:25:14.187Z"
+last_activity: 2026-10-06
 progress:
   total_phases: 24
-  completed_phases: 18
-  total_plans: 202
-  completed_plans: 187
-  percent: 78
+  completed_phases: 19
+  total_plans: 203
+  completed_plans: 191
+  percent: 79
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 24 (v2-quality-stabilization-and-legacy-boundary-cleanup) - PLANNED
-Plan: 6 of 11
-Status: Plans 24-01 through 24-06 complete; Plans 24-07 through 24-11 ready for unified scan/matching implementation.
-Last activity: 2026-10-06 - Replanned Phase 24 for storage-aware scan, matching, metadata, and media unification.
+Plan: 8 of 11
+Status: Ready to execute
+Last activity: 2026-10-06
 
 ## Performance Metrics
 
@@ -157,6 +157,7 @@ _Updated after each plan completion_
 | Phase 18 P15 | 8min | 2 tasks | 3 files |
 | Phase 20 P09 | 12min | 2 tasks | 5 files |
 | Phase 20 P08 | 37min | 2 tasks | 5 files |
+| Phase 24 P08 | 10min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -393,6 +394,8 @@ Recent decisions affecting current work:
 - [Phase 20]: Owned-media roles are immutable and placement restricts image and soundtrack surfaces. — This prevents incompatible catalog state before ordering changes persist.
 - [Phase 20]: Classify exact parent-owned Media routes as resources or database operations while legacy source routes remain forbidden. — Keeps the mutation inventory fail-closed without permitting source-library mutations.
 - [Phase 20]: Record approved migrated-ROM UAT without inferring unreported 0129 migration-cycle or infrastructure results. — Browser approval covers observed RomM-owned Media behavior only.
+- [Phase 24]: Keep useScanLifecycle as the only socket subscriber and expose typed lifecycle observers. — The orchestrator must wrap existing Pinia and socket ownership.
+- [Phase 24]: Resolve providers per field, locale, and region while preserving actual provider response locales. — Localized provider data must not be relabeled or overwrite another locale.
 
 ### Blockers/Concerns
 
@@ -439,6 +442,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-01T21:34:12.531Z
-Stopped at: Phase 22 complete
-Resume file: .planning/phases/22-bulk-automatisierung-f-r-pc-spiel-und-dlc-zuordnung/22-06-SUMMARY.md
+Last session: 2026-10-06T12:25:14.172Z
+Stopped at: Completed 24-08-PLAN.md
+Resume file: None

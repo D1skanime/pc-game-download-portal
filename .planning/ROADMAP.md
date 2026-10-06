@@ -668,7 +668,7 @@ Plans:
 **Requirements**: QA-01, QA-02, QA-03, QA-04, QA-05, QA-06, QA-07, QA-08
 **Depends on:** Phase 23
 **Cross-cutting constraints:** Preserve direct-v2 boot and all supported routes. Do not restore v1. Do not modify external libraries or use NAS, Team4s, real library data, or production credentials. Keep API contracts backend-owned, regenerate generated types after schema changes, preserve manual/provider ownership rules, and keep source-mutation controls fail-closed.
-**Plans:** 12 plans
+**Plans:** 7/12 plans executed
 
 **Wave 1**
 
@@ -691,7 +691,7 @@ Plans:
 **Wave 5** (depends on 24-05 and 24-06)
 
 - [ ] 24-07-PLAN.md: Establish storage-aware operation contracts and compatibility translation.
-- [ ] 24-08-PLAN.md: Centralize provider resolution and operation lifecycle.
+- [x] 24-08-PLAN.md: Centralize provider resolution and operation lifecycle.
 - [ ] 24-09-PLAN.md: Define metadata/media ownership and per-item result policies.
 - [ ] 24-10-PLAN.md: Migrate every scan, refresh, matching, cover, and PC/DLC entry point.
 - [ ] 24-11-PLAN.md: Run final Linux gates, preservation matrix, browser UAT, and document the handoff.
