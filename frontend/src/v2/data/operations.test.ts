@@ -139,6 +139,59 @@ describe("operation compatibility translation", () => {
     ).toThrow("cannot mutate source files");
   });
 
+  it("translates metadata-only intent without enabling media work", () => {
+    const request = baseRequest({
+      metadataOnly: true,
+      mediaPolicy: { mode: "none", targets: [] },
+    });
+    expect(normalizeOperationRequest(request)).toMatchObject({
+      metadataOnly: true,
+      mediaOnly: false,
+      metadataPolicy: { mode: "missing-only" },
+      mediaPolicy: { mode: "none", targets: [] },
+    });
+    expect(toLegacyScanOptions(request)).toMatchObject({
+      metadata_only: true,
+      media_only: false,
+    });
+  });
+
+  it("translates media-only intent without enabling metadata work", () => {
+    const request = baseRequest({
+      mediaOnly: true,
+      metadataPolicy: { mode: "none", fields: [] },
+    });
+    expect(normalizeOperationRequest(request)).toMatchObject({
+      metadataOnly: false,
+      mediaOnly: true,
+      metadataPolicy: { mode: "none", fields: [] },
+      mediaPolicy: { mode: "missing-only" },
+    });
+    expect(toLegacyScanOptions(request)).toMatchObject({
+      metadata_only: false,
+      media_only: true,
+    });
+  });
+
+  it("rejects contradictory intent flags and policies", () => {
+    expect(() =>
+      normalizeOperationRequest(
+        baseRequest({
+          metadataOnly: true,
+          mediaOnly: true,
+          metadataPolicy: { mode: "none", fields: [] },
+          mediaPolicy: { mode: "none", targets: [] },
+        }),
+      ),
+    ).toThrow("cannot enable metadata-only and media-only intent together");
+    expect(() =>
+      normalizeOperationRequest(baseRequest({ metadataOnly: true })),
+    ).toThrow("Metadata-only intent requires a none media policy.");
+    expect(() =>
+      normalizeOperationRequest(baseRequest({ mediaOnly: true })),
+    ).toThrow("Media-only intent requires a none metadata policy.");
+  });
+
   it("derives deterministic item identities from sorted scope values", () => {
     expect(
       operationItemIds(

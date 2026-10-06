@@ -18,6 +18,8 @@ export interface LibraryScanRequestInput {
   playmatchEnabled: boolean;
   launchboxRemoteEnabled: boolean;
   scanType: ScanType;
+  metadataOnly?: boolean;
+  mediaOnly?: boolean;
 }
 
 export function buildLibraryScanRequest(
@@ -63,6 +65,18 @@ export function buildLibraryScanRequest(
       resumable: true,
     },
     scanType: input.scanType,
+    ...(input.metadataOnly || input.mediaOnly
+      ? {
+          metadataOnly: input.metadataOnly === true,
+          mediaOnly: input.mediaOnly === true,
+          metadataPolicy: input.metadataOnly
+            ? { mode: "missing-only", fields: [] }
+            : { mode: "none", fields: [] },
+          mediaPolicy: input.mediaOnly
+            ? { mode: "missing-only", targets: [] }
+            : { mode: "none", targets: [] },
+        }
+      : {}),
   };
 }
 
@@ -75,6 +89,8 @@ export interface LegacyScanOptions {
   launchbox_remote_enabled: boolean;
   playmatch_enabled: boolean;
   metadata_locale?: string;
+  metadata_only?: boolean;
+  media_only?: boolean;
 }
 
 export class OperationTranslationError extends Error {
@@ -179,6 +195,23 @@ export function normalizeOperationRequest(
   request: OperationRequest,
 ): OperationRequest {
   assertScopeIsExecutable(request.scope);
+  const metadataOnly = request.metadataOnly === true;
+  const mediaOnly = request.mediaOnly === true;
+  if (metadataOnly && mediaOnly) {
+    throw new OperationTranslationError(
+      "An operation cannot enable metadata-only and media-only intent together.",
+    );
+  }
+  if (metadataOnly && request.mediaPolicy.mode !== "none") {
+    throw new OperationTranslationError(
+      "Metadata-only intent requires a none media policy.",
+    );
+  }
+  if (mediaOnly && request.metadataPolicy.mode !== "none") {
+    throw new OperationTranslationError(
+      "Media-only intent requires a none metadata policy.",
+    );
+  }
   if (request.capabilities.fileMutation) {
     throw new OperationTranslationError(
       "Scan operations cannot mutate source files.",
@@ -200,6 +233,9 @@ export function normalizeOperationRequest(
   );
   return {
     ...request,
+    ...(metadataOnly || mediaOnly
+      ? { metadataOnly, mediaOnly }
+      : { metadataOnly: undefined, mediaOnly: undefined }),
     uiLocale: normalizeLocale(request.uiLocale),
     metadataLocale: normalizeLocale(request.metadataLocale),
     execution: {
@@ -283,5 +319,11 @@ export function toLegacyScanOptions(
       request.providerPolicy.providers.includes("playmatch") ||
       request.providerPolicy.fallbackProviders.includes("playmatch"),
     metadata_locale: request.metadataLocale,
+    ...(request.metadataOnly !== undefined || request.mediaOnly !== undefined
+      ? {
+          metadata_only: request.metadataOnly === true,
+          media_only: request.mediaOnly === true,
+        }
+      : {}),
   };
 }

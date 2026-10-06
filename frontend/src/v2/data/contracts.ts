@@ -217,6 +217,8 @@ export interface OperationRequest {
   retry?: RetryInput;
   execution: ExecutionPolicy;
   scanType?: ScanType;
+  metadataOnly?: boolean;
+  mediaOnly?: boolean;
   provenance?: Provenance;
 }
 
