@@ -20,10 +20,10 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import romApi from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
 import { useLibraryOperation } from "@/v2/composables/useLibraryOperation";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
 import storeHeartbeat, {
   type MetadataOption,

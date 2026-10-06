@@ -1,36 +1,6 @@
 <script setup lang="ts">
-// Scan — library scan control + live log. Two-column master/detail
-// layout (mirrors MatchRomBodyList):
-//
-//   Left  — Config card: glass panel with the four scan inputs
-//           (platforms, providers, hash-matcher pills, scan type) plus
-//           a prominent "Start scan" CTA. Inline warnings sit under
-//           the CTA. While a scan runs, the inputs and button stay
-//           visible but locked (disabled) — the user reads them as
-//           the "what we're doing" summary. Sticks to the top of the
-//           viewport when the page scrolls past it.
-//
-//   Right — Live area: tall surface that fills the viewport down to
-//           the layout's bottom padding. Its header doubles as the
-//           live status bar (pulse + label + per-class counter chips
-//           + abort button + indeterminate/determinate progress bar
-//           pinned to the bottom edge). The body shows either a
-//           welcoming empty state (no scan started) or the streaming
-//           platform / ROM list. Auto-expands panels as ROMs arrive
-//           and auto-scrolls (within its own scroll container) unless
-//           the user scrolled up.
-//
-// Scan socket lifecycle (`scan:scanning_platform`, `scan:scanning_rom`,
-// `scan:update_stats`, `scan:done`, `scan:done_ko`) is wired globally
-// by `installScanLifecycle` in AppLayout; this view is pure UI.
-//
-// Hash matchers (Hasheous, Playmatch) sit between the provider select
-// and the scan-type select as two compact switch pills. They're
-// proxies — not standalone catalogs — and treating them as regular
-// providers obscured that. Hasheous toggles its presence in the `apis`
-// array (backend gate is `MetadataSource.HASHEOUS in apis`); Playmatch
-// toggles a separate `playmatch_enabled` flag (it has no enum entry;
-// backend gate is `playmatch_enabled and IGDB in apis`).
+// Scan UI for library discovery, metadata-only, media-only, and hash operations.
+// Scan socket events are wired globally by AppLayout; this view owns presentation.
 import {
   RAlert,
   RAvatar,
@@ -372,8 +342,7 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
 ];
 const scanType = ref<ScanType>("quick");
 
-// The start button is disabled while a scan runs OR when there's no
-// metadata source picked (the scan wouldn't do anything useful).
+// Metadata sources are optional for media-only refreshes.
 const canStartScan = computed(
   () =>
     !scanning.value &&
