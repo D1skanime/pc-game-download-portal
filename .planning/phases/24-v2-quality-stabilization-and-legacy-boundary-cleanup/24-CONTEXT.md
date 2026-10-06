@@ -34,6 +34,13 @@ Complete the existing v2 quality work and unify storage-aware scan, matching, me
 - Add fixtures before changing writes for classic ROMs, PC parents, DLC/expansions, multiple roots, manual overrides, and provider-owned media.
 - New requests translate to existing backend contracts until a deliberate backend upgrade.
 
+## Existing implementations to reuse
+
+- frontend/src/v2/data/contracts.ts already defines the v2 repository and mutation contracts; new operation types extend this file or live beside it without replacing existing contracts.
+- frontend/src/v2/composables/useScanLifecycle/index.ts already owns global socket event wiring and Pinia synchronization; the new operation facade must consume or wrap it.
+- frontend/src/v2/sourceMutationInventory.test.ts and sourceMutationControls.test.ts already protect storage mutation and PC/DLC ownership boundaries.
+- PlatformStorageMapping.vue and docs/design/v2-storage-administration.md already define the safe mapping draft, version, preview, and no-file-mutation behavior.
+
 ## Confirmed divergences
 
 - Scan.vue expands provider All through effectiveMetadataSources.

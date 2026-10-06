@@ -39,3 +39,7 @@ Recommended plans:
 - 24-09 metadata/media ownership and per-item result ledger;
 - 24-10 migrate all UI entry points including PC/DLC and cover-only paths;
 - 24-11 automated and browser validation.
+
+## Reuse constraints
+
+Do not create a second repository-contract layer, a second scan socket lifecycle, or a second storage-mutation policy. Extend frontend/src/v2/data/contracts.ts, wrap frontend/src/v2/composables/useScanLifecycle, and preserve sourceMutationInventory/sourceMutationControls plus the existing storage mapping version/preview rules.
