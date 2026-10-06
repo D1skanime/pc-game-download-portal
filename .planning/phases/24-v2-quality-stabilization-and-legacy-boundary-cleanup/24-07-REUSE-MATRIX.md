@@ -1,0 +1,15 @@
+# Plan 24-07 reuse and compatibility matrix
+
+| Capability                         | Existing authority                                                                           | Reused by this plan                                                              | New capability added                                                                             |
+| ---------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Repository and mutation contracts  | `frontend/src/v2/data/contracts.ts`                                                          | Extended in place                                                                | Typed operation, locale, provenance, result, and execution-policy vocabulary                     |
+| Scan socket lifecycle              | `frontend/src/v2/composables/useScanLifecycle/index.ts`                                      | Remains the only event subscriber and Pinia synchronizer                         | No second lifecycle; adapters emit the existing `scan:*` events                                  |
+| Storage scope and mapping revision | `PlatformStorageMapping.vue`, storage mapping APIs, `MappedScanCommand`                      | Mapping identity/revision remains backend-owned                                  | `LibraryProfile` describes the authoritative mapping context without persisting a second profile |
+| Classic and PC/DLC scan behavior   | `backend/endpoints/sockets/scan.py`, `scan_platforms`, PC component scan enrichment          | Legacy payload fields and mapped scan execution remain unchanged                 | A bounded option normalizer and compatibility payload translator                                 |
+| PC/DLC matching                    | Existing PC/DLC endpoints and `MatchRomDialog` contracts                                     | Operation scope carries parent ROM/component identity for later caller migration | No duplicate matcher or provider resolver                                                        |
+| Source immutability                | `sourceMutationInventory.test.ts`, `sourceMutationControls.test.ts`, storage policy controls | No operation contract grants source-file mutation                                | Capability flags explicitly distinguish file mutation from metadata/media persistence            |
+| Progress and outcomes              | Existing `scan:*` events and scan stats                                                      | `useScanLifecycle` continues to consume them                                     | Typed operation/item outcome vocabulary for future callers                                       |
+
+The implementation is intentionally frontend-contract and compatibility-boundary
+only. It does not add a database model, backend socket lifecycle, storage profile
+model, provider resolver, or ownership policy.
