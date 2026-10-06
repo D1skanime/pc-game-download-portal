@@ -20,6 +20,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import romApi from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
 import { useLibraryOperation } from "@/v2/composables/useLibraryOperation";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -227,7 +228,7 @@ function isHashMatcherOn(matcher: HashMatcher): boolean {
 // or cover), `hashes` (recalculate file hashes only — useful when
 // files changed on disk or hashing was disabled at scan time), and
 // `complete` (wipe + rematch from scratch).
-type ScanType = "update" | "hashes" | "complete";
+type ScanType = "update" | "media" | "hashes" | "complete";
 
 const isBulk = computed(() => roms.value.length > 1);
 
@@ -245,6 +246,11 @@ const scanOptions = computed<ScanOption[]>(() => [
       ? t("rom.refresh-update-desc-bulk")
       : t("rom.refresh-update-desc"),
     value: "update",
+  },
+  {
+    title: t("scan.media-only"),
+    subtitle: t("scan.media-only-desc"),
+    value: "media",
   },
   {
     title: t("scan.hashes"),
@@ -303,6 +309,22 @@ const singleRomTitle = computed(() => {
 
 function onScan() {
   if (roms.value.length === 0) return;
+
+  if (scanType.value === "media" && !isBulk.value) {
+    const rom = roms.value[0];
+    void romApi.refreshOwnedMedia({
+      romId: rom.id,
+      expectedVersion: rom.updated_at,
+    });
+    snackbar.info(
+      t("rom.refreshing-media", { name: rom.name ?? rom.fs_name }),
+      {
+        icon: "mdi-loading mdi-spin",
+      },
+    );
+    closeDialog();
+    return;
+  }
 
   storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
@@ -363,6 +385,8 @@ function onScan() {
           playmatchEnabled,
           launchboxRemoteEnabled: launchboxRemoteEnabled.value,
           scanType: scanType.value,
+          metadataOnly: scanType.value === "update",
+          mediaOnly: scanType.value === "media",
         }),
       );
     }),
@@ -384,7 +408,9 @@ function closeDialog() {
     @close="closeDialog"
   >
     <template #header>
-      <span>{{ t("rom.refresh-metadata") }}</span>
+      <span>{{
+        scanType === "media" ? t("scan.media-only") : t("rom.refresh-metadata")
+      }}</span>
     </template>
     <template #content>
       <div class="r-v2-refresh">
@@ -676,7 +702,9 @@ function closeDialog() {
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
-        :disabled="effectiveMetadataSources.length === 0"
+        :disabled="
+          effectiveMetadataSources.length === 0 && scanType !== 'media'
+        "
         @click="onScan"
       >
         {{ t("rom.refresh-metadata") }}

@@ -65,5 +65,7 @@
   "unmatched-games": "Nicht zugeordnete Spiele",
   "unmatched-games-desc": "Scanne Spiele mit fehlenden Metadaten-Zuordnungen",
   "update-metadata": "Metadaten aktualisieren",
-  "update-metadata-desc": "Metadaten für gefundene Spiele aktualisieren"
+  "update-metadata-desc": "Nur Metadaten aktualisieren; vorhandene Bilder und Medien bleiben unverändert",
+  "media-only": "Medien aktualisieren",
+  "media-only-desc": "Bilder und eigene Medien nur für vorhandene Spiele aktualisieren; Metadaten und Dateien bleiben unverändert"
 }

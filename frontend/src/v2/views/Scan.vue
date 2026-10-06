@@ -325,7 +325,13 @@ function onScroll(e: Event) {
 }
 
 type ScanType =
-  "new_platforms" | "quick" | "unmatched" | "update" | "hashes" | "complete";
+  | "new_platforms"
+  | "quick"
+  | "unmatched"
+  | "update"
+  | "media"
+  | "hashes"
+  | "complete";
 
 const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
   {
@@ -349,6 +355,11 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
     value: "update",
   },
   {
+    title: t("scan.media-only"),
+    subtitle: t("scan.media-only-desc"),
+    value: "media",
+  },
+  {
     title: t("scan.hashes"),
     subtitle: t("scan.hashes-desc"),
     value: "hashes",
@@ -364,7 +375,9 @@ const scanType = ref<ScanType>("quick");
 // The start button is disabled while a scan runs OR when there's no
 // metadata source picked (the scan wouldn't do anything useful).
 const canStartScan = computed(
-  () => !scanning.value && effectiveMetadataSources.value.length > 0,
+  () =>
+    !scanning.value &&
+    (effectiveMetadataSources.value.length > 0 || scanType.value === "media"),
 );
 
 // Live status header — pulled in from the (now retired) floating
@@ -448,7 +461,12 @@ function scan() {
   const selectedScanType = scanType.value;
   const request: OperationRequest = {
     operationId,
-    kind: selectedScanType === "update" ? "metadata-refresh" : "discovery",
+    kind:
+      selectedScanType === "media"
+        ? "media-sync"
+        : selectedScanType === "update"
+          ? "metadata-refresh"
+          : "discovery",
     scope: platformsToScan.value.length
       ? { kind: "filesystem", platformFsSlugs: [...platformsToScan.value] }
       : { kind: "library" },
@@ -465,10 +483,25 @@ function scan() {
       launchboxRemoteEnabled: launchboxRemoteEnabled.value,
     },
     metadataPolicy: {
-      mode: selectedScanType === "update" ? "provider-replace" : "missing-only",
+      mode:
+        selectedScanType === "update"
+          ? "provider-replace"
+          : selectedScanType === "media"
+            ? "none"
+            : "missing-only",
       fields: [],
     },
-    mediaPolicy: { mode: "missing-only", targets: [] },
+    mediaPolicy:
+      selectedScanType === "update" || selectedScanType === "media"
+        ? { mode: "none", targets: [] }
+        : { mode: "missing-only", targets: [] },
+    ...(selectedScanType === "update"
+      ? { metadataOnly: true }
+      : selectedScanType === "media"
+        ? {
+            mediaOnly: true,
+          }
+        : {}),
     capabilities: {
       discovery: true,
       creation: true,

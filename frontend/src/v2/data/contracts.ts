@@ -96,6 +96,7 @@ export type ScanType =
   | "new_platforms"
   | "unmatched"
   | "update"
+  | "media"
   | "hashes"
   | "complete";
 

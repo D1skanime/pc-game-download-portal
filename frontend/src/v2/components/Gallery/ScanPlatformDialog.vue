@@ -227,7 +227,8 @@ function isHashMatcherOn(matcher: HashMatcher): boolean {
 // Per-platform scan types — the full Scan-view list minus
 // `new_platforms` (a discovery scan against fs_slugs not yet in the
 // DB, which can't be scoped to a known platform).
-type ScanType = "quick" | "unmatched" | "update" | "hashes" | "complete";
+type ScanType =
+  "quick" | "unmatched" | "update" | "media" | "hashes" | "complete";
 
 const scanOptions = computed<
   { title: string; subtitle: string; value: ScanType }[]
@@ -246,6 +247,11 @@ const scanOptions = computed<
     title: t("scan.update-metadata"),
     subtitle: t("scan.update-metadata-desc"),
     value: "update",
+  },
+  {
+    title: t("scan.media-only"),
+    subtitle: t("scan.media-only-desc"),
+    value: "media",
   },
   {
     title: t("scan.hashes"),
@@ -284,7 +290,12 @@ function onScan() {
   void libraryOperation.start(
     buildLibraryScanRequest({
       operationId,
-      kind: scanTypeValue === "update" ? "metadata-refresh" : "discovery",
+      kind:
+        scanTypeValue === "media"
+          ? "media-sync"
+          : scanTypeValue === "update"
+            ? "metadata-refresh"
+            : "discovery",
       scope: { kind: "platform", platformIds: [props.platform.id] },
       profiles: [],
       uiLocale: locale.value,
@@ -295,6 +306,8 @@ function onScan() {
         : false,
       launchboxRemoteEnabled: launchboxRemoteEnabled.value,
       scanType: scanTypeValue,
+      metadataOnly: scanTypeValue === "update",
+      mediaOnly: scanTypeValue === "media",
     }),
   );
 
@@ -595,7 +608,9 @@ onBeforeUnmount(() => {
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
-        :disabled="effectiveMetadataSources.length === 0"
+        :disabled="
+          effectiveMetadataSources.length === 0 && scanType !== 'media'
+        "
         @click="onScan"
       >
         {{ t("scan.scan", "Scan") }}

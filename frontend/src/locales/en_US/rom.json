@@ -405,6 +405,7 @@
   "refresh-update-desc": "Re-fetch metadata from the selected providers",
   "refresh-update-desc-bulk": "Re-fetch metadata from the selected providers",
   "refreshing-metadata": "Refreshing {name} metadata...",
+  "refreshing-media": "Updating media for {name}",
   "regions": "Regions",
   "related-content": "Related content",
   "released-at": "Released at",
