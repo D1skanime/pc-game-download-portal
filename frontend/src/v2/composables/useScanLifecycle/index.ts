@@ -37,7 +37,31 @@ import storeScanning, {
 } from "@/v2/data/adapters/legacy/stores/scanning";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
-export function installScanLifecycle() {
+export type ScanLifecycleEvent =
+  | { type: "started" }
+  | { type: "stats"; stats: ScanStats }
+  | { type: "completed"; stats: ScanStats }
+  | { type: "failed"; message: string };
+
+export type ScanLifecycleObserver = (event: ScanLifecycleEvent) => void;
+const observers = new Set<ScanLifecycleObserver>();
+
+export function observeScanLifecycle(
+  observer: ScanLifecycleObserver,
+): () => void {
+  observers.add(observer);
+  return () => observers.delete(observer);
+}
+
+function notify(event: ScanLifecycleEvent): void {
+  observers.forEach((observer) => observer(event));
+}
+
+let installed = false;
+
+export function installScanLifecycle(): void {
+  if (installed) return;
+  installed = true;
   const scanningStore = storeScanning();
   const romsStore = storeRoms();
   const platformsStore = storePlatforms();
@@ -56,6 +80,7 @@ export function installScanLifecycle() {
       new_firmware_count,
     }) => {
       scanningStore.setScanning(true);
+      notify({ type: "started" });
       // De-dupe by display_name so a re-scan of the same platform
       // doesn't render two panels for it.
       scanningStore.scanningPlatforms = scanningStore.scanningPlatforms.filter(
@@ -162,16 +187,19 @@ export function installScanLifecycle() {
 
   useSocketEvent<SimpleRom>("scan:scanning_rom", (rom) => {
     scanningStore.setScanning(true);
+    notify({ type: "started" });
     romUpdateQueue.push(rom);
     processRomUpdates();
   });
 
   useSocketEvent<ScanStats>("scan:update_stats", (stats) => {
     scanningStore.setScanStats(stats);
+    notify({ type: "stats", stats });
   });
 
   useSocketEvent<ScanStats>("scan:done", (stats) => {
     scanningStore.setScanStats(stats);
+    notify({ type: "completed", stats });
     scanningStore.setScanning(false);
     // Reconcile against the backend once the scan settles: pick up anything
     // the live updates missed and correct rom_counts that drifted.
@@ -186,6 +214,7 @@ export function installScanLifecycle() {
 
   useSocketEvent<string>("scan:done_ko", (msg) => {
     scanningStore.setScanning(false);
+    notify({ type: "failed", message: msg });
     emitter?.emit("snackbarShow", {
       msg: `Scan failed: ${msg}`,
       color: "error",
