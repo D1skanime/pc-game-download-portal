@@ -154,11 +154,14 @@ class SteamHandler(MetadataHandler):
             )
             if validated_details := self._valid_app_details(details, steam_id):
                 localized_details[language] = validated_details
-        preferred = localized_details.get(requested_language) or next(
-            iter(localized_details.values()), None
+        selected = (
+            (requested_language, localized_details[requested_language])
+            if requested_language in localized_details
+            else next(iter(localized_details.items()), None)
         )
-        if preferred is None:
+        if selected is None:
             return SteamRom(steam_id=None)
+        actual_language, preferred = selected
         fallback: SteamAppDetails | None = None
         if self._needs_fallback(preferred):
             fallback = localized_details.get(STEAM_API_FALLBACK_LANGUAGE)
@@ -166,7 +169,7 @@ class SteamHandler(MetadataHandler):
             preferred,
             fallback,
             self._text_variants(localized_details),
-            requested_language,
+            actual_language,
         )
 
     async def get_matched_roms_by_name(

@@ -101,6 +101,49 @@ async def test_requested_ui_locale_selects_mapped_steam_language_and_keeps_varia
     ] == ["french", "german", "english"]
 
 
+async def test_missing_requested_locale_records_selected_provider_language(handler):
+    handler.steam_service.get_app_details = AsyncMock(
+        side_effect=[
+            None,
+            {
+                "type": "game",
+                "name": "Cyberpunk 2077",
+                "steam_appid": 1091500,
+                "short_description": "Ein Rollenspiel.",
+            },
+            {
+                "type": "game",
+                "name": "Cyberpunk 2077",
+                "steam_appid": 1091500,
+                "short_description": "An RPG.",
+            },
+        ]
+    )
+
+    with patch.object(
+        steam_handler,
+        "STEAM_API_TEXT_LANGUAGES",
+        ("german", "english"),
+        create=True,
+    ):
+        result = await handler.get_rom_by_id(1091500, metadata_locale="fr-FR")
+
+    assert result["steam_metadata"]["language"] == "german"
+    assert result["steam_metadata"]["fallback_language"] == "english"
+    assert result["steam_metadata"]["text_variants"] == {
+        "de": {
+            "source_language": "german",
+            "name": "Cyberpunk 2077",
+            "summary": "Ein Rollenspiel.",
+        },
+        "en": {
+            "source_language": "english",
+            "name": "Cyberpunk 2077",
+            "summary": "An RPG.",
+        },
+    }
+
+
 async def test_fallback_fills_empty_release_and_header_fields_for_the_same_app_id(
     handler,
 ):
