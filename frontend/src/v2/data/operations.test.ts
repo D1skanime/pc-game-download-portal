@@ -140,6 +140,27 @@ describe("operation compatibility translation", () => {
     ).toThrow("cannot mutate source files");
   });
 
+  it("preserves provider replacement for metadata-only update scans", () => {
+    const request = buildLibraryScanRequest({
+      operationId: "metadata-update-7",
+      kind: "metadata-refresh",
+      scope: { kind: "platform", platformIds: [7] },
+      profiles: [],
+      uiLocale: "de-DE",
+      metadataLocale: "en-US",
+      providers: ["igdb"],
+      playmatchEnabled: false,
+      launchboxRemoteEnabled: false,
+      scanType: "update",
+      metadataOnly: true,
+    });
+
+    expect(request.metadataPolicy).toEqual({
+      mode: "provider-replace",
+      fields: [],
+    });
+  });
+
   it("translates metadata-only intent without enabling media work", () => {
     const request = baseRequest({
       metadataOnly: true,

@@ -70,7 +70,13 @@ export function buildLibraryScanRequest(
           metadataOnly: input.metadataOnly === true,
           mediaOnly: input.mediaOnly === true,
           metadataPolicy: input.metadataOnly
-            ? { mode: "missing-only", fields: [] }
+            ? {
+                mode:
+                  input.scanType === "update"
+                    ? "provider-replace"
+                    : "missing-only",
+                fields: [],
+              }
             : { mode: "none", fields: [] },
           mediaPolicy: input.mediaOnly
             ? { mode: "missing-only", targets: [] }
