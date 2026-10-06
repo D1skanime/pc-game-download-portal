@@ -43,3 +43,9 @@ Recommended plans:
 ## Reuse constraints
 
 Do not create a second repository-contract layer, a second scan socket lifecycle, or a second storage-mutation policy. Extend frontend/src/v2/data/contracts.ts, wrap frontend/src/v2/composables/useScanLifecycle, and preserve sourceMutationInventory/sourceMutationControls plus the existing storage mapping version/preview rules.
+
+## Mandatory anti-duplication gates
+
+Before implementation, the planner must inventory existing storage mappings, scan lifecycle, provider selection, PC/DLC endpoints, ownership controls, and result events. New abstractions must wrap or extend those seams. If a proposed new database model or backend policy is not required by an identified gap, the plan must stop and reuse the existing model.
+
+The migration must begin with a read-only normalized request and parity tests. Only after request parity passes may a caller change its write path. Metadata and media are separate operations, and bulk results require job correlation or serialization.
