@@ -4,6 +4,7 @@ import {
   OperationTranslationError,
   buildLibraryScanRequest,
   normalizeOperationRequest,
+  operationItemIds,
   toLegacyScanOptions,
 } from "./operations";
 
@@ -136,6 +137,26 @@ describe("operation compatibility translation", () => {
         }),
       ),
     ).toThrow("cannot mutate source files");
+  });
+
+  it("derives deterministic item identities from sorted scope values", () => {
+    expect(
+      operationItemIds(
+        baseRequest({ scope: { kind: "rom", romIds: [42, 41, 42] } }),
+      ),
+    ).toEqual(["rom:41", "rom:42"]);
+    expect(
+      operationItemIds(
+        baseRequest({
+          scope: { kind: "filesystem", platformFsSlugs: ["zeta", "alpha"] },
+        }),
+      ),
+    ).toEqual(["filesystem:alpha", "filesystem:zeta"]);
+    expect(
+      operationItemIds(
+        baseRequest({ scope: { kind: "library" }, profiles: [] }),
+      ),
+    ).toEqual(["library"]);
   });
 
   it("rejects component operations instead of dropping component identity", () => {

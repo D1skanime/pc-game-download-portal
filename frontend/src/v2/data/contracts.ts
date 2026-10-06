@@ -251,6 +251,7 @@ export interface OperationItemResult {
 }
 
 export type OperationDiagnosticCode =
+  | "preview"
   | "permission-denied"
   | "rate-limited"
   | "provider-failed"

@@ -92,6 +92,50 @@ function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()))].filter(Boolean);
 }
 
+function sortedUniqueNumbers(values: number[]): number[] {
+  return [...new Set(values)].filter(Number.isInteger).sort((a, b) => a - b);
+}
+
+function sortedUniqueStrings(values: string[]): string[] {
+  return uniqueStrings(values).sort((a, b) => a.localeCompare(b));
+}
+
+export function operationItemIds(request: OperationRequest): string[] {
+  switch (request.scope.kind) {
+    case "library": {
+      const platformIds = sortedUniqueNumbers(
+        request.profiles
+          .map((profile) => profile.platformId)
+          .filter((id): id is number => id !== undefined),
+      );
+      const slugs = sortedUniqueStrings(
+        request.profiles
+          .map((profile) => profile.platformFsSlug)
+          .filter((slug): slug is string => slug !== undefined),
+      );
+      const identities = [
+        ...platformIds.map((id) => "library:platform:" + id),
+        ...slugs.map((slug) => "library:filesystem:" + slug),
+      ];
+      return identities.length > 0 ? identities : ["library"];
+    }
+    case "platform":
+      return sortedUniqueNumbers(request.scope.platformIds).map(
+        (id) => "platform:" + id,
+      );
+    case "rom":
+      return sortedUniqueNumbers(request.scope.romIds).map((id) => "rom:" + id);
+    case "component":
+      return [
+        "component:" + request.scope.romId + ":" + request.scope.componentId,
+      ];
+    case "filesystem":
+      return sortedUniqueStrings(request.scope.platformFsSlugs).map(
+        (slug) => "filesystem:" + slug,
+      );
+  }
+}
+
 function profilePlatformIds(request: OperationRequest): number[] {
   return uniqueNumbers(
     request.profiles

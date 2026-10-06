@@ -15,7 +15,10 @@ import type {
   OperationResult,
   OperationStatus,
 } from "@/v2/data/contracts";
-import { normalizeOperationRequest } from "@/v2/data/operations";
+import {
+  normalizeOperationRequest,
+  operationItemIds,
+} from "@/v2/data/operations";
 
 export interface LibraryOperationState {
   status: Ref<OperationStatus>;
@@ -91,13 +94,15 @@ function itemResults(
   request: OperationRequest,
   outcome: OperationItemResult["outcome"],
 ): OperationItemResult[] {
-  return (request.retry?.itemIds ?? []).map((itemId) => ({
-    itemId,
-    outcome,
-    operationId: request.operationId,
-    jobId: request.jobId,
-    attempt: 1,
-  }));
+  return (request.retry?.itemIds ?? operationItemIds(request)).map(
+    (itemId) => ({
+      itemId,
+      outcome,
+      operationId: request.operationId,
+      jobId: request.jobId,
+      attempt: 1,
+    }),
+  );
 }
 
 function impact(request: OperationRequest): OperationResult["impact"] {
@@ -229,7 +234,15 @@ export function useLibraryOperation(): LibraryOperationState & {
         status: "completed",
         items: itemResults(normalized, "unchanged"),
         preview: true,
-        diagnostics: [],
+        diagnostics: [
+          {
+            code: "preview",
+            operationId: normalized.operationId,
+            jobId: normalized.jobId,
+            retryable: false,
+            message: "Preview completed without changing library data.",
+          },
+        ],
         impact: impact(normalized),
       };
       result.value = previewResult;

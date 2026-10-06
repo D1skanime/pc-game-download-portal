@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   runWithConcurrency,
@@ -21,6 +23,19 @@ describe("library operation execution gates", () => {
     );
     expect(values).toEqual([2, 4, 6, 8]);
     expect(peak).toBeLessThanOrEqual(2);
+  });
+
+  it("uses scope identities and reports non-mutating previews", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/v2/composables/useLibraryOperation.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain("operationItemIds(request)");
+    expect(source).toContain('code: "preview"');
+    expect(source).toContain(
+      "Preview completed without changing library data.",
+    );
   });
 
   it("backs off retryable rate-limit failures and then succeeds", async () => {
