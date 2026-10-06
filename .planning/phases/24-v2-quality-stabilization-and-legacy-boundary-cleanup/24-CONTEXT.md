@@ -37,6 +37,8 @@ Complete the existing v2 quality work and unify storage-aware scan, matching, me
 - Metadata fallback is read-time behavior only. An English fallback may be displayed when German is missing, but must not be persisted as German.
 - Media is classified separately: language-neutral artwork, language/region-specific covers, and text-bearing screenshots/trailers must not be treated as one overwriteable bucket.
 - Provider payloads and manual values retain source/provenance so merge decisions remain explainable.
+- Provider resolution is field-, locale-, and region-aware rather than a single global provider winner. Canonical identity, technical fields, localized text, and localized media may be supplied by different providers.
+- IGDB may provide the canonical identity and English baseline while Steam supplies linked German text or regional artwork. A provider response is stored with the actual locale returned; it is never relabeled to satisfy the requested locale.
 
 ## Non-negotiable reuse and safety gates
 

@@ -62,3 +62,4 @@ The existing Steam behavior demonstrates a data-loss risk: a second language can
 - Media needs its own language/region policy: neutral artwork can be reused, while localized covers and text-bearing media remain distinguishable.
 - Existing values may be labeled 'de-DE' only when evidence supports that migration; otherwise preserve them as unknown-language legacy data.
 - Add German/English fixtures for metadata, fallback, manual protection, provider precedence, media language/region, and migration before enabling writes.
+- Provider precedence must be evaluated per field, locale, and region. Test an IGDB English baseline plus linked Steam German text/media, missing German fallback, and a provider returning an unexpected locale.
