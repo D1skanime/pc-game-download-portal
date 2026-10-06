@@ -2,10 +2,16 @@
 phase: 24-v2-quality-stabilization-and-unified-library-operations
 plan: 14
 subsystem: backend-scan
-tags: [scan, metadata-only, socketio, metadata, artwork]
+tags:
+  [scan, metadata-only, media-only, socketio, metadata, artwork, localization]
 dependency_graph:
   requires: [mapped-scan-socket, provider-metadata-priority]
-  provides: [metadata-only-scan-isolation]
+  provides:
+    [
+      explicit-scan-intents,
+      metadata-only-scan-isolation,
+      existing-rom-media-refresh,
+    ]
   affects: [scan-socket, scan-handler, resource-path-persistence]
 tech_stack:
   added: []
@@ -17,6 +23,9 @@ key_files:
     - backend/handler/scan_handler.py
     - backend/tests/endpoints/sockets/test_scan.py
     - backend/tests/handler/test_scan_handler.py
+    - backend/handler/metadata/rom_media.py
+    - frontend/src/v2/data/operations.ts
+    - frontend/src/v2/views/Scan.vue
 decisions:
   - "Keep metadata_only false by default so existing scan behavior is unchanged."
   - "Preserve existing artwork URLs and persisted resource paths while allowing provider text metadata to refresh."
@@ -29,7 +38,16 @@ metrics:
 
 Metadata-only scans now travel through the existing mapped socket scan lifecycle while refreshing provider text metadata without changing artwork, resource paths, owned media, or PC/DLC associations.
 
-## Completed Task
+## Completed Task 1
+
+Translated explicit operation intent through the existing frontend compatibility contract.
+
+- Added optional `metadataOnly` and `mediaOnly` request flags and legacy payload fields.
+- Rejects contradictory intents and invalid metadata/media policy combinations.
+- Preserves deterministic operation item identities for library, platform, ROM, filesystem, and component scopes.
+- Added preview diagnostics without introducing a second operation lifecycle.
+
+## Completed Task 2
 
 Task 2, Isolate backend metadata-only behavior.
 
@@ -132,3 +150,13 @@ Unified the scan controls in the existing frontend architecture around explicit 
 ## Boundary check
 
 No second scan lifecycle, provider resolver, storage mapping, or media reconciliation implementation was introduced. Existing REST and socket authorities remain the only execution paths.
+
+## Phase-wide verification
+
+- Frontend full suite: 105 files, 899 tests passed.
+- Frontend typecheck and V2 maintainability gate passed (465 production files).
+- Focused operation-contract tests passed (12 tests).
+- Backend source compilation and `git diff --check` passed for touched Task 3 modules.
+- Backend MariaDB-backed pytest remains blocked because MariaDB is unavailable at `127.0.0.1:3306`.
+- Frontend production build reached asset transformation but remains environment-blocked by permission denied on root-owned `frontend/dist/sw.js`; no TypeScript/build transform error was reported.
+- Human E2E checkpoint remains required before marking Phase 24 complete.
