@@ -188,7 +188,11 @@ def main() -> int:
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(render(args.threshold), encoding="utf-8")
     found = entries(args.threshold)
-    print(f"wrote {report.relative_to(ROOT)}")
+    try:
+        display_report = report.relative_to(ROOT)
+    except ValueError:
+        display_report = report
+    print(f"wrote {display_report}")
     print(f"files over {args.threshold}: {len(found)}")
     print(f"files over 1000: {sum(item.count > 1000 for item in found)}")
     return 0
