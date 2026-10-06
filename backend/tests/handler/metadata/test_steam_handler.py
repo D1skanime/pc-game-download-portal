@@ -43,6 +43,64 @@ async def test_missing_german_summary_falls_back_on_the_same_app_id(handler):
     assert calls[1].kwargs == {"country": "US", "language": "english"}
 
 
+async def test_requested_ui_locale_selects_mapped_steam_language_and_keeps_variants(
+    handler,
+):
+    handler.steam_service.get_app_details = AsyncMock(
+        side_effect=[
+            {
+                "type": "game",
+                "name": "Cyberpunk 2077",
+                "steam_appid": 1091500,
+                "short_description": "Un jeu de rôle.",
+            },
+            {
+                "type": "game",
+                "name": "Cyberpunk 2077",
+                "steam_appid": 1091500,
+                "short_description": "Ein Rollenspiel.",
+            },
+            {
+                "type": "game",
+                "name": "Cyberpunk 2077",
+                "steam_appid": 1091500,
+                "short_description": "An RPG.",
+            },
+        ]
+    )
+
+    with patch.object(
+        steam_handler,
+        "STEAM_API_TEXT_LANGUAGES",
+        ("german", "english"),
+        create=True,
+    ):
+        result = await handler.get_rom_by_id(1091500, metadata_locale="fr-FR")
+
+    assert result["steam_metadata"]["language"] == "french"
+    assert result["steam_metadata"]["text_variants"] == {
+        "fr": {
+            "source_language": "french",
+            "name": "Cyberpunk 2077",
+            "summary": "Un jeu de rôle.",
+        },
+        "de": {
+            "source_language": "german",
+            "name": "Cyberpunk 2077",
+            "summary": "Ein Rollenspiel.",
+        },
+        "en": {
+            "source_language": "english",
+            "name": "Cyberpunk 2077",
+            "summary": "An RPG.",
+        },
+    }
+    assert [
+        call.kwargs["language"]
+        for call in handler.steam_service.get_app_details.await_args_list
+    ] == ["french", "german", "english"]
+
+
 async def test_fallback_fills_empty_release_and_header_fields_for_the_same_app_id(
     handler,
 ):

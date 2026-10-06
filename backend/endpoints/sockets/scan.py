@@ -490,6 +490,7 @@ async def _identify_rom(
     playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
+    metadata_locale: str | None = None,
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -647,6 +648,7 @@ async def _identify_rom(
         newly_added=newly_added,
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,
+        metadata_locale=metadata_locale,
         socket_manager=socket_manager,
     )
 
@@ -832,6 +834,7 @@ async def _identify_platform(
     playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
+    metadata_locale: str | None = None,
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -942,6 +945,7 @@ async def _identify_platform(
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
                 playmatch_enabled=playmatch_enabled,
+                metadata_locale=metadata_locale,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -1049,6 +1053,7 @@ async def scan_platforms(
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
     platform_fs_slugs: list[str] | None = None,
+    metadata_locale: str | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -1173,6 +1178,7 @@ async def scan_platforms(
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
                 playmatch_enabled=playmatch_enabled,
+                metadata_locale=metadata_locale,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -1282,6 +1288,7 @@ async def execute_mapping_scan(
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
+    metadata_locale: str | None = None,
 ) -> ScanStats:
     """Run a scan from immutable mapping identity, never a caller-supplied path."""
     mapping = db_storage_handler.get_mapping(command.mapping_id)
@@ -1296,6 +1303,7 @@ async def execute_mapping_scan(
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
+            metadata_locale=metadata_locale,
         )
 
     return await execute_mapped_scan(
@@ -1339,6 +1347,7 @@ async def execute_mapping_scans(
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
+    metadata_locale: str | None = None,
 ) -> ScanStats:
     """Execute mapping commands through the common executor."""
     combined = ScanStats()
@@ -1349,6 +1358,7 @@ async def execute_mapping_scans(
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
+            metadata_locale=metadata_locale,
         )
         for field in result.to_dict():
             setattr(combined, field, getattr(combined, field) + getattr(result, field))
@@ -1405,6 +1415,13 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
     playmatch_enabled = bool(options.get("playmatch_enabled", True))
+    requested_metadata_locale = options.get("metadata_locale")
+    metadata_locale = (
+        requested_metadata_locale.strip()
+        if isinstance(requested_metadata_locale, str)
+        and requested_metadata_locale.strip()
+        else None
+    )
     try:
         commands = mapping_scan_commands(
             platform_ids,
@@ -1427,6 +1444,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
+            metadata_locale=metadata_locale,
         )
 
     return high_prio_queue.enqueue(
@@ -1436,6 +1454,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,
+        metadata_locale=metadata_locale,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={

@@ -518,6 +518,7 @@ async def scan_rom(
     newly_added: bool,
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
+    metadata_locale: str | None = None,
     socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
     rom_attrs = {
@@ -1088,6 +1089,7 @@ async def scan_rom(
                 platform_slug=platform.slug,
                 fs_name=rom_attrs["fs_name"],
                 metadata_sources=metadata_sources,
+                metadata_locale=metadata_locale,
             )
         )
 

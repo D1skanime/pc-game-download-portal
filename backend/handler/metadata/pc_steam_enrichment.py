@@ -21,6 +21,7 @@ class SteamPcEnrichmentRequest:
     fs_name: str
     metadata_sources: Collection[str]
     explicit_steam_id: int | None = None
+    metadata_locale: str | None = None
 
 
 async def resolve_steam_pc_enrichment(
@@ -39,13 +40,27 @@ async def resolve_steam_pc_enrichment(
 
     try:
         if steam_id is not None:
-            result = await meta_steam_handler.get_rom_by_id(
-                steam_id, request.platform_slug
-            )
+            if request.metadata_locale is None:
+                result = await meta_steam_handler.get_rom_by_id(
+                    steam_id, request.platform_slug
+                )
+            else:
+                result = await meta_steam_handler.get_rom_by_id(
+                    steam_id,
+                    request.platform_slug,
+                    metadata_locale=request.metadata_locale,
+                )
         elif request.platform_slug in STEAM_PLATFORMS:
-            result = await meta_steam_handler.get_rom(
-                request.fs_name, request.platform_slug
-            )
+            if request.metadata_locale is None:
+                result = await meta_steam_handler.get_rom(
+                    request.fs_name, request.platform_slug
+                )
+            else:
+                result = await meta_steam_handler.get_rom(
+                    request.fs_name,
+                    request.platform_slug,
+                    metadata_locale=request.metadata_locale,
+                )
         else:
             return {}
     except Exception:

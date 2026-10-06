@@ -74,6 +74,7 @@ export interface LegacyScanOptions {
   apis: string[];
   launchbox_remote_enabled: boolean;
   playmatch_enabled: boolean;
+  metadata_locale?: string;
 }
 
 export class OperationTranslationError extends Error {
@@ -237,5 +238,6 @@ export function toLegacyScanOptions(
     playmatch_enabled:
       request.providerPolicy.providers.includes("playmatch") ||
       request.providerPolicy.fallbackProviders.includes("playmatch"),
+    metadata_locale: request.metadataLocale,
   };
 }

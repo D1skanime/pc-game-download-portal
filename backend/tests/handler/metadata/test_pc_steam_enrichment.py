@@ -75,6 +75,19 @@ async def test_d02_eligible_platforms_use_one_name_lookup(platform_slug):
 
 
 @pytest.mark.asyncio
+async def test_requested_metadata_locale_reaches_steam_name_lookup():
+    get_by_name = AsyncMock(return_value={"steam_id": 1091500, "name": "The Witcher 3"})
+    with patch(
+        "handler.metadata.pc_steam_enrichment.meta_steam_handler.get_rom", get_by_name
+    ):
+        await resolve_steam_pc_enrichment(_request(metadata_locale="fr-FR"))
+
+    get_by_name.assert_awaited_once_with(
+        "The Witcher 3.exe", "win", metadata_locale="fr-FR"
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("platform_slug", ["dos", "win3x", "win9x", "snes"])
 async def test_d05_excluded_platforms_never_name_search(platform_slug):
     get_by_id = AsyncMock()

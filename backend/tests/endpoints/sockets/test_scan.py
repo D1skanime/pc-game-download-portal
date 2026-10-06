@@ -887,6 +887,28 @@ class TestScanAuthorization:
         enqueue.assert_not_called()
         scan_platforms_mock.assert_not_awaited()
 
+    async def test_scan_handler_forwards_requested_metadata_locale(self, mocker, emit):
+        mocker.patch.object(
+            scan_module, "reject_unauthorized_scan", AsyncMock(return_value=False)
+        )
+        mocker.patch.object(scan_module, "_get_running_scan_job", return_value=None)
+        mocker.patch.object(scan_module, "_get_queued_scan_jobs", return_value=[])
+        mocker.patch.object(
+            scan_module,
+            "mapping_scan_commands",
+            return_value=[MagicMock()],
+        )
+        enqueue = mocker.patch.object(
+            scan_module.high_prio_queue, "enqueue", return_value=MagicMock()
+        )
+
+        await scan_handler(
+            "sid",
+            {"type": "complete", "metadata_locale": "fr-FR"},
+        )
+
+        assert enqueue.call_args.kwargs["metadata_locale"] == "fr-FR"
+
     async def test_stop_scan_handler_does_not_cancel_when_unauthorized(
         self, mocker, emit
     ):
