@@ -44,12 +44,12 @@ export function buildLibraryScanRequest(
     },
     mediaPolicy: { mode: "missing-only", targets: [] },
     capabilities: {
-      discovery: true,
-      creation: true,
-      metadata: true,
+      discovery: !input.mediaOnly,
+      creation: !input.mediaOnly,
+      metadata: !input.mediaOnly,
       media: true,
       fileMutation: false,
-      pcDlc: true,
+      pcDlc: !input.mediaOnly,
       preview: true,
       retry: true,
       resume: true,
@@ -114,6 +114,33 @@ function sortedUniqueNumbers(values: number[]): number[] {
 
 function sortedUniqueStrings(values: string[]): string[] {
   return uniqueStrings(values).sort((a, b) => a.localeCompare(b));
+}
+
+export interface MediaScanPlatformIdentity {
+  fsSlug: string;
+  platformId?: number;
+}
+
+export function resolveMediaOnlyScope(
+  selectedFsSlugs: string[],
+  platforms: readonly MediaScanPlatformIdentity[],
+): OperationScope {
+  const slugs = sortedUniqueStrings(selectedFsSlugs);
+  if (slugs.length === 0) return { kind: "library" };
+
+  const platformIds = slugs.map(
+    (slug) =>
+      platforms.find((platform) => platform.fsSlug === slug)?.platformId,
+  );
+  if (platformIds.some((id) => !Number.isInteger(id))) {
+    throw new OperationTranslationError(
+      "Media-only scans require selected platforms to already exist in the library.",
+    );
+  }
+  return {
+    kind: "platform",
+    platformIds: sortedUniqueNumbers(platformIds as number[]),
+  };
 }
 
 export function operationItemIds(request: OperationRequest): string[] {

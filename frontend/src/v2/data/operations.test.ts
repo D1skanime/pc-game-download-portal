@@ -5,6 +5,7 @@ import {
   buildLibraryScanRequest,
   normalizeOperationRequest,
   operationItemIds,
+  resolveMediaOnlyScope,
   toLegacyScanOptions,
 } from "./operations";
 
@@ -154,6 +155,41 @@ describe("operation compatibility translation", () => {
       metadata_only: true,
       media_only: false,
     });
+  });
+
+  it("disables discovery and creation for media-only requests", () => {
+    const request = buildLibraryScanRequest({
+      operationId: "media-platform-7",
+      kind: "media-sync",
+      scope: { kind: "platform", platformIds: [7] },
+      profiles: [],
+      uiLocale: "de-DE",
+      metadataLocale: "en-US",
+      providers: [],
+      playmatchEnabled: false,
+      launchboxRemoteEnabled: false,
+      scanType: "media",
+      mediaOnly: true,
+    });
+
+    expect(request).toMatchObject({
+      scope: { kind: "platform", platformIds: [7] },
+      mediaOnly: true,
+      capabilities: { discovery: false, creation: false, metadata: false },
+    });
+  });
+
+  it("rejects media-only filesystem selections without existing platform ids", () => {
+    expect(() =>
+      resolveMediaOnlyScope(
+        ["unscanned-folder"],
+        [{ fsSlug: "unscanned-folder" }],
+      ),
+    ).toThrow("already exist in the library");
+    expect(
+      resolveMediaOnlyScope(["snes"], [{ fsSlug: "snes", platformId: 7 }]),
+    ).toEqual({ kind: "platform", platformIds: [7] });
+    expect(resolveMediaOnlyScope([], [])).toEqual({ kind: "library" });
   });
 
   it("translates media-only intent without enabling metadata work", () => {

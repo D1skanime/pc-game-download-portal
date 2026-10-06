@@ -20,13 +20,15 @@ import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useLibraryOperation } from "@/v2/composables/useLibraryOperation";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
 import storeHeartbeat, {
   type MetadataOption,
 } from "@/v2/data/adapters/legacy/stores/heartbeat";
 import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
-import type { OperationRequest } from "@/v2/data/contracts";
+import type { OperationRequest, OperationScope } from "@/v2/data/contracts";
+import { resolveMediaOnlyScope } from "@/v2/data/operations";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
@@ -44,6 +46,7 @@ const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
 const { t, locale } = useI18n();
 const scanningStore = storeScanning();
 const libraryOperation = useLibraryOperation();
+const snackbar = useSnackbar();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
 const { scannablePlatforms } = storeToRefs(platformsStore);
@@ -342,7 +345,6 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
 ];
 const scanType = ref<ScanType>("quick");
 
-// Metadata sources are optional for media-only refreshes.
 const canStartScan = computed(
   () =>
     !scanning.value &&
@@ -428,6 +430,25 @@ function scan() {
   );
   const operationId = "library-scan-" + Date.now();
   const selectedScanType = scanType.value;
+  let scope: OperationScope;
+  try {
+    scope =
+      selectedScanType === "media"
+        ? resolveMediaOnlyScope(
+            platformsToScan.value,
+            sortedPlatforms.value.map((platform) => ({
+              fsSlug: platform.fs_slug,
+              platformId: platform.id,
+            })),
+          )
+        : platformsToScan.value.length
+          ? { kind: "filesystem", platformFsSlugs: [...platformsToScan.value] }
+          : { kind: "library" };
+  } catch (error) {
+    snackbar.error(t("scan.media-only-existing-platforms"));
+    return;
+  }
+  const mediaOnly = selectedScanType === "media";
   const request: OperationRequest = {
     operationId,
     kind:
@@ -436,9 +457,7 @@ function scan() {
         : selectedScanType === "update"
           ? "metadata-refresh"
           : "discovery",
-    scope: platformsToScan.value.length
-      ? { kind: "filesystem", platformFsSlugs: [...platformsToScan.value] }
-      : { kind: "library" },
+    scope,
     profiles: [],
     uiLocale: locale.value,
     metadataLocale: metadataLocale.value,
@@ -472,12 +491,12 @@ function scan() {
           }
         : {}),
     capabilities: {
-      discovery: true,
-      creation: true,
-      metadata: true,
+      discovery: !mediaOnly,
+      creation: !mediaOnly,
+      metadata: !mediaOnly,
       media: true,
       fileMutation: false,
-      pcDlc: true,
+      pcDlc: !mediaOnly,
       preview: true,
       retry: true,
       resume: true,
@@ -507,11 +526,6 @@ function stopScan() {
   <div class="r-v2-scan">
     <ScanInfoDialog v-model="infoDialogOpen" />
 
-    <!-- Config card. Locked (visually dimmed via .r-v2-scan-card--locked)
-         while a scan runs so the user can read the running config without
-         being tempted to edit it. The info button is anchored top-right;
-         the form fields stack vertically; the CTA + library management
-         buttons sit in the footer below the form. -->
     <section
       class="r-v2-scan-card"
       :class="{ 'r-v2-scan-card--locked': scanning }"

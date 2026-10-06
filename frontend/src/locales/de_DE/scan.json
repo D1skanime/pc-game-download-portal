@@ -67,5 +67,6 @@
   "update-metadata": "Metadaten aktualisieren",
   "update-metadata-desc": "Nur Metadaten aktualisieren; vorhandene Bilder und Medien bleiben unverändert",
   "media-only": "Medien aktualisieren",
-  "media-only-desc": "Bilder und eigene Medien nur für vorhandene Spiele aktualisieren; Metadaten und Dateien bleiben unverändert"
+  "media-only-desc": "Bilder und eigene Medien nur für vorhandene Spiele aktualisieren; Metadaten und Dateien bleiben unverändert",
+  "media-only-existing-platforms": "Medien-only erfordert Plattformen, die bereits in der Bibliothek vorhanden sind"
 }

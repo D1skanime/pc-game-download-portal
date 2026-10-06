@@ -67,5 +67,6 @@
   "update-metadata": "Update metadata",
   "update-metadata-desc": "Update metadata only; existing artwork and media are left unchanged",
   "media-only": "Update media",
-  "media-only-desc": "Refresh artwork and owned media for existing games only; metadata and files are unchanged"
+  "media-only-desc": "Refresh artwork and owned media for existing games only; metadata and files are unchanged",
+  "media-only-existing-platforms": "Media-only refresh requires selected platforms to already exist in the library"
 }
