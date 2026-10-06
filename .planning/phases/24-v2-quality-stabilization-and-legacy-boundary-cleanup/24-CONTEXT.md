@@ -52,6 +52,17 @@ Complete the existing v2 quality work and unify storage-aware scan, matching, me
 - Every scan UI uses stable operation IDs and translation keys, never translated labels as logic. The canonical operations are library scan, metadata refresh, media refresh, file check, and folder mapping; platform scan is a scoped library scan, not a second implementation.
 - Files above 1,000 logical lines are an explicit maintainability target. Runtime monoliths are decomposed in focused, behavior-preserving slices after parity coverage exists; generated files, migrations, fixtures, and verification tools are audited separately rather than blindly split.
 
+## Operational acceptance requirements
+
+- Each user-facing operation has a capability matrix covering scope, discovery, creation, metadata, media, file mutation, PC/DLC handling, locale, providers, permissions, preview, and retry behavior.
+- Operations are idempotent. Re-running a job must not create duplicates or overwrite protected/manual values.
+- Bulk jobs expose stable job and item correlation, bounded concurrency, provider rate-limit/backoff behavior, cancellation, resumability, and per-item retry.
+- Partial failure is explicit: successful, unchanged, protected, skipped, failed, and retryable items remain distinguishable without pretending the whole job succeeded.
+- Large operations provide a read-only preview and impact summary before writes. Storage paths, permissions, and mutation targets are validated server-side.
+- Migration is backwards-compatible and rollback-aware. Legacy fields are read safely until parity evidence supports removal; no data is discarded during language, provider, or media migration.
+- Every operation emits structured, privacy-safe diagnostics with scope, provider, locale, item identity, policy decision, and outcome.
+- New operation paths roll out one entry point at a time behind a reversible compatibility boundary; no all-at-once cutover is allowed.
+
 ## Migration safety
 
 - No destructive database migration and no automatic file movement.

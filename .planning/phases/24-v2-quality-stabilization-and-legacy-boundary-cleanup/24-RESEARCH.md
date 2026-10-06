@@ -66,3 +66,10 @@ The existing Steam behavior demonstrates a data-loss risk: a second language can
 - Run a repository-wide file-size inventory before implementation. Prioritize hand-written runtime files above 1,000 logical lines, especially scan, ROM, metadata, storage, and active v2 UI files. Exclude generated files, migrations, fixtures, and verification tools from automatic extraction, but record them separately.
 - Refactor only with characterization/parity tests and one responsibility per extracted module. Do not move code across boundaries if that creates a second storage mapper, PC matcher, provider resolver, lifecycle, or ownership policy.
 - Treat a file-size reduction as successful only when behavior, imports, route contracts, socket events, and ownership semantics remain unchanged.
+
+## Operational acceptance gates
+
+- Produce a capability matrix for library, platform, ROM, component, metadata-only, media-only, file-check, matching, cover-only, PC/DLC, and bulk operations before migrating callers.
+- Prove idempotency with duplicate-scan fixtures, stable job/item correlation, cancellation, resume, bounded concurrency, provider rate-limit/backoff, and per-item retry tests.
+- Define the partial-failure ledger and transaction boundary. A failed media provider must not erase successful metadata, and one failed item must not hide successful bulk results.
+- Add read-only preview, server-side permission/path validation, structured diagnostics, migration rollback evidence, and staged rollout checks to the verification matrix.
