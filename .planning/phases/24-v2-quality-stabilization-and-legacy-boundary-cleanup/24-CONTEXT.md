@@ -28,6 +28,16 @@ Complete the existing v2 quality work and unify storage-aware scan, matching, me
 - Results identify changed, unchanged, protected, not-found, failed, and retryable outcomes.
 - PC endpoints remain, but their results are adapted to the common policy/result model.
 
+## Localization and language-aware metadata
+
+- UI locale and metadata locale are separate operation inputs; changing the UI language must never overwrite stored game metadata.
+- Localized values use stable locale codes ('de-DE', 'en-US', etc.), provider, field, and ownership state. Do not add one hardcoded column set per language.
+- Existing Steam German values are migrated conservatively to 'de-DE' only when their provenance is known; unknown-language values are preserved and never guessed destructively.
+- Metadata refresh is field- and locale-aware: a provider update for one language cannot replace another language or a protected manual value.
+- Metadata fallback is read-time behavior only. An English fallback may be displayed when German is missing, but must not be persisted as German.
+- Media is classified separately: language-neutral artwork, language/region-specific covers, and text-bearing screenshots/trailers must not be treated as one overwriteable bucket.
+- Provider payloads and manual values retain source/provenance so merge decisions remain explainable.
+
 ## Non-negotiable reuse and safety gates
 
 - Before adding any new abstraction, produce a reuse matrix against PlatformStorageMapping, v2/data/contracts.ts, useScanLifecycle, the legacy scan adapter, PC/DLC endpoints, and sourceMutationInventory/sourceMutationControls.
@@ -37,6 +47,7 @@ Complete the existing v2 quality work and unify storage-aware scan, matching, me
 - Bulk operations must carry a stable job correlation or run serially. Results may not be matched by arrival order.
 - Every write path must calculate a field/media patch first, apply ownership protection, and abort the whole item on policy or validation error. Partial writes require an explicit backend transaction contract.
 - Migration proceeds one vertical slice at a time: main scan, platform scan, ROM refresh, then manual/PC/DLC matching. Do not migrate all callers in parallel.
+- Every scan UI uses stable operation IDs and translation keys, never translated labels as logic. The canonical operations are library scan, metadata refresh, media refresh, file check, and folder mapping; platform scan is a scoped library scan, not a second implementation.
 
 ## Migration safety
 
