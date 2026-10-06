@@ -49,19 +49,21 @@ import { ROUTES } from "@/plugins/router";
 import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
-import socket from "@/v2/data/adapters/legacy/services/socket";
+import { useLibraryOperation } from "@/v2/composables/useLibraryOperation";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
 import storeHeartbeat, {
   type MetadataOption,
 } from "@/v2/data/adapters/legacy/stores/heartbeat";
 import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
+import type { OperationRequest } from "@/v2/data/contracts";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
   "scan.launchboxRemoteEnabled";
 const LOCAL_STORAGE_HASHEOUS_ENABLED_KEY = "scan.hasheousEnabled";
 const LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY = "scan.playmatchEnabled";
+const LOCAL_STORAGE_METADATA_LOCALE_KEY = "scan.metadataLocale";
 
 // Hash-matcher providers — proxies that match files by hash and feed
 // IDs into the primary catalogs (IGDB, RetroAchievements). Kept out of
@@ -69,8 +71,9 @@ const LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY = "scan.playmatchEnabled";
 // sources.
 const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const scanningStore = storeScanning();
+const libraryOperation = useLibraryOperation();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
 const { scannablePlatforms } = storeToRefs(platformsStore);
@@ -195,6 +198,10 @@ const hasheousEnabled = useLocalStorage(
 const playmatchEnabled = useLocalStorage(
   LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY,
   true,
+);
+const metadataLocale = useLocalStorage(
+  LOCAL_STORAGE_METADATA_LOCALE_KEY,
+  locale.value,
 );
 
 const metadataSources = ref<MetadataOption[]>(
@@ -422,48 +429,75 @@ const progressValue = computed(() =>
 );
 
 function scan() {
-  // Reset stats + platform list so the navbar indicator and the stats
-  // bar start at 0 instead of inheriting the previous scan's final
-  // counters.
   scanningStore.reset();
-  scanningStore.setScanning(true);
   scanningPlatforms.value = [];
   userScrolledDown = false;
-
-  if (!socket.connected) socket.connect();
-
   storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
-  // Build the apis payload from the effective sources (All-mode groups
-  // expanded to their full provider list — the backend treats an empty
-  // list as "no sources", not "all") plus hasheous (when its switch is
-  // on and the backend accepts it as a MetadataSource enum value).
-  // Playmatch has no enum entry — it's gated server-side via the
-  // separate `playmatch_enabled` flag below.
-  const apis = effectiveMetadataSources.value.map((s) => s.value);
+  const providers = effectiveMetadataSources.value.map((s) => s.value);
   const hasheousMatcher = hashMatchers.value.find(
     (m) => m.value === "hasheous",
   );
   if (hasheousMatcher && isHashMatcherOn(hasheousMatcher)) {
-    apis.push("hasheous");
+    providers.push("hasheous");
   }
   const playmatchMatcher = hashMatchers.value.find(
     (m) => m.value === "playmatch",
   );
+  const operationId = "library-scan-" + Date.now();
+  const selectedScanType = scanType.value;
+  const request: OperationRequest = {
+    operationId,
+    kind: selectedScanType === "update" ? "metadata-refresh" : "discovery",
+    scope: platformsToScan.value.length
+      ? { kind: "filesystem", platformFsSlugs: [...platformsToScan.value] }
+      : { kind: "library" },
+    profiles: [],
+    uiLocale: locale.value,
+    metadataLocale: metadataLocale.value,
+    providerPolicy: {
+      providers,
+      fallbackProviders:
+        playmatchMatcher && isHashMatcherOn(playmatchMatcher)
+          ? ["playmatch"]
+          : [],
+      allowUnexpectedLocale: false,
+      launchboxRemoteEnabled: launchboxRemoteEnabled.value,
+    },
+    metadataPolicy: {
+      mode: selectedScanType === "update" ? "provider-replace" : "missing-only",
+      fields: [],
+    },
+    mediaPolicy: { mode: "missing-only", targets: [] },
+    capabilities: {
+      discovery: true,
+      creation: true,
+      metadata: true,
+      media: true,
+      fileMutation: false,
+      pcDlc: true,
+      preview: true,
+      retry: true,
+      resume: true,
+    },
+    preview: false,
+    permissions: { scopes: ["tasks:run"] },
+    idempotencyKey: operationId,
+    jobId: operationId,
+    retry: { maxAttempts: 3 },
+    execution: {
+      maxConcurrency: 1,
+      cancelable: true,
+      resumable: true,
+    },
+    scanType: selectedScanType,
+  };
 
-  socket.emit("scan", {
-    platform_fs_slugs: platformsToScan.value,
-    type: scanType.value,
-    apis,
-    launchbox_remote_enabled: launchboxRemoteEnabled.value,
-    playmatch_enabled: playmatchMatcher
-      ? isHashMatcherOn(playmatchMatcher)
-      : false,
-  });
+  void libraryOperation.start(request);
 }
 
 function stopScan() {
-  socket.emit("scan:stop");
+  libraryOperation.cancel();
 }
 </script>
 

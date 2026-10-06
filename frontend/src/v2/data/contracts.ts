@@ -90,7 +90,14 @@ export type OperationKind =
   | "hash-repair"
   | "manual-match";
 
-export type ScanType = "quick" | "full" | "new_platforms";
+export type ScanType =
+  | "quick"
+  | "full"
+  | "new_platforms"
+  | "unmatched"
+  | "update"
+  | "hashes"
+  | "complete";
 
 export type OperationScope =
   | { kind: "library" }
@@ -121,6 +128,7 @@ export interface ProviderPolicy {
   fallbackProviders: string[];
   allowUnexpectedLocale: boolean;
   region?: string;
+  launchboxRemoteEnabled?: boolean;
 }
 
 export type MetadataPolicyMode =
