@@ -35,6 +35,53 @@ from models.platform import Platform
 from models.rom import Rom, RomComponentKind, RomComponentOwnedMediaRole
 
 
+@pytest.mark.asyncio
+async def test_media_only_refreshes_existing_roms_without_filesystem_identification(
+    mocker,
+):
+    rom = Rom(id=41, platform_id=7, updated_at=object(), is_identified=True)
+    db = mocker.patch.object(scan_module, "db_rom_handler")
+    db.get_roms_scalar.return_value = [rom]
+    refresh = mocker.patch.object(
+        scan_module, "refresh_provider_owned_media", AsyncMock(return_value=rom)
+    )
+    manager = mocker.patch.object(scan_module, "_get_socket_manager")
+    manager.return_value.emit = AsyncMock()
+    fs_platforms = mocker.patch.object(
+        scan_module.fs_platform_handler, "get_platforms", AsyncMock()
+    )
+
+    stats = await scan_platforms(platform_ids=[7], metadata_sources=[], media_only=True)
+
+    db.get_roms_scalar.assert_called_once_with(platform_ids=[7])
+    refresh.assert_awaited_once_with(rom, rom.updated_at)
+    fs_platforms.assert_not_awaited()
+    assert stats.scanned_roms == 1
+
+
+@pytest.mark.asyncio
+async def test_media_only_filters_selected_existing_rom_ids(mocker):
+    first = Rom(id=41, platform_id=7, updated_at=object(), is_identified=True)
+    second = Rom(id=42, platform_id=7, updated_at=object(), is_identified=True)
+    db = mocker.patch.object(scan_module, "db_rom_handler")
+    db.get_roms_scalar.return_value = [first, second]
+    refresh = mocker.patch.object(
+        scan_module,
+        "refresh_provider_owned_media",
+        AsyncMock(side_effect=lambda rom, version: rom),
+    )
+    manager = mocker.patch.object(scan_module, "_get_socket_manager")
+    manager.return_value.emit = AsyncMock()
+
+    stats = await scan_platforms(
+        platform_ids=[7], roms_ids=[42], metadata_sources=[], media_only=True
+    )
+
+    db.get_roms_scalar.assert_called_once_with(platform_ids=[7])
+    refresh.assert_awaited_once_with(second, second.updated_at)
+    assert stats.scanned_roms == 1
+
+
 def test_scan_stats():
     stats = ScanStats()
     assert stats.scanned_platforms == 0

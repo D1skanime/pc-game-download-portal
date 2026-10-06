@@ -75,3 +75,23 @@ None. The change adds no endpoint, authentication, filesystem authority, or sche
 - Summary file exists.
 - Task commit `11a5e632b` exists.
 - The unrelated pre-existing mapping diff in `backend/endpoints/sockets/scan.py` remains outside the task commit.
+
+## Completed Task 3
+
+Media-only is now a bounded compatibility mode on the existing mapped scan lifecycle.
+
+- Added media_only propagation from the scan socket through mapping execution to scan_platforms.
+- The media-only path loads only existing database ROMs and never calls filesystem platform discovery, _identify_platform, or _identify_rom; it cannot create or identify ROMs.
+- Optional ROM selection is filtered against already-loaded existing ROM IDs; platform/library scopes remain database-backed.
+- Provider media refresh is shared with the existing POST /api/roms/{id}/media/refresh authority by extracting the existing download/reconciliation routine into handler.metadata.rom_media.
+- Media-only updates only owned provider media; it does not write metadata fields, provider IDs, source paths, PC/DLC associations, or metadata priority results.
+- Contradictory metadata_only plus media_only requests are rejected at the socket boundary.
+- Added source-mocked socket tests for existing-ROM-only behavior and ROM-ID filtering.
+
+## Task 3 Verification
+
+- Python compile(...) passed for the three production modules and the socket test module.
+- Targeted git diff --check passed for all Task 3 files.
+- Targeted pytest was attempted with .venv/bin/pytest -k media_only; collection setup was blocked before test execution because MariaDB is unavailable at 127.0.0.1:3306.
+- No frontend change was needed for the single-ROM path: the existing frontend refreshOwnedMedia API already targets the existing REST authority.
+- The pre-existing mapping_scan_commands dirty change in backend/endpoints/sockets/scan.py was not staged or reverted.

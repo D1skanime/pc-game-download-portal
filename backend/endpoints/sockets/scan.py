@@ -58,6 +58,7 @@ from handler.metadata import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.pc_match_handler import pc_metadata_match_handler
+from handler.metadata.rom_media import refresh_provider_owned_media
 from handler.metadata.ss_handler import add_ss_auth_to_url
 from handler.metadata.ss_handler import begin_scan as begin_ss_scan
 from handler.metadata.ss_handler import get_preferred_media_types
@@ -1065,6 +1066,7 @@ async def scan_platforms(
     platform_fs_slugs: list[str] | None = None,
     metadata_locale: str | None = None,
     metadata_only: bool = False,
+    media_only: bool = False,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -1100,6 +1102,55 @@ async def scan_platforms(
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
+
+    if media_only:
+        if metadata_only:
+            raise ValueError("media_only and metadata_only cannot be combined")
+        existing_roms = list(
+            db_rom_handler.get_roms_scalar(
+                platform_ids=platform_ids or None,
+            )
+        )
+        requested_ids = set(roms_ids or [])
+        if requested_ids:
+            existing_roms = [rom for rom in existing_roms if rom.id in requested_ids]
+        await scan_stats.update(
+            socket_manager=socket_manager,
+            total_platforms=0,
+            total_roms=len(existing_roms),
+        )
+        semaphore = asyncio.Semaphore(SCAN_WORKERS)
+
+        async def refresh_existing_rom(rom: Rom) -> None:
+            async with semaphore:
+                try:
+                    refreshed = await refresh_provider_owned_media(rom, rom.updated_at)
+                except (ValueError, OSError) as exc:
+                    log.warning("Media-only refresh failed for %s: %s", rom.id, exc)
+                    return
+                await scan_stats.increment(
+                    socket_manager=socket_manager,
+                    scanned_roms=1,
+                    identified_roms=1 if refreshed.is_identified else 0,
+                )
+                emitted_rom = _refresh_rom_for_scan_emit(refreshed)
+                await socket_manager.emit(
+                    "scan:scanning_rom",
+                    SimpleRomSchema.from_orm_with_factory(emitted_rom).model_dump(
+                        exclude={
+                            "created_at",
+                            "updated_at",
+                            "rom_user",
+                            "last_modified",
+                            "files",
+                            "sibling_roms",
+                        }
+                    ),
+                )
+
+        await asyncio.gather(*(refresh_existing_rom(rom) for rom in existing_roms))
+        await socket_manager.emit("scan:done", scan_stats.to_dict())
+        return scan_stats
 
     # ScreenScraper's scan state is process-global, so a scan that never touches
     # it must leave it alone: under DEV_MODE scans run in-process and can
@@ -1302,6 +1353,7 @@ async def execute_mapping_scan(
     playmatch_enabled: bool = True,
     metadata_locale: str | None = None,
     metadata_only: bool = False,
+    media_only: bool = False,
 ) -> ScanStats:
     """Run a scan from immutable mapping identity, never a caller-supplied path."""
     mapping = db_storage_handler.get_mapping(command.mapping_id)
@@ -1318,6 +1370,7 @@ async def execute_mapping_scan(
             playmatch_enabled=playmatch_enabled,
             metadata_locale=metadata_locale,
             metadata_only=metadata_only,
+            media_only=media_only,
         )
 
     return await execute_mapped_scan(
@@ -1363,6 +1416,7 @@ async def execute_mapping_scans(
     playmatch_enabled: bool = True,
     metadata_locale: str | None = None,
     metadata_only: bool = False,
+    media_only: bool = False,
 ) -> ScanStats:
     """Execute mapping commands through the common executor."""
     combined = ScanStats()
@@ -1375,6 +1429,7 @@ async def execute_mapping_scans(
             playmatch_enabled=playmatch_enabled,
             metadata_locale=metadata_locale,
             metadata_only=metadata_only,
+            media_only=media_only,
         )
         for field in result.to_dict():
             setattr(combined, field, getattr(combined, field) + getattr(result, field))
@@ -1439,6 +1494,14 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         else None
     )
     metadata_only = bool(options.get("metadata_only", False))
+    media_only = bool(options.get("media_only", False))
+    if metadata_only and media_only:
+        await socket_handler.socket_server.emit(
+            "scan:done_ko",
+            "metadata_only and media_only cannot be combined",
+            to=sid,
+        )
+        return
     try:
         commands = mapping_scan_commands(
             platform_ids,
@@ -1463,6 +1526,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             playmatch_enabled=playmatch_enabled,
             metadata_locale=metadata_locale,
             metadata_only=metadata_only,
+            media_only=media_only,
         )
 
     return high_prio_queue.enqueue(
@@ -1474,6 +1538,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         playmatch_enabled=playmatch_enabled,
         metadata_locale=metadata_locale,
         metadata_only=metadata_only,
+        media_only=media_only,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={

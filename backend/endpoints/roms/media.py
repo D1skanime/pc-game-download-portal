@@ -23,14 +23,13 @@ from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler, storage_composition
 from handler.filesystem.storage_access import OwnedRead, open_owned_access
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
-from handler.metadata.rom_media import discover_provider_media
+from handler.metadata.rom_media import refresh_provider_owned_media
 from models.rom import RomOwnedMediaRole
-from utils.context import ctx_httpx_client
 from utils.router import APIRouter
 
 router = APIRouter()
-_IMAGE_LIMIT = 10 * 1024 * 1024
 _AUDIO_LIMIT = 512 * 1024 * 1024
+_IMAGE_LIMIT = 10 * 1024 * 1024
 
 
 def _visible_rom(request: Request, rom_id: int):
@@ -57,24 +56,6 @@ def _detailed_rom_response(rom_id: int, request: Request) -> DetailedRomSchema:
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
-async def _download_provider_image(rom, candidate):
-    """Download bounded provider bytes before publishing them to owned storage."""
-    client = ctx_httpx_client.get()
-    async with client.stream("GET", candidate.url, timeout=30) as response:
-        if response.status_code != status.HTTP_200_OK:
-            raise ValueError("Provider media could not be downloaded")
-        chunks: list[bytes] = []
-        total = 0
-        async for chunk in response.aiter_bytes():
-            total += len(chunk)
-            if total > _IMAGE_LIMIT:
-                raise ValueError("Provider media exceeds the 10 MiB limit")
-            chunks.append(chunk)
-    return await fs_resource_handler.store_owned_media_image(
-        rom, candidate.role, b"".join(chunks)
-    )
-
-
 @protected_route(router.get, "/{id}/media", [Scope.ROMS_READ])
 async def get_media(request: Request, id: int) -> list[RomOwnedMediaSchema]:
     _visible_rom(request, id)
@@ -90,36 +71,13 @@ async def refresh_media(
 ) -> DetailedRomSchema:
     """Explicitly reconcile provider images without changing user placements."""
     rom = _visible_rom(request, id)
-    provider = rom.metadata_source or "provider"
-    source = {
-        "url_screenshots": rom.url_screenshots or [],
-        "url_artworks": [rom.url_cover] if rom.url_cover else [],
-    }
-    for candidate in discover_provider_media(provider, source):
-        path: str | None = None
-        try:
-            path, mime_type = await _download_provider_image(rom, candidate)
-            applied = db_rom_handler.reconcile_provider_owned_media(
-                id,
-                expected_version,
-                candidate.provider,
-                candidate.provider_media_id,
-                candidate.role,
-                candidate.display_label,
-                mime_type,
-                path,
-            )
-            if applied is None:
-                raise ValueError("Media catalog changed")
-            expected_version = applied.rom.updated_at
-            rom = applied.rom
-        except ValueError:
-            if path is not None:
-                await fs_resource_handler.remove_file(path)
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Provider media could not be refreshed",
-            ) from None
+    try:
+        await refresh_provider_owned_media(rom, expected_version)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Provider media could not be refreshed",
+        ) from None
     return _detailed_rom_response(id, request)
 
 

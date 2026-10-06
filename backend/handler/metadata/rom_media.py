@@ -9,9 +9,15 @@ from hashlib import sha256
 from pathlib import PurePosixPath
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from fastapi import status
+
+from handler.database import db_rom_handler
+from handler.filesystem import fs_resource_handler
 from models.rom import RomOwnedMediaRole, derive_owned_media_display_label
+from utils.context import ctx_httpx_client
 
 _MAX_PROVIDER_MEDIA = 500
+_IMAGE_LIMIT = 10 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,3 +78,54 @@ def discover_provider_media(
             raise ValueError("Provider media list is invalid or exceeds the limit")
         candidates.extend(_candidate(provider, value, role) for value in values)
     return candidates
+
+
+async def _download_provider_image(
+    rom, candidate: ProviderMediaCandidate
+) -> tuple[str, str]:
+    client = ctx_httpx_client.get()
+    async with client.stream("GET", candidate.url, timeout=30) as response:
+        if response.status_code != status.HTTP_200_OK:
+            raise ValueError("Provider media could not be downloaded")
+        chunks: list[bytes] = []
+        total = 0
+        async for chunk in response.aiter_bytes():
+            total += len(chunk)
+            if total > _IMAGE_LIMIT:
+                raise ValueError("Provider media exceeds the 10 MiB limit")
+            chunks.append(chunk)
+    return await fs_resource_handler.store_owned_media_image(
+        rom, candidate.role, b"".join(chunks)
+    )
+
+
+async def refresh_provider_owned_media(rom, expected_version):
+    """Refresh one existing ROM through the shared provider-media authority."""
+    provider = rom.metadata_source or "provider"
+    source = {
+        "url_screenshots": rom.url_screenshots or [],
+        "url_artworks": [rom.url_cover] if rom.url_cover else [],
+    }
+    for candidate in discover_provider_media(provider, source):
+        path: str | None = None
+        try:
+            path, mime_type = await _download_provider_image(rom, candidate)
+            applied = db_rom_handler.reconcile_provider_owned_media(
+                rom.id,
+                expected_version,
+                candidate.provider,
+                candidate.provider_media_id,
+                candidate.role,
+                candidate.display_label,
+                mime_type,
+                path,
+            )
+            if applied is None:
+                raise ValueError("Media catalog changed")
+            expected_version = applied.rom.updated_at
+            rom = applied.rom
+        except ValueError:
+            if path is not None:
+                await fs_resource_handler.remove_file(path)
+            raise
+    return rom
