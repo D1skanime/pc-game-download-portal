@@ -21,14 +21,14 @@ import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
+import { useLibraryOperation } from "@/v2/composables/useLibraryOperation";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import socket from "@/v2/data/adapters/legacy/services/socket";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
 import storeHeartbeat, {
   type MetadataOption,
 } from "@/v2/data/adapters/legacy/stores/heartbeat";
 import { type SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
-import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
+import { buildLibraryScanRequest } from "@/v2/data/operations";
 
 defineOptions({ inheritAttrs: false });
 
@@ -58,9 +58,10 @@ const GENERAL_PROVIDER_KEYS = new Set([
 ]);
 const SPECIFIC_PROVIDER_KEYS = new Set(["ra", "sgdb", "hltb"]);
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const libraryOperation = useLibraryOperation();
 const show = ref(false);
 // Accept either a single rom or an array — the SelectionBar passes
 // many at once, individual menus pass one. Internally we always
@@ -68,7 +69,6 @@ const show = ref(false);
 // branching on the input shape.
 const roms = ref<SimpleRom[]>([]);
 const heartbeat = storeHeartbeat();
-const scanningStore = storeScanning();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 
@@ -99,7 +99,6 @@ const generalProviders = computed<MetadataOption[]>(() =>
 const specificProviders = computed<MetadataOption[]>(() =>
   metadataOptions.value.filter((o) => SPECIFIC_PROVIDER_KEYS.has(o.value)),
 );
-
 const storedMetadataSources = useLocalStorage(
   LOCAL_STORAGE_METADATA_SOURCES_KEY,
   [] as string[],
@@ -141,6 +140,28 @@ watch(
   },
   { immediate: true },
 );
+
+const enabledGeneralProviders = computed(() =>
+  generalProviders.value.filter((o) => !o.disabled),
+);
+const enabledSpecificProviders = computed(() =>
+  specificProviders.value.filter((o) => !o.disabled),
+);
+
+function hasGroupSelection(keys: Set<string>): boolean {
+  return metadataSources.value.some((s) => keys.has(s.value));
+}
+
+const generalAllSelected = ref(!hasGroupSelection(GENERAL_PROVIDER_KEYS));
+const specificAllSelected = ref(!hasGroupSelection(SPECIFIC_PROVIDER_KEYS));
+const effectiveMetadataSources = computed<MetadataOption[]>(() => [
+  ...(generalAllSelected.value
+    ? enabledGeneralProviders.value
+    : metadataSources.value.filter((s) => GENERAL_PROVIDER_KEYS.has(s.value))),
+  ...(specificAllSelected.value
+    ? enabledSpecificProviders.value
+    : metadataSources.value.filter((s) => SPECIFIC_PROVIDER_KEYS.has(s.value))),
+]);
 
 interface HashMatcher {
   value: "hasheous" | "playmatch";
@@ -264,6 +285,7 @@ emitter?.on("showRefreshMetadataDialogBulk", openBulk);
 onBeforeUnmount(() => {
   emitter?.off("showRefreshMetadataDialog", openSingle);
   emitter?.off("showRefreshMetadataDialogBulk", openBulk);
+  libraryOperation.dispose();
 });
 
 const singleRom = computed<SimpleRom | null>(() =>
@@ -282,12 +304,8 @@ const singleRomTitle = computed(() => {
 function onScan() {
   if (roms.value.length === 0) return;
 
-  scanningStore.setScanning(true);
   storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
-  // Group rom ids by platform — the scan socket event accepts one
-  // platform list + one rom-id list, so a selection that spans
-  // multiple platforms is fanned into N events, one per platform.
   const byPlatform = new Map<number, number[]>();
   for (const r of roms.value) {
     const list = byPlatform.get(r.platform_id) ?? [];
@@ -306,39 +324,52 @@ function onScan() {
     });
   }
 
-  if (!socket.connected) socket.connect();
-
-  // Build the apis payload — providers + hasheous (when its switch is
-  // on; the backend accepts it as a MetadataSource enum value).
-  // Playmatch has no enum entry; the backend gates it via the separate
-  // `playmatch_enabled` flag below.
-  const apis = metadataSources.value.map((s) => s.value);
+  const providers = effectiveMetadataSources.value.map((s) => s.value);
   const hasheousMatcher = hashMatchers.value.find(
     (m) => m.value === "hasheous",
   );
   if (hasheousMatcher && isHashMatcherOn(hasheousMatcher)) {
-    apis.push("hasheous");
+    providers.push("hasheous");
   }
   const playmatchMatcher = hashMatchers.value.find(
     (m) => m.value === "playmatch",
   );
+  const playmatchEnabled = playmatchMatcher
+    ? isHashMatcherOn(playmatchMatcher)
+    : false;
+  const operationBase = "rom-refresh-" + String(Date.now());
 
-  for (const [platformId, romIds] of byPlatform) {
-    socket.emit("scan", {
-      platforms: [platformId],
-      roms_ids: romIds,
-      type: scanType.value,
-      apis,
-      launchbox_remote_enabled: launchboxRemoteEnabled.value,
-      playmatch_enabled: playmatchMatcher
-        ? isHashMatcherOn(playmatchMatcher)
-        : false,
-    });
-  }
+  void Promise.all(
+    [...byPlatform].map(([platformId, romIds]) => {
+      const operationId = operationBase + "-" + String(platformId);
+      return libraryOperation.start(
+        buildLibraryScanRequest({
+          operationId,
+          kind: "metadata-refresh",
+          scope: { kind: "rom", romIds },
+          profiles: [
+            {
+              rootId: "library",
+              mappingId: platformId,
+              mappingRevision: 0,
+              layout: "classic-rom",
+              itemKind: "game",
+              platformId,
+            },
+          ],
+          uiLocale: locale.value,
+          metadataLocale: locale.value,
+          providers,
+          playmatchEnabled,
+          launchboxRemoteEnabled: launchboxRemoteEnabled.value,
+          scanType: scanType.value,
+        }),
+      );
+    }),
+  );
 
   closeDialog();
 }
-
 function closeDialog() {
   show.value = false;
   roms.value = [];
@@ -414,6 +445,7 @@ function closeDialog() {
               chips
               chip-tone="plain"
               show-all-option
+              @update:all-selected="generalAllSelected = $event"
             >
               <template #chip="{ item }">
                 <RTooltip :text="item.raw.name" location="bottom">
@@ -505,6 +537,7 @@ function closeDialog() {
               chips
               chip-tone="plain"
               show-all-option
+              @update:all-selected="specificAllSelected = $event"
             >
               <template #chip="{ item }">
                 <RTooltip :text="item.raw.name" location="bottom">
@@ -643,7 +676,7 @@ function closeDialog() {
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
-        :disabled="metadataSources.length === 0"
+        :disabled="effectiveMetadataSources.length === 0"
         @click="onScan"
       >
         {{ t("rom.refresh-metadata") }}

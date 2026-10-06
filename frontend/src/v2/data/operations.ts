@@ -1,5 +1,70 @@
 import { normalizeLocale } from "@/v2/composables/useProviderResolution";
-import type { OperationRequest, OperationScope, ScanType } from "./contracts";
+import type {
+  LibraryProfile,
+  OperationKind,
+  OperationRequest,
+  OperationScope,
+  ScanType,
+} from "./contracts";
+
+export interface LibraryScanRequestInput {
+  operationId: string;
+  kind: OperationKind;
+  scope: OperationScope;
+  profiles: LibraryProfile[];
+  uiLocale: string;
+  metadataLocale: string;
+  providers: string[];
+  playmatchEnabled: boolean;
+  launchboxRemoteEnabled: boolean;
+  scanType: ScanType;
+}
+
+export function buildLibraryScanRequest(
+  input: LibraryScanRequestInput,
+): OperationRequest {
+  return {
+    operationId: input.operationId,
+    kind: input.kind,
+    scope: input.scope,
+    profiles: input.profiles,
+    uiLocale: input.uiLocale,
+    metadataLocale: input.metadataLocale,
+    providerPolicy: {
+      providers: input.providers,
+      fallbackProviders: input.playmatchEnabled ? ["playmatch"] : [],
+      allowUnexpectedLocale: false,
+      launchboxRemoteEnabled: input.launchboxRemoteEnabled,
+    },
+    metadataPolicy: {
+      mode: input.scanType === "update" ? "provider-replace" : "missing-only",
+      fields: [],
+    },
+    mediaPolicy: { mode: "missing-only", targets: [] },
+    capabilities: {
+      discovery: true,
+      creation: true,
+      metadata: true,
+      media: true,
+      fileMutation: false,
+      pcDlc: true,
+      preview: true,
+      retry: true,
+      resume: true,
+    },
+    preview: false,
+    permissions: { scopes: ["tasks:run"] },
+    idempotencyKey: input.operationId,
+    jobId: input.operationId,
+    retry: { maxAttempts: 3 },
+    execution: {
+      maxConcurrency: 1,
+      cancelable: true,
+      resumable: true,
+    },
+    scanType: input.scanType,
+  };
+}
 
 export interface LegacyScanOptions {
   platforms: number[];
@@ -167,6 +232,7 @@ export function toLegacyScanOptions(
       ...request.providerPolicy.fallbackProviders,
     ]),
     launchbox_remote_enabled:
+      request.providerPolicy.launchboxRemoteEnabled ??
       request.providerPolicy.providers.includes("launchbox"),
     playmatch_enabled:
       request.providerPolicy.providers.includes("playmatch") ||

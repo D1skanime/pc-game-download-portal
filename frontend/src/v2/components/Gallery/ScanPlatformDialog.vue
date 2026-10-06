@@ -21,16 +21,16 @@ import {
 } from "@v2/lib";
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useLibraryOperation } from "@/v2/composables/useLibraryOperation";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import socket from "@/v2/data/adapters/legacy/services/socket";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
 import storeHeartbeat, {
   type MetadataOption,
 } from "@/v2/data/adapters/legacy/stores/heartbeat";
 import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
-import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
+import { buildLibraryScanRequest } from "@/v2/data/operations";
 
 defineOptions({ inheritAttrs: false });
 
@@ -67,10 +67,10 @@ const GENERAL_PROVIDER_KEYS = new Set([
 ]);
 const SPECIFIC_PROVIDER_KEYS = new Set(["ra", "sgdb", "hltb"]);
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const snackbar = useSnackbar();
+const libraryOperation = useLibraryOperation();
 const heartbeat = storeHeartbeat();
-const scanningStore = storeScanning();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 
@@ -101,7 +101,6 @@ const generalProviders = computed<MetadataOption[]>(() =>
 const specificProviders = computed<MetadataOption[]>(() =>
   metadataOptions.value.filter((o) => SPECIFIC_PROVIDER_KEYS.has(o.value)),
 );
-
 const storedMetadataSources = useLocalStorage(
   LOCAL_STORAGE_METADATA_SOURCES_KEY,
   [] as string[],
@@ -143,6 +142,28 @@ watch(
   },
   { immediate: true },
 );
+
+const enabledGeneralProviders = computed(() =>
+  generalProviders.value.filter((o) => !o.disabled),
+);
+const enabledSpecificProviders = computed(() =>
+  specificProviders.value.filter((o) => !o.disabled),
+);
+
+function hasGroupSelection(keys: Set<string>): boolean {
+  return metadataSources.value.some((s) => keys.has(s.value));
+}
+
+const generalAllSelected = ref(!hasGroupSelection(GENERAL_PROVIDER_KEYS));
+const specificAllSelected = ref(!hasGroupSelection(SPECIFIC_PROVIDER_KEYS));
+const effectiveMetadataSources = computed<MetadataOption[]>(() => [
+  ...(generalAllSelected.value
+    ? enabledGeneralProviders.value
+    : metadataSources.value.filter((s) => GENERAL_PROVIDER_KEYS.has(s.value))),
+  ...(specificAllSelected.value
+    ? enabledSpecificProviders.value
+    : metadataSources.value.filter((s) => SPECIFIC_PROVIDER_KEYS.has(s.value))),
+]);
 
 interface HashMatcher {
   value: "hasheous" | "playmatch";
@@ -244,36 +265,48 @@ function closeDialog() {
 }
 
 function onScan() {
-  scanningStore.setScanning(true);
   storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
-  const apis = metadataSources.value.map((s) => s.value);
+  const providers = effectiveMetadataSources.value.map((s) => s.value);
   const hasheousMatcher = hashMatchers.value.find(
     (m) => m.value === "hasheous",
   );
   if (hasheousMatcher && isHashMatcherOn(hasheousMatcher)) {
-    apis.push("hasheous");
+    providers.push("hasheous");
   }
   const playmatchMatcher = hashMatchers.value.find(
     (m) => m.value === "playmatch",
   );
+  const operationId =
+    "platform-scan-" + String(props.platform.id) + "-" + String(Date.now());
+  const scanTypeValue = scanType.value;
 
-  if (!socket.connected) socket.connect();
-  socket.emit("scan", {
-    platforms: [props.platform.id],
-    type: scanType.value,
-    apis,
-    launchbox_remote_enabled: launchboxRemoteEnabled.value,
-    playmatch_enabled: playmatchMatcher
-      ? isHashMatcherOn(playmatchMatcher)
-      : false,
-  });
+  void libraryOperation.start(
+    buildLibraryScanRequest({
+      operationId,
+      kind: scanTypeValue === "update" ? "metadata-refresh" : "discovery",
+      scope: { kind: "platform", platformIds: [props.platform.id] },
+      profiles: [],
+      uiLocale: locale.value,
+      metadataLocale: locale.value,
+      providers,
+      playmatchEnabled: playmatchMatcher
+        ? isHashMatcherOn(playmatchMatcher)
+        : false,
+      launchboxRemoteEnabled: launchboxRemoteEnabled.value,
+      scanType: scanTypeValue,
+    }),
+  );
 
-  snackbar.info(`Scanning ${props.platform.display_name}…`, {
+  snackbar.info("Scanning " + props.platform.display_name + "…", {
     icon: "mdi-loading mdi-spin",
   });
   closeDialog();
 }
+
+onBeforeUnmount(() => {
+  libraryOperation.dispose();
+});
 </script>
 
 <template>
@@ -337,6 +370,7 @@ function onScan() {
               chips
               chip-tone="plain"
               show-all-option
+              @update:all-selected="generalAllSelected = $event"
             >
               <template #chip="{ item }">
                 <RTooltip :text="item.raw.name" location="bottom">
@@ -424,6 +458,7 @@ function onScan() {
               chips
               chip-tone="plain"
               show-all-option
+              @update:all-selected="specificAllSelected = $event"
             >
               <template #chip="{ item }">
                 <RTooltip :text="item.raw.name" location="bottom">
@@ -560,7 +595,7 @@ function onScan() {
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
-        :disabled="metadataSources.length === 0"
+        :disabled="effectiveMetadataSources.length === 0"
         @click="onScan"
       >
         {{ t("scan.scan", "Scan") }}

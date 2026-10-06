@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { OperationRequest } from "./contracts";
 import {
   OperationTranslationError,
+  buildLibraryScanRequest,
   normalizeOperationRequest,
   toLegacyScanOptions,
 } from "./operations";
@@ -52,6 +53,31 @@ const baseRequest = (
 });
 
 describe("operation compatibility translation", () => {
+  it("builds a dialog request that preserves the legacy scan payload semantics", () => {
+    const request = buildLibraryScanRequest({
+      operationId: "refresh-platform-7",
+      kind: "metadata-refresh",
+      scope: { kind: "platform", platformIds: [7] },
+      profiles: [],
+      uiLocale: "de-DE",
+      metadataLocale: "en-US",
+      providers: ["igdb", "launchbox", "hasheous"],
+      playmatchEnabled: true,
+      launchboxRemoteEnabled: false,
+      scanType: "complete",
+    });
+
+    expect(toLegacyScanOptions(request)).toEqual({
+      platforms: [7],
+      type: "complete",
+      roms_ids: [],
+      platform_fs_slugs: [],
+      apis: ["igdb", "launchbox", "hasheous", "playmatch"],
+      launchbox_remote_enabled: false,
+      playmatch_enabled: true,
+    });
+  });
+
   it("maps classic platform scans to the existing socket payload", () => {
     expect(toLegacyScanOptions(baseRequest())).toEqual({
       platforms: [7],
