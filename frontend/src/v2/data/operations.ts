@@ -1,3 +1,4 @@
+import { normalizeLocale } from "@/v2/composables/useProviderResolution";
 import type { OperationRequest, OperationScope, ScanType } from "./contracts";
 
 export interface LegacyScanOptions {
@@ -83,14 +84,27 @@ export function normalizeOperationRequest(
       "Operation, idempotency, and job identifiers are required.",
     );
   }
+  const maxConcurrency = Math.max(
+    1,
+    Math.min(16, Math.floor(request.execution.maxConcurrency)),
+  );
   return {
     ...request,
+    uiLocale: normalizeLocale(request.uiLocale),
+    metadataLocale: normalizeLocale(request.metadataLocale),
+    execution: {
+      ...request.execution,
+      maxConcurrency,
+      resumable:
+        request.execution.resumable && Boolean(request.capabilities.resume),
+    },
     providerPolicy: {
       ...request.providerPolicy,
       providers: uniqueStrings(request.providerPolicy.providers),
       fallbackProviders: uniqueStrings(
         request.providerPolicy.fallbackProviders,
       ),
+      region: request.providerPolicy.region?.trim() || undefined,
     },
   };
 }

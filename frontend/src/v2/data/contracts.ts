@@ -120,6 +120,7 @@ export interface ProviderPolicy {
   providers: string[];
   fallbackProviders: string[];
   allowUnexpectedLocale: boolean;
+  region?: string;
 }
 
 export type MetadataPolicyMode =
@@ -212,7 +213,15 @@ export interface OperationRequest {
 }
 
 export type OperationStatus =
-  "queued" | "running" | "completed" | "cancelled" | "failed";
+  | "queued"
+  | "running"
+  | "stopping"
+  | "completed"
+  | "partial"
+  | "cancelled"
+  | "permission-denied"
+  | "retryable"
+  | "failed";
 
 export type OperationItemOutcome =
   | "changed"
@@ -228,8 +237,27 @@ export interface OperationItemResult {
   outcome: OperationItemOutcome;
   operationId: string;
   jobId: string;
+  attempt?: number;
   message?: string;
   provenance?: Provenance;
+}
+
+export type OperationDiagnosticCode =
+  | "permission-denied"
+  | "rate-limited"
+  | "provider-failed"
+  | "cancelled"
+  | "validation-failed";
+
+export interface OperationDiagnostic {
+  code: OperationDiagnosticCode;
+  operationId: string;
+  jobId: string;
+  itemId?: string;
+  provider?: string;
+  locale?: string;
+  retryable: boolean;
+  message: string;
 }
 
 export interface OperationResult {
@@ -238,4 +266,11 @@ export interface OperationResult {
   status: OperationStatus;
   items: OperationItemResult[];
   preview: boolean;
+  diagnostics?: OperationDiagnostic[];
+  impact?: {
+    scope: string;
+    providers: string[];
+    metadataMode: MetadataPolicyMode;
+    mediaMode: MediaPolicyMode;
+  };
 }
