@@ -13,3 +13,5 @@ For GSD work, the chat is the control plane and `/home/d1sk/romm` is the executi
 - Batch independent discussion decisions into one message. Do not make the user repeat an invocation or issue a new command after each answer. Resume the remote agent with the captured answers.
 - The coordinating agent owns progress monitoring and must report meaningful changes without requiring the user to watch logs. Do not claim a background agent is interactive with chat when no input bridge exists.
 - Preserve unrelated worktree changes and do not deploy, access a real NAS mount, restart Team4s, or alter Team4s unless the active task explicitly authorizes it.
+
+- Apply the repository-wide code-size and decomposition rules in CLAUDE.md to every implementation, regardless of which agent, model, phase, or AI tool performs the work.

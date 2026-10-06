@@ -75,8 +75,20 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **Never commit secrets.** Never commit secrets (API keys, passwords, tokens, etc.) to the repo. Use environment variables or secret management tools instead.
 **Don't explain a change.** Avoid comments that explain why a change was made to the code. Focus instead on the current behaviour of the code and how it works.
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
-**Link PRs to issues.** In the PR description, use `Fixes #XXXX` for issue/bug fixes and `Closes #XXXX` for feature implementations.
-**Use the PR template.** Base every PR description on `.github/PULL_REQUEST_TEMPLATE.md`.
+
+### Code-size and decomposition policy
+
+This rule applies to every agent, model, phase, branch, and AI tool working in this repository.
+
+- New production files should target at most 500 logical lines. Do not create a monolithic file when the responsibilities can be separated by domain, lifecycle, provider, policy, or UI feature.
+- A production file above 500 lines requires an explicit decomposition review in the plan or change description. The review must state why the file cannot be split safely, or identify the follow-up extraction boundary.
+- New production files above 1,000 lines are prohibited unless the file is an unavoidable generated/API artifact or the repository owner explicitly approves the exception.
+- Do not inflate a legacy monolith further. Before adding substantial behavior to an existing large file, extract a focused module, adapter, composable, handler, or policy unit where this can be done without duplicating existing storage-mapping, PC, provider, lifecycle, or ownership logic.
+- Splitting code artificially only to satisfy the line limit is not acceptable. Modules must have one coherent responsibility and stable interfaces.
+- Prefer small files with tests beside the code. A file split must preserve one source of truth and must not create parallel resolvers, storage models, scan lifecycles, or mutation policies.
+- The limit applies to runtime Python, TypeScript, and Vue files. Generated files, migrations, schemas, test fixtures, snapshots, and data files are exempt, but large hand-written test helpers should still be decomposed when practical.
+  **Link PRs to issues.** In the PR description, use `Fixes #XXXX` for issue/bug fixes and `Closes #XXXX` for feature implementations.
+  **Use the PR template.** Base every PR description on `.github/PULL_REQUEST_TEMPLATE.md`.
 
 ---
 
