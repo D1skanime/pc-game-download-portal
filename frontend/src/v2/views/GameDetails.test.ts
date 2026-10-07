@@ -66,6 +66,18 @@ describe("GameDetails", () => {
     expect(setBackground).toHaveBeenCalledTimes(3);
   });
 
+  it("serves selected owned backgrounds through the media content endpoint", () => {
+    const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
+
+    expect(source).toContain("/api/roms/");
+    expect(source).toContain(
+      "/media/" + "$" + "{media.id}/content?v=" + "$" + "{rom.updated_at}",
+    );
+    expect(source).not.toContain(
+      "FRONTEND_RESOURCES_PATH}" + "/" + "$" + "{media.owned_path}",
+    );
+  });
+
   it("restarts the rotation when the selected background list changes", () => {
     const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
 
@@ -118,6 +130,13 @@ describe("GameDetails", () => {
         url: "/api/roms/44/media/10/content",
       },
     ]);
+  });
+
+  it("keeps the selected background visible when motion is reduced", () => {
+    const source = readFileSync("src/v2/styles/global.css", "utf8");
+
+    expect(source).toContain("html.r-v2-reduced-motion .r-v2-bg__layer");
+    expect(source).not.toContain("html.r-v2-reduced-motion .r-v2-bg,");
   });
 
   it("keeps the first background static when motion is reduced or a list is singular", () => {

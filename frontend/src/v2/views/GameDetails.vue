@@ -223,7 +223,7 @@ const selectedBackgrounds = computed(() => {
     .flatMap((placement) => {
       const media = mediaById.get(placement.media_id);
       return media?.owned_path
-        ? [`${FRONTEND_RESOURCES_PATH}/${media.owned_path}?v=${rom.updated_at}`]
+        ? [`/api/roms/${rom.id}/media/${media.id}/content?v=${rom.updated_at}`]
         : [];
     });
 });
