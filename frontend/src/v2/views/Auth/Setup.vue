@@ -173,7 +173,11 @@ async function finishWizard() {
     router.push({ name: "login" });
   } catch (err) {
     const error = err as {
-      response?: { data?: { detail?: string }; statusText?: string };
+      response?: {
+        data?: { detail?: string };
+        status?: number;
+        statusText?: string;
+      };
       message?: string;
     };
     const detail = error.response?.data?.detail;
