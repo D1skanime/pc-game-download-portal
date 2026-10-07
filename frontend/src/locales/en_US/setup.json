@@ -96,5 +96,6 @@
   "supported-platforms": "Supported Platforms",
   "supported-platforms-lead": "Choose which platforms RomM should manage. Detected platforms are locked in; pick more to create their folders.",
   "unidentified": "Unidentified",
-  "unidentified-platforms-hint": "Folders RomM couldn't match to a known platform. They stay where they are."
+  "unidentified-platforms-hint": "Folders RomM couldn't match to a known platform. They stay where they are.",
+  "account-exists": "The administrator already exists. Please sign in."
 }

@@ -96,5 +96,6 @@
   "supported-platforms": "Verfügbare Plattformen",
   "supported-platforms-lead": "Wähle, welche Plattformen RomM verwalten soll. Erkannte Plattformen sind festgelegt; wähle weitere, um deren Ordner zu erstellen.",
   "unidentified": "Nicht identifiziert",
-  "unidentified-platforms-hint": "Ordner, die RomM keiner bekannten Plattform zuordnen konnte. Sie bleiben unverändert."
+  "unidentified-platforms-hint": "Ordner, die RomM keiner bekannten Plattform zuordnen konnte. Sie bleiben unverändert.",
+  "account-exists": "Der Administrator existiert bereits. Bitte melde dich an."
 }

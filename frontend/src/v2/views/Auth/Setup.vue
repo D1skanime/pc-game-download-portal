@@ -176,13 +176,25 @@ async function finishWizard() {
       response?: { data?: { detail?: string }; statusText?: string };
       message?: string;
     };
+    const detail = error.response?.data?.detail;
+    if (
+      error.response?.status === 400 &&
+      typeof detail === "string" &&
+      /already exists/i.test(detail)
+    ) {
+      snackbar.info(t("setup.account-exists"), {
+        icon: "mdi-account-check",
+      });
+      router.push({ name: "login" });
+      return;
+    }
     snackbar.error(
-      `${t("setup.creating-platforms-failed")}: ${
-        error.response?.data?.detail ??
-        error.response?.statusText ??
-        error.message ??
-        ""
-      }`,
+      [
+        t("setup.creating-platforms-failed"),
+        detail ?? error.response?.statusText ?? error.message,
+      ]
+        .filter(Boolean)
+        .join(": "),
       { icon: "mdi-close-circle" },
     );
   } finally {
