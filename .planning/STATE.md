@@ -432,7 +432,7 @@ Recent decisions affecting current work:
 | 261005-j7u             | Synchronize existing nested Windows games during quick scans                   | 2026-10-05 | dabb232bd    | [261005-j7u-synchronize-pc-download-components-durin](./quick/261005-j7u-synchronize-pc-download-components-durin/) |
 | 261005-l3d             | Show local PC DLC and expansion cards on game overviews                        | 2026-10-05 | 887e35cea    | [261005-l3d-show-locally-matched-pc-dlc-components-w](./quick/261005-l3d-show-locally-matched-pc-dlc-components-w/) |
 | 261007-apq             | Add Steam setup metadata visibility, localized copy, and heartbeat regressions | 2026-10-07 | ec8bbe694    | [261007-apq-steam-bug-fixen](./quick/261007-apq-steam-bug-fixen/)                                                   |
-| 261007-pmi             | Expose and connect the existing platform storage mapping workflow              | 2026-10-07 | 3cd9702d7    | [261007-pmi-fix-platform-storage-mapping-integration](./quick/20261007-fix-platform-storage-mapping-integration/)   |
+| 261007-pmi             | Expose and connect the existing platform storage mapping workflow              | 2026-10-07 | 661315f85    | [261007-pmi-fix-platform-storage-mapping-integration](./quick/20261007-fix-platform-storage-mapping-integration/)   |
 
 ## Deferred Items
 
