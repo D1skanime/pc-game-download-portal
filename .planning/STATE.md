@@ -434,7 +434,7 @@ Recent decisions affecting current work:
 | 261007-apq             | Add Steam setup metadata visibility, localized copy, and heartbeat regressions | 2026-10-07 | ec8bbe694    | [261007-apq-steam-bug-fixen](./quick/261007-apq-steam-bug-fixen/)                                                   |
 | 261007-pmi             | Expose and connect the existing platform storage mapping workflow              | 2026-10-07 | 661315f85    | [261007-pmi-fix-platform-storage-mapping-integration](./quick/20261007-fix-platform-storage-mapping-integration/)   |
 
-| 261007-ilm | Import legacy folder mappings into canonical storage mappings | 2026-10-07 | pending | [261007-ilm-import-legacy-storage-mappings](./quick/20261007-import-legacy-storage-mappings/) |
+| 261007-ilm | Import legacy folder mappings into canonical storage mappings | 2026-10-07 | 88c406cb2 | [261007-ilm-import-legacy-storage-mappings](./quick/20261007-import-legacy-storage-mappings/) |
 
 ## Deferred Items
 
