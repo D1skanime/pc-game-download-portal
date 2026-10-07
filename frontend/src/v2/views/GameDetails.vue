@@ -371,9 +371,9 @@ const localExpansionCandidates = computed(() =>
     const component = currentRom.value?.components?.find(
       (item) => item.id === candidate.componentId,
     );
-    return ["expansion", "expansions"].includes(
-      component?.relative_path.split("/", 1)[0] ?? "",
-    );
+    const layout =
+      component?.relative_path.split("/", 1)[0]?.toLocaleLowerCase() ?? "";
+    return ["expansion", "expansions"].includes(layout);
   }),
 );
 const localDlcCandidates = computed(() =>
@@ -381,9 +381,9 @@ const localDlcCandidates = computed(() =>
     const component = currentRom.value?.components?.find(
       (item) => item.id === candidate.componentId,
     );
-    return !["expansion", "expansions"].includes(
-      component?.relative_path.split("/", 1)[0] ?? "",
-    );
+    const layout =
+      component?.relative_path.split("/", 1)[0]?.toLocaleLowerCase() ?? "";
+    return !["expansion", "expansions"].includes(layout);
   }),
 );
 
