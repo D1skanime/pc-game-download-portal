@@ -273,6 +273,11 @@ class PcMetadataMatchHandler:
 
     @staticmethod
     def _component_search_title(rom: Rom, component: RomComponent) -> str:
+        component_metadata = getattr(component, "component_metadata", None)
+        metadata_name = getattr(component_metadata, "name", None)
+        if isinstance(metadata_name, str) and metadata_name.strip():
+            return metadata_name.strip()
+
         base_title = rom.name or rom.fs_name_no_ext or rom.fs_name
         component_title = component.relative_path.rsplit("/", 1)[-1]
         if component_title.casefold() in GENERIC_DLC_COMPONENT_NAMES:
