@@ -27,8 +27,8 @@ const props = defineProps<{
   parentName?: string;
   archiveSets?: DownloadArchiveSet[];
   archiveSetsState?: "idle" | "loading" | "ready" | "error";
+  refresh?: () => Promise<void>;
 }>();
-const emit = defineEmits<{ (event: "applied"): void }>();
 const { t } = useI18n();
 const snackbar = useSnackbar();
 const router = useRouter();
@@ -58,7 +58,9 @@ function openComponentMatcher(component: PcComponentSchema) {
         };
   emitter?.emit("showPcMatchRomDialog", {
     target,
-    refresh: () => emit("applied"),
+    refresh: async () => {
+      await props.refresh?.();
+    },
   });
 }
 

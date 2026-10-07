@@ -156,12 +156,14 @@ describe("PcComponents", () => {
   it("opens the shared matcher only for classified component targets", async () => {
     const emitter = mitt();
     const showMatcher = vi.fn();
+    const refresh = vi.fn().mockResolvedValue(undefined);
     emitter.on("showPcMatchRomDialog", showMatcher);
     const wrapper = mount(PcComponents, {
       props: {
         components: componentGroups,
         romId: 1,
         parentName: "Euro Truck Simulator 2",
+        refresh,
       },
       global: {
         provide: { emitter },
@@ -208,6 +210,8 @@ describe("PcComponents", () => {
         }),
       }),
     );
+    await showMatcher.mock.calls[0][0].refresh();
+    expect(refresh).toHaveBeenCalledOnce();
 
     await launchers[2].trigger("click");
     expect(showMatcher).toHaveBeenLastCalledWith(

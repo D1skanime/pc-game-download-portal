@@ -539,8 +539,8 @@ const tabs = computed<RTabNavItem[]>(() => [
               :components="currentRom.components ?? []"
               :archive-sets="archiveSets"
               :archive-sets-state="archiveSetsState"
+              :refresh="refreshPcDetails"
               :parent-name="currentRom.name ?? currentRom.fs_name_no_tags"
-              @applied="refreshPcDetails"
             />
           </template>
           <PatcherTab v-if="tab === 'patcher' && !isPcRom" :rom="currentRom" />
