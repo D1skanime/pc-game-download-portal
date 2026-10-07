@@ -10,8 +10,24 @@ import type {
 } from "@/__generated__";
 import api from "@/services/api";
 
+export interface LegacyStorageBootstrapResponse {
+  storage_root: StorageRootSchema;
+  mappings: Array<{
+    platform_id: number;
+    platform_fs_slug: string;
+    relative_path: string;
+    mapping_id: number;
+  }>;
+  created_platform_count: number;
+  existing_platform_count: number;
+}
+
 function getRoots() {
   return api.get<StorageRootSchema[]>("/storage/roots");
+}
+
+function bootstrapLegacy() {
+  return api.post<LegacyStorageBootstrapResponse>("/storage/legacy/bootstrap");
 }
 
 function getMapping(platformId: number) {
@@ -79,6 +95,7 @@ function removeMapping(
 
 export default {
   getRoots,
+  bootstrapLegacy,
   getMapping,
   browseRoot,
   testMapping,

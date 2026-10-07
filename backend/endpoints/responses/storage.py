@@ -240,6 +240,20 @@ class StorageRootSchema(BaseModel):
     health: StorageRootHealthSchema
 
 
+class LegacyStorageBootstrapMappingSchema(BaseModel):
+    platform_id: int = Field(gt=0)
+    platform_fs_slug: str = Field(min_length=1, max_length=STORAGE_ROOT_PATH_MAX_LENGTH)
+    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    mapping_id: int = Field(gt=0)
+
+
+class LegacyStorageBootstrapSchema(BaseModel):
+    storage_root: StorageRootSchema
+    mappings: list[LegacyStorageBootstrapMappingSchema] = Field(max_length=100)
+    created_platform_count: int = Field(ge=0, le=100)
+    existing_platform_count: int = Field(ge=0, le=100)
+
+
 class StorageDirectoryEntrySchema(BaseModel):
     name: str = Field(min_length=1, max_length=STORAGE_ROOT_PATH_MAX_LENGTH)
     relative_path: str = Field(min_length=1, max_length=STORAGE_ROOT_PATH_MAX_LENGTH)

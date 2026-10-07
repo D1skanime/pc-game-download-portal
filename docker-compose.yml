@@ -24,6 +24,8 @@ services:
       - /app/frontend/node_modules # Empty directory
       - /app/frontend/dist # Empty directory
       - ./romm_mock:/app/romm
+      - /home/d1sk/romm/Games:/app/romm/library:ro
+      - /home/d1sk/romm/Docker/Media:/app/romm/resources
       - ~/.vite-plugin-mkcert:/app/.vite-plugin-mkcert
     depends_on:
       - romm-db-dev

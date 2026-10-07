@@ -17,6 +17,8 @@ const roots = ref<Awaited<ReturnType<typeof storageApi.getRoots>>["data"]>([]);
 const selectedPlatformId = ref<number | null>(null);
 const loading = ref(true);
 const failed = ref(false);
+const bootstrapping = ref(false);
+const bootstrapError = ref(false);
 
 const selectedPlatform = computed(() =>
   platformsStore.allPlatforms.find(
@@ -46,6 +48,19 @@ function openMapping() {
   });
 }
 
+async function bootstrapLegacy() {
+  bootstrapping.value = true;
+  bootstrapError.value = false;
+  try {
+    await storageApi.bootstrapLegacy();
+    await load();
+  } catch {
+    bootstrapError.value = true;
+  } finally {
+    bootstrapping.value = false;
+  }
+}
+
 onMounted(() => void load());
 </script>
 
@@ -73,6 +88,14 @@ onMounted(() => void load());
         )
       }}
     </RAlert>
+    <RAlert v-if="bootstrapError" type="error">
+      {{
+        t(
+          "storage.legacy-bootstrap-failed",
+          "The legacy library could not be imported. Verify that the game library is mounted read-only and try again.",
+        )
+      }}
+    </RAlert>
     <template v-else-if="loading"><RSkeletonBlock height="160" /></template>
     <RAlert v-else-if="failed" type="error">
       <template #title>{{
@@ -86,6 +109,26 @@ onMounted(() => void load());
       >
     </RAlert>
     <template v-else>
+      <RAlert v-if="roots.length === 0" type="warning">
+        <template #title>{{
+          t("storage.no-roots", "No storage root is registered")
+        }}</template>
+        {{
+          t(
+            "storage.legacy-bootstrap-hint",
+            "Import the existing legacy library to create the protected root, platforms, and mappings.",
+          )
+        }}
+        <template #append>
+          <RBtn
+            variant="flat"
+            color="primary"
+            :loading="bootstrapping"
+            @click="bootstrapLegacy"
+            >{{ t("storage.import-legacy", "Import legacy library") }}</RBtn
+          >
+        </template>
+      </RAlert>
       <RCard class="r-storage-roots__card">
         <RList>
           <RListItem

@@ -9,7 +9,8 @@ from typing import Annotated, NoReturn
 
 from fastapi import HTTPException, Query, Request, status
 
-from config import TASK_RESULT_TTL
+from config import LIBRARY_BASE_PATH, TASK_RESULT_TTL
+from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.storage import (
     LegacyDetectionErrorCode,
@@ -30,6 +31,8 @@ from endpoints.responses.storage import (
     LegacyRollbackErrorResponse,
     LegacyRollbackRequestSchema,
     LegacyRollbackStatusSchema,
+    LegacyStorageBootstrapMappingSchema,
+    LegacyStorageBootstrapSchema,
     StorageConflictDetail,
     StorageConflictErrorCode,
     StorageConflictResponse,
@@ -73,6 +76,7 @@ from handler.auth.dependencies import assert_admin
 from handler.database import (
     db_legacy_migration_handler,
     db_mapping_previews_handler,
+    db_platform_handler,
     db_storage_handler,
 )
 from handler.database.legacy_migration_handler import (
@@ -90,6 +94,7 @@ from handler.filesystem.storage_resolver import (
 )
 from handler.redis_handler import low_prio_queue
 from handler.storage.legacy_migration import LegacyImpactConfirmation
+from models.platform import Platform
 from models.storage import (
     STORAGE_MAPPING_PATH_MAX_LENGTH,
     LegacyDetectionResult,
@@ -100,6 +105,7 @@ from models.storage import (
 )
 from tasks.manual.detect_legacy_storage import detect_legacy_storage_task
 from tasks.manual.preview_mapping import preview_mapping_task
+from utils.platforms import get_filesystem_platforms
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/storage", tags=["storage"])
@@ -726,6 +732,88 @@ def rollback_legacy_migration(
 def get_storage_roots(request: Request) -> list[StorageRootSchema]:
     assert_admin(request)
     return [_root_schema(root) for root in db_storage_handler.get_roots()]
+
+
+@protected_route(
+    router.post,
+    "/legacy/bootstrap",
+    [Scope.USERS_WRITE],
+    response_model=LegacyStorageBootstrapSchema,
+    status_code=status.HTTP_200_OK,
+    responses=_ERROR_RESPONSES,
+)
+async def bootstrap_legacy_storage(
+    request: Request,
+) -> LegacyStorageBootstrapSchema:
+    """Import the configured legacy library into the canonical mapping model."""
+    assert_admin(request)
+    try:
+        roots = db_storage_handler.get_roots()
+        root = next(
+            (item for item in roots if item.container_path == str(LIBRARY_BASE_PATH)),
+            None,
+        )
+        if root is None:
+            root = db_storage_handler.register_root(
+                "Legacy ROM library", str(LIBRARY_BASE_PATH)
+            )
+
+        candidates = await get_filesystem_platforms()
+        created_platform_count = 0
+        existing_platform_count = 0
+        mappings = []
+        relative_root = cm.get_config().ROMS_FOLDER_NAME
+        for candidate in candidates:
+            platform = db_platform_handler.get_platform_by_fs_slug(candidate.fs_slug)
+            if platform is None:
+                platform_data = candidate.model_dump(
+                    exclude={
+                        "id",
+                        "rom_count",
+                        "firmware",
+                        "created_at",
+                        "updated_at",
+                        "fs_size_bytes",
+                        "is_unidentified",
+                        "is_identified",
+                        "missing_from_fs",
+                        "display_name",
+                        "firmware_count",
+                    }
+                )
+                platform = db_platform_handler.add_platform(Platform(**platform_data))
+                created_platform_count += 1
+            else:
+                existing_platform_count += 1
+
+            try:
+                mapping = db_storage_handler.get_active_mapping(platform.id)
+            except MissingPlatformStorageMappingError:
+                mapping = None
+            if mapping is None:
+                mapping = db_storage_handler.create_mapping(
+                    platform.id,
+                    root.id,
+                    f"{relative_root}/{candidate.fs_slug}",
+                    **_actor(request),
+                )
+            mappings.append(
+                LegacyStorageBootstrapMappingSchema(
+                    platform_id=platform.id,
+                    platform_fs_slug=platform.fs_slug,
+                    relative_path=mapping.relative_path,
+                    mapping_id=mapping.id,
+                )
+            )
+    except StorageResolutionError as error:
+        _raise_safe_storage_error(error)
+
+    return LegacyStorageBootstrapSchema(
+        storage_root=_root_schema(root),
+        mappings=mappings,
+        created_platform_count=created_platform_count,
+        existing_platform_count=existing_platform_count,
+    )
 
 
 @protected_route(
