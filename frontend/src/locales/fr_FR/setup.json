@@ -76,6 +76,8 @@
   "provider-sgdb-setup": "Nécessite un compte SteamGridDB. Définissez STEAMGRIDDB_API_KEY.",
   "provider-ss-desc": "Jaquettes par région, manuels, boîtiers 3D et illustrations de CD/cartouches.",
   "provider-ss-setup": "Nécessite un compte ScreenScraper. Définissez SCREENSCRAPER_USER et SCREENSCRAPER_PASSWORD.",
+  "provider-steam-desc": "Métadonnées Steam pour les jeux PC et les DLC, via le Steam Store.",
+  "provider-steam-setup": "Aucune clé API n’est requise. Activez globalement avec STEAM_API_ENABLED=true.",
   "proxy-hasheous-caveat": "Service hébergé par la communauté. Nécessite les hachages de fichiers. Activez le calcul des hachages dans la configuration (activé par défaut).",
   "proxy-hasheous-desc": "Comparateur par hachage qui sert de proxy aux données IGDB et fournit les ID RetroAchievements.",
   "proxy-hasheous-setup": "Définissez HASHEOUS_API_ENABLED=true.",

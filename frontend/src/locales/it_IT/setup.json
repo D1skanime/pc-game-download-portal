@@ -76,6 +76,8 @@
   "provider-sgdb-setup": "Richiede un account SteamGridDB. Imposta STEAMGRIDDB_API_KEY.",
   "provider-ss-desc": "Copertine per varie regioni, manuali, scatole 3D e artwork di CD/cartucce.",
   "provider-ss-setup": "Richiede un account ScreenScraper. Imposta SCREENSCRAPER_USER e SCREENSCRAPER_PASSWORD.",
+  "provider-steam-desc": "Metadati Steam per giochi PC e DLC, usando il Negozio di Steam.",
+  "provider-steam-setup": "Non è necessaria alcuna chiave API. Abilita globalmente con STEAM_API_ENABLED=true.",
   "proxy-hasheous-caveat": "Servizio ospitato dalla comunità. Richiede gli hash dei file. Abilita il calcolo degli hash nella configurazione (attivo di default).",
   "proxy-hasheous-desc": "Matcher basato su hash che fa da proxy per i dati IGDB e fornisce ID RetroAchievements.",
   "proxy-hasheous-setup": "Imposta HASHEOUS_API_ENABLED=true.",

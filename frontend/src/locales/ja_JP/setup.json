@@ -76,6 +76,8 @@
   "provider-sgdb-setup": "SteamGridDBアカウントが必要です。STEAMGRIDDB_API_KEYを設定してください。",
   "provider-ss-desc": "各地域のカバーアート、マニュアル、3Dボックス、CD/カートリッジアート。",
   "provider-ss-setup": "ScreenScraperアカウントが必要です。SCREENSCRAPER_USERとSCREENSCRAPER_PASSWORDを設定してください。",
+  "provider-steam-desc": "Steam ストアを利用した PC ゲームと DLC の Steam メタデータ。",
+  "provider-steam-setup": "API キーは不要です。STEAM_API_ENABLED=true でグローバルに有効化します。",
   "proxy-hasheous-caveat": "コミュニティ運営サービス。ファイルハッシュが必要です。設定でハッシュ計算を有効化(デフォルトで有効)。",
   "proxy-hasheous-desc": "IGDBデータをプロキシし、RetroAchievements IDを提供するハッシュベースのマッチャー。",
   "proxy-hasheous-setup": "HASHEOUS_API_ENABLED=trueを設定してください。",

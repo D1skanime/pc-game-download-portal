@@ -76,6 +76,8 @@
   "provider-sgdb-setup": "需要 SteamGridDB 帳號。請設定 STEAMGRIDDB_API_KEY。",
   "provider-ss-desc": "跨地區的封面圖片、手冊、3D 盒子及光碟/卡帶圖片。",
   "provider-ss-setup": "需要 ScreenScraper 帳號。請設定 SCREENSCRAPER_USER 與 SCREENSCRAPER_PASSWORD。",
+  "provider-steam-desc": "使用 Steam 商店取得 PC 遊戲與 DLC 的 Steam 中繼資料。",
+  "provider-steam-setup": "不需要 API 金鑰。使用 STEAM_API_ENABLED=true 全域啟用。",
   "proxy-hasheous-caveat": "由社群託管的服務。需要檔案雜湊。請於設定中啟用雜湊計算（預設啟用）。",
   "proxy-hasheous-desc": "基於雜湊的匹配器，可代理 IGDB 資料並提供 RetroAchievements ID。",
   "proxy-hasheous-setup": "請設定 HASHEOUS_API_ENABLED=true。",

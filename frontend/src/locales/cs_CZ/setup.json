@@ -76,6 +76,8 @@
   "provider-sgdb-setup": "Vyžaduje účet SteamGridDB. Nastavte STEAMGRIDDB_API_KEY.",
   "provider-ss-desc": "Obaly napříč regiony, manuály, 3D krabice a obaly CD/cartridge.",
   "provider-ss-setup": "Vyžaduje účet ScreenScraper. Nastavte SCREENSCRAPER_USER a SCREENSCRAPER_PASSWORD.",
+  "provider-steam-desc": "Metadata Steamu pro PC hry a DLC ze Steam Storu.",
+  "provider-steam-setup": "API klíč není potřeba. Aktivujte globálně pomocí STEAM_API_ENABLED=true.",
   "proxy-hasheous-caveat": "Komunitně hostovaná služba. Vyžaduje hashe souborů. Povolte výpočet hashů v konfiguraci (ve výchozím nastavení zapnuto).",
   "proxy-hasheous-desc": "Hashový párovač, který proxuje data IGDB a poskytuje ID RetroAchievements.",
   "proxy-hasheous-setup": "Nastavte HASHEOUS_API_ENABLED=true.",

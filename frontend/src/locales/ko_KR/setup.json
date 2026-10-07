@@ -76,6 +76,8 @@
   "provider-sgdb-setup": "SteamGridDB 계정이 필요합니다. STEAMGRIDDB_API_KEY를 설정하세요.",
   "provider-ss-desc": "지역별 커버 이미지, 매뉴얼, 3D 박스 및 CD/카트리지 아트.",
   "provider-ss-setup": "ScreenScraper 계정이 필요합니다. SCREENSCRAPER_USER 및 SCREENSCRAPER_PASSWORD를 설정하세요.",
+  "provider-steam-desc": "Steam 스토어를 사용하는 PC 게임 및 DLC용 Steam 메타데이터입니다.",
+  "provider-steam-setup": "API 키가 필요하지 않습니다. STEAM_API_ENABLED=true로 전역 활성화하세요.",
   "proxy-hasheous-caveat": "커뮤니티 호스팅 서비스. 파일 해시가 필요합니다. 구성에서 해시 계산을 활성화하세요 (기본적으로 켜져 있음).",
   "proxy-hasheous-desc": "IGDB 데이터를 프록시하고 RetroAchievements ID를 제공하는 해시 기반 매처.",
   "proxy-hasheous-setup": "HASHEOUS_API_ENABLED=true를 설정하세요.",
