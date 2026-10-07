@@ -1385,26 +1385,38 @@ def mapping_scan_commands(
     trigger: ScanTrigger,
     scope: ScanScope,
     scan_type: ScanType,
+    platform_fs_slugs: list[str] | None = None,
 ) -> list[MappedScanCommand]:
     """Freeze the active mapping revision for each selected platform."""
     platforms = db_platform_handler.get_platforms()
+    selected_fs_slugs = set(platform_fs_slugs or [])
     selected = (
         [platform for platform in platforms if platform.id in platform_ids]
         if platform_ids
-        else platforms
+        else [
+            platform
+            for platform in platforms
+            if not selected_fs_slugs or platform.fs_slug in selected_fs_slugs
+        ]
     )
-    return [
-        MappedScanCommand(
-            mapping_id=mapping.id,
-            expected_revision=mapping.version,
-            trigger=trigger,
-            scope=scope,
-            scan_type=scan_type.value,
+    commands = []
+    for platform in selected:
+        try:
+            mapping = db_storage_handler.get_active_mapping(platform.id)
+        except MissingPlatformStorageMappingError:
+            if platform_ids:
+                raise
+            continue
+        commands.append(
+            MappedScanCommand(
+                mapping_id=mapping.id,
+                expected_revision=mapping.version,
+                trigger=trigger,
+                scope=scope,
+                scan_type=scan_type.value,
+            )
         )
-        for mapping in (
-            db_storage_handler.get_active_mapping(platform.id) for platform in selected
-        )
-    ]
+    return commands
 
 
 async def execute_mapping_scans(
@@ -1481,6 +1493,9 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
     platform_ids = options.get("platforms", [])
+    platform_fs_slugs = options.get("platform_fs_slugs", [])
+    if not isinstance(platform_fs_slugs, list):
+        platform_fs_slugs = []
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
@@ -1508,11 +1523,20 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             trigger=ScanTrigger.MANUAL,
             scope=ScanScope.ROM if roms_ids else ScanScope.PLATFORM,
             scan_type=scan_type,
+            platform_fs_slugs=platform_fs_slugs,
         )
     except MissingPlatformStorageMappingError:
         await socket_handler.socket_server.emit(
             "scan:done_ko",
             "No active storage mapping was found for the selected platform.",
+            to=sid,
+        )
+        return
+
+    if not commands:
+        await socket_handler.socket_server.emit(
+            "scan:done_ko",
+            "No active storage mapping was found for the requested platform selection.",
             to=sid,
         )
         return

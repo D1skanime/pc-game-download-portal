@@ -17,8 +17,8 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
-type Tab = "mapping" | "excluded" | "missing";
-const validTabs: Tab[] = ["mapping", "excluded", "missing"];
+type Tab = "mapping" | "storage" | "excluded" | "missing";
+const validTabs: Tab[] = ["mapping", "storage", "excluded", "missing"];
 
 const tab = ref<Tab>(
   (validTabs as string[]).includes(route.query.tab as string)
@@ -54,6 +54,11 @@ const tabs = computed<RTabNavItem[]>(() => [
     id: "mapping",
     label: t("settings.folder-mappings"),
     icon: "mdi-folder-multiple-outline",
+  },
+  {
+    id: "storage",
+    label: t("storage.administration", "Storage mapping"),
+    icon: "mdi-database-cog-outline",
   },
   {
     id: "excluded",
@@ -110,6 +115,7 @@ const tabModel = computed<string>({
     <RTabNav v-model="tabModel" :items="tabs" class="r-v2-lib__tabs" />
 
     <FolderMappingsSection v-if="tab === 'mapping'" />
+    <StorageRootsSection v-else-if="tab === 'storage'" />
     <ExcludedSection v-else-if="tab === 'excluded'" />
     <MissingGamesSection v-else-if="tab === 'missing'" />
   </div>

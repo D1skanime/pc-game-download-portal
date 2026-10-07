@@ -961,6 +961,46 @@ class TestScanAuthorization:
         assert enqueue.call_args.kwargs["metadata_locale"] == "fr-FR"
         assert enqueue.call_args.kwargs["metadata_only"] is True
 
+    async def test_scan_handler_forwards_filesystem_platform_selection(
+        self, mocker, emit
+    ):
+        mocker.patch.object(
+            scan_module, "reject_unauthorized_scan", AsyncMock(return_value=False)
+        )
+        mocker.patch.object(scan_module, "_get_running_scan_job", return_value=None)
+        mocker.patch.object(scan_module, "_get_queued_scan_jobs", return_value=[])
+        mapping_commands = mocker.patch.object(
+            scan_module,
+            "mapping_scan_commands",
+            return_value=[MagicMock()],
+        )
+        mocker.patch.object(
+            scan_module.high_prio_queue, "enqueue", return_value=MagicMock()
+        )
+
+        await scan_handler(
+            "sid",
+            {"type": "quick", "platform_fs_slugs": ["pc", "ps2"]},
+        )
+
+        assert mapping_commands.call_args.kwargs["platform_fs_slugs"] == ["pc", "ps2"]
+
+    async def test_scan_handler_rejects_unmapped_library_without_enqueuing(
+        self, mocker, emit
+    ):
+        patch_scan_jobs(mocker)
+        enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
+        mocker.patch.object(scan_module, "mapping_scan_commands", return_value=[])
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+        emit.assert_awaited_once_with(
+            "scan:done_ko",
+            "No active storage mapping was found for the requested platform selection.",
+            to="sid",
+        )
+
     async def test_stop_scan_handler_does_not_cancel_when_unauthorized(
         self, mocker, emit
     ):
