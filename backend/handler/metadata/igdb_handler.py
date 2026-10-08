@@ -1116,6 +1116,8 @@ GAMES_FIELDS = (
     "themes.name",
     "release_dates.date",
     "release_dates.platform.id",
+    "expansions.external_games",
+    "dlcs.external_games",
     "expansions.external_games.category",
     "expansions.external_games.uid",
     "dlcs.external_games.category",
