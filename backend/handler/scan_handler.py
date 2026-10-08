@@ -119,13 +119,17 @@ def auto_link_pc_dlc_components(rom: Rom, components: list[RomComponent]) -> Non
         )
 
 
-async def auto_link_parent_listed_steam_dlc_components(rom: Rom) -> None:
-    """Attach Steam identity only to existing local DLC components."""
+async def auto_link_parent_listed_steam_dlc_components(
+    rom: Rom, *, link_missing: bool = True
+) -> None:
+    """Refresh linked DLC metadata and optionally attach new Steam identities."""
     for component in getattr(rom, "components", []):
         if component.kind != RomComponentKind.DLC:
             continue
         metadata = component.component_metadata
         steam_id = getattr(metadata, "steam_id", None)
+        if steam_id is None and not link_missing:
+            continue
         if steam_id is not None and getattr(metadata, "steam_metadata", None):
             continue
         if steam_id is not None:
@@ -1491,12 +1495,17 @@ async def scan_rom(
                 durable_rom = applied
         if has_steam_media and not metadata_only:
             await reconcile_steam_patch_media(durable_rom, steam_updates)
-        if has_steam_metadata and not metadata_only:
+        if has_steam_metadata:
             refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
             if refreshed_rom is not None:
                 components = getattr(refreshed_rom, "components", [])
-                auto_link_pc_dlc_components(refreshed_rom, components)
-                await auto_link_parent_listed_steam_dlc_components(refreshed_rom)
+                if not metadata_only:
+                    auto_link_pc_dlc_components(refreshed_rom, components)
+                    await auto_link_parent_listed_steam_dlc_components(refreshed_rom)
+                else:
+                    await auto_link_parent_listed_steam_dlc_components(
+                        refreshed_rom, link_missing=False
+                    )
         return scanned_rom
     if (
         not metadata_only

@@ -500,7 +500,7 @@ async def test_metadata_only_keeps_text_metadata_but_skips_artwork_side_effects(
 
 
 @pytest.mark.asyncio
-async def test_metadata_only_skips_pc_component_linking(mocker):
+async def test_metadata_only_refreshes_existing_pc_component_steam_metadata(mocker):
     auto_link_igdb = mocker.patch("handler.scan_handler.auto_link_pc_dlc_components")
     auto_link_steam = mocker.patch(
         "handler.scan_handler.auto_link_parent_listed_steam_dlc_components",
@@ -518,7 +518,7 @@ async def test_metadata_only_skips_pc_component_linking(mocker):
     )
 
     auto_link_igdb.assert_not_called()
-    auto_link_steam.assert_not_awaited()
+    auto_link_steam.assert_awaited_once_with(mocker.ANY, link_missing=False)
 
 
 @pytest.mark.asyncio
