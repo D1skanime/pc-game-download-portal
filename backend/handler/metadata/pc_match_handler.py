@@ -16,7 +16,7 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_steam_handler,
 )
-from models.rom import Rom, RomComponent
+from models.rom import Rom, RomComponent, RomComponentKind
 
 COMPACT_TITLE_BOUNDARY = re.compile(
     r"(?<=[a-z])(?=[A-Z])|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])"
@@ -83,7 +83,64 @@ class PcMetadataMatchHandler:
             if related_candidates
             else None
         )
-        return await self._collect_for_title(rom, title, overrides)
+        results = await self._collect_for_title(rom, title, overrides)
+        if component.kind == RomComponentKind.DLC:
+            results = self._filter_dlc_component_candidates(rom, results)
+        return results
+
+    def _filter_dlc_component_candidates(
+        self,
+        rom: Rom,
+        results: dict[str, PcMetadataProviderResult],
+    ) -> dict[str, PcMetadataProviderResult]:
+        """Keep component matching within the parent DLC/expansion context."""
+        metadata = getattr(rom, "igdb_metadata", None)
+        related_igdb_ids: set[int] = set()
+        if isinstance(metadata, dict):
+            for relationship in ("expansions", "dlcs"):
+                related = metadata.get(relationship, [])
+                if not isinstance(related, list):
+                    continue
+                related_igdb_ids.update(
+                    item["id"]
+                    for item in related
+                    if isinstance(item, dict) and isinstance(item.get("id"), int)
+                )
+
+        parent_steam_id = self._positive_int(getattr(rom, "steam_id", None))
+        filtered: dict[str, PcMetadataProviderResult] = {}
+        for provider, result in results.items():
+            candidates = result.candidates
+            if provider == "igdb":
+                candidates = [
+                    candidate
+                    for candidate in candidates
+                    if candidate.provider_ids.get("igdb_id") in related_igdb_ids
+                ]
+            elif provider == "steam":
+                candidates = [
+                    candidate
+                    for candidate in candidates
+                    if self._is_steam_component_candidate(candidate, parent_steam_id)
+                ]
+            else:
+                # Providers without a component relationship/type contract must
+                # not leak ordinary games into a DLC/expansion search.
+                candidates = []
+            filtered[provider] = PcMetadataProviderResult(
+                provider=result.provider,
+                available=result.available,
+                candidates=candidates,
+                reason=result.reason,
+            )
+        return filtered
+
+    @classmethod
+    def _is_steam_component_candidate(
+        cls, candidate: PcMetadataCandidate, parent_id: int | None
+    ) -> bool:
+        metadata = candidate.fields.get("steam_metadata")
+        return cls._is_valid_steam_dlc_details(metadata, parent_id)
 
     def find_unique_related_igdb_candidate(
         self, rom: Rom, component: RomComponent

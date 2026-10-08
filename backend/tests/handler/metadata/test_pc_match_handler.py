@@ -2,7 +2,10 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from handler.metadata.pc_match_handler import PcMetadataMatchHandler
+from handler.metadata.pc_match_handler import (
+    PcMetadataMatchHandler,
+    PcMetadataProviderResult,
+)
 
 
 @pytest.mark.asyncio
@@ -523,3 +526,72 @@ def test_launchbox_candidate_only_exposes_eligible_media_descriptors():
         {"kind": "screenshot", "url": "file:///shot.png"},
         {"kind": "video", "url": "file:///video.mp4"},
     ]
+
+
+def test_dlc_component_filter_keeps_only_related_igdb_and_parent_steam_entries():
+    handler = PcMetadataMatchHandler(providers={})
+    rom = Mock(steam_id=292030)
+    rom.igdb_metadata = {
+        "expansions": [{"id": 13166, "name": "Blood and Wine"}],
+        "dlcs": [],
+    }
+
+    results = {
+        "igdb": PcMetadataProviderResult(
+            "igdb",
+            True,
+            [
+                handler._candidate(
+                    "igdb", {"igdb_id": 13166, "name": "Blood and Wine"}
+                ),
+                handler._candidate("igdb", {"igdb_id": 999, "name": "Unrelated Game"}),
+            ],
+        ),
+        "steam": PcMetadataProviderResult(
+            "steam",
+            True,
+            [
+                handler._candidate(
+                    "steam",
+                    {
+                        "steam_id": 378648,
+                        "name": "Blood and Wine",
+                        "steam_metadata": {
+                            "type": "dlc",
+                            "fullgame": {"appid": 292030},
+                        },
+                    },
+                ),
+                handler._candidate(
+                    "steam",
+                    {
+                        "steam_id": 292030,
+                        "name": "The Witcher 3",
+                        "steam_metadata": {"type": "game"},
+                    },
+                ),
+                handler._candidate(
+                    "steam",
+                    {
+                        "steam_id": 42,
+                        "name": "Other DLC",
+                        "steam_metadata": {
+                            "type": "dlc",
+                            "fullgame": {"appid": 123},
+                        },
+                    },
+                ),
+            ],
+        ),
+        "moby": PcMetadataProviderResult(
+            "moby",
+            True,
+            [handler._candidate("moby", {"moby_id": 7, "name": "Other Game"})],
+        ),
+    }
+
+    filtered = handler._filter_dlc_component_candidates(rom, results)
+
+    assert [item.title for item in filtered["igdb"].candidates] == ["Blood and Wine"]
+    assert [item.title for item in filtered["steam"].candidates] == ["Blood and Wine"]
+    assert filtered["moby"].candidates == []
