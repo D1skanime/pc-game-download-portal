@@ -146,6 +146,8 @@ function componentLabel(component: PcComponentSchema) {
 }
 
 function componentSearchLabel(component: PcComponentSchema) {
+  const metadataName = component.component_metadata?.name?.trim();
+  if (metadataName) return metadataName;
   const parentName = props.parentName?.trim();
   if (!parentName) return componentLabel(component);
   if (component.kind === "base") return parentName;

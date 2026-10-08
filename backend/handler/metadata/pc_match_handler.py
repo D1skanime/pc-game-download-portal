@@ -85,8 +85,41 @@ class PcMetadataMatchHandler:
         )
         results = await self._collect_for_title(rom, title, overrides)
         if component.kind == RomComponentKind.DLC:
+            direct_steam = await self._steam_candidates_from_related(
+                rom, related_candidates
+            )
+            if direct_steam:
+                results["steam"] = PcMetadataProviderResult(
+                    provider="steam", available=True, candidates=direct_steam
+                )
             results = self._filter_dlc_component_candidates(rom, results)
         return results
+
+    async def _steam_candidates_from_related(
+        self, rom: Rom, related_candidates: list[PcMetadataCandidate]
+    ) -> list[PcMetadataCandidate]:
+        steam = self.providers.get("steam")
+        get_by_id = getattr(steam, "get_rom_by_id", None) if steam else None
+        if steam is None or not steam.is_enabled() or get_by_id is None:
+            return []
+        candidates: list[PcMetadataCandidate] = []
+        for related in related_candidates:
+            steam_id = self._positive_int(related.provider_ids.get("steam_id"))
+            if steam_id is None:
+                continue
+            try:
+                details = await get_by_id(steam_id, rom.platform_slug)
+            except Exception:
+                continue
+            if not isinstance(details, dict) or details.get("steam_id") != steam_id:
+                continue
+            if not self._is_valid_steam_dlc_details(
+                details.get("steam_metadata"),
+                self._positive_int(getattr(rom, "steam_id", None)),
+            ):
+                continue
+            candidates.append(self._candidate("steam", details))
+        return candidates
 
     def _filter_dlc_component_candidates(
         self,
@@ -379,16 +412,15 @@ class PcMetadataMatchHandler:
                 related_words = re.findall(r"[a-z0-9]+", name.casefold())
                 if related_words != title_words:
                     continue
-                candidates.append(
-                    self._candidate(
-                        "igdb",
-                        {
-                            "igdb_id": igdb_id,
-                            "name": name,
-                            "url_cover": related_game.get("cover_url"),
-                        },
-                    )
-                )
+                item: dict[str, Any] = {
+                    "igdb_id": igdb_id,
+                    "name": name,
+                    "url_cover": related_game.get("cover_url"),
+                }
+                steam_id = self._positive_int(related_game.get("steam_id"))
+                if steam_id is not None:
+                    item["steam_id"] = steam_id
+                candidates.append(self._candidate("igdb", item))
         return candidates
 
     async def _enrich_related_igdb_candidates(
@@ -410,7 +442,14 @@ class PcMetadataMatchHandler:
                 details = await get_by_id(rom, igdb_id)
             except Exception:
                 details = None
-            enriched.append(self._candidate("igdb", details) if details else candidate)
+            if details:
+                details = dict(details)
+                steam_id = self._positive_int(candidate.provider_ids.get("steam_id"))
+                if steam_id is not None:
+                    details["steam_id"] = steam_id
+                enriched.append(self._candidate("igdb", details))
+            else:
+                enriched.append(candidate)
         return enriched
 
     async def _collect_for_title(

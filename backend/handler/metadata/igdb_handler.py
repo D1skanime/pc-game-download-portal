@@ -101,6 +101,7 @@ class IGDBRelatedGame(TypedDict):
     slug: str
     type: str
     cover_url: str
+    steam_id: NotRequired[int]
 
 
 class IGDBMetadataMultiplayerMode(TypedDict):
@@ -159,14 +160,29 @@ def build_related_game(
     cover = rom.get("cover")
     assert mark_expanded(cover)
     cover_url = cover.get("url", "") if cover else ""
-
-    return IGDBRelatedGame(
+    related = IGDBRelatedGame(
         id=rom["id"],
         slug=rom.get("slug", ""),
         name=rom.get("name", ""),
         cover_url=handler.normalize_cover_url(cover_url.replace("t_thumb", "t_1080p")),
         type=game_type,
     )
+    external_games = rom.get("external_games", [])
+    if isinstance(external_games, list):
+        for external_game in external_games:
+            if (
+                not isinstance(external_game, dict)
+                or external_game.get("category") != 1
+            ):
+                continue
+            uid = external_game.get("uid")
+            if isinstance(uid, int) and not isinstance(uid, bool) and uid > 0:
+                related["steam_id"] = uid
+                break
+            if isinstance(uid, str) and uid.isdecimal() and int(uid) > 0:
+                related["steam_id"] = int(uid)
+                break
+    return related
 
 
 def extract_metadata_from_igdb_rom(
@@ -1100,6 +1116,10 @@ GAMES_FIELDS = (
     "themes.name",
     "release_dates.date",
     "release_dates.platform.id",
+    "expansions.external_games.category",
+    "expansions.external_games.uid",
+    "dlcs.external_games.category",
+    "dlcs.external_games.uid",
     "expansions.id",
     "expansions.slug",
     "expansions.name",
