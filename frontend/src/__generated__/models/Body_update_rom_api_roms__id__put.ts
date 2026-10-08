@@ -8,6 +8,7 @@ export type Body_update_rom_api_roms__id__put = {
      */
     artwork?: (string | null);
     igdb_id?: (string | null);
+    steam_id?: (string | null);
     sgdb_id?: (string | null);
     moby_id?: (string | null);
     ss_id?: (string | null);

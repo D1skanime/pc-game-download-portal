@@ -87,6 +87,7 @@ from handler.metadata import (
     meta_playmatch_handler,
     meta_ra_handler,
     meta_ss_handler,
+    meta_steam_handler,
 )
 from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
@@ -315,6 +316,7 @@ def build_unscoped_sidecar_cache_key(
 
 class RomUpdateForm(BaseModel):
     igdb_id: str | None = Field(default=None, description="IGDB game ID.")
+    steam_id: str | None = Field(default=None, description="Steam app ID.")
     sgdb_id: str | None = Field(default=None, description="SteamGridDB game ID.")
     moby_id: str | None = Field(default=None, description="MobyGames game ID.")
     ss_id: str | None = Field(default=None, description="ScreenScraper game ID.")
@@ -391,6 +393,7 @@ class RomUserData(BaseModel):
 async def parse_rom_update_form(
     request: Request,
     igdb_id: str | None = Form(default=None),
+    steam_id: str | None = Form(default=None),
     sgdb_id: str | None = Form(default=None),
     moby_id: str | None = Form(default=None),
     ss_id: str | None = Form(default=None),
@@ -420,6 +423,7 @@ async def parse_rom_update_form(
     form_keys = set((await request.form()).keys())
     field_values = {
         "igdb_id": igdb_id,
+        "steam_id": steam_id,
         "sgdb_id": sgdb_id,
         "moby_id": moby_id,
         "ss_id": ss_id,
@@ -1605,6 +1609,7 @@ async def update_rom(
             id,
             {
                 "igdb_id": None,
+                "steam_id": None,
                 "sgdb_id": None,
                 "moby_id": None,
                 "ss_id": None,
@@ -1648,6 +1653,11 @@ async def update_rom(
 
     provided_fields = form_data.model_fields_set
     cleaned_data: dict[str, Any] = {
+        "steam_id": (
+            safe_int_or_none(form_data.steam_id)
+            if "steam_id" in provided_fields
+            else rom.steam_id
+        ),
         "igdb_id": (
             safe_int_or_none(form_data.igdb_id)
             if "igdb_id" in provided_fields
@@ -1792,6 +1802,15 @@ async def update_rom(
             cleaned_data.update(ss_rom)
     elif rom.ss_id and not cleaned_data["ss_id"]:
         cleaned_data.update({"ss_id": None, "ss_metadata": {}})
+
+    if cleaned_data["steam_id"] and int(cleaned_data["steam_id"]) != rom.steam_id:
+        steam_rom = await meta_steam_handler.get_rom_by_id(
+            int(cleaned_data["steam_id"]), rom.platform_slug
+        )
+        if steam_rom.get("steam_id"):
+            cleaned_data.update(steam_rom)
+    elif rom.steam_id and not cleaned_data["steam_id"]:
+        cleaned_data.update({"steam_id": None, "steam_metadata": {}})
 
     if cleaned_data["igdb_id"] and int(cleaned_data["igdb_id"]) != rom.igdb_id:
         igdb_rom = await meta_igdb_handler.get_rom_by_id(rom, cleaned_data["igdb_id"])

@@ -709,6 +709,7 @@ async function updateRom({
     ["name_sort_key", rom.name_sort_key ?? ""],
     ["summary", rom.summary],
     ["igdb_id", toFormIdValue(rom.igdb_id)],
+    ["steam_id", toFormIdValue(rom.steam_id)],
     ["sgdb_id", toFormIdValue(rom.sgdb_id)],
     ["moby_id", toFormIdValue(rom.moby_id)],
     ["ss_id", toFormIdValue(rom.ss_id)],

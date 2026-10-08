@@ -5,6 +5,7 @@
 export type SearchRomSchema = {
     id?: (number | null);
     igdb_id?: (number | null);
+    steam_id?: (number | null);
     moby_id?: (number | null);
     ss_id?: (number | null);
     sgdb_id?: (number | null);
@@ -16,6 +17,7 @@ export type SearchRomSchema = {
     slug?: string;
     summary?: string;
     igdb_url_cover?: string;
+    steam_url_cover?: string;
     moby_url_cover?: string;
     ss_url_cover?: string;
     sgdb_url_cover?: string;

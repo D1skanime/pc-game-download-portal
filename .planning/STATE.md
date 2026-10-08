@@ -437,6 +437,7 @@ Recent decisions affecting current work:
 | 261007-pmi                | Expose and connect the existing platform storage mapping workflow              | 2026-10-07 | 661315f85    | [261007-pmi-fix-platform-storage-mapping-integration](./quick/20261007-fix-platform-storage-mapping-integration/)   |
 
 | 261007-ilm | Import legacy folder mappings into canonical storage mappings | 2026-10-07 | 88c406cb2 | [261007-ilm-import-legacy-storage-mappings](./quick/20261007-import-legacy-storage-mappings/) |
+| 261009-steam-match | Fix Steam discovery and persistence in the legacy ROM matching dialog | 2026-10-09 | 5a63d7ca5 | [261009-steam-legacy-match-search](./quick/261009-steam-legacy-match-search/) |
 
 ## Deferred Items
 

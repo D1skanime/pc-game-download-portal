@@ -196,6 +196,7 @@ const filteredMatchedRoms = computed(() =>
     if (pcProvider === "steam") return isSteamFiltered.value;
     return (
       (r.igdb_id && isIGDBFiltered.value) ||
+      (r.steam_id && isSteamFiltered.value) ||
       (r.moby_id && isMobyFiltered.value) ||
       (r.ss_id && isSSFiltered.value) ||
       (r.flashpoint_id && isFlashpointFiltered.value) ||
@@ -373,6 +374,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
   const updatedRom = {
     ...targetRom,
     igdb_id: matchedRom.igdb_id || null,
+    steam_id: matchedRom.steam_id || null,
     ss_id: matchedRom.ss_id || null,
     moby_id: matchedRom.moby_id || null,
     flashpoint_id: matchedRom.flashpoint_id || null,
@@ -384,6 +386,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     url_cover:
       cover?.url_cover ||
       matchedRom.igdb_url_cover ||
+      matchedRom.steam_url_cover ||
       matchedRom.ss_url_cover ||
       matchedRom.moby_url_cover ||
       matchedRom.flashpoint_url_cover ||
