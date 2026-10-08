@@ -55,6 +55,8 @@ from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from handler.metadata import (
     meta_gamelist_handler,
     meta_hltb_handler,
+    meta_igdb_handler,
+    meta_steam_handler,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.pc_match_handler import pc_metadata_match_handler
@@ -111,6 +113,57 @@ _PC_IGDB_MEDIA_ROLES = {
     "screenshot": RomComponentOwnedMediaRole.SCREENSHOT,
     "artwork": RomComponentOwnedMediaRole.ARTWORK,
 }
+
+
+async def _hydrate_media_urls(
+    rom: Rom,
+    metadata_sources: list[str],
+    metadata_locale: str | None,
+) -> tuple[Rom, str | None]:
+    """Recover provider media URLs when a media-only scan has no cached URLs."""
+    if rom.url_cover or rom.url_screenshots:
+        return rom, metadata_sources[0] if metadata_sources else "provider"
+
+    candidates: list[tuple[str, object]] = []
+    if MetadataSource.IGDB in metadata_sources and rom.igdb_id:
+        candidates.append(
+            (
+                MetadataSource.IGDB,
+                meta_igdb_handler.get_rom_by_id(rom, rom.igdb_id),
+            )
+        )
+    if MetadataSource.STEAM in metadata_sources and rom.steam_id:
+        candidates.append(
+            (
+                MetadataSource.STEAM,
+                meta_steam_handler.get_rom_by_id(
+                    rom.steam_id,
+                    platform_slug=rom.platform_slug,
+                    metadata_locale=metadata_locale,
+                ),
+            )
+        )
+
+    for provider, request in candidates:
+        fetched = await request
+        if isinstance(fetched, dict):
+            url_cover = fetched.get("url_cover")
+            url_screenshots = fetched.get("url_screenshots") or []
+        else:
+            url_cover = getattr(fetched, "url_cover", None)
+            url_screenshots = getattr(fetched, "url_screenshots", None) or []
+        if not url_cover and not url_screenshots:
+            continue
+        rom = db_rom_handler.update_rom(
+            rom.id,
+            {
+                "url_cover": url_cover,
+                "url_screenshots": url_screenshots,
+            },
+        )
+        return rom, provider
+
+    return rom, None
 
 
 def _refresh_rom_for_scan_emit(rom: Rom) -> Rom:
@@ -1124,10 +1177,26 @@ async def scan_platforms(
         async def refresh_existing_rom(rom: Rom) -> None:
             async with semaphore:
                 try:
-                    refreshed = await refresh_provider_owned_media(rom, rom.updated_at)
+                    rom, hydrated_provider = await _hydrate_media_urls(
+                        rom, metadata_sources, metadata_locale
+                    )
+                    refreshed, media_failures = await refresh_provider_owned_media(
+                        rom,
+                        rom.updated_at,
+                        hydrated_provider
+                        or (metadata_sources[0] if metadata_sources else "provider"),
+                    )
                 except (ValueError, OSError) as exc:
                     log.warning("Media-only refresh failed for %s: %s", rom.id, exc)
                     return
+                for failure in media_failures:
+                    log.warning(
+                        "Provider media item failed for ROM %s (%s/%s): %s",
+                        rom.id,
+                        failure.role.value,
+                        failure.provider_media_id,
+                        failure.reason,
+                    )
                 await scan_stats.increment(
                     socket_manager=socket_manager,
                     scanned_roms=1,
