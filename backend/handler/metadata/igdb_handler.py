@@ -150,6 +150,7 @@ class IGDBMetadata(TypedDict):
 class IGDBRom(BaseRom):
     igdb_id: int | None
     slug: NotRequired[str]
+    steam_id: NotRequired[int]
     url_artworks: NotRequired[list[str]]
     igdb_metadata: NotRequired[IGDBMetadata]
 
@@ -183,6 +184,20 @@ def build_related_game(
                 related["steam_id"] = int(uid)
                 break
     return related
+
+
+def extract_steam_id(external_games: object) -> int | None:
+    if not isinstance(external_games, list):
+        return None
+    for external_game in external_games:
+        if not isinstance(external_game, dict) or external_game.get("category") != 1:
+            continue
+        uid = external_game.get("uid")
+        if isinstance(uid, int) and not isinstance(uid, bool) and uid > 0:
+            return uid
+        if isinstance(uid, str) and uid.isdecimal() and int(uid) > 0:
+            return int(uid)
+    return None
 
 
 def extract_metadata_from_igdb_rom(
@@ -533,7 +548,7 @@ def build_igdb_rom(
         if artwork.get("url")
     ]
 
-    return IGDBRom(
+    result = IGDBRom(
         igdb_id=rom["id"],
         slug=rom.get("slug", ""),
         name=localized_name,
@@ -550,6 +565,9 @@ def build_igdb_rom(
         url_artworks=artwork_urls,
         igdb_metadata=extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id),
     )
+    if steam_id := extract_steam_id(rom.get("external_games", [])):
+        result["steam_id"] = steam_id
+    return result
 
 
 def _platform_igdb_ids_with_twin(platform_igdb_id: int) -> list[int]:
@@ -1116,6 +1134,8 @@ GAMES_FIELDS = (
     "themes.name",
     "release_dates.date",
     "release_dates.platform.id",
+    "external_games.category",
+    "external_games.uid",
     "expansions.external_games",
     "dlcs.external_games",
     "expansions.external_games.category",

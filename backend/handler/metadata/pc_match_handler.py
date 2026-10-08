@@ -359,7 +359,7 @@ class PcMetadataMatchHandler:
         relation = cls._steam_fullgame_app_id(fullgame)
         if fullgame is not None and relation is None:
             return False
-        return relation is None or relation == parent_id
+        return relation is None or parent_id is None or relation == parent_id
 
     @staticmethod
     def _component_search_title(rom: Rom, component: RomComponent) -> str:

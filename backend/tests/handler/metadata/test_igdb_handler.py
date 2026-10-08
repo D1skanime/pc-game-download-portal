@@ -86,6 +86,16 @@ class TestGetIGDBPreferredLocale:
 
 
 class TestPcStructuredMetadata:
+    def test_preserves_direct_steam_external_game_id(self):
+        game = _make_game(170449, "New Quest")
+        game["external_games"] = [{"category": 1, "uid": "378645"}]
+        handler = MagicMock()
+        handler.normalize_cover_url.side_effect = lambda value: value
+
+        result = build_igdb_rom(handler, cast(Game, game), None, WINDOWS_IGDB_ID)
+
+        assert result["steam_id"] == 378645
+
     def test_builds_owned_importable_artwork_urls(self):
         game = _make_game(1, "PC Game")
         game["artworks"] = [
