@@ -14,12 +14,10 @@ import {
   firstAvailableCover,
   getMatchSources,
   matchKey,
+  type MatchSearchRom,
   type MatchedSource,
 } from "@/v2/components/MatchRom/types";
-import type {
-  SearchRom,
-  SimpleRom,
-} from "@/v2/data/adapters/legacy/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import {
   type EscapableEntry,
   popEscapable,
@@ -30,7 +28,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
   rom: SimpleRom | null;
-  results: SearchRom[];
+  results: MatchSearchRom[];
   searching: boolean;
   searched: boolean;
 }>();
@@ -44,7 +42,7 @@ const { t } = useI18n();
 const activeKey = ref<string | null>(null);
 const selectedSource = ref<MatchedSource | undefined>(undefined);
 
-const activeMatch = computed<SearchRom | null>(
+const activeMatch = computed<MatchSearchRom | null>(
   () => props.results.find((r) => matchKey(r) === activeKey.value) ?? null,
 );
 
@@ -62,7 +60,7 @@ const canConfirm = computed(
     (activeSources.value.length === 0 || !!selectedSource.value),
 );
 
-function open(r: SearchRom) {
+function open(r: MatchSearchRom) {
   activeKey.value = matchKey(r);
   const sources = getMatchSources(r);
   selectedSource.value = sources.length === 1 ? sources[0] : undefined;

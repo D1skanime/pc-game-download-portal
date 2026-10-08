@@ -22,8 +22,13 @@ export function isPcMatchTarget(value: unknown): value is PcMatchTarget {
   return value.kind === "rom" || value.kind === "component";
 }
 
+export type MatchSearchRom = SearchRom & {
+  steam_url_cover?: string;
+};
+
 export type SourceName =
   | "IGDB"
+  | "Steam"
   | "Mobygames"
   | "Screenscraper"
   | "Flashpoint"
@@ -38,7 +43,7 @@ export interface MatchedSource {
 }
 
 interface SourceDef {
-  urlKey: keyof SearchRom;
+  urlKey: keyof MatchSearchRom;
   name: SourceName;
   logo: string;
 }
@@ -48,6 +53,11 @@ const SOURCE_DEFS: readonly SourceDef[] = [
     urlKey: "igdb_url_cover",
     name: "IGDB",
     logo: "/assets/scrappers/igdb.png",
+  },
+  {
+    urlKey: "steam_url_cover",
+    name: "Steam",
+    logo: "/assets/scrappers/steam.svg",
   },
   {
     urlKey: "moby_url_cover",
@@ -81,7 +91,7 @@ const SOURCE_DEFS: readonly SourceDef[] = [
   },
 ];
 
-export function getMatchSources(matchedRom: SearchRom): MatchedSource[] {
+export function getMatchSources(matchedRom: MatchSearchRom): MatchedSource[] {
   const out: MatchedSource[] = [];
   for (const def of SOURCE_DEFS) {
     const url = matchedRom[def.urlKey] as string | undefined | null;
@@ -92,7 +102,7 @@ export function getMatchSources(matchedRom: SearchRom): MatchedSource[] {
   return out;
 }
 
-export function matchKey(rom: SearchRom): string {
+export function matchKey(rom: MatchSearchRom): string {
   return `${rom.igdb_id ?? "_"}-${rom.moby_id ?? "_"}-${rom.ss_id ?? "_"}-${rom.name}`;
 }
 
@@ -104,9 +114,10 @@ export function matchKey(rom: SearchRom): string {
 // Uses a truthy filter (not `??`) because the backend sometimes returns
 // empty strings for absent providers — `??` would treat "" as "present"
 // and short-circuit before reaching the actually-populated provider.
-export function firstAvailableCover(r: SearchRom): string | null {
+export function firstAvailableCover(r: MatchSearchRom): string | null {
   const candidates: Array<string | undefined> = [
     r.igdb_url_cover,
+    r.steam_url_cover,
     r.moby_url_cover,
     r.ss_url_cover,
     r.sgdb_url_cover,
@@ -118,7 +129,7 @@ export function firstAvailableCover(r: SearchRom): string | null {
 }
 
 export interface ConfirmPayload {
-  matchedRom: SearchRom;
+  matchedRom: MatchSearchRom;
   cover: MatchedSource | undefined;
 }
 

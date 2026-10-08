@@ -25,6 +25,7 @@ import MatchRomBodyList from "@/v2/components/MatchRom/MatchRomBodyList.vue";
 import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFilter.vue";
 import type {
   ConfirmPayload,
+  MatchSearchRom,
   MatchVariant,
   PcMatchTarget,
 } from "@/v2/components/MatchRom/types";
@@ -36,7 +37,6 @@ import romApi, {
 import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 import storeRoms, {
   type SimpleRom,
-  type SearchRom,
 } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
@@ -78,7 +78,7 @@ const route = useRoute();
 const searchText = ref("");
 const searchBy = ref<"Name" | "ID">("Name");
 const searched = ref(false);
-const matchedRoms = ref<SearchRom[]>([]);
+const matchedRoms = ref<MatchSearchRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
@@ -268,6 +268,9 @@ async function searchRom() {
         is_unidentified: false,
         is_identified: true,
         ...(candidate.provider === "igdb" ? { igdb_id: index + 1 } : {}),
+        ...(candidate.provider === "steam"
+          ? { steam_url_cover: candidate.media[0]?.url }
+          : {}),
         ...(candidate.provider === "moby" ? { moby_id: index + 1 } : {}),
         ...(candidate.provider === "screenscraper" ? { ss_id: index + 1 } : {}),
         ...(candidate.provider === "launchbox"
@@ -278,9 +281,6 @@ async function searchRom() {
           : {}),
         ...(candidate.provider === "libretro"
           ? { libretro_id: String(index + 1) }
-          : {}),
-        ...(candidate.media[0]?.url
-          ? { igdb_url_cover: candidate.media[0].url }
           : {}),
       }));
     } else if (rom.value) {

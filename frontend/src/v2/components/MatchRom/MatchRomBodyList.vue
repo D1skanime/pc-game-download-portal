@@ -13,18 +13,16 @@ import {
   firstAvailableCover,
   getMatchSources,
   matchKey,
+  type MatchSearchRom,
   type MatchedSource,
 } from "@/v2/components/MatchRom/types";
-import type {
-  SearchRom,
-  SimpleRom,
-} from "@/v2/data/adapters/legacy/stores/roms";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
   rom: SimpleRom | null;
-  results: SearchRom[];
+  results: MatchSearchRom[];
   searching: boolean;
   searched: boolean;
 }>();
@@ -38,7 +36,7 @@ const { t } = useI18n();
 const selectedKey = ref<string | null>(null);
 const selectedSource = ref<MatchedSource | undefined>(undefined);
 
-const selectedMatch = computed<SearchRom | null>(
+const selectedMatch = computed<MatchSearchRom | null>(
   () => props.results.find((r) => matchKey(r) === selectedKey.value) ?? null,
 );
 
@@ -56,11 +54,13 @@ const canConfirm = computed(
     (selectedSources.value.length === 0 || !!selectedSource.value),
 );
 
-function providerLogos(r: SearchRom): Array<{ name: string; logo: string }> {
+function providerLogos(
+  r: MatchSearchRom,
+): Array<{ name: string; logo: string }> {
   return getMatchSources(r).map((s) => ({ name: s.name, logo: s.logo_path }));
 }
 
-function select(r: SearchRom) {
+function select(r: MatchSearchRom) {
   selectedKey.value = matchKey(r);
   const sources = getMatchSources(r);
   selectedSource.value = sources.length === 1 ? sources[0] : undefined;
