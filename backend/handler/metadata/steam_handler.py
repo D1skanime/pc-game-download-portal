@@ -180,11 +180,20 @@ class SteamHandler(MetadataHandler):
         apps = await self.steam_service.search_apps(
             search_term, country=STEAM_API_COUNTRY, language=STEAM_API_LANGUAGE
         )
-        return [
-            SteamRom(steam_id=item["id"], name=item["name"])
-            for item in apps
-            if item.get("type") == "app"
-        ][:15]
+        results: list[SteamRom] = []
+        for item in apps:
+            if item.get("type") != "app":
+                continue
+            steam_id = item.get("id")
+            name = item.get("name")
+            if not isinstance(steam_id, int) or isinstance(steam_id, bool):
+                continue
+            if not isinstance(name, str):
+                continue
+            hydrated = await self.get_rom_by_id(steam_id, platform_slug)
+            if hydrated.get("steam_id") == steam_id:
+                results.append(hydrated)
+        return results[:15]
 
     @staticmethod
     def _needs_fallback(details: SteamAppDetails) -> bool:

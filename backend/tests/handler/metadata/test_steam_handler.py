@@ -433,3 +433,45 @@ async def test_invalid_localized_responses_do_not_discard_valid_text_variants(ha
     assert [
         call.args[0] for call in handler.steam_service.get_app_details.await_args_list
     ] == [1091500, 1091500, 1091500, 1091500]
+
+
+async def test_name_search_hydrates_candidates_with_review_media(handler):
+    handler.steam_service.search_apps = AsyncMock(
+        return_value=[
+            {
+                "id": 456,
+                "name": "The Witcher 3: Wild Hunt - Blood and Wine Soundtrack",
+                "type": "app",
+            },
+            {
+                "id": 123,
+                "name": "The Witcher 3: Wild Hunt - Blood and Wine",
+                "type": "app",
+            },
+        ]
+    )
+
+    async def get_rom_by_id(steam_id, _platform_slug):
+        if steam_id == 456:
+            return {"steam_id": None}
+        return {
+            "type": "dlc",
+            "name": "The Witcher 3: Wild Hunt - Blood and Wine",
+            "steam_id": 123,
+            "summary": "A major expansion.",
+            "url_cover": "https://cdn.example/header.jpg",
+            "url_screenshots": ["https://cdn.example/screenshot.jpg"],
+        }
+
+    handler.get_rom_by_id = AsyncMock(side_effect=get_rom_by_id)
+
+    results = await handler.get_matched_roms_by_name("The Witcher 3: Wild Hunt", "win")
+
+    assert results[0]["steam_id"] == 123
+    assert results[0]["url_cover"] == "https://cdn.example/header.jpg"
+    assert results[0]["url_screenshots"] == ["https://cdn.example/screenshot.jpg"]
+    assert len(results) == 1
+    assert [call.args[0] for call in handler.get_rom_by_id.await_args_list] == [
+        456,
+        123,
+    ]
