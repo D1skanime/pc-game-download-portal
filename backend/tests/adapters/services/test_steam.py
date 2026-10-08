@@ -108,3 +108,34 @@ def test_dlc_fullgame_transport_contract_keeps_only_the_parent_identity():
     assert annotations["appid"] == int | str
     assert str(annotations["name"]) == "typing.NotRequired[str]"
     assert SteamAppDetails.__annotations__["fullgame"].__args__[0] is SteamFullGame
+
+
+def test_parse_storefront_results_filters_invalid_candidates() -> None:
+    payload = {"results_html": """
+        <a data-ds-appid="123" href="#"><span class="title">Valid &amp; DLC</span></a>
+        <a data-ds-appid="bad,0,456" href="#"><span class="title">Second</span></a>
+        <a data-ds-appid="789" href="#"><span class="title">   </span></a>
+        """}
+
+    assert SteamService._parse_storefront_results(payload) == [
+        {"type": "app", "id": 123, "name": "Valid & DLC"},
+        {"type": "app", "id": 456, "name": "Second"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_search_apps_prefers_primary_storesearch(monkeypatch) -> None:
+    service = SteamService()
+    calls: list[str] = []
+
+    async def request(url: str) -> dict:
+        calls.append(url)
+        return {"items": [{"type": "app", "id": 292030, "name": "The Witcher 3"}]}
+
+    monkeypatch.setattr(service, "_request", request)
+
+    result = await service.search_apps("The Witcher 3")
+
+    assert result == [{"type": "app", "id": 292030, "name": "The Witcher 3"}]
+    assert len(calls) == 1
+    assert "/api/storesearch" in calls[0]

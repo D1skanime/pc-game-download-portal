@@ -1,6 +1,8 @@
 import asyncio
+import html
 import http
 import json
+import re
 from typing import Final, cast
 
 import aiohttp
@@ -20,6 +22,14 @@ STEAM_MAX_REQUESTS_PER_SECOND: Final[float] = 0.6
 STEAM_MAX_REQUEST_ATTEMPTS: Final[int] = 3
 STEAM_RATE_LIMIT_BACKOFF_SECONDS: Final[float] = 5
 STEAM_LIBRARY_CAPSULE_URL = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{app_id}/library_600x900.jpg"
+_STEAM_RESULT_ANCHOR = re.compile(
+    r'<a\b[^>]*data-ds-appid="(?P<ids>[^"]+)"[^>]*>(?P<body>.*?)</a>',
+    re.IGNORECASE | re.DOTALL,
+)
+_STEAM_RESULT_TITLE = re.compile(
+    r'<span\b[^>]*class="[^"]*\btitle\b[^"]*"[^>]*>(?P<title>.*?)</span>',
+    re.IGNORECASE | re.DOTALL,
+)
 _rate_limiter = RateLimiter(STEAM_MAX_REQUESTS_PER_SECOND)
 
 
@@ -58,6 +68,33 @@ class SteamService:
                 return {}
         return {}
 
+    @staticmethod
+    def _parse_storefront_results(response: dict) -> list[SteamStoreSearchItem]:
+        """Parse candidate apps from Steam's official search JSON HTML payload."""
+        results_html = response.get("results_html")
+        if not isinstance(results_html, str) or not results_html.strip():
+            return []
+
+        items: list[SteamStoreSearchItem] = []
+        seen_ids: set[int] = set()
+        for result in _STEAM_RESULT_ANCHOR.finditer(results_html):
+            title_match = _STEAM_RESULT_TITLE.search(result.group("body"))
+            if not title_match:
+                continue
+            title = html.unescape(re.sub(r"<[^>]+>", " ", title_match.group("title")))
+            title = " ".join(title.split())
+            if not title:
+                continue
+            for raw_id in result.group("ids").split(","):
+                if not raw_id.strip().isdigit():
+                    continue
+                app_id = int(raw_id.strip())
+                if app_id <= 0 or app_id in seen_ids:
+                    continue
+                seen_ids.add(app_id)
+                items.append({"type": "app", "id": app_id, "name": title})
+        return items
+
     async def search_apps(
         self, term: str, *, country: str = "US", language: str = "en"
     ) -> list[SteamStoreSearchItem]:
@@ -65,19 +102,36 @@ class SteamService:
             term=term, cc=country, l=language
         )
         response = await self._request(str(url))
-        items = response.get("items", [])
+        items = response.get("items")
         if not isinstance(items, list):
             return []
-        return [
+        primary_items = [
             cast(SteamStoreSearchItem, item)
             for item in items
             if isinstance(item, dict)
             and item.get("type") == "app"
             and isinstance(item.get("id"), int)
             and not isinstance(item["id"], bool)
+            and item["id"] > 0
             and isinstance(item.get("name"), str)
             and item["name"].strip()
         ]
+        if primary_items:
+            return primary_items
+
+        # Steam's legacy storesearch endpoint can omit valid catalog entries.
+        # The storefront fallback still returns candidates only; appdetails and
+        # the caller's DLC parent/type checks remain authoritative.
+        fallback_url = self.url.with_path("/search/results/").with_query(
+            term=term,
+            cc=country,
+            l=language,
+            json=1,
+            infinite=1,
+            start=0,
+            count=50,
+        )
+        return self._parse_storefront_results(await self._request(str(fallback_url)))
 
     async def get_app_details(
         self,
