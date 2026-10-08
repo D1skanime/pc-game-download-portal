@@ -225,6 +225,7 @@ describe("operation compatibility translation", () => {
       mediaPolicy: { mode: "missing-only" },
     });
     expect(toLegacyScanOptions(request)).toMatchObject({
+      type: "update",
       metadata_only: false,
       media_only: true,
     });

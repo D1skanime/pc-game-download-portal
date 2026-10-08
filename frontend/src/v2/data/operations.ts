@@ -334,9 +334,10 @@ export function toLegacyScanOptions(
 ): LegacyScanOptions {
   const request = normalizeOperationRequest(input);
   const scope = scopeOptions(request);
-  const scanType =
-    request.scanType ??
-    (request.kind === "discovery" ? "new_platforms" : "quick");
+  const scanType = request.mediaOnly
+    ? "update"
+    : (request.scanType ??
+      (request.kind === "discovery" ? "new_platforms" : "quick"));
 
   return {
     ...scope,
