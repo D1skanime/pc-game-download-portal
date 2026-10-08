@@ -140,26 +140,36 @@ STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG: Final[dict[str, str]] = {
 }
 
 
+def canonicalize_steam_text_language(value: str | None, fallback: str = "") -> str:
+    """Convert Steam language names and ISO UI tags to one canonical name."""
+    normalized = (value or "").strip().lower()
+    if normalized in STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG:
+        return normalized
+    for language, tag in STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG.items():
+        if tag == normalized:
+            return language
+    return fallback
+
+
 def parse_steam_api_text_languages(value: str | None) -> tuple[str, ...]:
     """Return a bounded, ordered set of supported Steam text languages."""
     if not value:
         return ()
     languages: list[str] = []
     for raw_language in value.split(","):
-        language = raw_language.strip().lower()
-        if (
-            language in STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG
-            and language not in languages
-        ):
+        language = canonicalize_steam_text_language(raw_language)
+        if language and language not in languages:
             languages.append(language)
     return tuple(languages)
 
 
 STEAM_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("STEAM_API_ENABLED"))
-STEAM_API_LANGUAGE: Final[str] = _get_env("STEAM_API_LANGUAGE", "german")
+STEAM_API_LANGUAGE: Final[str] = canonicalize_steam_text_language(
+    _get_env("STEAM_API_LANGUAGE"), "german"
+)
 STEAM_API_COUNTRY: Final[str] = _get_env("STEAM_API_COUNTRY", "CH")
-STEAM_API_FALLBACK_LANGUAGE: Final[str] = _get_env(
-    "STEAM_API_FALLBACK_LANGUAGE", "english"
+STEAM_API_FALLBACK_LANGUAGE: Final[str] = canonicalize_steam_text_language(
+    _get_env("STEAM_API_FALLBACK_LANGUAGE"), "english"
 )
 STEAM_API_FALLBACK_COUNTRY: Final[str] = _get_env("STEAM_API_FALLBACK_COUNTRY", "US")
 STEAM_API_TEXT_LANGUAGES: Final[tuple[str, ...]] = parse_steam_api_text_languages(

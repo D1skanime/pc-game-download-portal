@@ -391,6 +391,7 @@ def test_text_language_configuration_is_canonicalized_and_bounded():
     assert parse_steam_api_text_languages(
         " german, english, german, french, unsupported, , ENGLISH "
     ) == ("german", "english", "french")
+    assert parse_steam_api_text_languages("de, en, de") == ("german", "english")
 
 
 async def test_invalid_localized_responses_do_not_discard_valid_text_variants(handler):
