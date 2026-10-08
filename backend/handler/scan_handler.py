@@ -33,6 +33,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
     meta_tgdb_handler,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -121,17 +122,23 @@ def auto_link_pc_dlc_components(rom: Rom, components: list[RomComponent]) -> Non
 async def auto_link_parent_listed_steam_dlc_components(rom: Rom) -> None:
     """Attach Steam identity only to existing local DLC components."""
     for component in getattr(rom, "components", []):
-        if (
-            component.kind != RomComponentKind.DLC
-            or getattr(component.component_metadata, "steam_id", None) is not None
-        ):
-            continue
-        candidate = await pc_metadata_match_handler.fetch_parent_listed_steam_dlc(
-            rom, component
-        )
-        if candidate is None:
+        if component.kind != RomComponentKind.DLC:
             continue
         metadata = component.component_metadata
+        steam_id = getattr(metadata, "steam_id", None)
+        if steam_id is not None and getattr(metadata, "steam_metadata", None):
+            continue
+        if steam_id is not None:
+            candidate = await meta_steam_handler.get_rom_by_id(
+                steam_id,
+                platform_slug=rom.platform_slug,
+            )
+        else:
+            candidate = await pc_metadata_match_handler.fetch_parent_listed_steam_dlc(
+                rom, component
+            )
+        if not candidate:
+            continue
         current = {
             "name": getattr(metadata, "name", None),
             "summary": getattr(metadata, "summary", None),
