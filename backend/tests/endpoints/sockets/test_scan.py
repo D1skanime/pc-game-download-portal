@@ -676,11 +676,11 @@ class TestShouldScanRom:
         result = should_scan_rom(ScanType.UNMATCHED, rom, [], ["igdb"])
         assert result is True
 
-    def test_unmatched_scan_with_identified_rom(self, rom: Rom):
-        """UNMATCHED should also scan when rom is identified"""
+    def test_unmatched_scan_skips_identified_rom(self, rom: Rom):
+        """UNMATCHED should only scan ROMs without any metadata identity"""
         rom.igdb_id = 1
         result = should_scan_rom(ScanType.UNMATCHED, rom, [], ["moby"])
-        assert result is True
+        assert result is False
 
     # Test UPDATE scan type
     def test_update_scan_with_no_rom(self):

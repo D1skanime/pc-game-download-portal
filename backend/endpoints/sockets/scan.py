@@ -489,14 +489,9 @@ def should_scan_rom(
                     and rom.steam_id > 0
                     and MetadataSource.STEAM in metadata_sources
                 )
-                # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
-                or (
-                    scan_type == ScanType.UNMATCHED
-                    and any(
-                        not getattr(rom, f"{source}_id", None)
-                        for source in metadata_sources
-                    )
-                )
+                # Unmatched scan is reserved for ROMs with no metadata
+                # identity at all. Provider-specific refreshes belong to UPDATE.
+                or (scan_type == ScanType.UNMATCHED and rom.is_unidentified)
             )
         )
     )
