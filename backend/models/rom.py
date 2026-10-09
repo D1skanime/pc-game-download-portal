@@ -405,6 +405,9 @@ class RomComponentMetadata(BaseModel):
     provider_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=None
     )
+    manual_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
     main_developer: Mapped[str | None] = mapped_column(String(length=255), default=None)
     publishers: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=list)
     themes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=list)

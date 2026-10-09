@@ -114,6 +114,20 @@ class PcMetadataCandidatesResponse(BaseModel):
     providers: dict[str, PcMetadataProviderResultSchema]
 
 
+class ManualDescriptionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    locale: str = Field(min_length=2, max_length=35)
+    description: str | None = Field(default=None, max_length=20_000)
+    expected_version: UTCDatetime
+
+
+class ManualDescriptionResponse(BaseModel):
+    locale: str
+    description: str | None
+    expected_version: UTCDatetime
+
+
 class PcMetadataSelectionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -269,6 +283,7 @@ ManualMetadata = TypedDict(
         "age_ratings": list[str] | None,
         "first_release_date": int | None,
         "youtube_video_id": str | None,
+        "descriptions": dict[str, str] | None,
     },
     total=False,
 )
@@ -413,6 +428,7 @@ class PcComponentMetadataSchema(BaseModel):
     summary: str | None
     metadata_source: str | None
     provider_metadata: dict[str, object] | None
+    manual_metadata: ManualMetadata | None
     main_developer: str | None
     publishers: list[str] = Field(default_factory=list)
     themes: list[str] = Field(default_factory=list)

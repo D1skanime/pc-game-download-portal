@@ -7,6 +7,8 @@ from fastapi import HTTPException, Path, Query, Request, Response, status
 
 from decorators.auth import protected_route
 from endpoints.responses.rom import (
+    ManualDescriptionRequest,
+    ManualDescriptionResponse,
     PcComponentLocalMediaSchema,
     PcComponentMetadataSelectionResponse,
     PcLocalMediaCandidateSchema,
@@ -96,6 +98,91 @@ def _pc_component(rom_id: int, component_id: int):
     if component is None or component.kind not in MATCHABLE_PC_COMPONENT_KINDS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return rom, component
+
+
+@protected_route(router.put, "/{id}/description", [Scope.ROMS_WRITE])
+async def update_rom_manual_description(
+    request: Request,
+    id: Annotated[int, Path(description="Rom internal id.", ge=1)],
+    payload: ManualDescriptionRequest,
+) -> ManualDescriptionResponse:
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+    assert_rom_visible(request, rom)
+    try:
+        updated = db_rom_handler.update_manual_description(
+            id,
+            payload.expected_version,
+            payload.locale,
+            payload.description,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The ROM metadata changed before the description was saved",
+        )
+    from handler.metadata.manual_description import (
+        get_manual_description,
+        normalize_locale,
+    )
+
+    locale = normalize_locale(payload.locale)
+    return ManualDescriptionResponse(
+        locale=locale,
+        description=get_manual_description(updated.manual_metadata, locale),
+        expected_version=updated.updated_at,
+    )
+
+
+@protected_route(
+    router.put,
+    "/{id}/pc-components/{component_id}/description",
+    [Scope.ROMS_WRITE],
+)
+async def update_pc_component_manual_description(
+    request: Request,
+    id: Annotated[int, Path(description="Rom internal id.", ge=1)],
+    component_id: Annotated[int, Path(ge=1)],
+    payload: ManualDescriptionRequest,
+) -> ManualDescriptionResponse:
+    rom, component = _pc_component(id, component_id)
+    assert_rom_visible(request, rom)
+    try:
+        updated = db_rom_handler.update_pc_component_manual_description(
+            id,
+            component.id,
+            payload.expected_version,
+            payload.locale,
+            payload.description,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The component metadata changed before the description was saved",
+        )
+    from handler.metadata.manual_description import (
+        get_manual_description,
+        normalize_locale,
+    )
+
+    locale = normalize_locale(payload.locale)
+    metadata = updated.component_metadata
+    return ManualDescriptionResponse(
+        locale=locale,
+        description=get_manual_description(
+            metadata.manual_metadata if metadata else None, locale
+        ),
+        expected_version=updated.updated_at,
+    )
 
 
 @protected_route(

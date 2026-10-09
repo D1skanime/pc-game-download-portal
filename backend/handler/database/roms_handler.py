@@ -45,6 +45,7 @@ from sqlalchemy.sql.selectable import Select
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.metadata.manual_description import set_manual_description
 from handler.redis_handler import sync_cache
 from models.assets import Save, Screenshot, State
 from models.base import compute_file_name_parts
@@ -2424,6 +2425,74 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return session.query(Rom).filter_by(id=id).one()
+
+    @begin_session
+    def update_manual_description(
+        self,
+        rom_id: int,
+        expected_updated_at: datetime,
+        locale: str,
+        description: str | None,
+        session: Session = None,  # type: ignore
+    ) -> Rom | None:
+        rom = session.scalar(
+            select(Rom)
+            .where(Rom.id == rom_id, Rom.updated_at == expected_updated_at)
+            .with_for_update()
+        )
+        if rom is None:
+            return None
+        rom.manual_metadata = set_manual_description(
+            rom.manual_metadata, locale, description
+        )
+        rom.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        session.refresh(rom)
+        return rom
+
+    @begin_session
+    def update_pc_component_manual_description(
+        self,
+        rom_id: int,
+        component_id: int,
+        expected_updated_at: datetime,
+        locale: str,
+        description: str | None,
+        session: Session = None,  # type: ignore
+    ) -> RomComponent | None:
+        component = session.scalar(
+            select(RomComponent)
+            .options(selectinload(RomComponent.component_metadata))
+            .where(
+                RomComponent.id == component_id,
+                RomComponent.rom_id == rom_id,
+                RomComponent.kind.in_(
+                    (
+                        RomComponentKind.BASE,
+                        RomComponentKind.UPDATE,
+                        RomComponentKind.DLC,
+                        RomComponentKind.HOTFIX,
+                        RomComponentKind.LANGUAGE_PACK,
+                        RomComponentKind.EXTRA,
+                    )
+                ),
+                RomComponent.updated_at == expected_updated_at,
+            )
+            .with_for_update()
+        )
+        if component is None:
+            return None
+        metadata = component.component_metadata
+        if metadata is None:
+            metadata = RomComponentMetadata(component_id=component.id)
+            component.component_metadata = metadata
+        metadata.manual_metadata = set_manual_description(
+            metadata.manual_metadata, locale, description
+        )
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        session.refresh(component)
+        return component
 
     @begin_session
     def apply_pc_metadata_candidate(
