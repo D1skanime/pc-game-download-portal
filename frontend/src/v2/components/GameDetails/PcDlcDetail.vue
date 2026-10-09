@@ -8,6 +8,7 @@ import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH, formatBytes, toBrowserLocale } from "@/utils";
+import LocalizedDescriptionEditor from "@/v2/components/GameDetails/LocalizedDescriptionEditor.vue";
 import PcDlcFiles from "@/v2/components/GameDetails/PcDlcFiles.vue";
 import PcDlcMediaTab from "@/v2/components/GameDetails/PcDlcMediaTab.vue";
 import PcDlcNotesTab from "@/v2/components/GameDetails/PcDlcNotesTab.vue";
@@ -194,6 +195,18 @@ function showMedia() {
 
         <div class="r-v2-det__panel">
           <section v-if="tab === 'overview'" class="pc-dlc-detail__overview">
+            <LocalizedDescriptionEditor
+              :rom-id="parent.id"
+              :component-id="component.id"
+              :expected-version="component.updated_at"
+              :manual-metadata="component.component_metadata?.manual_metadata"
+              :steam-metadata="component.component_metadata?.steam_metadata"
+              :fallback-description="component.component_metadata?.summary"
+              :provider-summary-is-authoritative="
+                component.component_metadata?.metadata_source !== 'manual'
+              "
+              @saved="emit('refresh')"
+            />
             <p v-if="summary" class="pc-dlc-detail__summary">{{ summary }}</p>
             <dl class="pc-dlc-detail__facts">
               <div v-if="releaseDate" class="pc-dlc-detail__fact">

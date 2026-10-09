@@ -521,6 +521,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :remakes="remakes"
             :remasters="remasters"
             :similar-games="similarGames"
+            @refresh="refreshPcDetails"
           />
           <FilesTab v-if="tab === 'files'" :rom="currentRom" />
           <template v-if="tab === 'pc-components' && isPcRom">

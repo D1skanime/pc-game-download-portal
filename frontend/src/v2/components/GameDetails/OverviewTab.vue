@@ -34,6 +34,7 @@ import AgeRatingBadges from "@/v2/components/GameDetails/AgeRatingBadges.vue";
 import HLTBStrip from "@/v2/components/GameDetails/HLTBStrip.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
 import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
+import LocalizedDescriptionEditor from "@/v2/components/GameDetails/LocalizedDescriptionEditor.vue";
 import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
@@ -75,6 +76,8 @@ const props = defineProps<{
   remasters: IGDBRelatedGame[];
   similarGames: IGDBRelatedGame[];
 }>();
+
+const emit = defineEmits<{ refresh: [] }>();
 
 const hasAgeRatings = computed(
   () => (props.rom.metadatum?.age_ratings?.length ?? 0) > 0,
@@ -219,6 +222,17 @@ const ownedScreenshots = computed(() =>
 <template>
   <section class="overview-tab">
     <!-- 1. Summary -->
+    <LocalizedDescriptionEditor
+      :rom-id="rom.id"
+      :expected-version="rom.updated_at"
+      :manual-metadata="rom.manual_metadata"
+      :steam-metadata="rom.steam_metadata"
+      :fallback-description="rom.summary"
+      :provider-summary-is-authoritative="
+        Boolean(rom.steam_metadata?.fields?.includes('summary'))
+      "
+      @saved="emit('refresh')"
+    />
     <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
 
     <!-- 2. Per-ROM fact rows (left-labelled). Revision, Last played +
