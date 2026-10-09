@@ -735,7 +735,7 @@ permission, locale, detail-surface, query invalidation, and v2 component
 abstractions. Do not create a parallel storage, mapping, scan, or metadata
 ownership model. Existing animation, sharp-background, soundtrack-role,
 Steam, and scan fixes are regression scope only.
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 
@@ -745,7 +745,7 @@ Plans:
 
 **Wave 2** (depends on 26-01)
 
-- [ ] 26-02-PLAN.md: Add the v2 detail-surface editor with provenance, reset, locale parity, and accessible states.
+- [x] 26-02-PLAN.md: Add the v2 detail-surface editor with provenance, reset, locale parity, and accessible states.
 
 **Wave 3** (depends on 26-01 and 26-02)
 

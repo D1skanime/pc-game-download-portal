@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 26-01-PLAN.md
-last_updated: "2026-10-09T22:42:16.319Z"
+stopped_at: Completed 26-02-PLAN.md
+last_updated: "2026-10-09T23:25:18.291Z"
 last_activity: 2026-10-09
 progress:
   total_phases: 26
   completed_phases: 20
   total_plans: 212
-  completed_plans: 199
+  completed_plans: 200
   percent: 77
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 26 (UI-UX Abschluss und manuelle mehrsprachige Metadatenpflege) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-10-09
 
@@ -162,6 +162,7 @@ _Updated after each plan completion_
 | Phase 24 P10 | 20m | 3 tasks | 2 files |
 | Phase 24 P12 | 4min | 3 tasks | 2 files |
 | Phase 26 P01 | 25min | 3 tasks | 21 files |
+| Phase 26 P02 | 50min | 7 tasks | 28 files |
 
 ## Accumulated Context
 
@@ -406,6 +407,8 @@ Recent decisions affecting current work:
 - [Phase 26]: Reuse existing manual_metadata boundaries for locale-scoped manual descriptions — This keeps parent ROM and PC component ownership in the existing metadata contract.
 - [Phase 26]: Keep ordinary provider reconciliation non-restoring and reserve reactivation for explicit refresh — Operator suppression must survive scans while explicit user refresh remains available.
 - [Phase 26]: Use generated OpenAPI contracts for frontend description mutations — The backend remains the source of truth for request and response shapes.
+- [Phase 26]: Reuse existing manual metadata and provider resolution contracts for ROM and component description editing. — Preserves the architecture delivered by plan 26-01.
+- [Phase 26]: Route PC downloads to the existing Game Download selection surface and hide copy-link for PC ROMs. — Keeps PC downloads within the existing manifest selection flow.
 
 ### Blockers/Concerns
 
@@ -463,8 +466,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-09T22:42:16.303Z
-Stopped at: Completed 26-01-PLAN.md
+Last session: 2026-10-09T23:25:18.274Z
+Stopped at: Completed 26-02-PLAN.md
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
