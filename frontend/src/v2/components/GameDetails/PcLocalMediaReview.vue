@@ -86,11 +86,11 @@ async function applySelection() {
     prepend-icon="mdi-image-plus-outline"
     @click="openReview"
   >
-    {{ t("rom.artwork") }}
+    {{ t("rom.use-local-images") }}
   </RBtn>
 
   <RDialog v-model="dialogOpen">
-    <template #header>{{ t("rom.artwork") }}</template>
+    <template #header>{{ t("rom.use-local-images") }}</template>
     <template #content>
       <div class="pc-local-media-review">
         <REmptyState

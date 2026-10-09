@@ -457,12 +457,12 @@ function openPcParentMatcher() {
 // the patch workflow.
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: t("rom.tab-overview") },
-  { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
   ...(isPcRom.value
     ? [{ id: "pc-components", label: t("rom.game-downloads") }]
     : []),
   ...(isPcRom.value ? [] : [{ id: "patcher", label: t("common.patcher") }]),
   { id: "media", label: t("rom.media") },
+  { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
   { id: "notes", label: t("rom.tab-notes") },
   {
     id: "achievements",
