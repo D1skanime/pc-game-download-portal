@@ -482,6 +482,7 @@
   "screenshots-section-community": "コミュニティ",
   "screenshots-section-mine": "自分のスクリーンショット",
   "screenshots-section-rom": "ROMのスクリーンショット",
+  "provider-screenshot-delete-note": "Deleting provider media suppresses it from future scans until it is explicitly restored.",
   "screenshots-section-rom-desc": "このゲームを見られる全員と共有されます",
   "screenshots-upload-title": "スクリーンショットをアップロード",
   "screenshots-uploaded-n": "{n}件のスクリーンショットをアップロードしました。 | {n}件のスクリーンショットをアップロードしました。",

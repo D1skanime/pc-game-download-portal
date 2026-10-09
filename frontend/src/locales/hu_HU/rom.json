@@ -482,6 +482,7 @@
   "screenshots-section-community": "Közösség",
   "screenshots-section-mine": "Saját képernyőképeim",
   "screenshots-section-rom": "ROM képernyőképei",
+  "provider-screenshot-delete-note": "Deleting provider media suppresses it from future scans until it is explicitly restored.",
   "screenshots-section-rom-desc": "Megosztva mindenkivel, aki látja ezt a játékot",
   "screenshots-upload-title": "Képernyőképek feltöltése",
   "screenshots-uploaded-n": "{n} képernyőkép feltöltve. | {n} képernyőkép feltöltve.",

@@ -483,6 +483,7 @@
   "screenshots-section-community": "Community",
   "screenshots-section-mine": "Meine Screenshots",
   "screenshots-section-rom": "ROM-Screenshots",
+  "provider-screenshot-delete-note": "Deleting provider media suppresses it from future scans until it is explicitly restored.",
   "screenshots-section-rom-desc": "Mit allen geteilt, die dieses Spiel sehen können",
   "screenshots-upload-title": "Screenshots hochladen",
   "screenshots-uploaded-n": "{n} Screenshot hochgeladen. | {n} Screenshots hochgeladen.",

@@ -82,6 +82,7 @@ const communityScreenshots = computed<ScreenshotItem[]>(() =>
 );
 const myDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const togglingId = ref<number | null>(null);
+const deletingId = ref<number | null>(null);
 
 function mediaContentUrl(mediaId: number) {
   return `/api/roms/${props.rom.id}/media/${mediaId}/content`;
@@ -230,12 +231,15 @@ async function deleteMyScreenshot(id: number) {
     }))
   )
     return;
+  deletingId.value = id;
   try {
     await screenshotApi.deleteScreenshot({ id });
     await refreshRom();
     snackbar.success(t("rom.screenshot-removed"));
   } catch (error) {
     snackbar.error(errorMessage(error));
+  } finally {
+    deletingId.value = null;
   }
 }
 async function toggleVisibility(id: number, isPublic: boolean) {
@@ -265,6 +269,7 @@ async function toggleVisibility(id: number, isPublic: boolean) {
           </h3>
           <p class="r-v2-shots__subtitle">
             {{ t("rom.screenshots-section-rom-desc") }}
+            <br />{{ t("rom.provider-screenshot-delete-note") }}
           </p>
         </div>
         <RTooltip :text="t('common.refresh')"
@@ -386,6 +391,7 @@ async function toggleVisibility(id: number, isPublic: boolean) {
           deletable
           togglable
           :toggling-id="togglingId"
+          :deleting-id="deletingId"
           @delete="deleteMyScreenshot"
           @toggle-visibility="toggleVisibility"
       /></RDropzone>

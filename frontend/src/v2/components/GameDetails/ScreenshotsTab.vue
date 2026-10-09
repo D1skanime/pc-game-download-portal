@@ -34,6 +34,7 @@ const props = defineProps<{
   deletable?: boolean;
   togglable?: boolean;
   togglingId?: number | null;
+  deletingId?: number | null;
 }>();
 const emit = defineEmits<{
   delete: [id: number];
@@ -136,6 +137,7 @@ function canToggle(shot: ScreenshotItem): boolean {
           size="small"
           variant="flat"
           color="romm-red"
+          :loading="deletingId === shot.id"
           :aria-label="t('rom.screenshot-num-delete', { n: i + 1 })"
           @click="emit('delete', shot.id!)"
         />

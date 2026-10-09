@@ -482,6 +482,7 @@
   "screenshots-section-community": "Общност",
   "screenshots-section-mine": "Моите екранни снимки",
   "screenshots-section-rom": "Екранни снимки на ROM",
+  "provider-screenshot-delete-note": "Deleting provider media suppresses it from future scans until it is explicitly restored.",
   "screenshots-section-rom-desc": "Споделени с всички, които виждат тази игра",
   "screenshots-upload-title": "Качи екранни снимки",
   "screenshots-uploaded-n": "Качена е {n} екранна снимка. | Качени са {n} екранни снимки.",

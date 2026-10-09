@@ -482,6 +482,7 @@
   "screenshots-section-community": "社群",
   "screenshots-section-mine": "我的螢幕截圖",
   "screenshots-section-rom": "ROM 螢幕截圖",
+  "provider-screenshot-delete-note": "Deleting provider media suppresses it from future scans until it is explicitly restored.",
   "screenshots-section-rom-desc": "與所有能看到此遊戲的人共享",
   "screenshots-upload-title": "上傳截圖",
   "screenshots-uploaded-n": "已上傳 {n} 張螢幕截圖。 | 已上傳 {n} 張螢幕截圖。",

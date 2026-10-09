@@ -482,6 +482,7 @@
   "screenshots-section-community": "Topluluk",
   "screenshots-section-mine": "Ekran görüntülerim",
   "screenshots-section-rom": "ROM ekran görüntüleri",
+  "provider-screenshot-delete-note": "Deleting provider media suppresses it from future scans until it is explicitly restored.",
   "screenshots-section-rom-desc": "Bu oyunu görebilen herkesle paylaşılır",
   "screenshots-upload-title": "Ekran görüntüsü yükle",
   "screenshots-uploaded-n": "{n} ekran görüntüsü yüklendi. | {n} ekran görüntüsü yüklendi.",

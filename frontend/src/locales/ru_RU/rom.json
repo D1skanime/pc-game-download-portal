@@ -482,6 +482,7 @@
   "screenshots-section-community": "Сообщество",
   "screenshots-section-mine": "Мои скриншоты",
   "screenshots-section-rom": "Скриншоты ROM",
+  "provider-screenshot-delete-note": "Deleting provider media suppresses it from future scans until it is explicitly restored.",
   "screenshots-section-rom-desc": "Доступны всем, кто видит эту игру",
   "screenshots-upload-title": "Загрузить скриншоты",
   "screenshots-uploaded-n": "Загружен {n} скриншот. | Загружено {n} скриншотов.",

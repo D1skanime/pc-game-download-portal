@@ -482,6 +482,7 @@
   "screenshots-section-community": "커뮤니티",
   "screenshots-section-mine": "내 스크린샷",
   "screenshots-section-rom": "ROM 스크린샷",
+  "provider-screenshot-delete-note": "Deleting provider media suppresses it from future scans until it is explicitly restored.",
   "screenshots-section-rom-desc": "이 게임을 볼 수 있는 모든 사용자와 공유됩니다",
   "screenshots-upload-title": "스크린샷 업로드",
   "screenshots-uploaded-n": "{n}개 스크린샷을 업로드했습니다. | {n}개 스크린샷을 업로드했습니다.",

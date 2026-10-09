@@ -482,6 +482,7 @@
   "screenshots-section-community": "Communauté",
   "screenshots-section-mine": "Mes captures",
   "screenshots-section-rom": "Captures de la ROM",
+  "provider-screenshot-delete-note": "Deleting provider media suppresses it from future scans until it is explicitly restored.",
   "screenshots-section-rom-desc": "Partagées avec tous ceux qui voient ce jeu",
   "screenshots-upload-title": "Téléverser des captures d'écran",
   "screenshots-uploaded-n": "{n} capture d'écran téléversée. | {n} captures d'écran téléversées.",
