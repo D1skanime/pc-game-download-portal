@@ -94,6 +94,24 @@ None. The change adds no endpoint, authentication, filesystem authority, or sche
 - Task commit `11a5e632b` exists.
 - The unrelated pre-existing mapping diff in `backend/endpoints/sockets/scan.py` remains outside the task commit.
 
+## Final Reuse-First Audit
+
+The final audit found no additional metadata-only or media-only behavior gap that can be fixed safely within this plan.
+
+- Operation intents already translate through `OperationRequest`, the existing policy normalizer, and the single legacy scan adapter. Contradictory metadata-only/media-only policies are rejected, and component operations remain routed to the PC/DLC matcher authority.
+- The scan socket already forwards both bounded flags through the mapped scan lifecycle. Media-only loads existing ROM rows only, filters requested ROM IDs against those rows, and never performs filesystem discovery, identification, or creation.
+- ROM-only media refresh already reuses `POST /api/roms/{id}/media/refresh` through the shared `refresh_provider_owned_media` helper. Platform, library, and bulk media refresh remain on the existing socket lifecycle.
+- Metadata-only preserves artwork and persisted resource paths, suppresses provider-media persistence and resource downloads, and preserves the existing Quick-task Steam DLC text refresh for already-linked components. That Quick-task authority was intentionally not reverted.
+- `Scan.vue`, `ScanPlatformDialog.vue`, and `RefreshMetadataDialog.vue` expose the same translated metadata/media intent taxonomy, with scope-specific execution only.
+
+### Verification evidence
+
+- Python compilation passed for the touched scan and owned-media production modules.
+- Targeted `git diff --check` passed for the plan's frontend, backend, test, and locale files.
+- Frontend focused tests and typecheck were attempted but blocked by `npm: command not found` on `team4s-linux`.
+- Backend focused tests were attempted but blocked by `No module named pytest`; `backend/.venv/bin/pytest` is also unavailable.
+- No MariaDB-backed test was run, and no service, Docker workload, or Phase 25 file was changed.
+
 ## Completed Task 3
 
 Media-only is now a bounded compatibility mode on the existing mapped scan lifecycle.
