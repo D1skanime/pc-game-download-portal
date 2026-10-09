@@ -668,7 +668,7 @@ Plans:
 **Requirements**: QA-01, QA-02, QA-03, QA-04, QA-05, QA-06, QA-07, QA-08
 **Depends on:** Phase 23
 **Cross-cutting constraints:** Preserve direct-v2 boot and all supported routes. Do not restore v1. Do not modify external libraries or use NAS, Team4s, real library data, or production credentials. Keep API contracts backend-owned, regenerate generated types after schema changes, preserve manual/provider ownership rules, and keep source-mutation controls fail-closed.
-**Plans:** 7/12 plans executed
+**Plans:** 13/14 plans executed
 
 **Wave 1**
 
@@ -690,14 +690,63 @@ Plans:
 
 **Wave 5** (depends on 24-05 and 24-06)
 
-- [ ] 24-07-PLAN.md: Establish storage-aware operation contracts and compatibility translation.
+- [x] 24-07-PLAN.md: Establish storage-aware operation contracts and compatibility translation.
 - [x] 24-08-PLAN.md: Centralize provider resolution and operation lifecycle.
-- [ ] 24-09-PLAN.md: Define metadata/media ownership and per-item result policies.
-- [ ] 24-10-PLAN.md: Migrate every scan, refresh, matching, cover, and PC/DLC entry point.
+- [x] 24-09-PLAN.md: Define metadata/media ownership and per-item result policies.
+- [x] 24-10-PLAN.md: Migrate every scan, refresh, matching, cover, and PC/DLC entry point.
 - [ ] 24-11-PLAN.md: Run final Linux gates, preservation matrix, browser UAT, and document the handoff.
 
 **Wave 9** (depends on 24-08, 24-09, and 24-10)
 
-- [ ] 24-12-PLAN.md: Inventory and decompose oversized runtime files without duplicating existing domain logic.
+- [x] 24-12-PLAN.md: Inventory and decompose oversized runtime files without duplicating existing domain logic.
 
 **Wave 10** (depends on 24-12)
+
+### Phase 25: Scan-/Medien-Integration härten
+
+**Goal:** Complete the end-to-end scan and media contract for mapped PC and classic-platform libraries by resolving provider authority, isolating per-item media failures, classifying OST as source-backed soundtrack audio with an existing download-to-owned-upload flow, and proving metadata, media, DLC, expansion, localization, and source immutability without duplicating existing storage, mapping, PC, provider, or socket logic.
+**Depends on:** Phase 24
+**Cross-cutting constraints:** Reuse PlatformStorageMapping, the v2 operation contract, the shared socket lifecycle, existing provider resolution, PC component ownership, and owned-media persistence. New production files target at most 500 logical lines; files above 500 require a decomposition decision; new files above 1,000 are prohibited except approved generated artifacts.
+**Plans:** 4 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 25-01-PLAN.md: Repair provider-aware media reconciliation and per-item scan failure isolation.
+
+**Wave 2** (depends on 25-01)
+
+- [ ] 25-02-PLAN.md: Complete PC classification for OST, DLC, Expansion, archives, and NFO sidecars.
+
+**Wave 3** (depends on 25-01 and 25-02)
+
+- [ ] 25-03-PLAN.md: Run focused gates and blocking Linux Dev/browser UAT.
+- [ ] 25-04-PLAN.md: Close correlated item outcomes, component isolation, and MariaDB evidence gaps.
+
+### Phase 26: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege
+
+**Goal:** Close the remaining UI/UX gaps from live Linux Dev UAT and provide a
+language-scoped manual description editor that preserves provider data and
+works consistently for parent games, DLCs, and expansions.
+**Depends on:** Phase 25
+**Cross-cutting constraints:** Reuse the existing metadata, provider,
+permission, locale, detail-surface, query invalidation, and v2 component
+abstractions. Do not create a parallel storage, mapping, scan, or metadata
+ownership model. Existing animation, sharp-background, soundtrack-role,
+Steam, and scan fixes are regression scope only.
+**Plans:** 1/3 plans executed
+
+Plans:
+
+**Wave 1**
+
+- [x] 26-01-PLAN.md: Add the canonical locale-scoped manual description contract and lifecycle tests.
+
+**Wave 2** (depends on 26-01)
+
+- [ ] 26-02-PLAN.md: Add the v2 detail-surface editor with provenance, reset, locale parity, and accessible states.
+
+**Wave 3** (depends on 26-01 and 26-02)
+
+- [ ] 26-03-PLAN.md: Run automated regression gates and live Linux Dev/browser UAT for the complete UI scope.

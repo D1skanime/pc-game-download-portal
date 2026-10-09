@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: blocked
-stopped_at: Phase 24 Plan 11 finalization evidence recorded; automated gates blocked
-last_updated: "2026-10-09T12:42:44Z"
+status: executing
+stopped_at: Completed 26-01-PLAN.md
+last_updated: "2026-10-09T22:42:16.319Z"
 last_activity: 2026-10-09
 progress:
-  total_phases: 25
-  completed_phases: 19
-  total_plans: 209
-  completed_plans: 197
-  percent: 76
+  total_phases: 26
+  completed_phases: 20
+  total_plans: 212
+  completed_plans: 199
+  percent: 77
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 24 v2 quality stabilization and legacy boundary cleanup
+**Current focus:** Phase 26 — UI-UX Abschluss und manuelle mehrsprachige Metadatenpflege
 
 ## Current Position
 
-Phase: 24 (v2-quality-stabilization-and-legacy-boundary-cleanup) - FINALIZATION BLOCKED
-Plan: 11 of 14
-Status: Human/browser UAT approved; MariaDB-backed backend tests and frontend build remain blocked
+Phase: 26 (UI-UX Abschluss und manuelle mehrsprachige Metadatenpflege) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-10-09
 
 ## Performance Metrics
@@ -161,6 +161,7 @@ _Updated after each plan completion_
 | Phase 24 P09 | 10min | 2 tasks | 1 files |
 | Phase 24 P10 | 20m | 3 tasks | 2 files |
 | Phase 24 P12 | 4min | 3 tasks | 2 files |
+| Phase 26 P01 | 25min | 3 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -402,6 +403,9 @@ Recent decisions affecting current work:
 - [Phase 24]: Reuse existing 451ed2edd metadata/media policy and operation-result contracts without adding duplicate backend ownership architecture.
 - [Phase 24]: Fallback locale values remain read-only and retry identity remains bound to operation, job, and item IDs.
 - [Phase 24]: Plan 24-10 was already implemented, so execution reused the existing orchestrator, legacy adapter, PC/DLC authority, media policy, and source-mutation guard without source changes. — The reuse-first audit found the three Plan 10 implementation commits already present.
+- [Phase 26]: Reuse existing manual_metadata boundaries for locale-scoped manual descriptions — This keeps parent ROM and PC component ownership in the existing metadata contract.
+- [Phase 26]: Keep ordinary provider reconciliation non-restoring and reserve reactivation for explicit refresh — Operator suppression must survive scans while explicit user refresh remains available.
+- [Phase 26]: Use generated OpenAPI contracts for frontend description mutations — The backend remains the source of truth for request and response shapes.
 
 ### Blockers/Concerns
 
@@ -459,8 +463,9 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-09T12:38:45.621Z
-Stopped at: Completed 24-08-PLAN.md
+Last session: 2026-10-09T22:42:16.303Z
+Stopped at: Completed 26-01-PLAN.md
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
+- Phase 26 added: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege.
