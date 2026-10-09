@@ -62,3 +62,10 @@
 +disposable UAT database, then rerun this matrix without changing product code.
 +The current browser blocker is exact and reproducible: the app serves the login
 +route, and no permitted credentials are available to continue.
+
+## Live browser attempt
+
+At 2026-10-09T23:34Z, the approved in-app browser opened the Linux Dev
+endpoint successfully, but it redirected to the unauthenticated login route.
+No credentials were entered, no form was submitted, and no application data was
+changed. The browser UAT task is therefore blocked rather than approved.
