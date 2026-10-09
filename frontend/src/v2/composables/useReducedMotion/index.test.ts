@@ -64,13 +64,13 @@ afterEach(() => {
 });
 
 describe("useReducedMotion", () => {
-  it("defaults to the system prefers-reduced-motion setting when unset", async () => {
+  it("defaults to animations enabled when unset", async () => {
     stubReducedMotion(true);
     const { enabled } = await loadFresh();
-    expect(enabled.value).toBe(true);
+    expect(enabled.value).toBe(false);
   });
 
-  it("defaults to off when the system has no reduced-motion preference", async () => {
+  it("keeps animations enabled when the system has no reduced-motion preference", async () => {
     stubReducedMotion(false);
     const { enabled } = await loadFresh();
     expect(enabled.value).toBe(false);
@@ -100,14 +100,14 @@ describe("useReducedMotion", () => {
     expect(store.getItem(KEY)).toBe("true");
   });
 
-  it("toggle() from a system-on default writes an explicit off", async () => {
+  it("toggle() from the default writes an explicit on override", async () => {
     stubReducedMotion(true);
     const { enabled, toggle } = await loadFresh();
-    expect(enabled.value).toBe(true);
+    expect(enabled.value).toBe(false);
 
-    expect(toggle()).toBe(false);
+    expect(toggle()).toBe(true);
     await nextTick();
-    expect(store.getItem(KEY)).toBe("false");
+    expect(store.getItem(KEY)).toBe("true");
   });
 
   it("shares a single instance across calls within a load", async () => {

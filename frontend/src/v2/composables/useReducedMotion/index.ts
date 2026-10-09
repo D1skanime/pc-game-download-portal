@@ -1,10 +1,7 @@
 // useReducedMotion — the single "reduce motion / effects" control.
 //
-// Combines the OS `prefers-reduced-motion` signal with a per-device user
-// override into one reactive `enabled` boolean, plus a `toggle()`:
-//   * enabled = override ?? OS preference
-//   * no explicit choice (override null) → follow the OS setting live
-//   * an explicit choice wins from then on (decoupled from the OS)
+// Uses a per-device user override for one reactive enabled boolean, plus a toggle().
+// Animations are enabled by default, and an explicit user choice wins from then on.
 //
 // It drives everything motion- and GPU-effect-related: the `r-v2-reduced-motion`
 // root class (background blur + the global animation/transition neutralize in
@@ -15,30 +12,21 @@
 //
 // Per-device (localStorage, not backend-synced): whether motion/effects are
 // too heavy depends on the machine RomM is viewed on, not the account. Same
-// singleton rationale as useBreakpoint — the media query listener attaches once
-// at module load and every consumer shares the reactive refs.
-import { useLocalStorage, useMediaQuery } from "@vueuse/core";
+// singleton rationale as useBreakpoint: every consumer shares the reactive refs.
+import { useLocalStorage } from "@vueuse/core";
 import { computed, type ComputedRef } from "vue";
 
-// null = no explicit choice yet (follow the system); true/false = user
-// override. An explicit serializer is required: with a null default vueuse
-// would fall back to its identity ("any") serializer and read persisted
-// booleans back as strings.
-const override = useLocalStorage<boolean | null>(
-  "settings.v2.reducedMotion",
-  null,
-  {
-    serializer: {
-      read: (v) => (v === "true" ? true : v === "false" ? false : null),
-      write: (v) => String(v),
-    },
+// false keeps animations enabled for first-time users. The explicit serializer
+// prevents persisted booleans from being read back as strings.
+const override = useLocalStorage<boolean>("settings.v2.reducedMotion", false, {
+  serializer: {
+    read: (v) => v === "true",
+    write: (v) => String(v),
   },
-);
-
-const systemPreference = useMediaQuery("(prefers-reduced-motion: reduce)");
+});
 
 const enabled = computed<boolean>({
-  get: () => override.value ?? systemPreference.value,
+  get: () => override.value,
   set: (value) => {
     override.value = value;
   },
