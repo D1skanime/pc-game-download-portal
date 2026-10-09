@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: executing
-stopped_at: Completed 26-02-PLAN.md
-last_updated: "2026-10-09T23:25:18.291Z"
+status: verifying
+stopped_at: Completed 26-03-PLAN.md
+last_updated: "2026-10-09T23:43:49.471Z"
 last_activity: 2026-10-09
 progress:
   total_phases: 26
-  completed_phases: 20
+  completed_phases: 21
   total_plans: 212
-  completed_plans: 200
-  percent: 77
+  completed_plans: 201
+  percent: 81
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 Phase: 26 (UI-UX Abschluss und manuelle mehrsprachige Metadatenpflege) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-10-09
 
 ## Performance Metrics
@@ -163,6 +163,7 @@ _Updated after each plan completion_
 | Phase 24 P12 | 4min | 3 tasks | 2 files |
 | Phase 26 P01 | 25min | 3 tasks | 21 files |
 | Phase 26 P02 | 50min | 7 tasks | 28 files |
+| Phase 26 P03 | 35min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -409,6 +410,9 @@ Recent decisions affecting current work:
 - [Phase 26]: Use generated OpenAPI contracts for frontend description mutations — The backend remains the source of truth for request and response shapes.
 - [Phase 26]: Reuse existing manual metadata and provider resolution contracts for ROM and component description editing. — Preserves the architecture delivered by plan 26-01.
 - [Phase 26]: Route PC downloads to the existing Game Download selection surface and hide copy-link for PC ROMs. — Keeps PC downloads within the existing manifest selection flow.
+- [Phase 26]: Do not guess Linux Dev credentials or seed infrastructure; record the login-route blocker and leave working features unchanged.
+- [Phase 26]: Treat the default build EACCES as a mounted dist-volume limitation because the same production build succeeds under /tmp.
+- [Phase 26]: Preserve unrelated dirty changes and commit only the Plan 26-03 UAT and closeout artifacts.
 
 ### Blockers/Concerns
 
@@ -427,6 +431,7 @@ Recent decisions affecting current work:
 - Full frontend suite has one unrelated sourceMutationInventory failure for services/api/storage.ts bootstrapLegacy; Plan 09 leaves it untouched.
 - Plan 24-10 backend parity tests are blocked before assertions because the fixture connects to 127.0.0.1:3306/information_schema while the available MariaDB service is Compose-network-only.
 - Plan 24-10 focused frontend verification has one unrelated sourceMutationInventory failure for services/api/storage.ts bootstrapLegacy at /storage/legacy/bootstrap; no source change was made.
+- requirements.mark-complete UI-26-03 returned not_found because UI-26-03 is absent from .planning/REQUIREMENTS.md; no requirement checkbox was changed.
 
 ### Quick Tasks Completed
 
@@ -466,8 +471,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-09T23:25:18.274Z
-Stopped at: Completed 26-02-PLAN.md
+Last session: 2026-10-09T23:43:49.455Z
+Stopped at: Completed 26-03-PLAN.md
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
