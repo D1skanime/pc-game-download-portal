@@ -1040,6 +1040,7 @@ class DBRomsHandler(DBBaseHandler):
         if media.origin == RomOwnedMediaOrigin.PROVIDER:
             for placement in list(media.placements):
                 session.delete(placement)
+            media.placements.clear()
             media.owned_path = None
             media.state = RomOwnedMediaState.TOMBSTONED
             media.operator_suppressed = True
