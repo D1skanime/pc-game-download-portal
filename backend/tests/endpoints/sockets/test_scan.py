@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from itertools import count
 from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock, MagicMock, Mock
@@ -39,46 +40,77 @@ from models.rom import Rom, RomComponentKind, RomComponentOwnedMediaRole
 async def test_media_only_refreshes_existing_roms_without_filesystem_identification(
     mocker,
 ):
-    rom = Rom(id=41, platform_id=7, updated_at=object(), is_identified=True)
+    rom = SimpleNamespace(
+        id=41,
+        platform_id=7,
+        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        is_identified=True,
+        url_cover=None,
+        url_screenshots=[],
+    )
     db = mocker.patch.object(scan_module, "db_rom_handler")
     db.get_roms_scalar.return_value = [rom]
     refresh = mocker.patch.object(
-        scan_module, "refresh_provider_owned_media", AsyncMock(return_value=rom)
+        scan_module, "refresh_provider_owned_media", AsyncMock(return_value=(rom, []))
     )
     manager = mocker.patch.object(scan_module, "_get_socket_manager")
     manager.return_value.emit = AsyncMock()
     fs_platforms = mocker.patch.object(
         scan_module.fs_platform_handler, "get_platforms", AsyncMock()
     )
+    mocker.patch.object(
+        scan_module.SimpleRomSchema,
+        "from_orm_with_factory",
+        return_value=Mock(model_dump=Mock(return_value={})),
+    )
 
     stats = await scan_platforms(platform_ids=[7], metadata_sources=[], media_only=True)
 
     db.get_roms_scalar.assert_called_once_with(platform_ids=[7])
-    refresh.assert_awaited_once_with(rom, rom.updated_at)
+    refresh.assert_awaited_once_with(rom, rom.updated_at, "provider")
     fs_platforms.assert_not_awaited()
     assert stats.scanned_roms == 1
 
 
 @pytest.mark.asyncio
 async def test_media_only_filters_selected_existing_rom_ids(mocker):
-    first = Rom(id=41, platform_id=7, updated_at=object(), is_identified=True)
-    second = Rom(id=42, platform_id=7, updated_at=object(), is_identified=True)
+    first = SimpleNamespace(
+        id=41,
+        platform_id=7,
+        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        is_identified=True,
+        url_cover=None,
+        url_screenshots=[],
+    )
+    second = SimpleNamespace(
+        id=42,
+        platform_id=7,
+        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        is_identified=True,
+        url_cover=None,
+        url_screenshots=[],
+    )
     db = mocker.patch.object(scan_module, "db_rom_handler")
     db.get_roms_scalar.return_value = [first, second]
     refresh = mocker.patch.object(
         scan_module,
         "refresh_provider_owned_media",
-        AsyncMock(side_effect=lambda rom, version: rom),
+        AsyncMock(side_effect=lambda rom, version, provider: (rom, [])),
     )
     manager = mocker.patch.object(scan_module, "_get_socket_manager")
     manager.return_value.emit = AsyncMock()
+    mocker.patch.object(
+        scan_module.SimpleRomSchema,
+        "from_orm_with_factory",
+        return_value=Mock(model_dump=Mock(return_value={})),
+    )
 
     stats = await scan_platforms(
         platform_ids=[7], roms_ids=[42], metadata_sources=[], media_only=True
     )
 
     db.get_roms_scalar.assert_called_once_with(platform_ids=[7])
-    refresh.assert_awaited_once_with(second, second.updated_at)
+    refresh.assert_awaited_once_with(second, second.updated_at, "provider")
     assert stats.scanned_roms == 1
 
 
@@ -741,7 +773,22 @@ class TestShouldScanRom:
             igdb_id=None,
         )
 
-        assert not should_scan_rom(scan_type, rom, [], metadata_sources)
+        expected = scan_type == ScanType.HASHES or (
+            scan_type == ScanType.UPDATE
+            and (
+                (
+                    platform_slug in {UPS.WIN, UPS.LINUX, UPS.MAC}
+                    and steam_id is not None
+                    and MetadataSource.STEAM.value in metadata_sources
+                )
+                or (
+                    platform_slug == UPS.WIN
+                    and steam_id is not None
+                    and MetadataSource.IGDB.value in metadata_sources
+                )
+            )
+        )
+        assert should_scan_rom(scan_type, rom, [], metadata_sources) is expected
 
     @pytest.mark.parametrize(
         (
@@ -874,6 +921,8 @@ class TestShouldScanRom:
                 rom.ra_id = None
                 rom.launchbox_id = None
 
+            rom.is_unidentified = not is_identified
+
             if rom_in_list:
                 roms_ids = [1]
 
@@ -989,6 +1038,9 @@ class TestScanAuthorization:
         self, mocker, emit
     ):
         patch_scan_jobs(mocker)
+        mocker.patch.object(
+            scan_module, "reject_unauthorized_scan", AsyncMock(return_value=False)
+        )
         enqueue = mocker.patch.object(scan_module.high_prio_queue, "enqueue")
         mocker.patch.object(scan_module, "mapping_scan_commands", return_value=[])
 
@@ -1477,6 +1529,8 @@ class TestIdentifyPlatformQuickPcComponents:
             metadata_sources=[MetadataSource.IGDB],
             launchbox_remote_enabled=False,
             playmatch_enabled=False,
+            metadata_locale=None,
+            metadata_only=False,
             socket_manager=ANY,
             scan_stats=ANY,
         )
@@ -1614,6 +1668,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         )
 
         rom = Rom(fs_name="Game.zip", platform_id=platform.id)
+        rom.platform = platform
         rom.id = 42
 
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
@@ -1882,6 +1937,9 @@ class TestScanConcurrency:
             scan_module, "get_authenticated_user", AsyncMock(return_value=user)
         )
         mocker.patch.object(scan_module, "DEV_MODE", False)
+        mocker.patch.object(
+            scan_module, "mapping_scan_commands", return_value=[MagicMock()]
+        )
 
     async def test_enqueues_when_nothing_running(self, mocker, emit):
         patch_scan_jobs(mocker)

@@ -683,12 +683,17 @@ async def scan_rom(
     if not metadata_only and platform.slug == UPS.WIN and fs_rom["nested"]:
         try:
             pc_components = await fs_rom_handler.get_pc_components(_added_rom)
+            unresolved_count = 0
             for component in pc_components:
-                if component.kind == RomComponentKind.UNRESOLVED:
+                if (
+                    component.kind == RomComponentKind.UNRESOLVED
+                    and unresolved_count < 25
+                ):
                     log.warning(
                         f"unresolved PC component layout: {component.relative_path}",
                         extra=LOGGER_MODULE_NAME,
                     )
+                    unresolved_count += 1
             synced_components = db_rom_handler.sync_rom_components(
                 _added_rom.id, pc_components
             )
@@ -701,9 +706,11 @@ async def scan_rom(
                     await fs_resource_handler.remove_file(owned_path)
                 except FileNotFoundError:
                     pass
-        except Exception:
-            log.exception(
-                f"Failed to reconcile PC components for {_added_rom.fs_name}",
+        except (OSError, ValueError) as exc:
+            log.warning(
+                "Failed to reconcile PC components for %s: %s",
+                _added_rom.fs_name,
+                exc,
                 extra=LOGGER_MODULE_NAME,
             )
 

@@ -26,7 +26,10 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from exceptions.socket_exceptions import ScanStoppedException
-from exceptions.storage_exceptions import MissingPlatformStorageMappingError
+from exceptions.storage_exceptions import (
+    MissingPlatformStorageMappingError,
+    StorageResolutionError,
+)
 from handler.auth.constants import Scope
 from handler.database import (
     db_collection_handler,
@@ -52,6 +55,7 @@ from handler.filesystem.storage_access import (
     open_owned_access,
 )
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
+from handler.filesystem.storage_resolver import get_storage_root_health_snapshot
 from handler.metadata import (
     meta_gamelist_handler,
     meta_hltb_handler,
@@ -806,7 +810,7 @@ async def _identify_rom(
     _added_rom.path_manual = path_manual
 
     # Update the scanned rom with the cover and screenshots paths and update database
-    db_rom_handler.update_rom(
+    persisted_rom = db_rom_handler.update_rom(
         _added_rom.id,
         {
             "path_cover_s": path_cover_s,
@@ -815,6 +819,40 @@ async def _identify_rom(
             "path_manual": path_manual,
         },
     )
+    # update_rom may advance updated_at through SQLAlchemy onupdate. Use the
+    # committed version for the optimistic owned-media reconciliation instead
+    # of the detached metadata object from the provider matching step.
+    committed_rom = db_rom_handler.get_rom_simple(_added_rom.id)
+    if committed_rom is None:
+        raise ValueError(f"ROM { _added_rom.id } disappeared after media path update")
+    media_expected_version = committed_rom.updated_at
+
+    # Keep the legacy resource paths for compatibility, but also reconcile
+    # provider images into the canonical owned-media catalog used by the v2
+    # media surfaces. Without this bridge a normal scan downloads screenshots
+    # successfully while the new UI sees an empty owned_media collection.
+    if _added_rom.url_cover or _added_rom.url_screenshots:
+        try:
+            refreshed_rom, media_failures = await refresh_provider_owned_media(
+                _added_rom,
+                media_expected_version,
+                metadata_sources[0] if metadata_sources else "provider",
+            )
+            _added_rom = refreshed_rom
+            for failure in media_failures:
+                log.warning(
+                    "Provider media item failed for ROM %s (%s/%s): %s",
+                    _added_rom.id,
+                    failure.role.value,
+                    failure.provider_media_id,
+                    failure.reason,
+                )
+        except (ValueError, OSError) as exc:
+            log.warning(
+                "Provider media catalog refresh failed for ROM %s: %s",
+                _added_rom.id,
+                exc,
+            )
 
     # Handle special media files from Screenscraper
     if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
@@ -1412,6 +1450,7 @@ async def execute_mapping_scan(
     command: MappedScanCommand,
     *,
     metadata_sources: list[str],
+    scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
@@ -1467,9 +1506,14 @@ def mapping_scan_commands(
     for platform in selected:
         try:
             mapping = db_storage_handler.get_active_mapping(platform.id)
-        except MissingPlatformStorageMappingError:
-            if platform_ids:
-                raise
+            health = get_storage_root_health_snapshot(mapping.storage_root)
+            if health.non_writable is not True:
+                log.info(
+                    "Skipping writable or unhealthy mapping for platform %s",
+                    platform.fs_slug,
+                )
+                continue
+        except (MissingPlatformStorageMappingError, StorageResolutionError):
             continue
         commands.append(
             MappedScanCommand(
@@ -1509,6 +1553,88 @@ async def execute_mapping_scans(
         )
         for field in result.to_dict():
             setattr(combined, field, getattr(combined, field) + getattr(result, field))
+    return combined
+
+
+async def execute_mixed_scans(
+    commands: list[MappedScanCommand],
+    *,
+    platform_ids: list[int],
+    platform_fs_slugs: list[str],
+    metadata_sources: list[str],
+    scan_type: ScanType = ScanType.QUICK,
+    roms_ids: list[int] | None = None,
+    launchbox_remote_enabled: bool = True,
+    playmatch_enabled: bool = True,
+    metadata_locale: str | None = None,
+    metadata_only: bool = False,
+    media_only: bool = False,
+) -> ScanStats:
+    "Run protected PC mappings and writable legacy platforms exactly once."
+    combined = ScanStats()
+    if commands:
+        mapped_result = await execute_mapping_scans(
+            commands,
+            metadata_sources=metadata_sources,
+            roms_ids=roms_ids,
+            launchbox_remote_enabled=launchbox_remote_enabled,
+            playmatch_enabled=playmatch_enabled,
+            metadata_locale=metadata_locale,
+            metadata_only=metadata_only,
+            media_only=media_only,
+        )
+        for field in mapped_result.to_dict():
+            setattr(
+                combined,
+                field,
+                getattr(combined, field) + getattr(mapped_result, field),
+            )
+
+    mapped_platform_ids = {
+        db_storage_handler.get_mapping(command.mapping_id).platform_id
+        for command in commands
+    }
+    mapped_fs_slugs = {
+        platform.fs_slug
+        for platform in db_platform_handler.get_platforms()
+        if platform.id in mapped_platform_ids
+    }
+    legacy_ids = [
+        platform_id
+        for platform_id in platform_ids
+        if platform_id not in mapped_platform_ids
+    ]
+    if platform_ids or platform_fs_slugs:
+        legacy_fs_slugs = [
+            slug for slug in platform_fs_slugs if slug not in mapped_fs_slugs
+        ]
+    else:
+        all_fs_slugs = await fs_platform_handler.get_platforms()
+        legacy_fs_slugs = [slug for slug in all_fs_slugs if slug not in mapped_fs_slugs]
+
+    if (
+        legacy_ids
+        or legacy_fs_slugs
+        or (not platform_ids and not platform_fs_slugs and not mapped_platform_ids)
+    ):
+        legacy_result = await scan_platforms(
+            platform_ids=legacy_ids,
+            metadata_sources=metadata_sources,
+            scan_type=scan_type,
+            roms_ids=roms_ids,
+            launchbox_remote_enabled=launchbox_remote_enabled,
+            playmatch_enabled=playmatch_enabled,
+            platform_fs_slugs=legacy_fs_slugs,
+            metadata_locale=metadata_locale,
+            metadata_only=metadata_only,
+            media_only=media_only,
+        )
+        for field in legacy_result.to_dict():
+            setattr(
+                combined,
+                field,
+                getattr(combined, field) + getattr(legacy_result, field),
+            )
     return combined
 
 
@@ -1606,9 +1732,12 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         return
 
     if DEV_MODE:
-        return await execute_mapping_scans(
+        return await execute_mixed_scans(
             commands,
+            platform_ids=platform_ids,
+            platform_fs_slugs=platform_fs_slugs,
             metadata_sources=metadata_sources,
+            scan_type=scan_type,
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
             playmatch_enabled=playmatch_enabled,
@@ -1618,9 +1747,12 @@ async def scan_handler(sid: str, options: dict[str, Any]):
         )
 
     return high_prio_queue.enqueue(
-        execute_mapping_scans,
+        execute_mixed_scans,
         commands=commands,
+        platform_ids=platform_ids,
+        platform_fs_slugs=platform_fs_slugs,
         metadata_sources=metadata_sources,
+        scan_type=scan_type,
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
         playmatch_enabled=playmatch_enabled,

@@ -281,6 +281,7 @@ async def _scan_steam_patch(
     patch_data: dict | None = None,
     igdb_metadata: dict | None = None,
     metadata_only: bool = False,
+    hydrated_rom: Rom | None = None,
 ):
     platform, rom = _igdb_scan_fixture(
         platform_slug=platform_slug,
@@ -311,7 +312,7 @@ async def _scan_steam_patch(
         ),
         patch("handler.scan_handler.resolve_steam_pc_enrichment", resolver),
         patch("handler.scan_handler.reconcile_steam_patch_media", reconcile),
-        patch("handler.scan_handler.db_rom_handler.get_rom", return_value=None),
+        patch("handler.scan_handler.db_rom_handler.get_rom", return_value=hydrated_rom),
         patch(
             "handler.scan_handler.db_rom_handler.apply_pc_igdb_enrichment",
             persist_igdb_metadata,
@@ -511,9 +512,11 @@ async def test_metadata_only_refreshes_existing_pc_component_steam_metadata(mock
         scan_type=ScanType.COMPLETE,
         newly_added=False,
         metadata_only=True,
+        hydrated_rom=_igdb_scan_fixture()[1],
         patch_data={
             "steam_id": 292030,
             "steam_metadata": {"app_id": 292030, "source": "storefront"},
+            "metadata": {"main_developer": "CD Projekt RED"},
         },
     )
 
@@ -544,11 +547,7 @@ async def test_steam_structured_metadata_persists_through_rom_not_metadata_view(
 
     persist_igdb_metadata.assert_called_once()
     assert persist_igdb_metadata.call_args.args[2] == {
-        "igdb_metadata": {
-            "themes": ["Fantasy"],
-            "franchises": ["The Witcher"],
-            **structured_steam_metadata,
-        }
+        "igdb_metadata": structured_steam_metadata
     }
     persist_candidate_metadata.assert_not_called()
 
