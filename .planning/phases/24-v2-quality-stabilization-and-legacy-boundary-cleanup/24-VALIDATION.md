@@ -58,3 +58,21 @@ Result: BLOCKED before test execution. Pytest reported 153 setup errors in 39.24
 - No dirty files were reverted, staged, or reformatted.
 - Build and MariaDB-backed backend tests remain blocked.
 - Phase 24 is **not complete** and must not be reported as complete until the environment blockers are resolved, the gates are rerun, and the required human E2E checkpoint is approved.
+
+## Plan 24-13 re-audit, 2026-10-09
+
+The Plan 13 gap audit found no proven implementation gap. Existing source and
+tests cover requested metadata-locale propagation, actual provider locale and
+fallback separation, shared generic scan operations, stable retry identity, and
+specialized PC/DLC matching boundaries. No runtime source change was made.
+
+The focused commands were attempted from the verified checkout:
+
+```text
+cd frontend && npm run test -- src/v2/data/operations.test.ts src/v2/composables/useProviderResolution.test.ts
+cd frontend && npm run typecheck
+uv run pytest -q backend/tests/handler/metadata/test_steam_handler.py backend/tests/endpoints/sockets/test_scan.py
+```
+
+All three were blocked before test execution because the non-login SSH
+environment exposes neither `node`/`npm` nor `uv` on `PATH`. Tool installation

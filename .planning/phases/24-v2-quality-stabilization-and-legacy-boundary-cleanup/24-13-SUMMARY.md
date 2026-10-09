@@ -156,3 +156,39 @@ The shared operation and locale semantics are documented for final verification.
 _Phase: 24-v2-quality-stabilization-and-legacy-boundary-cleanup_
 _Plan: 13_
 _Documentation completed: 2026-10-06_
+
+## Re-audit: 2026-10-09
+
+This execution rechecked the requested Plan 13 gaps against the canonical Linux
+checkout. No new implementation gap was proven, so no runtime source file was
+changed.
+
+### Evidence
+
+- `frontend/src/v2/data/operations.ts` normalizes `metadataLocale` and emits it
+  as `metadata_locale`; `frontend/src/v2/data/adapters/legacy/scan.ts` sends
+  the normalized compatibility payload through the existing scan socket.
+- `backend/endpoints/sockets/scan.py` bounds and forwards `metadata_locale` to
+  the existing `scan_handler` call chain, including mapped and mixed scans.
+- `SteamHandler` selects the requested language when available, records the
+  actual selected provider language as `steam_metadata.language`, records an
+  English fallback separately as `fallback_language` and `fallback_fields`,
+  and preserves the existing `text_variants` shape.
+- Generic scan entry points use `useLibraryOperation` and the existing legacy
+  adapter. Component scopes are explicitly rejected at that boundary, while
+  `MatchRomDialog` keeps PC parent, DLC, and component matching on the existing
+  specialized matcher endpoints.
+- Existing tests cover locale payload propagation, actual-language selection,
+  fallback behavior, classic scan translation, PC nested identity, stable
+  retry identity, preview diagnostics, and specialized component boundaries.
+
+### Current verification
+
+- Source and boundary audit: PASS, no duplicate provider resolver, storage
+  mapping, lifecycle, ownership, or PC/DLC model found.
+- Frontend focused tests and typecheck: BLOCKED before execution because the
+  non-login SSH environment has no `node` or `npm` executable on `PATH`.
+- Backend focused tests: BLOCKED before execution because the environment has
+  no `uv` executable on `PATH`.
+- No dependency installation, source edits, or unrelated dirty-file changes
+  were made during this re-audit.
