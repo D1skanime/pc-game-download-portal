@@ -163,9 +163,9 @@ def test_pc_component_steam_provenance_preserves_existing_provider_metadata(rom)
     assert metadata.steam_id == 1091500
     assert metadata.name == "Trusted DLC"
     assert metadata.summary == "Imported from IGDB"
+    assert metadata.steam_metadata == steam_data["steam_metadata"]
     assert metadata.provider_metadata == {
         "igdb_metadata": _metadata()["igdb_metadata"],
-        "steam_metadata": steam_data["steam_metadata"],
     }
     assert metadata.main_developer == "Example Studio"
     assert metadata.publishers == ["Example Publishing"]

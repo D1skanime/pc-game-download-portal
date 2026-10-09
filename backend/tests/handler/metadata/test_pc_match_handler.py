@@ -22,11 +22,8 @@ async def test_parent_listed_steam_dlc_matches_only_an_existing_component():
         }
     )
     handler = PcMetadataMatchHandler(providers={"steam": steam})
-    rom = Mock(
-        steam_id=1091500,
-        steam_metadata={"dlc_ids": [2138330]},
-        name="Cyberpunk 2077",
-    )
+    rom = Mock(steam_id=1091500, steam_metadata={"dlc_ids": [2138330]})
+    rom.name = "Cyberpunk 2077"
     component = Mock(
         relative_path="dlc",
         manifest_members=[
@@ -38,7 +35,7 @@ async def test_parent_listed_steam_dlc_matches_only_an_existing_component():
 
     assert match is not None
     assert match["steam_id"] == 2138330
-    steam.get_rom_by_id.assert_awaited_once_with(2138330, None)
+    steam.get_rom_by_id.assert_awaited_once_with(2138330)
 
 
 @pytest.mark.asyncio
@@ -415,7 +412,8 @@ async def test_component_enrichment_hydrates_exact_euro_truck_relation(
         }
     )
     handler = PcMetadataMatchHandler(providers={"igdb": igdb})
-    rom = Mock(name="Euro Truck Simulator 2")
+    rom = Mock()
+    rom.name = "Euro Truck Simulator 2"
     rom.igdb_id = 3070
     rom.igdb_metadata = {relationship: [{"id": igdb_id, "name": title}]}
     component = Mock(relative_path=relative_path, manifest_members=[])

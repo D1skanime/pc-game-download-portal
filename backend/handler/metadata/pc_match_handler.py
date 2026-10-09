@@ -88,6 +88,13 @@ class PcMetadataMatchHandler:
             direct_steam = await self._steam_candidates_from_related(
                 rom, related_candidates
             )
+            parent_listed = await self.fetch_parent_listed_steam_dlc(rom, component)
+            if parent_listed:
+                parent_candidate = self._candidate("steam", parent_listed)
+                if not any(
+                    candidate.id == parent_candidate.id for candidate in direct_steam
+                ):
+                    direct_steam.append(parent_candidate)
             if direct_steam:
                 results["steam"] = PcMetadataProviderResult(
                     provider="steam", available=True, candidates=direct_steam

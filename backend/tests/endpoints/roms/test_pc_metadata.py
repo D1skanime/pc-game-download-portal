@@ -258,7 +258,11 @@ def test_pc_component_selection_persists_steam_variants_in_component_column(
     )
 
     assert response.status_code == status.HTTP_200_OK
-    saved = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    saved = next(
+        item
+        for item in db_rom_handler.get_rom(rom.id).components
+        if item.id == component.id
+    )
     assert saved is not None and saved.component_metadata is not None
     assert (
         saved.component_metadata.steam_metadata["text_variants"]["de"]["summary"]

@@ -235,24 +235,13 @@ async def test_eligible_pc_platforms_can_search(handler, platform):
     handler.steam_service.search_apps.assert_awaited_once()
 
 
-async def test_generic_pc_platform_can_search_steam(handler):
-    handler.steam_service.search_apps = AsyncMock(
-        return_value=[{"id": 975370, "name": "Dwarf Fortress", "type": "app"}]
-    )
-    handler.steam_service.get_app_details = AsyncMock(
-        return_value={
-            "type": "game",
-            "name": "Dwarf Fortress",
-            "steam_appid": 975370,
-        }
-    )
+async def test_filesystem_pc_slug_does_not_search_steam(handler):
+    handler.steam_service.search_apps = AsyncMock()
 
     result = await handler.get_rom("Dwarf Fortress", "pc")
 
-    assert result["steam_id"] == 975370
-    handler.steam_service.search_apps.assert_awaited_once_with(
-        "dwarf fortress", country="CH", language="german"
-    )
+    assert result == {"steam_id": None}
+    handler.steam_service.search_apps.assert_not_awaited()
 
 
 async def test_compact_pc_filename_is_split_before_steam_search(handler):
