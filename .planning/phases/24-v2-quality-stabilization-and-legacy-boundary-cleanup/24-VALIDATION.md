@@ -76,3 +76,41 @@ uv run pytest -q backend/tests/handler/metadata/test_steam_handler.py backend/te
 
 All three were blocked before test execution because the non-login SSH
 environment exposes neither `node`/`npm` nor `uv` on `PATH`. Tool installation
+
+## Plan 24-11 finalization evidence, 2026-10-09
+
+This section consolidates the finalization run on the verified Linux checkout. It
+does not mark Phase 24 complete because the MariaDB-backed backend suite and the
+production build remain blocked.
+
+### Frontend checks
+
+- npm run v2:maintainability passed with V2 maintainability gate passed for 465 production files.
+- npm run typecheck passed with vue-tsc --noEmit.
+- Focused Vitest run passed: 3 files and 19 tests covering operation contracts,
+  library lifecycle, and provider resolution.
+- npm run build transformed 3,818 modules but failed in vite-plugin-pwa with
+  EACCES writing /home/d1sk/romm/frontend/dist/sw.js. The target is root-owned
+  and is not a source or transform failure.
+
+### Backend checks
+
+- uv run pytest -q backend/tests/endpoints/sockets/test_scan.py backend/tests/handler/test_scan_handler.py backend/tests/endpoints/roms/test_media.py started successfully but produced 155 fixture-setup errors before test assertions because MariaDB was unreachable at 127.0.0.1:3306.
+- These are blocked results, not passing backend evidence. No MariaDB service,
+  container, or test fixture was changed.
+
+### Human/browser UAT approval record
+
+- On 2026-10-09, the user explicitly approved the human/browser UAT checkpoint
+  for Phase 24 and Phase 25 in this conversation.
+- This records approval to proceed past the human checkpoint. It does not claim
+  that automated backend tests, the production build, or any unavailable Linux
+  gate passed, and it does not add browser observations that were not supplied.
+- Phase 25 validation artifacts were intentionally left untouched by this Phase
+  24 finalization run.
+
+### Final status
+
+Phase 24 remains blocked pending a reachable MariaDB test fixture and a writable
+frontend build output owned by the checkout user. Existing Quick-task commits
+and unrelated dirty changes were preserved.
