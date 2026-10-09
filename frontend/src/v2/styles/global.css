@@ -123,7 +123,7 @@ html[data-input="pad"] .r-v2 * {
 
 /* ── Background art layers ─────────────────────────────────────
    Two layers (A / B) so we can cross-fade between backdrops when the user
-   hovers a new game without a flash. The overlay blends the blur down so
+   hovers a new game without a flash. The overlay keeps the art subdued so
    text stays readable.
 ──────────────────────────────────────────────────────────────── */
 
@@ -151,17 +151,15 @@ html[data-input="pad"] .r-v2 * {
   background-size: cover;
   background-position: center 20%;
   background-repeat: no-repeat;
-  filter: blur(28px) brightness(0.45);
-  transform: scale(1.08);
+  filter: brightness(0.45);
+  transform: none;
   transition: opacity 0.7s ease;
   will-change: opacity;
 }
 
-/* Firefox: the animated fallback SVG is re-rasterized every frame under the
-   28px blur (and re-sampled by every backdrop-filter surface), pegging the
-   WebRender backend. Use the static variant in Gecko only (the empty
-   `url-prefix()` hack matches all Firefox pages and stays enabled by
-   default). Cover art is raster, so it's unaffected. */
+/* Firefox: use the static fallback SVG in Gecko to avoid rerasterizing
+   animated artwork during page transitions. Cover art is raster, so it is
+   unaffected. */
 @-moz-document url-prefix() {
   .r-v2-bg__layer {
     background-image: url("/assets/auth_background_static.svg");
@@ -175,23 +173,15 @@ html[data-input="pad"] .r-v2 * {
   opacity: 0;
 }
 
-/* Light theme: the dark-tuned brightness(0.45) here would let the darkened
-   art bleed through as a muddy mottle once the light wash sits on top. In
-   light mode we instead lift the art so its surviving contribution skews
-   light, and lean on a stronger, more even overlay (below) to keep it a
-   soft frosted backdrop rather than a busy field. */
+/* Light theme uses a brighter, desaturated treatment and a stronger overlay
+   so the selected art remains legible without overwhelming the content. */
 .r-v2-light .r-v2-bg__layer {
   filter: brightness(1.05) saturate(0.7);
   transform: none;
 }
 
-/* Reduced-motion mode (Settings, per device; defaults to the OS
-   `prefers-reduced-motion`): the backdrop art is authored to be read only
-   through the 28px blur — unblurred it shows hard seams and a bright diagonal
-   wedge. And a full-viewport blur(28px) is one of the heaviest things we ask
-   of the GPU (see the Firefox note above). So drop the whole fixed art +
-   overlay stack and let the solid page background (`.r-v2` bg) show through:
-   cheaper, and no weird seam. */
+/* Reduced-motion mode keeps the selected art static and removes the
+   transition, avoiding unnecessary work on devices where motion is disabled. */
 html.r-v2-reduced-motion .r-v2-bg__layer {
   filter: none;
   transform: none;
