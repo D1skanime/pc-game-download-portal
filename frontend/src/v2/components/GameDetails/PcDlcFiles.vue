@@ -64,46 +64,6 @@ function ownedMediaDownloadUrl(mediaId: number) {
         </dl>
       </li>
     </ul>
-
-    <ul
-      v-if="component.owned_media?.length"
-      data-testid="pc-dlc-owned-media-downloads"
-      class="pc-dlc-files__list"
-    >
-      <li
-        v-for="media in component.owned_media"
-        :key="media.id"
-        class="pc-dlc-files__member"
-      >
-        <dl class="pc-dlc-files__evidence">
-          <div class="pc-dlc-files__field">
-            <dt>{{ t("rom.media") }}</dt>
-            <dd>{{ media.role }}</dd>
-          </div>
-          <div class="pc-dlc-files__field">
-            <dt>MIME</dt>
-            <dd>{{ media.mime_type }}</dd>
-          </div>
-          <a
-            class="pc-dlc-files__preview"
-            :href="ownedMediaDownloadUrl(media.id)"
-            :aria-label="`${t('rom.download')}: ${media.role}`"
-          >
-            <img
-              :src="ownedMediaDownloadUrl(media.id)"
-              :alt="media.role"
-              loading="lazy"
-            />
-          </a>
-          <RBtn
-            :href="ownedMediaDownloadUrl(media.id)"
-            prepend-icon="mdi-download"
-          >
-            {{ t("rom.download") }}
-          </RBtn>
-        </dl>
-      </li>
-    </ul>
   </section>
 </template>
 

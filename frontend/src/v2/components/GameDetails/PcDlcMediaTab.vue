@@ -24,7 +24,6 @@ const uploading = ref(false);
 const role = ref<RomComponentOwnedMediaRole>("artwork");
 const roles: RomComponentOwnedMediaRole[] = [
   "cover",
-  "background",
   "gallery",
   "screenshot",
   "artwork",

@@ -73,6 +73,7 @@ useGridNav(rootEl, {
       variant="surface"
     />
     <GameActionBtn
+      v-if="actions.canShowCopyDownloadLink.value"
       :rom="rom"
       action="copy-link"
       :size="btnSize"

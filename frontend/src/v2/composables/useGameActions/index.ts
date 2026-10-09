@@ -286,9 +286,19 @@ export function useGameActions(
     if (path) router.push(path);
   }
 
+  const isPcRom = computed(() => getRom()?.platform_slug === "pc");
+  const canShowCopyDownloadLink = computed(() => !isPcRom.value);
+
   function download() {
     const rom = getRom();
     if (!rom) return;
+    if (isPcRom.value) {
+      void router.push({
+        path: "/rom/" + rom.id,
+        query: { tab: "pc-components" },
+      });
+      return;
+    }
     const href = getDownloadPath({ rom });
     const a = document.createElement("a");
     a.href = href;
@@ -437,6 +447,7 @@ export function useGameActions(
     canManageCollections,
     canShareQR,
     canOpenInFlashpoint,
+    canShowCopyDownloadLink,
     canPlay,
     canPlayStream,
     canRemoveFromContinuePlaying,

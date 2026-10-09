@@ -9,6 +9,7 @@ import { ROUTES } from "@/plugins/router";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH, formatBytes, toBrowserLocale } from "@/utils";
 import LocalizedDescriptionEditor from "@/v2/components/GameDetails/LocalizedDescriptionEditor.vue";
+import PcComponents from "@/v2/components/GameDetails/PcComponents.vue";
 import PcDlcFiles from "@/v2/components/GameDetails/PcDlcFiles.vue";
 import PcDlcMediaTab from "@/v2/components/GameDetails/PcDlcMediaTab.vue";
 import PcDlcNotesTab from "@/v2/components/GameDetails/PcDlcNotesTab.vue";
@@ -26,7 +27,13 @@ const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
-const validTabs = ["overview", "files", "media", "notes"] as const;
+const validTabs = [
+  "overview",
+  "pc-components",
+  "media",
+  "files",
+  "notes",
+] as const;
 type DlcTab = (typeof validTabs)[number];
 const tab = ref<DlcTab>(
   validTabs.includes(route.query.tab as DlcTab)
@@ -35,8 +42,9 @@ const tab = ref<DlcTab>(
 );
 const tabs = computed(() => [
   { id: "overview", label: t("rom.tab-overview") },
-  { id: "files", label: t("rom.tab-files") },
+  { id: "pc-components", label: t("rom.game-downloads") },
   { id: "media", label: t("rom.media") },
+  { id: "files", label: t("rom.tab-files") },
   { id: "notes", label: t("rom.tab-notes") },
 ]);
 
@@ -83,7 +91,7 @@ const media = computed(() =>
   [
     ...(props.component.owned_media ?? []),
     ...(props.component.local_media ?? []),
-  ].filter((item) => item.role === "background" || item.role === "gallery"),
+  ].filter((item) => item.role === "gallery"),
 );
 const screenshots = computed(() =>
   (props.component.owned_media ?? []).filter(
@@ -188,7 +196,7 @@ function showMedia() {
             <RMenuItem
               :label="t('rom.download')"
               icon="mdi-download"
-              @click="tab = 'files'"
+              @click="tab = 'pc-components'"
             />
           </RMenu>
         </div>
@@ -279,6 +287,14 @@ function showMedia() {
             </section>
           </section>
 
+          <PcComponents
+            v-if="tab === 'pc-components'"
+            :components="[component]"
+            :rom-id="parent.id"
+            :parent-name="parent.name ?? title"
+            archive-sets-state="ready"
+            :refresh="async () => emit('refresh')"
+          />
           <PcDlcFiles
             v-if="tab === 'files'"
             :rom-id="parent.id"

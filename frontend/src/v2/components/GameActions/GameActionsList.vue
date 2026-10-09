@@ -55,6 +55,7 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.download)"
   />
   <RMenuItem
+    v-if="actions.canShowCopyDownloadLink.value"
     :label="t('rom.copy-link')"
     icon="mdi-share-variant-outline"
     @click="run(actions.copyDownloadLink)"
