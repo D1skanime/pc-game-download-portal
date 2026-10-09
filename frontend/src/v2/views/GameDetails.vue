@@ -36,6 +36,7 @@ import {
   scheduleBackgroundRotation,
   selectedBackgroundAudioTracks,
 } from "@/v2/composables/useGameDetailsMedia";
+import { resolveManualDescription } from "@/v2/composables/useManualDescription";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
@@ -45,7 +46,6 @@ import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 import storeRoms from "@/v2/data/adapters/legacy/stores/roms";
 import { isRomVerified } from "@/v2/utils/romVerification";
-import { resolveSteamTextVariant } from "@/v2/utils/steamTextVariants";
 
 const route = useRoute();
 const router = useRouter();
@@ -120,13 +120,14 @@ const title = computed(() => {
 const overviewSummary = computed(() => {
   const rom = currentRom.value;
   if (!rom) return null;
-  return resolveSteamTextVariant({
+  return resolveManualDescription({
+    manualMetadata: rom.manual_metadata,
     steamMetadata: rom.steam_metadata,
     legacySummary: rom.summary,
     locale: locale.value,
-    steamSummaryIsAuthoritative:
-      Boolean(rom.steam_metadata?.fields?.includes("summary")) &&
-      !Boolean(rom.manual_metadata?.summary),
+    providerSummaryIsAuthoritative: Boolean(
+      rom.steam_metadata?.fields?.includes("summary"),
+    ),
   });
 });
 

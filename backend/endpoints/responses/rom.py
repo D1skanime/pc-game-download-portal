@@ -428,7 +428,7 @@ class PcComponentMetadataSchema(BaseModel):
     summary: str | None
     metadata_source: str | None
     provider_metadata: dict[str, object] | None
-    manual_metadata: ManualMetadata | None
+    manual_metadata: ManualMetadata | None = None
     main_developer: str | None
     publishers: list[str] = Field(default_factory=list)
     themes: list[str] = Field(default_factory=list)

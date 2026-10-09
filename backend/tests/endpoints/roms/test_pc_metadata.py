@@ -1329,3 +1329,120 @@ def test_unavailable_provider_does_not_update_existing_metadata(
     persisted = db_rom_handler.get_rom(rom.id)
     assert persisted is not None
     assert persisted.summary == "Existing metadata"
+
+
+def test_manual_description_round_trip_is_locale_scoped_and_clearable(
+    client, access_token, rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}/description",
+        headers=_headers(access_token),
+        json={
+            "locale": "de_de",
+            "description": "Manuelle Beschreibung",
+            "expected_version": rom.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.json()
+    assert payload["locale"] == "de-DE"
+    assert payload["description"] == "Manuelle Beschreibung"
+
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert saved.manual_metadata["descriptions"] == {"de-DE": "Manuelle Beschreibung"}
+
+    english = client.put(
+        f"/api/roms/{rom.id}/description",
+        headers=_headers(access_token),
+        json={
+            "locale": "en-US",
+            "description": "English manual description",
+            "expected_version": payload["expected_version"],
+        },
+    )
+    assert english.status_code == status.HTTP_200_OK
+
+    cleared = client.put(
+        f"/api/roms/{rom.id}/description",
+        headers=_headers(access_token),
+        json={
+            "locale": "de-DE",
+            "description": None,
+            "expected_version": english.json()["expected_version"],
+        },
+    )
+    assert cleared.status_code == status.HTTP_200_OK
+    assert cleared.json()["description"] is None
+
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved is not None
+    assert saved.manual_metadata["descriptions"] == {
+        "en-US": "English manual description"
+    }
+
+
+@pytest.mark.parametrize("kind", [RomComponentKind.DLC, RomComponentKind.EXTRA])
+def test_pc_component_manual_description_uses_the_same_contract(
+    client, access_token, rom, kind
+):
+    db_rom_handler.sync_rom_components(
+        rom.id,
+        [RomComponent(relative_path=kind.value, kind=kind, manifest_members=[])],
+    )
+    component = db_rom_handler.get_rom(rom.id).components[0]
+
+    response = client.put(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/description",
+        headers=_headers(access_token),
+        json={
+            "locale": "de-DE",
+            "description": f"Manual {kind.value}",
+            "expected_version": component.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["description"] == f"Manual {kind.value}"
+
+    saved = db_rom_handler.get_rom(rom.id)
+    metadata = next(
+        item.component_metadata for item in saved.components if item.id == component.id
+    )
+    assert metadata is not None
+    assert metadata.manual_metadata["descriptions"] == {"de-DE": f"Manual {kind.value}"}
+
+
+def test_manual_description_requires_rom_write_scope(client, viewer_access_token, rom):
+    response = client.put(
+        f"/api/roms/{rom.id}/description",
+        headers=_headers(viewer_access_token),
+        json={
+            "locale": "en-US",
+            "description": "Not allowed",
+            "expected_version": rom.updated_at.isoformat(),
+        },
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"locale": "not a locale", "description": "Text"},
+        {"locale": "en-US", "description": "x" * 20001},
+    ],
+)
+def test_manual_description_validation_is_actionable(
+    client, access_token, rom, payload
+):
+    response = client.put(
+        f"/api/roms/{rom.id}/description",
+        headers=_headers(access_token),
+        json={**payload, "expected_version": rom.updated_at.isoformat()},
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.json()["detail"]

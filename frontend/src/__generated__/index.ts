@@ -135,6 +135,8 @@ export type { LegacyRollbackRequestSchema } from './models/LegacyRollbackRequest
 export type { LegacyRollbackStatusSchema } from './models/LegacyRollbackStatusSchema';
 export type { LoadStateRequest } from './models/LoadStateRequest';
 export type { LogEntrySchema } from './models/LogEntrySchema';
+export type { ManualDescriptionRequest } from './models/ManualDescriptionRequest';
+export type { ManualDescriptionResponse } from './models/ManualDescriptionResponse';
 export type { ManualMetadata } from './models/ManualMetadata';
 export type { MetadataCoverageItem } from './models/MetadataCoverageItem';
 export type { MetadataMediaType } from './models/MetadataMediaType';

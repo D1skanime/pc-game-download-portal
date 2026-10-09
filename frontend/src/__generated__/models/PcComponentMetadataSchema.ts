@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ManualMetadata } from './ManualMetadata';
 import type { SteamMetadataSchema } from './SteamMetadataSchema';
 export type PcComponentMetadataSchema = {
     igdb_id: (number | null);
@@ -14,6 +15,7 @@ export type PcComponentMetadataSchema = {
     summary: (string | null);
     metadata_source: (string | null);
     provider_metadata: (Record<string, any> | null);
+    manual_metadata?: (ManualMetadata | null);
     main_developer: (string | null);
     publishers?: Array<string>;
     themes?: Array<string>;
