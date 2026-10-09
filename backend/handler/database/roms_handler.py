@@ -677,6 +677,7 @@ class DBRomsHandler(DBBaseHandler):
         mime_type: str,
         owned_path: str,
         session: Session = None,  # type: ignore
+        restore_suppressed: bool = False,
     ) -> AppliedOwnedMedia | None:
         """Reconcile a provider candidate for explicit refresh only."""
         rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
@@ -703,6 +704,8 @@ class DBRomsHandler(DBBaseHandler):
             ),
             None,
         )
+        if media is not None and media.operator_suppressed and not restore_suppressed:
+            return None
         if media is None:
             media = RomOwnedMedia(
                 rom_id=rom.id,

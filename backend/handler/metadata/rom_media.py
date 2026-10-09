@@ -29,6 +29,15 @@ class ProviderMediaCandidate:
     display_label: str
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderMediaFailure:
+    """A single media item that could not be persisted during a refresh."""
+
+    provider_media_id: str
+    role: RomOwnedMediaRole
+    reason: str
+
+
 def normalize_provider_url(value: str) -> str:
     """Normalize an HTTPS URL to the stable identity used for refreshes."""
     parsed = urlsplit(value)
@@ -99,17 +108,24 @@ async def _download_provider_image(
     )
 
 
-async def refresh_provider_owned_media(rom, expected_version):
-    """Refresh one existing ROM through the shared provider-media authority."""
-    provider = rom.metadata_source or "provider"
+async def refresh_provider_owned_media(
+    rom, expected_version, provider: str, *, restore_suppressed: bool = False
+):
+    """Refresh one ROM using the caller-selected provider authority."""
+    if not isinstance(provider, str) or not provider:
+        raise ValueError("Provider is required")
     source = {
         "url_screenshots": rom.url_screenshots or [],
         "url_artworks": [rom.url_cover] if rom.url_cover else [],
     }
+    failures: list[ProviderMediaFailure] = []
     for candidate in discover_provider_media(provider, source):
         path: str | None = None
         try:
             path, mime_type = await _download_provider_image(rom, candidate)
+            reconcile_kwargs = (
+                {"restore_suppressed": True} if restore_suppressed else {}
+            )
             applied = db_rom_handler.reconcile_provider_owned_media(
                 rom.id,
                 expected_version,
@@ -119,13 +135,18 @@ async def refresh_provider_owned_media(rom, expected_version):
                 candidate.display_label,
                 mime_type,
                 path,
+                **reconcile_kwargs,
             )
             if applied is None:
                 raise ValueError("Media catalog changed")
             expected_version = applied.rom.updated_at
             rom = applied.rom
-        except ValueError:
+        except (ValueError, OSError) as exc:
             if path is not None:
                 await fs_resource_handler.remove_file(path)
-            raise
-    return rom
+            failures.append(
+                ProviderMediaFailure(
+                    candidate.provider_media_id, candidate.role, str(exc)
+                )
+            )
+    return rom, failures

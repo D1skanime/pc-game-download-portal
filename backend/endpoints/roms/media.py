@@ -72,7 +72,9 @@ async def refresh_media(
     """Explicitly reconcile provider images without changing user placements."""
     rom = _visible_rom(request, id)
     try:
-        await refresh_provider_owned_media(rom, expected_version)
+        await refresh_provider_owned_media(
+            rom, expected_version, "provider", restore_suppressed=True
+        )
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -231,7 +233,7 @@ async def delete_media(
     applied = _conflict(
         db_rom_handler.delete_owned_media(id, media_id, expected_version)
     )
-    for path in applied.replaced_owned_paths:
+    for path in applied.owned_paths:
         try:
             await fs_resource_handler.remove_file(path)
         except OSError:

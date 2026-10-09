@@ -271,7 +271,7 @@ def test_cleanup_intent_only_accepts_generated_owned_resource_path(rom):
     assert intent.owned_path == "roms/1/media/upload/cover.webp"
 
 
-def test_provider_refresh_reactivates_tombstone_without_placing_it(rom):
+def test_provider_refresh_skips_suppressed_media_until_explicit_restore(rom):
     created = db_rom_handler.reconcile_provider_owned_media(
         rom_id=rom.id,
         expected_updated_at=rom.updated_at,
@@ -303,10 +303,23 @@ def test_provider_refresh_reactivates_tombstone_without_placing_it(rom):
         mime_type="image/webp",
         owned_path="roms/1/media/provider/image-1.webp",
     )
-    assert refreshed is not None
-    assert refreshed.media.id == created.media.id
-    assert refreshed.media.placements == []
-    assert refreshed.media.operator_suppressed is False
+    assert refreshed is None
+
+    restored = db_rom_handler.reconcile_provider_owned_media(
+        rom_id=rom.id,
+        expected_updated_at=deleted.rom.updated_at,
+        provider="igdb",
+        provider_media_id="image-1",
+        role=RomOwnedMediaRole.SCREENSHOT,
+        display_label="image-1.webp",
+        mime_type="image/webp",
+        owned_path="roms/1/media/provider/image-1.webp",
+        restore_suppressed=True,
+    )
+    assert restored is not None
+    assert restored.media.id == created.media.id
+    assert restored.media.placements == []
+    assert restored.media.operator_suppressed is False
 
 
 def test_operator_delete_suppresses_only_provider_media_and_keeps_upload(rom):

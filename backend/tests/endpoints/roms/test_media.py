@@ -1,5 +1,7 @@
 """Contracts for parent-owned media discovery, storage, and mutation responses."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -111,3 +113,42 @@ def test_replace_owned_background_audio_returns_hydrated_selection(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["owned_background_audio_media_ids"] == [track.media.id]
+
+
+async def test_provider_delete_removes_owned_file_and_keeps_tombstone(
+    client: TestClient, access_token: str, rom: Rom, monkeypatch
+) -> None:
+    media = db_rom_handler.reconcile_provider_owned_media(
+        rom.id,
+        rom.updated_at,
+        "provider",
+        "cover-1",
+        RomOwnedMediaRole.ARTWORK,
+        "cover.webp",
+        "image/webp",
+        "roms/1/media/provider/cover.webp",
+    )
+    assert media is not None
+
+    remove_file = AsyncMock()
+    monkeypatch.setattr(
+        "endpoints.roms.media.fs_resource_handler.remove_file",
+        remove_file,
+    )
+
+    response = client.delete(
+        f"/api/roms/{rom.id}/media/{media.media.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"expected_version": media.rom.updated_at.isoformat()},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    remove_file.assert_awaited_once_with("roms/1/media/provider/cover.webp")
+
+    persisted = db_rom_handler.get_rom(rom.id)
+    assert persisted is not None
+    tombstone = next(
+        item for item in persisted.owned_media if item.id == media.media.id
+    )
+    assert tombstone.operator_suppressed is True
+    assert tombstone.owned_path is None
