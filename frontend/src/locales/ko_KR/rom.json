@@ -152,6 +152,9 @@
   "description-source-fallback": "Source: existing summary",
   "description-source-manual": "Source: manual metadata",
   "description-source-provider": "Source: provider metadata",
+  "crawled-release-date": "Crawled release date",
+  "crawled-genres": "Crawled genres",
+  "cover-search-disabled": "Cover search is unavailable because SteamGridDB is disabled.",
   "download": "다운로드",
   "download-all": "모두 다운로드",
   "download-archive-set": "Required component set",
@@ -249,6 +252,7 @@
   "make-private": "비공개로 설정",
   "make-public": "공개로 설정",
   "manage-collections": "모음집 관리",
+  "missing-from-filesystem": "Missing from filesystem: {path}",
   "manual": "매뉴얼",
   "manual-empty": "아직 매뉴얼이 없습니다",
   "manual-empty-upload-hint": "PDF를 업로드하여 RomM 기본 매뉴얼 리소스로 추가하세요. 게임 라이브러리의 파일은 변경되지 않습니다.",
@@ -600,6 +604,8 @@
   "versions-count": "{n}개 버전",
   "volume-mute": "음소거",
   "volume-unmute": "음소거 해제",
+  "youtube-preview": "YouTube preview",
+  "youtube-invalid": "This YouTube ID is not supported. Use the 11-character video ID.",
   "your-progress": "Your progress",
   "youtube-video-id": "YouTube 동영상 ID"
 }

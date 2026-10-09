@@ -217,6 +217,26 @@ const hasPcFacts = computed(
 const ownedScreenshots = computed(() =>
   props.screenshots.filter((url) => url.startsWith("/api/roms/")),
 );
+const youtubeVideoId = computed(() => {
+  const source = props.rom as DetailedRom & {
+    youtube_video_id?: string | null;
+  };
+  return (
+    props.rom.manual_metadata?.youtube_video_id ??
+    source.youtube_video_id ??
+    null
+  );
+});
+const youtubeVideoIdValid = computed(() =>
+  Boolean(
+    youtubeVideoId.value && /^[A-Za-z0-9_-]{11}$/.test(youtubeVideoId.value),
+  ),
+);
+const youtubeEmbedUrl = computed(() =>
+  youtubeVideoIdValid.value
+    ? "https://www.youtube-nocookie.com/embed/" + youtubeVideoId.value
+    : null,
+);
 </script>
 
 <template>
@@ -353,6 +373,22 @@ const ownedScreenshots = computed(() =>
           preload="metadata"
         />
       </div>
+    </div>
+
+    <div v-if="youtubeVideoId" class="overview-tab__section">
+      <h4 class="overview-tab__section-heading">
+        <RIcon icon="mdi-youtube" size="14" />
+        {{ t("rom.youtube-preview") }}
+      </h4>
+      <a
+        v-if="youtubeEmbedUrl"
+        class="overview-tab__youtube-link"
+        :href="youtubeEmbedUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        >{{ t("rom.youtube-preview") }}</a
+      >
+      <p v-else class="overview-tab__muted">{{ t("rom.youtube-invalid") }}</p>
     </div>
 
     <!-- 5. HLTB -->

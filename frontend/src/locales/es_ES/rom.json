@@ -152,6 +152,9 @@
   "description-source-fallback": "Source: existing summary",
   "description-source-manual": "Source: manual metadata",
   "description-source-provider": "Source: provider metadata",
+  "crawled-release-date": "Crawled release date",
+  "crawled-genres": "Crawled genres",
+  "cover-search-disabled": "Cover search is unavailable because SteamGridDB is disabled.",
   "download": "Descargar",
   "download-all": "Descargar todo",
   "download-archive-set": "Conjunto de componentes requerido",
@@ -249,6 +252,7 @@
   "make-private": "Hacer Privada",
   "make-public": "Hacer Pública",
   "manage-collections": "Gestionar colecciones",
+  "missing-from-filesystem": "Missing from filesystem: {path}",
   "manual": "Manual",
   "manual-empty": "Aún no hay manual",
   "manual-empty-upload-hint": "Sube un archivo PDF o Markdown. Se almacenará en los recursos de RomM; los archivos de tu biblioteca de juegos permanecerán sin cambios.",
@@ -600,6 +604,8 @@
   "versions-count": "{n} versiones",
   "volume-mute": "Silenciar",
   "volume-unmute": "Quitar silencio",
+  "youtube-preview": "YouTube preview",
+  "youtube-invalid": "This YouTube ID is not supported. Use the 11-character video ID.",
   "your-progress": "Tu progreso",
   "youtube-video-id": "ID de vídeo de YouTube"
 }

@@ -53,6 +53,19 @@ const GAME_MODE_ITEMS = computed(() => [
 ]);
 
 const manual = computed(() => props.rom.manual_metadata || {});
+const crawled = computed(() => {
+  const source = props.rom as UpdateRom & {
+    metadatum?: {
+      genres?: string[] | null;
+      first_release_date?: number | null;
+    } | null;
+  };
+  return source.metadatum ?? {};
+});
+const crawledReleaseDate = computed(() => {
+  const value = crawled.value.first_release_date;
+  return value ? new Date(Number(value)).toLocaleDateString() : null;
+});
 
 // Age ratings are stored as `SYSTEM:RATING` strings — convert to the
 // human-readable `SYSTEM - RATING` shape the combobox uses, and back.
@@ -103,6 +116,14 @@ function updateManualMetadata(
       clearable
       @update:model-value="(v) => updateManualMetadata('franchises', v)"
     />
+    <div v-if="crawled.genres?.length" class="r-v2-additional__provider">
+      <span>{{ t("rom.crawled-genres") }}</span>
+      <span>{{ crawled.genres.join(", ") }}</span>
+    </div>
+    <div v-if="crawledReleaseDate" class="r-v2-additional__provider">
+      <span>{{ t("rom.crawled-release-date") }}</span>
+      <span>{{ crawledReleaseDate }}</span>
+    </div>
     <RDateField
       :model-value="manual.first_release_date ?? null"
       :label="t('rom.released-at')"
@@ -165,5 +186,19 @@ function updateManualMetadata(
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
+}
+.r-v2-additional__provider {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-sm);
+}
+.r-v2-additional__provider span:first-child {
+  color: var(--r-color-fg);
+  font-weight: var(--r-font-weight-medium);
 }
 </style>

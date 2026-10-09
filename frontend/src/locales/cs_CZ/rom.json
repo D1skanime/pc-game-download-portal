@@ -152,6 +152,9 @@
   "description-source-fallback": "Source: existing summary",
   "description-source-manual": "Source: manual metadata",
   "description-source-provider": "Source: provider metadata",
+  "crawled-release-date": "Crawled release date",
+  "crawled-genres": "Crawled genres",
+  "cover-search-disabled": "Cover search is unavailable because SteamGridDB is disabled.",
   "download": "Stáhnout",
   "download-all": "Stáhnout vše",
   "download-archive-set": "Požadovaná sada komponent",
@@ -249,6 +252,7 @@
   "make-private": "Učinit soukromým",
   "make-public": "Zveřejnit",
   "manage-collections": "Spravovat kolekce",
+  "missing-from-filesystem": "Missing from filesystem: {path}",
   "manual": "Manuál",
   "manual-empty": "Zatím žádný manuál",
   "manual-empty-upload-hint": "Nahrajte jeden soubor PDF nebo Markdown. Bude uložen v prostředcích RomM; soubory ve vaší herní knihovně zůstanou beze změny.",
@@ -600,6 +604,8 @@
   "versions-count": "{n} verzí",
   "volume-mute": "Ztlumit",
   "volume-unmute": "Zrušit ztlumení",
+  "youtube-preview": "YouTube preview",
+  "youtube-invalid": "This YouTube ID is not supported. Use the 11-character video ID.",
   "your-progress": "Your progress",
   "youtube-video-id": "ID YouTube videa"
 }

@@ -152,6 +152,9 @@
   "description-source-fallback": "Source: existing summary",
   "description-source-manual": "Source: manual metadata",
   "description-source-provider": "Source: provider metadata",
+  "crawled-release-date": "Crawled release date",
+  "crawled-genres": "Crawled genres",
+  "cover-search-disabled": "Cover search is unavailable because SteamGridDB is disabled.",
   "download": "Свали",
   "download-all": "Свали всички",
   "download-archive-set": "Задължителен набор от компоненти",
@@ -249,6 +252,7 @@
   "make-private": "Направи частно",
   "make-public": "Направи публично",
   "manage-collections": "Управление на колекции",
+  "missing-from-filesystem": "Missing from filesystem: {path}",
   "manual": "Ръководство",
   "manual-empty": "Все още няма ръководство",
   "manual-empty-upload-hint": "Качете един PDF или Markdown файл. Той ще бъде съхранен в ресурсите на RomM; файловете в библиотеката ви с игри ще останат непроменени.",
@@ -600,6 +604,8 @@
   "versions-count": "{n} версии",
   "volume-mute": "Заглуши",
   "volume-unmute": "Включи звука",
+  "youtube-preview": "YouTube preview",
+  "youtube-invalid": "This YouTube ID is not supported. Use the 11-character video ID.",
   "your-progress": "Your progress",
   "youtube-video-id": "YouTube видео ID"
 }

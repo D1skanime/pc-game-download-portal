@@ -105,7 +105,7 @@ const isFolderRom = computed(
 
 const fullPath = computed(() => {
   if (!rom.value) return "";
-  return `/romm/library/${rom.value.fs_path}/${rom.value.fs_name}`;
+  return [rom.value.fs_path, rom.value.fs_name].filter(Boolean).join("/");
 });
 
 // ── Tabbed editing surface ───────────────────────────────────────
@@ -317,7 +317,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           />
           <div class="r-v2-edit__cover-actions">
             <RBtn
-              icon="mdi-image-search-outline"
+              prepend-icon="mdi-image-search-outline"
               variant="outlined"
               density="compact"
               :tooltip="t('rom.search-cover')"
@@ -331,7 +331,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                   rom,
                 })
               "
-            />
+              >{{ t("rom.search-cover") }}</RBtn
+            >
             <RBtn
               icon="mdi-pencil"
               variant="outlined"
@@ -355,6 +356,12 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               :tooltip="t('rom.remove-cover')"
               @click="removeArtwork"
             />
+            <p
+              v-if="!heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED"
+              class="r-v2-edit__cover-help"
+            >
+              {{ t("rom.cover-search-disabled") }}
+            </p>
           </div>
         </div>
 

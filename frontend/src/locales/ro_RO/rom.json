@@ -152,6 +152,9 @@
   "description-source-fallback": "Source: existing summary",
   "description-source-manual": "Source: manual metadata",
   "description-source-provider": "Source: provider metadata",
+  "crawled-release-date": "Crawled release date",
+  "crawled-genres": "Crawled genres",
+  "cover-search-disabled": "Cover search is unavailable because SteamGridDB is disabled.",
   "download": "Descarcă",
   "download-all": "Descarcă tot",
   "download-archive-set": "Required component set",
@@ -249,6 +252,7 @@
   "make-private": "Fa Privată",
   "make-public": "Fa Publică",
   "manage-collections": "Gestionează colecțiile",
+  "missing-from-filesystem": "Missing from filesystem: {path}",
   "manual": "Manual",
   "manual-empty": "Niciun manual încă",
   "manual-empty-upload-hint": "Încarcă un PDF ca resursă RomM pentru manualul principal. Fișierele din biblioteca de jocuri vor rămâne neschimbate.",
@@ -600,6 +604,8 @@
   "versions-count": "{n} versiuni",
   "volume-mute": "Mut",
   "volume-unmute": "Activează sunetul",
+  "youtube-preview": "YouTube preview",
+  "youtube-invalid": "This YouTube ID is not supported. Use the 11-character video ID.",
   "your-progress": "Your progress",
   "youtube-video-id": "ID video YouTube"
 }
