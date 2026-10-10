@@ -7,6 +7,7 @@ import type {
   PcComponentSchema,
   RomComponentOwnedMediaRole,
 } from "@/__generated__";
+import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { romApi as api } from "@/v2/data/adapters/legacy/services/api/rom";
@@ -18,10 +19,11 @@ const emit = defineEmits<{ (event: "refresh"): void }>();
 const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
+const canEdit = useCan("rom.edit", { kind: "rom", id: props.romId });
 const media = ref<PcComponentOwnedMediaSchema[]>([]);
 const loading = ref(true);
 const uploading = ref(false);
-const role = ref<RomComponentOwnedMediaRole>("artwork");
+const role = ref<RomComponentOwnedMediaRole>("screenshot");
 const roles: RomComponentOwnedMediaRole[] = [
   "cover",
   "gallery",
@@ -29,8 +31,11 @@ const roles: RomComponentOwnedMediaRole[] = [
   "artwork",
 ];
 const componentVersion = computed(() => props.component.updated_at ?? null);
+const filteredMedia = computed(() =>
+  media.value.filter((item) => item.role === role.value),
+);
 const mediaUrls = computed(() =>
-  media.value.map((item) => mediaContentUrl(item.id)),
+  filteredMedia.value.map((item) => mediaContentUrl(item.id)),
 );
 const lightboxIndex = ref(0);
 const lightboxOpen = ref(false);
@@ -83,6 +88,30 @@ async function upload(files: File[]) {
   }
 }
 
+function hasPlacement(item: PcComponentOwnedMediaSchema) {
+  return (item.placements ?? []).some((placement) => placement.position >= 0);
+}
+
+async function togglePlacement(item: PcComponentOwnedMediaSchema) {
+  if (!componentVersion.value) return;
+  try {
+    if (hasPlacement(item)) {
+      await api.delete(`${endpoint}/${item.id}/placement`, {
+        params: { expected_version: componentVersion.value },
+      });
+    } else {
+      await api.post(`${endpoint}/${item.id}/placement`, {
+        expected_version: componentVersion.value,
+      });
+    }
+    await load();
+    emit("refresh");
+  } catch (error) {
+    console.error(error);
+    snackbar.error(t("common.error"));
+  }
+}
+
 async function remove(mediaId: number) {
   if (!componentVersion.value) return;
   if (!(await confirm({ title: t("common.delete"), tone: "danger" }))) return;
@@ -118,12 +147,12 @@ onMounted(load);
     />
     <p v-if="loading">{{ t("common.loading") }}</p>
     <REmptyState
-      v-else-if="media.length === 0"
+      v-else-if="filteredMedia.length === 0"
       :title="t('rom.artwork-empty')"
     />
     <ul v-else class="pc-dlc-media__list">
       <li
-        v-for="(item, index) in media"
+        v-for="(item, index) in filteredMedia"
         :key="item.id"
         class="pc-dlc-media__item"
       >
@@ -139,11 +168,29 @@ onMounted(load);
           <strong>{{ item.role }}</strong>
           <span>{{ item.mime_type }}</span>
         </div>
-        <RBtn
-          icon="mdi-delete-outline"
-          :aria-label="t('common.delete')"
-          @click="remove(item.id)"
-        />
+        <div class="pc-dlc-media__actions">
+          <RBtn
+            v-if="canEdit"
+            :aria-label="
+              hasPlacement(item)
+                ? t('rom.remove-from-overview')
+                : t('rom.add-to-overview')
+            "
+            @click="togglePlacement(item)"
+          >
+            {{
+              hasPlacement(item)
+                ? t("rom.remove-from-overview")
+                : t("rom.add-to-overview")
+            }}
+          </RBtn>
+          <RBtn
+            v-if="canEdit"
+            icon="mdi-delete-outline"
+            :aria-label="t('common.delete')"
+            @click="remove(item.id)"
+          />
+        </div>
       </li>
     </ul>
     <RCarousel

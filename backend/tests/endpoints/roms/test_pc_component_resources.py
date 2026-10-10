@@ -105,3 +105,39 @@ def test_manifest_download_requires_an_exact_member_of_the_dlc(
     assert response.status_code == status.HTTP_200_OK
     assert response.content == b"data"
     assert wrong.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_component_media_placement_routes_are_scoped_and_version_checked(
+    client, access_token, rom, admin_user
+):
+    component = _dlc(rom)
+    media = db_rom_handler.create_pc_component_owned_media(
+        rom.id,
+        component.id,
+        admin_user.id,
+        component.updated_at,
+        "screenshot",
+        "image/jpeg",
+        "roms/1/components/shot.jpg",
+        "upload",
+    )
+    assert media is not None
+    refreshed = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    response = client.post(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/media/{media.media.id}/placement",
+        headers=_headers(access_token),
+        json={"expected_version": refreshed.updated_at.isoformat()},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["placements"][0]["position"] == 0
+    refreshed = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    removed = client.delete(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/media/{media.media.id}/placement",
+        headers=_headers(access_token),
+        params={"expected_version": refreshed.updated_at.isoformat()},
+    )
+    assert removed.status_code == status.HTTP_200_OK
+    assert removed.json()["placements"] == []
+    assert db_rom_handler.get_pc_component_owned_media(
+        rom.id, component.id, admin_user.id
+    )

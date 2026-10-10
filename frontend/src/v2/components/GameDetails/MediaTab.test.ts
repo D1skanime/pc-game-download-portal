@@ -11,4 +11,8 @@ describe("MediaTab soundtrack access", () => {
     expect(source).toContain('<SoundtrackPanel :rom="rom"');
     expect(source).not.toContain("!rom.has_soundtrack");
   });
+
+  it("defaults the parent media tab to screenshots", () => {
+    expect(source).toContain(': "screenshots",');
+  });
 });

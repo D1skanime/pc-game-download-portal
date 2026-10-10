@@ -14,6 +14,7 @@ from endpoints.responses.rom import (
     PcComponentNoteCreateRequest,
     PcComponentNoteSchema,
     PcComponentNoteUpdateRequest,
+    PcComponentOwnedMediaPlacementMutationRequest,
     PcComponentOwnedMediaSchema,
 )
 from endpoints.roms.files import (
@@ -232,6 +233,48 @@ async def delete_component_media(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     await fs_resource_handler.remove_file(owned_path)
     return {"message": "Media deleted successfully"}
+
+
+@protected_route(
+    router.post,
+    "/{id}/pc-components/{component_id}/media/{media_id}/placement",
+    [Scope.ROMS_WRITE],
+)
+async def add_component_media_placement(
+    request: Request,
+    id: int,
+    component_id: int,
+    media_id: int,
+    payload: PcComponentOwnedMediaPlacementMutationRequest,
+) -> PcComponentOwnedMediaSchema:
+    _dlc_component(request, id, component_id)
+    media = db_rom_handler.set_pc_component_owned_media_placement(
+        id, component_id, request.user.id, media_id, payload.expected_version, True
+    )
+    if media is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT)
+    return PcComponentOwnedMediaSchema.model_validate(media)
+
+
+@protected_route(
+    router.delete,
+    "/{id}/pc-components/{component_id}/media/{media_id}/placement",
+    [Scope.ROMS_WRITE],
+)
+async def remove_component_media_placement(
+    request: Request,
+    id: int,
+    component_id: int,
+    media_id: int,
+    expected_version: datetime,
+) -> PcComponentOwnedMediaSchema:
+    _dlc_component(request, id, component_id)
+    media = db_rom_handler.set_pc_component_owned_media_placement(
+        id, component_id, request.user.id, media_id, expected_version, False
+    )
+    if media is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT)
+    return PcComponentOwnedMediaSchema.model_validate(media)
 
 
 @protected_route(

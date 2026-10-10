@@ -95,25 +95,24 @@ const cover = computed(
     props.component.owned_media?.find((media) => media.role === "cover") ??
     props.component.local_media?.find((media) => media.role === "cover"),
 );
-const media = computed(() =>
-  [
-    ...(props.component.owned_media ?? []),
-    ...(props.component.local_media ?? []),
-  ].filter((item) => item.role === "gallery"),
+
+const overviewPlacements = computed(() =>
+  (props.component.owned_media ?? [])
+    .flatMap((item) =>
+      (item.placements ?? [])
+        .filter(
+          (placement) =>
+            placement.media_id === item.id && placement.position >= 0,
+        )
+        .map((placement) => ({ item, placement })),
+    )
+    .toSorted((a, b) => a.placement.position - b.placement.position),
 );
-const screenshots = computed(() =>
-  (props.component.owned_media ?? []).filter(
-    (item) => item.role === "screenshot",
-  ),
-);
-const overviewMedia = computed(() => [
-  ...screenshots.value.map((item) => ({
+const overviewMedia = computed(() =>
+  overviewPlacements.value.map(({ item }) => ({
     url: ownedMediaUrl(item.owned_path),
   })),
-  ...media.value.map((item) => ({
-    url: ownedMediaUrl(item.owned_path),
-  })),
-]);
+);
 const pcMetadata = computed(() => props.component.component_metadata);
 const releaseDate = computed(() => {
   const timestamp = pcMetadata.value?.pc_release_date;

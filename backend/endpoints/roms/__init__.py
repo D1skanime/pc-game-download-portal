@@ -99,6 +99,7 @@ from models.permission import PermAction, PermEntity
 from models.rom import (
     Rom,
     RomComponent,
+    RomComponentOwnedMedia,
     RomOwnedMediaRole,
     RomOwnedMediaState,
     RomOwnedMediaSurface,
@@ -1037,7 +1038,9 @@ def get_roms(
             selectinload(Rom.components).options(
                 selectinload(RomComponent.manifest_members),
                 selectinload(RomComponent.component_metadata),
-                selectinload(RomComponent.owned_media),
+                selectinload(RomComponent.owned_media).selectinload(
+                    RomComponentOwnedMedia.placements
+                ),
                 selectinload(RomComponent.local_media),
             ),
             selectinload(Rom.owned_media),

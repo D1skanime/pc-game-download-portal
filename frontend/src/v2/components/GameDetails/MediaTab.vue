@@ -43,7 +43,7 @@ const router = useRouter();
 const subTab = ref<Subtab>(
   validSubtabs.includes(route.query.subtab as Subtab)
     ? (route.query.subtab as Subtab)
-    : "manual",
+    : "screenshots",
 );
 
 watch(subTab, (value) => {

@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { RomComponentOwnedMediaOrigin } from './RomComponentOwnedMediaOrigin';
 import type { RomComponentOwnedMediaRole } from './RomComponentOwnedMediaRole';
+import type { PcComponentOwnedMediaPlacementSchema } from './PcComponentOwnedMediaPlacementSchema';
 export type PcComponentOwnedMediaSchema = {
     id: number;
     role: RomComponentOwnedMediaRole;
@@ -14,5 +15,6 @@ export type PcComponentOwnedMediaSchema = {
     provider_media_id: (string | null);
     created_at: string;
     updated_at: string;
+    placements?: Array<PcComponentOwnedMediaPlacementSchema>;
 };
 

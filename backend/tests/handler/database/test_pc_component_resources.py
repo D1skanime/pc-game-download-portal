@@ -99,6 +99,81 @@ def test_owned_media_mutations_are_component_scoped_and_version_guarded(
     assert db_rom_handler.get_rom(rom.id).updated_at == original_parent_version
 
 
+def test_component_media_placements_are_ordered_scoped_and_version_guarded(
+    rom, admin_user
+):
+    component, sibling = _create_components(rom.id)
+    first = db_rom_handler.create_pc_component_owned_media(
+        rom.id,
+        component.id,
+        admin_user.id,
+        component.updated_at,
+        RomComponentOwnedMediaRole.SCREENSHOT,
+        "image/jpeg",
+        "roms/1/components/owned/first.jpg",
+        RomComponentOwnedMediaOrigin.UPLOAD,
+    )
+    assert first is not None
+    component = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert component is not None
+    second = db_rom_handler.create_pc_component_owned_media(
+        rom.id,
+        component.id,
+        admin_user.id,
+        component.updated_at,
+        RomComponentOwnedMediaRole.ARTWORK,
+        "image/png",
+        "roms/1/components/owned/second.png",
+        RomComponentOwnedMediaOrigin.UPLOAD,
+    )
+    assert second is not None
+    component = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert component is not None
+    assert (
+        db_rom_handler.set_pc_component_owned_media_placement(
+            rom.id,
+            component.id,
+            admin_user.id,
+            second.media.id,
+            component.updated_at,
+            True,
+        )
+        is not None
+    )
+    component = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert component is not None
+    assert (
+        db_rom_handler.set_pc_component_owned_media_placement(
+            rom.id,
+            component.id,
+            admin_user.id,
+            first.media.id,
+            component.updated_at,
+            True,
+        )
+        is not None
+    )
+    persisted = db_rom_handler.get_pc_component_owned_media(
+        rom.id, component.id, admin_user.id
+    )
+    assert sorted(
+        (item.placements[0].position, item.id) for item in persisted if item.placements
+    ) == [(0, second.media.id), (1, first.media.id)]
+    assert (
+        db_rom_handler.get_pc_component_owned_media(rom.id, sibling.id, admin_user.id)
+        == []
+    )
+    stale = db_rom_handler.set_pc_component_owned_media_placement(
+        rom.id,
+        component.id,
+        admin_user.id,
+        first.media.id,
+        datetime(2000, 1, 1, tzinfo=timezone.utc),
+        False,
+    )
+    assert stale is None
+
+
 def test_component_notes_are_private_to_their_component_and_owner(rom, admin_user):
     component, sibling = _create_components(rom.id)
     created = db_rom_handler.create_pc_component_note(

@@ -463,6 +463,23 @@ class PcComponentOwnedMediaSchema(BaseModel):
     provider_media_id: str | None
     created_at: UTCDatetime
     updated_at: UTCDatetime
+    placements: list["PcComponentOwnedMediaPlacementSchema"] = Field(
+        default_factory=list
+    )
+
+
+class PcComponentOwnedMediaPlacementSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    media_id: int
+    position: int = Field(ge=0)
+
+
+class PcComponentOwnedMediaPlacementMutationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: UTCDatetime
 
 
 class PcComponentOwnedMediaCreateRequest(BaseModel):

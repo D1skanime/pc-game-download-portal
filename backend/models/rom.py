@@ -487,6 +487,49 @@ class RomComponentOwnedMedia(BaseModel):
     )
 
     component: Mapped[RomComponent] = relationship(back_populates="owned_media")
+    placements: Mapped[list["RomComponentOwnedMediaPlacement"]] = relationship(
+        lazy="raise",
+        back_populates="media",
+        cascade="all, delete-orphan",
+        order_by="RomComponentOwnedMediaPlacement.position",
+    )
+
+
+class RomComponentOwnedMediaPlacement(BaseModel):
+    __tablename__ = "rom_component_owned_media_placements"
+
+    __table_args__ = (
+        CheckConstraint(
+            "position >= 0", name="ck_rom_component_owned_media_placements_position"
+        ),
+        UniqueConstraint(
+            "component_id",
+            "media_id",
+            name="uq_rom_component_owned_media_placements_media",
+        ),
+        UniqueConstraint(
+            "component_id",
+            "position",
+            name="uq_rom_component_owned_media_placements_position",
+        ),
+        Index(
+            "idx_rom_component_owned_media_placements_component_position",
+            "component_id",
+            "position",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    component_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_components.id", ondelete="CASCADE")
+    )
+    media_id: Mapped[int] = mapped_column(
+        ForeignKey("rom_component_owned_media.id", ondelete="CASCADE")
+    )
+    position: Mapped[int] = mapped_column(Integer)
+
+    component: Mapped[RomComponent] = relationship()
+    media: Mapped[RomComponentOwnedMedia] = relationship(back_populates="placements")
 
 
 class RomOwnedMedia(BaseModel):

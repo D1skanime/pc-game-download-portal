@@ -133,6 +133,8 @@ export type { LegacyRollbackErrorDetail } from './models/LegacyRollbackErrorDeta
 export type { LegacyRollbackErrorResponse } from './models/LegacyRollbackErrorResponse';
 export type { LegacyRollbackRequestSchema } from './models/LegacyRollbackRequestSchema';
 export type { LegacyRollbackStatusSchema } from './models/LegacyRollbackStatusSchema';
+export type { LegacyStorageBootstrapMappingSchema } from './models/LegacyStorageBootstrapMappingSchema';
+export type { LegacyStorageBootstrapSchema } from './models/LegacyStorageBootstrapSchema';
 export type { LoadStateRequest } from './models/LoadStateRequest';
 export type { LogEntrySchema } from './models/LogEntrySchema';
 export type { ManualDescriptionRequest } from './models/ManualDescriptionRequest';
@@ -173,6 +175,7 @@ export type { PcComponentNoteCreateRequest } from './models/PcComponentNoteCreat
 export type { PcComponentNoteSchema } from './models/PcComponentNoteSchema';
 export type { PcComponentNoteUpdateRequest } from './models/PcComponentNoteUpdateRequest';
 export type { PcComponentOwnedMediaSchema } from './models/PcComponentOwnedMediaSchema';
+export type { PcComponentOwnedMediaPlacementSchema } from './models/PcComponentOwnedMediaPlacementSchema';
 export type { PcComponentSchema } from './models/PcComponentSchema';
 export type { PcLocalMediaCandidateSchema } from './models/PcLocalMediaCandidateSchema';
 export type { PcLocalMediaCandidatesResponse } from './models/PcLocalMediaCandidatesResponse';

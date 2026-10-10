@@ -66,6 +66,7 @@ from models.rom import (
     RomComponentNote,
     RomComponentOwnedMedia,
     RomComponentOwnedMediaOrigin,
+    RomComponentOwnedMediaPlacement,
     RomComponentOwnedMediaRole,
     RomFacets,
     RomFile,
@@ -406,7 +407,9 @@ def with_details(func):
                 selectinload(RomComponent.manifest_members),
                 selectinload(RomComponent.component_metadata),
                 selectinload(RomComponent.local_media),
-                selectinload(RomComponent.owned_media),
+                selectinload(RomComponent.owned_media).selectinload(
+                    RomComponentOwnedMedia.placements
+                ),
             ),
             selectinload(Rom.owned_media).selectinload(RomOwnedMedia.placements),
             selectinload(Rom.owned_media_placements),
@@ -2733,7 +2736,11 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomComponent | None:
         options = []
         if with_owned_media:
-            options.append(selectinload(RomComponent.owned_media))
+            options.append(
+                selectinload(RomComponent.owned_media).selectinload(
+                    RomComponentOwnedMedia.placements
+                )
+            )
         if with_notes:
             options.append(selectinload(RomComponent.notes))
         predicates = [
@@ -2980,6 +2987,69 @@ class DBRomsHandler(DBBaseHandler):
         component.updated_at = datetime.now(timezone.utc)
         session.flush()
         return owned_path
+
+    @begin_session
+    def set_pc_component_owned_media_placement(
+        self,
+        rom_id: int,
+        component_id: int,
+        user_id: int,
+        media_id: int,
+        expected_updated_at: datetime,
+        selected: bool,
+        session: Session = None,  # type: ignore
+    ) -> RomComponentOwnedMedia | None:
+        if session.get(User, user_id) is None:
+            return None
+        component = self._get_pc_dlc_component(
+            session,
+            rom_id,
+            component_id,
+            expected_updated_at,
+            with_owned_media=True,
+        )
+        if component is None:
+            return None
+        media = next(
+            (item for item in component.owned_media if item.id == media_id), None
+        )
+        if media is None:
+            return None
+        placement = next(
+            (item for item in media.placements if item.component_id == component.id),
+            None,
+        )
+        if selected and placement is None:
+            current = sorted(
+                (item for item in component.owned_media for item in item.placements),
+                key=lambda item: item.position,
+            )
+            media.placements.append(
+                RomComponentOwnedMediaPlacement(
+                    component_id=component.id,
+                    media_id=media.id,
+                    position=len(current),
+                )
+            )
+        elif not selected and placement is not None:
+            media.placements.remove(placement)
+            session.flush()
+            remaining = sorted(
+                (
+                    item
+                    for item in component.owned_media
+                    for item in item.placements
+                    if item.id != placement.id
+                ),
+                key=lambda item: item.position,
+            )
+            for position, item in enumerate(remaining):
+                item.position = position
+        else:
+            return media
+        component.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return media
 
     @begin_session
     def get_pc_component_notes(

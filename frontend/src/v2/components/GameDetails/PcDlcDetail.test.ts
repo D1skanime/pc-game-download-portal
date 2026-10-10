@@ -199,6 +199,16 @@ describe("PcDlcDetail", () => {
     expect(wrapper.html()).not.toContain("components/3/cover.webp");
   });
 
+  it("renders only active persisted component overview placements", () => {
+    const source = readFileSync(
+      "src/v2/components/GameDetails/PcDlcDetail.vue",
+      "utf8",
+    );
+    expect(source).toContain("overviewPlacements");
+    expect(source).toContain("placement.media_id === item.id");
+    expect(source).toContain("placement.position - b.position");
+  });
+
   it("opens selected DLC overview media through the shared screenshot viewer", async () => {
     const wrapper = mountDetail({
       ...selectedDlc,
