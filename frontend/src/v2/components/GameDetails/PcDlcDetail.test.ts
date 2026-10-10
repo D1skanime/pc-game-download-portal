@@ -210,6 +210,18 @@ describe("PcDlcDetail", () => {
     expect(source).toContain("a.placement.position - b.placement.position");
   });
 
+  it("uses the shared overview grid contract for DLC overview media", () => {
+    const source = readFileSync(
+      "src/v2/components/GameDetails/PcDlcDetail.vue",
+      "utf8",
+    );
+
+    expect(source).toContain(
+      '<ScreenshotsTab :screenshots="overviewMedia" layout="overview" />',
+    );
+    expect(source).not.toContain("grid-template-columns");
+  });
+
   it("opens selected DLC overview media through the shared screenshot viewer", async () => {
     const wrapper = mountDetail({
       ...selectedDlc,

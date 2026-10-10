@@ -308,7 +308,7 @@ function showMedia() {
               data-testid="pc-dlc-overview-media"
               class="pc-dlc-detail__media"
             >
-              <ScreenshotsTab :screenshots="overviewMedia" />
+              <ScreenshotsTab :screenshots="overviewMedia" layout="overview" />
             </section>
           </section>
 
@@ -485,9 +485,7 @@ function showMedia() {
 }
 
 .pc-dlc-detail__media {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  gap: var(--r-space-4);
+  width: 100%;
 }
 
 .pc-dlc-detail__media-image {
