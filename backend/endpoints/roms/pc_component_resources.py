@@ -231,7 +231,10 @@ async def delete_component_media(
     )
     if owned_path is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    await fs_resource_handler.remove_file(owned_path)
+    try:
+        await fs_resource_handler.remove_file(owned_path)
+    except FileNotFoundError:
+        pass
     return {"message": "Media deleted successfully"}
 
 

@@ -1,3 +1,5 @@
+import time
+
 from fastapi import status
 
 from endpoints.roms import pc_component_resources
@@ -140,4 +142,46 @@ def test_component_media_placement_routes_are_scoped_and_version_checked(
     assert removed.json()["placements"] == []
     assert db_rom_handler.get_pc_component_owned_media(
         rom.id, component.id, admin_user.id
+    )
+
+
+def test_deleting_component_media_with_missing_owned_file_updates_state(
+    client, access_token, rom, admin_user, monkeypatch
+):
+    component = _dlc(rom)
+    media = db_rom_handler.create_pc_component_owned_media(
+        rom.id,
+        component.id,
+        admin_user.id,
+        component.updated_at,
+        "screenshot",
+        "image/jpeg",
+        "roms/1/components/missing.jpg",
+        "upload",
+    )
+    assert media is not None
+    before = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert before is not None
+
+    async def missing_file(path):
+        raise FileNotFoundError(path)
+
+    monkeypatch.setattr(
+        pc_component_resources.fs_resource_handler, "remove_file", missing_file
+    )
+    time.sleep(1.1)
+    response = client.delete(
+        f"/api/roms/{rom.id}/pc-components/{component.id}/media/{media.media.id}",
+        headers=_headers(access_token),
+        params={"expected_version": before.updated_at.isoformat()},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"message": "Media deleted successfully"}
+    after = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert after is not None
+    assert after.updated_at > before.updated_at
+    assert (
+        db_rom_handler.get_pc_component_owned_media(rom.id, component.id, admin_user.id)
+        == []
     )
