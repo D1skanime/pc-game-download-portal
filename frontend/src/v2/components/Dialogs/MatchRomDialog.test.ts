@@ -48,4 +48,22 @@ describe("MatchRomDialog operation parity guards", () => {
     expect(source).toContain("expected_version: expectedVersion");
     expect(source).toContain("selected_media_ids: selectedMedia");
   });
+
+  it("closes PC matches before best-effort refresh and isolates refresh errors", () => {
+    const source = matchDialogSource();
+    const pcAssignment = source.slice(
+      source.indexOf("if (pcTarget.value)"),
+      source.indexOf("const targetRom"),
+    );
+    const closeIndex = pcAssignment.indexOf("closeDialog();");
+    const refreshIndex = pcAssignment.indexOf("pcRefresh");
+
+    expect(closeIndex).toBeGreaterThan(-1);
+    expect(refreshIndex).toBeGreaterThan(closeIndex);
+    expect(pcAssignment).toContain("try {");
+    expect(pcAssignment).toContain("catch (refreshError: unknown)");
+    expect(pcAssignment).toContain(
+      "closeDialog();\n    try {\n      await pcRefresh.value?.();",
+    );
+  });
 });
