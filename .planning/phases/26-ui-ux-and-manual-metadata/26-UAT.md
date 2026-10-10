@@ -69,3 +69,20 @@ At 2026-10-09T23:34Z, the approved in-app browser opened the Linux Dev
 endpoint successfully, but it redirected to the unauthenticated login route.
 No credentials were entered, no form was submitted, and no application data was
 changed. The browser UAT task is therefore blocked rather than approved.
+
+## Live UAT follow-up — 2026-10-10
+
+The authenticated Linux Dev browser session is now available as `admin`. The following Phase 26 flows were rechecked live on the canonical app:
+
+| Scenario                                                                        | Result              | Evidence                                                                                                     |
+| ------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Parent overview description is read-only by default and exposes a pencil action | PASS                | `overview-description-edit` is present; clicking it opens the existing Description dialog.                   |
+| DLC overview description is read-only by default and exposes a pencil action    | PASS                | `Bearbeiten` is present; clicking it opens the scoped Description dialog.                                    |
+| DLC Game Download surface                                                       | PASS                | Download tab shows the DLC selector and existing manifest member with size/hash.                             |
+| DLC Media surface                                                               | PASS                | Media tab loads the component-scoped screenshot list and delete controls.                                    |
+| DLC Files surface                                                               | PASS                | Files tab shows only the scoped manifest member and mapped content link.                                     |
+| Overview gallery viewer                                                         | PASS                | Screenshot 1 opens the shared viewer with 1/40 navigation and Previous/Next/Close controls.                  |
+| Browser runtime errors during these flows                                       | PASS                | No current console errors observed after a clean route load.                                                 |
+| Provider cover/metadata search                                                  | BLOCKED / NOT A BUG | Provider credentials/API configuration are absent; per UAT instruction this is ignored as environment setup. |
+
+No genuine product bug was found in these live checks, so no additional `gsd-quick` fix was created from this UAT pass.
