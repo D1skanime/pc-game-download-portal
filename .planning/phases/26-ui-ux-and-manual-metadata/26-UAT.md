@@ -86,3 +86,5 @@ The authenticated Linux Dev browser session is now available as `admin`. The fol
 | Provider cover/metadata search                                                  | BLOCKED / NOT A BUG | Provider credentials/API configuration are absent; per UAT instruction this is ignored as environment setup. |
 
 No genuine product bug was found in these live checks, so no additional `gsd-quick` fix was created from this UAT pass.
+
+| Platform API/live library | PASS | `/platform/2` loads Windows metadata and ROM links; no current browser console errors or API-500 signal observed after the schema migration. |
