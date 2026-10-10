@@ -477,10 +477,14 @@ Recent decisions affecting current work:
 | Delivery | Manifests, resumable downloads, and Windows client | Deferred to later milestone | Initialization |
 | UX       | Broader redesign beyond new storage surfaces       | Deferred to later milestone | Initialization |
 
+## Quick Task 261010-s7e
+
+| 261010-s7e | Fix main and DLC media deletion refresh state and localized DLC labels | 2026-10-10 | pending | [261010-s7e-fix-main-and-dlc-media-deletion-state-re](./quick/261010-s7e-fix-main-and-dlc-media-deletion-state-re/) |
+
 ## Session Continuity
 
 Last session: 2026-10-10T20:08:35Z
-Stopped at: Completed quick task 261010-rre
+Stopped at: Completed quick task 261010-s7e
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
