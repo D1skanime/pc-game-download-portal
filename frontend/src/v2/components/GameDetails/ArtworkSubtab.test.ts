@@ -41,13 +41,8 @@ describe("ArtworkSubtab owned artwork management", () => {
   });
 
   it("keeps the uploaded artwork delete button as the visible tooltip activator", () => {
-    expect(source).toContain(
-      `v-if="item.origin === 'upload' && canManage"
-              icon="mdi-delete-outline"
-              :loading="mutatingId === item.id"
-              :aria-label="t('common.delete')"
-              @click="deleteArtwork(item)"
-            ><RTooltip activator="parent" :text="t('common.delete')" />`,
+    expect(source).toMatch(
+      /<RBtn\s+v-if="item\.origin === 'upload' && canManage"\s+icon="mdi-delete-outline"\s+:loading="mutatingId === item\.id"\s+:aria-label="t\('common\.delete'\)"\s+@click="deleteArtwork\(item\)"\s+><RTooltip activator="parent" :text="t\('common\.delete'\)" \/>/,
     );
     expect(source).not.toContain(
       `<RTooltip

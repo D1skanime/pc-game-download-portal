@@ -392,15 +392,15 @@ async function deleteArtwork(item: RomOwnedMediaSchema) {
                   ? t("rom.remove-as-background")
                   : t("rom.add-as-background")
               }}</RBtn
-            ><RTooltip
+            ><RBtn
               v-if="item.origin === 'upload' && canManage"
-              :text="t('common.delete')"
-              ><RBtn
-                icon="mdi-delete-outline"
-                :loading="mutatingId === item.id"
-                :aria-label="t('common.delete')"
-                @click="deleteArtwork(item)"
-            /></RTooltip>
+              icon="mdi-delete-outline"
+              :loading="mutatingId === item.id"
+              :aria-label="t('common.delete')"
+              @click="deleteArtwork(item)"
+              ><RTooltip activator="parent" :text="t('common.delete')" />
+              ></RBtn
+            >
           </div>
         </li>
       </ul>

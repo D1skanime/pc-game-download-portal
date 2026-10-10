@@ -343,14 +343,15 @@ async function toggleVisibility(id: number, isPublic: boolean) {
                   ? t("rom.remove-as-background")
                   : t("rom.add-as-background")
               }}</RBtn
-            ><RTooltip :text="t('common.delete')"
-              ><RBtn
-                v-if="canManage"
-                icon="mdi-delete-outline"
-                :loading="mutatingId === item.id"
-                :aria-label="t('common.delete')"
-                @click.stop="deleteProviderScreenshot(item)"
-            /></RTooltip>
+            ><RBtn
+              v-if="canManage"
+              icon="mdi-delete-outline"
+              :loading="mutatingId === item.id"
+              :aria-label="t('common.delete')"
+              @click.stop="deleteProviderScreenshot(item)"
+              ><RTooltip activator="parent" :text="t('common.delete')" />
+              ></RBtn
+            >
           </div>
         </li>
       </ul>
