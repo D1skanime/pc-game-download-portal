@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 26 (UI-UX Abschluss und manuelle mehrsprachige Metadatenpflege) — EXECUTING
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-10-09
+Last activity: 2026-10-10 - Completed quick task 261010-bt3: Move manual description editing behind a pencil action in the overview
 
 ## Performance Metrics
 
@@ -446,6 +446,7 @@ Recent decisions affecting current work:
 | 260922-clear-local        | Clear terminal local queue rows after server history clear                     | 2026-09-22 | 7de7744c3    | [260922-clear-local-download-history](./quick/260922-clear-local-download-history/)                                 |
 | 260923-resume-expiry      | Preserve sessions on expired resume and show restart feedback                  | 2026-09-23 | 357eb4e58    | [260923-resume-expiry-feedback](./quick/260923-resume-expiry-feedback/)                                             |
 | 260923-history-flicker    | Prevent per-file queue changes from reloading history                          | 2026-09-23 | 7bebbfd77    | [260923-history-refresh-flicker](./quick/260923-history-refresh-flicker/)                                           |
+| 261010-bt3                | Move manual description editing behind a pencil action in the overview         | 2026-10-10 | c2b88a85f    | [261010-bt3-move-manual-description-editing-behind-a](./quick/261010-bt3-move-manual-description-editing-behind-a/) |
 | 260923-ikx                | Add a per-file enhanced-download retry action                                  | 2026-09-23 | d7b7246e9    | [260923-ikx-add-a-per-file-enhanced-download-retry-a](./quick/260923-ikx-add-a-per-file-enhanced-download-retry-a/) |
 | 260923-jvj                | Prevent manifest-referenced PC members from blocking rescans                   | 2026-09-23 | b05fd4cce    | [260923-jvj-prevent-pc-component-rescans-from-failin](./quick/260923-jvj-prevent-pc-component-rescans-from-failin/) |
 | 261002-hft                | Seed isolated Phase 22 UAT database mapping                                    | 2026-10-02 | 2fcbf7262    | [261002-hft-seed-the-isolated-phase-22-uat-database-](./quick/261002-hft-seed-the-isolated-phase-22-uat-database-/) |
