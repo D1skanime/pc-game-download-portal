@@ -12,6 +12,7 @@ import { RComboboxField, RDateField, RTextField } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UpdateRom } from "@/v2/data/adapters/legacy/services/api/rom";
+import { youtubeVideoId } from "@/v2/utils/validation";
 
 const props = defineProps<{ rom: UpdateRom }>();
 
@@ -149,11 +150,11 @@ function updateManualMetadata(
     <RTextField
       :model-value="manual.youtube_video_id ?? ''"
       :label="t('rom.youtube-video-id')"
+      :rules="[youtubeVideoId]"
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
       clearable
-      hide-details
       @update:model-value="
         (v) =>
           updateManualMetadata(

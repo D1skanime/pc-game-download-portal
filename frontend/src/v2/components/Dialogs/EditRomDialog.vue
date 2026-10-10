@@ -37,6 +37,7 @@ import storeRoms, {
   type SimpleRom,
 } from "@/v2/data/adapters/legacy/stores/roms";
 import { getMissingCoverImage } from "@/v2/utils/covers";
+import { isValidYoutubeVideoId } from "@/v2/utils/validation";
 
 defineOptions({ inheritAttrs: false });
 
@@ -95,7 +96,11 @@ const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
 
-const validForm = computed(() => !!rom.value?.name);
+const validForm = computed(
+  () =>
+    !!rom.value?.name &&
+    isValidYoutubeVideoId(rom.value?.manual_metadata?.youtube_video_id),
+);
 
 const isFolderRom = computed(
   () =>
