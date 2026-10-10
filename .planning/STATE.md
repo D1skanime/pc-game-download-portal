@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 26 (UI-UX Abschluss und manuelle mehrsprachige Metadatenpflege) — EXECUTING
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-10-10 - Completed quick task 261010-sdf: Localize PC DLC media role selector labels
+Last activity: 2026-10-10 - Completed quick task 261010-twn: Make PC DLC media deletion tolerate already-missing owned files
 
 ## Performance Metrics
 
