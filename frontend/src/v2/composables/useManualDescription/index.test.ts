@@ -1,5 +1,23 @@
-import { describe, expect, it } from "vitest";
-import { resolveManualDescription } from "./index";
+import { describe, expect, it, vi } from "vitest";
+import { resolveManualDescription, useManualDescription } from "./index";
+
+const mocks = vi.hoisted(() => ({
+  apiPut: vi.fn(),
+  updateManualDescription: vi.fn(),
+  updatePcComponentManualDescription: vi.fn(),
+}));
+
+vi.mock("@/services/api", () => ({
+  default: { put: mocks.apiPut },
+}));
+
+vi.mock("@/services/api/rom", () => ({
+  default: {
+    updateManualDescription: mocks.updateManualDescription,
+    updatePcComponentManualDescription:
+      mocks.updatePcComponentManualDescription,
+  },
+}));
 
 describe("resolveManualDescription", () => {
   const steamMetadata = {
@@ -52,5 +70,46 @@ describe("resolveManualDescription", () => {
         locale: "de-AT",
       }),
     ).toBe("Deutsch");
+  });
+});
+
+describe("useManualDescription mutations", () => {
+  it("delegates ROM and component writes through the shared ROM service", async () => {
+    const payload = {
+      locale: "de-DE",
+      description: "Manuelle Beschreibung",
+      expected_version: "2026-10-09T22:37:10Z",
+    };
+    const response = {
+      data: {
+        locale: payload.locale,
+        description: payload.description,
+        expected_version: "2026-10-09T22:38:10Z",
+      },
+    };
+    mocks.apiPut.mockResolvedValue(response);
+    mocks.updateManualDescription.mockResolvedValueOnce(response);
+    mocks.updatePcComponentManualDescription.mockResolvedValueOnce(response);
+
+    const { updateRomDescription, updateComponentDescription } =
+      useManualDescription();
+
+    await expect(updateRomDescription(41, payload)).resolves.toEqual(
+      response.data,
+    );
+    await expect(updateComponentDescription(41, 7, payload)).resolves.toEqual(
+      response.data,
+    );
+
+    expect(mocks.updateManualDescription).toHaveBeenCalledWith({
+      romId: 41,
+      payload,
+    });
+    expect(mocks.updatePcComponentManualDescription).toHaveBeenCalledWith({
+      romId: 41,
+      componentId: 7,
+      payload,
+    });
+    expect(mocks.apiPut).not.toHaveBeenCalled();
   });
 });

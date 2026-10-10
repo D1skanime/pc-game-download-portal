@@ -4,6 +4,8 @@ import type {
   CatalogRemovalResponse,
   Body_update_rom_api_roms__id__put as UpdateRomInput,
   DetailedRomSchema,
+  ManualDescriptionRequest,
+  ManualDescriptionResponse,
   ManualMetadata,
   RomUserData,
   RomUserSchema,
@@ -489,6 +491,34 @@ async function deleteOwnedMedia({
   });
 }
 
+async function updateManualDescription({
+  romId,
+  payload,
+}: {
+  romId: number;
+  payload: ManualDescriptionRequest;
+}) {
+  return api.put<ManualDescriptionResponse>(
+    `/roms/${romId}/description`,
+    payload,
+  );
+}
+
+async function updatePcComponentManualDescription({
+  romId,
+  componentId,
+  payload,
+}: {
+  romId: number;
+  componentId: number;
+  payload: ManualDescriptionRequest;
+}) {
+  return api.put<ManualDescriptionResponse>(
+    `/roms/${romId}/pc-components/${componentId}/description`,
+    payload,
+  );
+}
+
 async function getPcMetadataCandidates({ romId }: { romId: number }) {
   return api.get<PcMetadataCandidatesResponse>(
     `/roms/${romId}/pc-metadata-candidates`,
@@ -967,6 +997,8 @@ export default {
   replaceOwnedBackgroundAudio,
   uploadOwnedMedia,
   deleteOwnedMedia,
+  updateManualDescription,
+  updatePcComponentManualDescription,
   getPcMetadataCandidates,
   searchPcMetadataCandidates,
   selectPcMetadataCandidate,

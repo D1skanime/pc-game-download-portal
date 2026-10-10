@@ -96,6 +96,20 @@ const routeAuthorities = [
     forbidden: false,
   },
   {
+    method: "PUT",
+    route: /^\/roms\/\{[^}]+\}\/description$/,
+    operation: "WRITE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
+    method: "PUT",
+    route: /^\/roms\/\{[^}]+\}\/pc-components\/\{[^}]+\}\/description$/,
+    operation: "WRITE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
     method: "POST",
     route: /^\/roms\/\{[^}]+\}\/media\/upload$/,
     operation: "UPLOAD",

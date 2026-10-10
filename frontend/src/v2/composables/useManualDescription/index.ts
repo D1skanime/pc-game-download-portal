@@ -4,7 +4,7 @@ import type {
   ManualMetadata,
   SteamMetadataSchema,
 } from "@/__generated__";
-import api from "@/services/api";
+import romApi from "@/services/api/rom";
 import { normalizeLocale } from "@/v2/composables/useProviderResolution";
 
 export interface DescriptionResolutionInput {
@@ -50,10 +50,7 @@ export function useManualDescription() {
     romId: number,
     payload: ManualDescriptionRequest,
   ): Promise<ManualDescriptionResponse> {
-    const response = await api.put<ManualDescriptionResponse>(
-      `/roms/${romId}/description`,
-      payload,
-    );
+    const response = await romApi.updateManualDescription({ romId, payload });
     return response.data;
   }
 
@@ -62,10 +59,11 @@ export function useManualDescription() {
     componentId: number,
     payload: ManualDescriptionRequest,
   ): Promise<ManualDescriptionResponse> {
-    const response = await api.put<ManualDescriptionResponse>(
-      `/roms/${romId}/pc-components/${componentId}/description`,
+    const response = await romApi.updatePcComponentManualDescription({
+      romId,
+      componentId,
       payload,
-    );
+    });
     return response.data;
   }
 
