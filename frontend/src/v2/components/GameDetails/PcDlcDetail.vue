@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RBtn, RImg, RMenu, RMenuItem, RTabNav, RTag } from "@v2/lib";
 import type { Emitter } from "mitt";
+import { getActivePinia } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -13,6 +14,7 @@ import PcComponents from "@/v2/components/GameDetails/PcComponents.vue";
 import PcDlcFiles from "@/v2/components/GameDetails/PcDlcFiles.vue";
 import PcDlcMediaTab from "@/v2/components/GameDetails/PcDlcMediaTab.vue";
 import PcDlcNotesTab from "@/v2/components/GameDetails/PcDlcNotesTab.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { resolveManualDescription } from "@/v2/composables/useManualDescription";
 
 defineOptions({ inheritAttrs: false });
@@ -27,6 +29,10 @@ const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
+const editPermission = getActivePinia()
+  ? useCan("rom.edit", { kind: "rom", id: props.parent.id })
+  : null;
+const canEdit = computed(() => editPermission?.value ?? true);
 const validTabs = [
   "overview",
   "pc-components",
@@ -118,6 +124,14 @@ function ownedMediaUrl(ownedPath: string) {
   return `${FRONTEND_RESOURCES_PATH}/${ownedPath}`;
 }
 
+function openEdit() {
+  tab.value = "overview";
+}
+
+function openCoverSearch() {
+  openMatcher();
+}
+
 function openMatcher() {
   emitter?.emit("showPcMatchRomDialog", {
     target: {
@@ -183,6 +197,20 @@ function showMedia() {
                 :aria-label="t('common.actions')"
               />
             </template>
+            <RMenuItem
+              v-if="canEdit"
+              data-testid="pc-dlc-edit"
+              :label="t('common.edit')"
+              icon="mdi-pencil-outline"
+              @click="openEdit"
+            />
+            <RMenuItem
+              v-if="canEdit"
+              data-testid="pc-dlc-cover-search"
+              :label="t('rom.search-cover')"
+              icon="mdi-image-search-outline"
+              @click="openCoverSearch"
+            />
             <RMenuItem
               :label="t('rom.pc-find-metadata')"
               icon="mdi-magnify"
