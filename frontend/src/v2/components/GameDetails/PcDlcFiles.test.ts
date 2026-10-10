@@ -51,7 +51,7 @@ describe("PcDlcFiles", () => {
     expect(wrapper.findAll("button, a")).toHaveLength(2);
   });
 
-  it("identifies owned image downloads by role and MIME type", () => {
+  it("keeps component-owned media out of the component-scoped Files surface", () => {
     const wrapper = mount(PcDlcFiles, {
       props: {
         component: {
@@ -74,9 +74,20 @@ describe("PcDlcFiles", () => {
       },
     });
 
-    const row = wrapper.get("[data-testid='pc-dlc-owned-media-downloads']");
-    expect(row.text()).toContain("screenshot");
-    expect(row.text()).toContain("image/webp");
-    expect(row.find("img").attributes("alt")).toContain("screenshot");
+    expect(
+      wrapper.find("[data-testid='pc-dlc-owned-media-downloads']").exists(),
+    ).toBe(false);
+    expect(wrapper.findAll("img")).toHaveLength(0);
+    expect(wrapper.text()).not.toContain("screenshot");
+    expect(wrapper.text()).not.toContain("image/webp");
+
+    const downloads = wrapper.findAll("a");
+    expect(downloads).toHaveLength(2);
+    expect(downloads[0].attributes("href")).toBe(
+      "/api/roms/1/pc-components/2/manifest-members/20/content",
+    );
+    expect(downloads[1].attributes("href")).toBe(
+      "/api/roms/1/pc-components/2/manifest-members/21/content",
+    );
   });
 });
