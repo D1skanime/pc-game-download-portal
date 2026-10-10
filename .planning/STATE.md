@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 26 (UI-UX Abschluss und manuelle mehrsprachige Metadatenpflege) — EXECUTING
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-10-10 - Completed quick task 261010-s1e: Replace Artwork raw upload translation keys with localized labels
+Last activity: 2026-10-10 - Completed quick task 261010-sdf: Localize PC DLC media role selector labels
 
 ## Performance Metrics
 
@@ -439,6 +439,7 @@ Recent decisions affecting current work:
 
 | #                         | Description                                                                                                                 | Date       | Commit       | Directory                                                                                                           |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| 261010-sdf                | Localize PC DLC media role selector labels while preserving enum values                                                     | 2026-10-10 | d52bd8532    | [261010-sdf-localize-pc-dlc-media-role-labe](./quick/261010-sdf-localize-pc-dlc-media-role-labe/)                   |
 | 20261007-background-media | Fix selected media backgrounds and reduced-motion visibility                                                                | 2026-10-07 | bd0b4fee5    | [20261007-background-media-display](./quick/20261007-background-media-display/)                                     |
 | 20261007-setup-error-type | Fix setup error response typing                                                                                             | 2026-10-07 | pending      | [20261007-setup-error-type](./quick/20261007-setup-error-type/)                                                     |
 | 260921-haf                | Enhanced FSA Download Timeout and Queue Recovery                                                                            | 2026-09-21 | 5d9dfb11ef4f | [260921-haf-enhanced-fsa-download-timeout-and-queue-](./quick/260921-haf-enhanced-fsa-download-timeout-and-queue-/) |
