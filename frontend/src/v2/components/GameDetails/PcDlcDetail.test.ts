@@ -119,6 +119,11 @@ function mountDetail(component: PcComponentSchema = selectedDlc) {
           props: ["src", "alt"],
           template: "<img :src='src' :alt='alt' />",
         },
+        RCarousel: {
+          props: ["ariaLabel", "items"],
+          template:
+            "<div data-testid='pc-dlc-carousel' :aria-label='ariaLabel' :data-items='items.join(\"|\")'><slot /></div>",
+        },
         RTag: { template: "<span><slot /></span>" },
         PcDlcFiles: {
           props: ["component"],
@@ -160,6 +165,43 @@ describe("PcDlcDetail", () => {
     );
     expect(wrapper.html()).not.toContain("parent-cover.webp");
     expect(wrapper.html()).not.toContain("components/3/cover.webp");
+  });
+
+  it("opens selected DLC overview media through the shared screenshot viewer", async () => {
+    const wrapper = mountDetail({
+      ...selectedDlc,
+      owned_media: [
+        {
+          id: 43,
+          role: "screenshot",
+          mime_type: "image/jpeg",
+          owned_path: "roms/1/pc-owned-media/2/provider-shot.jpg",
+          origin: "provider",
+          provider: "igdb",
+          provider_media_id: "provider-shot",
+          created_at: "2026-09-03T00:00:00+00:00",
+          updated_at: "2026-09-03T00:00:00+00:00",
+        },
+      ],
+    });
+
+    const preview = wrapper.get(".r-v2-det-shots__item");
+    expect(preview.element.tagName).toBe("BUTTON");
+    expect(preview.attributes("type")).toBe("button");
+    expect(preview.attributes("aria-label")).toBe("rom.screenshot-num-open");
+    expect(wrapper.findAll(".r-v2-det-shots__item")).toHaveLength(2);
+    expect(wrapper.html()).not.toContain("components/3/");
+
+    await preview.trigger("click");
+
+    const carousel = wrapper.get("[data-testid='pc-dlc-carousel']");
+    expect(carousel.attributes("aria-label")).toBe("rom.screenshots");
+    expect(carousel.attributes("data-items")).toBe(
+      [
+        "/assets/romm/resources/roms/1/pc-owned-media/2/provider-shot.jpg",
+        "/assets/romm/resources/roms/1/components/2/gallery.webp",
+      ].join("|"),
+    );
   });
 
   it("uses the parent detail canvas so tabs and content share its fixed panel", () => {

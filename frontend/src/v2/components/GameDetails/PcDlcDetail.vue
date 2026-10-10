@@ -14,6 +14,7 @@ import PcComponents from "@/v2/components/GameDetails/PcComponents.vue";
 import PcDlcFiles from "@/v2/components/GameDetails/PcDlcFiles.vue";
 import PcDlcMediaTab from "@/v2/components/GameDetails/PcDlcMediaTab.vue";
 import PcDlcNotesTab from "@/v2/components/GameDetails/PcDlcNotesTab.vue";
+import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { resolveManualDescription } from "@/v2/composables/useManualDescription";
 
@@ -104,6 +105,14 @@ const screenshots = computed(() =>
     (item) => item.role === "screenshot",
   ),
 );
+const overviewMedia = computed(() => [
+  ...screenshots.value.map((item) => ({
+    url: ownedMediaUrl(item.owned_path),
+  })),
+  ...media.value.map((item) => ({
+    url: ownedMediaUrl(item.owned_path),
+  })),
+]);
 const pcMetadata = computed(() => props.component.component_metadata);
 const releaseDate = computed(() => {
   const timestamp = pcMetadata.value?.pc_release_date;
@@ -284,34 +293,11 @@ function showMedia() {
               </div>
             </dl>
             <section
-              v-if="screenshots.length > 0"
-              data-testid="pc-dlc-screenshots"
+              v-if="overviewMedia.length > 0"
+              data-testid="pc-dlc-overview-media"
               class="pc-dlc-detail__media"
             >
-              <RImg
-                v-for="item in screenshots"
-                :key="item.id"
-                :src="ownedMediaUrl(item.owned_path)"
-                :alt="title"
-                class="pc-dlc-detail__media-image"
-                aspect-ratio="16/9"
-                cover
-              />
-            </section>
-            <section
-              v-if="media.length > 0"
-              data-testid="pc-dlc-media"
-              class="pc-dlc-detail__media"
-            >
-              <RImg
-                v-for="item in media"
-                :key="item.id"
-                :src="ownedMediaUrl(item.owned_path)"
-                :alt="title"
-                class="pc-dlc-detail__media-image"
-                aspect-ratio="16/9"
-                cover
-              />
+              <ScreenshotsTab :screenshots="overviewMedia" />
             </section>
           </section>
 
