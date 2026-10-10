@@ -18,8 +18,9 @@
 // Status enum + flags (now_playing / backlogged / hidden) and personal
 // metrics (rating / difficulty / completion) live in the action ribbon
 // — see GameActionBtn (status) and MetricMenuBtn.
-import { RIcon } from "@v2/lib";
-import { computed } from "vue";
+import { RBtn, RDialog, RIcon } from "@v2/lib";
+import { getActivePinia } from "pinia";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   IGDBRelatedGame,
@@ -39,6 +40,7 @@ import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
+import { useCan } from "@/v2/composables/useCan";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeCollections from "@/v2/data/adapters/legacy/stores/collections";
 import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
@@ -78,6 +80,12 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ refresh: [] }>();
+
+const editPermission = getActivePinia()
+  ? useCan("rom.edit", { kind: "rom", id: props.rom.id })
+  : null;
+const canEdit = computed(() => editPermission?.value ?? true);
+const descriptionEditorOpen = ref(false);
 
 const hasAgeRatings = computed(
   () => (props.rom.metadatum?.age_ratings?.length ?? 0) > 0,
@@ -242,18 +250,38 @@ const youtubeEmbedUrl = computed(() =>
 <template>
   <section class="overview-tab">
     <!-- 1. Summary -->
-    <LocalizedDescriptionEditor
-      :rom-id="rom.id"
-      :expected-version="rom.updated_at"
-      :manual-metadata="rom.manual_metadata"
-      :steam-metadata="rom.steam_metadata"
-      :fallback-description="rom.summary"
-      :provider-summary-is-authoritative="
-        Boolean(rom.steam_metadata?.fields?.includes('summary'))
-      "
-      @saved="emit('refresh')"
-    />
-    <p v-if="summary" class="overview-tab__summary">{{ summary }}</p>
+    <div v-if="summary" class="overview-tab__summary-row">
+      <p class="overview-tab__summary">{{ summary }}</p>
+      <RBtn
+        v-if="canEdit"
+        data-testid="overview-description-edit"
+        icon="mdi-pencil-outline"
+        :aria-label="t('common.edit')"
+        variant="text"
+        @click="descriptionEditorOpen = true"
+      />
+    </div>
+    <RDialog v-model="descriptionEditorOpen" scroll-content>
+      <template #header>{{ t("rom.description-editor") }}</template>
+      <template #content>
+        <LocalizedDescriptionEditor
+          :rom-id="rom.id"
+          :expected-version="rom.updated_at"
+          :manual-metadata="rom.manual_metadata"
+          :steam-metadata="rom.steam_metadata"
+          :fallback-description="rom.summary"
+          :provider-summary-is-authoritative="
+            Boolean(rom.steam_metadata?.fields?.includes('summary'))
+          "
+          @saved="
+            () => {
+              descriptionEditorOpen = false;
+              emit('refresh');
+            }
+          "
+        />
+      </template>
+    </RDialog>
 
     <!-- 2. Per-ROM fact rows (left-labelled). Revision, Last played +
          the per-game characteristics — Players, Age rating, RomM

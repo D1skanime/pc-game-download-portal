@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RBtn, RImg, RMenu, RMenuItem, RTabNav, RTag } from "@v2/lib";
+import { RBtn, RDialog, RImg, RMenu, RMenuItem, RTabNav, RTag } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { getActivePinia } from "pinia";
 import { computed, inject, ref, watch } from "vue";
@@ -34,6 +34,7 @@ const editPermission = getActivePinia()
   ? useCan("rom.edit", { kind: "rom", id: props.parent.id })
   : null;
 const canEdit = computed(() => editPermission?.value ?? true);
+const descriptionEditorOpen = ref(false);
 const validTabs = [
   "overview",
   "pc-components",
@@ -133,10 +134,6 @@ function ownedMediaUrl(ownedPath: string) {
   return `${FRONTEND_RESOURCES_PATH}/${ownedPath}`;
 }
 
-function openEdit() {
-  tab.value = "overview";
-}
-
 function openCoverSearch() {
   openMatcher();
 }
@@ -208,13 +205,6 @@ function showMedia() {
             </template>
             <RMenuItem
               v-if="canEdit"
-              data-testid="pc-dlc-edit"
-              :label="t('common.edit')"
-              icon="mdi-pencil-outline"
-              @click="openEdit"
-            />
-            <RMenuItem
-              v-if="canEdit"
               data-testid="pc-dlc-cover-search"
               :label="t('rom.search-cover')"
               icon="mdi-image-search-outline"
@@ -240,19 +230,41 @@ function showMedia() {
 
         <div class="r-v2-det__panel">
           <section v-if="tab === 'overview'" class="pc-dlc-detail__overview">
-            <LocalizedDescriptionEditor
-              :rom-id="parent.id"
-              :component-id="component.id"
-              :expected-version="component.updated_at"
-              :manual-metadata="component.component_metadata?.manual_metadata"
-              :steam-metadata="component.component_metadata?.steam_metadata"
-              :fallback-description="component.component_metadata?.summary"
-              :provider-summary-is-authoritative="
-                component.component_metadata?.metadata_source !== 'manual'
-              "
-              @saved="emit('refresh')"
-            />
-            <p v-if="summary" class="pc-dlc-detail__summary">{{ summary }}</p>
+            <div v-if="summary" class="pc-dlc-detail__summary-row">
+              <p class="pc-dlc-detail__summary">{{ summary }}</p>
+              <RBtn
+                v-if="canEdit"
+                data-testid="pc-dlc-description-edit"
+                icon="mdi-pencil-outline"
+                :aria-label="t('common.edit')"
+                variant="text"
+                @click="descriptionEditorOpen = true"
+              />
+            </div>
+            <RDialog v-model="descriptionEditorOpen" scroll-content>
+              <template #header>{{ t("rom.description-editor") }}</template>
+              <template #content>
+                <LocalizedDescriptionEditor
+                  :rom-id="parent.id"
+                  :component-id="component.id"
+                  :expected-version="component.updated_at"
+                  :manual-metadata="
+                    component.component_metadata?.manual_metadata
+                  "
+                  :steam-metadata="component.component_metadata?.steam_metadata"
+                  :fallback-description="component.component_metadata?.summary"
+                  :provider-summary-is-authoritative="
+                    component.component_metadata?.metadata_source !== 'manual'
+                  "
+                  @saved="
+                    () => {
+                      descriptionEditorOpen = false;
+                      emit('refresh');
+                    }
+                  "
+                />
+              </template>
+            </RDialog>
             <dl class="pc-dlc-detail__facts">
               <div v-if="releaseDate" class="pc-dlc-detail__fact">
                 <dt>{{ t("rom.pc-release") }}</dt>
@@ -441,6 +453,12 @@ function showMedia() {
   color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-md);
   line-height: var(--r-line-height-normal);
+}
+
+.pc-dlc-detail__summary-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--r-space-2);
 }
 
 .pc-dlc-detail__facts {

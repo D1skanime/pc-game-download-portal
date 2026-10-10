@@ -4,6 +4,15 @@ import type { IGDBRelatedGame } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import OverviewTab from "./OverviewTab.vue";
 
+const permissionState = vi.hoisted(() => ({ value: true }));
+
+vi.mock("pinia", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("pinia")>()),
+  getActivePinia: () => ({}),
+}));
+vi.mock("@/v2/composables/useCan", () => ({
+  useCan: () => permissionState,
+}));
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key, locale: { value: "en-US" } }),
 }));
@@ -166,5 +175,131 @@ describe("OverviewTab", () => {
     expect(wrapper.html()).not.toContain("provider-only.webp");
     expect(wrapper.text()).not.toContain("rom.pc-release");
     expect(wrapper.text()).not.toContain("rom.main-developer");
+  });
+  it("keeps the resolved description read-only until the authorized pencil is activated", async () => {
+    permissionState.value = true;
+    const editableRom = {
+      ...rom,
+      updated_at: "version-7",
+      manual_metadata: { descriptions: { en: "Manual text" } },
+      steam_metadata: { fields: ["summary"] },
+    } as Partial<DetailedRom> as DetailedRom;
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom: editableRom,
+        summary: "Resolved description",
+        sections: [],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [],
+        expansions: [],
+        dlcs: [],
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+        parentRomId: 42,
+      },
+      global: {
+        stubs: {
+          RBtn: {
+            inheritAttrs: false,
+            template:
+              "<button v-bind='$attrs' @click='$emit(\"click\")'><slot /></button>",
+          },
+          RDialog: {
+            props: ["modelValue"],
+            template:
+              "<div v-if='modelValue' data-testid='description-dialog'><slot name='header' /><slot name='content' /></div>",
+          },
+          LocalizedDescriptionEditor: {
+            name: "LocalizedDescriptionEditor",
+            props: [
+              "romId",
+              "expectedVersion",
+              "manualMetadata",
+              "steamMetadata",
+              "fallbackDescription",
+              "providerSummaryIsAuthoritative",
+            ],
+            template: "<div data-testid='localized-editor' />",
+          },
+        },
+      },
+    });
+
+    expect(wrapper.get(".overview-tab__summary").text()).toBe(
+      "Resolved description",
+    );
+    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper
+        .get("[data-testid='overview-description-edit']")
+        .attributes("aria-label"),
+    ).toBe("common.edit");
+
+    await wrapper
+      .get("[data-testid='overview-description-edit']")
+      .trigger("click");
+
+    expect(wrapper.get("[data-testid='localized-editor']").exists()).toBe(true);
+    expect(
+      wrapper.getComponent({ name: "LocalizedDescriptionEditor" }).props(),
+    ).toMatchObject({
+      romId: editableRom.id,
+      expectedVersion: "version-7",
+      manualMetadata: editableRom.manual_metadata,
+      steamMetadata: editableRom.steam_metadata,
+      fallbackDescription: editableRom.summary,
+      providerSummaryIsAuthoritative: true,
+    });
+  });
+
+  it("keeps the description read-only without an edit grant", () => {
+    permissionState.value = false;
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom,
+        summary: "Visible without permission",
+        sections: [],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [],
+        expansions: [],
+        dlcs: [],
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+        parentRomId: 42,
+      },
+      global: {
+        stubs: {
+          RBtn: { template: "<button><slot /></button>" },
+          RDialog: {
+            props: ["modelValue"],
+            template: "<div v-if='modelValue'><slot /></div>",
+          },
+        },
+      },
+    });
+
+    expect(wrapper.get(".overview-tab__summary").text()).toBe(
+      "Visible without permission",
+    );
+    expect(
+      wrapper.find("[data-testid='overview-description-edit']").exists(),
+    ).toBe(false);
+    permissionState.value = true;
   });
 });

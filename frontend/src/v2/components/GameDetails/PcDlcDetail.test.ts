@@ -6,7 +6,18 @@ import PcDlcDetail from "./PcDlcDetail.vue";
 
 const route = { path: "/roms/1/dlc/2", query: {} as Record<string, string> };
 const replace = vi.fn();
-const { locale } = vi.hoisted(() => ({ locale: { value: "en-US" } }));
+const { locale, permissionState } = vi.hoisted(() => ({
+  locale: { value: "en-US" },
+  permissionState: { value: true },
+}));
+
+vi.mock("pinia", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("pinia")>()),
+  getActivePinia: () => ({}),
+}));
+vi.mock("@/v2/composables/useCan", () => ({
+  useCan: () => permissionState,
+}));
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -114,7 +125,28 @@ function mountDetail(component: PcComponentSchema = selectedDlc) {
           template:
             '<button :data-label="label" @click="$emit(\'click\')">{{ label }}</button>',
         },
-        RBtn: { template: "<a><slot /></a>" },
+        RBtn: {
+          inheritAttrs: false,
+          template: `<a v-bind="$attrs" @click="$emit('click')"><slot /></a>`,
+        },
+        RDialog: {
+          props: ["modelValue"],
+          template:
+            "<div v-if='modelValue' data-testid='description-dialog'><slot name='header' /><slot name='content' /></div>",
+        },
+        LocalizedDescriptionEditor: {
+          name: "LocalizedDescriptionEditor",
+          props: [
+            "romId",
+            "componentId",
+            "expectedVersion",
+            "manualMetadata",
+            "steamMetadata",
+            "fallbackDescription",
+            "providerSummaryIsAuthoritative",
+          ],
+          template: "<div data-testid='localized-editor' />",
+        },
         RImg: {
           props: ["src", "alt"],
           template: "<img :src='src' :alt='alt' />",
@@ -240,28 +272,39 @@ describe("PcDlcDetail", () => {
     expect(facts.text()).toContain("1 KB");
   });
 
-  it("opens the component-scoped editor from the overflow menu", async () => {
-    route.query = { tab: "media" };
-    replace.mockClear();
+  it("opens the component-scoped editor from the overview pencil", async () => {
+    permissionState.value = true;
     const wrapper = mountDetail();
 
-    try {
-      await wrapper.get('[data-label="common.edit"]').trigger("click");
-      await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+      false,
+    );
 
-      expect(replace).toHaveBeenCalledWith({
-        path: route.path,
-        query: { tab: "overview" },
-      });
-      expect(
-        wrapper.getComponent({ name: "LocalizedDescriptionEditor" }).props(),
-      ).toMatchObject({
-        romId: parent.id,
-        componentId: selectedDlc.id,
-      });
-    } finally {
-      route.query = {};
-    }
+    await wrapper
+      .get("[data-testid='pc-dlc-description-edit']")
+      .trigger("click");
+
+    expect(wrapper.get("[data-testid='localized-editor']").exists()).toBe(true);
+    expect(
+      wrapper.getComponent({ name: "LocalizedDescriptionEditor" }).props(),
+    ).toMatchObject({
+      romId: parent.id,
+      componentId: selectedDlc.id,
+      expectedVersion: selectedDlc.updated_at,
+      fallbackDescription: selectedDlc.component_metadata?.summary,
+      providerSummaryIsAuthoritative: true,
+    });
+  });
+
+  it("hides the overview pencil without the parent ROM edit grant", () => {
+    permissionState.value = false;
+    const wrapper = mountDetail();
+
+    expect(wrapper.text()).toContain("Only selected DLC metadata is visible.");
+    expect(
+      wrapper.find("[data-testid='pc-dlc-description-edit']").exists(),
+    ).toBe(false);
+    permissionState.value = true;
   });
 
   it("opens component-scoped cover search with the parent and component ids", async () => {
@@ -279,7 +322,28 @@ describe("PcDlcDetail", () => {
             template:
               '<button :data-label="label" @click="$emit(\'click\')">{{ label }}</button>',
           },
-          RBtn: { template: "<a><slot /></a>" },
+          RBtn: {
+            inheritAttrs: false,
+            template: `<a v-bind="$attrs" @click="$emit('click')"><slot /></a>`,
+          },
+          RDialog: {
+            props: ["modelValue"],
+            template:
+              "<div v-if='modelValue' data-testid='description-dialog'><slot name='header' /><slot name='content' /></div>",
+          },
+          LocalizedDescriptionEditor: {
+            name: "LocalizedDescriptionEditor",
+            props: [
+              "romId",
+              "componentId",
+              "expectedVersion",
+              "manualMetadata",
+              "steamMetadata",
+              "fallbackDescription",
+              "providerSummaryIsAuthoritative",
+            ],
+            template: "<div data-testid='localized-editor' />",
+          },
           RImg: {
             props: ["src", "alt"],
             template: "<img :src='src' :alt='alt' />",
