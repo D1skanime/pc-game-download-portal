@@ -6,6 +6,11 @@ const source = readFileSync(
   "utf8",
 );
 
+const locale = (name: string) =>
+  JSON.parse(
+    readFileSync("src/locales/" + name + "/rom.json", "utf8"),
+  ) as Record<string, string>;
+
 describe("ArtworkSubtab owned artwork management", () => {
   it("keeps artwork candidates distinct from ordered background placements", () => {
     expect(source).toContain("ownedArtwork");
@@ -50,5 +55,11 @@ describe("ArtworkSubtab owned artwork management", () => {
               :text="t('common.delete')"
               ><RBtn`,
     );
+  });
+
+  it("uses localized artwork upload labels instead of exposing the i18n key", () => {
+    expect(source.match(/t\(["']rom\.upload-artwork["']\)/g)).toHaveLength(3);
+    expect(locale("en_US")["upload-artwork"]).toBe("Upload artwork");
+    expect(locale("de_DE")["upload-artwork"]).toBe("Artwork hochladen");
   });
 });
