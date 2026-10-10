@@ -35,6 +35,7 @@ const props = defineProps<{
   togglable?: boolean;
   togglingId?: number | null;
   deletingId?: number | null;
+  layout?: "overview";
 }>();
 const emit = defineEmits<{
   delete: [id: number];
@@ -67,7 +68,10 @@ function canToggle(shot: ScreenshotItem): boolean {
 </script>
 
 <template>
-  <section class="r-v2-det-shots">
+  <section
+    class="r-v2-det-shots"
+    :class="{ 'r-v2-det-shots--overview': layout === 'overview' }"
+  >
     <div
       v-for="(shot, i) in screenshots"
       :key="shot.id ?? shot.url"
@@ -173,6 +177,14 @@ function canToggle(shot: ScreenshotItem): boolean {
      the overview's scroll container clips them (it has `overflow-y:
      auto`, which clips on X too per the CSS spec). */
   padding: 6px 6px 4px;
+}
+
+.r-v2-det-shots--overview {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
+html[data-bp~="sm-and-down"] .r-v2-det-shots--overview {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
 }
 
 .r-v2-det-shots__cell {

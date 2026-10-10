@@ -379,7 +379,10 @@ const youtubeEmbedUrl = computed(() =>
         <RIcon icon="mdi-image-multiple-outline" size="14" />
         {{ t("rom.screenshots") }}
       </h4>
-      <ScreenshotsTab :screenshots="ownedScreenshots.map((url) => ({ url }))" />
+      <ScreenshotsTab
+        :screenshots="ownedScreenshots.map((url) => ({ url }))"
+        layout="overview"
+      />
     </div>
 
     <!-- 4b. Videos — scraped preview clips. The rest of the art assets
