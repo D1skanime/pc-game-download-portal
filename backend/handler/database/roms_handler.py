@@ -277,6 +277,11 @@ class AppliedPcComponentOwnedMedia(NamedTuple):
     replaced_owned_paths: list[str]
 
 
+class ReconciledPcComponentOwnedMedia(NamedTuple):
+    component: RomComponent
+    unreferenced_owned_paths: list[str]
+
+
 class AppliedOwnedMedia(NamedTuple):
     rom: Rom
     media: RomOwnedMedia
@@ -2810,6 +2815,7 @@ class DBRomsHandler(DBBaseHandler):
         origin: RomComponentOwnedMediaOrigin,
         provider: str | None = None,
         provider_media_id: str | None = None,
+        content_sha256: str | None = None,
         session: Session = None,  # type: ignore
     ) -> AppliedPcComponentOwnedMedia | None:
         if session.get(User, user_id) is None:
@@ -2824,6 +2830,39 @@ class DBRomsHandler(DBBaseHandler):
         if component is None:
             return None
 
+        if origin == RomComponentOwnedMediaOrigin.PROVIDER and provider:
+            existing = next(
+                (
+                    item
+                    for item in component.owned_media
+                    if item.origin == origin
+                    and item.provider == provider
+                    and item.role == role
+                    and (
+                        (
+                            provider_media_id is not None
+                            and item.provider_media_id == provider_media_id
+                        )
+                        or (
+                            content_sha256 is not None
+                            and item.content_sha256 == content_sha256
+                        )
+                    )
+                ),
+                None,
+            )
+            if existing is not None:
+                replaced_owned_paths = (
+                    [existing.owned_path] if existing.owned_path != owned_path else []
+                )
+                existing.mime_type = mime_type
+                existing.owned_path = owned_path
+                existing.provider_media_id = provider_media_id
+                existing.content_sha256 = content_sha256
+                component.updated_at = datetime.now(timezone.utc)
+                session.flush()
+                return AppliedPcComponentOwnedMedia(existing, replaced_owned_paths)
+
         replaced_owned_paths: list[str] = []
         if role not in {
             RomComponentOwnedMediaRole.GALLERY,
@@ -2836,17 +2875,6 @@ class DBRomsHandler(DBBaseHandler):
                     replaced_owned_paths.append(existing.owned_path)
                 session.delete(existing)
             session.flush()
-        elif provider is not None and provider_media_id is not None:
-            for existing in component.owned_media:
-                if (
-                    existing.role == role
-                    and existing.provider == provider
-                    and existing.provider_media_id == provider_media_id
-                ):
-                    if existing.owned_path != owned_path:
-                        replaced_owned_paths.append(existing.owned_path)
-                    session.delete(existing)
-            session.flush()
 
         media = RomComponentOwnedMedia(
             component_id=component.id,
@@ -2856,6 +2884,7 @@ class DBRomsHandler(DBBaseHandler):
             origin=origin,
             provider=provider,
             provider_media_id=provider_media_id,
+            content_sha256=content_sha256,
         )
         session.add(media)
         component.updated_at = datetime.now(timezone.utc)
@@ -2873,9 +2902,10 @@ class DBRomsHandler(DBBaseHandler):
         owned_path: str,
         provider: str,
         provider_media_id: str,
+        content_sha256: str | None = None,
         session: Session = None,  # type: ignore
     ) -> AppliedPcComponentOwnedMedia | None:
-        """Record one scan-imported provider asset only for its current DLC."""
+        """Record one idempotent scan-imported provider asset for its current DLC."""
         component = self._get_pc_dlc_component(
             session,
             rom_id,
@@ -2886,14 +2916,45 @@ class DBRomsHandler(DBBaseHandler):
         if component is None:
             return None
 
+        existing = next(
+            (
+                item
+                for item in component.owned_media
+                if item.origin == RomComponentOwnedMediaOrigin.PROVIDER
+                and item.provider == provider
+                and item.role == role
+                and (
+                    item.provider_media_id == provider_media_id
+                    or (
+                        content_sha256 is not None
+                        and item.content_sha256 == content_sha256
+                    )
+                )
+            ),
+            None,
+        )
+        if existing is not None:
+            replaced_owned_paths = (
+                [existing.owned_path] if existing.owned_path != owned_path else []
+            )
+            existing.mime_type = mime_type
+            existing.owned_path = owned_path
+            existing.provider_media_id = provider_media_id
+            existing.content_sha256 = content_sha256
+            component.updated_at = datetime.now(timezone.utc)
+            session.flush()
+            return AppliedPcComponentOwnedMedia(existing, replaced_owned_paths)
+
         replaced_owned_paths: list[str] = []
         if role != RomComponentOwnedMediaRole.SCREENSHOT:
             for existing in component.owned_media:
-                if existing.role != role:
-                    continue
-                if existing.owned_path != owned_path:
-                    replaced_owned_paths.append(existing.owned_path)
-                session.delete(existing)
+                if (
+                    existing.origin == RomComponentOwnedMediaOrigin.PROVIDER
+                    and existing.role == role
+                ):
+                    if existing.owned_path != owned_path:
+                        replaced_owned_paths.append(existing.owned_path)
+                    session.delete(existing)
             session.flush()
 
         media = RomComponentOwnedMedia(
@@ -2904,11 +2965,144 @@ class DBRomsHandler(DBBaseHandler):
             origin=RomComponentOwnedMediaOrigin.PROVIDER,
             provider=provider,
             provider_media_id=provider_media_id,
+            content_sha256=content_sha256,
         )
         session.add(media)
         component.updated_at = datetime.now(timezone.utc)
         session.flush()
         return AppliedPcComponentOwnedMedia(media, replaced_owned_paths)
+
+    @begin_session
+    def get_pc_component_provider_media_for_reconciliation(
+        self,
+        rom_id: int,
+        component_id: int,
+        session: Session = None,  # type: ignore
+    ) -> list[RomComponentOwnedMedia]:
+        component = session.scalar(
+            select(RomComponent)
+            .options(
+                selectinload(RomComponent.owned_media).selectinload(
+                    RomComponentOwnedMedia.placements
+                )
+            )
+            .where(
+                and_(
+                    RomComponent.id == component_id,
+                    RomComponent.rom_id == rom_id,
+                    RomComponent.kind == RomComponentKind.DLC,
+                )
+            )
+        )
+        if component is None:
+            return []
+        return [
+            item
+            for item in component.owned_media
+            if item.origin == RomComponentOwnedMediaOrigin.PROVIDER and item.provider
+        ]
+
+    @begin_session
+    def reconcile_pc_component_provider_media(
+        self,
+        rom_id: int,
+        component_id: int,
+        expected_updated_at: datetime,
+        content_hashes: dict[int, str],
+        session: Session = None,  # type: ignore
+    ) -> ReconciledPcComponentOwnedMedia | None:
+        component = self._get_pc_dlc_component(
+            session,
+            rom_id,
+            component_id,
+            expected_updated_at,
+            with_owned_media=True,
+        )
+        if component is None:
+            return None
+
+        changed = False
+        groups: dict[
+            tuple[str, RomComponentOwnedMediaRole, str], list[RomComponentOwnedMedia]
+        ] = {}
+        for media in component.owned_media:
+            if (
+                media.origin != RomComponentOwnedMediaOrigin.PROVIDER
+                or not media.provider
+            ):
+                continue
+            digest = content_hashes.get(media.id, media.content_sha256)
+            if not digest:
+                continue
+            if media.content_sha256 != digest:
+                media.content_sha256 = digest
+                changed = True
+            groups.setdefault((media.provider, media.role, digest), []).append(media)
+
+        cleanup_paths: list[str] = []
+        deleted_media_ids: set[int] = set()
+        for group in groups.values():
+            if len(group) < 2:
+                continue
+            canonical = min(
+                group,
+                key=lambda item: (
+                    0 if item.placements else 1,
+                    min(
+                        (placement.position for placement in item.placements),
+                        default=10**9,
+                    ),
+                    item.created_at,
+                    item.id,
+                ),
+            )
+            canonical_placement = next(iter(canonical.placements), None)
+            for duplicate in group:
+                if duplicate is canonical:
+                    continue
+                duplicate_placement = next(iter(duplicate.placements), None)
+                if duplicate_placement is not None:
+                    if canonical_placement is None:
+                        duplicate_placement.media_id = canonical.id
+                        canonical_placement = duplicate_placement
+                    else:
+                        session.delete(duplicate_placement)
+                if duplicate.owned_path != canonical.owned_path:
+                    cleanup_paths.append(duplicate.owned_path)
+                session.delete(duplicate)
+                deleted_media_ids.add(duplicate.id)
+                changed = True
+
+        if changed:
+            session.flush()
+            remaining_paths = {
+                media.owned_path
+                for media in component.owned_media
+                if media.id not in deleted_media_ids
+            }
+            cleanup_paths = [
+                path
+                for path in dict.fromkeys(cleanup_paths)
+                if path not in remaining_paths
+            ]
+            placements = sorted(
+                (
+                    placement
+                    for media in component.owned_media
+                    for placement in media.placements
+                    if media not in session.deleted
+                ),
+                key=lambda placement: placement.position,
+            )
+            for placement in placements:
+                placement.position += len(placements) + 1
+            session.flush()
+            for position, placement in enumerate(placements):
+                placement.position = position
+            component.updated_at = datetime.now(timezone.utc)
+            session.flush()
+
+        return ReconciledPcComponentOwnedMedia(component, cleanup_paths)
 
     @begin_session
     def update_pc_component_owned_media(

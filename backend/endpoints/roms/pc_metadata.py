@@ -40,6 +40,7 @@ from models.rom import (
     RomComponentKind,
     RomComponentOwnedMediaOrigin,
     RomComponentOwnedMediaRole,
+    derive_pc_component_provider_media_id,
 )
 from utils.router import APIRouter
 
@@ -371,14 +372,17 @@ async def select_pc_component_metadata_candidate(
         media = selected_media[media_id]
         owned_path: str | None = None
         try:
-            owned_path, mime_type = (
+            owned_path, mime_type, content_sha256 = (
                 await fs_resource_handler.store_pc_component_provider_image(
                     rom,
                     component_id,
-                    media_id,
+                    candidate.provider,
                     MEDIA_ROLES[media["kind"]],
                     media["url"],
                 )
+            )
+            provider_media_id = derive_pc_component_provider_media_id(
+                candidate.provider, MEDIA_ROLES[media["kind"]], content_sha256
             )
             applied = db_rom_handler.create_pc_component_owned_media(
                 id,
@@ -390,7 +394,8 @@ async def select_pc_component_metadata_candidate(
                 owned_path,
                 RomComponentOwnedMediaOrigin.PROVIDER,
                 candidate.provider,
-                media_id,
+                provider_media_id,
+                content_sha256,
             )
             if applied is None:
                 raise ValueError(

@@ -1,4 +1,5 @@
 import gzip
+import hashlib
 import os
 import secrets
 from io import BytesIO
@@ -23,6 +24,7 @@ from models.rom import (
     RomComponentLocalMediaRole,
     RomComponentOwnedMediaRole,
     RomOwnedMediaRole,
+    derive_pc_component_provider_media_id,
 )
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
@@ -206,11 +208,11 @@ class FSResourcesHandler(FSHandler):
         self,
         rom: Rom,
         component_id: int,
-        provider_media_id: str,
+        provider: str,
         role: RomComponentOwnedMediaRole,
         url: str,
-    ) -> tuple[str, str]:
-        """Download one reviewed HTTPS provider image into owned component storage."""
+    ) -> tuple[str, str, str]:
+        """Download and persist one provider image using its content identity."""
         if not url.startswith("https://"):
             raise ValueError("Provider media must use HTTPS")
         response_content: bytes
@@ -239,10 +241,14 @@ class FSResourcesHandler(FSHandler):
         )
         if extension is None:
             raise ValueError("Provider media type is not supported")
+        content_sha256 = hashlib.sha256(response_content).hexdigest()
+        provider_media_id = derive_pc_component_provider_media_id(
+            provider, role, content_sha256
+        )
         media_path = f"{rom.fs_resources_path}/pc-owned-media"
         filename = f"{component_id}-{provider_media_id}-{role.value}.{extension}"
         await self.write_file(response_content, media_path, filename)
-        return f"{media_path}/{filename}", mime_type
+        return f"{media_path}/{filename}", mime_type, content_sha256
 
     async def store_pc_component_upload(
         self,

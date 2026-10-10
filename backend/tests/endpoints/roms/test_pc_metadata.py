@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock
 
@@ -424,7 +425,11 @@ def test_dlc_metadata_selection_imports_only_selected_candidate_media(
         AsyncMock(return_value=_candidate_results()),
     )
     store = AsyncMock(
-        return_value=("roms/1/1/pc-media/provider-cover.webp", "image/webp")
+        return_value=(
+            "roms/1/1/pc-media/provider-cover.webp",
+            "image/webp",
+            "1" * 64,
+        )
     )
     monkeypatch.setattr(fs_resource_handler, "store_pc_component_provider_image", store)
 
@@ -485,8 +490,9 @@ def test_dlc_metadata_selection_accepts_response_media_ids(
         ),
     )
 
-    async def store_image(_rom, _component_id, media_id, _role, _url):
-        return (f"roms/1/1/pc-media/{media_id}.webp", "image/webp")
+    async def store_image(_rom, _component_id, _provider, _role, url):
+        digest = hashlib.sha256(url.encode()).hexdigest()
+        return (f"roms/1/1/pc-media/{digest}.webp", "image/webp", digest)
 
     store = AsyncMock(side_effect=store_image)
     monkeypatch.setattr(fs_resource_handler, "store_pc_component_provider_image", store)

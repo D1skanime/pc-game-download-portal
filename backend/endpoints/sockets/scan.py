@@ -101,6 +101,7 @@ from models.rom import (
     RomComponent,
     RomComponentKind,
     RomComponentOwnedMediaRole,
+    derive_pc_component_provider_media_id,
 )
 from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
 from utils import emoji
@@ -226,23 +227,49 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
             if steam_saved_component is not None:
                 saved_component = steam_saved_component
 
-    for position, media in enumerate(candidate.media):
+    existing_media = db_rom_handler.get_pc_component_provider_media_for_reconciliation(
+        rom.id, saved_component.id
+    )
+    content_hashes: dict[int, str] = {}
+    for existing in existing_media:
+        try:
+            content = await fs_resource_handler.read_file(existing.owned_path)
+        except (FileNotFoundError, OSError, ValueError):
+            continue
+        if content:
+            content_hashes[existing.id] = hashlib.sha256(content).hexdigest()
+    reconciled = db_rom_handler.reconcile_pc_component_provider_media(
+        rom.id,
+        saved_component.id,
+        saved_component.updated_at,
+        content_hashes,
+    )
+    if reconciled is None:
+        return
+    for path in reconciled.unreferenced_owned_paths:
+        try:
+            await fs_resource_handler.remove_file(path)
+        except FileNotFoundError:
+            pass
+    saved_component = reconciled.component
+
+    for media in candidate.media:
         role = _PC_IGDB_MEDIA_ROLES.get(media.get("kind", ""))
         url = media.get("url")
         if role is None or not isinstance(url, str):
             continue
-        provider_media_id = hashlib.sha256(
-            f"{candidate.provider}:{candidate.id}:{position}:{role.value}".encode()
-        ).hexdigest()
         try:
-            owned_path, mime_type = (
+            owned_path, mime_type, content_sha256 = (
                 await fs_resource_handler.store_pc_component_provider_image(
                     rom,
                     saved_component.id,
-                    provider_media_id,
+                    candidate.provider,
                     role,
                     url,
                 )
+            )
+            provider_media_id = derive_pc_component_provider_media_id(
+                candidate.provider, role, content_sha256
             )
         except Exception:
             log.warning(
@@ -262,6 +289,7 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
             owned_path,
             candidate.provider,
             provider_media_id,
+            content_sha256,
         )
         if imported is None:
             try:

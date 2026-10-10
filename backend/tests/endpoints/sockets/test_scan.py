@@ -185,6 +185,10 @@ async def test_scan_enrichment_imports_only_trusted_dlc_media(mocker):
     db = mocker.patch.object(scan_module, "db_rom_handler")
     db.apply_pc_component_metadata_candidate.return_value = saved
     db.get_pc_component_by_id.return_value = saved
+    db.get_pc_component_provider_media_for_reconciliation.return_value = []
+    db.reconcile_pc_component_provider_media.return_value = SimpleNamespace(
+        component=saved, unreferenced_owned_paths=[]
+    )
     matcher = mocker.patch.object(scan_module, "pc_metadata_match_handler")
     matcher.fetch_unique_related_igdb_candidate = AsyncMock(return_value=candidate)
     matcher.fetch_validated_steam_dlc = AsyncMock(return_value=None)
@@ -193,8 +197,8 @@ async def test_scan_enrichment_imports_only_trusted_dlc_media(mocker):
         "store_pc_component_provider_image",
         AsyncMock(
             side_effect=[
-                ("owned/cover.webp", "image/webp"),
-                ("owned/art.webp", "image/webp"),
+                ("owned/cover.webp", "image/webp", "1" * 64),
+                ("owned/art.webp", "image/webp", "2" * 64),
             ]
         ),
     )

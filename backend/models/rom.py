@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import enum
+import hashlib
 import re
 import secrets
 from collections.abc import Mapping, Sequence
@@ -128,6 +129,14 @@ class RomComponentOwnedMediaRole(enum.StrEnum):
 class RomComponentOwnedMediaOrigin(enum.StrEnum):
     UPLOAD = "upload"
     PROVIDER = "provider"
+
+
+def derive_pc_component_provider_media_id(
+    provider: str, role: RomComponentOwnedMediaRole, content_sha256: str
+) -> str:
+    """Return a stable provider identity derived only from validated content."""
+    payload = f"pc-component-provider-media:v1:{provider}:{role.value}:{content_sha256}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class RomOwnedMediaOrigin(enum.StrEnum):
@@ -455,6 +464,13 @@ class RomComponentOwnedMedia(BaseModel):
     __table_args__ = (
         Index("idx_rom_component_owned_media_component", "component_id"),
         Index("idx_rom_component_owned_media_origin", "origin"),
+        Index(
+            "idx_rom_component_owned_media_content_identity",
+            "component_id",
+            "provider",
+            "role",
+            "content_sha256",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -485,6 +501,7 @@ class RomComponentOwnedMedia(BaseModel):
     provider_media_id: Mapped[str | None] = mapped_column(
         String(length=450), default=None
     )
+    content_sha256: Mapped[str | None] = mapped_column(String(length=64), default=None)
 
     component: Mapped[RomComponent] = relationship(back_populates="owned_media")
     placements: Mapped[list["RomComponentOwnedMediaPlacement"]] = relationship(

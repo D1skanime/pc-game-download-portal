@@ -5,7 +5,15 @@ from sqlalchemy.orm import selectinload
 from tests.conftest import session
 
 from handler.database import db_rom_handler
-from models.rom import RomComponent, RomComponentKind, RomComponentOwnedMediaRole
+from models.rom import (
+    RomComponent,
+    RomComponentKind,
+    RomComponentOwnedMedia,
+    RomComponentOwnedMediaOrigin,
+    RomComponentOwnedMediaPlacement,
+    RomComponentOwnedMediaRole,
+    derive_pc_component_provider_media_id,
+)
 
 
 def _metadata() -> dict[str, object]:
@@ -233,3 +241,118 @@ def test_scan_provider_media_import_is_dlc_contained_and_version_guarded(rom):
         )
         is None
     )
+
+
+def test_provider_media_import_is_idempotent_by_content_identity(rom):
+    component = RomComponent(
+        rom_id=rom.id,
+        relative_path="dlc/idempotent-media",
+        kind=RomComponentKind.DLC,
+    )
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+
+    target = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert target is not None
+    digest = "a" * 64
+    stable_id = derive_pc_component_provider_media_id(
+        "igdb", RomComponentOwnedMediaRole.SCREENSHOT, digest
+    )
+    first = db_rom_handler.import_pc_component_provider_media(
+        rom.id,
+        target.id,
+        target.updated_at,
+        RomComponentOwnedMediaRole.SCREENSHOT,
+        "image/jpeg",
+        "roms/1/pc-owned-media/first.jpg",
+        "igdb",
+        stable_id,
+        digest,
+    )
+    assert first is not None
+
+    latest = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert latest is not None
+    second = db_rom_handler.import_pc_component_provider_media(
+        rom.id,
+        component.id,
+        latest.updated_at,
+        RomComponentOwnedMediaRole.SCREENSHOT,
+        "image/jpeg",
+        "roms/1/pc-owned-media/second.jpg",
+        "igdb",
+        stable_id,
+        digest,
+    )
+    assert second is not None
+    assert second.media.id == first.media.id
+    persisted = db_rom_handler.get_pc_component_provider_media_for_reconciliation(
+        rom.id, component.id
+    )
+    assert len(persisted) == 1
+    assert persisted[0].owned_path.endswith("second.jpg")
+
+
+def test_provider_media_reconciliation_merges_exact_duplicates_and_keeps_placement(rom):
+    component = RomComponent(
+        rom_id=rom.id,
+        relative_path="dlc/reconcile-media",
+        kind=RomComponentKind.DLC,
+    )
+    with session.begin() as db:
+        db.add(component)
+        db.flush()
+        first = RomComponentOwnedMedia(
+            component_id=component.id,
+            role=RomComponentOwnedMediaRole.SCREENSHOT,
+            mime_type="image/jpeg",
+            owned_path="roms/1/pc-owned-media/legacy-first.jpg",
+            origin=RomComponentOwnedMediaOrigin.PROVIDER,
+            provider="igdb",
+            provider_media_id="legacy-first",
+        )
+        second = RomComponentOwnedMedia(
+            component_id=component.id,
+            role=RomComponentOwnedMediaRole.SCREENSHOT,
+            mime_type="image/jpeg",
+            owned_path="roms/1/pc-owned-media/legacy-second.jpg",
+            origin=RomComponentOwnedMediaOrigin.PROVIDER,
+            provider="igdb",
+            provider_media_id="legacy-second",
+        )
+        db.add_all((first, second))
+        db.flush()
+        db.add(
+            RomComponentOwnedMediaPlacement(
+                component_id=component.id,
+                media_id=second.id,
+                position=0,
+            )
+        )
+
+    target = db_rom_handler.get_pc_component_by_id(rom.id, component.id)
+    assert target is not None
+    digest = "b" * 64
+    result = db_rom_handler.reconcile_pc_component_provider_media(
+        rom.id,
+        component.id,
+        target.updated_at,
+        {first.id: digest, second.id: digest},
+    )
+    assert result is not None
+    assert result.unreferenced_owned_paths == [first.owned_path]
+    assert (
+        len(
+            db_rom_handler.get_pc_component_provider_media_for_reconciliation(
+                rom.id, component.id
+            )
+        )
+        == 1
+    )
+    surviving = db_rom_handler.get_pc_component_provider_media_for_reconciliation(
+        rom.id, component.id
+    )[0]
+    assert surviving.content_sha256 == digest
+    assert surviving.owned_path == second.owned_path
+    assert surviving.placements[0].position == 0
