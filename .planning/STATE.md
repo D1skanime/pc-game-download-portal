@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 26 (UI-UX Abschluss und manuelle mehrsprachige Metadatenpflege) — EXECUTING
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-10-10 - Completed quick task 261010-rl7: Restore parent media delete controls for users with scoped rom.edit
+Last activity: 2026-10-10 - Completed quick task 261010-rre: Keep parent media delete buttons visible with parent-activator tooltips
 
 ## Performance Metrics
 
@@ -467,6 +467,7 @@ Recent decisions affecting current work:
 | 261009-steam-match | Fix Steam discovery and persistence in the legacy ROM matching dialog | 2026-10-09 | 5a63d7ca5 | [261009-steam-legacy-match-search](./quick/261009-steam-legacy-match-search/) |
 | 261010-qsg | Implement responsive Overview screenshot grid with focused tests | 2026-10-10 | c31e62050, ed6462ab8 | [261010-qsg-responsive-screenshot-grid-make-overview](./quick/261010-qsg-responsive-screenshot-grid-make-overview/)
 | 261010-rl7 | Restore parent media delete controls for users with scoped rom.edit | 2026-10-10 | c229f09ec, 998aae57c | [261010-rl7-fix-parent-media-delete-controls-use-the](./quick/261010-rl7-fix-parent-media-delete-controls-use-the/) |
+| 261010-rre | Keep parent media delete buttons visible with parent-activator tooltips | 2026-10-10 | 7b0b6184a, e5fb985fd | [261010-rre-fix-visible-media-delete-controls-render](./quick/261010-rre-fix-visible-media-delete-controls-render/) |
 
 ## Deferred Items
 
@@ -478,8 +479,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-10T19:56:28Z
-Stopped at: Completed quick task 261010-rl7
+Last session: 2026-10-10T20:08:35Z
+Stopped at: Completed quick task 261010-rre
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
