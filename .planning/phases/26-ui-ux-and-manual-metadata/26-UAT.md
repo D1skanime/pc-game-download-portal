@@ -88,3 +88,17 @@ The authenticated Linux Dev browser session is now available as `admin`. The fol
 No genuine product bug was found in these live checks, so no additional `gsd-quick` fix was created from this UAT pass.
 
 | Platform API/live library | PASS | `/platform/2` loads Windows metadata and ROM links; no current browser console errors or API-500 signal observed after the schema migration. |
+
+## Live UAT follow-up — 2026-10-10 — quick fix 261010-qc0
+
+The authenticated Linux Dev browser session rechecked the Phase 26 DLC/media gaps after the quick fix and the required database migration was applied to the running dev service.
+
+| Scenario                                  | Result               | Evidence                                                                                                                                                                                                      |
+| ----------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Parent game Media default                 | PASS                 | `/rom/10?tab=media` opens with Screenshots selected and media placement controls visible.                                                                                                                     |
+| DLC Media default and role filter         | PASS                 | `/rom/10/dlc/7?tab=media` opens with screenshot selected; switching to artwork changes the displayed media set.                                                                                               |
+| DLC Media placement and deletion controls | PASS                 | DLC media cards expose `Zur Übersicht hinzufügen` and `Löschen`; the component-scoped controls are present on the live page.                                                                                  |
+| Parent Game Download metadata search      | PASS                 | Main Game Download shows `Metadaten suchen` in the action area and for the Hauptspiel component.                                                                                                              |
+| DLC Game Download metadata search         | PASS                 | DLC Game Download shows `Metadaten suchen` together with the existing manifest information.                                                                                                                   |
+| API 500 during these flows                | PASS after migration | The earlier 500/404 signal was caused by the running dev database lacking migration `0136_pc_component_media_placements`; `alembic upgrade head` applied it, and subsequent media requests returned HTTP 200. |
+| Provider cover/metadata search            | BLOCKED / NOT A BUG  | Provider API credentials are absent; this environment setup issue is intentionally ignored per task instruction.                                                                                              |
