@@ -53,4 +53,18 @@ describe("ScreenshotsSubtab provider candidates", () => {
     expect(source).toContain("providerScreenshots.length");
     expect(source).not.toContain("merged_screenshots");
   });
+
+  it("keeps the provider delete button as the visible tooltip activator", () => {
+    expect(source).toContain(
+      `icon="mdi-delete-outline"
+                :loading="mutatingId === item.id"
+                :aria-label="t('common.delete')"
+                @click.stop="deleteProviderScreenshot(item)"
+              ><RTooltip activator="parent" :text="t('common.delete')" />`,
+    );
+    expect(source).not.toContain(
+      `<RTooltip :text="t('common.delete')"
+              ><RBtn`,
+    );
+  });
 });
