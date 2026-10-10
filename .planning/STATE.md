@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: milestone
 status: verifying
 stopped_at: Completed 26-03-PLAN.md
-last_updated: "2026-10-09T23:43:49.471Z"
-last_activity: 2026-10-09
+last_updated: "2026-10-10T19:56:28Z"
+last_activity: 2026-10-10
 progress:
   total_phases: 26
   completed_phases: 21
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 26 (UI-UX Abschluss und manuelle mehrsprachige Metadatenpflege) — EXECUTING
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-10-10 - Completed quick task 261010-qc0: Fix DLC media controls, default screenshot filter, overview add/delete actions, and Game Download metadata action placement
+Last activity: 2026-10-10 - Completed quick task 261010-rl7: Restore parent media delete controls for users with scoped rom.edit
 
 ## Performance Metrics
 
@@ -466,6 +466,7 @@ Recent decisions affecting current work:
 | 261007-ilm | Import legacy folder mappings into canonical storage mappings | 2026-10-07 | 88c406cb2 | [261007-ilm-import-legacy-storage-mappings](./quick/20261007-import-legacy-storage-mappings/) |
 | 261009-steam-match | Fix Steam discovery and persistence in the legacy ROM matching dialog | 2026-10-09 | 5a63d7ca5 | [261009-steam-legacy-match-search](./quick/261009-steam-legacy-match-search/) |
 | 261010-qsg | Implement responsive Overview screenshot grid with focused tests | 2026-10-10 | c31e62050, ed6462ab8 | [261010-qsg-responsive-screenshot-grid-make-overview](./quick/261010-qsg-responsive-screenshot-grid-make-overview/)
+| 261010-rl7 | Restore parent media delete controls for users with scoped rom.edit | 2026-10-10 | c229f09ec, 998aae57c | [261010-rl7-fix-parent-media-delete-controls-use-the](./quick/261010-rl7-fix-parent-media-delete-controls-use-the/) |
 
 ## Deferred Items
 
@@ -477,8 +478,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-10T19:34:00Z
-Stopped at: Completed quick task 261010-qsg
+Last session: 2026-10-10T19:56:28Z
+Stopped at: Completed quick task 261010-rl7
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
