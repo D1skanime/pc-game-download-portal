@@ -39,10 +39,28 @@ describe("SoundtrackPanel owned-media queue", () => {
     expect(source).toContain(
       "if (activeTrackId.value === item.id) player.stop()",
     );
+    expect(source).toContain('const canManage = useCan("rom.edit", scope)');
+    expect(source).not.toContain('useCan("rom.delete", scope)');
     expect(source).toContain('tone: "danger"');
     expect(source).toContain("deleteOwnedMedia");
     expect(source).toContain("player.hasError");
     expect(source).toContain("retryActiveTrack");
+  });
+
+  it("keeps owned-track deletion in both soundtrack list sections", () => {
+    const includedSection = source.slice(
+      source.indexOf('aria-labelledby="included-soundtrack-heading"'),
+      source.indexOf('aria-labelledby="available-uploads-heading"'),
+    );
+    const availableSection = source.slice(
+      source.indexOf('aria-labelledby="available-uploads-heading"'),
+    );
+
+    for (const section of [includedSection, availableSection]) {
+      expect(section).toContain('v-if="canManage"');
+      expect(section).toContain('icon="mdi-delete-outline"');
+      expect(section).toContain('@click="deleteTrack(item)"');
+    }
   });
 
   it("has permission-gated, labelled linear controls", () => {

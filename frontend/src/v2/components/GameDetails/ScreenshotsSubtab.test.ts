@@ -25,6 +25,8 @@ describe("ScreenshotsSubtab provider candidates", () => {
 
   it("uses guarded owned-media mutations with conflict recovery", () => {
     expect(source).toContain("useCan");
+    expect(source).toContain('const canManage = useCan("rom.edit", scope)');
+    expect(source).not.toContain('useCan("rom.delete", scope)');
     expect(source).toContain('tone: "danger"');
     expect(source).toContain("deleteOwnedMedia");
     expect(source).toContain("refreshOwnedMedia");
@@ -43,6 +45,11 @@ describe("ScreenshotsSubtab provider candidates", () => {
   it("renders migrated provider catalog entries without relying on legacy overview data", () => {
     expect(source).toContain("props.rom.owned_media ?? []");
     expect(source).toContain('item.role === "screenshot"');
+    expect(source).toContain('item.origin === "provider"');
+    expect(source).toContain('v-if="canManage" class="r-v2-shots__actions"');
+    expect(source).toContain(
+      'v-if="canManage"\n                icon="mdi-delete-outline"',
+    );
     expect(source).toContain("providerScreenshots.length");
     expect(source).not.toContain("merged_screenshots");
   });

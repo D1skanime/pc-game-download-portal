@@ -23,8 +23,11 @@ describe("ArtworkSubtab owned artwork management", () => {
 
   it("uses the owned-media upload and deletion lifecycle", () => {
     expect(source).toContain("RDropzone");
+    expect(source).toContain('const canManage = useCan("rom.edit", scope)');
+    expect(source).not.toContain('useCan("rom.delete", scope)');
     expect(source).toContain("uploadOwnedMedia");
     expect(source).toContain('role: "artwork"');
+    expect(source).toContain("item.origin === 'upload' && canManage");
     expect(source).toContain('tone: "danger"');
     expect(source).toContain("deleteOwnedMedia");
     expect(source).toContain("romsStore.refreshRom");
