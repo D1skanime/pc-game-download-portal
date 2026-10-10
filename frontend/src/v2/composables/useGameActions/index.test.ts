@@ -9,6 +9,7 @@ import {
 } from "vitest";
 import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
+import { getDownloadPath } from "@/utils";
 import { useGameActions } from "./index";
 
 // Controllable stubs shared with the mocked modules below.
@@ -82,12 +83,16 @@ vi.mock("@/v2/composables/useViewTransition", () => ({
   }),
 }));
 
-function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
+function makeRom(
+  status: SimpleRom["rom_user"]["status"] = null,
+  platform: Partial<Pick<SimpleRom, "platform_slug" | "platform_fs_slug">> = {},
+): SimpleRom {
   return {
     id: 1,
     name: "Chrono Trigger",
     fs_name_no_ext: "Chrono Trigger",
     platform_slug: "snes",
+    ...platform,
     rom_user: { status },
   } as unknown as SimpleRom;
 }
@@ -225,5 +230,35 @@ describe("useGameActions — write/destructive gates", () => {
     grantedActions.value = new Set<ActionKey>(["rom.delete", "rom.edit"]);
     const actions = useGameActions(() => makeRom());
     expect(actions.canDelete.value).toBe(true);
+  });
+});
+
+describe("useGameActions - PC download actions", () => {
+  it.each([
+    ["filesystem PC", { platform_slug: "win", platform_fs_slug: "pc" }],
+    ["legacy PC", { platform_slug: "pc" }],
+  ] as const)(
+    "hides copy-link and opens PC components for %s",
+    (_label, platform) => {
+      const actions = useGameActions(() => makeRom(null, platform));
+
+      expect(actions.canShowCopyDownloadLink.value).toBe(false);
+      actions.download();
+
+      expect(push).toHaveBeenCalledWith({
+        path: "/rom/1",
+        query: { tab: "pc-components" },
+      });
+    },
+  );
+
+  it("keeps copy-link and direct download behavior for non-PC ROMs", () => {
+    const actions = useGameActions(() => makeRom());
+
+    expect(actions.canShowCopyDownloadLink.value).toBe(true);
+    actions.download();
+
+    expect(getDownloadPath).toHaveBeenCalledWith({ rom: expect.any(Object) });
+    expect(push).not.toHaveBeenCalled();
   });
 });

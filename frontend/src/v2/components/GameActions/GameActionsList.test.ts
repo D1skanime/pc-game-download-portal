@@ -32,7 +32,7 @@ const flags: Flags = {
 };
 
 vi.mock("@/v2/composables/useGameActions", () => ({
-  useGameActions: () =>
+  useGameActions: (getRom: () => SimpleRom | null) =>
     new Proxy(
       {},
       {
@@ -41,6 +41,16 @@ vi.mock("@/v2/composables/useGameActions", () => ({
             return {
               get value() {
                 return flags[prop as keyof Flags];
+              },
+            };
+          }
+          if (prop === "canShowCopyDownloadLink") {
+            return {
+              get value() {
+                const rom = getRom();
+                return (
+                  rom?.platform_fs_slug !== "pc" && rom?.platform_slug !== "pc"
+                );
               },
             };
           }
@@ -57,10 +67,13 @@ const RMenuItem = {
 };
 const RDivider = { template: `<hr class="divider" />` };
 
-function mountList(overrides: Partial<Flags> = {}) {
+function mountList(
+  overrides: Partial<Flags> = {},
+  rom: Partial<SimpleRom> = {},
+) {
   Object.assign(flags, overrides);
   return mount(GameActionsList, {
-    props: { rom: { id: 1 } as SimpleRom },
+    props: { rom: { id: 1, ...rom } as SimpleRom },
     global: { stubs: { RMenuItem, RDivider } },
   });
 }
@@ -115,5 +128,31 @@ describe("GameActionsList — permission gating", () => {
     });
     expect(labels(wrapper)).toContain("common.edit");
     expect(wrapper.findAll(".divider")).toHaveLength(2);
+  });
+
+  it("hides copy-link for a real PC ROM", () => {
+    const wrapper = mountList(
+      {},
+      {
+        platform_slug: "win",
+        platform_fs_slug: "pc",
+      },
+    );
+
+    expect(labels(wrapper)).not.toContain("rom.copy-link");
+    expect(labels(wrapper)).toContain("rom.download");
+  });
+
+  it("keeps copy-link for a non-PC ROM", () => {
+    const wrapper = mountList(
+      {},
+      {
+        platform_slug: "snes",
+        platform_fs_slug: "snes",
+      },
+    );
+
+    expect(labels(wrapper)).toContain("rom.copy-link");
+    expect(labels(wrapper)).toContain("rom.download");
   });
 });

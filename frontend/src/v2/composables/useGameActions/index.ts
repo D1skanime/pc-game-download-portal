@@ -286,7 +286,10 @@ export function useGameActions(
     if (path) router.push(path);
   }
 
-  const isPcRom = computed(() => getRom()?.platform_slug === "pc");
+  const isPcRom = computed(() => {
+    const rom = getRom();
+    return rom?.platform_fs_slug === "pc" || rom?.platform_slug === "pc";
+  });
   const canShowCopyDownloadLink = computed(() => !isPcRom.value);
 
   function download() {
