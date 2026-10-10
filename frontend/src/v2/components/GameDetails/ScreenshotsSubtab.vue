@@ -183,7 +183,7 @@ async function deleteProviderScreenshot(item: RomOwnedMediaSchema) {
       expectedVersion: props.rom.updated_at,
     });
     await refreshCanonical();
-    snackbar.success(t("rom.screenshot-removed"));
+    snackbar.success(t("rom.owned-media-deleted"));
   } catch (error) {
     if (!(await recoverFromConflict(error)))
       snackbar.error(errorMessage(error));

@@ -213,7 +213,7 @@ async function deleteArtwork(item: RomOwnedMediaSchema) {
       expectedVersion: props.rom.updated_at,
     });
     await refreshCanonical();
-    snackbar.success(t("common.delete"));
+    snackbar.success(t("rom.owned-media-deleted"));
   } catch (error) {
     if (!(await recoverFromConflict(error)))
       snackbar.error(errorMessage(error));

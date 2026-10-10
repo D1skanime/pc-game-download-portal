@@ -123,6 +123,16 @@ describe("PcDlcDetails", () => {
     expect(source).toContain('@refresh="refreshDlc"');
   });
 
+  it("forces a fresh parent read after child mutations", () => {
+    const source = readFileSync("src/v2/views/PcDlcDetails.vue", "utf8");
+
+    expect(source).toContain("forceFresh = false");
+    expect(source).toContain(
+      "!forceFresh && romsStore.currentRom?.id === romId",
+    );
+    expect(source).toContain("await loadDlc(route.params, true)");
+  });
+
   beforeEach(() => {
     getRom.mockReset();
     setCurrentRom.mockReset();

@@ -40,7 +40,7 @@ function resolveComponent(
   );
 }
 
-async function loadDlc(params: Record<string, unknown>) {
+async function loadDlc(params: Record<string, unknown>, forceFresh = false) {
   state.value = "loading";
   parentRom.value = null;
   component.value = null;
@@ -54,7 +54,7 @@ async function loadDlc(params: Record<string, unknown>) {
 
   try {
     const parent =
-      romsStore.currentRom?.id === romId
+      !forceFresh && romsStore.currentRom?.id === romId
         ? romsStore.currentRom
         : (await romApi.getRom({ romId })).data;
     if (parent.id !== romId) {
@@ -78,7 +78,7 @@ async function loadDlc(params: Record<string, unknown>) {
 }
 
 async function refreshDlc() {
-  await loadDlc(route.params);
+  await loadDlc(route.params, true);
 }
 
 void loadDlc(route.params);

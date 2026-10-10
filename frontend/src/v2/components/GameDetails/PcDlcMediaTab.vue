@@ -46,6 +46,17 @@ function mediaContentUrl(mediaId: number) {
   return `/api${endpoint}/${mediaId}/content`;
 }
 
+function mediaRoleLabel(item: PcComponentOwnedMediaSchema) {
+  return t(`rom.pc-media-role-${item.role}`);
+}
+
+function mediaSourceLabel(item: PcComponentOwnedMediaSchema) {
+  if (item.origin === "provider" && item.provider) return item.provider;
+  return item.origin === "provider"
+    ? t("rom.pc-media-source-provider")
+    : t("rom.pc-media-source-uploaded");
+}
+
 function openMedia(index: number) {
   lightboxIndex.value = index;
   lightboxOpen.value = true;
@@ -121,7 +132,7 @@ async function remove(mediaId: number) {
     });
     await load();
     emit("refresh");
-    snackbar.success(t("common.delete"));
+    snackbar.success(t("rom.pc-media-deleted"));
   } catch (error) {
     console.error(error);
     snackbar.error(t("common.error"));
@@ -159,14 +170,14 @@ onMounted(load);
         <button
           type="button"
           class="pc-dlc-media__preview"
-          :aria-label="`${item.role} ${index + 1}`"
+          :aria-label="`${mediaRoleLabel(item)} ${index + 1}`"
           @click="openMedia(index)"
         >
-          <img :src="mediaContentUrl(item.id)" :alt="item.role" />
+          <img :src="mediaContentUrl(item.id)" :alt="mediaRoleLabel(item)" />
         </button>
         <div class="pc-dlc-media__details">
-          <strong>{{ item.role }}</strong>
-          <span>{{ item.mime_type }}</span>
+          <strong>{{ mediaRoleLabel(item) }}</strong>
+          <span>{{ mediaSourceLabel(item) }}</span>
         </div>
         <div class="pc-dlc-media__actions">
           <RBtn
