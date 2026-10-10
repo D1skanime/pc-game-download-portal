@@ -30,6 +30,12 @@ const roles: RomComponentOwnedMediaRole[] = [
   "screenshot",
   "artwork",
 ];
+const roleItems = computed(() =>
+  roles.map((value) => ({
+    title: t(`rom.pc-media-role-${value}`),
+    value,
+  })),
+);
 const componentVersion = computed(() => props.component.updated_at ?? null);
 const filteredMedia = computed(() =>
   media.value.filter((item) => item.role === role.value),
@@ -147,7 +153,13 @@ onMounted(load);
     <h2 id="pc-dlc-media-heading" class="pc-dlc-media__heading">
       {{ t("rom.media") }}
     </h2>
-    <RSelect v-model="role" :items="roles" :label="t('rom.media')" />
+    <RSelect
+      v-model="role"
+      :items="roleItems"
+      item-title="title"
+      item-value="value"
+      :label="t('rom.media')"
+    />
     <RDropzone
       :disabled="uploading || !componentVersion"
       accept="image/jpeg,image/png,image/webp"

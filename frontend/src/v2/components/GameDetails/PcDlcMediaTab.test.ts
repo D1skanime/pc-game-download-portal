@@ -45,6 +45,17 @@ describe("PcDlcMediaTab", () => {
     expect(source).not.toContain("<span>{{ item.mime_type }}</span>");
   });
 
+  it("localizes role selector labels while preserving enum values", () => {
+    expect(source).toContain("const roleItems = computed(() =>");
+    expect(source).toContain("title: t(`rom.pc-media-role-${value}`)");
+    expect(source).toContain("value,");
+    expect(source).toContain(':items="roleItems"');
+    expect(source).toContain('item-title="title"');
+    expect(source).toContain('item-value="value"');
+    expect(source).toContain('body.append("role", role.value)');
+    expect(source).toContain("item.role === role.value");
+  });
+
   it("refreshes local media before reporting deletion success", () => {
     expect(source).toMatch(
       /await api\.delete[\s\S]+await load\(\)[\s\S]+emit\("refresh"\)[\s\S]+pc-media-deleted/,
