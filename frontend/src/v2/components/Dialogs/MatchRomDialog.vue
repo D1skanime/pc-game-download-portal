@@ -346,11 +346,6 @@ async function onBodyConfirm(payload: ConfirmPayload) {
           selection,
         });
       }
-      await pcRefresh.value?.();
-      snackbar.success(t("rom.rom-updated-successfully"), {
-        icon: "mdi-check-bold",
-      });
-      closeDialog();
     } catch (error: unknown) {
       const axiosErr = error as { response?: { data?: { detail?: string } } };
       snackbar.error(
@@ -359,8 +354,19 @@ async function onBodyConfirm(payload: ConfirmPayload) {
           icon: "mdi-close-circle",
         },
       );
+      return;
     } finally {
       matching.value = false;
+    }
+
+    snackbar.success(t("rom.rom-updated-successfully"), {
+      icon: "mdi-check-bold",
+    });
+    closeDialog();
+    try {
+      await pcRefresh.value?.();
+    } catch (refreshError: unknown) {
+      console.error("PC match refresh failed", refreshError);
     }
     return;
   }
