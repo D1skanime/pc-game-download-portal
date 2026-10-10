@@ -248,7 +248,9 @@ describe("OverviewTab", () => {
       .get("[data-testid='overview-description-edit']")
       .trigger("click");
 
-    expect(wrapper.get("[data-testid='localized-editor']").exists()).toBe(true);
+    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+      true,
+    );
     expect(
       wrapper.getComponent({ name: "LocalizedDescriptionEditor" }).props(),
     ).toMatchObject({

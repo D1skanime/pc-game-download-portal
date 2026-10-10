@@ -39,6 +39,7 @@ vi.mock("vue-i18n", () => ({
 
 const selectedDlc = {
   id: 2,
+  updated_at: "2026-09-03T00:00:00+00:00",
   relative_path: "DLC/Expansion",
   kind: "dlc",
   component_metadata: {
@@ -192,7 +193,7 @@ describe("PcDlcDetail", () => {
     expect(wrapper.html()).toContain(
       "/assets/romm/resources/roms/1/components/2/cover.webp",
     );
-    expect(wrapper.html()).toContain(
+    expect(wrapper.html()).not.toContain(
       "/assets/romm/resources/roms/1/components/2/gallery.webp",
     );
     expect(wrapper.html()).not.toContain("parent-cover.webp");
@@ -206,7 +207,7 @@ describe("PcDlcDetail", () => {
     );
     expect(source).toContain("overviewPlacements");
     expect(source).toContain("placement.media_id === item.id");
-    expect(source).toContain("placement.position - b.position");
+    expect(source).toContain("a.placement.position - b.placement.position");
   });
 
   it("opens selected DLC overview media through the shared screenshot viewer", async () => {
@@ -223,6 +224,19 @@ describe("PcDlcDetail", () => {
           provider_media_id: "provider-shot",
           created_at: "2026-09-03T00:00:00+00:00",
           updated_at: "2026-09-03T00:00:00+00:00",
+          placements: [{ id: 1, media_id: 43, position: 0 }],
+        },
+        {
+          id: 44,
+          role: "artwork",
+          mime_type: "image/webp",
+          owned_path: "roms/1/pc-owned-media/2/provider-art.webp",
+          origin: "provider",
+          provider: "igdb",
+          provider_media_id: "provider-art",
+          created_at: "2026-09-03T00:00:00+00:00",
+          updated_at: "2026-09-03T00:00:00+00:00",
+          placements: [{ id: 2, media_id: 44, position: 1 }],
         },
       ],
     });
@@ -241,7 +255,7 @@ describe("PcDlcDetail", () => {
     expect(carousel.attributes("data-items")).toBe(
       [
         "/assets/romm/resources/roms/1/pc-owned-media/2/provider-shot.jpg",
-        "/assets/romm/resources/roms/1/components/2/gallery.webp",
+        "/assets/romm/resources/roms/1/pc-owned-media/2/provider-art.webp",
       ].join("|"),
     );
   });
@@ -294,7 +308,9 @@ describe("PcDlcDetail", () => {
       .get("[data-testid='pc-dlc-description-edit']")
       .trigger("click");
 
-    expect(wrapper.get("[data-testid='localized-editor']").exists()).toBe(true);
+    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+      true,
+    );
     expect(
       wrapper.getComponent({ name: "LocalizedDescriptionEditor" }).props(),
     ).toMatchObject({
@@ -442,6 +458,7 @@ describe("PcDlcDetail", () => {
           provider_media_id: "provider-shot",
           created_at: "2026-09-03T00:00:00+00:00",
           updated_at: "2026-09-03T00:00:00+00:00",
+          placements: [{ id: 3, media_id: 43, position: 0 }],
         },
       ],
     });
