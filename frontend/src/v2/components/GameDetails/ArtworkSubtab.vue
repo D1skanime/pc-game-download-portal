@@ -31,7 +31,6 @@ const romsStore = storeRoms();
 const scope = { kind: "rom", id: props.rom.id } as const;
 const canManage = useCan("rom.edit", scope);
 const canRefresh = useCan("rom.refresh", scope);
-const canDelete = useCan("rom.delete", scope);
 const uploadDropzone = ref<InstanceType<typeof RDropzone> | null>(null);
 const refreshing = ref(false);
 const mutatingId = ref<number | null>(null);
@@ -394,7 +393,7 @@ async function deleteArtwork(item: RomOwnedMediaSchema) {
                   : t("rom.add-as-background")
               }}</RBtn
             ><RTooltip
-              v-if="item.origin === 'upload' && canDelete"
+              v-if="item.origin === 'upload' && canManage"
               :text="t('common.delete')"
               ><RBtn
                 icon="mdi-delete-outline"

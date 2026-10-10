@@ -39,7 +39,6 @@ const { user } = storeToRefs(storeAuth());
 const scope = { kind: "rom", id: props.rom.id } as const;
 const canManage = useCan("rom.edit", scope);
 const canRefresh = useCan("rom.refresh", scope);
-const canDelete = useCan("rom.delete", scope);
 const providerScreenshots = computed(() =>
   (props.rom.owned_media ?? []).filter(
     (item) =>
@@ -346,7 +345,7 @@ async function toggleVisibility(id: number, isPublic: boolean) {
               }}</RBtn
             ><RTooltip :text="t('common.delete')"
               ><RBtn
-                v-if="canDelete"
+                v-if="canManage"
                 icon="mdi-delete-outline"
                 :loading="mutatingId === item.id"
                 :aria-label="t('common.delete')"

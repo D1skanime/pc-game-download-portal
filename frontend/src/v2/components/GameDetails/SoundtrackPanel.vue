@@ -34,7 +34,6 @@ const {
 } = storeToRefs(player);
 const scope = { kind: "rom", id: props.rom.id } as const;
 const canManage = useCan("rom.edit", scope);
-const canDelete = useCan("rom.delete", scope);
 const uploading = ref(false);
 const localBackgroundAudioUpdating = ref(false);
 const ownedBackgroundAudioUpdating = ref(false);
@@ -475,7 +474,7 @@ function fmt(seconds: number) {
               @click="downloadTrack(item)"
             />
             <RBtn
-              v-if="canDelete"
+              v-if="canManage"
               icon="mdi-delete-outline"
               variant="text"
               :loading="deletingId === item.id"
@@ -523,7 +522,7 @@ function fmt(seconds: number) {
               @click="downloadTrack(item)"
             />
             <RBtn
-              v-if="canDelete"
+              v-if="canManage"
               icon="mdi-delete-outline"
               variant="text"
               :loading="deletingId === item.id"
