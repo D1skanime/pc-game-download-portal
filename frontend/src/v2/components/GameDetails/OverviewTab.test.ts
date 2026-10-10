@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { IGDBRelatedGame } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import OverviewTab from "./OverviewTab.vue";
+import ScreenshotsTab from "./ScreenshotsTab.vue";
 
 const permissionState = vi.hoisted(() => ({ value: true }));
 
@@ -176,6 +177,39 @@ describe("OverviewTab", () => {
     expect(wrapper.text()).not.toContain("rom.pc-release");
     expect(wrapper.text()).not.toContain("rom.main-developer");
   });
+  it("uses the Overview screenshot layout while keeping provider images excluded", () => {
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom,
+        summary: null,
+        sections: [],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [
+          "/api/roms/42/media/7/content",
+          "https://images.igdb.com/provider-only.webp",
+        ],
+        expansions: [],
+        dlcs: [],
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+        parentRomId: 42,
+      },
+    });
+
+    expect(wrapper.findComponent(ScreenshotsTab).props("layout")).toBe(
+      "overview",
+    );
+    expect(wrapper.findAll("img")).toHaveLength(1);
+    expect(wrapper.html()).not.toContain("provider-only.webp");
+  });
+
   it("keeps the resolved description read-only until the authorized pencil is activated", async () => {
     permissionState.value = true;
     const editableRom = {
