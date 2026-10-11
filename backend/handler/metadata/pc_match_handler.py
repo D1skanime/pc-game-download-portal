@@ -451,6 +451,16 @@ class PcMetadataMatchHandler:
                 details = None
             if details:
                 details = dict(details)
+                fallback_cover = next(
+                    (
+                        media["url"]
+                        for media in candidate.media
+                        if media.get("kind") == "cover" and media.get("url")
+                    ),
+                    None,
+                )
+                if fallback_cover and not details.get("url_cover"):
+                    details["url_cover"] = fallback_cover
                 steam_id = self._positive_int(candidate.provider_ids.get("steam_id"))
                 if steam_id is not None:
                     details["steam_id"] = steam_id

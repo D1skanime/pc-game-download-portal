@@ -209,7 +209,6 @@ async def test_collect_component_candidates_offers_a_matching_parent_expansion()
             "igdb_id": 215769,
             "name": "Cyberpunk 2077: Phantom Liberty",
             "summary": "A spy-thriller expansion for Cyberpunk 2077.",
-            "url_cover": "https://images.igdb.com/phantom-liberty.jpg",
         }
     )
     disabled = Mock(is_enabled=Mock(return_value=False))
@@ -250,6 +249,9 @@ async def test_collect_component_candidates_offers_a_matching_parent_expansion()
     assert candidate.provider_ids == {"igdb_id": 215769}
     assert candidate.description_available is True
     assert candidate.fields["summary"] == "A spy-thriller expansion for Cyberpunk 2077."
+    assert candidate.media == [
+        {"kind": "cover", "url": "https://images.igdb.com/phantom-liberty.jpg"}
+    ]
     igdb.get_matched_rom_by_id.assert_awaited_once_with(rom, 215769)
     igdb.get_matched_roms_by_name.assert_not_awaited()
 
