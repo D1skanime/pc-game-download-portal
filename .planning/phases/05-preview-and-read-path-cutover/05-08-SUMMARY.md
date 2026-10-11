@@ -105,7 +105,6 @@ None.
 - SCAN-02 exporter confinement and source-immutability evidence is ready for Phase 5 verification.
 - No deployment was performed.
 
-
 ## Self-Check: PASSED
 
 - All four modified code and test files exist.

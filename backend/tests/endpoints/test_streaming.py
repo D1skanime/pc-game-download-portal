@@ -1,10 +1,10 @@
 import asyncio
-import os
 import logging
+import os
 from contextlib import contextmanager
 from datetime import timedelta
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -15,14 +15,13 @@ from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
-from handler.redis_handler import async_cache
 from handler.filesystem.storage_resolver import StorageRootHealthSnapshot
+from handler.redis_handler import async_cache
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom
 from models.storage import PlatformStorageMapping, StorageRoot
 from models.user import User
-
 
 _STREAM_ROOT: Path | None = None
 
@@ -77,6 +76,7 @@ def mapped_stream_storage(
     )
     yield
     _STREAM_ROOT = None
+
 
 def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
     with sync_session.begin() as s:
@@ -232,9 +232,7 @@ def test_claim_derives_rom_path_server_side(client, access_token, rom: Rom):
     assert r.json()["rom_name"] == rom.name
     _, rom_path, _ = call_broker.call_args[0]
     assert rom_path == str(
-        (_STREAM_ROOT / f"root-{rom.platform_id}").joinpath(
-            *Path(rom.full_path).parts
-        )
+        (_STREAM_ROOT / f"root-{rom.platform_id}").joinpath(*Path(rom.full_path).parts)
     )
 
 

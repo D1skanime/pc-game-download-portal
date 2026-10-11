@@ -14,12 +14,12 @@ completed: 2026-08-11
 
 ## Test Infrastructure
 
-| Property | Value |
-|---|---|
-| Framework | Shell documentation contract checks |
-| Quick run | `test -f docs/design/v2-storage-administration.md && grep -q "Principles Provenance Matrix" docs/design/v2-storage-administration.md` |
-| Full suite | Required sections, D-01 through D-21, disclosure, path, scope, and `git diff --check` gates |
-| Runtime | Under 10 seconds |
+| Property   | Value                                                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework  | Shell documentation contract checks                                                                                                   |
+| Quick run  | `test -f docs/design/v2-storage-administration.md && grep -q "Principles Provenance Matrix" docs/design/v2-storage-administration.md` |
+| Full suite | Required sections, D-01 through D-21, disclosure, path, scope, and `git diff --check` gates                                           |
+| Runtime    | Under 10 seconds                                                                                                                      |
 
 ## Sampling Rate
 
@@ -30,12 +30,12 @@ completed: 2026-08-11
 
 ## Per-Task Verification Map
 
-| Task ID | Requirement | Secure behavior | Automated evidence | Status |
-|---|---|---|---|---|
-| 04-01-T1 | UI-05 | Scope, route convergence, redacted backend contract, and overview | Scope, Backend Contract, route, `expected_version`, and prohibited-path checks | passed |
-| 04-01-T2 | UI-05 | Exact flow ordering, explicit folder boundary, deep and bounded navigation | Guided Mapping Flow, Folder Browser, deep examples, descendant/sibling, and no-recursive-work checks | passed |
-| 04-02-T1 | UI-05 | Complete local states, recovery, focus, input, responsive, and v2-system mapping | State Matrix, Universal Input, Responsive, breakpoint, modality, and Token and Primitive Matrix checks | passed |
-| 04-02-T2 | UI-05 | Provenance, D-01 through D-21, acceptance, disclosure, and scope gates | Principles Provenance Matrix, Acceptance Checklist, traceability, no-copy, no-runtime, no-em-dash, and diff checks | passed |
+| Task ID  | Requirement | Secure behavior                                                                  | Automated evidence                                                                                                 | Status |
+| -------- | ----------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------ |
+| 04-01-T1 | UI-05       | Scope, route convergence, redacted backend contract, and overview                | Scope, Backend Contract, route, `expected_version`, and prohibited-path checks                                     | passed |
+| 04-01-T2 | UI-05       | Exact flow ordering, explicit folder boundary, deep and bounded navigation       | Guided Mapping Flow, Folder Browser, deep examples, descendant/sibling, and no-recursive-work checks               | passed |
+| 04-02-T1 | UI-05       | Complete local states, recovery, focus, input, responsive, and v2-system mapping | State Matrix, Universal Input, Responsive, breakpoint, modality, and Token and Primitive Matrix checks             | passed |
+| 04-02-T2 | UI-05       | Provenance, D-01 through D-21, acceptance, disclosure, and scope gates           | Principles Provenance Matrix, Acceptance Checklist, traceability, no-copy, no-runtime, no-em-dash, and diff checks | passed |
 
 ## Automated Full Gate
 
@@ -58,16 +58,16 @@ The changed-path gate must show documentation only and must reject runtime UI, b
 
 ## Manual Semantic Verification
 
-| Behavior | Evidence reviewed | Result |
-|---|---|---|
-| RomM-native originality | Every provenance row contains abstract principle, original interpretation, tokens/primitives, and no-copy confirmation | passed |
-| Backend fidelity and redaction | Root, health, browse, mapping, conflict, shallow preview, and queued preview fields and null/stale meanings match the live Linux contract | passed |
-| Exact ordering | Fast safety test precedes explicit save; overview adopts persisted identity/version before queued preview; preview failure never rolls back save | passed |
-| Universal input | Overview, flow, browser, overlays, conflict recovery, and preview changes trace mouse, touch, keyboard, and gamepad behavior | passed |
-| Focus continuity | Local updates retain an anchor or move to the affected heading/recovery; overlay scope and Cancel behavior are explicit | passed |
-| Responsive composition | xs through xl retain one drill-down model, use mount-gated chrome, full-bleed mobile overlays, 44px targets, and no raw layout media queries | passed |
-| Deep subset behavior | Arbitrary-depth Unicode selection includes the chosen folder and descendants while excluding siblings | passed |
-| Large-library behavior | Browse is paginated and cursor-bound with no size, recursive walk, scan, hash, or full preview before save | passed |
+| Behavior                       | Evidence reviewed                                                                                                                                | Result |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| RomM-native originality        | Every provenance row contains abstract principle, original interpretation, tokens/primitives, and no-copy confirmation                           | passed |
+| Backend fidelity and redaction | Root, health, browse, mapping, conflict, shallow preview, and queued preview fields and null/stale meanings match the live Linux contract        | passed |
+| Exact ordering                 | Fast safety test precedes explicit save; overview adopts persisted identity/version before queued preview; preview failure never rolls back save | passed |
+| Universal input                | Overview, flow, browser, overlays, conflict recovery, and preview changes trace mouse, touch, keyboard, and gamepad behavior                     | passed |
+| Focus continuity               | Local updates retain an anchor or move to the affected heading/recovery; overlay scope and Cancel behavior are explicit                          | passed |
+| Responsive composition         | xs through xl retain one drill-down model, use mount-gated chrome, full-bleed mobile overlays, 44px targets, and no raw layout media queries     | passed |
+| Deep subset behavior           | Arbitrary-depth Unicode selection includes the chosen folder and descendants while excluding siblings                                            | passed |
+| Large-library behavior         | Browse is paginated and cursor-bound with no size, recursive walk, scan, hash, or full preview before save                                       | passed |
 
 ## Required Adversarial Matrix
 
@@ -88,7 +88,6 @@ The changed-path gate must show documentation only and must reject runtime UI, b
 - [x] `nyquist_compliant: true` and `wave_0_complete: true`.
 
 **Approval:** passed
-
 
 ## Plan 04-03 Objective Architecture and Scope Gate
 
@@ -138,7 +137,6 @@ git diff --check -- "$d" "$k" .planning/phases/04-v2-storage-design-specificatio
 - [x] Absent unified-input and focus-component mechanisms are rejected.
 - [x] UI-05, D-01 through D-21, ordering, preview states, lower-bound language, redaction, provenance, and no-copy rules remain gated.
 - [x] Runtime frontend, backend, generated, dependency, deployment, Phase 5, and unrelated paths are excluded by the deterministic allowlist.
-
 
 ## Plan 04-03 Objective Architecture and Scope Gate
 

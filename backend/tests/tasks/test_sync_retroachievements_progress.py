@@ -65,6 +65,7 @@ class TestSyncRetroAchievementsProgressTask:
     @pytest.fixture(autouse=True)
     def enabled(self, mocker):
         mocker.patch.object(RAHandler, "is_enabled", return_value=True)
+
     """Test suite for SyncRetroAchievementsProgressTask."""
 
     def test_task_initialization(self, task):

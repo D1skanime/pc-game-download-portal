@@ -92,7 +92,6 @@ async def add_rom_soundtracks(
         ),
     ],
 ) -> Response:
-
     """Upload a soundtrack audio file for a multi-file ROM."""
 
     rom = db_rom_handler.get_rom(id)
@@ -234,7 +233,6 @@ async def delete_rom_soundtrack(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
-
     """Delete a single soundtrack file from a ROM."""
 
     rom = db_rom_handler.get_rom(id)

@@ -2,7 +2,8 @@
 phase: 04-v2-storage-design-specification
 plan: "02"
 subsystem: design
-tags: [storage, v2, accessibility, universal-input, responsive, provenance, nyquist]
+tags:
+  [storage, v2, accessibility, universal-input, responsive, provenance, nyquist]
 requires:
   - phase: 04-v2-storage-design-specification
     provides: Plan 04-01 route, backend, mapping-flow, and folder-browser foundation
@@ -13,7 +14,13 @@ provides:
 affects: [phase-05, phase-07]
 tech-stack:
   added: []
-  patterns: [stable-local-regions, focus-continuity, bounded-state-presentation, no-copy-provenance]
+  patterns:
+    [
+      stable-local-regions,
+      focus-continuity,
+      bounded-state-presentation,
+      no-copy-provenance,
+    ]
 key-files:
   created: []
   modified:

@@ -437,27 +437,15 @@ watchEffect((onCleanup) => {
 | A5  | Existing v2 primitives have no established accessible sortable-list primitive.                       | Don't Hand-Roll         | An available project primitive could be missed.                                    |
 | A6  | Server-side transcoding is out of scope and unnecessary for accepted original formats.               | Alternatives Considered | Browser support requirements could require a conversion strategy.                  |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **What counts as the stable provider identity for each existing provider screenshot/artwork?**
-   - What we know: current generic ROM screenshots are stored as numbered paths and source URL lists are consumed by scan code. [VERIFIED: codebase grep]
-   - What's unclear: not every adapter surface exposes a provider-native media ID to this phase. [ASSUMED]
-   - Recommendation: define a canonical `provider + provider_media_id` where available; otherwise use a documented normalized URL digest. Lock this before migration work. [ASSUMED]
+1. **Provider identity:** Persist `provider + provider_media_id` whenever an adapter supplies an ID. Otherwise canonicalize the HTTPS URL exactly as the provider discovery adapter returns it and persist a SHA-256 URL digest as `provider_media_id`; never use an array index, downloaded filename, or mutable storage path. The catalog unique key is `(rom_id, origin, provider, provider_media_id)`. [RESOLVED]
 
-2. **Does explicit refresh restore only a candidate, or also its former display placement?**
-   - What we know: locked decisions require full candidate restoration and separately require provider media and user-selected display state to remain separate. [VERIFIED: codebase grep]
-   - What's unclear: “restore” does not explicitly state whether the former selection returns. [ASSUMED]
-   - Recommendation: restore candidates unselected, preserving the separation and avoiding unexpected overview/background changes. Ask for confirmation only if product ownership interprets restore differently. [ASSUMED]
+2. **Refresh placement semantics:** `POST /api/roms/{id}/media/refresh` is the sole reconciliation path. It may reactivate a tombstoned provider candidate after re-downloading/validating it, but creates no overview/background placement. It preserves existing valid placements and their order, leaves uploaded candidates untouched, and a normal scan has no call path to it. [RESOLVED]
 
-3. **What upload quota is appropriate for owned audio?**
-   - What we know: existing component image upload is capped at 10 MiB and current tag parsing skips files over 512 MiB. [VERIFIED: codebase grep]
-   - What's unclear: soundtrack duration/count/storage budget has no locked product limit. [VERIFIED: codebase grep]
-   - Recommendation: make this a deployment-safe, explicit server limit with a request-total cap and test boundary values before shipping. [ASSUMED]
+3. **Upload quotas:** Artwork remains capped at the established 10 MiB decoded-upload boundary. Audio is capped at 512 MiB per file and 1 GiB total per multipart request, measured while streaming/spooling before any optional parser work; the API returns a bounded validation error at either boundary. Tests cover one byte below, equal to, and one byte above each limit. [RESOLVED]
 
-4. **Should embedded local file tags be displayed?**
-   - What we know: the existing source soundtrack UI reads persisted local tag metadata, while the phase excludes automatic metadata enrichment. [VERIFIED: codebase grep]
-   - What's unclear: whether parsing an uploaded file's embedded tags is considered enrichment for this phase. [ASSUMED]
-   - Recommendation: do not add new tag extraction/persistence behavior in Phase 20. Display the uploaded filename and let a future metadata phase decide tag policy. [ASSUMED]
+4. **Tag-display policy:** Do not extract, persist, or display embedded title, artist, album, artwork, or any other tag metadata. The original sanitized filename is the only track label. This is manual upload storage, not automatic metadata enrichment. [RESOLVED]
 
 ## Environment Availability
 

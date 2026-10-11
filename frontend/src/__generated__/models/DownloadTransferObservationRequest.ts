@@ -8,3 +8,4 @@ export type DownloadTransferObservationRequest = {
     error_code?: (string | null);
     sha256?: (string | null);
 };
+

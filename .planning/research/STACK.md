@@ -12,33 +12,33 @@ Keep the existing Python/FastAPI and Vue v2 modular monolith. Add storage roots,
 
 ### Existing core, retained
 
-| Technology | Repository version | Purpose in milestone 1 | Why |
-|---|---:|---|---|
-| Python | 3.13 | Policy, path resolution, scanners, APIs, migrations | Already owns every filesystem and scan path. `pathlib`, `os`, and `stat` are sufficient for canonical containment and symlink checks. |
-| FastAPI | 0.134.x | Admin root/mapping/browser/preview APIs | Preserves authentication, permission decorators, Pydantic validation, and the authoritative OpenAPI contract. |
-| SQLAlchemy | 2.0.x | Storage root, mapping, and audit persistence | Existing repository pattern and portable across MariaDB, MySQL, and PostgreSQL. |
-| Alembic | 1.16.x | Additive schema migration and legacy-layout bridge | Existing cross-dialect migration mechanism and CI path. |
-| Pydantic | 2.11.x | Strict relative-path request and response schemas | Reject malformed mappings before resolution and generates frontend types. |
-| Redis and RQ | Redis protocol, RQ 2.7.x | Existing scan jobs and progress only | Reuse scan orchestration. Root and mapping truth belongs in SQL, not Redis. |
-| Vue | 3.4+ | v2-only administration workflow | Active frontend and established component/composable conventions. |
-| TypeScript | 5.7 | Generated contracts and v2 state | Prevents handwritten API-shape drift. |
-| Vite | 8 | Frontend build after v1 deletion | Existing build and test toolchain. |
-| Vuetify, v2 `R*` primitives and tokens | Vuetify 3.9+ | Folder browser, mapping forms, preview states | Preserve RomM interaction/accessibility patterns while applying the derived Team4s visual principles. |
-| Pinia and Vue Router | Pinia 3, Router 4.3+ | Admin state and v2 routes | Existing app state and routing; remove named-view duality rather than replacing routing. |
-| pytest, Hypothesis, Vitest, Storybook, Playwright | Repository pinned | Security and UI verification | Already support filesystem property tests, API tests, component states, and full workflows. |
-| Docker Compose and read-only bind mount | Existing deployment | OS-level archive protection | Mount the single approved NAS root at `/romm/library:ro`; application policy remains an independent control. |
+| Technology                                        |       Repository version | Purpose in milestone 1                              | Why                                                                                                                                   |
+| ------------------------------------------------- | -----------------------: | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Python                                            |                     3.13 | Policy, path resolution, scanners, APIs, migrations | Already owns every filesystem and scan path. `pathlib`, `os`, and `stat` are sufficient for canonical containment and symlink checks. |
+| FastAPI                                           |                  0.134.x | Admin root/mapping/browser/preview APIs             | Preserves authentication, permission decorators, Pydantic validation, and the authoritative OpenAPI contract.                         |
+| SQLAlchemy                                        |                    2.0.x | Storage root, mapping, and audit persistence        | Existing repository pattern and portable across MariaDB, MySQL, and PostgreSQL.                                                       |
+| Alembic                                           |                   1.16.x | Additive schema migration and legacy-layout bridge  | Existing cross-dialect migration mechanism and CI path.                                                                               |
+| Pydantic                                          |                   2.11.x | Strict relative-path request and response schemas   | Reject malformed mappings before resolution and generates frontend types.                                                             |
+| Redis and RQ                                      | Redis protocol, RQ 2.7.x | Existing scan jobs and progress only                | Reuse scan orchestration. Root and mapping truth belongs in SQL, not Redis.                                                           |
+| Vue                                               |                     3.4+ | v2-only administration workflow                     | Active frontend and established component/composable conventions.                                                                     |
+| TypeScript                                        |                      5.7 | Generated contracts and v2 state                    | Prevents handwritten API-shape drift.                                                                                                 |
+| Vite                                              |                        8 | Frontend build after v1 deletion                    | Existing build and test toolchain.                                                                                                    |
+| Vuetify, v2 `R*` primitives and tokens            |             Vuetify 3.9+ | Folder browser, mapping forms, preview states       | Preserve RomM interaction/accessibility patterns while applying the derived Team4s visual principles.                                 |
+| Pinia and Vue Router                              |     Pinia 3, Router 4.3+ | Admin state and v2 routes                           | Existing app state and routing; remove named-view duality rather than replacing routing.                                              |
+| pytest, Hypothesis, Vitest, Storybook, Playwright |        Repository pinned | Security and UI verification                        | Already support filesystem property tests, API tests, component states, and full workflows.                                           |
+| Docker Compose and read-only bind mount           |      Existing deployment | OS-level archive protection                         | Mount the single approved NAS root at `/romm/library:ro`; application policy remains an independent control.                          |
 
 ### New domain components, no new dependency required
 
-| Component | Recommended implementation | Responsibility |
-|---|---|---|
-| Storage root model | SQLAlchemy model with immutable kind `external_read_only`, stable container mount path, timestamps | Represents approved roots. Do not persist NAS host paths in mappings. For milestone 1, reject kind changes rather than model a writable state. |
-| Platform mapping model | One active mapping per platform and root, normalized POSIX-style relative path, uniqueness constraint | Decouples platform identity from upstream `fs_slug` and fixed `roms/{platform}` layouts. |
-| Mapping audit model | Append-only actor, timestamp, action, old value, new value | Makes mapping changes independently reviewable. Store structured scalar values rather than dialect-specific assumptions where portability is uncertain. |
-| Path resolver | Small central backend service using `pathlib.Path`, `os.lstat`/`stat`, explicit normalization and operation intent | Converts `(root_id, relative_path)` to a contained canonical path and is the only gateway to source bytes. |
-| Storage policy | Central enum/value object for operation classes and root capabilities | Allows read, enumerate, stat, hash, stream, and download. Denies create, upload, write, overwrite, rename, move, copy, delete, extract, patch, and mkdir before filesystem access. |
-| Root browser/preview endpoints | Thin FastAPI endpoints calling resolver, policy, scanner, and DB handlers | Lists directories only, tests a mapping, and returns a non-mutating scan preview. No generic arbitrary-path endpoint. |
-| v2 admin feature | `frontend/src/v2/` feature components plus existing `R*` primitives, API service, i18n, and generated types | Provides root status, constrained directory navigation, mapping validation, and explicit preview results. |
+| Component                      | Recommended implementation                                                                                         | Responsibility                                                                                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Storage root model             | SQLAlchemy model with immutable kind `external_read_only`, stable container mount path, timestamps                 | Represents approved roots. Do not persist NAS host paths in mappings. For milestone 1, reject kind changes rather than model a writable state.                                     |
+| Platform mapping model         | One active mapping per platform and root, normalized POSIX-style relative path, uniqueness constraint              | Decouples platform identity from upstream `fs_slug` and fixed `roms/{platform}` layouts.                                                                                           |
+| Mapping audit model            | Append-only actor, timestamp, action, old value, new value                                                         | Makes mapping changes independently reviewable. Store structured scalar values rather than dialect-specific assumptions where portability is uncertain.                            |
+| Path resolver                  | Small central backend service using `pathlib.Path`, `os.lstat`/`stat`, explicit normalization and operation intent | Converts `(root_id, relative_path)` to a contained canonical path and is the only gateway to source bytes.                                                                         |
+| Storage policy                 | Central enum/value object for operation classes and root capabilities                                              | Allows read, enumerate, stat, hash, stream, and download. Denies create, upload, write, overwrite, rename, move, copy, delete, extract, patch, and mkdir before filesystem access. |
+| Root browser/preview endpoints | Thin FastAPI endpoints calling resolver, policy, scanner, and DB handlers                                          | Lists directories only, tests a mapping, and returns a non-mutating scan preview. No generic arbitrary-path endpoint.                                                              |
+| v2 admin feature               | `frontend/src/v2/` feature components plus existing `R*` primitives, API service, i18n, and generated types        | Provides root status, constrained directory navigation, mapping validation, and explicit preview results.                                                                          |
 
 ## Implementation Approach
 
@@ -95,16 +95,16 @@ Build new storage UI under `frontend/src/v2/` with existing primitives and input
 
 ## Alternatives Considered
 
-| Category | Recommended | Alternative | Why not |
-|---|---|---|---|
-| Filesystem abstraction | Focused resolver plus policy service | pyfilesystem2/fsspec | Adds a broad virtual filesystem API, including mutation concepts, without improving the local Linux containment boundary. |
-| Root configuration | Stable container path plus SQL identity/capability | Store NAS host path per mapping | Leaks deployment details, prevents portable containers, and violates the relative-mapping requirement. |
-| Platform mapping | Dedicated relation | Overload `Platform.fs_slug` | Conflates metadata slug, legacy layout, and user-owned folder name, making migration and audit difficult. |
-| Read-only enforcement | App policy plus Docker `:ro` | Docker mount only | Produces late OS errors and leaves behavior dependent on deployment correctness. |
-| Audit | Append-only SQL records | Application logs only | Logs are difficult to query, relate, and retain as domain history. |
-| Preview | Reuse scanner discovery in a dry-run result type | Scan then roll back DB transaction | Filesystem and job side effects are not reliably undone by a DB rollback. |
-| Frontend | Existing Vue v2 stack | React components copied from Team4s | Breaks repository architecture and imports another product's implementation rather than deriving design principles. |
-| v1 removal | Delete dual composition and verify shared imports | Leave hidden v1 routes | Retains compatibility code, dependencies, and test surface contrary to the fork contract. |
+| Category               | Recommended                                        | Alternative                         | Why not                                                                                                                   |
+| ---------------------- | -------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Filesystem abstraction | Focused resolver plus policy service               | pyfilesystem2/fsspec                | Adds a broad virtual filesystem API, including mutation concepts, without improving the local Linux containment boundary. |
+| Root configuration     | Stable container path plus SQL identity/capability | Store NAS host path per mapping     | Leaks deployment details, prevents portable containers, and violates the relative-mapping requirement.                    |
+| Platform mapping       | Dedicated relation                                 | Overload `Platform.fs_slug`         | Conflates metadata slug, legacy layout, and user-owned folder name, making migration and audit difficult.                 |
+| Read-only enforcement  | App policy plus Docker `:ro`                       | Docker mount only                   | Produces late OS errors and leaves behavior dependent on deployment correctness.                                          |
+| Audit                  | Append-only SQL records                            | Application logs only               | Logs are difficult to query, relate, and retain as domain history.                                                        |
+| Preview                | Reuse scanner discovery in a dry-run result type   | Scan then roll back DB transaction  | Filesystem and job side effects are not reliably undone by a DB rollback.                                                 |
+| Frontend               | Existing Vue v2 stack                              | React components copied from Team4s | Breaks repository architecture and imports another product's implementation rather than deriving design principles.       |
+| v1 removal             | Delete dual composition and verify shared imports  | Leave hidden v1 routes              | Retains compatibility code, dependencies, and test surface contrary to the fork contract.                                 |
 
 ## Verification Stack
 

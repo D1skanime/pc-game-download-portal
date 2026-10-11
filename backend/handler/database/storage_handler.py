@@ -148,7 +148,7 @@ class DBStorageHandler(DBBaseHandler):
         relative_path: str,
         exclude_mapping_id: int | None = None,
     ) -> tuple[StorageRoot, str]:
-        relative_path = normalize_relative_path(relative_path)
+        relative_path = normalize_relative_path(relative_path, allow_root=True)
         roots = session.scalars(
             select(StorageRoot)
             .where(StorageRoot.active.is_(True))

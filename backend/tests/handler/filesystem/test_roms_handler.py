@@ -1963,6 +1963,28 @@ class TestPcComponentManifests:
             (component.relative_path, component.kind) for component in components
         ] == [("dlc/bonus-pack", RomComponentKind.DLC)]
 
+    @pytest.mark.asyncio
+    async def test_ost_directory_is_not_promoted_to_pc_component(self, tmp_path: Path):
+        root = tmp_path / "roms" / "win" / "Example Game"
+        (root / "OST").mkdir(parents=True)
+        (root / "OST" / "theme.mp3").write_bytes(b"music")
+        (root / "dlc" / "bonus").mkdir(parents=True)
+        (root / "dlc" / "bonus" / "content.bin").write_bytes(b"dlc")
+
+        handler = FSRomsHandler(_create_external_descriptor(1, tmp_path, mapping_id=1))
+        rom = Rom(
+            id=1,
+            fs_name="Example Game",
+            fs_path="roms/win",
+            platform=Platform(name="Windows", slug="win", fs_slug="win"),
+        )
+
+        components = await handler.get_pc_components(rom)
+
+        assert [(item.relative_path, item.kind) for item in components] == [
+            ("dlc/bonus", RomComponentKind.DLC)
+        ]
+
     def test_ambiguous_or_traversal_component_paths_are_not_classified(self):
         """Weak names and traversal must not become component authority."""
         assert parse_pc_component_layout("mods") == RomComponentKind.UNRESOLVED

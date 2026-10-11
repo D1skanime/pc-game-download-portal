@@ -13,7 +13,12 @@ provides:
 affects: [01-04, 01-05, storage-policy, platform-mapping, filesystem-consumers]
 tech-stack:
   added: []
-  patterns: [lstat component walk, strict canonical containment, permission observation without write probes]
+  patterns:
+    [
+      lstat component walk,
+      strict canonical containment,
+      permission observation without write probes,
+    ]
 key-files:
   created: []
   modified:
@@ -70,6 +75,7 @@ completed: 2026-08-04
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] Corrected sibling-prefix fixture setup**
+
 - **Found during:** Task 2 (canonical containment verification)
 - **Issue:** The fixture omitted the lexical target, so resolution stopped at missing-target validation before exercising containment.
 - **Fix:** Created the target directory before substituting the canonical sibling result.
@@ -107,5 +113,6 @@ None.
 - Resolver and storage-model verification passes: 54 tests.
 
 ---
-*Phase: 01-immutable-storage-foundation*
-*Completed: 2026-08-04*
+
+_Phase: 01-immutable-storage-foundation_
+_Completed: 2026-08-04_

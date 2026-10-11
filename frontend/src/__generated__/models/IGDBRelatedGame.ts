@@ -8,5 +8,6 @@ export type IGDBRelatedGame = {
     slug: string;
     type: string;
     cover_url: string;
+    steam_id?: number;
 };
 

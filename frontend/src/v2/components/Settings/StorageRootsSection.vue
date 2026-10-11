@@ -78,6 +78,15 @@ onMounted(() => void load());
           }}
         </p>
       </div>
+      <RBtn
+        v-if="canAdmin"
+        variant="outlined"
+        color="primary"
+        :loading="bootstrapping"
+        @click="bootstrapLegacy"
+      >
+        {{ t("storage.reconcile-legacy", "Reconcile legacy library") }}
+      </RBtn>
     </div>
 
     <RAlert v-if="!canAdmin" type="info">

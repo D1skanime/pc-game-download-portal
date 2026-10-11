@@ -5,6 +5,7 @@
 **Confidence:** HIGH
 
 <user_constraints>
+
 ## User Constraints (from CONTEXT.md)
 
 ### Locked Decisions
@@ -85,24 +86,25 @@
 - Complete v1 removal: Phase 8.
 - Production-like nginx, worker, real NAS, atime, and full immutability evidence: Phase 9.
 - PC components, manifests, resumable downloads, Windows client work, uploads, source reorganization, ZIP redesign, and install planning: later milestones.
-</user_constraints>
+  </user_constraints>
 
 <phase_requirements>
+
 ## Phase Requirements
 
-| ID | Description | Research Support |
-|----|-------------|------------------|
-| ROOT-01 | Register one deployment-mounted NAS root as active. | Add `StorageRoot`; registration persists configuration only and health-inspects without creation. |
-| ROOT-02 | External roots only use `external_read_only`. | Persist a stable string with a model default and DB constraint; expose no writable enum value. |
-| ROOT-03 | Report reachability, readability, non-writability, and check time without creation. | Pure `stat`/directory-open/access inspection plus bounded persisted health fields. |
-| ROOT-04 | Keep deployment container root separate from relative mappings. | Separate root and mapping tables joined by FK. |
-| PATH-01 | Accept normalized relative paths and reject cross-dialect escape forms. | A pure lexical normalization stage precedes filesystem calls. |
-| PATH-02 | Canonicalize and prove post-symlink containment. | `resolve(strict=True)` plus `relative_to`, then component `lstat` rejection. |
-| PATH-03 | Accept only readable existing directories under active roots. | Typed resolver preconditions and domain errors. |
-| PATH-04 | Support normal Unicode/nested names without string-prefix checks. | Preserve segment text and use path-aware containment. |
-| PATH-05 | Reject symlinks by default. | Reject root and every candidate component identified by `lstat`. |
-| TEST-01 | Cover adversarial path classes. | Dedicated real-filesystem resolver and health test matrix, including no-mutation snapshots. |
-</phase_requirements>
+| ID                    | Description                                                                         | Research Support                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| ROOT-01               | Register one deployment-mounted NAS root as active.                                 | Add `StorageRoot`; registration persists configuration only and health-inspects without creation. |
+| ROOT-02               | External roots only use `external_read_only`.                                       | Persist a stable string with a model default and DB constraint; expose no writable enum value.    |
+| ROOT-03               | Report reachability, readability, non-writability, and check time without creation. | Pure `stat`/directory-open/access inspection plus bounded persisted health fields.                |
+| ROOT-04               | Keep deployment container root separate from relative mappings.                     | Separate root and mapping tables joined by FK.                                                    |
+| PATH-01               | Accept normalized relative paths and reject cross-dialect escape forms.             | A pure lexical normalization stage precedes filesystem calls.                                     |
+| PATH-02               | Canonicalize and prove post-symlink containment.                                    | `resolve(strict=True)` plus `relative_to`, then component `lstat` rejection.                      |
+| PATH-03               | Accept only readable existing directories under active roots.                       | Typed resolver preconditions and domain errors.                                                   |
+| PATH-04               | Support normal Unicode/nested names without string-prefix checks.                   | Preserve segment text and use path-aware containment.                                             |
+| PATH-05               | Reject symlinks by default.                                                         | Reject root and every candidate component identified by `lstat`.                                  |
+| TEST-01               | Cover adversarial path classes.                                                     | Dedicated real-filesystem resolver and health test matrix, including no-mutation snapshots.       |
+| </phase_requirements> |
 
 ## Summary
 
@@ -125,41 +127,41 @@ Build resolution as explicit stages: lexical validation, strict canonical root r
 
 ## Architectural Responsibility Map
 
-| Capability | Primary Tier | Secondary Tier | Rationale |
-|------------|-------------|----------------|-----------|
-| Root and mapping identity | Database / Storage | API / Backend | SQL owns durable identity; backend owns invariants. |
-| Root registration and health | API / Backend | Database / Storage | Handler performs non-mutating inspection and persists bounded state. |
-| Relative-path normalization | API / Backend | - | Pure server-side validation must precede filesystem access. |
-| Canonical containment and symlink rejection | API / Backend | Database / Storage | Resolver combines trusted root identity with untrusted logical path. |
-| Uniqueness and overlap | Database / Storage | API / Backend | DB handles exact conflicts; handler handles path ancestry. |
-| Adversarial evidence | API / Backend | Database / Storage | Tests exercise real filesystem objects and portable schema. |
+| Capability                                  | Primary Tier       | Secondary Tier     | Rationale                                                            |
+| ------------------------------------------- | ------------------ | ------------------ | -------------------------------------------------------------------- |
+| Root and mapping identity                   | Database / Storage | API / Backend      | SQL owns durable identity; backend owns invariants.                  |
+| Root registration and health                | API / Backend      | Database / Storage | Handler performs non-mutating inspection and persists bounded state. |
+| Relative-path normalization                 | API / Backend      | -                  | Pure server-side validation must precede filesystem access.          |
+| Canonical containment and symlink rejection | API / Backend      | Database / Storage | Resolver combines trusted root identity with untrusted logical path. |
+| Uniqueness and overlap                      | Database / Storage | API / Backend      | DB handles exact conflicts; handler handles path ancestry.           |
+| Adversarial evidence                        | API / Backend      | Database / Storage | Tests exercise real filesystem objects and portable schema.          |
 
 ## Standard Stack
 
 ### Core
 
-| Library | Version | Purpose | Why Standard |
-|---------|---------|---------|--------------|
-| Python | `>=3.13` | `pathlib`, `os`, `stat`, typed errors | Already required; no new filesystem dependency is needed. [VERIFIED: `pyproject.toml`] |
-| SQLAlchemy | `~=2.0` project constraint | ORM entities, FKs, constraints, transactions | Existing persistence layer and supported dialect abstraction. [VERIFIED: `pyproject.toml`] |
-| Alembic | `~=1.16` project constraint | Additive schema migration | Existing migration system uses online/offline batch rendering. [VERIFIED: `pyproject.toml`, `backend/alembic/env.py`] |
-| pytest | `~=9.0` project constraint | Unit and migration verification | Existing async-enabled backend test framework. [VERIFIED: `pyproject.toml`, `backend/pytest.ini`] |
-| Hypothesis | `~=6.0` project constraint | Optional segment/property coverage | Already installed and suited to lexical normalization invariants. [VERIFIED: `pyproject.toml`] |
+| Library    | Version                     | Purpose                                      | Why Standard                                                                                                          |
+| ---------- | --------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Python     | `>=3.13`                    | `pathlib`, `os`, `stat`, typed errors        | Already required; no new filesystem dependency is needed. [VERIFIED: `pyproject.toml`]                                |
+| SQLAlchemy | `~=2.0` project constraint  | ORM entities, FKs, constraints, transactions | Existing persistence layer and supported dialect abstraction. [VERIFIED: `pyproject.toml`]                            |
+| Alembic    | `~=1.16` project constraint | Additive schema migration                    | Existing migration system uses online/offline batch rendering. [VERIFIED: `pyproject.toml`, `backend/alembic/env.py`] |
+| pytest     | `~=9.0` project constraint  | Unit and migration verification              | Existing async-enabled backend test framework. [VERIFIED: `pyproject.toml`, `backend/pytest.ini`]                     |
+| Hypothesis | `~=6.0` project constraint  | Optional segment/property coverage           | Already installed and suited to lexical normalization invariants. [VERIFIED: `pyproject.toml`]                        |
 
 ### Supporting
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| stdlib `pathlib` | Python 3.13 | Strict canonicalization and path-aware containment | Every resolution after lexical validation. [CITED: https://docs.python.org/3.13/library/pathlib.html] |
+| Library            | Version     | Purpose                                                                 | When to Use                                                                                                        |
+| ------------------ | ----------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| stdlib `pathlib`   | Python 3.13 | Strict canonicalization and path-aware containment                      | Every resolution after lexical validation. [CITED: https://docs.python.org/3.13/library/pathlib.html]              |
 | stdlib `os`/`stat` | Python 3.13 | `lstat`, permission observation, optional descriptor-relative prototype | Symlink checks and health observation. [CITED: https://docs.python.org/3.13/library/os.html#files-and-directories] |
 
 ### Alternatives Considered
 
-| Instead of | Could Use | Tradeoff |
-|------------|-----------|----------|
-| Standalone storage resolver | Subclass `FSHandler` | Rejected because inherited initialization and public methods carry mutation capability. [VERIFIED: `backend/handler/filesystem/base_handler.py`] |
-| String mode with DB check | Native DB enum | Native enum migration/drop behavior differs across PostgreSQL and MySQL; a bounded string is simpler for the single locked value. [VERIFIED: `backend/alembic/versions/0062_rom_file_category_enum.py`] |
-| Path-aware containment | `str.startswith` | Prefixes confuse siblings such as `/library` and `/library-old`; `relative_to` expresses component containment. [CITED: https://docs.python.org/3.13/library/pathlib.html#pathlib.PurePath.relative_to] |
+| Instead of                  | Could Use            | Tradeoff                                                                                                                                                                                                |
+| --------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Standalone storage resolver | Subclass `FSHandler` | Rejected because inherited initialization and public methods carry mutation capability. [VERIFIED: `backend/handler/filesystem/base_handler.py`]                                                        |
+| String mode with DB check   | Native DB enum       | Native enum migration/drop behavior differs across PostgreSQL and MySQL; a bounded string is simpler for the single locked value. [VERIFIED: `backend/alembic/versions/0062_rom_file_category_enum.py`] |
+| Path-aware containment      | `str.startswith`     | Prefixes confuse siblings such as `/library` and `/library-old`; `relative_to` expresses component containment. [CITED: https://docs.python.org/3.13/library/pathlib.html#pathlib.PurePath.relative_to] |
 
 **Installation:** No new package installation. [VERIFIED: repository stack]
 
@@ -176,7 +178,7 @@ deployment container path + logical relative path
              |
              v
        lexical normalizer
-  reject absolute/drive/UNC/control/empty/.. 
+  reject absolute/drive/UNC/control/empty/..
              |
              v
  strict root resolve -> component lstat -> reject any symlink
@@ -264,12 +266,12 @@ Ancestor/descendant overlap must normalize both paths first and compare path par
 
 ## Don't Hand-Roll
 
-| Problem | Don't Build | Use Instead | Why |
-|---------|-------------|-------------|-----|
-| Canonical path semantics | String splitting/prefix containment | `PurePosixPath`, `PureWindowsPath`, `Path.resolve`, `Path.relative_to` | Handles path components and cross-dialect classification. [CITED: Python pathlib docs] |
-| Referential integrity | Application-only root/platform checks | SQL FK and unique constraints | Protects concurrent and non-handler writes. [CITED: SQLAlchemy constraints docs] |
-| Transactions | Ad hoc sessions/commits | Existing `@begin_session` handler pattern | Matches repository lifecycle. [VERIFIED: backend skill and DB handlers] |
-| Test data generation | Custom random path generator | Hypothesis strategies where useful | Already in the project development stack. [VERIFIED: `pyproject.toml`] |
+| Problem                  | Don't Build                           | Use Instead                                                            | Why                                                                                    |
+| ------------------------ | ------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Canonical path semantics | String splitting/prefix containment   | `PurePosixPath`, `PureWindowsPath`, `Path.resolve`, `Path.relative_to` | Handles path components and cross-dialect classification. [CITED: Python pathlib docs] |
+| Referential integrity    | Application-only root/platform checks | SQL FK and unique constraints                                          | Protects concurrent and non-handler writes. [CITED: SQLAlchemy constraints docs]       |
+| Transactions             | Ad hoc sessions/commits               | Existing `@begin_session` handler pattern                              | Matches repository lifecycle. [VERIFIED: backend skill and DB handlers]                |
+| Test data generation     | Custom random path generator          | Hypothesis strategies where useful                                     | Already in the project development stack. [VERIFIED: `pyproject.toml`]                 |
 
 **Key insight:** The custom code should only express RomM's domain contract. Filesystem primitives, relational constraints, and transaction management already exist and should remain the security substrate. [VERIFIED: standard library and project stack]
 
@@ -383,12 +385,12 @@ __table_args__ = (
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-|--------------|------------------|--------------|--------|
-| `FSHandler` creates base path in constructor | Separate non-mutating resolver | Phase 1 | Missing mount fails closed instead of being bootstrapped. [VERIFIED: phase scope] |
-| `fs_slug` plus Structure A/B inference | Explicit root plus relative mapping | Phase 1 schema; consumer cutover Phase 5 | Existing archive organization becomes authoritative. [VERIFIED: roadmap] |
-| Lexical allowance for configured symlinks | Reject every symlink for external roots | Phase 1 | Removes escape ambiguity; later exception requires a new decision. [VERIFIED: D-22] |
-| Fixed `LIBRARY_BASE_PATH` as identity | Persistent deployment-owned root identity | Phase 1 | Supports future multiple roots without storing host paths in mappings. [VERIFIED: D-08] |
+| Old Approach                                 | Current Approach                          | When Changed                             | Impact                                                                                  |
+| -------------------------------------------- | ----------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| `FSHandler` creates base path in constructor | Separate non-mutating resolver            | Phase 1                                  | Missing mount fails closed instead of being bootstrapped. [VERIFIED: phase scope]       |
+| `fs_slug` plus Structure A/B inference       | Explicit root plus relative mapping       | Phase 1 schema; consumer cutover Phase 5 | Existing archive organization becomes authoritative. [VERIFIED: roadmap]                |
+| Lexical allowance for configured symlinks    | Reject every symlink for external roots   | Phase 1                                  | Removes escape ambiguity; later exception requires a new decision. [VERIFIED: D-22]     |
+| Fixed `LIBRARY_BASE_PATH` as identity        | Persistent deployment-owned root identity | Phase 1                                  | Supports future multiple roots without storing host paths in mappings. [VERIFIED: D-08] |
 
 **Deprecated/outdated:**
 
@@ -397,13 +399,13 @@ __table_args__ = (
 
 ## Assumptions Log
 
-| # | Claim | Section | Risk if Wrong |
-|---|-------|---------|---------------|
-| A1 | URL decoding is excluded from the resolver layer. | Pattern 1 | Phase 3 transport tests may require a shared decoding boundary. |
-| A2 | `container_path` should be unique. | Pattern 4 | Duplicate root records might be a supported future aliasing use case. |
-| A3 | Locking every active StorageRoot row in deterministic ID order serializes mapping overlap checks while Phase 1 root registration remains deployment-initialization-only. | Pattern 4 | Concurrent active-root registration would need the same lock contract in a later administration phase. |
-| A4 | Raw normalization edge examples behave as described across accepted inputs. | Pitfall 1 | Test matrix must settle exact accepted dot/empty semantics. |
-| A5 | Root symlinks should be rejected as part of D-22. | Pitfall 2 | Deployment may rely on a symlinked mount point, requiring explicit user decision. |
+| #   | Claim                                                                                                                                                                    | Section   | Risk if Wrong                                                                                          |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------ |
+| A1  | URL decoding is excluded from the resolver layer.                                                                                                                        | Pattern 1 | Phase 3 transport tests may require a shared decoding boundary.                                        |
+| A2  | `container_path` should be unique.                                                                                                                                       | Pattern 4 | Duplicate root records might be a supported future aliasing use case.                                  |
+| A3  | Locking every active StorageRoot row in deterministic ID order serializes mapping overlap checks while Phase 1 root registration remains deployment-initialization-only. | Pattern 4 | Concurrent active-root registration would need the same lock contract in a later administration phase. |
+| A4  | Raw normalization edge examples behave as described across accepted inputs.                                                                                              | Pitfall 1 | Test matrix must settle exact accepted dot/empty semantics.                                            |
+| A5  | Root symlinks should be rejected as part of D-22.                                                                                                                        | Pitfall 2 | Deployment may rely on a symlinked mount point, requiring explicit user decision.                      |
 
 ## Open Questions (RESOLVED)
 
@@ -424,13 +426,13 @@ __table_args__ = (
 
 ## Environment Availability
 
-| Dependency | Required By | Available | Version | Fallback |
-|------------|------------|-----------|---------|----------|
-| Python project runtime | Resolver/tests | Project declares yes | `>=3.13` | Use project `uv` environment, not host Python 3.10. [VERIFIED: `pyproject.toml`; environment probe] |
-| uv | Tests/migrations | Available through project workflow | repository-managed | None needed. [VERIFIED: `CLAUDE.md`] |
-| MariaDB | Migration CI | Repository CI/config | supported target | CI service. [VERIFIED: backend skill] |
-| PostgreSQL | Migration CI | Repository CI/config | supported target | CI service. [VERIFIED: backend skill] |
-| MySQL | Portability target | Docker image available through repository Docker workflows | `mysql:8.4` | Repository verifier starts an ephemeral MySQL container and CI executes the same migration cycle. [RESOLVED: `CLAUDE.md`, Docker/CI pattern] |
+| Dependency             | Required By        | Available                                                  | Version            | Fallback                                                                                                                                     |
+| ---------------------- | ------------------ | ---------------------------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Python project runtime | Resolver/tests     | Project declares yes                                       | `>=3.13`           | Use project `uv` environment, not host Python 3.10. [VERIFIED: `pyproject.toml`; environment probe]                                          |
+| uv                     | Tests/migrations   | Available through project workflow                         | repository-managed | None needed. [VERIFIED: `CLAUDE.md`]                                                                                                         |
+| MariaDB                | Migration CI       | Repository CI/config                                       | supported target   | CI service. [VERIFIED: backend skill]                                                                                                        |
+| PostgreSQL             | Migration CI       | Repository CI/config                                       | supported target   | CI service. [VERIFIED: backend skill]                                                                                                        |
+| MySQL                  | Portability target | Docker image available through repository Docker workflows | `mysql:8.4`        | Repository verifier starts an ephemeral MySQL container and CI executes the same migration cycle. [RESOLVED: `CLAUDE.md`, Docker/CI pattern] |
 
 **Missing dependencies with no fallback:** None identified for planning. [VERIFIED: repository stack]
 
@@ -440,27 +442,27 @@ __table_args__ = (
 
 ### Test Framework
 
-| Property | Value |
-|----------|-------|
-| Framework | pytest `~=9.0`, pytest-asyncio `~=1.1`, Hypothesis `~=6.0` [VERIFIED: `pyproject.toml`] |
-| Config file | `backend/pytest.ini` [VERIFIED: repository] |
-| Quick run command | `cd backend && uv run pytest tests/handler/filesystem/test_storage_resolver.py tests/models/test_storage.py -x` |
+| Property           | Value                                                                                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework          | pytest `~=9.0`, pytest-asyncio `~=1.1`, Hypothesis `~=6.0` [VERIFIED: `pyproject.toml`]                                                                        |
+| Config file        | `backend/pytest.ini` [VERIFIED: repository]                                                                                                                    |
+| Quick run command  | `cd backend && uv run pytest tests/handler/filesystem/test_storage_resolver.py tests/models/test_storage.py -x`                                                |
 | Full phase command | `cd backend && uv run pytest tests/handler/filesystem/test_storage_resolver.py tests/handler/database/test_storage_handler.py tests/models/test_storage.py -x` |
 
 ### Phase Requirements to Test Map
 
-| Req ID | Behavior | Test Type | Automated Command | File Exists? |
-|--------|----------|-----------|-------------------|-------------|
-| ROOT-01 | Existing root registers active without creation | integration/unit | `uv run pytest tests/handler/database/test_storage_handler.py -k register -x` | No, Wave 0 |
-| ROOT-02 | Only immutable mode persists | model/migration | `uv run pytest tests/models/test_storage.py -k mode -x` | No, Wave 0 |
-| ROOT-03 | Health is bounded and non-mutating | real-filesystem unit | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k health -x` | No, Wave 0 |
-| ROOT-04 | Mapping stores FK plus relative text only | model/migration | `uv run pytest tests/models/test_storage.py -k mapping -x` | No, Wave 0 |
-| PATH-01 | Reject invalid lexical forms | parameterized/property unit | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k normalize -x` | No, Wave 0 |
-| PATH-02 | Canonical containment | real-filesystem unit | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k containment -x` | No, Wave 0 |
-| PATH-03 | Active/existing/readable/directory checks | real-filesystem unit | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k target -x` | No, Wave 0 |
-| PATH-04 | Unicode, spaces, long and nested names | parameterized unit | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k valid_names -x` | No, Wave 0 |
-| PATH-05 | Root/intermediate/leaf links rejected | real-filesystem unit | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k symlink -x` | No, Wave 0 |
-| TEST-01 | Complete adversarial matrix | suite gate | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -x` | No, Wave 0 |
+| Req ID  | Behavior                                        | Test Type                   | Automated Command                                                                   | File Exists? |
+| ------- | ----------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------- | ------------ |
+| ROOT-01 | Existing root registers active without creation | integration/unit            | `uv run pytest tests/handler/database/test_storage_handler.py -k register -x`       | No, Wave 0   |
+| ROOT-02 | Only immutable mode persists                    | model/migration             | `uv run pytest tests/models/test_storage.py -k mode -x`                             | No, Wave 0   |
+| ROOT-03 | Health is bounded and non-mutating              | real-filesystem unit        | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k health -x`      | No, Wave 0   |
+| ROOT-04 | Mapping stores FK plus relative text only       | model/migration             | `uv run pytest tests/models/test_storage.py -k mapping -x`                          | No, Wave 0   |
+| PATH-01 | Reject invalid lexical forms                    | parameterized/property unit | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k normalize -x`   | No, Wave 0   |
+| PATH-02 | Canonical containment                           | real-filesystem unit        | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k containment -x` | No, Wave 0   |
+| PATH-03 | Active/existing/readable/directory checks       | real-filesystem unit        | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k target -x`      | No, Wave 0   |
+| PATH-04 | Unicode, spaces, long and nested names          | parameterized unit          | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k valid_names -x` | No, Wave 0   |
+| PATH-05 | Root/intermediate/leaf links rejected           | real-filesystem unit        | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -k symlink -x`     | No, Wave 0   |
+| TEST-01 | Complete adversarial matrix                     | suite gate                  | `uv run pytest tests/handler/filesystem/test_storage_resolver.py -x`                | No, Wave 0   |
 
 ### Required test matrix
 
@@ -492,24 +494,24 @@ Unreadability tests should run under a non-root identity or mock only the permis
 
 ### Applicable ASVS Categories
 
-| ASVS Category | Applies | Standard Control |
-|---------------|---------|-----------------|
-| V2 Authentication | No | No API in Phase 1. [VERIFIED: phase boundary] |
-| V3 Session Management | No | No API in Phase 1. [VERIFIED: phase boundary] |
-| V4 Access Control | Yes | Trusted storage-root identity plus active/mode checks before resolution. [VERIFIED: D-17, D-18] |
-| V5 Input Validation | Yes | Pure normalization, typed errors, canonical containment, real-filesystem tests. [VERIFIED: PATH-01 through PATH-05] |
-| V6 Cryptography | No | No cryptographic operation in Phase 1. [VERIFIED: phase boundary] |
+| ASVS Category         | Applies | Standard Control                                                                                                    |
+| --------------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| V2 Authentication     | No      | No API in Phase 1. [VERIFIED: phase boundary]                                                                       |
+| V3 Session Management | No      | No API in Phase 1. [VERIFIED: phase boundary]                                                                       |
+| V4 Access Control     | Yes     | Trusted storage-root identity plus active/mode checks before resolution. [VERIFIED: D-17, D-18]                     |
+| V5 Input Validation   | Yes     | Pure normalization, typed errors, canonical containment, real-filesystem tests. [VERIFIED: PATH-01 through PATH-05] |
+| V6 Cryptography       | No      | No cryptographic operation in Phase 1. [VERIFIED: phase boundary]                                                   |
 
 ### Known Threat Patterns for Python/SQLAlchemy storage
 
-| Pattern | STRIDE | Standard Mitigation |
-|---------|--------|---------------------|
-| Path traversal/cross-dialect absolute input | Tampering / Information Disclosure | Raw lexical rejection plus canonical path containment. [CITED: Python pathlib docs] |
-| Symlink escape | Tampering / Information Disclosure | Reject links at root and every component using `lstat`, then strict resolve. [CITED: Python os/pathlib docs] |
-| TOCTOU component replacement | Tampering | Declare point-in-time resolver limit; later opens use descriptor-relative no-follow semantics. [CITED: Python os docs] |
-| Error path disclosure | Information Disclosure | Translate `OSError` into bounded codes/messages without unrelated absolute paths. [VERIFIED: D-24] |
-| Concurrent duplicate or cross-root overlapping mapping | Tampering | In one transaction, lock all active StorageRoot rows by ascending ID with `SELECT FOR UPDATE`, compare and recheck canonical targets, then insert; uniqueness remains an exact-collision backstop. [CITED: SQLAlchemy ORM query guide; SQLAlchemy constraints docs] |
-| Health write probe | Tampering | Metadata/read-only operations and before/after manifest. [VERIFIED: D-05, D-31] |
+| Pattern                                                | STRIDE                             | Standard Mitigation                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path traversal/cross-dialect absolute input            | Tampering / Information Disclosure | Raw lexical rejection plus canonical path containment. [CITED: Python pathlib docs]                                                                                                                                                                                 |
+| Symlink escape                                         | Tampering / Information Disclosure | Reject links at root and every component using `lstat`, then strict resolve. [CITED: Python os/pathlib docs]                                                                                                                                                        |
+| TOCTOU component replacement                           | Tampering                          | Declare point-in-time resolver limit; later opens use descriptor-relative no-follow semantics. [CITED: Python os docs]                                                                                                                                              |
+| Error path disclosure                                  | Information Disclosure             | Translate `OSError` into bounded codes/messages without unrelated absolute paths. [VERIFIED: D-24]                                                                                                                                                                  |
+| Concurrent duplicate or cross-root overlapping mapping | Tampering                          | In one transaction, lock all active StorageRoot rows by ascending ID with `SELECT FOR UPDATE`, compare and recheck canonical targets, then insert; uniqueness remains an exact-collision backstop. [CITED: SQLAlchemy ORM query guide; SQLAlchemy constraints docs] |
+| Health write probe                                     | Tampering                          | Metadata/read-only operations and before/after manifest. [VERIFIED: D-05, D-31]                                                                                                                                                                                     |
 
 ## What Might Have Been Missed
 

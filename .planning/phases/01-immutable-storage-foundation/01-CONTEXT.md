@@ -84,6 +84,7 @@ This phase does not cut scanners, watchers, downloads, lifecycle endpoints, or t
 </decisions>
 
 <canonical_refs>
+
 ## Canonical References
 
 **Downstream agents MUST read these before planning or implementing.**
@@ -156,5 +157,6 @@ This phase does not cut scanners, watchers, downloads, lifecycle endpoints, or t
 </deferred>
 
 ---
-*Phase: 01-immutable-storage-foundation*
-*Context gathered: 2026-08-04 via PRD Express Path*
+
+_Phase: 01-immutable-storage-foundation_
+_Context gathered: 2026-08-04 via PRD Express Path_

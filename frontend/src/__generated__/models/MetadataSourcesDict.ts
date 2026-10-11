@@ -18,3 +18,4 @@ export type MetadataSourcesDict = {
     HLTB_API_ENABLED: boolean;
     LIBRETRO_API_ENABLED: boolean;
 };
+

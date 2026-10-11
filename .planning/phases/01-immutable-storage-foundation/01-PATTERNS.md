@@ -10,20 +10,20 @@ Backend models, handlers, resolver, errors, migration, and tests only. No API, f
 
 ## File Classification
 
-| File | Role | Flow | Analog |
-|---|---|---|---|
-| `backend/models/storage.py` | model | CRUD | `backend/models/music.py` |
-| `backend/models/platform.py` | model | CRUD | same file |
-| `backend/handler/database/storage_handler.py` | service | CRUD/file-I-O | `platforms_handler.py` |
-| `backend/handler/database/__init__.py` | provider | request-response | same file |
-| `backend/handler/filesystem/storage_resolver.py` | service | file-I-O | `base_handler.py` (anti-analog) |
-| `backend/exceptions/storage_exceptions.py` | utility | errors | `fs_exceptions.py` |
-| `backend/alembic/env.py` | config | schema discovery | same file |
-| `backend/alembic/versions/0108_*.py` | migration | schema CRUD | `0102_music_playlists.py` |
-| `backend/tests/models/test_storage.py` | test | schema | `test_music_playlists_handler.py` |
-| `backend/tests/handler/database/test_storage_handler.py` | test | CRUD | `test_music_playlists_handler.py` |
-| `backend/tests/handler/filesystem/test_storage_resolver.py` | test | file-I-O | `test_base_handler.py` |
-| `backend/tests/conftest.py` | test config | cleanup | same file |
+| File                                                        | Role        | Flow             | Analog                            |
+| ----------------------------------------------------------- | ----------- | ---------------- | --------------------------------- |
+| `backend/models/storage.py`                                 | model       | CRUD             | `backend/models/music.py`         |
+| `backend/models/platform.py`                                | model       | CRUD             | same file                         |
+| `backend/handler/database/storage_handler.py`               | service     | CRUD/file-I-O    | `platforms_handler.py`            |
+| `backend/handler/database/__init__.py`                      | provider    | request-response | same file                         |
+| `backend/handler/filesystem/storage_resolver.py`            | service     | file-I-O         | `base_handler.py` (anti-analog)   |
+| `backend/exceptions/storage_exceptions.py`                  | utility     | errors           | `fs_exceptions.py`                |
+| `backend/alembic/env.py`                                    | config      | schema discovery | same file                         |
+| `backend/alembic/versions/0108_*.py`                        | migration   | schema CRUD      | `0102_music_playlists.py`         |
+| `backend/tests/models/test_storage.py`                      | test        | schema           | `test_music_playlists_handler.py` |
+| `backend/tests/handler/database/test_storage_handler.py`    | test        | CRUD             | `test_music_playlists_handler.py` |
+| `backend/tests/handler/filesystem/test_storage_resolver.py` | test        | file-I-O         | `test_base_handler.py`            |
+| `backend/tests/conftest.py`                                 | test config | cleanup          | same file                         |
 
 ## Pattern Assignments
 

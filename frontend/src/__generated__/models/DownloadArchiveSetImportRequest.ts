@@ -6,3 +6,4 @@ import type { DownloadArchiveSetRequest } from './DownloadArchiveSetRequest';
 export type DownloadArchiveSetImportRequest = {
     sets: Array<DownloadArchiveSetRequest>;
 };
+

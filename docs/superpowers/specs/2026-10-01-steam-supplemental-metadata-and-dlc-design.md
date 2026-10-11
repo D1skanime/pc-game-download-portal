@@ -25,8 +25,12 @@ values, and expose Steam DLC relationships for isolated browser UAT.
    IGDB and manual values remain authoritative.
 4. The PC component path persists DLC records after a durable parent identity.
    Provider errors and incomplete DLC details are non-destructive no-ops.
-5. The existing UI renders the stored fields and component relationships with
-   no source-library mutation.
+5. The first imported Steam artwork becomes the visible game cover when an
+   operator has not selected a cover. All imported Steam screenshots appear in
+   the game's overview gallery by default. The existing Media UI remains the
+   place to remove, suppress, select, or reorder candidates.
+6. Operator-selected cover and gallery choices remain authoritative and are
+   never replaced or reordered by a later Steam scan.
 
 ## Tags
 
@@ -39,6 +43,6 @@ provider endpoint and a dedicated provenance contract.
 - Unit tests cover empty-field enrichment, IGDB/manual preservation, malformed
   Steam data, and DLC provider failure isolation.
 - Isolated UAT scans Cyberpunk 2077 as a new PC game, verifies German Steam
-  metadata and Phantom Liberty as a related DLC, then verifies UPDATE and
-  COMPLETE preserve manual and IGDB values.
+  metadata, visible cover, overview gallery, and Phantom Liberty as a related
+  DLC, then verifies UPDATE and COMPLETE preserve manual and IGDB values.
 - The source fixture manifest is identical before and after all scans.

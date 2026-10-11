@@ -13,7 +13,8 @@ provides:
 affects: [phase-07-storage-administration-experience, ui-05]
 tech-stack:
   added: []
-  patterns: [alternate-index baseline isolation, live-export documentation gates]
+  patterns:
+    [alternate-index baseline isolation, live-export documentation gates]
 key-files:
   created:
     - .planning/phases/04-v2-storage-design-specification/04-03-BASELINE.txt

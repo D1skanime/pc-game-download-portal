@@ -13,7 +13,12 @@ provides:
 affects: [01-03, 01-04, 01-05, storage-resolver, platform-mapping]
 tech-stack:
   added: []
-  patterns: [raw-text validation before path composition, bounded domain errors, exact Unicode preservation]
+  patterns:
+    [
+      raw-text validation before path composition,
+      bounded domain errors,
+      exact Unicode preservation,
+    ]
 key-files:
   created:
     - backend/exceptions/storage_exceptions.py
@@ -72,6 +77,7 @@ completed: 2026-08-04
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] Repaired Unicode fixtures corrupted by the remote patch transport**
+
 - **Found during:** Task 2 GREEN verification
 - **Issue:** Non-ASCII test literals arrived as question marks, invalidating composed and decomposed Unicode evidence.
 - **Fix:** Expressed Unicode fixtures with Python Unicode escapes so source transport is ASCII-safe while runtime values remain exact Unicode.
@@ -113,5 +119,6 @@ None. This plan adds no endpoint, authentication path, schema change, external f
 - All 28 focused tests pass and the resolver has no mutating-handler dependency or filesystem operation.
 
 ---
-*Phase: 01-immutable-storage-foundation*
-*Completed: 2026-08-04*
+
+_Phase: 01-immutable-storage-foundation_
+_Completed: 2026-08-04_

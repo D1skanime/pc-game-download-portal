@@ -328,7 +328,7 @@ class GamelistExporter:
         if not isinstance(destination, OwnedReplace):
             if isinstance(destination, ExternalStorageDescriptor):
                 StoragePolicy.authorize(StorageOperation.OVERWRITE, destination)
-            raise TypeError('gamelist export requires an owned replacement')
+            raise TypeError("gamelist export requires an owned replacement")
         try:
             platform = db_platform_handler.get_platform(platform_id)
             if not platform:

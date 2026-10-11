@@ -7,3 +7,4 @@ export type SteamTextVariantSchema = {
     name?: (string | null);
     summary?: (string | null);
 };
+

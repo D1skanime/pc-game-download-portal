@@ -21,3 +21,4 @@ export type SteamMetadataSchema = {
     dlc_ids?: (Array<number> | null);
     text_variants?: (Record<string, SteamTextVariantSchema> | null);
 };
+

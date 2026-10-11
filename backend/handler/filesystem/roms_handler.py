@@ -607,9 +607,18 @@ class FSRomsHandler(ExternalFSHandler):
             *,
             recursive: bool,
         ) -> None:
-            component = await build_component(
-                component_path, relative_path, kind, recursive=recursive
-            )
+            try:
+                component = await build_component(
+                    component_path, relative_path, kind, recursive=recursive
+                )
+            except (OSError, ValueError) as exc:
+                log.warning(
+                    "Skipping unreadable PC component %s: %s",
+                    relative_path,
+                    exc,
+                    extra=LOGGER_MODULE_NAME,
+                )
+                return
             if component is not None:
                 components.append(component)
 
@@ -619,6 +628,13 @@ class FSRomsHandler(ExternalFSHandler):
             )
 
         for component_name in sorted(await self.list_directories(rom_path)):
+            # OST/soundtrack directories are source-backed RomFiles, not PC
+            # components. They remain downloadable and can be uploaded by the
+            # user through the existing Owned soundtrack flow.
+            if category_matches(
+                RomFileCategory.SOUNDTRACK.value, [component_name.lower()]
+            ):
+                continue
             kind = parse_pc_component_layout(component_name)
             component_path = f"{rom_path}/{component_name}"
             nested_directories = sorted(await self.list_directories(component_path))
@@ -905,6 +921,9 @@ class FSRomsHandler(ExternalFSHandler):
                 # Check if file is excluded by extension.
                 f_rom_dir = Path(f_path, rom.fs_name)
                 file_name_lower = file_name.lower()
+                # NFO sidecars are metadata, never playable ROM/media files.
+                if file_name_lower.endswith(".nfo"):
+                    continue
                 if any(
                     file_name_lower.endswith("." + ext) for ext in excluded_file_exts
                 ):

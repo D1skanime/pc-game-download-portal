@@ -11,7 +11,12 @@ provides:
 affects: [01-02, 01-03, 01-04, 01-05, storage-policy, platform-mapping]
 tech-stack:
   added: []
-  patterns: [named portable constraints, explicit back_populates, isolated migration cycles]
+  patterns:
+    [
+      named portable constraints,
+      explicit back_populates,
+      isolated migration cycles,
+    ]
 key-files:
   created:
     - backend/models/storage.py
@@ -78,6 +83,7 @@ completed: 2026-08-04
 ### Auto-fixed Issues
 
 **1. [Rule 3 - Blocking] Added storage cleanup ordering to the shared test fixture**
+
 - **Found during:** Task 1
 - **Issue:** Existing platform cleanup would violate new mapping foreign keys between tests.
 - **Fix:** Delete mappings before platforms and roots after mappings.
@@ -86,6 +92,7 @@ completed: 2026-08-04
 - **Committed in:** `7de987fab`
 
 **2. [Rule 1 - Bug] Shortened the internal Alembic revision identifier**
+
 - **Found during:** Task 2 MariaDB cycle
 - **Issue:** `0108_immutable_storage_foundation` exceeded Alembic's 32-character version column.
 - **Fix:** Kept the required migration filename and used `0108_storage_foundation` as the revision identifier.
@@ -94,6 +101,7 @@ completed: 2026-08-04
 - **Committed in:** `8b03cbabf`
 
 **3. [Rule 1 - Bug] Bounded indexed paths for MySQL portability**
+
 - **Found during:** Task 2 MySQL cycle
 - **Issue:** A 1000-character utf8mb4 unique path exceeded MySQL's maximum index key length.
 - **Fix:** Set root and mapping indexed path bounds to 700 characters in ORM and migration definitions.
@@ -102,6 +110,7 @@ completed: 2026-08-04
 - **Committed in:** `8b03cbabf`
 
 **4. [Rule 3 - Blocking] Isolated 0108 from incompatible historical MySQL DDL**
+
 - **Found during:** Task 2 MySQL cycle
 - **Issue:** Pre-0108 migrations use `IF EXISTS` and `IF NOT EXISTS` forms unsupported by MySQL 8.4, preventing the verifier from reaching this plan's migration.
 - **Fix:** Build a clean 0107-compatible MySQL baseline containing Alembic identity and the referenced platform key, then exercise 0108 through the project's MySQL driver.
@@ -138,5 +147,6 @@ None.
 - Three database migration cycles, eight storage tests, and targeted Ruff checks pass.
 
 ---
-*Phase: 01-immutable-storage-foundation*
-*Completed: 2026-08-04*
+
+_Phase: 01-immutable-storage-foundation_
+_Completed: 2026-08-04_

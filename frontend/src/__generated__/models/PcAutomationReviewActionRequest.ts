@@ -7,3 +7,4 @@ export type PcAutomationReviewActionRequest = {
     expected_target_version: string;
     candidate_fingerprint: string;
 };
+

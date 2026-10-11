@@ -7,7 +7,6 @@ import pytest
 from config import FRONTEND_RESOURCES_PATH
 from exceptions.storage_exceptions import InvalidRelativePathError, StoragePolicyDenied
 from handler.database import db_platform_handler, db_rom_handler
-from handler.filesystem import fs_platform_handler, fs_resource_handler
 from handler.filesystem.storage_access import open_owned_access
 from handler.filesystem.storage_composition import (
     StorageCompositionConfig,
@@ -373,7 +372,7 @@ async def test_gamelist_export_rejects_external_destination_before_io(
         await GamelistExporter(local_export=True).export_platform_to_file(
             platform.id,
             request=None,
-            destination=composition.legacy_external, # type: ignore[arg-type]
+            destination=composition.legacy_external,  # type: ignore[arg-type]
         )
     assert error.value.code == "external_storage_operation_denied"
     assert error.value.operation == "overwrite"

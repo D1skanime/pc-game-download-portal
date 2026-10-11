@@ -99,7 +99,7 @@ class LegacyImpactProblemSchema(BaseModel):
 class LegacyImpactProposedMappingSchema(BaseModel):
     platform_id: int = Field(gt=0)
     storage_root_id: int = Field(gt=0)
-    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
 
 
 class LegacyImpactPlannedEffectsSchema(BaseModel):
@@ -116,7 +116,7 @@ class LegacyImpactConfirmationSchema(BaseModel):
     result_version: int = Field(gt=0)
     platform_id: int = Field(gt=0)
     storage_root_id: int = Field(gt=0)
-    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
     observed_mapping_id: int | None = Field(default=None, gt=0)
     observed_mapping_version: int | None = Field(default=None, gt=0)
     reconnectable_catalog_count: int = Field(ge=0)
@@ -243,7 +243,7 @@ class StorageRootSchema(BaseModel):
 class LegacyStorageBootstrapMappingSchema(BaseModel):
     platform_id: int = Field(gt=0)
     platform_fs_slug: str = Field(min_length=1, max_length=STORAGE_ROOT_PATH_MAX_LENGTH)
-    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
     mapping_id: int = Field(gt=0)
 
 
@@ -270,12 +270,12 @@ class StorageDirectoryPageSchema(BaseModel):
 class StorageMappingCreateSchema(BaseModel):
     platform_id: int = Field(gt=0)
     storage_root_id: int = Field(gt=0)
-    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
 
 
 class StorageMappingUpdateSchema(BaseModel):
     storage_root_id: int = Field(gt=0)
-    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
     expected_version: int = Field(gt=0)
 
 
@@ -307,7 +307,7 @@ class StorageMappingSchema(BaseModel):
     id: int
     platform_id: int
     storage_root_id: int
-    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
     active: bool
     version: int = Field(gt=0)
 
@@ -315,7 +315,7 @@ class StorageMappingSchema(BaseModel):
 class StorageMappingTestSchema(BaseModel):
     platform_id: int
     storage_root_id: int
-    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
     valid: Literal[True] = True
 
 
@@ -324,7 +324,7 @@ class StorageMappingPreviewSchema(BaseModel):
     platform_id: int
     storage_root_id: int
     mapping_version: int = Field(gt=0)
-    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
     examined_entry_count: int = Field(ge=0)
     candidate_file_count: int = Field(ge=0)
     candidate_directory_count: int = Field(ge=0)
@@ -370,7 +370,7 @@ class StorageConflictResponse(BaseModel):
 
 class StorageMappingSnapshotSchema(BaseModel):
     storage_root_id: int
-    relative_path: str = Field(min_length=1, max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
+    relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
     version: int = Field(gt=0)
     active: bool
 

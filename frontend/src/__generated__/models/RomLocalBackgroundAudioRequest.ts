@@ -6,3 +6,4 @@ export type RomLocalBackgroundAudioRequest = {
     file_ids: Array<number>;
     expected_version: string;
 };
+

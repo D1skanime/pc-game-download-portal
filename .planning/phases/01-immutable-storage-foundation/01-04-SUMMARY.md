@@ -13,7 +13,12 @@ provides:
 affects: [01-05, mapping-administration, storage-policy, platform-mapping]
 tech-stack:
   added: []
-  patterns: [ordered active-root row locks, locking current-read recheck, bounded collision translation]
+  patterns:
+    [
+      ordered active-root row locks,
+      locking current-read recheck,
+      bounded collision translation,
+    ]
 key-files:
   created:
     - backend/handler/database/storage_handler.py
@@ -74,6 +79,7 @@ completed: 2026-08-04
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] Forced a current mapping read after root-lock acquisition**
+
 - **Found during:** Task 2 concurrent first-insert verification
 - **Issue:** A transaction begun before the winning commit retained an empty consistent-read snapshot and could commit a conflicting mapping after waiting for root locks.
 - **Fix:** Made the post-lock mapping load a locking current read and retained the immediate pre-flush recheck.
@@ -82,6 +88,7 @@ completed: 2026-08-04
 - **Committed in:** `c92de0cba`
 
 **2. [Rule 2 - Missing Critical] Added bounded persistence collision errors**
+
 - **Found during:** Task 2 integrity backstop implementation
 - **Issue:** Raw database integrity failures would leak through the storage persistence boundary.
 - **Fix:** Added bounded overlap and duplicate mapping domain errors and translated flush-time integrity collisions.
@@ -125,6 +132,6 @@ None. The handler adds no API endpoint, consumer cutover, external write path, o
 - Ruff formatting and static checks pass for all changed Python files.
 
 ---
-*Phase: 01-immutable-storage-foundation*
-*Completed: 2026-08-04*
 
+_Phase: 01-immutable-storage-foundation_
+_Completed: 2026-08-04_

@@ -12,7 +12,8 @@ provides:
   - complete-durable-content-or-no-final owned create contract
   - atomic no-replace publication with explicit parent-durability reconciliation
   - staged inherited-descriptor output for the real ROM patcher consumer
-affects: [phase6-final-verification, manual-primary-replacement, owned-asset-writes]
+affects:
+  [phase6-final-verification, manual-primary-replacement, owned-asset-writes]
 tech-stack:
   added: []
   patterns:
@@ -150,7 +151,6 @@ None.
 ## Next Phase Readiness
 
 The CR-04 crash-safety gap is closed. The durable owned-create primitive is ready for the later primary-manual replacement flow and Phase 6 final verification.
-
 
 ## Self-Check: PASSED
 

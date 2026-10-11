@@ -320,9 +320,11 @@ def _strict_resolve_target(target: Path) -> Path:
 
 
 def resolve_directory(storage_root: StorageRoot, raw_relative_path: str) -> Path:
-    """Resolve a non-empty logical mapping directory inside an approved root."""
-    relative_path = normalize_relative_path(raw_relative_path)
+    """Resolve a mapping directory, allowing an empty path for the root itself."""
+    relative_path = normalize_relative_path(raw_relative_path, allow_root=True)
     root = resolve_storage_root(storage_root)
+    if relative_path == "":
+        return root
     target = _reject_component_symlinks(root, relative_path)
     resolved_target = _strict_resolve_target(target)
 

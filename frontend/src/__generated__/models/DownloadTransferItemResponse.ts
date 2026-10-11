@@ -13,3 +13,4 @@ export type DownloadTransferItemResponse = {
     last_activity_at: (string | null);
     ended_at: (string | null);
 };
+

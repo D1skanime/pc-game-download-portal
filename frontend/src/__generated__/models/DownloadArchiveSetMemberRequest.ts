@@ -7,3 +7,4 @@ export type DownloadArchiveSetMemberRequest = {
     manifest_member_id: number;
     required?: boolean;
 };
+

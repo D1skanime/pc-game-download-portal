@@ -8,3 +8,4 @@ export type DownloadArchiveSetMemberResponse = {
     position: number;
     required: boolean;
 };
+

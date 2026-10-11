@@ -53,11 +53,13 @@ Mapped hashing, direct downloads, HEAD/Range requests, and browser play now auth
 2. Task 2: `8cd13cc77` feat(05-06): bind mapped file delivery
 
 3. Task 2 test fixtures: `9b17c3504` test(05-06): add mapped delivery fixtures
+
 ## Recovery Note
 
 Execution resumed from an interrupted plan. Commit `39cca3ee5` was inspected as the Task 1 candidate and retained because it is scoped to mapped hashing, uses one descriptor, and validates the mapping at chunk/archive boundaries. Existing uncommitted edits in both Task 2 endpoint files were preserved where valid, completed for HEAD/Range parity and bounded response behavior, then committed atomically.
 
 ## Verification
+
 - Task 1 exact suite passed in the disposable MariaDB/Valkey test environment: 77 passed, 1 skipped, exit 0.
 - Task 2 exact suite passed in the same environment: 47 passed, 7 skipped, exit 0.
 - The proven invocation uses an ephemeral Valkey sidecar and `docker run --rm --entrypoint pytest --network container:romm-db-dev` with the canonical backend bind-mounted at `/app/backend`.
@@ -87,8 +89,7 @@ Execution resumed from an interrupted plan. Commit `39cca3ee5` was inspected as 
 - Closed the descriptor before returning the conflict and retained final cleanup around broker handoff.
 - Files modified: `backend/endpoints/streaming.py`.
 - Verification: compilation and diff inspection.
-**3. [Rule 3 - Blocking] Added mapped endpoint fixtures with user authorization**
-
+  **3. [Rule 3 - Blocking] Added mapped endpoint fixtures with user authorization**
 
 - Found during final Task 2 verification.
 - The host lacks direct `uv` and `trunk` executables. Verification used the established disposable repository image sharing the MariaDB container network namespace with a temporary Valkey sidecar.
@@ -116,7 +117,8 @@ None.
 - Both exact 05-06 verification suites are green. Production broker/Nginx race behavior remains part of the Phase 9 production-like gate.
 
 | Flag | File | Description |
-| --- | --- | --- |
+| ---- | ---- | ----------- |
+
 - All five modified production and test files exist.
 - Task commits `39cca3ee5`, `8cd13cc77`, and `9b17c3504` exist.
 - Both exact suites exit 0 with the recorded pass counts.
@@ -135,6 +137,6 @@ None.
 - No unrelated dirty or untracked file was staged.
 
 ---
+
 _Phase: 05-preview-and-read-path-cutover_
 _Completed: 2026-08-12_
-

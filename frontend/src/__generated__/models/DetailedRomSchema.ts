@@ -117,3 +117,4 @@ export type DetailedRomSchema = {
     local_background_audio_file_ids?: Array<number>;
     owned_background_audio_media_ids?: Array<number>;
 };
+

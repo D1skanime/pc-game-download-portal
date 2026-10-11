@@ -125,6 +125,7 @@ The v1-removal workstream can be planned in parallel but code changes and verifi
 ## Research Flags
 
 Needs focused research:
+
 - Phase 1: descriptor-relative Linux no-follow access and residual long-read TOCTOU risk.
 - Phase 3: mapping overlap policy. Default is reject equal, ancestor, and descendant overlap.
 - Phase 4: actual NAS watcher fidelity. Scheduled/manual scans remain authoritative.
@@ -132,19 +133,20 @@ Needs focused research:
 - Phase 7: NAS protocol, permissions, stale handles, timeouts, atime, and rollout window.
 
 Standard repository patterns, usually skip separate research:
+
 - Phase 2: backend, policy, pytest, and Docker patterns are well documented.
 - Phase 6: v2 primitives, i18n, input, Storybook, and routing guidance are established.
 
 ## Confidence Assessment
 
-| Area | Confidence | Notes |
-|---|---|---|
-| Stack | HIGH | Verified in the canonical repository; no new runtime dependency needed. |
-| Features | HIGH | Directly grounded in PROJECT.md and current capabilities. |
-| Architecture | HIGH | Boundaries and seams are observed in current code. |
-| Pitfalls | HIGH | Risks map to concrete handlers, endpoints, jobs, watcher, cleanup, and router code. |
-| Race hardening | MEDIUM | Needs Linux and production-mount prototyping. |
-| Operations | MEDIUM | NAS protocol, permissions, watcher, atime, and rollout timing are unconfirmed. |
+| Area           | Confidence | Notes                                                                               |
+| -------------- | ---------- | ----------------------------------------------------------------------------------- |
+| Stack          | HIGH       | Verified in the canonical repository; no new runtime dependency needed.             |
+| Features       | HIGH       | Directly grounded in PROJECT.md and current capabilities.                           |
+| Architecture   | HIGH       | Boundaries and seams are observed in current code.                                  |
+| Pitfalls       | HIGH       | Risks map to concrete handlers, endpoints, jobs, watcher, cleanup, and router code. |
+| Race hardening | MEDIUM     | Needs Linux and production-mount prototyping.                                       |
+| Operations     | MEDIUM     | NAS protocol, permissions, watcher, atime, and rollout timing are unconfirmed.      |
 
 ## Open Questions
 
@@ -169,5 +171,6 @@ Secondary: production NAS behavior and Linux descriptor-relative race hardening,
 The external library is immutable. External roots are `external_read_only` only. Milestone 1 is NAS integration only. V1 is removed in a bounded, separately verified workstream. Team4s is a read-only design reference and is never modified, copied, restarted, or made a build/runtime dependency. No Team4s service, source file, or active encode workload is changed.
 
 ---
-*Research completed: 2026-08-04*
-*Ready for roadmap: yes*
+
+_Research completed: 2026-08-04_
+_Ready for roadmap: yes_

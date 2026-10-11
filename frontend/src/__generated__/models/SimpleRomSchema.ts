@@ -32,7 +32,6 @@ export type SimpleRomSchema = {
     gamelist_id: (string | null);
     libretro_id: (string | null);
     steam_id: (number | null);
-    steam_metadata: (Record<string, any> | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;

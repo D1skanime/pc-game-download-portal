@@ -130,6 +130,17 @@
 - [x] **PCSAFE-01**: Component recognition, manifest generation, metadata matching, and local LaunchBox reads leave every source root unchanged.
 - [x] **PCTEST-01**: Tests cover nested PC components, ambiguous layouts, immutable manifests, provider failures, and source-unchanged evidence.
 
+### V2 Quality and Maintainability
+
+- [ ] **QA-01**: The frontend test suite is green, with no known route, i18n, prop-type, or accessibility warnings in covered v2 surfaces.
+- [x] **QA-02**: v2 has one typed data-access boundary and migrated production v2 code no longer imports legacy stores or services directly.
+- [ ] **QA-03**: ROM route parameters fail closed and invalid navigation cannot reuse stale ROM state.
+- [ ] **QA-04**: All user-visible v2 strings have locale parity and missing keys fail CI.
+- [x] **QA-05**: Production v2 styling uses semantic design tokens, with intentional provider, SVG, and emulator literals isolated.
+- [x] **QA-06**: The largest v2 views and components are split into bounded feature, state, and presentation modules.
+- [x] **QA-07**: v2 is verified by typecheck, unit tests, Storybook accessibility checks, production build, and browser tests in both themes and input modalities.
+- [x] **QA-08**: Legacy compatibility code is migrated, explicitly owned with a removal condition, or deleted after import and reachability audits.
+
 ## v1.2 Cross-platform PC Downloader Requirements
 
 ### Download Manifests

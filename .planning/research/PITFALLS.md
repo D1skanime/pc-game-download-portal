@@ -208,18 +208,18 @@
 
 ## Phase-Specific Warnings
 
-| Phase topic | Likely pitfall | Required mitigation |
-|---|---|---|
-| Root/schema foundation | Generic CRUD weakens immutability | Immutable kind/path contract, additive portable migration, transactional audit |
-| Resolver and policy | Lexical containment or inherited mkdir/write behavior | Separate non-mutating service, real symlink tests, operation intent at boundary |
-| Mapping APIs | Absolute-path leakage, overlap, concurrency | Relative canonical form, no host paths, uniqueness/overlap rules, DB transaction |
-| Scanner integration | Secondary paths retain layout assumptions | Trace manual, scheduled, socket, watcher, hash, stream, and download entry points |
-| Preview/browser | Dry-run side effects and arbitrary path oracle | Pure discovery, admin-only narrow API, sanitized errors, server-issued relative cursors |
-| Catalog removal | Old `delete_from_fs` semantics survive | Remove source-delete contract and prove only DB/owned resources change |
-| Migration bridge | Auto-conversion moves or misbinds content | Proposal-only detection, explicit ambiguity handling, no source writes |
-| v1 removal | Hidden v2 imports and deep-link gaps | Import graph, route matrix, staged deletion, typecheck/build/E2E after each batch |
-| Design application | Copying Team4s or bypassing v2 rules | Principle-only review, native Vue primitives/tokens, accessibility/input verification |
-| Deployment | Real NAS exposed too early or stale workers run | Synthetic-to-disposable-to-real progression, queue/worker preflight, approved window |
+| Phase topic            | Likely pitfall                                        | Required mitigation                                                                     |
+| ---------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Root/schema foundation | Generic CRUD weakens immutability                     | Immutable kind/path contract, additive portable migration, transactional audit          |
+| Resolver and policy    | Lexical containment or inherited mkdir/write behavior | Separate non-mutating service, real symlink tests, operation intent at boundary         |
+| Mapping APIs           | Absolute-path leakage, overlap, concurrency           | Relative canonical form, no host paths, uniqueness/overlap rules, DB transaction        |
+| Scanner integration    | Secondary paths retain layout assumptions             | Trace manual, scheduled, socket, watcher, hash, stream, and download entry points       |
+| Preview/browser        | Dry-run side effects and arbitrary path oracle        | Pure discovery, admin-only narrow API, sanitized errors, server-issued relative cursors |
+| Catalog removal        | Old `delete_from_fs` semantics survive                | Remove source-delete contract and prove only DB/owned resources change                  |
+| Migration bridge       | Auto-conversion moves or misbinds content             | Proposal-only detection, explicit ambiguity handling, no source writes                  |
+| v1 removal             | Hidden v2 imports and deep-link gaps                  | Import graph, route matrix, staged deletion, typecheck/build/E2E after each batch       |
+| Design application     | Copying Team4s or bypassing v2 rules                  | Principle-only review, native Vue primitives/tokens, accessibility/input verification   |
+| Deployment             | Real NAS exposed too early or stale workers run       | Synthetic-to-disposable-to-real progression, queue/worker preflight, approved window    |
 
 ## Sources
 

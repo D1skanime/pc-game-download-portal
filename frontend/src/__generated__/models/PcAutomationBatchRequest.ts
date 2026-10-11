@@ -9,3 +9,4 @@ export type PcAutomationBatchRequest = {
     candidate_fingerprint: string;
     items: Array<PcAutomationBatchItemRequest>;
 };
+

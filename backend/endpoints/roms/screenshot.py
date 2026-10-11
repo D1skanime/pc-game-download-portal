@@ -52,7 +52,6 @@ async def add_rom_screenshots(
         ),
     ],
 ) -> Response:
-
     """Upload a screenshot image for a multi-file ROM."""
 
     rom = db_rom_handler.get_rom(id)
@@ -167,7 +166,6 @@ async def delete_rom_screenshot(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
-
     """Delete a single screenshot file from a ROM."""
 
     rom = db_rom_handler.get_rom(id)

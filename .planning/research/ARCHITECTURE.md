@@ -27,16 +27,16 @@ Milestone 1 adds no PC component model. `Rom` stays the logical game, `RomFile` 
 
 ## Component Boundaries
 
-| Component | Owns | Must not own |
-| --- | --- | --- |
-| Storage root | Approved container mount, immutable mode, health | Host path in mappings, writable toggle |
-| Platform mapping | One normalized relative directory per platform, lifecycle, audit | Directory creation, metadata alias binding |
-| Path resolver | Cross-platform parsing, canonical containment, typed resolved path | User authorization or mutation |
-| Storage policy | Typed operation allow/deny by root mode | Path construction or OS-error handling |
-| Scanner | Read discovery/hash, metadata, catalog reconciliation | Source organization or mutation |
-| Catalog service | Database-only removal/missing state | Source deletion |
-| Owned storage | Resources, assets, cache, temp, saves, logs | Files beside source games |
-| v2 UI | Root status, browser, mapping/test/preview/history | Absolute paths or source mutations |
+| Component        | Owns                                                               | Must not own                               |
+| ---------------- | ------------------------------------------------------------------ | ------------------------------------------ |
+| Storage root     | Approved container mount, immutable mode, health                   | Host path in mappings, writable toggle     |
+| Platform mapping | One normalized relative directory per platform, lifecycle, audit   | Directory creation, metadata alias binding |
+| Path resolver    | Cross-platform parsing, canonical containment, typed resolved path | User authorization or mutation             |
+| Storage policy   | Typed operation allow/deny by root mode                            | Path construction or OS-error handling     |
+| Scanner          | Read discovery/hash, metadata, catalog reconciliation              | Source organization or mutation            |
+| Catalog service  | Database-only removal/missing state                                | Source deletion                            |
+| Owned storage    | Resources, assets, cache, temp, saves, logs                        | Files beside source games                  |
+| v2 UI            | Root status, browser, mapping/test/preview/history                 | Absolute paths or source mutations         |
 
 Put resolver/policy in a focused backend storage package. Scans, workers, watchers, hashers, streaming, downloads and nginx redirects must use it.
 
@@ -106,15 +106,15 @@ Replace `get_roms_fs_structure(fs_slug)` with mapping-aware resolution and pass 
 
 ## APIs
 
-| Route | Purpose | Safety contract |
-| --- | --- | --- |
-| `GET /api/storage-roots` | Root health | No host-path disclosure |
-| `GET /api/storage-roots/{id}/folders` | Browse | Relative, bounded, canonical |
-| `POST /api/storage-roots/{id}/validate-path` | Test | Non-mutating diagnostics |
+| Route                                                | Purpose           | Safety contract                     |
+| ---------------------------------------------------- | ----------------- | ----------------------------------- |
+| `GET /api/storage-roots`                             | Root health       | No host-path disclosure             |
+| `GET /api/storage-roots/{id}/folders`                | Browse            | Relative, bounded, canonical        |
+| `POST /api/storage-roots/{id}/validate-path`         | Test              | Non-mutating diagnostics            |
 | `GET/PUT/DELETE /api/platforms/{id}/storage-mapping` | Mapping lifecycle | Transactional audit; delete DB-only |
-| `POST /api/platforms/{id}/scan-preview` | Preview delta | No persistence/jobs |
-| `GET /api/storage-mapping-audits` | History | Admin-only, append-only |
-| explicit catalog removal route or revised ROM delete | Remove entry | Owned state only |
+| `POST /api/platforms/{id}/scan-preview`              | Preview delta     | No persistence/jobs                 |
+| `GET /api/storage-mapping-audits`                    | History           | Admin-only, append-only             |
+| explicit catalog removal route or revised ROM delete | Remove entry      | Owned state only                    |
 
 Use protected routes, admin/platform-write scopes, CSRF and visibility masking. Pydantic/OpenAPI stays authoritative. Content routes resolve RomFile by DB id, derive root/mapping, invoke resolver, then serve verified targets. Nginx aliases cannot expose a broader tree. No content API accepts paths/names. UI capabilities are advisory; backend policy is authoritative.
 
@@ -145,17 +145,17 @@ Do not combine this work with storage migration/policy rollout.
 
 ## Audit and Test Seams
 
-| Seam | Evidence |
-| --- | --- |
-| Parser/resolver | Absolute/traversal rejection on all path dialects; containment, nonexistent targets, links at every segment, race-aware reopen |
-| Policy/inventory | Full operation matrix; denial before mocked I/O; every write call site covered |
-| Mapping/audit | Uniqueness, overlap, concurrency, rollback, actors/snapshots, auth, cross-dialect |
-| Browser/preview | Bounded relative output, unreadable/hidden entries, same candidates as scan, zero side effects |
-| Scanner/content | Mapping precedence, read-only hashes, no link loops, DB-id downloads, nginx containment, Range regression |
-| Catalog removal | Owned state changed while source bytes/metadata remain identical |
-| Container | `:ro` fixture, no startup mkdir, mutation endpoints return 403 rather than 500 |
-| Migration | Fresh, both legacy shapes, ambiguity, downgrade, MariaDB/PostgreSQL |
-| UI/removal | Stories, themes, responsive/input/accessibility, route matrix, no stale imports/toggle, full frontend gates |
+| Seam             | Evidence                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Parser/resolver  | Absolute/traversal rejection on all path dialects; containment, nonexistent targets, links at every segment, race-aware reopen |
+| Policy/inventory | Full operation matrix; denial before mocked I/O; every write call site covered                                                 |
+| Mapping/audit    | Uniqueness, overlap, concurrency, rollback, actors/snapshots, auth, cross-dialect                                              |
+| Browser/preview  | Bounded relative output, unreadable/hidden entries, same candidates as scan, zero side effects                                 |
+| Scanner/content  | Mapping precedence, read-only hashes, no link loops, DB-id downloads, nginx containment, Range regression                      |
+| Catalog removal  | Owned state changed while source bytes/metadata remain identical                                                               |
+| Container        | `:ro` fixture, no startup mkdir, mutation endpoints return 403 rather than 500                                                 |
+| Migration        | Fresh, both legacy shapes, ambiguity, downgrade, MariaDB/PostgreSQL                                                            |
+| UI/removal       | Stories, themes, responsive/input/accessibility, route matrix, no stale imports/toggle, full frontend gates                    |
 
 Use fixtures with flat/nested games, spaces/Unicode, unreadable entries, link loops, in-root links and escapes. Assert errors and absence of side effects. `EROFS` alone is not proof. Before/after evidence should cover names, types, sizes, hashes, modes and mtimes; only assert atime where `noatime` is guaranteed.
 

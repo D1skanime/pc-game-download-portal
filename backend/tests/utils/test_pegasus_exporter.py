@@ -4,8 +4,8 @@ from typing import TypedDict
 from unittest.mock import MagicMock
 
 import pytest
-from exceptions.storage_exceptions import StoragePolicyDenied
 
+from exceptions.storage_exceptions import StoragePolicyDenied
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.storage_access import open_owned_access

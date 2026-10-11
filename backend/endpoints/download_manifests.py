@@ -308,9 +308,11 @@ async def get_download_manifest_member(
     on_complete = None
     if attributed is not None and bounds is None:
         assert transfer_id is not None and item_id is not None
-        on_complete = lambda: db_download_transfer_handler.mark_served(
-            transfer_id, request.user.id, item_id
-        )
+
+        def on_complete():
+            return db_download_transfer_handler.mark_served(
+                transfer_id, request.user.id, item_id
+            )
 
     return StreamingResponse(
         _lease_chunks(lease, start, content_length, on_complete),

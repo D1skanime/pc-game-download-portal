@@ -1017,6 +1017,7 @@ class TestLookupRom:
     @pytest.fixture(autouse=True)
     def enabled(self, mocker):
         mocker.patch.object(SSHandler, "is_enabled", return_value=True)
+
     def _make_mock_file(self) -> MagicMock:
         f = MagicMock()
         f.file_size_bytes = 1024

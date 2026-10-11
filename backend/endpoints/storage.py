@@ -84,6 +84,7 @@ from handler.database.legacy_migration_handler import (
     LegacyRollbackError,
     LegacyRollbackStatus,
 )
+from handler.filesystem import fs_platform_handler
 from handler.filesystem.storage_resolver import (
     MAX_DIRECTORY_PAGE_SIZE,
     MAX_DIRECTORY_SCAN_ENTRIES,
@@ -745,27 +746,29 @@ def get_storage_roots(request: Request) -> list[StorageRootSchema]:
 async def bootstrap_legacy_storage(
     request: Request,
 ) -> LegacyStorageBootstrapSchema:
-    """Import the configured legacy library into the canonical mapping model."""
+    """Register only the protected PC subtree in the canonical mapping model.
+
+    Console platforms stay on RomM's legacy writable library path because their
+    files may be patched or otherwise changed by RomM.
+    """
     assert_admin(request)
     try:
-        roots = db_storage_handler.get_roots()
-        root = next(
-            (item for item in roots if item.container_path == str(LIBRARY_BASE_PATH)),
-            None,
-        )
-        if root is None:
-            root = db_storage_handler.register_root(
-                "Legacy ROM library", str(LIBRARY_BASE_PATH)
-            )
-
-        candidates = await get_filesystem_platforms()
+        config = cm.get_config()
+        relative_root = config.ROMS_FOLDER_NAME
+        filesystem_slugs = await fs_platform_handler.get_platforms()
+        missing_platforms = {
+            item.fs_slug: item for item in await get_filesystem_platforms()
+        }
         created_platform_count = 0
         existing_platform_count = 0
-        mappings = []
-        relative_root = cm.get_config().ROMS_FOLDER_NAME
-        for candidate in candidates:
-            platform = db_platform_handler.get_platform_by_fs_slug(candidate.fs_slug)
+        pc_platform = None
+
+        for fs_slug in filesystem_slugs:
+            platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
             if platform is None:
+                candidate = missing_platforms.get(fs_slug)
+                if candidate is None:
+                    continue
                 platform_data = candidate.model_dump(
                     exclude={
                         "id",
@@ -786,34 +789,59 @@ async def bootstrap_legacy_storage(
             else:
                 existing_platform_count += 1
 
-            try:
-                mapping = db_storage_handler.get_active_mapping(platform.id)
-            except MissingPlatformStorageMappingError:
-                mapping = None
-            if mapping is None:
-                mapping = db_storage_handler.create_mapping(
-                    platform.id,
-                    root.id,
-                    f"{relative_root}/{candidate.fs_slug}",
-                    **_actor(request),
-                )
-            mappings.append(
+            if fs_slug == "pc":
+                pc_platform = platform
+
+        if pc_platform is None:
+            raise MissingStorageRootError(0)
+
+        pc_path = LIBRARY_BASE_PATH / relative_root / pc_platform.fs_slug
+        roots = db_storage_handler.get_roots()
+        root = next(
+            (item for item in roots if item.container_path == str(pc_path)), None
+        )
+        if root is None:
+            root = db_storage_handler.register_root("PC Windows library", str(pc_path))
+
+        old_mapping = None
+        try:
+            old_mapping = db_storage_handler.get_active_mapping(pc_platform.id)
+        except MissingPlatformStorageMappingError:
+            pass
+
+        if old_mapping is None:
+            mapping = db_storage_handler.create_mapping(
+                pc_platform.id,
+                root.id,
+                "",
+                **_actor(request),
+            )
+        elif old_mapping.storage_root_id != root.id or old_mapping.relative_path != "":
+            mapping = db_storage_handler.update_mapping(
+                old_mapping.id,
+                root.id,
+                "",
+                expected_version=old_mapping.version,
+                **_actor(request),
+            )
+        else:
+            mapping = old_mapping
+
+        return LegacyStorageBootstrapSchema(
+            storage_root=_root_schema(root),
+            mappings=[
                 LegacyStorageBootstrapMappingSchema(
-                    platform_id=platform.id,
-                    platform_fs_slug=platform.fs_slug,
+                    platform_id=pc_platform.id,
+                    platform_fs_slug=pc_platform.fs_slug,
                     relative_path=mapping.relative_path,
                     mapping_id=mapping.id,
                 )
-            )
+            ],
+            created_platform_count=created_platform_count,
+            existing_platform_count=existing_platform_count,
+        )
     except StorageResolutionError as error:
         _raise_safe_storage_error(error)
-
-    return LegacyStorageBootstrapSchema(
-        storage_root=_root_schema(root),
-        mappings=mappings,
-        created_platform_count=created_platform_count,
-        existing_platform_count=existing_platform_count,
-    )
 
 
 @protected_route(

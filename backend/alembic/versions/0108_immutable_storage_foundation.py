@@ -6,7 +6,6 @@ Create Date: 2026-08-04 00:00:00.000000
 """
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0108_storage_foundation"

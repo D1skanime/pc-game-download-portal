@@ -41,3 +41,4 @@ export type ConfigResponse = {
     GAMELIST_MEDIA_IMAGE: MetadataMediaType;
     PEGASUS_AUTO_EXPORT_ON_SCAN: boolean;
 };
+

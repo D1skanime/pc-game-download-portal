@@ -6,4 +6,6 @@ export type DownloadTransferCreateRequest = {
     manifest_id: string;
     mode: string;
     member_ids?: (Array<string> | null);
+    previous_session_id?: (string | null);
 };
+

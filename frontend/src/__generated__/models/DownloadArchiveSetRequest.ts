@@ -7,3 +7,4 @@ export type DownloadArchiveSetRequest = {
     name: string;
     members: Array<DownloadArchiveSetMemberRequest>;
 };
+

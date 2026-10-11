@@ -88,7 +88,9 @@ class TestGetIGDBPreferredLocale:
 class TestPcStructuredMetadata:
     def test_preserves_direct_steam_external_game_id(self):
         game = _make_game(170449, "New Quest")
-        game["external_games"] = [{"category": 1, "uid": "378645"}]
+        game["external_games"] = [
+            {"uid": "378645", "external_game_source": {"id": 1, "name": "Steam"}}
+        ]
         handler = MagicMock()
         handler.normalize_cover_url.side_effect = lambda value: value
 

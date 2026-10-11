@@ -155,6 +155,17 @@ class IGDBRom(BaseRom):
     igdb_metadata: NotRequired[IGDBMetadata]
 
 
+def is_steam_external_game(external_game: object) -> bool:
+    if not isinstance(external_game, dict):
+        return False
+    if external_game.get("category") == 1:
+        return True
+    source = external_game.get("external_game_source")
+    if not isinstance(source, dict):
+        return False
+    return source.get("id") == 1 or source.get("name", "").casefold() == "steam"
+
+
 def build_related_game(
     handler: MetadataHandler, rom: Game, game_type: str
 ) -> IGDBRelatedGame:
@@ -171,10 +182,7 @@ def build_related_game(
     external_games = rom.get("external_games", [])
     if isinstance(external_games, list):
         for external_game in external_games:
-            if (
-                not isinstance(external_game, dict)
-                or external_game.get("category") != 1
-            ):
+            if not is_steam_external_game(external_game):
                 continue
             uid = external_game.get("uid")
             if isinstance(uid, int) and not isinstance(uid, bool) and uid > 0:
@@ -190,7 +198,9 @@ def extract_steam_id(external_games: object) -> int | None:
     if not isinstance(external_games, list):
         return None
     for external_game in external_games:
-        if not isinstance(external_game, dict) or external_game.get("category") != 1:
+        if not isinstance(external_game, dict) or not is_steam_external_game(
+            external_game
+        ):
             continue
         uid = external_game.get("uid")
         if isinstance(uid, int) and not isinstance(uid, bool) and uid > 0:
@@ -1136,12 +1146,18 @@ GAMES_FIELDS = (
     "release_dates.platform.id",
     "external_games.category",
     "external_games.uid",
+    "external_games.external_game_source.id",
+    "external_games.external_game_source.name",
     "expansions.external_games",
     "dlcs.external_games",
     "expansions.external_games.category",
     "expansions.external_games.uid",
+    "expansions.external_games.external_game_source.id",
+    "expansions.external_games.external_game_source.name",
     "dlcs.external_games.category",
     "dlcs.external_games.uid",
+    "dlcs.external_games.external_game_source.id",
+    "dlcs.external_games.external_game_source.name",
     "expansions.id",
     "expansions.slug",
     "expansions.name",
