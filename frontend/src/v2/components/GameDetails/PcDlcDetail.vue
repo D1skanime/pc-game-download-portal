@@ -387,6 +387,7 @@ function showMedia() {
 
 .pc-dlc-detail__cover-column {
   width: 240px;
+  min-width: 0;
   flex-shrink: 0;
   align-self: flex-start;
   display: flex;
@@ -396,7 +397,19 @@ function showMedia() {
 
 .pc-dlc-detail__back {
   align-self: flex-start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: var(--r-touch-target);
+  justify-content: flex-start;
+  overflow: hidden;
+}
+.pc-dlc-detail__back :deep(.r-btn__content),
+.pc-dlc-detail__back :deep(.r-btn__label) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pc-dlc-detail__tab-bar {
