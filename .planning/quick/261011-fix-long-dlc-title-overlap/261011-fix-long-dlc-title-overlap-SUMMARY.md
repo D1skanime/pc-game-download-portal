@@ -17,4 +17,4 @@ Fixed the PC DLC detail header so the back-to-game action is constrained to the 
 
 ## Commit
 
-- Pending at summary creation.
+- b9849ba66 - fix(ui): contain long DLC back links

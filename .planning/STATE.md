@@ -470,7 +470,7 @@ Recent decisions affecting current work:
 | 261010-rl7 | Restore parent media delete controls for users with scoped rom.edit | 2026-10-10 | c229f09ec, 998aae57c | [261010-rl7-fix-parent-media-delete-controls-use-the](./quick/261010-rl7-fix-parent-media-delete-controls-use-the/) |
 | 261010-rre | Keep parent media delete buttons visible with parent-activator tooltips | 2026-10-10 | 7b0b6184a, e5fb985fd | [261010-rre-fix-visible-media-delete-controls-render](./quick/261010-rre-fix-visible-media-delete-controls-render/) |
 
-| 261011-fix-long-dlc-title-overlap | Constrain long DLC back links so they cannot overlap titles | 2026-10-11 | pending | [261011-fix-long-dlc-title-overlap](./quick/261011-fix-long-dlc-title-overlap/) |\n\n## Deferred Items
+| 261011-fix-long-dlc-title-overlap | Constrain long DLC back links so they cannot overlap titles | 2026-10-11 | b9849ba66 | [261011-fix-long-dlc-title-overlap](./quick/261011-fix-long-dlc-title-overlap/) |\n\n## Deferred Items
 
 | Category | Item                                               | Status                      | Deferred At    |
 | -------- | -------------------------------------------------- | --------------------------- | -------------- |
