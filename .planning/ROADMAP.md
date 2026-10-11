@@ -764,17 +764,17 @@ docker/init_scripts/docker-entrypoint.sh, existing storage/media mounts, and
 the existing migration/bootstrap path. Keep dev compose separate. Do not add a
 parallel storage, mapping, metadata, media, or database architecture. Never
 commit .env files, secrets, ROMs, images, database dumps, or runtime artifacts.
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 27-01-PLAN.md: Define the sanitized Portainer stack, operator env contract, and secret-safety checks.
+- [x] 27-01-PLAN.md: Define the sanitized Portainer stack, operator env contract, and secret-safety checks.
 
 **Wave 2** (depends on 27-01)
 
-- [ ] 27-02-PLAN.md: Close startup, migration, persistence, health, and secret-file behavior gaps.
+- [x] 27-02-PLAN.md: Close startup, migration, persistence, health, and secret-file behavior gaps.
 
 **Wave 3** (depends on 27-01 and 27-02)
 
