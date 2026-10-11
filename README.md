@@ -58,6 +58,8 @@ These PC-specific extensions are not part of the official RomM project. See the 
 
 To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting].
 
+For this fork's reproducible NAS deployment, follow the [Portainer installation guide](docs/PORTAINER_INSTALL.md).
+
 ## Contributing
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).

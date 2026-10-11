@@ -1,7 +1,7 @@
 # Portainer deployment
 
-Use portainer-stack.yml from Portainer's Stacks -> Add stack -> Git
-repository flow. Select the main branch and set the compose path to
+Use portainer-stack.yml from Portainer's Stacks -> Add stack -> Git repository
+flow. Select the main branch and set the compose path to
 examples/portainer-stack.yml.
 
 Copy the variables from portainer.env.example into Portainer's environment
