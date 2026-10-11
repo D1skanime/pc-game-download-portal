@@ -1,0 +1,71 @@
+# Deploy this stack from the repository root in Portainer's Git-based stack mode.
+# The build context keeps the GitHub fork's code in the deployed image.
+name: ${COMPOSE_PROJECT_NAME:-romm}
+
+volumes:
+  romm_mysql_data:
+  romm_resources:
+  romm_redis_data:
+
+services:
+  romm:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: full-image
+    image: ${ROMM_IMAGE:-rommapp/romm:phase27}
+    container_name: ${ROMM_CONTAINER_NAME:-romm}
+    restart: unless-stopped
+    environment:
+      DB_HOST: romm-db
+      DB_NAME: ${ROMM_DB_NAME:-romm}
+      DB_USER: ${ROMM_DB_USER:-romm-user}
+      DB_PASSWD: ${ROMM_DB_PASSWORD:?Set ROMM_DB_PASSWORD in Portainer}
+      ROMM_AUTH_SECRET_KEY: ${ROMM_AUTH_SECRET_KEY:?Set ROMM_AUTH_SECRET_KEY in Portainer}
+      TZ: ${TZ:-UTC}
+      SCREENSCRAPER_USER: ${SCREENSCRAPER_USER:-}
+      SCREENSCRAPER_PASSWORD: ${SCREENSCRAPER_PASSWORD:-}
+      RETROACHIEVEMENTS_API_KEY: ${RETROACHIEVEMENTS_API_KEY:-}
+      STEAMGRIDDB_API_KEY: ${STEAMGRIDDB_API_KEY:-}
+      HASHEOUS_API_ENABLED: ${HASHEOUS_API_ENABLED:-true}
+    volumes:
+      - romm_resources:/romm/resources
+      - romm_redis_data:/redis-data
+      - ${ROMM_LIBRARY_PATH:?Set ROMM_LIBRARY_PATH in Portainer}:/romm/library:ro
+      - ${ROMM_ASSETS_PATH:?Set ROMM_ASSETS_PATH in Portainer}:/romm/assets
+      - ${ROMM_CONFIG_PATH:?Set ROMM_CONFIG_PATH in Portainer}:/romm/config
+    ports:
+      - "${ROMM_HTTP_PORT:-8080}:8080"
+    depends_on:
+      romm-db:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - http://127.0.0.1:8080/api/heartbeat >/dev/null || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  romm-db:
+    image: mariadb:11.3
+    container_name: ${ROMM_DB_CONTAINER_NAME:-romm-db}
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${ROMM_DB_ROOT_PASSWORD:?Set ROMM_DB_ROOT_PASSWORD in Portainer}
+      MARIADB_DATABASE: ${ROMM_DB_NAME:-romm}
+      MARIADB_USER: ${ROMM_DB_USER:-romm-user}
+      MARIADB_PASSWORD: ${ROMM_DB_PASSWORD:?Set ROMM_DB_PASSWORD in Portainer}
+    volumes:
+      - romm_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      start_interval: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 5
