@@ -42,31 +42,19 @@ These PC-specific extensions are not part of the official RomM project. See the 
 - Display your achievements from [Retroachievements][retroachievements-api]
 - Metadata available for [400+ platforms][docs-supported-platforms]
 - Play games directly from the browser using [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers]
-- Share your library with friends with limited access and permissions
-- Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout]
 - Supports multi-disk games, DLCs, mods, hacks, patches, and manuals
 - Parse and filter by [tags][docs-tag-support] in filenames
 - View, upload, update, and delete games from any modern web browser
 
-## Preview
+## Interactive UI demos
 
-|                                       🖥 Desktop                                        |                                                           📱 Mobile                                                            |
-| :------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------: |
-| <img src=".github/resources/screenshots/preview-desktop.webp" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/preview-mobile.webp" alt="mobile preview" /> |
+These short recordings show the fork-specific workflows in the German development UI. They contain only synthetic demo data; ROM files, personal accounts, media libraries, and credentials are not part of the repository.
 
-## Fork UI preview
+|                        PC download workflow                        |                       Media and artwork workflow                       |
+| :----------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| ![PC download workflow](docs/screenshots/pc-download-controls.gif) | ![Media and artwork workflow](docs/screenshots/media-artwork-flow.gif) |
 
-These screenshots show the PC-library additions and the responsive v2 interface in the development build:
-
-|                    Main game overview                     |                    DLC overview                    |
-| :-------------------------------------------------------: | :------------------------------------------------: |
-| ![Main game overview](docs/screenshots/main-overview.jpg) | ![DLC overview](docs/screenshots/dlc-overview.jpg) |
-
-|                    PC game downloads                    |                    Media and artwork management                     |
-| :-----------------------------------------------------: | :-----------------------------------------------------------------: |
-| ![PC game downloads](docs/screenshots/pc-downloads.jpg) | ![Media and artwork management](docs/screenshots/media-artwork.jpg) |
-
-The screenshots are UI examples only. ROM files, media data, database contents, and credentials are not part of the repository.
+The download demo shows the selection dialog and the browser download manager. The media demo shows the screenshots/artwork navigation and the actions for adding artwork to the overview or using it as a background.
 
 ## Installation
 
@@ -77,74 +65,6 @@ For this fork's reproducible NAS deployment, follow the [Portainer installation 
 ## Contributing
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
-
-## Official apps
-
-Apps and integrations built and maintained by the RomM team.
-
-- [Argosy][argosy-launcher] by [@tmgast](https://github.com/tmgast): Native Android client for installing and launching games.
-- [Grout][grout] by [@BrandonKowalski](https://github.com/BrandonKowalski): Download and manage games from your RomM instance directly on your Linux based retro handheld. Supports: Allium, Batocera, Knulli, MinUI, muOS, NextUI, Onion, ROCKNIX, Spruce, TrimUI
-- [Playnite plugin][playnite-app] by [@gantoine](https://github.com/gantoine): Library plugin for Playnite
-
-## Community
-
-Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
-
-### Mobile
-
-- [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
-
-### Desktop
-
-- [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
-- [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
-- [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
-- [Freegosy][freegosy]: All-in-one game manager by [@abduznik](https://github.com/abduznik)
-
-### Handhelds
-
-- [DeckyRommSync][decky-romm-sync]: SteamOS downloader and syncer by [@danielcopper](https://github.com/danielcopper)
-- [SwitchRomM][switch-romm]: Homebrew NRO for Switch by [@Shalasere](https://github.com/Shalasere)
-
-### Other
-
-- [romm-comm][romm-comm-discord-bot]: Discord bot by [@idio-sync](https://github.com/idio-sync)
-- [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
-- [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
-
-## Support the project
-
-Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
-
-<div align="center">
-  <div dir="auto">
-    <a href="https://opencollective.com/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/opencollective-badge.svg" alt="Open Collective" width="250" height="58"/></a>
-  </div>
-</div>
-
-## Our Friends
-
-Here are a few projects that we think you might like:
-
-- [EmulatorJS](https://emulatorjs.org/): An embeddable, browser-based emulator
-- [RetroDECK](https://retrodeck.net/): Retro gaming on SteamOS and Linux
-- [ES-DE Frontend](https://es-de.org/): Emulator frontend for Linux, macOS and Windows
-- [Gaseous](https://github.com/gaseous-project/gaseous-server): Another ROM manager with web-based emulator
-- [Retrom](https://github.com/JMBeresford/retrom): A centralized game library/collection management service
-- [Drop](https://droposs.org/): Steam-like experience for DRM-free games
-- [LanCommander](https://lancommander.app/): Digital game platform for PC games
-- [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
-
-## Supported By
-
-These companies support us by providing their tools for free:
-
-<div align="center">
-  <div dir="auto">
-    <a href="https://www.greptile.com/?utm_source=oss_badge&amp;utm_medium=readme&amp;utm_campaign=greptile_for_open_source" target="_blank" rel="noopener noreferrer"><img src=".github/resources/greptile-badge.svg" alt="Greptile" width="250" height="58"/></a>
-    <a href="https://www.aikido.dev/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/aikido-badge.svg" alt="Aikido" width="250" height="58"/></a>
-  </div>
-</div>
 
 <!-- docs links -->
 
@@ -162,16 +82,3 @@ These companies support us by providing their tools for free:
 [mobygames-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#mobygames
 [steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
 [retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
-[romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
-[decky-romm-sync]: https://github.com/danielcopper/decky-romm-sync
-[switch-romm]: https://github.com/Shalasere/SwitchRomM
-[playnite-app]: https://github.com/rommapp/playnite-plugin
-[ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
-[syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
-[romm-client]: https://github.com/chaun14/romm-client
-[romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
-[rommate]: https://github.com/brenoprata10/rommate
-[freegosy]: https://github.com/abduznik/freegosy
-[grout]: https://github.com/rommapp/grout
-[romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
-[argosy-launcher]: https://github.com/rommapp/argosy-launcher
