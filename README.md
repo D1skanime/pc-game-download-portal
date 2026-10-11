@@ -54,6 +54,20 @@ These PC-specific extensions are not part of the official RomM project. See the 
 | :------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------: |
 | <img src=".github/resources/screenshots/preview-desktop.webp" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/preview-mobile.webp" alt="mobile preview" /> |
 
+## Fork UI preview
+
+These screenshots show the PC-library additions and the responsive v2 interface in the development build:
+
+|                    Main game overview                     |                    DLC overview                    |
+| :-------------------------------------------------------: | :------------------------------------------------: |
+| ![Main game overview](docs/screenshots/main-overview.jpg) | ![DLC overview](docs/screenshots/dlc-overview.jpg) |
+
+|                    PC game downloads                    |                    Media and artwork management                     |
+| :-----------------------------------------------------: | :-----------------------------------------------------------------: |
+| ![PC game downloads](docs/screenshots/pc-downloads.jpg) | ![Media and artwork management](docs/screenshots/media-artwork.jpg) |
+
+The screenshots are UI examples only. ROM files, media data, database contents, and credentials are not part of the repository.
+
 ## Installation
 
 To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting].
