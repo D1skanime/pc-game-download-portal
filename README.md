@@ -1,84 +1,229 @@
-<!-- trunk-ignore-all(markdownlint/MD033) -->
-<!-- trunk-ignore(markdownlint/MD041) -->
-<div align="center">
-  <img src=".github/resources/isotipo.png" height="180px" width="auto" alt="romm logo">
+# RomM PC Library Edition
 
-  <h3 style="font-size: 25px;">
-    A beautiful, powerful, self-hosted ROM manager and player.
-  </h3>
-</div>
+A fork of RomM focused on managing an existing PC game archive without
+reorganizing or modifying the source files.
 
-<div align="center">
-  <div dir="auto">
-    <a href="https://trendshift.io/repositories/14133?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14133" target="_blank" rel="noopener noreferrer"><img src=".github/resources/trendshift-badge.svg" alt="Trendshift" width="250" height="58"/></a>
-    <a href="https://news.ycombinator.com/item?id=44247964" target="_blank" rel="noopener noreferrer"><img src=".github/resources/hackernews-badge.svg" width="250px" alt="hackernews badge"></a>
-    <br />
-    <a href="https://selfh.st/survey/2025-results/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
-    <a href="https://discord.gg/invite/romm" target="_blank" rel="noopener noreferrer"><img src=".github/resources/discord-badge.svg" alt="Discord" width="250" height="58"/></a>
-  </div>
-</div>
+This edition combines the familiar ROM library experience with a read-only PC
+library workflow, explicit PC game components, metadata-assisted DLC matching,
+media curation, verified browser downloads, and a reproducible Docker
+deployment for NAS systems.
 
-# Overview
+## What this edition adds
 
-RomM (ROM Manager) allows you to scan, enrich, browse and play your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes, and custom tags, RomM is a must-have for anyone who plays on emulators.
-
-## RomM PC Library Edition
-
-This repository is an independent fork of the original [RomM project](https://github.com/rommapp/romm), maintained for this edition by [@D1skanime](https://github.com/D1skanime). It retains RomM's core library experience and adds a PC-library workflow designed around an existing, immutable game archive.
-
-Compared with upstream RomM, this edition adds:
-
-- External PC library roots and platform mappings that are read-only by design. RomM can catalog and serve the archive without changing its files, folders, or organization.
-- PC game components, including installers, updates, DLC, optional files, and required archive sets, represented as explicit catalog data.
+- Read-only external PC library roots and explicit platform-to-storage mappings.
+- Catalog records for base games, installers, updates, DLC, patches, manuals,
+  optional files, and required archive sets.
 - Immutable, hash-backed download manifests for selected PC components.
-- A browser download manager that delivers original files directly, supports verified resumable transfers where the browser permits it, and never creates whole-game ZIP archives.
+- Browser downloads with progress, pause, resume, retry, cancel, and history
+  controls.
+- Metadata matching for PC games and DLC through the configured providers,
+  including IGDB and Steam.
+- German Steam metadata with controlled language and fallback behavior.
+- Media management for screenshots and artwork, including delete actions,
+  duplicate-safe ownership, background selection, and overview selection.
+- Responsive overview layouts for desktop and tablet-sized screens.
+- A Git-based Portainer deployment that keeps ROM files, media, credentials,
+  and database state outside Git.
 
-These PC-specific extensions are not part of the official RomM project. See the original repository for upstream releases, documentation, and community support.
+## Development milestones
 
-## Features
+The following capabilities were completed during the development of this
+edition:
 
-- Scan and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
-- Fetch custom artwork from [SteamGridDB][steamgriddb-api]
-- Display your achievements from [Retroachievements][retroachievements-api]
-- Metadata available for [400+ platforms][docs-supported-platforms]
-- Play games directly from the browser using [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers]
-- Supports multi-disk games, DLCs, mods, hacks, patches, and manuals
-- Parse and filter by [tags][docs-tag-support] in filenames
-- View, upload, update, and delete games from any modern web browser
+1. Established an immutable storage foundation for existing game archives.
+2. Added a read-only policy boundary so scans and catalog operations cannot
+   rewrite source files.
+3. Defined storage mapping administration and validation contracts.
+4. Designed the active v2 storage architecture and data boundaries.
+5. Moved preview and read paths onto the new storage model.
+6. Added safe lifecycle handling and migration support for legacy data.
+7. Delivered the v2 storage administration experience.
+8. Removed obsolete v1 storage surfaces from the active workflow.
+9. Added operational proofs for storage immutability.
+10. Added the PC integration model and PC-specific detail views.
+11. Added local PC media and DLC navigation.
+12. Added dedicated DLC detail pages for local PC components.
+13. Added IGDB metadata matching and DLC media handling for PC content.
+14. Added immutable download manifests for selected files.
+15. Added direct resumable browser transfers.
+16. Defined the cross-platform desktop transfer client contract.
+17. Delivered the browser download manager with queue and recovery controls.
+18. Integrated Steam metadata for PC games and DLC.
+19. Hardened PC quick scans, IGDB matching, and safe DLC enrichment.
+20. Added media management and owned soundtrack uploads.
+21. Unified administrative PC scans with German Steam metadata and media.
+22. Added bulk automation for PC game and DLC assignment.
+23. Added multilingual Steam metadata with German and English variants.
+24. Stabilized the v2 UI and removed remaining legacy boundaries.
+25. Hardened scan and media integration across the complete PC workflow.
+26. Added the current UI and UX improvements, manual metadata editing,
+    screenshot grids, media actions, DLC matching, and metadata fallback
+    behavior.
+27. Added a reproducible Portainer and Docker deployment contract with
+    persistent storage, startup checks, and clean-install verification.
 
 ## Interactive UI demos
 
-These short recordings show the fork-specific workflows in the German development UI. They contain only synthetic demo data; ROM files, personal accounts, media libraries, and credentials are not part of the repository.
+These recordings show fork-specific workflows with synthetic demo data. They do
+not contain ROM files, personal accounts, private media, or credentials.
 
-|                        PC download workflow                        |                       Media and artwork workflow                       |
+|                        PC download controls                        |                       Media and artwork workflow                       |
 | :----------------------------------------------------------------: | :--------------------------------------------------------------------: |
-| ![PC download workflow](docs/screenshots/pc-download-controls.gif) | ![Media and artwork workflow](docs/screenshots/media-artwork-flow.gif) |
+| ![PC download controls](docs/screenshots/pc-download-controls.gif) | ![Media and artwork workflow](docs/screenshots/media-artwork-flow.gif) |
 
-The download demo shows the selection dialog and the browser download manager. The media demo shows the screenshots/artwork navigation and the actions for adding artwork to the overview or using it as a background.
+The download recording shows component selection and browser download controls.
+The media recording shows screenshot and artwork navigation, adding media to the
+overview, and selecting a background.
 
-## Installation
+## Installation with Portainer
 
-To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting].
+The supported deployment path is a Docker Compose stack managed by Portainer.
+The stack is stored in [examples/portainer-stack.yml](examples/portainer-stack.yml)
+and the safe variable template is
+[examples/portainer.env.example](examples/portainer.env.example).
 
-For this fork's reproducible NAS deployment, follow the [Portainer installation guide](docs/PORTAINER_INSTALL.md).
+### Prerequisites
 
-## Contributing
+- Portainer with Git-based Docker Compose stack support.
+- A NAS directory containing the existing PC and ROM library.
+- Writable NAS directories for assets and configuration.
+- Enough space for the application build and MariaDB data.
+- Optional metadata-provider accounts and API keys.
 
-To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
+### Deploy from GitHub
 
-<!-- docs links -->
+1. Open Portainer and choose **Stacks**, then **Add stack**.
+2. Select **Git repository**.
+3. Set the repository URL to
+   https://github.com/D1skanime/pc-romm.git.
+4. Set the branch or reference to **main**.
+5. Set the Compose path to **examples/portainer-stack.yml**.
+6. Add the variables from
+   [examples/portainer.env.example](examples/portainer.env.example) to the
+   Portainer environment-variable section.
+7. Replace every placeholder and set the three NAS paths.
+8. Deploy the stack.
 
-[docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
-[docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
-[docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
-[docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
-[docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
-[docs-tag-support]: https://docs.romm.app/latest/Getting-Started/Folder-Structure/#tag-support
+The Git stack builds the checked-out repository with docker/Dockerfile. This
+means the deployed application contains the code from the selected Git
+revision. Keep the MariaDB and resource volumes when redeploying or updating.
 
-<!-- External links -->
+### Required variables
 
-[igdb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#igdb
-[screenscraper-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#screenscraper
-[mobygames-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#mobygames
-[steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
-[retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
+| Variable              | Purpose                                             |
+| --------------------- | --------------------------------------------------- |
+| ROMM_LIBRARY_PATH     | Existing ROM and PC library root, mounted read-only |
+| ROMM_ASSETS_PATH      | Writable assets, saves, and state directory         |
+| ROMM_CONFIG_PATH      | Writable persistent configuration directory         |
+| ROMM_DB_PASSWORD      | MariaDB application-user password                   |
+| ROMM_DB_ROOT_PASSWORD | Separate MariaDB root password                      |
+| ROMM_AUTH_SECRET_KEY  | Long random authentication key                      |
+| ROMM_HTTP_PORT        | NAS port mapped to the application port             |
+| TZ                    | Container timezone                                  |
+
+Generate unique secrets, for example:
+
+```bash
+openssl rand -hex 32
+```
+
+Enter real values only in Portainer or a supported secret store. Never commit
+filled environment files, API keys, passwords, tokens, or personal paths.
+
+### Optional metadata providers
+
+Provider variables can remain empty. The application still starts and the
+provider stays unavailable until its credentials are supplied.
+
+- SCREENSCRAPER_USER
+- SCREENSCRAPER_PASSWORD
+- RETROACHIEVEMENTS_API_KEY
+- STEAMGRIDDB_API_KEY
+- HASHEOUS_API_ENABLED
+
+A missing provider credential is a provider configuration gap, not an
+installation failure. For example, cover search can remain unavailable until
+the selected provider has valid credentials.
+
+### Storage and persistence
+
+Create the three host directories before deployment. Mount the source library
+read-only so scans cannot reorganize or modify it. Keep application resources,
+assets, configuration, Redis data, and MariaDB data on persistent Docker
+volumes or writable host mounts.
+
+Do not mount the NAS library over /romm/resources or /romm/assets. Those paths
+have different ownership and write semantics.
+
+### First start and updates
+
+Wait until both romm and romm-db are healthy. Open the configured HTTP port and
+complete the first-login flow. Normal startup performs environment preparation,
+migrations, and health checks automatically.
+
+For an update, select the desired main revision in Portainer and redeploy the
+Git stack. Keep the database and resource volumes. Back up the database before
+major upgrades. Never replace the ROM library with a Git checkout.
+
+### Deployment verification
+
+From a Linux checkout, validate the sanitized stack template with:
+
+```bash
+bash scripts/verify-portainer-stack.sh
+```
+
+The check rejects developer paths, tracked environment files, and tracked
+runtime folders such as Games, Docker, and Media.
+
+For the complete deployment notes, see
+[docs/PORTAINER_INSTALL.md](docs/PORTAINER_INSTALL.md).
+
+## Data and privacy boundaries
+
+The repository contains application code, deployment templates, tests, and
+synthetic documentation demos. The following stay on the installation host:
+
+- ROM files and PC installers.
+- Downloaded artwork, screenshots, and other media.
+- Database and cache contents.
+- NAS paths.
+- Provider API keys, passwords, and authentication secrets.
+- User accounts and personal library metadata.
+
+## Local development
+
+Read [CLAUDE.md](CLAUDE.md) for repository rules and the canonical Linux
+development environment.
+
+For the development stack:
+
+```bash
+cp env.template .env
+docker compose up -d
+```
+
+The production-style Portainer stack is separate from the development compose
+file. Use the Portainer files for a NAS deployment and keep their environment
+values outside Git.
+
+## Troubleshooting
+
+- If Portainer reports a required-variable error, check the variable names and
+  placeholders without exposing the secret in logs or screenshots.
+- If romm-db is unhealthy, verify the database passwords and persistent volume.
+- If the library is empty, verify that the path exists on the NAS host visible
+  to Docker, not only on a workstation.
+- If metadata search is unavailable, verify only the credentials for the
+  selected provider. The base installation remains usable without metadata
+  providers.
+- If an update appears unchanged, confirm that Portainer pulled the intended
+  Git revision and recreated the application container.
+
+## Repository links
+
+- [Portainer installation guide](docs/PORTAINER_INSTALL.md)
+- [Portainer stack](examples/portainer-stack.yml)
+- [Portainer environment template](examples/portainer.env.example)
+- [Deployment verification script](scripts/verify-portainer-stack.sh)
+- [Developer guide](CLAUDE.md)
