@@ -750,3 +750,32 @@ Plans:
 **Wave 3** (depends on 26-01 and 26-02)
 
 - [x] 26-03-PLAN.md: Run automated regression gates and live Linux Dev/browser UAT for the complete UI scope.
+
+### Phase 27: Reproduzierbare Portainer-/Docker-Installation für die RomM-Version
+
+**Goal:** Publish a sanitized, reproducible Portainer/Docker installation path
+for the GitHub main branch so another user supplies only their own storage
+paths, secrets, and optional metadata-provider credentials while ROMs, media,
+database contents, and real secrets remain outside Git.
+**Requirements**: DEPLOY-27-01, DEPLOY-27-02, DEPLOY-27-03, DEPLOY-27-04
+**Depends on:** Phase 26
+**Cross-cutting constraints:** Reuse examples/docker-compose.example.yml,
+docker/init_scripts/docker-entrypoint.sh, existing storage/media mounts, and
+the existing migration/bootstrap path. Keep dev compose separate. Do not add a
+parallel storage, mapping, metadata, media, or database architecture. Never
+commit .env files, secrets, ROMs, images, database dumps, or runtime artifacts.
+**Plans:** 3 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 27-01-PLAN.md: Define the sanitized Portainer stack, operator env contract, and secret-safety checks.
+
+**Wave 2** (depends on 27-01)
+
+- [ ] 27-02-PLAN.md: Close startup, migration, persistence, health, and secret-file behavior gaps.
+
+**Wave 3** (depends on 27-01 and 27-02)
+
+- [ ] 27-03-PLAN.md: Publish installation documentation and run clean-clone Portainer/Docker UAT.
