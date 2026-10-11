@@ -14,17 +14,19 @@ describe("ScreenshotsTab responsive layout contract", () => {
     expect(source).toContain("r-v2-det-shots");
   });
 
-  it("defines a larger Overview grid that reflows at the shared breakpoint", () => {
+  it("keeps Overview screenshots at three columns and reflows responsively", () => {
     expect(source).toContain('layout?: "overview"');
     expect(source).toContain("r-v2-det-shots--overview");
     expect(source).toContain(
-      "grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));",
+      "grid-template-columns: repeat(3, minmax(0, 1fr));",
     );
     expect(source).toContain(
       'html[data-bp~="sm-and-down"] .r-v2-det-shots--overview',
     );
     expect(source).toContain(
-      "grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));",
+      "grid-template-columns: repeat(2, minmax(0, 1fr));",
     );
+    expect(source).toContain('html[data-bp~="xs"] .r-v2-det-shots--overview');
+    expect(source).toContain("grid-template-columns: minmax(0, 1fr);");
   });
 });

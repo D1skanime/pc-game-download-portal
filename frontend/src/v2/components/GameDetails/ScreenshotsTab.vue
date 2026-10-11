@@ -180,11 +180,16 @@ function canToggle(shot: ScreenshotItem): boolean {
 }
 
 .r-v2-det-shots--overview {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  /* Keep overview screenshots prominent: three columns on desktop. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 html[data-bp~="sm-and-down"] .r-v2-det-shots--overview {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+html[data-bp~="xs"] .r-v2-det-shots--overview {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .r-v2-det-shots__cell {
