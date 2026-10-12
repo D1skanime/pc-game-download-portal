@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Any
 
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -17,7 +18,7 @@ from handler.database import (
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler, storage_composition
+from handler.filesystem import fs_asset_handler, fs_resource_handler, storage_composition
 from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from handler.scan_handler import scan_screenshot, scan_state
@@ -57,6 +58,38 @@ def _resolve_state_platform(
     return platform
 
 
+
+def _canonical_state_path(state: State) -> str | None:
+    if state.rom is None:
+        return None
+    return fs_resource_handler.get_pc_state_file_path(
+        state.rom, state.file_name, state.emulator
+    )
+
+
+def _resolve_state_file(state: State) -> tuple[Any, Path]:
+    """Resolve canonical bytes first, then the row's known legacy path."""
+    candidates: list[tuple[Any, str]] = []
+    canonical_path = _canonical_state_path(state)
+    if canonical_path is not None:
+        candidates.append((fs_resource_handler, canonical_path))
+    candidates.append((fs_asset_handler, state.full_path))
+
+    for handler, relative_path in candidates:
+        try:
+            resolved = handler.validate_path(relative_path)
+        except ValueError:
+            continue
+        if resolved.exists() and resolved.is_file():
+            return handler, resolved
+    raise FileNotFoundError(state.file_name)
+
+
+def _state_reference_handler(state: State) -> Any:
+    canonical_path = _canonical_state_path(state)
+    if canonical_path is not None and state.file_path == canonical_path.rsplit("/", 1)[0]:
+        return fs_resource_handler
+    return fs_asset_handler
 router = APIRouter(
     prefix="/states",
     tags=["states"],
@@ -90,14 +123,13 @@ async def add_state(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
+    authorize_api_storage_operation(
+        StorageOperation.WRITE, storage_composition.owned[OwnedStorageKind.RESOURCES]
+    )
+
     log.info(f"Uploading state of {rom.name}")
 
-    states_path = fs_asset_handler.build_states_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom_id,
-        emulator=emulator,
-    )
+    states_path = fs_resource_handler.get_pc_state_path(rom, emulator)
 
     if not stateFile.filename:
         log.error("State file has no filename")
@@ -121,14 +153,9 @@ async def add_state(
         f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
-    states_path = fs_asset_handler.build_states_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
-    )
+    states_path = fs_resource_handler.get_pc_state_path(rom, emulator)
 
-    await fs_asset_handler.write_file(
+    await fs_resource_handler.write_file(
         file=stateFile, path=states_path, filename=sanitized_state_filename
     )
 
@@ -139,6 +166,7 @@ async def add_state(
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom_id,
         emulator=emulator,
+        resource_path=states_path,
     )
     db_state = db_state_handler.get_state_by_filename(
         user_id=request.user.id, rom_id=rom.id, file_name=sanitized_state_filename
@@ -277,17 +305,11 @@ def download_state(request: Request, id: int) -> FileResponse:
     )
 
     try:
-        file_path = fs_asset_handler.validate_path(state.full_path)
-    except ValueError:
+        _, file_path = _resolve_state_file(state)
+    except FileNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="State file not found",
-        ) from None
-
-    if not file_path.exists() or not file_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="State file not found on disk",
         )
 
     return build_asset_file_response(file_path, filename=state.file_name)
@@ -323,11 +345,25 @@ async def update_state(
         )
 
     if stateFile:
-        await fs_asset_handler.write_file(
-            file=stateFile, path=db_state.file_path, filename=db_state.file_name
+        if db_state.rom is not None:
+            authorize_api_storage_operation(
+                StorageOperation.OVERWRITE,
+                storage_composition.owned[OwnedStorageKind.RESOURCES],
+            )
+            update_path = fs_resource_handler.get_pc_state_path(
+                db_state.rom, db_state.emulator
+            )
+            update_handler = fs_resource_handler
+            resource_path = update_path
+        else:
+            update_path = db_state.file_path
+            update_handler = fs_asset_handler
+            resource_path = None
+        await update_handler.write_file(
+            file=stateFile, path=update_path, filename=db_state.file_name
         )
         db_state = db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": stateFile.size}
+            db_state.id, {"file_size_bytes": stateFile.size, "file_path": update_path}
         )
     if screenshotFile and screenshotFile.filename:
         try:
@@ -470,6 +506,10 @@ async def delete_states(
         )
         if state.rom_id is not None:
             affected_rom_ids.add(state.rom_id)
+            authorize_api_storage_operation(
+                StorageOperation.DELETE,
+                storage_composition.owned[OwnedStorageKind.RESOURCES],
+            )
         db_state_handler.delete_state(state_id)
         log.info(
             f"Deleting state {hl(state.file_name)} [{platform.fs_slug}] from filesystem"
@@ -477,7 +517,7 @@ async def delete_states(
 
         try:
             file_path = f"{state.file_path}/{state.file_name}"
-            await fs_asset_handler.remove_file(file_path=file_path)
+            await _state_reference_handler(state).remove_file(file_path=file_path)
         except FileNotFoundError:
             error = f"State file {hl(state.file_name)} not found for platform {hl(platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
             log.error(error)

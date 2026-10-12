@@ -1525,9 +1525,11 @@ async def scan_rom(
     return scanned_rom
 
 
-async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False):
+async def _scan_asset(
+    file_name: str, asset_path: str, should_hash: bool = False, handler=fs_asset_handler
+):
     file_path = f"{asset_path}/{file_name}"
-    file_size = await fs_asset_handler.get_file_size(file_path)
+    file_size = await handler.get_file_size(file_path)
 
     result = {
         "file_path": asset_path,
@@ -1536,7 +1538,7 @@ async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False
     }
 
     if should_hash:
-        result["content_hash"] = await fs_asset_handler.compute_content_hash(file_path)
+        result["content_hash"] = await handler.compute_content_hash(file_path)
 
     return result
 
@@ -1547,11 +1549,17 @@ async def scan_save(
     platform_fs_slug: str,
     rom_id: int,
     emulator: str | None = None,
+    resource_path: str | None = None,
+    storage_handler=None,
 ) -> Save:
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
-    scanned_asset = await _scan_asset(file_name, saves_path, should_hash=True)
+    saves_path = resource_path or saves_path
+    scan_handler = storage_handler or (fs_resource_handler if resource_path else fs_asset_handler)
+    scanned_asset = await _scan_asset(
+        file_name, saves_path, should_hash=True, handler=scan_handler
+    )
     return Save(**scanned_asset)
 
 
@@ -1561,11 +1569,15 @@ async def scan_state(
     platform_fs_slug: str,
     rom_id: int,
     emulator: str | None = None,
+    resource_path: str | None = None,
+    storage_handler=None,
 ) -> State:
     states_path = fs_asset_handler.build_states_file_path(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
-    scanned_asset = await _scan_asset(file_name, states_path)
+    states_path = resource_path or states_path
+    scan_handler = storage_handler or (fs_resource_handler if resource_path else fs_asset_handler)
+    scanned_asset = await _scan_asset(file_name, states_path, handler=scan_handler)
     return State(**scanned_asset)
 
 

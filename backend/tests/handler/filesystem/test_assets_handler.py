@@ -11,6 +11,7 @@ from tests._zipfile_shim import reload_zipfile
 
 from handler.filesystem import storage_composition
 from handler.filesystem.assets_handler import ASSETS_BASE_PATH, FSAssetsHandler
+from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.storage_policy import OwnedStorageKind
 from models.user import User
 
@@ -502,3 +503,38 @@ class TestComputeContentHash:
         assert (
             result == pinned
         ), f"nested-switch-shape zip-hash drifted: got={result} want={pinned}"
+
+class TestFSResourcesHandlerPcAssetPaths:
+    @pytest.fixture
+    def handler(self):
+        return FSResourcesHandler(
+            storage_composition.owned[OwnedStorageKind.RESOURCES]
+        )
+
+    @pytest.fixture
+    def rom(self):
+        return Mock(fs_resources_path="roms/42/Example Title")
+
+    def test_save_path_is_rom_owned_and_emulator_scoped(self, handler, rom):
+        assert handler.get_pc_save_path(rom, emulator="retroarch") == (
+            "roms/42/Example Title/pc-saves/retroarch"
+        )
+
+    def test_state_path_is_separate_from_save_path(self, handler, rom):
+        assert handler.get_pc_state_path(rom, emulator="retroarch") == (
+            "roms/42/Example Title/pc-states/retroarch"
+        )
+        assert handler.get_pc_state_path(rom) != handler.get_pc_save_path(rom)
+
+    @pytest.mark.parametrize("emulator", ["../escape", "/absolute", "a/../../b"])
+    def test_pc_asset_path_rejects_traversal(self, handler, rom, emulator):
+        with pytest.raises(ValueError):
+            handler.get_pc_save_path(rom, emulator=emulator)
+
+    def test_pc_asset_path_does_not_depend_on_rom_title(self, handler):
+        first = Mock(fs_resources_path="roms/42/Stable Identity")
+        renamed = Mock(fs_resources_path="roms/42/Stable Identity")
+
+        assert handler.get_pc_save_path(first, emulator="retroarch") == handler.get_pc_save_path(
+            renamed, emulator="retroarch"
+        )

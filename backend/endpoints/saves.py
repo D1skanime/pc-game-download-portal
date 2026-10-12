@@ -2,7 +2,8 @@ import os
 import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Any
 
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -25,7 +26,7 @@ from handler.database import (
     db_screenshot_handler,
     db_sync_session_handler,
 )
-from handler.filesystem import fs_asset_handler, storage_composition
+from handler.filesystem import fs_asset_handler, fs_resource_handler, storage_composition
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
@@ -183,6 +184,38 @@ SAVE_SCREENSHOT_UPLOAD = File(
     default=None,
     description="Screenshot file associated with this save.",
 )
+
+def _canonical_save_path(save: Save) -> str | None:
+    if save.rom is None:
+        return None
+    return fs_resource_handler.get_pc_save_file_path(
+        save.rom, save.file_name, save.emulator
+    )
+
+
+def _resolve_save_file(save: Save) -> tuple[Any, Path]:
+    """Resolve canonical bytes first, then the row's known legacy path."""
+    candidates: list[tuple[Any, str]] = []
+    canonical_path = _canonical_save_path(save)
+    if canonical_path is not None:
+        candidates.append((fs_resource_handler, canonical_path))
+    candidates.append((fs_asset_handler, save.full_path))
+
+    for handler, relative_path in candidates:
+        try:
+            resolved = handler.validate_path(relative_path)
+        except ValueError:
+            continue
+        if resolved.exists() and resolved.is_file():
+            return handler, resolved
+    raise FileNotFoundError(save.file_name)
+
+
+def _save_reference_handler(save: Save) -> Any:
+    canonical_path = _canonical_save_path(save)
+    if canonical_path is not None and save.file_path == canonical_path.rsplit("/", 1)[0]:
+        return fs_resource_handler
+    return fs_asset_handler
 SAVE_FILE_UPDATE = File(default=None, description="Updated save file content.")
 SAVE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
 
@@ -220,6 +253,10 @@ async def add_save(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
+    authorize_api_storage_operation(
+        StorageOperation.WRITE, storage_composition.owned[OwnedStorageKind.RESOURCES]
+    )
+
     if not saveFile.filename:
         log.error("Save file has no filename")
         raise HTTPException(
@@ -238,12 +275,7 @@ async def add_save(
     if slot:
         actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
-    saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
-    )
+    saves_path = fs_resource_handler.get_pc_save_path(rom, emulator)
 
     db_save = db_save_handler.get_save_by_filename(
         user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
@@ -282,7 +314,7 @@ async def add_save(
         f"Uploading save {hl(actual_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
-    await fs_asset_handler.write_file(
+    await fs_resource_handler.write_file(
         file=saveFile, path=saves_path, filename=actual_filename
     )
 
@@ -292,6 +324,7 @@ async def add_save(
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom_id,
         emulator=emulator,
+        resource_path=saves_path,
     )
 
     if slot and scanned_save.content_hash and not overwrite:
@@ -303,7 +336,7 @@ async def add_save(
         )
         if existing_by_hash:
             try:
-                await fs_asset_handler.remove_file(f"{saves_path}/{actual_filename}")
+                await fs_resource_handler.remove_file(f"{saves_path}/{actual_filename}")
             except FileNotFoundError:
                 pass
             return _build_save_schema(
@@ -540,17 +573,11 @@ def download_save(
     is_owner = save.user_id == request.user.id
 
     try:
-        file_path = fs_asset_handler.validate_path(save.full_path)
-    except ValueError:
+        _, file_path = _resolve_save_file(save)
+    except FileNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Save file not found",
-        ) from None
-
-    if not file_path.exists() or not file_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Save file not found on disk",
         )
 
     # Sync bookkeeping only makes sense for the owner's own saves.
@@ -630,8 +657,22 @@ async def update_save(
         )
 
     if saveFile:
-        await fs_asset_handler.write_file(
-            file=saveFile, path=db_save.file_path, filename=db_save.file_name
+        if db_save.rom is not None:
+            authorize_api_storage_operation(
+                StorageOperation.OVERWRITE,
+                storage_composition.owned[OwnedStorageKind.RESOURCES],
+            )
+            update_path = fs_resource_handler.get_pc_save_path(
+                db_save.rom, db_save.emulator
+            )
+            update_handler = fs_resource_handler
+            resource_path = update_path
+        else:
+            update_path = db_save.file_path
+            update_handler = fs_asset_handler
+            resource_path = None
+        await update_handler.write_file(
+            file=saveFile, path=update_path, filename=db_save.file_name
         )
         scanned_save = await scan_save(
             file_name=db_save.file_name,
@@ -643,12 +684,15 @@ async def update_save(
                 else db_save.retained_catalog.detached_rom_id
             ),
             emulator=db_save.emulator,
+            resource_path=resource_path,
+            storage_handler=update_handler,
         )
         db_save = db_save_handler.update_save(
             db_save.id,
             {
                 "file_size_bytes": scanned_save.file_size_bytes,
                 "content_hash": scanned_save.content_hash,
+                "file_path": update_path,
             },
         )
 
@@ -796,14 +840,18 @@ async def delete_saves(
         )
         if save.rom_id is not None:
             affected_rom_ids.add(save.rom_id)
+            authorize_api_storage_operation(
+                StorageOperation.DELETE,
+                storage_composition.owned[OwnedStorageKind.RESOURCES],
+            )
         db_save_handler.delete_save(save_id)
 
         log.info(
             f"Deleting save {hl(save.file_name)} [{platform.fs_slug}] from filesystem"
         )
         try:
-            file_path = f"{save.file_path}/{save.file_name}"
-            await fs_asset_handler.remove_file(file_path=file_path)
+            file_path = save.full_path
+            await _save_reference_handler(save).remove_file(file_path=file_path)
         except FileNotFoundError:
             error = f"Save file {hl(save.file_name)} not found for platform {hl(platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
             log.error(error)
