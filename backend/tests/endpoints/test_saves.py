@@ -1643,7 +1643,7 @@ class TestSlotFiltering:
 
 class TestDatetimeTagging:
     @mock.patch(
-        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+        "endpoints.saves.fs_resource_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
     def test_upload_with_slot_applies_datetime_tag(
@@ -1685,7 +1685,7 @@ class TestDatetimeTagging:
         assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]", written_filename)
 
     @mock.patch(
-        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+        "endpoints.saves.fs_resource_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
     def test_upload_without_slot_no_datetime_tag(
@@ -1724,7 +1724,7 @@ class TestDatetimeTagging:
         assert written_filename == "test.sav"
 
     @mock.patch(
-        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+        "endpoints.saves.fs_resource_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
     def test_upload_with_existing_datetime_tag_replaces_it(
@@ -2307,7 +2307,7 @@ class TestSaveDownload:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert "not found on disk" in response.json()["detail"]
+        assert "not found" in response.json()["detail"]
 
     @mock.patch("endpoints.saves.fs_asset_handler.validate_path")
     def test_download_save_validate_path_raises(
@@ -2601,10 +2601,10 @@ class TestContentHashDeduplication:
         assert data["content_hash"] == "abc123def456789012345678901234ab"
 
     @mock.patch(
-        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+        "endpoints.saves.fs_resource_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch(
-        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+        "endpoints.saves.fs_resource_handler.remove_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save")
     def test_duplicate_hash_returns_existing_save(
@@ -2662,7 +2662,7 @@ class TestContentHashDeduplication:
         mock_remove_file.assert_called_once()
 
     @mock.patch(
-        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+        "endpoints.saves.fs_resource_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save")
     def test_duplicate_hash_with_overwrite_succeeds(

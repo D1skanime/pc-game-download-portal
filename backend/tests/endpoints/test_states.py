@@ -352,7 +352,7 @@ def _kiosk_mode():
 
 
 @mock.patch("endpoints.states.scan_state")
-@mock.patch("endpoints.states.fs_asset_handler.write_file")
+@mock.patch("endpoints.states.fs_resource_handler.write_file")
 def test_kiosk_mode_lets_logged_in_user_upload_state(
     mock_write_file,
     mock_scan_state,

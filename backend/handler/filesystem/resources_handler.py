@@ -1,6 +1,7 @@
 import gzip
 import hashlib
 import os
+import zipfile
 import secrets
 from io import BytesIO
 from pathlib import Path
@@ -930,3 +931,74 @@ class FSResourcesHandler(FSHandler):
         await self.remove_directory(
             self.get_media_resources_path(platform_id, rom_id, media_type)
         )
+
+    def _get_pc_asset_path(
+        self, rom: Rom, asset_directory: str, emulator: str | None
+    ) -> str:
+        """Return a stable, ROM-owned directory for one PC asset kind."""
+        resource_path = Path(rom.fs_resources_path)
+        if resource_path.is_absolute() or ".." in resource_path.parts:
+            raise ValueError("ROM resource path must stay within owned resources")
+
+        emulator_name = emulator or "default"
+        emulator_path = Path(emulator_name)
+        if (
+            emulator_path.is_absolute()
+            or len(emulator_path.parts) != 1
+            or emulator_path.parts[0] in {"", ".", ".."}
+        ):
+            raise ValueError("Emulator must be a single safe path component")
+
+        relative_path = os.path.join(
+            rom.fs_resources_path, asset_directory, emulator_name
+        )
+        self.validate_path(relative_path)
+        return relative_path
+
+    def get_pc_save_path(self, rom: Rom, emulator: str | None = None) -> str:
+        return self._get_pc_asset_path(rom, "pc-saves", emulator)
+
+    def get_pc_state_path(self, rom: Rom, emulator: str | None = None) -> str:
+        return self._get_pc_asset_path(rom, "pc-states", emulator)
+
+    def get_pc_save_file_path(
+        self, rom: Rom, filename: str, emulator: str | None = None
+    ) -> str:
+        return os.path.join(
+            self.get_pc_save_path(rom, emulator), self._sanitize_filename(filename)
+        )
+
+    def get_pc_state_file_path(
+        self, rom: Rom, filename: str, emulator: str | None = None
+    ) -> str:
+        return os.path.join(
+            self.get_pc_state_path(rom, emulator), self._sanitize_filename(filename)
+        )
+
+    async def _compute_file_hash(self, file_path: str) -> str:
+        hash_obj = hashlib.md5(usedforsecurity=False)
+        async with await self.stream_file(file_path=file_path) as file:
+            while chunk := await file.read(8192):
+                hash_obj.update(chunk)
+        return hash_obj.hexdigest()
+
+    async def _compute_zip_hash(self, zip_path: str) -> str:
+        with zipfile.ZipFile(self.base_path / zip_path, "r") as archive:
+            file_hashes = []
+            for name in sorted(archive.namelist()):
+                if not name.endswith("/"):
+                    content = archive.read(name)
+                    file_hash = hashlib.md5(content, usedforsecurity=False).hexdigest()
+                    file_hashes.append(f"{name}:{file_hash}")
+            combined = "\n".join(file_hashes)
+            return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
+
+    async def compute_content_hash(self, file_path: str) -> str | None:
+        try:
+            full_path = self.validate_path(file_path)
+            if zipfile.is_zipfile(full_path):
+                return await self._compute_zip_hash(file_path)
+            return await self._compute_file_hash(file_path)
+        except Exception as exc:
+            log.debug(f"Failed to compute content hash for {file_path}: {exc}")
+            return None
