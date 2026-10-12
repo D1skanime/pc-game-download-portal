@@ -1,8 +1,7 @@
 <script setup lang="ts">
 // AdditionalDetails (v2) — manual metadata overrides for the edit-ROM
 // dialog. Companies / genres / franchises / game modes / age ratings
-// are multi-tag combobox fields; first release date is a date picker;
-// YouTube video ID is a plain text field.
+// are multi-tag combobox fields; first release date is a date picker.
 //
 // All writes go through `manual_metadata` — the backend layer where
 // admins override automatic scraper output. Emitting `update:rom` with
@@ -12,7 +11,6 @@ import { RComboboxField, RDateField, RTextField } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UpdateRom } from "@/v2/data/adapters/legacy/services/api/rom";
-import { youtubeVideoId } from "@/v2/utils/validation";
 
 const props = defineProps<{ rom: UpdateRom }>();
 
@@ -146,22 +144,6 @@ function updateManualMetadata(
       density="comfortable"
       clearable
       @update:model-value="(v) => updateManualMetadata('game_modes', v)"
-    />
-    <RTextField
-      :model-value="manual.youtube_video_id ?? ''"
-      :label="t('rom.youtube-video-id')"
-      :rules="[youtubeVideoId]"
-      prefix-label="stacked"
-      variant="outlined"
-      density="comfortable"
-      clearable
-      @update:model-value="
-        (v) =>
-          updateManualMetadata(
-            'youtube_video_id',
-            v && String(v).trim() !== '' ? String(v) : null,
-          )
-      "
     />
     <RComboboxField
       :model-value="ageRatingsView"

@@ -11,6 +11,7 @@ import { RTextField } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UpdateRom } from "@/v2/data/adapters/legacy/services/api/rom";
+import { youtubeVideoId } from "@/v2/utils/validation";
 
 const props = defineProps<{ rom: UpdateRom }>();
 
@@ -80,10 +81,31 @@ function onUpdate(field: IdField, raw: string | number | null) {
     updateField(field.key, s && s.trim() !== "" ? s : null);
   }
 }
+
+function updateYoutubeVideoId(raw: string | number | null) {
+  const value = raw == null ? null : String(raw).trim();
+  emit("update:rom", {
+    ...props.rom,
+    manual_metadata: {
+      ...props.rom.manual_metadata,
+      youtube_video_id: value || null,
+    },
+  });
+}
 </script>
 
 <template>
   <div class="r-v2-meta-ids">
+    <RTextField
+      :model-value="props.rom.manual_metadata?.youtube_video_id ?? ''"
+      :label="t('rom.youtube-video-id')"
+      :rules="[youtubeVideoId]"
+      prefix-label="stacked"
+      variant="outlined"
+      density="comfortable"
+      clearable
+      @update:model-value="updateYoutubeVideoId"
+    />
     <RTextField
       v-for="field in FIELDS"
       :key="field.key"
