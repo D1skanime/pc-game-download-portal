@@ -6,28 +6,29 @@ Branch: codex/phase-28-youtube-steam-saves
 
 ## Result
 
-Status: BLOCKED before completion.
+Status: PARTIAL, completion gates pending.
 
-The backend Save/State implementation and migration tests pass. Frontend test/build/typecheck and Trunk gates could not run because the canonical Linux host has no node, npm, or trunk. No RomM Docker services are running in the checkout, so live browser UAT and byte-hash upload round trips could not be performed. The unrelated service answering port 3000 identifies itself as Next.js and was not used as RomM evidence.
+The backend Save/State implementation and migration tests pass. Phase-specific frontend tests, typecheck, and production build pass inside the running romm-dev container. The RomM Dev stack is reachable on port 3100 and browser UAT verified the YouTube preview, Steam App ID field, and Save Data/State UI. Trunk is not installed in the container, and mutating upload/download byte-hash round trips plus responsive browser checks remain pending.
 
 ## Automated evidence
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | Save/State filesystem, endpoint, and migration tests | PASS | backend/.venv/bin/pytest -q tests/handler/filesystem/test_assets_handler.py tests/endpoints/test_saves.py tests/endpoints/test_states.py tests/tasks/test_pc_save_migration.py -> 147 passed |
-| Task registry plus migration/endpoints regression | PASS | backend/.venv/bin/pytest -q tests/endpoints/test_tasks.py tests/tasks/test_pc_save_migration.py tests/endpoints/test_saves.py tests/endpoints/test_states.py -> 137 passed |
+| Task registry plus migration/endpoints regression | PASS | backend/.venv/bin/pytest -q tests/handler/filesystem/test_assets_handler.py tests/endpoints/test_tasks.py tests/endpoints/test_saves.py tests/endpoints/test_states.py tests/tasks/test_pc_save_migration.py -> 164 passed |
 | Python syntax for changed backend files | PASS | Worker verified all 9 backend files |
 | git diff --check | PASS | Clean on the phase branch |
-| Frontend focused tests and typecheck | BLOCKED | npm and node are not installed on the canonical Linux host |
-| Production frontend build | BLOCKED | npm and node are not installed |
+| Frontend focused tests | PASS | docker exec romm-dev npm run test -- --run ... -> 11 passed |
+| Frontend typecheck | PASS | docker exec romm-dev npm run typecheck -> exit 0 |
+| Production frontend build | PASS | docker exec romm-dev npm run build -> built in 4.86s, warnings only |
 | Locale parity | BASELINE FAIL | Existing missing keys in scan.json, setup.json, and rom.json for 17 locales, unrelated to the new keys |
 | Locale sorted gate | BASELINE FAIL | Existing unsorted locale files, including rom.json in most locales |
 | Trunk fmt/check | BLOCKED | trunk is not installed |
-| Docker health | NOT AVAILABLE | docker compose ps found the compose file but no running services |
+| Dev-stack reachability | PASS | curl -I http://127.0.0.1:3100/ -> HTTP/1.1 200 OK; romm-dev container and Vite process active |
 
 ## Save/State matrix
 
-The automated endpoint and migration suite covers the expected server behavior. Live browser and byte-hash cells remain pending because no RomM Dev service is running.
+The automated endpoint and migration suite covers the expected server behavior. Browser checks passed for the rendered YouTube preview, Steam App ID field, and Save Data/State surfaces. Byte-hash upload/download cells remain pending.
 
 | Asset | Path | Owner authorization | Public visibility | Device sync | Optimistic conflict | Emulator separation | Missing-file handling | Download | Delete |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -48,14 +49,12 @@ The automated endpoint and migration suite covers the expected server behavior. 
 
 ## Browser UAT pending
 
-The following must be run after the Linux host has the frontend runtime and a running RomM Dev stack:
+Remaining UAT and environment gates:
 
-1. Overview: valid YouTube ID renders the privacy-mode iframe, external fallback link, and invalid-ID message.
-2. Edit ROM: Steam App ID is visible, numeric, persisted, and clearable through the existing contract.
-3. Save Data: raw and ZIP uploads remain opaque, original filenames and sizes are visible, and the list refreshes after upload/delete.
-4. Desktop and narrow viewport checks for Save Data and Overview.
-5. Upload/download SHA-256 equality for one raw save and one ZIP save.
-6. Canonical resource folder and legacy fallback inspection.
-7. Full npm gates and trunk fmt && trunk check.
+1. Save Data: perform raw and ZIP uploads, verify original filenames and sizes, then verify list refresh after upload/delete.
+2. Desktop and narrow viewport checks for Save Data and Overview.
+3. Upload/download SHA-256 equality for one raw save and one ZIP save.
+4. Canonical resource folder and legacy fallback inspection.
+5. Run trunk fmt && trunk check after Trunk is installed in the relevant Linux environment.
 
-No roadmap completion marker was changed because these required completion gates remain open.
+No roadmap completion marker was changed because Trunk and the mutating upload/download UAT cells remain open.
