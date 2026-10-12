@@ -177,8 +177,11 @@ The full frontend Vitest run produced 945 passing tests and 1 failing test in
 112 files. The failure is the existing sourceMutationInventory assertion for
 the PcDlcMediaTab DELETE placement route, reported as an unclassified
 authority route. It is unrelated to this cleanup and remains an explicit
-cutover gate. No application code was changed to hide it. Backend gates must
-also be run again immediately before cutover on the deployment environment.
+cutover gate. No application code was changed to hide it. The backend pytest gate was attempted in the Linux development
+container but stopped during fixture setup: MariaDB was unreachable at
+127.0.0.1:3306 ('Can\'t connect to server', errno 115). No backend test result
+is inferred from this environment failure; backend tests remain a cutover
+prerequisite after the database service is made available.
 
 ### Planned cutover and rollback
 
