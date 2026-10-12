@@ -26,7 +26,9 @@ describe("MetadataIdSection", () => {
   it("exposes actionable validation for an invalid YouTube video ID", () => {
     const wrapper = shallowMount(MetadataIdSection, {
       props: {
-        rom: { manual_metadata: { youtube_video_id: "too-short" } } as UpdateRom,
+        rom: {
+          manual_metadata: { youtube_video_id: "too-short" },
+        } as UpdateRom,
       },
     });
 
@@ -47,7 +49,9 @@ describe("MetadataIdSection", () => {
   it("emits manual metadata when the YouTube video ID changes", () => {
     const wrapper = shallowMount(MetadataIdSection, {
       props: {
-        rom: { manual_metadata: { youtube_video_id: "oldValue123" } } as UpdateRom,
+        rom: {
+          manual_metadata: { youtube_video_id: "oldValue123" },
+        } as UpdateRom,
       },
     });
 
@@ -79,7 +83,9 @@ describe("MetadataIdSection", () => {
   it("exposes the YouTube video ID in the metadata IDs tab", () => {
     const wrapper = shallowMount(MetadataIdSection, {
       props: {
-        rom: { manual_metadata: { youtube_video_id: "dQw4w9WgXcQ" } } as UpdateRom,
+        rom: {
+          manual_metadata: { youtube_video_id: "dQw4w9WgXcQ" },
+        } as UpdateRom,
       },
     });
 
@@ -90,5 +96,4 @@ describe("MetadataIdSection", () => {
     expect(youtubeField).toBeDefined();
     expect(youtubeField?.props("modelValue")).toBe("dQw4w9WgXcQ");
   });
-
 });

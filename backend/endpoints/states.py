@@ -18,7 +18,11 @@ from handler.database import (
     db_screenshot_handler,
     db_state_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_resource_handler, storage_composition
+from handler.filesystem import (
+    fs_asset_handler,
+    fs_resource_handler,
+    storage_composition,
+)
 from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from handler.scan_handler import scan_screenshot, scan_state
@@ -58,7 +62,6 @@ def _resolve_state_platform(
     return platform
 
 
-
 def _canonical_state_path(state: State) -> str | None:
     if state.rom is None:
         return None
@@ -87,9 +90,14 @@ def _resolve_state_file(state: State) -> tuple[Any, Path]:
 
 def _state_reference_handler(state: State) -> Any:
     canonical_path = _canonical_state_path(state)
-    if canonical_path is not None and state.file_path == canonical_path.rsplit("/", 1)[0]:
+    if (
+        canonical_path is not None
+        and state.file_path == canonical_path.rsplit("/", 1)[0]
+    ):
         return fs_resource_handler
     return fs_asset_handler
+
+
 router = APIRouter(
     prefix="/states",
     tags=["states"],
@@ -310,7 +318,7 @@ def download_state(request: Request, id: int) -> FileResponse:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="State file not found",
-        )
+        ) from None
 
     return build_asset_file_response(file_path, filename=state.file_name)
 
@@ -345,6 +353,7 @@ async def update_state(
         )
 
     if stateFile:
+        update_handler: Any
         if db_state.rom is not None:
             authorize_api_storage_operation(
                 StorageOperation.OVERWRITE,
@@ -354,11 +363,9 @@ async def update_state(
                 db_state.rom, db_state.emulator
             )
             update_handler = fs_resource_handler
-            resource_path = update_path
         else:
             update_path = db_state.file_path
             update_handler = fs_asset_handler
-            resource_path = None
         await update_handler.write_file(
             file=stateFile, path=update_path, filename=db_state.file_name
         )

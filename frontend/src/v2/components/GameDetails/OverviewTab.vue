@@ -417,7 +417,15 @@ const youtubeEmbedUrl = computed(() =>
             :src="youtubeEmbedUrl"
             :title="t('rom.youtube-preview')"
             loading="lazy"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allow="
+              accelerometer;
+              autoplay;
+              clipboard-write;
+              encrypted-media;
+              gyroscope;
+              picture-in-picture;
+              web-share;
+            "
             allowfullscreen
           />
         </div>

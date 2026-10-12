@@ -1556,7 +1556,9 @@ async def scan_save(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
     saves_path = resource_path or saves_path
-    scan_handler = storage_handler or (fs_resource_handler if resource_path else fs_asset_handler)
+    scan_handler = storage_handler or (
+        fs_resource_handler if resource_path else fs_asset_handler
+    )
     scanned_asset = await _scan_asset(
         file_name, saves_path, should_hash=True, handler=scan_handler
     )
@@ -1576,7 +1578,9 @@ async def scan_state(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
     states_path = resource_path or states_path
-    scan_handler = storage_handler or (fs_resource_handler if resource_path else fs_asset_handler)
+    scan_handler = storage_handler or (
+        fs_resource_handler if resource_path else fs_asset_handler
+    )
     scanned_asset = await _scan_asset(file_name, states_path, handler=scan_handler)
     return State(**scanned_asset)
 
