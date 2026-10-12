@@ -21,6 +21,13 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
+const effectiveYoutubeVideoId = computed(() => {
+  const source = props.rom as UpdateRom & {
+    youtube_video_id?: string | null;
+  };
+  return props.rom.manual_metadata?.youtube_video_id ?? source.youtube_video_id ?? "";
+});
+
 // `field` is keyof UpdateRom; the parsed value is `number | string |
 // null` — most providers use numeric ids, Flashpoint stores a string.
 function updateField(field: keyof UpdateRom, value: string | number | null) {
@@ -97,7 +104,7 @@ function updateYoutubeVideoId(raw: string | number | null) {
 <template>
   <div class="r-v2-meta-ids">
     <RTextField
-      :model-value="props.rom.manual_metadata?.youtube_video_id ?? ''"
+      :model-value="effectiveYoutubeVideoId"
       :label="t('rom.youtube-video-id')"
       :rules="[youtubeVideoId]"
       prefix-label="stacked"
