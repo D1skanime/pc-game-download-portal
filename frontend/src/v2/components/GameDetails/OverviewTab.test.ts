@@ -210,6 +210,72 @@ describe("OverviewTab", () => {
     expect(wrapper.html()).not.toContain("provider-only.webp");
   });
 
+  it("renders a privacy-mode YouTube iframe and fallback link for a valid ID", () => {
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom: {
+          ...rom,
+          manual_metadata: { youtube_video_id: "dQw4w9WgXcQ" },
+        } as DetailedRom,
+        summary: null,
+        sections: [],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [],
+        expansions: [],
+        dlcs: [],
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+        parentRomId: 42,
+      },
+    });
+
+    const frame = wrapper.get("iframe");
+    expect(frame.attributes("src")).toBe(
+      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
+    );
+    expect(frame.attributes("loading")).toBe("lazy");
+    expect(wrapper.get("a.overview-tab__youtube-link").attributes("href")).toBe(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
+  });
+
+  it("keeps the translated invalid-ID state without rendering an iframe", () => {
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom: {
+          ...rom,
+          manual_metadata: { youtube_video_id: "invalid" },
+        } as DetailedRom,
+        summary: null,
+        sections: [],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [],
+        expansions: [],
+        dlcs: [],
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+        parentRomId: 42,
+      },
+    });
+
+    expect(wrapper.find("iframe").exists()).toBe(false);
+    expect(wrapper.text()).toContain("rom.youtube-invalid");
+  });
+
   it("keeps the resolved description read-only until the authorized pencil is activated", async () => {
     permissionState.value = true;
     const editableRom = {

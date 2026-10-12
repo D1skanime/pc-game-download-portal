@@ -411,14 +411,25 @@ const youtubeEmbedUrl = computed(() =>
         <RIcon icon="mdi-youtube" size="14" />
         {{ t("rom.youtube-preview") }}
       </h4>
-      <a
-        v-if="youtubeEmbedUrl"
-        class="overview-tab__youtube-link"
-        :href="youtubeEmbedUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        >{{ t("rom.youtube-preview") }}</a
-      >
+      <div v-if="youtubeEmbedUrl" class="overview-tab__youtube">
+        <div class="overview-tab__youtube-frame">
+          <iframe
+            :src="youtubeEmbedUrl"
+            :title="t('rom.youtube-preview')"
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+          />
+        </div>
+        <a
+          class="overview-tab__youtube-link"
+          :href="`https://www.youtube.com/watch?v=${youtubeVideoId}`"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ t("rom.youtube-open-external") }}
+        </a>
+      </div>
       <p v-else class="overview-tab__muted">{{ t("rom.youtube-invalid") }}</p>
     </div>
 
@@ -650,6 +661,36 @@ const youtubeEmbedUrl = computed(() =>
   border-radius: var(--r-radius-md);
   background: var(--r-color-cover-placeholder);
   border: 1px solid var(--r-color-border);
+}
+
+.overview-tab__youtube {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 860px;
+}
+
+.overview-tab__youtube-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+  background: var(--r-color-cover-placeholder);
+}
+
+.overview-tab__youtube-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.overview-tab__youtube-link {
+  align-self: flex-start;
+  color: var(--r-color-fg-muted);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Attribution — a quiet, italic credits footer for the metadata and

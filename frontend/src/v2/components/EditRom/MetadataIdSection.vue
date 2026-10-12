@@ -57,6 +57,7 @@ const FIELDS = computed<IdField[]>(() => [
     type: "number",
   },
   { key: "sgdb_id", label: t("rom.provider-steamgriddb-id"), type: "number" },
+  { key: "steam_id", label: t("rom.provider-steam-id"), type: "number" },
   { key: "hasheous_id", label: t("rom.provider-hasheous-id"), type: "number" },
   {
     key: "flashpoint_id",
