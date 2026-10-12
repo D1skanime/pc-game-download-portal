@@ -779,3 +779,33 @@ Plans:
 **Wave 3** (depends on 27-01 and 27-02)
 
 - [x] 27-03-PLAN.md: Publish installation documentation and run clean-clone Portainer/Docker UAT.
+
+### Phase 28: YouTube-Vorschau, Steam-App-ID und PC-Save-Medienverwaltung
+
+**Goal:** Complete the remaining PC-game detail workflows by embedding valid
+YouTube previews, exposing the persisted Steam App ID in the edit surface, and
+storing raw and ZIP PC saves in the existing ROM-owned media/resource area with
+one stable per-game directory while preserving the existing save/state API,
+hashing, visibility, emulator, sync, delete, and download semantics.
+**Requirements**: PH28-YOUTUBE, PH28-STEAM-ID, PH28-PC-SAVES, PH28-REGRESSION
+**Depends on:** Phase 27
+**Cross-cutting constraints:** Reuse the existing v2 overview/edit components,
+typed ROM API, Steam metadata handler, Save/State models and endpoints,
+resource storage composition, media path validation, and authoritative refresh
+patterns. Do not turn saves into image/audio owned-media rows, do not create a
+second provider or storage architecture, and do not silently discard legacy
+save files. Raw files and ZIP archives remain opaque downloadable files.
+**Plans:** 4 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 28-01-PLAN.md: Embed YouTube previews and expose the Steam App ID using
+  the existing metadata and persistence contracts.
+- [ ] 28-02-PLAN.md: Move PC save/state bytes to ROM-owned media resources with
+  legacy-path fallback and migration-safe download behavior.
+- [ ] 28-03-PLAN.md: Align Save Data UI, raw/ZIP handling, and per-game storage
+  presentation with the new resource contract.
+- [ ] 28-04-PLAN.md: Run focused automated gates, fresh-storage migration tests,
+  and live Linux Dev/browser UAT.
