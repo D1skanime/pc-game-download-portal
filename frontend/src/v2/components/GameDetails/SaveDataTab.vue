@@ -353,6 +353,7 @@ async function toggleStateVisibility(state: StateSchema) {
     </aside>
 
     <div class="r-v2-saves__content">
+      <p class="r-v2-saves__hint">{{ t("rom.save-data-file-hint") }}</p>
       <!-- Saves subtab — vertical info list -->
       <section v-show="subTab === 'saves'" class="r-v2-saves__panel">
         <!-- Mine -->
@@ -671,6 +672,13 @@ async function toggleStateVisibility(state: StateSchema) {
   padding: 1px 7px;
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.r-v2-saves__hint {
+  margin: 0 0 2px;
+  color: var(--r-color-fg-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .r-v2-saves__content {
