@@ -1,14 +1,16 @@
-# RomM - Repository Guide for Contributors & Agents
+# PC Game Download Portal - Repository Guide for Contributors & Agents
 
 RomM is a self-hosted ROM manager and player: scan a game library off disk, enrich it with metadata from 10+ providers, browse it in a web UI, and play in the browser.
 
 ## Canonical development environment
 
-**The canonical repository is `/home/d1sk/romm` on the SSH host `team4s-linux`.** All code inspection, Git operations, GSD workflows, planning artifacts, implementation, tests, and commits must run against that Linux checkout.
+**The canonical repository is `/home/d1sk/pc-game-download-portal` on the SSH host `team4s-linux`.** All code inspection, Git operations, GSD workflows, planning artifacts, implementation, tests, and commits must run against that Linux checkout.
 
 The Windows directory `C:\Users\admin\Documents\RomM` is a control and reference workspace only. Use Windows for chat orchestration and browser-based live testing. Do not treat its Git history, working tree, `.planning/` directory, or source files as implementation evidence. Do not create canonical GSD artifacts or code commits there.
 
-From the Windows control VM, connect with `ssh team4s-linux` and use `/home/d1sk/romm`. Before auditing status or making changes, confirm the remote path and current branch with `pwd`, `git branch --show-current`, and `git status --short` on Linux.
+The old `/home/d1sk/romm` checkout is a backup only and must not be used as a development or push source.
+
+From the Windows control VM, connect with `ssh team4s-linux` and use `/home/d1sk/pc-game-download-portal`. Before auditing status or making changes, confirm the remote path and current branch with `pwd`, `git branch --show-current`, `git status --short`, and `git remote -v` on Linux.
 
 ---
 
@@ -63,7 +65,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 ## Repo-wide rules
 
 **Disclose AI assistance in the PR.** RomM requires it (see `CONTRIBUTING.md`): state that AI was used and to what extent. This is mandatory and non-negotiable for agent-written contributions.
-**Branch off `master`; open PRs against `master`.** Fork → feature branch → PR. Don't push to `master`.
+**Branch off `main`; open PRs against `main`.** Feature branch -> verification -> commit -> push -> PR. Do not push feature work directly to `main` unless explicitly requested.
 **Linting is via [Trunk](https://trunk.io)** (`trunk fmt && trunk check`) — it wraps ruff, black, isort, mypy, ESLint, Prettier, and more, and runs in CI on every PR. **Never commit with `--no-verify`.**
 **The backend owns the API contract.** Changed a response schema or route? Regenerate frontend types (`npm run generate`) and re-typecheck.
 **Tests travel with code.** New logic gets a test; new endpoints get endpoint tests; new v2 primitives get a Storybook story (+ `play()` if interactive).
