@@ -104,6 +104,15 @@ function ownerOf(asset: Asset): UserSaveSchema | UserStateSchema | null {
           <span class="r-asset-list__main">
             <span class="r-asset-list__name">{{ asset.file_name }}</span>
             <span class="r-asset-list__chips">
+              <RTag
+                tone="neutral"
+                size="x-small"
+                :text="
+                  asset.file_name.toLowerCase().endsWith('.zip')
+                    ? t('rom.save-format-zip')
+                    : t('rom.save-format-raw')
+                "
+              />
               <span
                 v-if="showOwner && ownerOf(asset)"
                 class="r-asset-list__owner"
