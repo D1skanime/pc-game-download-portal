@@ -38,6 +38,7 @@ from tasks.manual.recompute_save_content_hashes import (
     recompute_save_content_hashes_task,
 )
 from tasks.manual.sync_folder_scan import sync_folder_scan_task
+from tasks.pc_save_migration import pc_save_migration_task
 from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
@@ -131,6 +132,13 @@ manual_tasks: list[ManualTask] = [
             "name": "recompute_save_content_hashes",
             "type": TaskType.CLEANUP,
             "task": recompute_save_content_hashes_task,
+        }
+    ),
+    ManualTask(
+        {
+            "name": "pc_save_migration",
+            "type": TaskType.GENERIC,
+            "task": pc_save_migration_task,
         }
     ),
 ]
