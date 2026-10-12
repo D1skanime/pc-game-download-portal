@@ -48,3 +48,13 @@ SECURITY.md
 
 # Note: we intentionally do NOT ignore `docker/` because `docker/Dockerfile`
 # copies init scripts and nginx/gunicorn configs from that folder.
+
+
+# Local runtime data and repository hygiene
+.codex/
+.tmp/
+Docker/
+Games/
+RomM-phase*.zip
+**/*.orig
+.planning/

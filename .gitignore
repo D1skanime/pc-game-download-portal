@@ -86,3 +86,13 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
 frontend/.last-run.json
+
+
+# Local runtime data and repository hygiene
+/.codex/
+/.tmp/
+/Docker/
+/Games/
+/RomM-phase*.zip
+*.orig
+/.github/resources/
