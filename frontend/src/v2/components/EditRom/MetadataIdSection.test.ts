@@ -62,6 +62,20 @@ describe("MetadataIdSection", () => {
     });
   });
 
+  it("shows the provider YouTube video ID when no manual override exists", () => {
+    const wrapper = shallowMount(MetadataIdSection, {
+      props: {
+        rom: { youtube_video_id: "jNY7AEQ59-8" } as UpdateRom,
+      },
+    });
+
+    const youtubeField = wrapper
+      .findAllComponents({ name: "RTextField" })
+      .find((field) => field.props("label") === "rom.youtube-video-id");
+
+    expect(youtubeField?.props("modelValue")).toBe("jNY7AEQ59-8");
+  });
+
   it("exposes the YouTube video ID in the metadata IDs tab", () => {
     const wrapper = shallowMount(MetadataIdSection, {
       props: {
