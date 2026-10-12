@@ -26,7 +26,11 @@ from handler.database import (
     db_screenshot_handler,
     db_sync_session_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_resource_handler, storage_composition
+from handler.filesystem import (
+    fs_asset_handler,
+    fs_resource_handler,
+    storage_composition,
+)
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
 from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
@@ -185,6 +189,7 @@ SAVE_SCREENSHOT_UPLOAD = File(
     description="Screenshot file associated with this save.",
 )
 
+
 def _canonical_save_path(save: Save) -> str | None:
     if save.rom is None:
         return None
@@ -213,9 +218,14 @@ def _resolve_save_file(save: Save) -> tuple[Any, Path]:
 
 def _save_reference_handler(save: Save) -> Any:
     canonical_path = _canonical_save_path(save)
-    if canonical_path is not None and save.file_path == canonical_path.rsplit("/", 1)[0]:
+    if (
+        canonical_path is not None
+        and save.file_path == canonical_path.rsplit("/", 1)[0]
+    ):
         return fs_resource_handler
     return fs_asset_handler
+
+
 SAVE_FILE_UPDATE = File(default=None, description="Updated save file content.")
 SAVE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
 
@@ -578,7 +588,7 @@ def download_save(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Save file not found",
-        )
+        ) from None
 
     # Sync bookkeeping only makes sense for the owner's own saves.
     if device and optimistic and is_owner:
@@ -657,6 +667,7 @@ async def update_save(
         )
 
     if saveFile:
+        update_handler: Any
         if db_save.rom is not None:
             authorize_api_storage_operation(
                 StorageOperation.OVERWRITE,

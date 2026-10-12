@@ -25,7 +25,9 @@ const effectiveYoutubeVideoId = computed(() => {
   const source = props.rom as UpdateRom & {
     youtube_video_id?: string | null;
   };
-  return props.rom.manual_metadata?.youtube_video_id ?? source.youtube_video_id ?? "";
+  return (
+    props.rom.manual_metadata?.youtube_video_id ?? source.youtube_video_id ?? ""
+  );
 });
 
 // `field` is keyof UpdateRom; the parsed value is `number | string |

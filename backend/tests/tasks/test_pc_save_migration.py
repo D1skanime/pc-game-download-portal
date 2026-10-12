@@ -1,8 +1,8 @@
+import zipfile
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
-import zipfile
 
 import pytest
 from tests._zipfile_shim import reload_zipfile
@@ -47,7 +47,9 @@ def _write_legacy(asset, root: Path, content: bytes) -> Path:
     return source
 
 
-@pytest.mark.parametrize("content", [b"opaque raw bytes", b"PK\x03\x04opaque zip bytes"])
+@pytest.mark.parametrize(
+    "content", [b"opaque raw bytes", b"PK\x03\x04opaque zip bytes"]
+)
 def test_migrates_bytes_without_transforming_them(storage_roots, content):
     asset_root, resource_root = storage_roots
     save = _save(resource_root)
@@ -76,7 +78,9 @@ def test_zip_archive_round_trip_is_lossless(storage_roots):
     with mock.patch.object(subject.db_save_handler, "update_save"):
         subject._migrate_one(save)
 
-    assert (resource_root / subject._canonical_path(save)).read_bytes() == source.read_bytes()
+    assert (
+        resource_root / subject._canonical_path(save)
+    ).read_bytes() == source.read_bytes()
 
 
 def test_existing_identical_canonical_file_is_retryable_and_idempotent(storage_roots):

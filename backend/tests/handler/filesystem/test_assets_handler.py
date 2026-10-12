@@ -504,12 +504,11 @@ class TestComputeContentHash:
             result == pinned
         ), f"nested-switch-shape zip-hash drifted: got={result} want={pinned}"
 
+
 class TestFSResourcesHandlerPcAssetPaths:
     @pytest.fixture
     def handler(self):
-        return FSResourcesHandler(
-            storage_composition.owned[OwnedStorageKind.RESOURCES]
-        )
+        return FSResourcesHandler(storage_composition.owned[OwnedStorageKind.RESOURCES])
 
     @pytest.fixture
     def rom(self):
@@ -535,6 +534,6 @@ class TestFSResourcesHandlerPcAssetPaths:
         first = Mock(fs_resources_path="roms/42/Stable Identity")
         renamed = Mock(fs_resources_path="roms/42/Stable Identity")
 
-        assert handler.get_pc_save_path(first, emulator="retroarch") == handler.get_pc_save_path(
-            renamed, emulator="retroarch"
-        )
+        assert handler.get_pc_save_path(
+            first, emulator="retroarch"
+        ) == handler.get_pc_save_path(renamed, emulator="retroarch")

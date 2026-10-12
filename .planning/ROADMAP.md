@@ -802,10 +802,10 @@ Plans:
 **Wave 1**
 
 - [ ] 28-01-PLAN.md: Embed YouTube previews and expose the Steam App ID using
-  the existing metadata and persistence contracts.
+      the existing metadata and persistence contracts.
 - [ ] 28-02-PLAN.md: Move PC save/state bytes to ROM-owned media resources with
-  legacy-path fallback and migration-safe download behavior.
+      legacy-path fallback and migration-safe download behavior.
 - [ ] 28-03-PLAN.md: Align Save Data UI, raw/ZIP handling, and per-game storage
-  presentation with the new resource contract.
+      presentation with the new resource contract.
 - [ ] 28-04-PLAN.md: Run focused automated gates, fresh-storage migration tests,
-  and live Linux Dev/browser UAT.
+      and live Linux Dev/browser UAT.

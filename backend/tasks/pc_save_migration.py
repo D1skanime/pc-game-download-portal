@@ -1,4 +1,5 @@
 """Lossless migration of legacy PC saves and states into ROM resources."""
+
 from __future__ import annotations
 
 import hashlib
@@ -7,7 +8,6 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
@@ -53,7 +53,6 @@ def _canonical_directory(asset: Save | State) -> str:
     return fs_resource_handler.get_pc_state_path(asset.rom, asset.emulator)
 
 
-
 def _canonical_path(asset: Save | State) -> str:
     return f"{_canonical_directory(asset)}/{asset.file_name}"
 
@@ -79,7 +78,9 @@ def _migrate_one(asset: Save | State) -> bool:
             raise IsADirectoryError(canonical_path)
         target_hash, target_size = _sha256_and_size(canonical_path)
         if (target_hash, target_size) != (source_hash, source_size):
-            raise ValueError(f"canonical bytes differ for {asset.__class__.__name__} {asset.id}")
+            raise ValueError(
+                f"canonical bytes differ for {asset.__class__.__name__} {asset.id}"
+            )
         data = {"file_path": _canonical_directory(asset)}
         if isinstance(asset, Save):
             db_save_handler.update_save(asset.id, data)
@@ -90,7 +91,8 @@ def _migrate_one(asset: Save | State) -> bool:
     temporary_path: Path | None = None
     try:
         fd, temporary_name = tempfile.mkstemp(
-            dir=str(canonical_path.parent), prefix=f".{asset.__class__.__name__.lower()}-migration-"
+            dir=str(canonical_path.parent),
+            prefix=f".{asset.__class__.__name__.lower()}-migration-",
         )
         os.close(fd)
         temporary_path = Path(temporary_name)
@@ -101,7 +103,9 @@ def _migrate_one(asset: Save | State) -> bool:
 
         copied_hash, copied_size = _sha256_and_size(temporary_path)
         if (copied_hash, copied_size) != (source_hash, source_size):
-            raise ValueError(f"copied bytes differ for {asset.__class__.__name__} {asset.id}")
+            raise ValueError(
+                f"copied bytes differ for {asset.__class__.__name__} {asset.id}"
+            )
 
         os.replace(temporary_path, canonical_path)
         temporary_path = None
@@ -154,7 +158,11 @@ class PCSaveMigrationTask(Task):
                     stats.skipped += 1
             except Exception:
                 stats.failed += 1
-                log.exception("PC save/state migration failed for %s %s", type(asset).__name__, asset.id)
+                log.exception(
+                    "PC save/state migration failed for %s %s",
+                    type(asset).__name__,
+                    asset.id,
+                )
             if stats.scanned % 100 == 0:
                 update_job_meta({"pc_save_migration": stats.to_dict()})
 
