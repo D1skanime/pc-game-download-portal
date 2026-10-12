@@ -27,6 +27,7 @@ Remove only paths proven to be local or obsolete:
 - .codex/
 - .tmp/
 - .github/resources/
+- .github/screenshots/ (historical upstream screenshots and previews)
 - Docker/
 - Games/
 - RomM-phase*.zip
@@ -123,3 +124,27 @@ and report the exact remote state. Never mix old and rewritten histories.
 The rewrite is ready only when backup and checksum are verified, dry-run and
 filtered-clone metrics are recorded, refs/tags/code/tests/fixtures pass, PR
 effects are documented, and the user explicitly approves the named force-push.
+
+## Review addendum evidence
+
+The non-destructive preparation was completed on 2026-10-12 in the canonical
+Linux checkout.
+
+- The exact local and remote refs, tags, and GitHub pull-request ref were
+  inventoried. PR #1 is merged; refs/pull/1/head is a GitHub-managed ref and
+  is not included in ordinary branch deletion commands.
+- A full remote mirror and an all-local-ref bundle were created under
+  /home/d1sk/backups/pc-romm-history-cleanup-20261012T083849/.
+- git bundle verify, restore-clone creation, and git fsck --full
+  --no-reflogs completed. SHA-256 manifests are stored in SHA256SUMS.
+- The rewrite was run only in the disposable mirror rewrite-dry-run.git. The
+  tested --path-glob "RomM-phase*.zip" rule completed successfully.
+- The candidate set includes .github/screenshots/ because an historical
+  m_gallery.png remained reachable there even though the current cleanup
+  already removed .github/resources/. This path is unreferenced by the
+  current tree and is now covered by the hygiene rules.
+- The filtered dry-run reduced the mirror object database from about 772 MiB
+  to about 130 MiB. It removed the approved obsolete path classes while
+  retaining the application tree and maintained fixtures.
+- No GitHub ref was force-updated, deleted, or rewritten as part of this
+  review work. The exact cutover commands remain proposals until approval.

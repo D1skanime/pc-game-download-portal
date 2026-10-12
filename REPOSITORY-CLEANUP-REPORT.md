@@ -17,9 +17,9 @@ source archive is the gzip-compressed output of git archive.
 
 | Metric                |               Before cleanup |        After cleanup stage |
 | --------------------- | ---------------------------: | -------------------------: |
-| GitHub source archive | 178,009,729 bytes, 169.8 MiB | 26,109,965 bytes, 24.9 MiB |
-| Versioned files       |                        4,205 |                      3,741 |
-| Versioned blob size   | 215,681,381 bytes, 205.7 MiB | 59,552,183 bytes, 56.8 MiB |
+| GitHub source archive | 178,009,729 bytes, 169.8 MiB | 26,112,954 bytes, 24.9 MiB |
+| Versioned files       |                        4,205 |                      3,745 |
+| Versioned blob size   | 215,681,381 bytes, 205.7 MiB | 59,564,419 bytes, 56.8 MiB |
 | Git object database   |            772.16 MiB packed |          772.16 MiB packed |
 | History rewrite       |                not performed |  pending explicit approval |
 
@@ -31,8 +31,8 @@ database remains large because historical objects are still reachable.
 The following were removed with git rm --cached, so local files were not
 physically deleted:
 
-- .github/resources/, original RomM badges, logos, screenshots, and large
-  preview GIF/WebP files.
+- .github/resources/ and the historical .github/screenshots/ path, containing
+  original RomM badges, logos, screenshots, and large preview GIF/WebP files.
 - .tmp/, temporary MP3 files and local runtime configuration.
 - .codex/, local GSD/Codex installation artifacts and agent state.
 
@@ -48,7 +48,7 @@ The local checkout keeps these classes, now ignored for future commits:
 - Games/ local ROM and PC library data.
 - RomM-phase*.zip local archives.
 - *.orig editor or merge leftovers.
-- .codex/, .tmp/, and .github/resources/ local files.
+- .codex/, .tmp/, .github/resources/, and .github/screenshots/ local files.
 
 No physical local deletion was performed.
 
@@ -79,7 +79,8 @@ Reachable history contains large obsolete objects, including:
 - RomM-phase17-403c20c24.zip, about 132.9 MB.
 - config/databases/ib_logfile0, about 100.7 MB.
 - backend/tasks/Metadata.zip, about 90.3 MB.
-- Historical original RomM preview GIF/WebP files and duplicate screenshots.
+- Historical original RomM preview GIF/WebP files and duplicate screenshots
+  under both .github/resources/ and .github/screenshots/.
 - Historical temporary MP3 files.
 - Historical local runtime media under Docker/Media.
 
@@ -111,3 +112,89 @@ Still required before merge:
   force-push.
 - GitHub may retain unreachable objects temporarily after garbage collection.
 - Many historical upstream release tags require explicit treatment.
+
+## Review addendum evidence
+
+The requested migration-readiness checks were performed without changing GitHub.
+
+### Reference inventory and decisions
+
+The canonical checkout has 12 local branches, 6 local remote-tracking refs, and
+217 local tags. The remote has 6 heads, one annotated release tag, and the
+GitHub-managed refs/pull/1/head for merged PR #1.
+
+Proposed decisions, pending approval:
+
+| Reference                              | Decision                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| main                                   | Rewrite to the filtered target containing the cleanup changes, then force-push with lease        |
+| codex/repository-cleanup               | Keep for review; delete after accepted cutover                                                   |
+| archive/main-before-phase17-2026-09-20 | Preserve only in verified backup, then delete remote                                             |
+| codex/pc-module-analysis               | Preserve only in verified backup, then delete remote                                             |
+| codex/phase17-release-verification     | Preserve only in verified backup, then delete remote                                             |
+| codex/release-phase18                  | Preserve only in verified backup; merged PR #1 makes it redundant; delete remote                 |
+| release-phase18-20260926               | Preserve as a rewritten release marker, subject to explicit tag approval                         |
+| refs/pull/1/head                       | GitHub-managed merged-PR ref; document and handle through GitHub support if it remains reachable |
+
+No non-pushed local branch or tag is discarded; all are included in the local
+bundle backup.
+
+### Backup and restore evidence
+
+Backup directory:
+/home/d1sk/backups/pc-romm-history-cleanup-20261012T083849/
+
+It contains the full remote mirror, local-all-refs.bundle, ref SHA lists,
+SHA256SUMS, a remote restore clone, and a local-bundle restore clone.
+git bundle verify passed. Both restore clones were created and checked with
+git fsck --full --no-reflogs. The local restore emitted only Git fsck
+informational output; no dangling-object failure was reported.
+
+### Isolated dry-run evidence
+
+The filter was executed only in rewrite-dry-run.git, never in the active
+checkout. The exact candidate paths were .codex/, .tmp/, .github/resources/,
+.github/screenshots/, Docker/, Games/, RomM-phase*.zip, config/databases/, and
+backend/tasks/Metadata.zip. The glob syntax was accepted by filter-repo and
+the rewrite completed across 12,451 commits.
+
+The filtered mirror measured 129.87 MiB packed (about 130 MiB on disk) versus about 772 MiB before the
+rewrite. The retained application tree comparison found no missing or changed
+application files after accounting for the cleanup files and ignore-rule
+changes. The current cleanup branch remains about 24.9 MiB as a gzip source archive
+with 3,745 versioned files and about 56.8 MiB of versioned blob bytes. The
+filtered dry-run source archive is 26,110,222 bytes.
+
+### Validation and fresh clone
+
+Passed: Linux preflight, hygiene script, Portainer stack verifier, git
+diff --check, backup verification, filtered-mirror fsck, fresh clone
+verification, frontend typecheck, and frontend production build. The frontend
+build emitted existing warnings for :deep CSS syntax, large chunks, and a
+dependency eval; it completed successfully.
+
+The full frontend Vitest run produced 945 passing tests and 1 failing test in
+112 files. The failure is the existing sourceMutationInventory assertion for
+the PcDlcMediaTab DELETE placement route, reported as an unclassified
+authority route. It is unrelated to this cleanup and remains an explicit
+cutover gate. No application code was changed to hide it. Backend gates must
+also be run again immediately before cutover on the deployment environment.
+
+### Planned cutover and rollback
+
+The commands below are intentionally not executed:
+
+git push --force-with-lease pc-romm <rewritten-main>:refs/heads/main
+git push --force-with-lease pc-romm <rewritten-cleanup>:refs/heads/codex/repository-cleanup
+git push pc-romm --delete archive/main-before-phase17-2026-09-20 codex/pc-module-analysis codex/phase17-release-verification codex/release-phase18
+git push --force-with-lease pc-romm <rewritten-release-tag>:refs/tags/release-phase18-20260926
+
+For rollback, stop all pushes and restore the original SHA-pinned refs from the
+verified remote mirror or bundle, for example:
+
+git push --force pc-romm <backup-main-sha>:refs/heads/main
+git push --force pc-romm <backup-release-sha>:refs/heads/codex/release-phase18
+
+After rollback, verify every remote head and tag against the saved SHA lists.
+Existing local clones must not merge old and rewritten histories; they should
+fetch the approved rewritten refs and recreate local branches, or reclone.

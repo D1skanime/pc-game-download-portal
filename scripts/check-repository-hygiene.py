@@ -13,6 +13,7 @@ FORBIDDEN_PREFIXES = (
     ".codex/",
     ".tmp/",
     ".github/resources/",
+    ".github/screenshots/",
     "Docker/",
     "Games/",
     "RomM-phase",
