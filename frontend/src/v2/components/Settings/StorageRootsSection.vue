@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
+import platformApi from "@/services/api/platform";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useCan } from "@/v2/composables/useCan";
 import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
@@ -30,14 +31,33 @@ async function load() {
   loading.value = true;
   failed.value = false;
   try {
-    if (platformsStore.allPlatforms.length === 0)
-      await platformsStore.fetchPlatforms();
+    const { data: persistedPlatforms } = await platformApi.getPlatforms();
+    if (persistedPlatforms.length > 0) {
+      platformsStore.set(persistedPlatforms);
+      selectDefaultPlatform();
+    } else {
+      const { data: supportedPlatforms } =
+        await platformApi.getSupportedPlatforms();
+      platformsStore.set(
+        supportedPlatforms.filter((platform) => platform.id > 0),
+      );
+      selectDefaultPlatform();
+    }
     roots.value = (await storageApi.getRoots()).data;
   } catch {
     failed.value = true;
   } finally {
     loading.value = false;
   }
+}
+
+function selectDefaultPlatform() {
+  if (selectedPlatformId.value !== null) return;
+  const preferred = platformsStore.allPlatforms.find(
+    (platform) => platform.fs_slug === "win" || platform.slug === "win",
+  );
+  selectedPlatformId.value =
+    preferred?.id ?? platformsStore.allPlatforms[0]?.id ?? null;
 }
 
 function openMapping() {

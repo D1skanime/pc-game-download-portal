@@ -5,6 +5,8 @@ import platformApi from "@/services/api/platform";
 
 export type Platform = PlatformSchema;
 
+let platformsFetchPromise: Promise<Platform[]> | null = null;
+
 export default defineStore("platforms", {
   state: () => ({
     allPlatforms: [] as Platform[],
@@ -42,24 +44,23 @@ export default defineStore("platforms", {
       });
     },
     fetchPlatforms(): Promise<Platform[]> {
-      if (this.fetchingPlatforms) return Promise.resolve([]);
+      if (platformsFetchPromise) return platformsFetchPromise;
       this.fetchingPlatforms = true;
-
-      return new Promise((resolve, reject) => {
-        platformApi
-          .getPlatforms()
-          .then(({ data: platforms }) => {
-            this.allPlatforms = platforms;
-            resolve(platforms);
-          })
-          .catch((error) => {
-            console.error(error);
-            reject(error);
-          })
-          .finally(() => {
-            this.fetchingPlatforms = false;
-          });
-      });
+      platformsFetchPromise = platformApi
+        .getPlatforms()
+        .then(({ data: platforms }) => {
+          this.allPlatforms = platforms;
+          return platforms;
+        })
+        .catch((error) => {
+          console.error(error);
+          throw error;
+        })
+        .finally(() => {
+          this.fetchingPlatforms = false;
+          platformsFetchPromise = null;
+        });
+      return platformsFetchPromise;
     },
     fetchFilesystemPlatforms(): Promise<Platform[]> {
       return new Promise((resolve, reject) => {
