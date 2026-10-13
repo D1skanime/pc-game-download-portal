@@ -9,11 +9,13 @@ vi.mock("@/services/api", () => ({
   default: { post: vi.fn() },
 }));
 
-const { push, resumeSession, snackbarError } = vi.hoisted(() => ({
-  push: vi.fn(),
-  resumeSession: vi.fn(),
-  snackbarError: vi.fn(),
-}));
+const { pickEnhancedDirectory, push, resumeSession, snackbarError } =
+  vi.hoisted(() => ({
+    pickEnhancedDirectory: vi.fn(),
+    push: vi.fn(),
+    resumeSession: vi.fn(),
+    snackbarError: vi.fn(),
+  }));
 
 vi.mock("@/v2/composables/useBrowserDownloadQueue", () => ({
   isEnhancedDownloadSupported: () => false,
@@ -25,6 +27,7 @@ vi.mock("@/v2/composables/useBrowserDownloadQueue", () => ({
     clearTerminal: vi.fn(),
     resume: vi.fn(),
     resumeSession,
+    pickEnhancedDirectory,
   }),
 }));
 
@@ -89,6 +92,7 @@ describe("PcComponents", () => {
     push.mockReset();
     resumeSession.mockReset();
     snackbarError.mockReset();
+    pickEnhancedDirectory.mockReset();
   });
 
   it("uses the player-facing game downloads heading", () => {
@@ -295,5 +299,28 @@ describe("PcComponents", () => {
     expect(snackbarError).toHaveBeenCalledWith(
       "This download has expired. Start a new download.",
     );
+  });
+
+  it("shows an error when the enhanced download picker fails", async () => {
+    pickEnhancedDirectory.mockRejectedValue(
+      new DOMException("The user aborted a request.", "AbortError"),
+    );
+    const wrapper = mount(PcComponents, {
+      props: { components: [], romId: 1 },
+      global: {
+        stubs: {
+          DownloadSelectionDialog: {
+            emits: ["start"],
+            template:
+              "<button data-testid=\"start-enhanced\" @click=\"$emit('start', { selectedMemberIds: [], componentIds: [], mode: 'enhanced' })\">Start</button>",
+          },
+        },
+      },
+    });
+
+    await wrapper.get("[data-testid='start-enhanced']").trigger("click");
+    await flushPromises();
+
+    expect(snackbarError).toHaveBeenCalledWith("Download failed.");
   });
 });
