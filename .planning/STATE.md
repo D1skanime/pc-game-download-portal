@@ -502,3 +502,4 @@ Resume file: None
 | 261013-q04 | Fix scan serialization so identified ROM cover downloads are never skipped | 2026-10-13 | 6ffc7429e | [261013-q04-fix-scan-serialization-so-identified-rom](./quick/261013-q04-fix-scan-serialization-so-identified-rom/) |
 
 | 261013-safety-test | Fix storage safety test for existing active mappings | 2026-10-13 | 8ad7669d0 | [261013-fix-safety-test-existing-mapping](./quick/261013-fix-safety-test-existing-mapping/) |
+| 261013-enhanced-folder-download | Keep enhanced folder downloads alive after directory selection | 2026-10-13 | 20ba994ca | [261013-enhanced-folder-download](./quick/261013-enhanced-folder-download/) |
