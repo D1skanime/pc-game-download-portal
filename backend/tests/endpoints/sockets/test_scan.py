@@ -10,6 +10,7 @@ from rq.job import Job, JobStatus
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanStats,
+    _emit_scanning_rom,
     _identify_rom,
     _refresh_rom_for_scan_emit,
     reject_unauthorized_scan,
@@ -157,6 +158,21 @@ def test_scan_emit_refreshes_the_detached_rom_with_simple_details(mocker):
 
     get_rom_simple.assert_called_once_with(5)
     assert result is refreshed_rom
+
+
+@pytest.mark.asyncio
+async def test_scan_progress_serialization_failure_does_not_abort_scan(mocker):
+    manager = MagicMock()
+    manager.emit = AsyncMock()
+    mocker.patch.object(
+        scan_module, "_refresh_rom_for_scan_emit", return_value=Rom(id=5)
+    )
+    schema = mocker.patch.object(scan_module.SimpleRomSchema, "from_orm_with_factory")
+    schema.side_effect = RuntimeError("detached scan payload")
+
+    await _emit_scanning_rom(manager, Rom(id=5))
+
+    manager.emit.assert_not_awaited()
 
 
 async def test_scan_enrichment_imports_only_trusted_dlc_media(mocker):

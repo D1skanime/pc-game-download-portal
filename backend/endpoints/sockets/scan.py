@@ -179,6 +179,31 @@ def _refresh_rom_for_scan_emit(rom: Rom) -> Rom:
     return db_rom_handler.get_rom_simple(rom.id) or rom
 
 
+async def _emit_scanning_rom(socket_manager: Any, rom: Rom) -> None:
+    """Emit scan progress without allowing presentation errors to abort scanning."""
+    try:
+        emitted_rom = _refresh_rom_for_scan_emit(rom)
+        await socket_manager.emit(
+            "scan:scanning_rom",
+            SimpleRomSchema.from_orm_with_factory(emitted_rom).model_dump(
+                exclude={
+                    "created_at",
+                    "updated_at",
+                    "rom_user",
+                    "last_modified",
+                    "files",
+                    "sibling_roms",
+                }
+            ),
+        )
+    except Exception as exc:
+        log.warning(
+            "Unable to emit scan progress for ROM %s; continuing scan: %s",
+            getattr(rom, "id", "unknown"),
+            exc,
+        )
+
+
 async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
     """Import an already-unambiguous DLC candidate into RomM-owned storage."""
     if component.kind != RomComponentKind.DLC:
@@ -779,21 +804,8 @@ async def _identify_rom(
         sha1_hash=fs_rom["sha1_hash"],
     )
 
-    emitted_rom = _refresh_rom_for_scan_emit(_added_rom)
-    if emitted_rom.is_identified:
-        await socket_manager.emit(
-            "scan:scanning_rom",
-            SimpleRomSchema.from_orm_with_factory(emitted_rom).model_dump(
-                exclude={
-                    "created_at",
-                    "updated_at",
-                    "rom_user",
-                    "last_modified",
-                    "files",
-                    "sibling_roms",
-                }
-            ),
-        )
+    if _added_rom.is_identified:
+        await _emit_scanning_rom(socket_manager, _added_rom)
 
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
@@ -929,19 +941,7 @@ async def _identify_rom(
             if badge_url and badge_path:
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
-    await socket_manager.emit(
-        "scan:scanning_rom",
-        SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-            exclude={
-                "created_at",
-                "updated_at",
-                "rom_user",
-                "last_modified",
-                "files",
-                "sibling_roms",
-            }
-        ),
-    )
+    await _emit_scanning_rom(socket_manager, _added_rom)
 
     await process_pc_automation_after_scan(
         platform, scanned_rom, _added_rom, newly_added
@@ -1122,19 +1122,7 @@ async def _identify_platform(
             if hydrated_rom is None:
                 continue
 
-            await socket_manager.emit(
-                "scan:scanning_rom",
-                SimpleRomSchema.from_orm_with_factory(hydrated_rom).model_dump(
-                    exclude={
-                        "created_at",
-                        "updated_at",
-                        "rom_user",
-                        "last_modified",
-                        "files",
-                        "sibling_roms",
-                    }
-                ),
-            )
+            await _emit_scanning_rom(socket_manager, hydrated_rom)
 
         # Process only ROMs that actually need scanning
         scan_tasks = [
@@ -1264,20 +1252,7 @@ async def scan_platforms(
                     scanned_roms=1,
                     identified_roms=1 if refreshed.is_identified else 0,
                 )
-                emitted_rom = _refresh_rom_for_scan_emit(refreshed)
-                await socket_manager.emit(
-                    "scan:scanning_rom",
-                    SimpleRomSchema.from_orm_with_factory(emitted_rom).model_dump(
-                        exclude={
-                            "created_at",
-                            "updated_at",
-                            "rom_user",
-                            "last_modified",
-                            "files",
-                            "sibling_roms",
-                        }
-                    ),
-                )
+                await _emit_scanning_rom(socket_manager, refreshed)
 
         await asyncio.gather(*(refresh_existing_rom(rom) for rom in existing_roms))
         await socket_manager.emit("scan:done", scan_stats.to_dict())

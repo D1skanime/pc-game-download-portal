@@ -472,7 +472,9 @@ def with_simple_details(func):
                 selectinload(RomComponent.manifest_members),
                 selectinload(RomComponent.component_metadata),
                 selectinload(RomComponent.local_media),
-                selectinload(RomComponent.owned_media),
+                selectinload(RomComponent.owned_media).selectinload(
+                    RomComponentOwnedMedia.placements
+                ),
             ),
             selectinload(Rom.owned_media),
             selectinload(Rom.owned_media_placements),
