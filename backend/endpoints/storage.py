@@ -5,6 +5,7 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, NoReturn
 
 from fastapi import HTTPException, Query, Request, status
@@ -766,6 +767,12 @@ async def bootstrap_legacy_storage(
         for fs_slug in filesystem_slugs:
             platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
             if platform is None:
+                mapped_slug = config.PLATFORMS_BINDING.get(
+                    fs_slug
+                ) or config.PLATFORMS_VERSIONS.get(fs_slug)
+                if mapped_slug:
+                    platform = db_platform_handler.get_platform_by_slug(mapped_slug)
+            if platform is None:
                 candidate = missing_platforms.get(fs_slug)
                 if candidate is None:
                     continue
@@ -793,9 +800,29 @@ async def bootstrap_legacy_storage(
                 pc_platform = platform
 
         if pc_platform is None:
+            mapped_slug = config.PLATFORMS_BINDING.get(
+                "pc"
+            ) or config.PLATFORMS_VERSIONS.get("pc")
+            if mapped_slug:
+                pc_platform = db_platform_handler.get_platform_by_slug(mapped_slug)
+            if pc_platform is None:
+                candidate = missing_platforms.get("pc")
+                if candidate is not None:
+                    pc_platform = db_platform_handler.get_platform_by_slug(
+                        candidate.slug
+                    )
+            if pc_platform is None:
+                pc_platform = db_platform_handler.get_platform_by_slug("win")
+        if pc_platform is None:
             raise MissingStorageRootError(0)
 
-        pc_path = LIBRARY_BASE_PATH / relative_root / pc_platform.fs_slug
+        pc_path = Path(LIBRARY_BASE_PATH) / relative_root / "pc"
+        old_mapping = None
+        try:
+            old_mapping = db_storage_handler.get_active_mapping(pc_platform.id)
+        except MissingPlatformStorageMappingError:
+            pass
+
         roots = db_storage_handler.get_roots()
         root = next(
             (item for item in roots if item.container_path == str(pc_path)), None
@@ -803,12 +830,27 @@ async def bootstrap_legacy_storage(
         if root is None:
             root = db_storage_handler.register_root("PC Windows library", str(pc_path))
 
-        old_mapping = None
-        try:
-            old_mapping = db_storage_handler.get_active_mapping(pc_platform.id)
-        except MissingPlatformStorageMappingError:
-            pass
-
+        if old_mapping is not None:
+            mapped_path = (
+                Path(old_mapping.storage_root.container_path)
+                / old_mapping.relative_path
+            )
+            if mapped_path == pc_path:
+                root = old_mapping.storage_root
+                mapping = old_mapping
+                return LegacyStorageBootstrapSchema(
+                    storage_root=_root_schema(root),
+                    mappings=[
+                        LegacyStorageBootstrapMappingSchema(
+                            platform_id=pc_platform.id,
+                            platform_fs_slug=pc_platform.fs_slug,
+                            relative_path=mapping.relative_path,
+                            mapping_id=mapping.id,
+                        )
+                    ],
+                    created_platform_count=created_platform_count,
+                    existing_platform_count=existing_platform_count,
+                )
         if old_mapping is None:
             mapping = db_storage_handler.create_mapping(
                 pc_platform.id,
