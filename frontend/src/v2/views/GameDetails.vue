@@ -151,7 +151,7 @@ const roleItems = (role: string) =>
   companyRoles.value
     .filter((company) => company.roles?.includes(role))
     .map((company) => ({
-      id: company.id === null ? undefined : String(company.id),
+      id: company.id === null ? undefined : `igdb:${company.id}`,
       label: company.name,
     }));
 const collections = computed(

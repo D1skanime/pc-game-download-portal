@@ -117,7 +117,26 @@ describe("OverviewTab", () => {
       props: {
         rom: pcMetadataRom,
         summary: null,
-        sections: [],
+        sections: [
+          {
+            label: "rom.genres",
+            filter: "genres",
+            items: [{ id: "igdb:31", label: "Action" }],
+          },
+          {
+            label: "rom.themes",
+            filter: "themes",
+            items: [{ id: "igdb:42", label: "Cyberpunk" }],
+          },
+          {
+            label: "rom.main-developer",
+            items: [{ id: "igdb:7", label: "CD Projekt Red" }],
+          },
+          {
+            label: "rom.publishers",
+            items: [{ id: "igdb:8", label: "CD Projekt" }],
+          },
+        ],
         playerCount: null,
         userCollections: [],
         hltb: null,

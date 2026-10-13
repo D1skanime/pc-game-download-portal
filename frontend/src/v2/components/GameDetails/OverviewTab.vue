@@ -215,13 +215,7 @@ const releaseDate = computed(() => {
     { day: "2-digit", month: "short", year: "numeric" },
   );
 });
-const hasPcFacts = computed(
-  () =>
-    !!releaseDate.value ||
-    !!pcMetadata.value?.main_developer ||
-    !!pcMetadata.value?.publishers?.length ||
-    !!pcMetadata.value?.themes?.length,
-);
+const hasPcFacts = computed(() => !!releaseDate.value);
 const ownedScreenshots = computed(() =>
   props.screenshots.filter((url) => url.startsWith("/api/roms/")),
 );
@@ -310,29 +304,6 @@ const youtubeEmbedUrl = computed(() =>
       <div v-if="releaseDate" class="overview-tab__row">
         <div class="overview-tab__label">{{ t("rom.pc-release") }}</div>
         <div class="overview-tab__field">{{ releaseDate }}</div>
-      </div>
-
-      <div v-if="pcMetadata?.main_developer" class="overview-tab__row">
-        <div class="overview-tab__label">{{ t("rom.main-developer") }}</div>
-        <div class="overview-tab__field">{{ pcMetadata.main_developer }}</div>
-      </div>
-
-      <div v-if="pcMetadata?.publishers?.length" class="overview-tab__row">
-        <div class="overview-tab__label">{{ t("rom.publishers") }}</div>
-        <div class="overview-tab__field overview-tab__field--chips">
-          <span v-for="publisher in pcMetadata.publishers" :key="publisher">
-            {{ publisher }}
-          </span>
-        </div>
-      </div>
-
-      <div v-if="pcMetadata?.themes?.length" class="overview-tab__row">
-        <div class="overview-tab__label">{{ t("rom.themes") }}</div>
-        <div class="overview-tab__field overview-tab__field--chips">
-          <span v-for="theme in pcMetadata.themes" :key="theme">
-            {{ theme }}
-          </span>
-        </div>
       </div>
 
       <div v-if="playerCount" class="overview-tab__row">
