@@ -479,8 +479,8 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     total: GreaterEqualZero | None
-    char_index: dict[str, int]
-    rom_id_index: list[int]
+    char_index: dict[str, int] = Field(default_factory=dict)
+    rom_id_index: list[int] = Field(default_factory=list)
     filter_values: RomFiltersDict
     __params_type__ = CustomLimitOffsetParams
 
@@ -918,6 +918,8 @@ def get_roms(
         regions=[],
         languages=[],
         tags=[],
+        genre_ids=[],
+        theme_ids=[],
         platforms=[],
     )
     if with_filter_values:
