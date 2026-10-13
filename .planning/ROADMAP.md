@@ -371,7 +371,7 @@ Plans:
 ### Phase 12: DLC detail pages for local PC components
 
 **Goal:** Each locally present, independently matched PC DLC has a dedicated, parent-owned v2 detail page that presents its selected local identity, media, and immutable files without changing the source library.
-**Requirements**: TBD
+**Requirements**: PH29-ROLE, PH29-FILTER, PH29-OVERVIEW, PH29-I18N
 **Depends on:** Phase 11
 **Plans:** 12/12 plans executed
 
@@ -646,7 +646,7 @@ Plans:
 **Requirements**: STEAM-02, STEAM-04, STEAM-05
 **Depends on:** Phase 22
 **Cross-cutting constraints:** Use only bounded server-side Steam language configuration and the existing `steam_metadata` JSON ownership boundary. Keep enrichment non-destructive and same-App-ID validated, expose variants only on detailed responses, resolve UI locale selection locally with English fallback, and use only isolated synthetic fixtures for UAT. No browser-to-Steam requests, database migration, NAS, Team4s, real library, or production data access is permitted.
-**Plans:** 3 plans
+**Plans:** 4 plans
 
 Plans:
 
@@ -809,3 +809,17 @@ Plans:
       presentation with the new resource contract.
 - [ ] 28-04-PLAN.md: Run focused automated gates, fresh-storage migration tests,
       and live Linux Dev/browser UAT.
+
+### Phase 29: Rollenbewusste Metadaten, klickbare Themes und mehrsprachige Übersichtsansicht
+
+**Goal:** Deliver role-aware PC metadata, localized clickable genre/theme filters with stable IDs and preserved PC scope, a single overview release field, and complete locale-aware labels and dates across all supported locales.
+**Requirements**: PH29-ROLE, PH29-FILTER, PH29-OVERVIEW, PH29-I18N
+**Depends on:** Phase 28
+**Plans:** 4 plans
+
+Plans:
+
+- [ ] 29-01-PLAN.md - Establish the backend role-aware metadata and stable facet contract.
+- [ ] 29-02-PLAN.md - Wire v2 role display, PC-scoped stable-ID filters, and single-owner overview release metadata.
+- [ ] 29-03-PLAN.md - Add the locale source and primary locales with focused regression coverage.
+- [ ] 29-04-PLAN.md - Complete remaining locales and run baseline-aware final gates.
