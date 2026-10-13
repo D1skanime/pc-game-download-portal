@@ -1846,6 +1846,7 @@ class DBRomsHandler(DBBaseHandler):
         has_soundtrack: bool | None = None,
         group_by_meta_id: bool = False,
         genres: Sequence[str] | None = None,
+        themes: Sequence[str] | None = None,
         franchises: Sequence[str] | None = None,
         collections: Sequence[str] | None = None,
         companies: Sequence[str] | None = None,
@@ -1858,6 +1859,7 @@ class DBRomsHandler(DBBaseHandler):
         tags: Sequence[str] | None = None,
         # Logic operators for multi-value filters
         genres_logic: str = "any",
+        themes_logic: str = "any",
         franchises_logic: str = "any",
         collections_logic: str = "any",
         companies_logic: str = "any",
