@@ -495,3 +495,4 @@ Resume file: None
   \n## Quick Task 261010-skc\n\n| 261010-skc | Match PC DLC overview media image grid to main game overview layout | 2026-10-10 | pending | [261010-skc-match-pc-dlc-overview-media-image-grid-t](./quick/261010-skc-match-pc-dlc-overview-media-image-grid-t/) |\n
 
 - Phase 28 added: YouTube-Vorschau, Steam-App-ID und PC-Save-Medienverwaltung.
+  | 261013-m9i | Fix platform ROM list API 500 caused by missing optional sidecar fields | 2026-10-13 | 46ea9c4b1 | [261013-m9i-fix-platform-rom-list-api-500-caused-by-](./quick/261013-m9i-fix-platform-rom-list-api-500-caused-by-/) |
