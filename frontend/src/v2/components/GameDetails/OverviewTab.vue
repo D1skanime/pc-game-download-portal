@@ -371,7 +371,7 @@ const youtubeEmbedUrl = computed(() =>
     </div>
 
     <!-- 3. Info grid -->
-    <InfoGrid :sections="sections" />
+    <InfoGrid :sections="sections" :platform-id="rom.platform_id" />
 
     <!-- 4. Screenshots — scraped metadata images, read-only here. -->
     <div v-if="ownedScreenshots.length" class="overview-tab__section">

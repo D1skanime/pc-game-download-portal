@@ -14,7 +14,7 @@ import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import type { Events } from "@/types/emitter";
-import { FRONTEND_RESOURCES_PATH, toBrowserLocale } from "@/utils";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
 import type { DownloadArchiveSet } from "@/v2/components/GameDetails/DownloadSelectionDialog.vue";
@@ -139,24 +139,21 @@ const platformLabel = computed(() => {
   return r.platform_custom_name || r.platform_display_name;
 });
 
-const releaseDate = computed(() => {
-  const ts = currentRom.value?.metadatum?.first_release_date;
-  if (!ts) return null;
-  return new Date(Number(ts)).toLocaleDateString(
-    toBrowserLocale(locale.value),
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    },
-  );
-});
-
-const genres = computed(() => currentRom.value?.metadatum?.genres ?? []);
+const genres = computed(() => currentRom.value?.metadatum?.genre_options ?? []);
+const themes = computed(() => currentRom.value?.metadatum?.theme_options ?? []);
 const franchises = computed(
   () => currentRom.value?.metadatum?.franchises ?? [],
 );
-const companies = computed(() => currentRom.value?.metadatum?.companies ?? []);
+const companyRoles = computed(
+  () => currentRom.value?.metadatum?.company_roles ?? [],
+);
+const roleItems = (role: string) =>
+  companyRoles.value
+    .filter((company) => company.roles?.includes(role))
+    .map((company) => ({
+      id: company.id === null ? undefined : String(company.id),
+      label: company.name,
+    }));
 const collections = computed(
   () => currentRom.value?.metadatum?.collections ?? [],
 );
@@ -275,18 +272,23 @@ const lastPlayed = computed(() => {
   return new Date(ts).toLocaleString();
 });
 
-// "Companies" (not "Developer") — the API field is a merged list of
-// developers + publishers + other company roles produced by the backend
-// (see flashpoint/gamelist/launchbox handlers); calling it Developer
-// would be a lie. "Franchises" mirrors the singular→plural consistency
-// of the surrounding rows.
 const overviewSections = computed<InfoGridSection[]>(() => [
   { label: t("rom.genres"), items: genres.value, filter: "genres" },
-  { label: t("rom.companies"), items: companies.value, filter: "companies" },
-  { label: t("rom.franchises"), items: franchises.value, filter: "franchises" },
+  { label: t("rom.themes"), items: themes.value, filter: "themes" },
+  { label: t("rom.main-developer"), items: roleItems("developer") },
+  { label: t("rom.publishers"), items: roleItems("publisher") },
+  {
+    label: t("rom.companies"),
+    items: roleItems("porting").concat(roleItems("supporting")),
+  },
+  {
+    label: t("rom.franchises"),
+    items: franchises.value.map((label) => ({ label })),
+    filter: "franchises",
+  },
   {
     label: t("rom.collections"),
-    items: collections.value,
+    items: collections.value.map((label) => ({ label })),
     filter: "collections",
   },
 ]);
@@ -492,7 +494,6 @@ const tabs = computed<RTabNavItem[]>(() => [
           :rom="currentRom"
           :title="title"
           :platform-label="platformLabel"
-          :release-date="releaseDate"
           :verified="verified"
           :regions="regions"
           :languages="languages"

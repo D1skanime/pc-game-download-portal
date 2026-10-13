@@ -25,7 +25,6 @@ const props = defineProps<{
   rom: DetailedRom;
   title: string;
   platformLabel: string;
-  releaseDate: string | null;
   verified: boolean;
   regions: string[];
   languages: string[];
@@ -59,8 +58,6 @@ const actions = useGameActions(() => props.rom);
         />
         {{ platformLabel }}
       </router-link>
-      <span v-if="releaseDate" class="r-v2-det-header__sep"> · </span>
-      <span v-if="releaseDate">{{ releaseDate }}</span>
       <span v-if="verified" class="r-v2-det-header__sep"> · </span>
       <!-- Icon-only verified indicator. The check decagram is a strong
            enough signal on its own; the "Verified" word was just noise
