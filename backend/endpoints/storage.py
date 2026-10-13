@@ -113,6 +113,14 @@ from utils.router import APIRouter
 router = APIRouter(prefix="/storage", tags=["storage"])
 
 
+def _legacy_platform_slug_for_filesystem_slug(
+    filesystem_slug: str, known_platform_slugs: set[str]
+) -> str:
+    if filesystem_slug == "pc" and "pc" not in known_platform_slugs:
+        return "win" if "win" in known_platform_slugs else filesystem_slug
+    return filesystem_slug
+
+
 @dataclass(frozen=True, slots=True)
 class StorageMappingPreview:
     examined_entry_count: int
@@ -763,13 +771,21 @@ async def bootstrap_legacy_storage(
         created_platform_count = 0
         existing_platform_count = 0
         pc_platform = None
+        known_platform_slugs = {
+            platform.slug for platform in db_platform_handler.get_platforms()
+        }
 
         for fs_slug in filesystem_slugs:
             platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
+            mapped_slug = None
             if platform is None:
                 mapped_slug = config.PLATFORMS_BINDING.get(
                     fs_slug
                 ) or config.PLATFORMS_VERSIONS.get(fs_slug)
+                if mapped_slug is None:
+                    mapped_slug = _legacy_platform_slug_for_filesystem_slug(
+                        fs_slug, known_platform_slugs
+                    )
                 if mapped_slug:
                     platform = db_platform_handler.get_platform_by_slug(mapped_slug)
             if platform is None:
@@ -795,6 +811,12 @@ async def bootstrap_legacy_storage(
                 created_platform_count += 1
             else:
                 existing_platform_count += 1
+
+            if fs_slug == "pc" and mapped_slug == "win" and platform.fs_slug != "pc":
+                platform = db_platform_handler.update_platform(
+                    platform.id, {"fs_slug": "pc"}
+                )
+                known_platform_slugs.add("pc")
 
             if fs_slug == "pc":
                 pc_platform = platform
