@@ -794,6 +794,7 @@ class TrackMeta(BaseModel):
 
 
 class RomMetadata(BaseModel):
+    # Canonical provider-qualified facet identities stay in raw provider JSON.
     __tablename__ = "roms_metadata"
 
     rom_id: Mapped[int] = mapped_column(

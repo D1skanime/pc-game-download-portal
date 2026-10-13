@@ -152,3 +152,33 @@ def test_parent_owned_media_migration_follows_steam_metadata():
 
     assert 'revision = "0127_parent_rom_owned_media"' in migration
     assert 'down_revision = "0128_add_steam_metadata"' in migration
+
+
+def test_additive_role_and_facet_contract_accepts_legacy_and_canonical_values():
+    schema = RomMetadataSchema.model_validate(
+        {
+            "rom_id": 1,
+            "genres": ["Action"],
+            "franchises": [],
+            "collections": [],
+            "companies": ["Studio"],
+            "main_developer": "Studio",
+            "publishers": [],
+            "themes": ["Fantasy"],
+            "genre_ids": ["igdb:31"],
+            "theme_ids": ["igdb:1"],
+            "genre_options": [{"id": "igdb:31", "label": "Action", "source": "igdb"}],
+            "theme_options": [{"id": "igdb:1", "label": "Fantasy", "source": "igdb"}],
+            "company_roles": [{"id": 7, "name": "Studio", "roles": ["developer"]}],
+            "game_modes": [],
+            "age_ratings": [],
+            "player_count": "1",
+            "first_release_date": None,
+            "pc_release_date": None,
+            "average_rating": None,
+        }
+    )
+
+    assert schema.genre_ids == ["igdb:31"]
+    assert schema.theme_options[0].label == "Fantasy"
+    assert schema.company_roles[0].roles == ["developer"]

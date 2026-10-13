@@ -415,6 +415,18 @@ class SteamMetadataSchema(BaseModel):
     text_variants: dict[str, SteamTextVariantSchema] | None = None
 
 
+class MetadataFacetOptionSchema(BaseModel):
+    id: str
+    label: str
+    source: str
+
+
+class MetadataCompanyRoleSchema(BaseModel):
+    id: int | None
+    name: str
+    roles: list[str] = Field(default_factory=list)
+
+
 class PcComponentMetadataSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -432,6 +444,11 @@ class PcComponentMetadataSchema(BaseModel):
     main_developer: str | None
     publishers: list[str] = Field(default_factory=list)
     themes: list[str] = Field(default_factory=list)
+    genre_ids: list[str] = Field(default_factory=list)
+    theme_ids: list[str] = Field(default_factory=list)
+    genre_options: list[MetadataFacetOptionSchema] = Field(default_factory=list)
+    theme_options: list[MetadataFacetOptionSchema] = Field(default_factory=list)
+    company_roles: list[MetadataCompanyRoleSchema] = Field(default_factory=list)
     pc_release_date: int | None
 
     @field_validator("publishers", "themes", mode="before")
@@ -677,6 +694,11 @@ class RomMetadataSchema(BaseModel):
     main_developer: str | None
     publishers: list[str] = Field(default_factory=list)
     themes: list[str] = Field(default_factory=list)
+    genre_ids: list[str] = Field(default_factory=list)
+    theme_ids: list[str] = Field(default_factory=list)
+    genre_options: list[MetadataFacetOptionSchema] = Field(default_factory=list)
+    theme_options: list[MetadataFacetOptionSchema] = Field(default_factory=list)
+    company_roles: list[MetadataCompanyRoleSchema] = Field(default_factory=list)
     game_modes: list[str]
     age_ratings: list[str]
     player_count: str
@@ -1150,4 +1172,6 @@ class RomFiltersDict(TypedDict):
     regions: list[str]
     languages: list[str]
     tags: list[str]
+    genre_ids: list[str]
+    theme_ids: list[str]
     platforms: list[int]
