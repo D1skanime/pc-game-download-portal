@@ -196,6 +196,56 @@ class TestPcStructuredMetadata:
         assert metadata["themes"] == []
         assert metadata["pc_release_date"] is None
 
+    def test_preserves_explicit_company_roles_and_provider_facet_ids(self):
+        game = _make_game(1, "PC Game")
+        game.update(
+            {
+                "genres": [
+                    {"id": 31, "name": "Action"},
+                    {"id": 31, "name": "Action"},
+                    {"id": "bad", "name": "Ignored"},
+                ],
+                "themes": [
+                    {"id": 1, "name": "Fantasy"},
+                    {"id": 2, "name": "Science fiction"},
+                    {"id": None, "name": "Ignored"},
+                ],
+                "involved_companies": [
+                    {"company": {"id": 10, "name": "Developer Co"}, "developer": True},
+                    {"company": {"id": 11, "name": "Publisher Co"}, "publisher": True},
+                    {"company": {"id": 12, "name": "Porting Co"}, "porting": True},
+                    {"company": {"id": 13, "name": "Support Co"}, "supporting": True},
+                    {"company": {"id": 14, "name": "Neutral Co"}},
+                    {
+                        "company": {"id": 10, "name": "Developer Co"},
+                        "developer": True,
+                        "publisher": True,
+                    },
+                ],
+            }
+        )
+
+        metadata = extract_metadata_from_igdb_rom(
+            MagicMock(), cast(Game, game), WINDOWS_IGDB_ID
+        )
+
+        assert metadata["genre_options"] == [
+            {"id": "igdb:31", "label": "Action", "source": "igdb"}
+        ]
+        assert metadata["theme_options"] == [
+            {"id": "igdb:1", "label": "Fantasy", "source": "igdb"},
+            {"id": "igdb:2", "label": "Science fiction", "source": "igdb"},
+        ]
+        assert metadata["genre_ids"] == ["igdb:31"]
+        assert metadata["theme_ids"] == ["igdb:1", "igdb:2"]
+        assert metadata["company_roles"] == [
+            {"id": 10, "name": "Developer Co", "roles": ["developer", "publisher"]},
+            {"id": 11, "name": "Publisher Co", "roles": ["publisher"]},
+            {"id": 12, "name": "Porting Co", "roles": ["porting"]},
+            {"id": 13, "name": "Support Co", "roles": ["supporting"]},
+            {"id": 14, "name": "Neutral Co", "roles": []},
+        ]
+
     def test_requests_all_structured_pc_metadata_fields(self):
         assert "involved_companies.developer" in GAMES_FIELDS
         assert "involved_companies.publisher" in GAMES_FIELDS

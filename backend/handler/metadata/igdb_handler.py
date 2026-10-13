@@ -119,12 +119,26 @@ class IGDBMetadataMultiplayerMode(TypedDict):
     platform: IGDBMetadataPlatform
 
 
+class IGDBMetadataFacet(TypedDict):
+    id: str
+    label: str
+    source: str
+
+
+class IGDBMetadataCompanyRole(TypedDict):
+    id: int | None
+    name: str
+    roles: list[str]
+
+
 class IGDBMetadata(TypedDict):
     total_rating: str | None
     aggregated_rating: str | None
     first_release_date: int | None
     youtube_video_id: str | None
     genres: list[str]
+    genre_ids: list[str]
+    genre_options: list[IGDBMetadataFacet]
     franchises: list[str]
     alternative_names: list[str]
     collections: list[str]
@@ -132,6 +146,9 @@ class IGDBMetadata(TypedDict):
     main_developer: str | None
     publishers: list[str]
     themes: list[str]
+    theme_ids: list[str]
+    theme_options: list[IGDBMetadataFacet]
+    company_roles: list[IGDBMetadataCompanyRole]
     pc_release_date: int | None
     game_modes: list[str]
     age_ratings: list[IGDBAgeRating]
@@ -275,6 +292,74 @@ def extract_metadata_from_igdb_rom(
                 values.append(normalized_name)
         return values
 
+    def facet_options(
+        records: Sequence[Mapping[str, object]],
+    ) -> list[IGDBMetadataFacet]:
+        options: list[IGDBMetadataFacet] = []
+        seen_ids: set[str] = set()
+        for record in records:
+            raw_id = record.get("id")
+            label = record.get("name")
+            if (
+                type(raw_id) is not int
+                or raw_id <= 0
+                or not isinstance(label, str)
+                or not (normalized_label := label.strip())
+            ):
+                continue
+            option_id = f"igdb:{raw_id}"
+            if option_id in seen_ids:
+                continue
+            seen_ids.add(option_id)
+            options.append(
+                IGDBMetadataFacet(
+                    id=option_id,
+                    label=normalized_label,
+                    source="igdb",
+                )
+            )
+        return options
+
+    def company_role_records(
+        records: Sequence[Mapping[str, object]],
+    ) -> list[IGDBMetadataCompanyRole]:
+        role_names = ("developer", "publisher", "porting", "supporting")
+        companies: list[IGDBMetadataCompanyRole] = []
+        indexes: dict[tuple[int | None, str], int] = {}
+        for record in records:
+            company = record.get("company")
+            if not isinstance(company, dict):
+                continue
+            name = company.get("name")
+            if not isinstance(name, str) or not (normalized_name := name.strip()):
+                continue
+            raw_id = company.get("id")
+            company_id = raw_id if type(raw_id) is int and raw_id > 0 else None
+            key = (company_id, normalized_name)
+            roles = [
+                role_name for role_name in role_names if record.get(role_name) is True
+            ]
+            index = indexes.get(key)
+            if index is None:
+                indexes[key] = len(companies)
+                companies.append(
+                    IGDBMetadataCompanyRole(
+                        id=company_id,
+                        name=normalized_name,
+                        roles=roles,
+                    )
+                )
+            else:
+                existing_roles = companies[index]["roles"]
+                for role_name in roles:
+                    if role_name not in existing_roles:
+                        existing_roles.append(role_name)
+        return companies
+
+    genre_options = facet_options(genres)
+    theme_options = facet_options(themes)
+    company_roles = company_role_records(involved_companies)
+
     developers = named_values(involved_companies, role="developer", company=True)
     publishers = named_values(involved_companies, role="publisher", company=True)
     normalized_themes = named_values(themes)
@@ -328,6 +413,8 @@ def extract_metadata_from_igdb_rom(
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),
             "genres": [g.get("name", "") for g in genres if g.get("name")],
+            "genre_ids": [option["id"] for option in genre_options],
+            "genre_options": genre_options,
             "franchises": pydash.compact(
                 [franchise.get("name") if franchise else None]
                 + [f.get("name", "") for f in franchises if f.get("name")]
@@ -343,6 +430,9 @@ def extract_metadata_from_igdb_rom(
             "main_developer": developers[0] if developers else None,
             "publishers": publishers,
             "themes": normalized_themes,
+            "theme_ids": [option["id"] for option in theme_options],
+            "theme_options": theme_options,
+            "company_roles": company_roles,
             "pc_release_date": pc_release_date,
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p["id"], name=p.get("name", ""))
@@ -1139,6 +1229,9 @@ GAMES_FIELDS = (
     "collections.name",
     "game_modes.name",
     "involved_companies.company.name",
+    "involved_companies.supporting",
+    "involved_companies.porting",
+    "involved_companies.company.id",
     "involved_companies.developer",
     "involved_companies.publisher",
     "themes.name",

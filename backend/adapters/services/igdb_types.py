@@ -25,7 +25,6 @@ CollectionRelation = UnimplementedEntity
 ExternalGame = UnimplementedEntity
 GameEngine = UnimplementedEntity
 GameMode = UnimplementedEntity
-InvolvedCompany = UnimplementedEntity
 Keyword = UnimplementedEntity
 LanguageSupport = UnimplementedEntity
 PlatformVersionReleaseDate = UnimplementedEntity
@@ -33,7 +32,6 @@ PlatformWebsite = UnimplementedEntity
 PlayerPerspective = UnimplementedEntity
 ReleaseDate = UnimplementedEntity
 TagNumber = UnimplementedEntity
-Theme = UnimplementedEntity
 Website = UnimplementedEntity
 
 
@@ -45,6 +43,23 @@ class IGDBEntity(TypedDict):
     """
 
     id: int
+
+
+class InvolvedCompany(IGDBEntity, total=False):
+    company: ExpandableField[Company]
+    developer: bool
+    publisher: bool
+    porting: bool
+    supporting: bool
+
+
+class Theme(IGDBEntity, total=False):
+    checksum: str
+    created_at: int
+    name: str
+    slug: str
+    updated_at: int
+    url: str
 
 
 # https://api-docs.igdb.com/#age-rating-enums
