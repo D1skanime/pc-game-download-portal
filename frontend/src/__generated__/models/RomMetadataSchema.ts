@@ -2,6 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { MetadataCompanyRoleSchema } from './MetadataCompanyRoleSchema';
+import type { MetadataFacetOptionSchema } from './MetadataFacetOptionSchema';
 export type RomMetadataSchema = {
     rom_id: number;
     genres: Array<string>;
@@ -11,6 +13,11 @@ export type RomMetadataSchema = {
     main_developer: (string | null);
     publishers?: Array<string>;
     themes?: Array<string>;
+    genre_ids?: Array<string>;
+    theme_ids?: Array<string>;
+    genre_options?: Array<MetadataFacetOptionSchema>;
+    theme_options?: Array<MetadataFacetOptionSchema>;
+    company_roles?: Array<MetadataCompanyRoleSchema>;
     game_modes: Array<string>;
     age_ratings: Array<string>;
     player_count: string;

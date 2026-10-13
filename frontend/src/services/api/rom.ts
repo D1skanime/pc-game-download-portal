@@ -93,6 +93,7 @@ export interface GetRomsParams {
   groupByMetaId?: boolean;
   // Multi-value filters
   selectedGenres?: string[] | null;
+  selectedThemes?: string[] | null;
   selectedFranchises?: string[] | null;
   selectedCollections?: string[] | null;
   selectedCompanies?: string[] | null;
@@ -105,6 +106,7 @@ export interface GetRomsParams {
   selectedStatuses?: string[] | null;
   // Logic operators for multi-value filters
   genresLogic?: string | null;
+  themesLogic?: string | null;
   franchisesLogic?: string | null;
   collectionsLogic?: string | null;
   companiesLogic?: string | null;
@@ -145,6 +147,7 @@ async function getRoms({
   filterVerified = null,
   groupByMetaId = false,
   selectedGenres = null,
+  selectedThemes = null,
   selectedFranchises = null,
   selectedCollections = null,
   selectedCompanies = null,
@@ -157,6 +160,7 @@ async function getRoms({
   selectedStatuses = null,
   // Logic operators
   genresLogic = null,
+  themesLogic = null,
   franchisesLogic = null,
   collectionsLogic = null,
   companiesLogic = null,
@@ -187,6 +191,8 @@ async function getRoms({
     group_by_meta_id: groupByMetaId,
     genres:
       selectedGenres && selectedGenres.length > 0 ? selectedGenres : undefined,
+    themes:
+      selectedThemes && selectedThemes.length > 0 ? selectedThemes : undefined,
     franchises:
       selectedFranchises && selectedFranchises.length > 0
         ? selectedFranchises
@@ -228,6 +234,10 @@ async function getRoms({
     genres_logic:
       selectedGenres && selectedGenres.length > 0
         ? genresLogic || "any"
+        : undefined,
+    themes_logic:
+      selectedThemes && selectedThemes.length > 0
+        ? themesLogic || "any"
         : undefined,
     franchises_logic:
       selectedFranchises && selectedFranchises.length > 0

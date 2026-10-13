@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ManualMetadata } from './ManualMetadata';
+import type { MetadataCompanyRoleSchema } from './MetadataCompanyRoleSchema';
+import type { MetadataFacetOptionSchema } from './MetadataFacetOptionSchema';
 import type { SteamMetadataSchema } from './SteamMetadataSchema';
 export type PcComponentMetadataSchema = {
     igdb_id: (number | null);
@@ -19,5 +21,10 @@ export type PcComponentMetadataSchema = {
     main_developer: (string | null);
     publishers?: Array<string>;
     themes?: Array<string>;
+    genre_ids?: Array<string>;
+    theme_ids?: Array<string>;
+    genre_options?: Array<MetadataFacetOptionSchema>;
+    theme_options?: Array<MetadataFacetOptionSchema>;
+    company_roles?: Array<MetadataCompanyRoleSchema>;
     pc_release_date: (number | null);
 };

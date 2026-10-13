@@ -142,6 +142,8 @@ export type { ManualDescriptionResponse } from './models/ManualDescriptionRespon
 export type { ManualMetadata } from './models/ManualMetadata';
 export type { MetadataCoverageItem } from './models/MetadataCoverageItem';
 export type { MetadataMediaType } from './models/MetadataMediaType';
+export type { MetadataCompanyRoleSchema } from './models/MetadataCompanyRoleSchema';
+export type { MetadataFacetOptionSchema } from './models/MetadataFacetOptionSchema';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MissingRomsCleanupStats } from './models/MissingRomsCleanupStats';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';

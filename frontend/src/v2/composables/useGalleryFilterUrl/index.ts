@@ -111,6 +111,7 @@ export function useGalleryFilterUrl() {
     filterSoundtrack,
     selectedPlatforms,
     selectedGenres,
+    selectedThemes,
     selectedFranchises,
     selectedCollections,
     selectedCompanies,
@@ -122,6 +123,7 @@ export function useGalleryFilterUrl() {
     selectedTags,
     selectedStatuses,
     genresLogic,
+    themesLogic,
     franchisesLogic,
     collectionsLogic,
     companiesLogic,
@@ -157,7 +159,9 @@ export function useGalleryFilterUrl() {
         .map((s) => Number(s))
         .filter((n) => !Number.isNaN(n)),
       genres: qList(q.genres),
+      themes: qList(q.themes),
       genresLogic: qLogic(q.genresLogic),
+      themesLogic: qLogic(q.themesLogic),
       franchises: qList(q.franchises),
       franchisesLogic: qLogic(q.franchisesLogic),
       collections: qList(q.collections),
@@ -222,6 +226,10 @@ export function useGalleryFilterUrl() {
     // Multi-select string arrays.
     if (!eqStrArr(url.genres, selectedGenres.value))
       filter.setSelectedFilterGenres(url.genres);
+    if (!eqStrArr(url.themes, selectedThemes.value))
+      filter.setSelectedFilterThemes(url.themes);
+    if (url.themesLogic && url.themesLogic !== themesLogic.value)
+      filter.setThemesLogic(url.themesLogic);
     if (url.genresLogic && url.genresLogic !== genresLogic.value)
       filter.setGenresLogic(url.genresLogic);
 
@@ -345,6 +353,11 @@ export function useGalleryFilterUrl() {
       "genresLogic",
       selectedGenres.value.length > 0 ? genresLogic.value : null,
     );
+    setList("themes", selectedThemes.value);
+    setOrDelete(
+      "themesLogic",
+      selectedThemes.value.length > 0 ? themesLogic.value : null,
+    );
     setList("franchises", selectedFranchises.value);
     setOrDelete(
       "franchisesLogic",
@@ -433,6 +446,8 @@ export function useGalleryFilterUrl() {
       filterSoundtrack,
       selectedPlatforms,
       selectedGenres,
+      selectedThemes,
+      themesLogic,
       genresLogic,
       selectedFranchises,
       franchisesLogic,

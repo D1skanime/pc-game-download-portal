@@ -4,6 +4,7 @@ import type { Platform } from "./platforms";
 
 export type FilterType =
   | "genres"
+  | "themes"
   | "franchises"
   | "collections"
   | "companies"
@@ -49,6 +50,7 @@ const buildDefaultFilterState = () => ({
   selectedPlatform: null as Platform | null,
   selectedPlatforms: [] as Platform[],
   selectedGenres: [] as string[],
+  selectedThemes: [] as string[],
   selectedFranchises: [] as string[],
   selectedCollections: [] as string[],
   selectedCompanies: [] as string[],
@@ -61,6 +63,7 @@ const buildDefaultFilterState = () => ({
   selectedStatuses: [] as string[],
   // Logic operators for multi-select filters
   genresLogic: "any" as FilterLogicOperator,
+  themesLogic: "any" as FilterLogicOperator,
   franchisesLogic: "any" as FilterLogicOperator,
   collectionsLogic: "any" as FilterLogicOperator,
   companiesLogic: "any" as FilterLogicOperator,
@@ -119,6 +122,12 @@ export default defineStore("galleryFilter", {
       this.selectedPlatforms = platforms;
       // Clear single platform selection to avoid conflicts
       this.selectedPlatform = null;
+    },
+    setSelectedFilterThemes(themes: string[]) {
+      this.selectedThemes = themes;
+    },
+    setThemesLogic(logic: FilterLogicOperator) {
+      this.themesLogic = logic;
     },
     setSelectedFilterGenres(genres: string[]) {
       this.selectedGenres = genres;

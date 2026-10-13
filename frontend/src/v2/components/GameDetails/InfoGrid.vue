@@ -21,7 +21,7 @@ defineOptions({ inheritAttrs: false });
 
 export type InfoGridSection = {
   label: string;
-  items: string[];
+  items: Array<{ id?: string; label: string }>;
   /** Leading icon for the section header — gives each category a
    *  semantic cue (e.g. tags for genres, building for companies). */
   icon?: string;
@@ -30,13 +30,22 @@ export type InfoGridSection = {
   filter?: FilterType;
 };
 
-const props = defineProps<{ sections: InfoGridSection[] }>();
+const props = defineProps<{
+  sections: InfoGridSection[];
+  platformId?: number | null;
+}>();
 
 const visible = () => props.sections.filter((s) => s.items.length > 0);
 
-const searchLocation = (filter: FilterType, item: string) => ({
+const searchLocation = (
+  filter: FilterType,
+  item: { id?: string; label: string },
+) => ({
   name: ROUTES.SEARCH,
-  query: { [filter]: item },
+  query: {
+    [filter]: item.id ?? item.label,
+    ...(props.platformId ? { platforms: String(props.platformId) } : {}),
+  },
 });
 </script>
 
@@ -57,15 +66,15 @@ const searchLocation = (filter: FilterType, item: string) => ({
         <span>{{ section.label }}</span>
       </div>
       <div class="r-v2-det-infogrid__chips">
-        <template v-for="item in section.items" :key="item">
+        <template v-for="item in section.items" :key="item.id ?? item.label">
           <router-link
             v-if="section.filter"
             :to="searchLocation(section.filter, item)"
             class="r-v2-det-infogrid__chip r-v2-det-infogrid__chip--link"
           >
-            {{ item }}
+            {{ item.label }}
           </router-link>
-          <span v-else class="r-v2-det-infogrid__chip">{{ item }}</span>
+          <span v-else class="r-v2-det-infogrid__chip">{{ item.label }}</span>
         </template>
       </div>
     </div>
