@@ -109,6 +109,7 @@ from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
+from utils.platform_slugs import canonicalize_filesystem_slug
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 catalog_lifecycle_handler = CatalogLifecycleHandler()
@@ -1305,18 +1306,32 @@ async def scan_platforms(
     # Resolve the platforms that will actually be scanned. When no platform ids
     # are provided, every filesystem platform is scanned.
     db_platforms = db_platform_handler.get_platforms()
-    db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
+    db_platforms_by_slug = {
+        canonicalize_filesystem_slug(p.fs_slug): p for p in db_platforms
+    }
 
     # Selected platforms arrive as database ids and/or filesystem slugs.
-    selected_slugs = [p.fs_slug for p in db_platforms if p.id in platform_ids]
+    selected_slugs = [
+        canonicalize_filesystem_slug(p.fs_slug)
+        for p in db_platforms
+        if p.id in platform_ids
+    ]
+    filesystem_slugs = {
+        canonicalize_filesystem_slug(fs_slug) for fs_slug in fs_platforms
+    }
     for fs_slug in platform_fs_slugs:
+        fs_slug = canonicalize_filesystem_slug(fs_slug)
         if fs_slug in selected_slugs:
             continue
-        if fs_slug in db_platforms_by_slug or fs_slug in fs_platforms:
+        if fs_slug in db_platforms_by_slug or fs_slug in filesystem_slugs:
             selected_slugs.append(fs_slug)
 
     has_selection = bool(platform_ids or platform_fs_slugs)
-    platform_list = sorted(selected_slugs if has_selection else fs_platforms)
+    platform_list = sorted(
+        set(selected_slugs)
+        if has_selection
+        else {canonicalize_filesystem_slug(fs_slug) for fs_slug in fs_platforms}
+    )
 
     # A "new platforms" scan skips platforms that already exist in the database,
     # so they must be excluded from the totals to keep the tracker accurate. This

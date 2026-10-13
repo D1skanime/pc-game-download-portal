@@ -58,6 +58,7 @@ from utils.archives import (
 )
 from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
+from utils.platform_slugs import resolve_filesystem_slug
 from utils.rate_limiter import ConcurrencyLimiter
 
 from .base_handler import (
@@ -712,6 +713,17 @@ class FSRomsHandler(ExternalFSHandler):
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
+        resolved_slug = resolve_filesystem_slug(
+            fs_slug,
+            lambda slug: Path(
+                self.base_path,
+                self._build_roms_fs_structure(slug, cnfg),
+            ).exists(),
+        )
+        return self._build_roms_fs_structure(resolved_slug, cnfg)
+
+    @staticmethod
+    def _build_roms_fs_structure(fs_slug: str, cnfg) -> str:
         return (
             f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
             if cnfg.has_structure_path_b

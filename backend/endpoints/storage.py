@@ -776,7 +776,13 @@ async def bootstrap_legacy_storage(
         }
 
         for fs_slug in filesystem_slugs:
-            platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
+            platform = (
+                db_platform_handler.get_platform_by_slug("win")
+                or db_platform_handler.get_platform_by_fs_slug("win")
+                or db_platform_handler.get_platform_by_fs_slug("pc")
+                if fs_slug == "pc"
+                else db_platform_handler.get_platform_by_fs_slug(fs_slug)
+            )
             mapped_slug = None
             if platform is None:
                 mapped_slug = config.PLATFORMS_BINDING.get(
@@ -807,16 +813,12 @@ async def bootstrap_legacy_storage(
                         "firmware_count",
                     }
                 )
+                if fs_slug == "pc":
+                    platform_data["fs_slug"] = "win"
                 platform = db_platform_handler.add_platform(Platform(**platform_data))
                 created_platform_count += 1
             else:
                 existing_platform_count += 1
-
-            if fs_slug == "pc" and mapped_slug == "win" and platform.fs_slug != "pc":
-                platform = db_platform_handler.update_platform(
-                    platform.id, {"fs_slug": "pc"}
-                )
-                known_platform_slugs.add("pc")
 
             if fs_slug == "pc":
                 pc_platform = platform

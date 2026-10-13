@@ -81,6 +81,13 @@ class TestFSRomsHandler:
     def platform(self):
         return Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
 
+    def test_get_roms_fs_structure_canonicalizes_pc_to_win(self, handler, config):
+        config.has_structure_path_b = False
+        with patch(
+            "handler.filesystem.roms_handler.cm.get_config", return_value=config
+        ):
+            assert handler.get_roms_fs_structure("pc") == "roms/win"
+
     @pytest.fixture
     def rom_single(self, platform: Platform):
         return Rom(

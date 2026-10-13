@@ -1,5 +1,6 @@
 import fnmatch
 import os
+from pathlib import Path
 
 from anyio import Path as AnyioPath
 
@@ -8,6 +9,7 @@ from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from exceptions.storage_exceptions import MissingStorageTargetError
 from logger.logger import log
+from utils.platform_slugs import resolve_filesystem_slug
 
 from .base_handler import ExternalFSHandler, LibraryStructure
 from .storage_policy import ExternalStorageDescriptor, StorageOperation, StoragePolicy
@@ -75,8 +77,17 @@ class FSPlatformsHandler(ExternalFSHandler):
 
     def get_platform_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
+        resolved_slug = resolve_filesystem_slug(
+            fs_slug,
+            lambda slug: Path(
+                self.base_path,
+                self._build_platform_fs_structure(slug, cnfg),
+            ).exists(),
+        )
+        return self._build_platform_fs_structure(resolved_slug, cnfg)
 
-        # Fallback to config hint when detection is inconclusive
+    @staticmethod
+    def _build_platform_fs_structure(fs_slug: str, cnfg) -> str:
         return (
             f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
             if cnfg.has_structure_path_b

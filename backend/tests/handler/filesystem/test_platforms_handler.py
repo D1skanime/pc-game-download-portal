@@ -480,3 +480,13 @@ class TestFSPlatformsHandler:
         ):
             result = handler.detect_library_structure()
             assert result is None
+
+    def test_get_platform_fs_structure_canonicalizes_pc_to_win(
+        self, handler: FSPlatformsHandler, config
+    ):
+        config.has_structure_path_b = False
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            result = handler.get_platform_fs_structure("pc")
+            assert result == f"{config.ROMS_FOLDER_NAME}/win"

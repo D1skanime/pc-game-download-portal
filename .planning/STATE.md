@@ -496,3 +496,5 @@ Resume file: None
 
 - Phase 28 added: YouTube-Vorschau, Steam-App-ID und PC-Save-Medienverwaltung.
   | 261013-m9i | Fix platform ROM list API 500 caused by missing optional sidecar fields | 2026-10-13 | 46ea9c4b1 | [261013-m9i-fix-platform-rom-list-api-500-caused-by-](./quick/261013-m9i-fix-platform-rom-list-api-500-caused-by-/) |
+
+| 261013-mmt | Canonicalize Windows PC storage and scan paths to win with safe pc compatibility | 2026-10-13 | b2af59d73 | [261013-mmt-canonicalize-windows-pc-storage-and-scan](./quick/261013-mmt-canonicalize-windows-pc-storage-and-scan/) |
