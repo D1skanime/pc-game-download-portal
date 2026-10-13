@@ -818,13 +818,13 @@ Plans:
 **Goal:** Deliver role-aware PC metadata, localized clickable genre/theme filters with stable IDs and preserved PC scope, a single overview release field, and complete locale-aware labels and dates across all supported locales.
 **Requirements**: PH29-ROLE, PH29-FILTER, PH29-OVERVIEW, PH29-I18N
 **Depends on:** Phase 28
-**Plans:** 4 plans
+**Plans:** 1/4 plans complete
 
 Plans:
 
 **Wave 1**
 
-- [ ] 29-01-PLAN.md - Establish the backend role-aware metadata and stable facet contract.
+- [x] 29-01-PLAN.md - Establish the backend role-aware metadata and stable facet contract.
 
 **Wave 2** _(blocked on Wave 1 completion)_
 

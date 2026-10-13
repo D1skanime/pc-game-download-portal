@@ -4,13 +4,13 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed quick task 261010-s7e
-last_updated: "2026-10-13T07:57:25.975Z"
-last_activity: 2026-10-13 -- Phase 29 planning complete
+last_updated: "2026-10-13T09:10:00Z"
+last_activity: 2026-10-13 -- Phase 29 execution started
 progress:
   total_phases: 29
   completed_phases: 22
   total_plans: 223
-  completed_plans: 204
+  completed_plans: 205
   percent: 76
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 28 — youtube-vorschau-steam-app-id-und-pc-save-medienverwaltung
+**Current focus:** Phase 29 — Rollenbewusste Metadaten, klickbare Themes und mehrsprachige Übersichtsansicht
 
 ## Current Position
 
-Phase: 28 (youtube-vorschau-steam-app-id-und-pc-save-medienverwaltung) — EXECUTING
-Plan: 4 of 4
-Status: Ready to execute
-Last activity: 2026-10-13 -- Phase 29 planning complete
+Phase: 29 (Rollenbewusste Metadaten, klickbare Themes und mehrsprachige Übersichtsansicht) — EXECUTING
+Plan: 2 of 4
+Status: Executing Phase 29
+Last activity: 2026-10-13 -- Completed Phase 29 Plan 01
 
 ## Performance Metrics
 
@@ -166,6 +166,8 @@ _Updated after each plan completion_
 | Phase 26 P03 | 35min | 2 tasks | 2 files |
 
 ## Accumulated Context
+
+- Phase 29 Plan 01 added: Explicit IGDB company roles and provider-qualified genre/theme facet identities with legacy-compatible filtering.
 
 - Phase 29 added: Rollenbewusste Metadaten, klickbare Themes und mehrsprachige Übersichtsansicht.
 
@@ -484,8 +486,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-10T20:08:35Z
-Stopped at: Completed quick task 261010-s7e
+Last session: 2026-10-13T09:10:00Z
+Stopped at: Completed 29-01-PLAN.md
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
