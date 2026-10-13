@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: verifying
+status: executing
 stopped_at: Completed quick task 261010-s7e
-last_updated: "2026-10-12T16:30:00.000Z"
-last_activity: 2026-10-12
+last_updated: "2026-10-13T07:57:25.975Z"
+last_activity: 2026-10-13 -- Phase 29 planning complete
 progress:
-  total_phases: 27
-  completed_phases: 21
-  total_plans: 216
+  total_phases: 29
+  completed_phases: 22
+  total_plans: 223
   completed_plans: 204
-  percent: 78
+  percent: 76
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 Phase: 28 (youtube-vorschau-steam-app-id-und-pc-save-medienverwaltung) — EXECUTING
 Plan: 4 of 4
-Status: Phase implementation complete, verification blocked by missing Linux frontend/tooling and live Dev services
-Last activity: 2026-10-11
+Status: Ready to execute
+Last activity: 2026-10-13 -- Phase 29 planning complete
 
 ## Performance Metrics
 
@@ -167,7 +167,7 @@ _Updated after each plan completion_
 
 ## Accumulated Context
 
-### Roadmap Evolution
+- Phase 29 added: Rollenbewusste Metadaten, klickbare Themes und mehrsprachige Übersichtsansicht.
 
 - Phase 19 added: Fix PC quick-scan IGDB matching and safe DLC/expansion enrichment.
 - Phase 20 added: Media management and owned soundtrack uploads.
@@ -491,4 +491,5 @@ Resume file: None
 - Phase 25 added: Scan-/Medien-Integration härten
 - Phase 26 added: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege.
   \n## Quick Task 261010-skc\n\n| 261010-skc | Match PC DLC overview media image grid to main game overview layout | 2026-10-10 | pending | [261010-skc-match-pc-dlc-overview-media-image-grid-t](./quick/261010-skc-match-pc-dlc-overview-media-image-grid-t/) |\n
+
 - Phase 28 added: YouTube-Vorschau, Steam-App-ID und PC-Save-Medienverwaltung.

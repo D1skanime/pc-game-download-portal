@@ -803,10 +803,13 @@ Plans:
 
 - [ ] 28-01-PLAN.md: Embed YouTube previews and expose the Steam App ID using
       the existing metadata and persistence contracts.
+
 - [ ] 28-02-PLAN.md: Move PC save/state bytes to ROM-owned media resources with
       legacy-path fallback and migration-safe download behavior.
+
 - [ ] 28-03-PLAN.md: Align Save Data UI, raw/ZIP handling, and per-game storage
       presentation with the new resource contract.
+
 - [ ] 28-04-PLAN.md: Run focused automated gates, fresh-storage migration tests,
       and live Linux Dev/browser UAT.
 
@@ -819,7 +822,18 @@ Plans:
 
 Plans:
 
+**Wave 1**
+
 - [ ] 29-01-PLAN.md - Establish the backend role-aware metadata and stable facet contract.
+
+**Wave 2** _(blocked on Wave 1 completion)_
+
 - [ ] 29-02-PLAN.md - Wire v2 role display, PC-scoped stable-ID filters, and single-owner overview release metadata.
+
+**Wave 3** _(blocked on Wave 2 completion)_
+
 - [ ] 29-03-PLAN.md - Add the locale source and primary locales with focused regression coverage.
+
+**Wave 4** _(blocked on Wave 3 completion)_
+
 - [ ] 29-04-PLAN.md - Complete remaining locales and run baseline-aware final gates.
