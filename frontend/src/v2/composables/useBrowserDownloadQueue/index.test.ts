@@ -85,6 +85,28 @@ describe("enhanced browser download protocol", () => {
     expect(getEnhancedDirectoryPicker()).toBeTypeOf("undefined");
   });
 
+  it("uses a directory selected by the picker without a second permission gate", async () => {
+    const requestPermission = vi
+      .fn()
+      .mockRejectedValue(
+        new DOMException("User activation expired", "NotAllowedError"),
+      );
+    const root = {
+      queryPermission: vi.fn().mockResolvedValue("prompt"),
+      requestPermission,
+    } as unknown as FileSystemDirectoryHandle;
+    const picker = vi.fn().mockResolvedValue(root);
+    Object.assign(window, { showDirectoryPicker: picker });
+
+    const queue = useBrowserDownloadQueue();
+
+    await expect(queue.pickEnhancedDirectory()).resolves.toBe(root);
+    expect(picker).toHaveBeenCalledWith({ mode: "readwrite" });
+    expect(requestPermission).not.toHaveBeenCalled();
+
+    delete (window as Window & { showDirectoryPicker?: unknown })
+      .showDirectoryPicker;
+  });
   it("requires exact 206 content range for resumed responses", () => {
     expect(
       validateEnhancedResponse(

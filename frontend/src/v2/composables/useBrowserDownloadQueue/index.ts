@@ -357,7 +357,6 @@ export function useBrowserDownloadQueue() {
     const picker = getEnhancedDirectoryPicker();
     if (!picker) return null;
     const root = await picker({ mode: "readwrite" });
-    if (!(await permission(root))) return null;
     return root;
   }
   async function start(manifest: DownloadManifestResponse) {
