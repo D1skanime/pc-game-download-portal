@@ -818,7 +818,7 @@ Plans:
 **Goal:** Deliver role-aware PC metadata, localized clickable genre/theme filters with stable IDs and preserved PC scope, a single overview release field, and complete locale-aware labels and dates across all supported locales.
 **Requirements**: PH29-ROLE, PH29-FILTER, PH29-OVERVIEW, PH29-I18N
 **Depends on:** Phase 28
-**Plans:** 1/4 plans complete
+**Plans:** 3/4 plans complete
 
 Plans:
 
@@ -828,11 +828,11 @@ Plans:
 
 **Wave 2** _(blocked on Wave 1 completion)_
 
-- [ ] 29-02-PLAN.md - Wire v2 role display, PC-scoped stable-ID filters, and single-owner overview release metadata.
+- [x] 29-02-PLAN.md - Wire v2 role display, PC-scoped stable-ID filters, and single-owner overview release metadata.
 
 **Wave 3** _(blocked on Wave 2 completion)_
 
-- [ ] 29-03-PLAN.md - Add the locale source and primary locales with focused regression coverage.
+- [x] 29-03-PLAN.md - Add the locale source and primary locales with focused regression coverage.
 
 **Wave 4** _(blocked on Wave 3 completion)_
 

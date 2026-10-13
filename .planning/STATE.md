@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 29 (Rollenbewusste Metadaten, klickbare Themes und mehrsprachige Übersichtsansicht) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Executing Phase 29
-Last activity: 2026-10-13 -- Completed Phase 29 Plan 01
+Last activity: 2026-10-13 -- Completed Phase 29 Plan 03
 
 ## Performance Metrics
 
