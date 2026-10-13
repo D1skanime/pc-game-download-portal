@@ -50,6 +50,7 @@ from endpoints.responses.storage import (
     StorageMappingRemovalConsequencesSchema,
     StorageMappingSchema,
     StorageMappingSnapshotSchema,
+    StorageMappingTestRequestSchema,
     StorageMappingTestSchema,
     StorageMappingUpdateSchema,
     StorageMappingVersionSchema,
@@ -984,12 +985,15 @@ def get_platform_storage_mapping(
     responses=_MAPPING_RESPONSES,
 )
 def test_storage_mapping(
-    request: Request, body: StorageMappingCreateSchema
+    request: Request, body: StorageMappingTestRequestSchema
 ) -> StorageMappingTestSchema:
     assert_admin(request)
     try:
         mapping = db_storage_handler.test_mapping(
-            body.platform_id, body.storage_root_id, body.relative_path
+            body.platform_id,
+            body.storage_root_id,
+            body.relative_path,
+            exclude_mapping_id=body.mapping_id,
         )
     except StorageResolutionError as error:
         if isinstance(

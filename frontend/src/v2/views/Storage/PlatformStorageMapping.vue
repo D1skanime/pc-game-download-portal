@@ -238,6 +238,7 @@ async function testDraft() {
       platform_id: platformId.value,
       storage_root_id: draft.value.rootId,
       relative_path: draft.value.relativePath,
+      ...(mapping.value ? { mapping_id: mapping.value.id } : {}),
     });
     draft.value.testedKey = testKey.value;
     step.value = 4;

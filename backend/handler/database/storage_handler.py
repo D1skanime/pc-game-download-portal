@@ -318,11 +318,15 @@ class DBStorageHandler(DBBaseHandler):
         storage_root_id: int,
         relative_path: str,
         *,
+        exclude_mapping_id: int | None = None,
         session: Session = None,  # type: ignore
     ) -> PlatformStorageMapping:
         self._lock_platform(session, platform_id)
         _, relative_path = self._load_and_validate(
-            session, storage_root_id, relative_path
+            session,
+            storage_root_id,
+            relative_path,
+            exclude_mapping_id=exclude_mapping_id,
         )
         active_mapping = session.scalar(
             select(PlatformStorageMapping.id).where(
@@ -330,7 +334,7 @@ class DBStorageHandler(DBBaseHandler):
                 PlatformStorageMapping.active.is_(True),
             )
         )
-        if active_mapping is not None:
+        if active_mapping is not None and active_mapping != exclude_mapping_id:
             raise DuplicateStorageMappingError(platform_id, storage_root_id)
         return PlatformStorageMapping(
             platform_id=platform_id,

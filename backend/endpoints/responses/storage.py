@@ -273,6 +273,10 @@ class StorageMappingCreateSchema(BaseModel):
     relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)
 
 
+class StorageMappingTestRequestSchema(StorageMappingCreateSchema):
+    mapping_id: int | None = Field(default=None, gt=0)
+
+
 class StorageMappingUpdateSchema(BaseModel):
     storage_root_id: int = Field(gt=0)
     relative_path: str = Field(max_length=STORAGE_MAPPING_PATH_MAX_LENGTH)

@@ -373,7 +373,7 @@ def test_mapping_test_is_non_mutating_and_allowlisted(
     monkeypatch.setattr(
         endpoint.db_storage_handler,
         "test_mapping",
-        lambda platform_id, storage_root_id, relative_path: calls.append(
+        lambda platform_id, storage_root_id, relative_path, **kwargs: calls.append(
             (platform_id, storage_root_id, relative_path)
         )
         or _mapping(version=1),

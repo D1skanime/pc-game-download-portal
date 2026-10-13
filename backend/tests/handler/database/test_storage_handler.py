@@ -406,6 +406,13 @@ def test_mapping_lifecycle_is_versioned_active_only_and_audited(tmp_path: Path):
             actor_display_name="Original Admin",
         )
         assert created.active and created.version == 1
+        tested_existing = db_storage_handler.test_mapping(
+            platforms[0].id,
+            roots[0].id,
+            "a",
+            exclude_mapping_id=created.id,
+        )
+        assert tested_existing.relative_path == "a"
         db_storage_handler.deactivate_mapping(
             created.id,
             expected_version=1,

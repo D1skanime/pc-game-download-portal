@@ -22,6 +22,10 @@ export interface LegacyStorageBootstrapResponse {
   existing_platform_count: number;
 }
 
+export type StorageMappingTestRequest = StorageMappingCreateSchema & {
+  mapping_id?: number;
+};
+
 function getRoots() {
   return api.get<StorageRootSchema[]>("/storage/roots");
 }
@@ -45,7 +49,7 @@ function browseRoot(rootId: number, parent = "", cursor?: string | null) {
   );
 }
 
-function testMapping(draft: StorageMappingCreateSchema) {
+function testMapping(draft: StorageMappingTestRequest) {
   return api.post<StorageMappingTestSchema>("/storage/mappings/test", draft);
 }
 
