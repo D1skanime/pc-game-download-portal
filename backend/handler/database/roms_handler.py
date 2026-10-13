@@ -195,6 +195,7 @@ _FILTER_VALUES_SELECT = select(
     RomFacets.languages,
     RomFacets.tags,
     RomFacets.platform_id,
+    Rom.igdb_metadata,
 )
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
@@ -1616,7 +1617,38 @@ class DBRomsHandler(DBBaseHandler):
         match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.genres, values, session=session)
+        canonical = [value for value in values if value.startswith("igdb:")]
+        legacy = [value for value in values if not value.startswith("igdb:")]
+        conditions = []
+        if canonical:
+            conditions.append(
+                op(Rom.igdb_metadata["genre_ids"], canonical, session=session)
+            )
+        if legacy:
+            conditions.append(op(RomMetadata.genres, legacy, session=session))
+        condition = or_(*conditions) if conditions else false()
+        return query.filter(~condition) if match_none else query.filter(condition)
+
+    def _filter_by_themes(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+        match_none: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        canonical = [value for value in values if value.startswith("igdb:")]
+        legacy = [value for value in values if not value.startswith("igdb:")]
+        conditions = []
+        if canonical:
+            conditions.append(
+                op(Rom.igdb_metadata["theme_ids"], canonical, session=session)
+            )
+        if legacy:
+            conditions.append(op(RomMetadata.themes, legacy, session=session))
+        condition = or_(*conditions) if conditions else false()
         return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_franchises(
@@ -2064,7 +2096,15 @@ class DBRomsHandler(DBBaseHandler):
 
         # Optimize JOINs - only join tables when needed
         needs_metadata_join = any(
-            [genres, franchises, collections, companies, age_ratings, player_counts]
+            [
+                genres,
+                themes,
+                franchises,
+                collections,
+                companies,
+                age_ratings,
+                player_counts,
+            ]
         )
 
         if needs_metadata_join:
@@ -2073,6 +2113,7 @@ class DBRomsHandler(DBBaseHandler):
         # Apply metadata and rom-level filters efficiently
         filters_to_apply = [
             (genres, genres_logic, self._filter_by_genres),
+            (themes, themes_logic, self._filter_by_themes),
             (franchises, franchises_logic, self._filter_by_franchises),
             (collections, collections_logic, self._filter_by_collections),
             (companies, companies_logic, self._filter_by_companies),
@@ -2215,6 +2256,7 @@ class DBRomsHandler(DBBaseHandler):
             missing=kwargs.get("missing", None),
             verified=kwargs.get("verified", None),
             genres=kwargs.get("genres", None),
+            themes=kwargs.get("themes", None),
             franchises=kwargs.get("franchises", None),
             collections=kwargs.get("collections", None),
             companies=kwargs.get("companies", None),
@@ -2227,6 +2269,7 @@ class DBRomsHandler(DBBaseHandler):
             tags=kwargs.get("tags", None),
             # Logic operators for multi-value filters
             genres_logic=kwargs.get("genres_logic", "any"),
+            themes_logic=kwargs.get("themes_logic", "any"),
             franchises_logic=kwargs.get("franchises_logic", "any"),
             collections_logic=kwargs.get("collections_logic", "any"),
             companies_logic=kwargs.get("companies_logic", "any"),
@@ -4538,10 +4581,12 @@ class DBRomsHandler(DBBaseHandler):
         regions = set()
         languages = set()
         tags = set()
+        genre_ids = set()
+        theme_ids = set()
         platforms = set()
 
         for row in session.execute(statement):
-            g, f, cl, co, gm, ar, pc, rg, lg, tg, pid = row
+            g, f, cl, co, gm, ar, pc, rg, lg, tg, pid, igdb_metadata = row
             if g:
                 genres.update(g)
             if f:
@@ -4562,6 +4607,17 @@ class DBRomsHandler(DBBaseHandler):
                 languages.update(lg)
             if tg:
                 tags.update(tg)
+            if isinstance(igdb_metadata, dict):
+                genre_ids.update(
+                    value
+                    for value in igdb_metadata.get("genre_ids", [])
+                    if isinstance(value, str)
+                )
+                theme_ids.update(
+                    value
+                    for value in igdb_metadata.get("theme_ids", [])
+                    if isinstance(value, str)
+                )
             platforms.add(pid)
 
         return {
@@ -4575,6 +4631,8 @@ class DBRomsHandler(DBBaseHandler):
             "regions": sorted(regions),
             "languages": sorted(languages),
             "tags": sorted(tags),
+            "genre_ids": sorted(genre_ids),
+            "theme_ids": sorted(theme_ids),
             "platforms": sorted(platforms),
         }
 
@@ -4612,7 +4670,9 @@ class DBRomsHandler(DBBaseHandler):
 
         ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()  # type: ignore
 
-        statement = _FILTER_VALUES_SELECT.where(RomFacets.rom_id.in_(ids_subq))
+        statement = _FILTER_VALUES_SELECT.join(Rom, Rom.id == RomFacets.rom_id).where(
+            RomFacets.rom_id.in_(ids_subq)
+        )
 
         result = self._collect_filter_values(session, statement)
         if redis_key is not None and version is not None:
@@ -4627,4 +4687,6 @@ class DBRomsHandler(DBBaseHandler):
         """
         Returns all filter values across all ROM metadata
         """
-        return self._collect_filter_values(session, _FILTER_VALUES_SELECT)
+        return self._collect_filter_values(
+            session, _FILTER_VALUES_SELECT.join(Rom, Rom.id == RomFacets.rom_id)
+        )
