@@ -2,7 +2,7 @@
 quick_task: 261013-mmt
 description: Canonicalize Windows/PC storage and scan paths to win with safe pc compatibility
 status: complete
-commit: b2af59d73
+commit: 8b42f46ca
 ---
 
 # Summary
