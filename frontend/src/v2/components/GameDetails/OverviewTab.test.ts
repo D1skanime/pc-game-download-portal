@@ -1,11 +1,12 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { IGDBRelatedGame } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import OverviewTab from "./OverviewTab.vue";
 import ScreenshotsTab from "./ScreenshotsTab.vue";
 
 const permissionState = vi.hoisted(() => ({ value: true }));
+const activeLocale = vi.hoisted(() => ({ value: "en-US" }));
 
 vi.mock("pinia", async (importOriginal) => ({
   ...(await importOriginal<typeof import("pinia")>()),
@@ -15,7 +16,7 @@ vi.mock("@/v2/composables/useCan", () => ({
   useCan: () => permissionState,
 }));
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en-US" } }),
+  useI18n: () => ({ t: (key: string) => key, locale: activeLocale }),
 }));
 vi.mock("@/stores/collections", () => ({ default: () => ({}) }));
 vi.mock("@/v2/composables/useWebpSupport", () => ({
@@ -38,6 +39,7 @@ const rom = {
 
 const pcMetadataRom = {
   ...rom,
+  platform_id: 4,
   metadatum: {
     rom_id: 42,
     genres: [],
@@ -163,6 +165,150 @@ describe("OverviewTab", () => {
     expect(wrapper.text()).toContain("CD Projekt");
     expect(wrapper.text()).toContain("rom.themes");
     expect(wrapper.text()).toContain("Cyberpunk");
+  });
+
+  it("formats the single PC release field for the selected locale", () => {
+    const locales = ["en-US", "de-DE", "fr-FR"];
+    const formattedDates = locales.map((selectedLocale) => {
+      activeLocale.value = selectedLocale;
+      const wrapper = mount(OverviewTab, {
+        props: {
+          rom: pcMetadataRom,
+          summary: null,
+          sections: [],
+          playerCount: null,
+          userCollections: [],
+          hltb: null,
+          lastPlayed: null,
+          revision: null,
+          screenshots: [],
+          expansions: [],
+          dlcs: [],
+          localDlcCandidates: [],
+          localExpansionCandidates: [],
+          remakes: [],
+          remasters: [],
+          similarGames: [],
+          parentRomId: 42,
+        },
+      });
+      const releaseRows = wrapper
+        .findAll(".overview-tab__row")
+        .filter((row) => row.text().includes("rom.pc-release"));
+
+      expect(releaseRows).toHaveLength(1);
+      return releaseRows[0].text();
+    });
+
+    expect(new Set(formattedDates).size).toBe(3);
+    expect(formattedDates[0]).toContain(
+      new Date(1725148800 * 1000).toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+    );
+    expect(formattedDates[1]).toContain(
+      new Date(1725148800 * 1000).toLocaleDateString("de-DE", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+    );
+    expect(formattedDates[2]).toContain(
+      new Date(1725148800 * 1000).toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+    );
+  });
+
+  it("keeps translated chip labels separate from canonical IDs and PC scope", () => {
+    activeLocale.value = "de-DE";
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom: pcMetadataRom,
+        summary: null,
+        sections: [
+          {
+            label: "rom.genres",
+            filter: "genres",
+            items: [{ id: "igdb:31", label: "Action" }],
+          },
+          {
+            label: "rom.themes",
+            filter: "themes",
+            items: [{ id: "igdb:42", label: "Cyberpunk" }],
+          },
+        ],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [],
+        expansions: [],
+        dlcs: [],
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+        parentRomId: 42,
+      },
+      global: {
+        stubs: {
+          RouterLink: {
+            props: ["to"],
+            template: "<a :href='JSON.stringify(to)'><slot /></a>",
+          },
+        },
+      },
+    });
+
+    const links = wrapper.findAll("a.r-v2-det-infogrid__chip--link");
+    expect(links).toHaveLength(2);
+    expect(links[0].attributes("href")).toContain('"genres":"igdb:31"');
+    expect(links[1].attributes("href")).toContain('"themes":"igdb:42"');
+    for (const link of links) {
+      expect(link.attributes("href")).toContain('"platforms":"4"');
+      expect(link.attributes("href")).not.toContain("Action");
+      expect(link.attributes("href")).not.toContain("Cyberpunk");
+    }
+  });
+
+  it("does not invent role labels for a roleless provider company", () => {
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom: pcMetadataRom,
+        summary: null,
+        sections: [
+          {
+            label: "rom.companies",
+            items: [{ id: "igdb:99", label: "Neutral Provider Company" }],
+          },
+        ],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [],
+        expansions: [],
+        dlcs: [],
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+        parentRomId: 42,
+      },
+    });
+
+    expect(wrapper.text()).toContain("Neutral Provider Company");
+    expect(wrapper.text()).not.toContain("rom.main-developer");
+    expect(wrapper.text()).not.toContain("rom.publishers");
   });
 
   it("renders selected owned screenshots through the protected media endpoint", () => {
@@ -424,3 +570,5 @@ describe("OverviewTab", () => {
     permissionState.value = true;
   });
 });
+
+afterEach(() => (activeLocale.value = "en-US"));

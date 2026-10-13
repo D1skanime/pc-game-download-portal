@@ -6,6 +6,46 @@ import {
 } from "@/v2/composables/useGameDetailsMedia";
 
 describe("GameDetails", () => {
+  it("keeps primary metadata labels translated while provider identities stay raw", () => {
+    const readRomLocale = (locale: string) =>
+      JSON.parse(
+        readFileSync(`src/locales/${locale}/rom.json`, "utf8"),
+      ) as Record<string, string>;
+    const enUS = readRomLocale("en_US");
+    const enGB = readRomLocale("en_GB");
+    const deDE = readRomLocale("de_DE");
+    const frFR = readRomLocale("fr_FR");
+
+    for (const key of [
+      "companies",
+      "genres",
+      "themes",
+      "main-developer",
+      "publishers",
+      "pc-release",
+    ]) {
+      expect(enUS[key]).toBeTruthy();
+      expect(enGB[key]).toBe(enUS[key]);
+      expect(deDE[key]).toBeTruthy();
+      expect(frFR[key]).toBeTruthy();
+    }
+
+    expect(deDE["description-source-provider"]).toBe(
+      "Quelle: Metadatenanbieter",
+    );
+    expect(frFR["description-source-provider"]).toBe(
+      "Source : métadonnées du fournisseur",
+    );
+    expect(deDE["description-source-manual"]).toBe(
+      "Quelle: manuelle Metadaten",
+    );
+    expect(frFR["description-source-manual"]).toBe(
+      "Source : métadonnées manuelles",
+    );
+    expect(enUS["provider-igdb-id"]).toBe("IGDB ID");
+    expect(enUS["provider-steam-id"]).toBe("Steam App ID");
+  });
+
   it("passes the current parent ROM id to OverviewTab", () => {
     const source = readFileSync("src/v2/views/GameDetails.vue", "utf8");
 
