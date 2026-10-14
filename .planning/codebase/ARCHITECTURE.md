@@ -1,8 +1,8 @@
-<!-- refreshed: 2026-08-04 -->
+<!-- refreshed: 2026-10-15 -->
 
 # Architecture
 
-**Analysis Date:** 2026-08-04
+**Analysis Date:** 2026-10-15 (original mapping: 2026-08-04)
 
 ## System Overview
 
@@ -307,4 +307,57 @@
 
 ---
 
-_Architecture analysis: 2026-08-04_
+_Architecture analysis: original mapping 2026-08-04; fork delta verified 2026-10-15_
+
+## Current fork delta (verified 2026-10-15)
+
+This section records the fork-specific capabilities added after the original codebase mapping. The layered RomM core remains the foundation; these features are not part of an unmodified RomM checkout.
+
+### PC library and storage model
+
+- External PC library roots are mounted read-only and assigned to platforms through canonical storage mappings.
+- Storage mapping administration and legacy-library reconciliation are exposed through the library-management UI and storage endpoints.
+- PC games remain logical ROM records, while base games, installers, updates, DLC, patches, manuals, optional files, and required archives are represented as categorized PC components and ROM files.
+- Relevant code: `backend/handler/filesystem/`, `backend/handler/storage/`, `backend/endpoints/storage.py`, `backend/endpoints/roms/pc_metadata.py`, `frontend/src/v2/components/LibraryManagement/`, `frontend/src/v2/components/GameDetails/PcDlcDetail.vue`.
+
+### PC downloads and manifests
+
+- Selected PC components can be downloaded through immutable, hash-backed manifests.
+- Browser downloads support progress, pause/resume, retry, cancel, history, and enhanced folder downloads.
+- Relevant code: `backend/endpoints/download_manifests.py`, `backend/endpoints/download_transfers.py`, `backend/handler/downloads/`, `frontend/src/v2/components/GameDetails/`, and the generated download API client.
+
+### Metadata and media extensions
+
+- IGDB, Steam, ScreenScraper, SteamGridDB, MobyGames, LaunchBox, Hasheous, and RetroAchievements remain provider adapters under the existing metadata boundary.
+- PC-specific Steam identity and DLC enrichment are handled separately from the IGDB relationship and do not replace the ROM aggregate model.
+- YouTube video IDs and Steam App IDs are exposed through ROM metadata and editable in the v2 game-details workflow.
+- Artwork, screenshots, backgrounds, owned media, and PC DLC media use ROM-owned media records and placement roles; source library files remain unchanged.
+- Relevant code: `backend/handler/metadata/`, `backend/models/rom.py`, `backend/endpoints/responses/rom.py`, `frontend/src/v2/components/GameDetails/OverviewTab.vue`, `frontend/src/v2/components/GameDetails/ArtworkSubtab.vue`, and `frontend/src/v2/components/GameDetails/PcDlcMediaTab.vue`.
+
+### Save-data management
+
+- PC save data has dedicated upload, download, deletion, content-hash, migration, and device-sync paths.
+- Relevant code: `backend/endpoints/saves.py`, `backend/tasks/pc_save_migration.py`, `backend/tasks/manual/recompute_save_content_hashes.py`, and the v2 save-data tabs.
+
+### Locale-aware descriptions
+
+- Descriptions are resolved per UI locale without mutating the legacy `rom.summary` fallback.
+- Manual descriptions, localized provider variants, English fallback, and legacy fallback are handled by the shared metadata description resolver.
+- PC games and console ROMs use the same locale-aware contract.
+- Relevant code: `backend/handler/metadata/manual_description.py`, `backend/handler/metadata/steam_merge.py`, `backend/handler/metadata/ss_handler.py`, `backend/handler/scan_handler.py`, `backend/endpoints/roms/pc_metadata.py`, and `frontend/src/v2/components/GameDetails/OverviewTab.vue`.
+
+### v2 frontend and fork UI
+
+- New feature work is implemented under `frontend/src/v2/`; the v1 tree remains a frozen compatibility surface.
+- The fork adds PC component details, media management, save-data management, localized descriptions, clickable theme/genre filters, role-aware company metadata, and responsive artwork controls.
+- Shared v2 primitives, design tokens, locale files, and accessibility patterns are used instead of introducing a second UI architecture.
+
+### Reproducible deployment
+
+- Portainer deployment, persistent library/media/database boundaries, read-only mounts, provider credentials, ScreenScraper user credentials, official-image developer credentials, and source-build secrets are documented in `docs/PORTAINER_INSTALL.md` and `examples/portainer-stack.yml`.
+- The official image and source-build credential paths are intentionally distinguished: normal users provide ScreenScraper account credentials; source builds additionally require developer build secrets.
+
+### Documentation status
+
+- This document is an architecture map, not a complete API reference or phase log.
+- Phase-specific acceptance criteria, UAT evidence, and deployment procedures remain in `.planning/phases/`, `.planning/quick/`, `docs/`, and `examples/`.
