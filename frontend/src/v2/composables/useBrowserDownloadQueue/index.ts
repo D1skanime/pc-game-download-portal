@@ -181,26 +181,6 @@ async function hashExisting(
   }
 }
 
-async function permission(handle: FileSystemDirectoryHandle) {
-  const permissionHandle = handle as FileSystemDirectoryHandle & {
-    queryPermission: (descriptor?: {
-      mode?: "readwrite";
-    }) => Promise<PermissionState>;
-    requestPermission: (descriptor?: {
-      mode?: "readwrite";
-    }) => Promise<PermissionState>;
-  };
-  const permissionState = await permissionHandle.queryPermission({
-    mode: "readwrite",
-  });
-  return (
-    permissionState === "granted" ||
-    (permissionState === "prompt" &&
-      (await permissionHandle.requestPermission({ mode: "readwrite" })) ===
-        "granted")
-  );
-}
-
 async function openDestination(
   root: FileSystemDirectoryHandle,
   destination: string,
@@ -211,7 +191,6 @@ async function openDestination(
   let directory = root;
   for (const segment of segments.slice(0, -1)) {
     directory = await directory.getDirectoryHandle(segment, { create: true });
-    if (!(await permission(directory))) throw new Error("permission_denied");
   }
   const filename = segments.at(-1)!;
   let file: FileSystemFileHandle;
@@ -229,7 +208,6 @@ async function openDestination(
   if (existed && !resume) throw new Error("destination_exists");
   return { file, existing };
 }
-
 async function enhancedMember(
   root: FileSystemDirectoryHandle,
   member: DownloadManifestResponse["members"][number],

@@ -235,4 +235,49 @@ describe("useBrowserDownloadQueue standard mode", () => {
     delete (window as Window & { showDirectoryPicker?: unknown })
       .showDirectoryPicker;
   });
+
+  it("writes nested files without requesting permission on child directories", async () => {
+    const requestPermission = vi
+      .fn()
+      .mockRejectedValue(
+        new DOMException("User activation expired", "NotAllowedError"),
+      );
+    const file = {
+      getFile: vi.fn().mockResolvedValue(new File([], "a.bin")),
+    } as unknown as FileSystemFileHandle;
+    const child = {
+      queryPermission: vi.fn().mockResolvedValue("prompt"),
+      requestPermission,
+      getFileHandle: vi.fn().mockResolvedValue(file),
+    } as unknown as FileSystemDirectoryHandle;
+    const root = {
+      getDirectoryHandle: vi.fn().mockResolvedValue(child),
+    } as unknown as FileSystemDirectoryHandle;
+    createSession.mockResolvedValue({
+      data: {
+        id: "session-nested",
+        items: [{ id: 1, manifest_member_id: "nested" }],
+      },
+    });
+    const nestedManifest = {
+      ...manifest,
+      members: [
+        {
+          file_id: "nested",
+          destination: "files/a.bin",
+          size: 0,
+          sha256:
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          snapshot: "snapshot",
+          download: "https://example.invalid/nested",
+        },
+      ],
+    } satisfies DownloadManifestResponse;
+
+    const queue = useBrowserDownloadQueue();
+    await expect(queue.startEnhanced(nestedManifest, root)).resolves.toBe(true);
+
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(queue.items.value[0].status).toBe("verified");
+  });
 });
