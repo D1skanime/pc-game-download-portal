@@ -837,3 +837,25 @@ Plans:
 **Wave 4** _(blocked on Wave 3 completion)_
 
 - [x] 29-04-PLAN.md - Complete remaining locales and run baseline-aware final gates.
+
+### Phase 30: Benutzerfreundliche Portainer-Installation dokumentieren
+
+**Goal:** Provide a complete, German, reproducible Portainer installation path for the current PC Game Download Portal fork on Synology, QNAP, and Linux, with documented storage, secrets, build, persistence, update, backup, and rollback contracts.
+
+**Requirements**: DEPLOY-30-01, DEPLOY-30-02, DEPLOY-30-03, DEPLOY-30-04, DEPLOY-30-05
+**Depends on:** Phase 29
+**Plans:** 3 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 30-01-PLAN.md: Make the Portainer stack and ENV examples self-explanatory and safe.
+
+**Wave 2** (blocked on Wave 1)
+
+- [ ] 30-02-PLAN.md: Write the complete German installation guide and align README entry points.
+
+**Wave 3** (blocked on Wave 1 and Wave 2)
+
+- [ ] 30-03-PLAN.md: Run deterministic deployment checks and record fresh-clone validation evidence.
