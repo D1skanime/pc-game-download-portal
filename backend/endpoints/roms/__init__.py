@@ -600,6 +600,15 @@ def get_roms(
             ),
         ),
     ] = None,
+    themes: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated theme. Multiple values are allowed by repeating the"
+                " parameter, and results that match any of the values will be returned."
+            ),
+        ),
+    ] = None,
     franchises: Annotated[
         list[str] | None,
         Query(
@@ -698,6 +707,12 @@ def get_roms(
         str,
         Query(
             description="Logic operator for genres filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    themes_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for themes filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     franchises_logic: Annotated[
@@ -818,6 +833,7 @@ def get_roms(
         verified=verified,
         has_soundtrack=has_soundtrack,
         genres=genres,
+        themes=themes,
         franchises=franchises,
         collections=collections,
         companies=companies,
@@ -830,6 +846,7 @@ def get_roms(
         tags=tags,
         # Logic operators
         genres_logic=genres_logic,
+        themes_logic=themes_logic,
         franchises_logic=franchises_logic,
         collections_logic=collections_logic,
         companies_logic=companies_logic,
@@ -867,6 +884,7 @@ def get_roms(
     )
     is_unscoped = is_unscoped_scope and not (
         genres
+        or themes
         or franchises
         or collections
         or companies
