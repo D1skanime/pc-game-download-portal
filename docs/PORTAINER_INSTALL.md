@@ -185,10 +185,80 @@ Diese Werte dürfen leer bleiben:
 - SCREENSCRAPER_PASSWORD
 - RETROACHIEVEMENTS_API_KEY
 - STEAMGRIDDB_API_KEY
+- IGDB_CLIENT_ID
+- IGDB_CLIENT_SECRET
 - HASHEOUS_API_ENABLED
 
 Fehlende Provider-Zugangsdaten verhindern nicht den Basisstart. Nur die
-entsprechende Suche oder Anreicherung bleibt nicht verfügbar.
+entsprechende Suche oder Anreicherung bleibt nicht verfügbar. Keys und
+Secrets gehören ausschliesslich in Portainer oder einen Secret-Store, niemals
+in Git, Screenshots, Issues oder eine ausgefüllte ENV-Datei.
+
+#### SteamGridDB-API-Key besorgen
+
+SteamGridDB liefert zusätzliche Cover- und Artwork-Varianten. Für RomM
+brauchst du den persönlichen API-Key, nicht eine Steam-Login-ID:
+
+1. Erstelle ein Konto auf [SteamGridDB](https://www.steamgriddb.com/) und
+   bestätige die Anmeldung.
+2. Öffne im angemeldeten Konto den API-Bereich beziehungsweise die
+   Kontoeinstellungen und erstelle oder kopiere deinen API-Key.
+3. Trage den Wert in Portainer als STEAMGRIDDB_API_KEY ein.
+4. Redeploye den Stack oder starte den Anwendungscontainer neu.
+5. Prüfe danach bei einem Testspiel die Cover-/Artwork-Suche.
+
+Die [SteamGridDB-API-Dokumentation](https://www.steamgriddb.com/api/v2)
+bestätigt, dass die API einen API-Key erwartet. Wenn der Anbieter den
+Menünamen ändert, verwende den API-Bereich der angemeldeten SteamGridDB-
+Kontoseite und kopiere keinen Schlüssel aus fremden Beispielen.
+
+#### IGDB-Zugang über Twitch einrichten
+
+IGDB stellt die Spiele-Metadaten bereit. Der Zugang wird über ein Twitch-
+Entwicklerkonto eingerichtet; RomM benötigt die beiden Werte
+IGDB_CLIENT_ID und IGDB_CLIENT_SECRET:
+
+1. Erstelle oder verwende ein Twitch-Konto.
+2. Aktiviere für das Konto die Zwei-Faktor-Authentifizierung, falls Twitch
+   dies verlangt.
+3. Öffne die [Twitch Developer Console](https://dev.twitch.tv/console/apps)
+   und registriere eine neue Anwendung.
+4. Verwende für die OAuth-Redirect-URL http://localhost (IGDB verwendet
+   diesen Redirect für die Server-zu-Server-Anmeldung nicht, Twitch verlangt
+   aber einen Wert im Formular).
+5. Wähle als Client Type Confidential, damit ein Secret erzeugt werden kann.
+6. Öffne die Anwendung, kopiere die Client ID und erzeuge mit New Secret ein
+   Client Secret. Das Secret wird nur einmal vollständig angezeigt; speichere
+   es sofort in einem Passwortmanager.
+7. Trage in Portainer ein:
+
+       IGDB_CLIENT_ID=<Twitch-Client-ID>
+       IGDB_CLIENT_SECRET=<Twitch-Client-Secret>
+
+8. Redeploye den Stack und prüfe den Status beziehungsweise einen kleinen
+   Metadaten-Scan.
+
+Die [offizielle IGDB-API-Dokumentation](https://api-docs.igdb.com/) beschreibt
+diesen Twitch-OAuth-Weg. Ein IGDB-Login allein erzeugt keine API-Zugangsdaten.
+Erstelle keine Access-Tokens von Hand in der ENV-Datei: RomM verwendet Client
+ID und Secret und erneuert den kurzlebigen Zugriff intern.
+
+#### Anbieter testen und Fehler eingrenzen
+
+Teste zuerst mit einem einzigen Spiel und der passenden Metadatenquelle. Wenn
+IGDB oder SteamGridDB als nicht verfügbar angezeigt wird, prüfe:
+
+- Variable exakt geschrieben und ohne Anführungszeichen oder Leerzeichen am
+  Anfang/Ende;
+- Portainer-Stack nach der Änderung wirklich redeployt;
+- Secret nicht abgelaufen oder widerrufen;
+- DNS- und HTTPS-Zugriff des Containers auf api.igdb.com, id.twitch.tv
+  beziehungsweise www.steamgriddb.com;
+- im Container- beziehungsweise Stack-Log die konkrete Provider-Fehlermeldung.
+
+Ein funktionierender Basisstart beweist nicht, dass ein optionaler Anbieter
+konfiguriert ist. Umgekehrt kann ein Provider vorübergehend ausfallen, ohne
+dass die Spielebibliothek oder der Login defekt ist.
 
 ## 6. Erster Start
 

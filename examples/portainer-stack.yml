@@ -37,6 +37,9 @@ services:
       SCREENSCRAPER_PASSWORD: ${SCREENSCRAPER_PASSWORD:-}
       RETROACHIEVEMENTS_API_KEY: ${RETROACHIEVEMENTS_API_KEY:-}
       STEAMGRIDDB_API_KEY: ${STEAMGRIDDB_API_KEY:-}
+      # IGDB uses Twitch Developer credentials; both values are optional.
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
       HASHEOUS_API_ENABLED: ${HASHEOUS_API_ENABLED:-true}
     volumes:
       # These are Docker-managed writable paths and must survive updates.
