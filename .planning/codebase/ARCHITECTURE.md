@@ -48,7 +48,7 @@
 | Database handlers         | Own SQLAlchemy queries and mutations per aggregate; `roms_handler.py` is the ROM repository                                 | `backend/handler/database/`          |
 | Filesystem handlers       | Validate rooted paths, enumerate library folders, hash files/archives, and manage ROM/resource/asset bytes                  | `backend/handler/filesystem/`        |
 | Metadata handlers         | Normalize provider-specific records and apply provider priority during scans                                                | `backend/handler/metadata/`          |
-| External adapters         | Typed clients for IGDB, MobyGames, ScreenScraper, SteamGridDB, RetroAchievements, and related services                      | `backend/adapters/services/`         |
+| External adapters         | Typed clients for IGDB, MobyGames, ScreenScraper, Steam, SteamGridDB, RetroAchievements, and related services               | `backend/adapters/services/`         |
 | ORM domain model          | Defines ROM, platform, user, collection, asset, device, permission, and synchronization persistence                         | `backend/models/`                    |
 | Background work           | Defines scheduled and manual RQ tasks, including library scans and cleanup                                                  | `backend/tasks/`                     |
 | Frontend composition root | Registers plugins, loads heartbeat/auth/config concurrently, and mounts the router                                          | `frontend/src/main.ts`               |
@@ -328,7 +328,7 @@ The following sections describe the complete current application architecture, i
 
 ### Metadata and media extensions
 
-- IGDB, Steam, ScreenScraper, SteamGridDB, MobyGames, LaunchBox, Hasheous, and RetroAchievements remain provider adapters under the existing metadata boundary.
+- IGDB, Steam, ScreenScraper, Steam, SteamGridDB, MobyGames, LaunchBox, Hasheous, and RetroAchievements remain provider adapters under the existing metadata boundary.
 - PC-specific Steam identity and DLC enrichment are handled separately from the IGDB relationship and do not replace the ROM aggregate model.
 - YouTube video IDs and Steam App IDs are exposed through ROM metadata and editable in the v2 game-details workflow.
 - Artwork, screenshots, backgrounds, owned media, and PC DLC media use ROM-owned media records and placement roles; source library files remain unchanged.
