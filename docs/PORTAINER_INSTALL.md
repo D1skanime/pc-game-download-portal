@@ -194,6 +194,31 @@ entsprechende Suche oder Anreicherung bleibt nicht verfügbar. Keys und
 Secrets gehören ausschliesslich in Portainer oder einen Secret-Store, niemals
 in Git, Screenshots, Issues oder eine ausgefüllte ENV-Datei.
 
+#### ScreenScraper-Zugangsdaten
+
+Für normale Benutzer einer offiziellen RomM-Docker-Installation reichen die
+beiden persönlichen ScreenScraper-Werte:
+
+- `SCREENSCRAPER_USER`
+- `SCREENSCRAPER_PASSWORD`
+
+Die offiziellen RomM-Images enthalten die Developer-Daten der Anwendung
+bereits beim Build. Benutzer müssen diese Werte nicht selbst beantragen und
+sehen sie nicht in der RomM-Oberfläche.
+
+Dieser Git-/Portainer-Stack baut jedoch dieses Repository selbst aus dem
+Quellcode. Für diesen Source-Build müssen zusätzlich die Build-Secrets
+gesetzt werden:
+
+- `SCREENSCRAPER_DEV_ID`
+- `SCREENSCRAPER_DEV_PASSWORD`
+
+Portainer reicht diese Werte nur an den Image-Build weiter. Sie gehören in die
+geschützte Stack-Umgebung oder einen Secret-Store, nicht in Git. Nach dem
+Eintragen muss der Stack neu gebaut und redeployt werden. Ohne diese Werte
+bleibt die Basisinstallation funktionsfähig, ScreenScraper kann den Source-
+Build jedoch mit HTTP 403 ablehnen.
+
 #### SteamGridDB-API-Key besorgen
 
 SteamGridDB liefert zusätzliche Cover- und Artwork-Varianten. Für RomM

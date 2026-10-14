@@ -18,6 +18,11 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: full-image
+      args:
+        # ScreenScraper application credentials are used only at image build
+        # time. Supply them through Portainer's protected stack environment.
+        SCREENSCRAPER_DEV_ID: ${SCREENSCRAPER_DEV_ID:-}
+        SCREENSCRAPER_DEV_PASSWORD: ${SCREENSCRAPER_DEV_PASSWORD:-}
     # This is the tag assigned to the image produced by the build above.
     # It is not a pull instruction while build is present. Override it only
     # when intentionally deploying a compatible, prebuilt image.
