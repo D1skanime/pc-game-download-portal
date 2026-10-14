@@ -114,7 +114,17 @@ async function startDownload(payload: {
     }
   } catch (error) {
     console.error("[PcComponents] Could not start download", error);
-    snackbar.error(t("rom.download-failed-description"));
+    const pickerFailed =
+      (error instanceof DOMException && error.name === "AbortError") ||
+      (error instanceof Error &&
+        error.message === "enhanced_directory_picker_unavailable");
+    snackbar.error(
+      t(
+        pickerFailed
+          ? "rom.download-folder-access-denied"
+          : "rom.download-failed-description",
+      ),
+    );
   }
 }
 

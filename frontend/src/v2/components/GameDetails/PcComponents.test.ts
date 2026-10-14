@@ -56,6 +56,8 @@ vi.mock("vue-i18n", () => ({
         "rom.download-expired":
           "This download has expired. Start a new download.",
         "rom.download-failed-description": "Download failed.",
+        "rom.download-folder-access-denied":
+          "Folder access was not granted. Choose a folder again or use Standard browser download.",
       })[key] ?? key,
   }),
 }));
@@ -321,6 +323,8 @@ describe("PcComponents", () => {
     await wrapper.get("[data-testid='start-enhanced']").trigger("click");
     await flushPromises();
 
-    expect(snackbarError).toHaveBeenCalledWith("Download failed.");
+    expect(snackbarError).toHaveBeenCalledWith(
+      "Folder access was not granted. Choose a folder again or use Standard browser download.",
+    );
   });
 });

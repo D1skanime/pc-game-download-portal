@@ -107,6 +107,14 @@ describe("enhanced browser download protocol", () => {
     delete (window as Window & { showDirectoryPicker?: unknown })
       .showDirectoryPicker;
   });
+  it("reports when the browser has no writable directory picker", async () => {
+    const queue = useBrowserDownloadQueue();
+
+    await expect(queue.pickEnhancedDirectory()).rejects.toThrow(
+      "enhanced_directory_picker_unavailable",
+    );
+  });
+
   it("requires exact 206 content range for resumed responses", () => {
     expect(
       validateEnhancedResponse(

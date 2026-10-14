@@ -333,7 +333,7 @@ export function useBrowserDownloadQueue() {
   }
   async function pickEnhancedDirectory() {
     const picker = getEnhancedDirectoryPicker();
-    if (!picker) return null;
+    if (!picker) throw new Error("enhanced_directory_picker_unavailable");
     const root = await picker({ mode: "readwrite" });
     return root;
   }
