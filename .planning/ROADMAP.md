@@ -844,18 +844,18 @@ Plans:
 
 **Requirements**: DEPLOY-30-01, DEPLOY-30-02, DEPLOY-30-03, DEPLOY-30-04, DEPLOY-30-05
 **Depends on:** Phase 29
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 
 **Wave 1**
 
-- [ ] 30-01-PLAN.md: Make the Portainer stack and ENV examples self-explanatory and safe.
+- [x] 30-01-PLAN.md: Make the Portainer stack and ENV examples self-explanatory and safe.
 
 **Wave 2** (blocked on Wave 1)
 
-- [ ] 30-02-PLAN.md: Write the complete German installation guide and align README entry points.
+- [x] 30-02-PLAN.md: Write the complete German installation guide and align README entry points.
 
 **Wave 3** (blocked on Wave 1 and Wave 2)
 
-- [ ] 30-03-PLAN.md: Run deterministic deployment checks and record fresh-clone validation evidence.
+- [x] 30-03-PLAN.md: Run deterministic deployment checks and record fresh-clone validation evidence.
