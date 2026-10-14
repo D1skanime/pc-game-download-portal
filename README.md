@@ -1,229 +1,160 @@
 # RomM PC Library Edition
 
-A fork of RomM focused on managing an existing PC game archive without
-reorganizing or modifying the source files.
+Ein RomM-Fork zur Verwaltung einer bestehenden PC-Spielebibliothek, ohne Quelldateien oder Ordner umzustrukturieren oder zu verändern.
 
-This edition combines the familiar ROM library experience with a read-only PC
-library workflow, explicit PC game components, metadata-assisted DLC matching,
-media curation, verified browser downloads, and a reproducible Docker
-deployment for NAS systems.
+Diese Edition verbindet die bekannte ROM-Bibliotheksverwaltung mit einem schreibgeschützten PC-Bibliotheksworkflow, eigenen PC-Spielkomponenten, Metadaten-gestützter DLC-Zuordnung, Medienverwaltung, verifizierten Browser-Downloads und einer reproduzierbaren Docker-Bereitstellung für NAS-Systeme.
 
-## What this edition adds
+## Was diese Edition bietet
 
-- Read-only external PC library roots and explicit platform-to-storage mappings.
-- Catalog records for base games, installers, updates, DLC, patches, manuals,
-  optional files, and required archive sets.
-- Immutable, hash-backed download manifests for selected PC components.
-- Browser downloads with progress, pause, resume, retry, cancel, and history
-  controls.
-- Metadata matching for PC games and DLC through the configured providers,
-  including IGDB and Steam.
-- German Steam metadata with controlled language and fallback behavior.
-- Media management for screenshots and artwork, including delete actions,
-  duplicate-safe ownership, background selection, and overview selection.
-- Responsive overview layouts for desktop and tablet-sized screens.
-- A Git-based Portainer deployment that keeps ROM files, media, credentials,
-  and database state outside Git.
+- Externe PC-Bibliotheksverzeichnisse mit Read-only-Schutz und Plattform-zu-Speicher-Zuordnung.
+- Katalogeinträge für Hauptspiele, Installer, Updates, DLC, Patches, Handbücher und optionale Dateien.
+- Hash-basierte Download-Manifeste für ausgewählte PC-Komponenten.
+- Browser-Downloads mit Fortschritt, Pause, Fortsetzen, Wiederholung, Abbruch und Verlauf.
+- Metadaten-Zuordnung für PC-Spiele und DLC über IGDB, Steam und weitere Anbieter.
+- Deutsche Steam-Metadaten mit kontrollierter Sprache und Fallback-Regeln.
+- Medienverwaltung für Screenshots und Artwork mit Löschen, Duplikat-Schutz, Hintergrundauswahl und Übersichtsbild.
+- Responsive Übersichten für Desktop- und Tablet-Bildschirme.
+- Git-basierte Portainer-Bereitstellung, die ROM-Dateien, Medien, Zugangsdaten und Datenbankzustand ausserhalb von Git hält.
 
-## Development milestones
+## Entwicklungsmeilensteine
 
-The following capabilities were completed during the development of this
-edition:
+Während der Entwicklung wurden unter anderem folgende Funktionen abgeschlossen:
 
-1. Established an immutable storage foundation for existing game archives.
-2. Added a read-only policy boundary so scans and catalog operations cannot
-   rewrite source files.
-3. Defined storage mapping administration and validation contracts.
-4. Designed the active v2 storage architecture and data boundaries.
-5. Moved preview and read paths onto the new storage model.
-6. Added safe lifecycle handling and migration support for legacy data.
-7. Delivered the v2 storage administration experience.
-8. Removed obsolete v1 storage surfaces from the active workflow.
-9. Added operational proofs for storage immutability.
-10. Added the PC integration model and PC-specific detail views.
-11. Added local PC media and DLC navigation.
-12. Added dedicated DLC detail pages for local PC components.
-13. Added IGDB metadata matching and DLC media handling for PC content.
-14. Added immutable download manifests for selected files.
-15. Added direct resumable browser transfers.
-16. Defined the cross-platform desktop transfer client contract.
-17. Delivered the browser download manager with queue and recovery controls.
-18. Integrated Steam metadata for PC games and DLC.
-19. Hardened PC quick scans, IGDB matching, and safe DLC enrichment.
-20. Added media management and owned soundtrack uploads.
-21. Unified administrative PC scans with German Steam metadata and media.
-22. Added bulk automation for PC game and DLC assignment.
-23. Added multilingual Steam metadata with German and English variants.
-24. Stabilized the v2 UI and removed remaining legacy boundaries.
-25. Hardened scan and media integration across the complete PC workflow.
-26. Added the current UI and UX improvements, manual metadata editing,
-    screenshot grids, media actions, DLC matching, and metadata fallback
-    behavior.
-27. Added a reproducible Portainer and Docker deployment contract with
-    persistent storage, startup checks, and clean-install verification.
+1. Unveränderliche Speichergrundlage für bestehende Spielearchive.
+2. Read-only-Grenze für Scans und Katalogoperationen.
+3. Verwaltung und Validierung von Plattform-Speicherzuordnungen.
+4. Aktive v2-Speicherarchitektur mit klaren Datenbereichen.
+5. Sichere Migration bestehender Legacy-Daten.
+6. Vollständige v2-Verwaltung für Speicher und Bibliothek.
+7. PC-Integrationsmodell und PC-spezifische Detailansichten.
+8. PC-Medien- und DLC-Navigation.
+9. IGDB-Metadatenzuordnung und DLC-Medienverarbeitung.
+10. Unveränderliche Download-Manifeste und fortsetzbare Browser-Übertragungen.
+11. Browser-Downloadverwaltung mit Warteschlange und Wiederherstellung.
+12. Steam-Metadaten für PC-Spiele und DLC.
+13. Robuste PC-Scans, IGDB-Zuordnung und sichere DLC-Anreicherung.
+14. Medienverwaltung, Screenshot-Raster und Upload eigener Soundtracks.
+15. Mehrsprachige Steam-Metadaten mit deutschen und englischen Varianten.
+16. Aktuelle UI- und UX-Verbesserungen sowie manuelle Metadatenbearbeitung.
+17. Reproduzierbarer Portainer- und Docker-Deploy mit persistentem Speicher, Startprüfungen und Clean-Install-Validierung.
 
-## Interactive UI demos
+## Interaktive UI-Demos
 
-These recordings show fork-specific workflows with synthetic demo data. They do
-not contain ROM files, personal accounts, private media, or credentials.
+Die Aufnahmen zeigen workflowspezifische Abläufe mit synthetischen Demodaten. Sie enthalten keine ROM-Dateien, persönlichen Konten, privaten Medien oder Zugangsdaten.
 
-|                        PC download controls                        |                       Media and artwork workflow                       |
-| :----------------------------------------------------------------: | :--------------------------------------------------------------------: |
-| ![PC download controls](docs/screenshots/pc-download-controls.gif) | ![Media and artwork workflow](docs/screenshots/media-artwork-flow.gif) |
+|                        PC-Downloadsteuerung                        |                       Medien- und Artwork-Workflow                       |
+| :----------------------------------------------------------------: | :----------------------------------------------------------------------: |
+| ![PC-Downloadsteuerung](docs/screenshots/pc-download-controls.gif) | ![Medien- und Artwork-Workflow](docs/screenshots/media-artwork-flow.gif) |
 
-The download recording shows component selection and browser download controls.
-The media recording shows screenshot and artwork navigation, adding media to the
-overview, and selecting a background.
+## Installation mit Portainer
 
-## Installation with Portainer
+Der unterstützte Bereitstellungsweg ist ein Docker-Compose-Stack, der über Portainer verwaltet wird. Die Stack-Datei liegt unter [examples/portainer-stack.yml](examples/portainer-stack.yml), die sichere Variablenvorlage unter [examples/portainer.env.example](examples/portainer.env.example).
 
-The supported deployment path is a Docker Compose stack managed by Portainer.
-The stack is stored in [examples/portainer-stack.yml](examples/portainer-stack.yml)
-and the safe variable template is
-[examples/portainer.env.example](examples/portainer.env.example).
+Die vollständige deutsche Anleitung steht in [docs/PORTAINER_INSTALL.md](docs/PORTAINER_INSTALL.md).
 
-### Prerequisites
+### Voraussetzungen
 
-- Portainer with Git-based Docker Compose stack support.
-- A NAS directory containing the existing PC and ROM library.
-- Writable NAS directories for assets and configuration.
-- Enough space for the application build and MariaDB data.
-- Optional metadata-provider accounts and API keys.
+- Portainer mit Unterstützung für Git-basierte Docker-Compose-Stacks.
+- Ein NAS-Verzeichnis mit der bestehenden PC- und ROM-Bibliothek.
+- Schreibbare NAS-Verzeichnisse für Assets und Konfiguration.
+- Genügend Speicher für den Anwendungs-Build und MariaDB-Daten.
+- Optional Konten und API-Schlüssel für Metadatenanbieter.
 
-### Deploy from GitHub
+### Aus GitHub bereitstellen
 
-1. Open Portainer and choose **Stacks**, then **Add stack**.
-2. Select **Git repository**.
-3. Set the repository URL to
-   https://github.com/D1skanime/pc-game-download-portal.git.
-4. Set the branch or reference to **main**.
-5. Set the Compose path to **examples/portainer-stack.yml**.
-6. Add the variables from
-   [examples/portainer.env.example](examples/portainer.env.example) to the
-   Portainer environment-variable section.
-7. Replace every placeholder and set the three NAS paths.
-8. Deploy the stack.
+1. Öffne in Portainer Stacks und wähle Add stack.
+2. Wähle Git repository.
+3. Verwende die Repository-URL https://github.com/D1skanime/pc-game-download-portal.git.
+4. Verwende als Branch oder Referenz main.
+5. Verwende als Compose-Pfad examples/portainer-stack.yml.
+6. Übernimm die Variablen aus examples/portainer.env.example in den Portainer-Bereich für Umgebungsvariablen.
+7. Ersetze alle Platzhalter und setze die drei NAS-Pfade.
+8. Prüfe, dass die Spielebibliothek read-only eingebunden wird.
+9. Deploye den Stack.
 
-The Git stack builds the checked-out repository with docker/Dockerfile. This
-means the deployed application contains the code from the selected Git
-revision. Keep the MariaDB and resource volumes when redeploying or updating.
+Der Git-Stack baut das ausgecheckte Repository mit docker/Dockerfile. Damit enthält die Bereitstellung den Code der ausgewählten Git-Revision. Behalte die MariaDB- und Ressourcen-Volumes bei Updates und Redeployments.
 
-### Required variables
+### Erforderliche Variablen
 
-| Variable              | Purpose                                             |
-| --------------------- | --------------------------------------------------- |
-| ROMM_LIBRARY_PATH     | Existing ROM and PC library root, mounted read-only |
-| ROMM_ASSETS_PATH      | Writable assets, saves, and state directory         |
-| ROMM_CONFIG_PATH      | Writable persistent configuration directory         |
-| ROMM_DB_PASSWORD      | MariaDB application-user password                   |
-| ROMM_DB_ROOT_PASSWORD | Separate MariaDB root password                      |
-| ROMM_AUTH_SECRET_KEY  | Long random authentication key                      |
-| ROMM_HTTP_PORT        | NAS port mapped to the application port             |
-| TZ                    | Container timezone                                  |
+| Variable              | Zweck                                                    |
+| --------------------- | -------------------------------------------------------- |
+| ROMM_LIBRARY_PATH     | Bestehende ROM- und PC-Bibliothek, read-only eingebunden |
+| ROMM_ASSETS_PATH      | Schreibbares Verzeichnis für Assets, Saves und States    |
+| ROMM_CONFIG_PATH      | Schreibbares Konfigurationsverzeichnis                   |
+| ROMM_DB_PASSWORD      | Passwort des MariaDB-Anwendungsbenutzers                 |
+| ROMM_DB_ROOT_PASSWORD | Separates MariaDB-root-Passwort                          |
+| ROMM_AUTH_SECRET_KEY  | Langer zufälliger Authentifizierungsschlüssel            |
+| ROMM_HTTP_PORT        | Auf den Container gemappter NAS-Port                     |
+| TZ                    | Zeitzone des Containers                                  |
 
-Generate unique secrets, for example:
+Erzeuge eindeutige Secrets, zum Beispiel:
 
-```bash
-openssl rand -hex 32
-```
+    openssl rand -hex 32
 
-Enter real values only in Portainer or a supported secret store. Never commit
-filled environment files, API keys, passwords, tokens, or personal paths.
+Trage echte Werte nur in Portainer oder einem unterstützten Secret-Store ein. Committe niemals ausgefüllte ENV-Dateien, API-Schlüssel, Passwörter, Tokens oder persönliche Pfade.
 
-### Optional metadata providers
+### Optionale Metadatenanbieter
 
-Provider variables can remain empty. The application still starts and the
-provider stays unavailable until its credentials are supplied.
+Die Anbieter-Variablen dürfen leer bleiben. Die Anwendung startet trotzdem; der jeweilige Anbieter bleibt dann deaktiviert.
 
 - SCREENSCRAPER_USER
 - SCREENSCRAPER_PASSWORD
 - RETROACHIEVEMENTS_API_KEY
 - STEAMGRIDDB_API_KEY
+- IGDB_CLIENT_ID
+- IGDB_CLIENT_SECRET
 - HASHEOUS_API_ENABLED
 
-A missing provider credential is a provider configuration gap, not an
-installation failure. For example, cover search can remain unavailable until
-the selected provider has valid credentials.
+Ein fehlender Anbieter-Schlüssel ist kein Installationsfehler, sondern nur eine fehlende Provider-Konfiguration. Die Cover-Suche bleibt beispielsweise solange nicht verfügbar, bis der ausgewählte Anbieter gültige Zugangsdaten hat.
 
-### Storage and persistence
+### Speicher und Persistenz
 
-Create the three host directories before deployment. Mount the source library
-read-only so scans cannot reorganize or modify it. Keep application resources,
-assets, configuration, Redis data, and MariaDB data on persistent Docker
-volumes or writable host mounts.
+Erstelle die drei Host-Verzeichnisse vor dem Deployment. Binde die Quellbibliothek read-only ein, damit Scans sie nicht umorganisieren oder verändern können. Halte Ressourcen, Assets, Konfiguration, Redis-Daten und MariaDB-Daten in persistenten Docker-Volumes oder schreibbaren Host-Mounts.
 
-Do not mount the NAS library over /romm/resources or /romm/assets. Those paths
-have different ownership and write semantics.
+Binde die NAS-Bibliothek nicht über /romm/resources oder /romm/assets ein. Diese Pfade haben andere Besitz- und Schreibregeln.
 
-### First start and updates
+### Erster Start und Updates
 
-Wait until both romm and romm-db are healthy. Open the configured HTTP port and
-complete the first-login flow. Normal startup performs environment preparation,
-migrations, and health checks automatically.
+Warte, bis romm und romm-db als healthy angezeigt werden. Öffne den konfigurierten HTTP-Port und schliesse die Erstanmeldung ab. Der normale Start übernimmt Umgebungsvorbereitung, Migrationen und Healthchecks automatisch.
 
-For an update, select the desired main revision in Portainer and redeploy the
-Git stack. Keep the database and resource volumes. Back up the database before
-major upgrades. Never replace the ROM library with a Git checkout.
+Für ein Update wählst du in Portainer die gewünschte main-Revision und deployest den Git-Stack erneut. Behalte Datenbank- und Ressourcen-Volumes. Sichere die Datenbank vor grösseren Updates. Ersetze niemals die Spielebibliothek durch einen Git-Checkout.
 
-### Deployment verification
+### Deployment prüfen
 
-From a Linux checkout, validate the sanitized stack template with:
+Führe die Prüfung in einem Linux-Checkout aus:
 
-```bash
-bash scripts/verify-portainer-stack.sh
-```
+    bash scripts/verify-portainer-stack.sh
 
-The check rejects developer paths, tracked environment files, and tracked
-runtime folders such as Games, Docker, and Media.
+Die Prüfung weist Entwicklerpfade, getrackte ENV-Dateien und getrackte Laufzeitordner wie Games, Docker und Media zurück.
 
-For the complete deployment notes, see
-[docs/PORTAINER_INSTALL.md](docs/PORTAINER_INSTALL.md).
+## Daten- und Datenschutzgrenzen
 
-## Data and privacy boundaries
+Das Repository enthält Anwendungscode, Deployment-Vorlagen, Tests und synthetische Dokumentationsdemos. Folgende Daten bleiben auf dem Installationshost:
 
-The repository contains application code, deployment templates, tests, and
-synthetic documentation demos. The following stay on the installation host:
+- ROM-Dateien und PC-Installer.
+- Heruntergeladenes Artwork, Screenshots und weitere Medien.
+- Datenbank- und Cache-Inhalte.
+- NAS-Pfade.
+- API-Schlüssel, Passwörter und Authentifizierungs-Secrets.
+- Benutzerkonten und persönliche Bibliotheksmetadaten.
 
-- ROM files and PC installers.
-- Downloaded artwork, screenshots, and other media.
-- Database and cache contents.
-- NAS paths.
-- Provider API keys, passwords, and authentication secrets.
-- User accounts and personal library metadata.
+## Lokale Entwicklung
 
-## Local development
+Lies CLAUDE.md für Repository-Regeln und die kanonische Linux-Entwicklungsumgebung.
 
-Read [CLAUDE.md](CLAUDE.md) for repository rules and the canonical Linux
-development environment.
+Für den Entwicklungsstack:
 
-For the development stack:
+    cp env.template .env
+    docker compose up -d
 
-```bash
-cp env.template .env
-docker compose up -d
-```
+Der produktionsähnliche Portainer-Stack ist vom Entwicklungs-Compose getrennt. Verwende für eine NAS-Bereitstellung die Portainer-Dateien und halte deren Umgebungswerte ausserhalb von Git.
 
-The production-style Portainer stack is separate from the development compose
-file. Use the Portainer files for a NAS deployment and keep their environment
-values outside Git.
+## Fehlerbehebung
 
-## Troubleshooting
+- Bei einer fehlenden erforderlichen Variable: Prüfe Variablennamen und Platzhalter, ohne Secrets in Logs oder Screenshots offenzulegen.
+- Bei einem fehlerhaften romm-db-Healthcheck: Prüfe Datenbankpasswörter und das persistente Volume.
+- Bei leerer Bibliothek: Prüfe, ob der Pfad auf dem NAS-Host existiert und für Docker sichtbar ist, nicht nur auf einer Arbeitsplatzmaschine.
+- Bei nicht verfügbarer Metadatensuche: Prüfe die Zugangsdaten des ausgewählten Anbieters. Die Basisinstallation bleibt ohne Metadatenanbieter verwendbar.
+- Wenn ein Update unverändert aussieht: Prüfe, ob Portainer die gewünschte Revision ausgecheckt und den Anwendungscontainer neu gebaut hat.
 
-- If Portainer reports a required-variable error, check the variable names and
-  placeholders without exposing the secret in logs or screenshots.
-- If romm-db is unhealthy, verify the database passwords and persistent volume.
-- If the library is empty, verify that the path exists on the NAS host visible
-  to Docker, not only on a workstation.
-- If metadata search is unavailable, verify only the credentials for the
-  selected provider. The base installation remains usable without metadata
-  providers.
-- If an update appears unchanged, confirm that Portainer pulled the intended
-  Git revision and recreated the application container.
-
-## Repository links
-
-- [Portainer installation guide](docs/PORTAINER_INSTALL.md)
-- [Portainer stack](examples/portainer-stack.yml)
-- [Portainer environment template](examples/portainer.env.example)
-- [Deployment verification script](scripts/verify-portainer-stack.sh)
-- [Developer guide](CLAUDE.md)
+Für die vollständige Installations-, Backup- und Rollback-Anleitung siehe [docs/PORTAINER_INSTALL.md](docs/PORTAINER_INSTALL.md).
