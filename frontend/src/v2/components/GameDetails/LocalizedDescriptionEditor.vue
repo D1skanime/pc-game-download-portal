@@ -7,6 +7,7 @@ import type { ManualMetadata, SteamMetadataSchema } from "@/__generated__";
 import { useCan } from "@/v2/composables/useCan";
 import {
   resolveManualDescription,
+  resolveProviderDescription,
   useManualDescription,
 } from "@/v2/composables/useManualDescription";
 import { normalizeLocale } from "@/v2/composables/useProviderResolution";
@@ -20,6 +21,12 @@ const props = withDefaults(
     expectedVersion?: string | null;
     manualMetadata?: ManualMetadata | null;
     steamMetadata?: SteamMetadataSchema | null;
+    ssMetadata?: {
+      text_variants?: Record<
+        string,
+        { summary?: string | null } | undefined
+      > | null;
+    } | null;
     fallbackDescription?: string | null;
     providerSummaryIsAuthoritative?: boolean;
     canEdit?: boolean;
@@ -29,6 +36,7 @@ const props = withDefaults(
     expectedVersion: null,
     manualMetadata: null,
     steamMetadata: null,
+    ssMetadata: null,
     fallbackDescription: null,
     providerSummaryIsAuthoritative: true,
   },
@@ -62,18 +70,18 @@ const manualDescription = computed(() => {
 });
 const providerDescription = computed(() => {
   if (!props.providerSummaryIsAuthoritative) return null;
-  const variants = props.steamMetadata?.text_variants as
-    Record<string, { summary?: string | null } | undefined> | null | undefined;
-  if (!variants) return null;
-  const normalized = normalizeLocale(selectedLocale.value);
-  const language = normalized.split("-", 1)[0];
-  const candidate =
-    variants[normalized]?.summary ??
-    variants[language]?.summary ??
-    variants.en?.summary;
-  return typeof candidate === "string" && candidate.trim()
-    ? candidate.trim()
-    : null;
+  return (
+    resolveProviderDescription({
+      steamMetadata: props.steamMetadata,
+      ssMetadata: props.ssMetadata,
+      locale: selectedLocale.value,
+    }) ??
+    resolveProviderDescription({
+      steamMetadata: props.steamMetadata,
+      ssMetadata: props.ssMetadata,
+      locale: "en",
+    })
+  );
 });
 const resolvedDescription = computed(() =>
   resolveManualDescription({

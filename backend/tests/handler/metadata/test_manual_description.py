@@ -47,6 +47,20 @@ def test_clear_manual_description_restores_provider_fallback():
     )
 
 
+def test_manual_english_description_precedes_provider_fallback():
+    metadata = set_manual_description({}, "en", "Manual English description")
+
+    assert (
+        resolve_description(
+            metadata,
+            locale="fr-FR",
+            provider_variants={"en": "Provider English"},
+            fallback="Legacy summary",
+        )
+        == "Manual English description"
+    )
+
+
 def test_locale_and_description_validation_is_actionable():
     with pytest.raises(ValueError, match="locale"):
         normalize_locale("not a locale")

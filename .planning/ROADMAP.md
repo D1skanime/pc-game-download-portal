@@ -859,3 +859,17 @@ Plans:
 **Wave 3** (blocked on Wave 1 and Wave 2)
 
 - [x] 30-03-PLAN.md: Run deterministic deployment checks and record fresh-clone validation evidence.
+
+### Phase 31: Einheitliche mehrsprachige Spielbeschreibungen
+
+**Goal:** Preserve provider descriptions by locale and resolve the active UI language consistently for PC games and console ROMs without mutating legacy summaries.
+
+**Requirements:** I18N-DESC-31-01, I18N-DESC-31-02, I18N-DESC-31-03, I18N-DESC-31-04
+**Depends on:** Phase 30
+**Plans:** 1 plan
+
+Plans:
+
+**Wave 1**
+
+- [ ] 31-01-PLAN.md: Preserve provider variants and unify locale-aware resolution.

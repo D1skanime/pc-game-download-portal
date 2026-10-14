@@ -43,6 +43,11 @@ from .base_handler import (
 SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 
+class SSDescriptionVariant(TypedDict):
+    source_language: str
+    summary: str
+
+
 @dataclass
 class _ScanState:
     """The ScreenScraper bookkeeping that lives for the length of one scan."""
@@ -308,6 +313,7 @@ class SSMetadataMedia(TypedDict):
 
 class SSMetadata(SSMetadataMedia):
     ss_score: str | None
+    text_variants: NotRequired[dict[str, SSDescriptionVariant]]
     first_release_date: int | None
     alternative_names: list[str]
     age_ratings: list[SSAgeRating]
@@ -517,6 +523,25 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
     return ss_media
 
 
+def _get_text_variants(game: SSGame) -> dict[str, SSDescriptionVariant]:
+    variants: dict[str, SSDescriptionVariant] = {}
+    for synopsis in game.get("synopsis", []):
+        language = synopsis.get("langue")
+        text = synopsis.get("text")
+        if not isinstance(language, str) or not isinstance(text, str):
+            continue
+        language = language.strip().lower().replace("_", "-")
+        text = html.unescape(text).strip()
+        if (
+            not language
+            or not text
+            or not re.fullmatch(r"[a-z]{2,3}(?:-[a-z0-9]{2,8})*", language)
+        ):
+            continue
+        variants[language] = {"source_language": language, "summary": text}
+    return dict(sorted(variants.items()))
+
+
 def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
     taxonomy_languages = get_taxonomy_languages()
 
@@ -612,6 +637,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
     return SSMetadata(
         {
             "ss_score": _normalize_score(game.get("note", {}).get("text", "")),
+            "text_variants": _get_text_variants(game),
             "alternative_names": [name["text"] for name in game.get("noms", [])],
             "age_ratings": _get_age_ratings(game),
             "companies": pydash.compact(
@@ -650,17 +676,13 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     res_summary = ""
     preferred_languages = get_preferred_languages()
     used_lang = None
+    text_variants = ss_metadata.get("text_variants", {})
     for lang in preferred_languages:
-        res_summary = next(
-            (
-                synopsis["text"]
-                for synopsis in game.get("synopsis", [])
-                if synopsis.get("langue") == lang
-            ),
-            "",
-        )
-        if res_summary:
-            used_lang = lang
+        normalized_language = lang.strip().lower().replace("_", "-")
+        variant = text_variants.get(normalized_language)
+        if variant:
+            res_summary = variant["summary"]
+            used_lang = normalized_language
             break
 
     # Log warning if we had to fall back from the preferred locale

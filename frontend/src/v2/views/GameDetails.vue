@@ -123,10 +123,12 @@ const overviewSummary = computed(() => {
   return resolveManualDescription({
     manualMetadata: rom.manual_metadata,
     steamMetadata: rom.steam_metadata,
+    ssMetadata: rom.ss_metadata,
     legacySummary: rom.summary,
     locale: locale.value,
     providerSummaryIsAuthoritative: Boolean(
-      rom.steam_metadata?.fields?.includes("summary"),
+      rom.steam_metadata?.fields?.includes("summary") ||
+      Boolean(rom.ss_metadata?.text_variants),
     ),
   });
 });
@@ -509,6 +511,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :parent-rom-id="currentRom.id"
             :summary="overviewSummary"
             :sections="overviewSections"
+            :ss-metadata="currentRom.ss_metadata"
             :player-count="playerCount"
             :user-collections="userCollections"
             :hltb="currentRom.hltb_metadata"

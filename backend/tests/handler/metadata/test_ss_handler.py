@@ -663,6 +663,9 @@ class TestBuildSSGame:
 
         # Empty values are stripped from the returned dict.
         assert "summary" not in result
+        assert result["ss_metadata"]["text_variants"] == {
+            "fr": {"source_language": "fr", "summary": "Un jeu."}
+        }
 
     def test_summary_uses_configured_language(self):
         config = _make_config(language_priority=["de", "en"])

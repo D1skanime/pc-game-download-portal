@@ -100,6 +100,12 @@ def resolve_description(
     if manual is not None:
         return manual
 
+    descriptions = _stored_descriptions(metadata)
+    for english_locale in ("en", "en-US", "en-GB"):
+        manual_english = descriptions.get(english_locale)
+        if manual_english is not None:
+            return manual_english
+
     variants = provider_variants or {}
     normalized_variants: dict[str, str] = {}
     for key, value in variants.items():

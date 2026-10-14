@@ -53,6 +53,12 @@ const props = defineProps<{
   rom: DetailedRom;
   parentRomId: number;
   summary: string | null | undefined;
+  ssMetadata?: {
+    text_variants?: Record<
+      string,
+      { summary?: string | null } | undefined
+    > | null;
+  } | null;
   sections: InfoGridSection[];
   playerCount: string | null;
   userCollections: UserCollectionSchema[];
@@ -263,6 +269,7 @@ const youtubeEmbedUrl = computed(() =>
           :expected-version="rom.updated_at"
           :manual-metadata="rom.manual_metadata"
           :steam-metadata="rom.steam_metadata"
+          :ss-metadata="ssMetadata"
           :fallback-description="rom.summary"
           :provider-summary-is-authoritative="
             Boolean(rom.steam_metadata?.fields?.includes('summary'))

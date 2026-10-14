@@ -71,6 +71,33 @@ describe("resolveManualDescription", () => {
       }),
     ).toBe("Deutsch");
   });
+
+  it("prefers manual English before provider English", () => {
+    expect(
+      resolveManualDescription({
+        manualMetadata: { descriptions: { en: "Manuelles Englisch" } },
+        steamMetadata,
+        legacySummary: "Legacy summary",
+        locale: "fr-FR",
+      }),
+    ).toBe("Manuelles Englisch");
+  });
+
+  it("resolves an exact ScreenScraper locale before provider English", () => {
+    expect(
+      resolveManualDescription({
+        manualMetadata: { descriptions: {} },
+        steamMetadata: {
+          text_variants: { en: { summary: "Steam English" } },
+        },
+        ssMetadata: {
+          text_variants: { fr: { summary: "ScreenScraper français" } },
+        },
+        legacySummary: "Legacy summary",
+        locale: "fr-FR",
+      }),
+    ).toBe("ScreenScraper français");
+  });
 });
 
 describe("useManualDescription mutations", () => {

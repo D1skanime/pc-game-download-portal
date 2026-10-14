@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { SSAgeRating } from './SSAgeRating';
+import type { SSDescriptionVariant } from './SSDescriptionVariant';
 export type RomSSMetadata = {
     bezel_url?: (string | null);
     box2d_url?: (string | null);
@@ -36,6 +37,7 @@ export type RomSSMetadata = {
     video_path?: (string | null);
     video_normalized_path?: (string | null);
     ss_score?: (string | null);
+    text_variants?: Record<string, SSDescriptionVariant>;
     first_release_date?: (number | null);
     alternative_names?: Array<string>;
     age_ratings?: Array<SSAgeRating>;
