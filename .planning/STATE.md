@@ -504,3 +504,8 @@ Resume file: None
 
 | 261013-safety-test | Fix storage safety test for existing active mappings | 2026-10-13 | 8ad7669d0 | [261013-fix-safety-test-existing-mapping](./quick/261013-fix-safety-test-existing-mapping/) |
 | 261013-enhanced-folder-download | Keep enhanced folder downloads alive after directory selection and reuse root permissions for nested files | 2026-10-13 | f1ddefb38 | [261013-enhanced-folder-download](./quick/261013-enhanced-folder-download/) |
+
+## Quick Task 261015-artwork-card-actions
+
+- Fix localized artwork card action text overlap
+- Status: complete; commit pending

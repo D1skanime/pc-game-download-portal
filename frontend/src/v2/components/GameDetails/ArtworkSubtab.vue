@@ -450,6 +450,19 @@ async function deleteArtwork(item: RomOwnedMediaSchema) {
 .r-v2-art__header-actions {
   flex-wrap: wrap;
 }
+.r-v2-art__actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+.r-v2-art__actions :deep(.r-btn) {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+}
 .r-v2-art__title {
   margin: 0;
   color: var(--r-color-fg);
@@ -504,6 +517,7 @@ async function deleteArtwork(item: RomOwnedMediaSchema) {
 }
 .r-v2-art__cell {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 8px;
 }
