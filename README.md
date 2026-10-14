@@ -95,7 +95,7 @@ and the safe variable template is
 1. Open Portainer and choose **Stacks**, then **Add stack**.
 2. Select **Git repository**.
 3. Set the repository URL to
-   https://github.com/D1skanime/pc-romm.git.
+   https://github.com/D1skanime/pc-game-download-portal.git.
 4. Set the branch or reference to **main**.
 5. Set the Compose path to **examples/portainer-stack.yml**.
 6. Add the variables from

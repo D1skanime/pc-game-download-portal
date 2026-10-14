@@ -26,9 +26,15 @@ grep -Fq 'ROMM_AUTH_SECRET_KEY' "${rendered}"
 grep -Fq 'target: /var/lib/mysql' "${rendered}"
 grep -Fq 'target: /romm/resources' "${rendered}"
 grep -Fq 'target: /redis-data' "${rendered}"
+grep -Fq 'context: /' "${rendered}" || grep -Fq 'context: ..' "${stack}"
+grep -Fq 'pc-game-download-portal:portainer' "${env_file}"
+! grep -Fq 'rommapp/romm:phase27' "${env_file}"
 grep -Fq 'ROMM_LIBRARY_PATH' "${env_file}"
 grep -Fq 'ROMM_ASSETS_PATH' "${env_file}"
 grep -Fq 'ROMM_CONFIG_PATH' "${env_file}"
+grep -Fq 'https://github.com/D1skanime/pc-game-download-portal.git' "${repo_root}/examples/README.md"
+grep -Fq 'https://github.com/D1skanime/pc-game-download-portal.git' "${repo_root}/docs/PORTAINER_INSTALL.md"
+! grep -Fq 'https://github.com/D1skanime/pc-romm.git' "${repo_root}/README.md" "${repo_root}/examples/README.md" "${repo_root}/docs/PORTAINER_INSTALL.md"
 
 # The production image's existing entrypoint remains the only secret/bootstrap
 # adapter. These assertions prevent a future stack edit from bypassing it.
