@@ -182,3 +182,36 @@ def test_additive_role_and_facet_contract_accepts_legacy_and_canonical_values():
     assert schema.genre_ids == ["igdb:31"]
     assert schema.theme_options[0].label == "Fantasy"
     assert schema.company_roles[0].roles == ["developer"]
+
+
+def test_rom_metadata_exposes_raw_role_and_facet_contract(rom: Rom):
+    from handler.database import db_rom_handler
+
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "igdb_metadata": {
+                "genre_ids": ["igdb:31"],
+                "genre_options": [
+                    {"id": "igdb:31", "label": "Adventure", "source": "igdb"}
+                ],
+                "theme_ids": ["igdb:17"],
+                "theme_options": [
+                    {"id": "igdb:17", "label": "Fantasy", "source": "igdb"}
+                ],
+                "company_roles": [
+                    {"id": 908, "name": "CD Projekt RED", "roles": ["developer"]}
+                ],
+            }
+        },
+    )
+    reloaded = db_rom_handler.get_rom(rom.id)
+    assert reloaded is not None
+
+    metadata = RomMetadataSchema.model_validate(reloaded.metadatum)
+
+    assert metadata.genre_ids == ["igdb:31"]
+    assert metadata.genre_options[0].label == "Adventure"
+    assert metadata.theme_ids == ["igdb:17"]
+    assert metadata.theme_options[0].label == "Fantasy"
+    assert metadata.company_roles[0].roles == ["developer"]
