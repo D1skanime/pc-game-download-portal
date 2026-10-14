@@ -6,4 +6,3 @@ export type SSDescriptionVariant = {
     source_language: string;
     summary: string;
 };
-
