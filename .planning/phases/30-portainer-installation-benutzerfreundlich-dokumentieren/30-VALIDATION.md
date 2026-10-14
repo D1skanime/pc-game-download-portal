@@ -21,8 +21,7 @@
    - Passed: current repository URL is used and the historical pc-romm URL is
      absent from the maintained README and Portainer documentation.
 5. Fresh-clone validation:
-   - Pending until this validation file is committed; rerun the exact checks
-     from a no-local clone of the committed branch before closing the phase.
+   - Passed from a no-local clone of the committed branch. The verification script, Compose rendering, IGDB variable wiring, and git diff check all passed.
 
 ## Provider documentation coverage
 
