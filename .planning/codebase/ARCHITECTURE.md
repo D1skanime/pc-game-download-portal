@@ -2,7 +2,7 @@
 
 # Architecture
 
-**Analysis Date:** 2026-10-15 (original mapping: 2026-08-04)
+**Analysis Date:** 2026-10-15
 
 ## System Overview
 
@@ -307,11 +307,11 @@
 
 ---
 
-_Architecture analysis: original mapping 2026-08-04; fork delta verified 2026-10-15_
+_Architecture analysis: 2026-10-15_
 
-## Current fork delta (verified 2026-10-15)
+## Current application architecture
 
-This section records the fork-specific capabilities added after the original codebase mapping. The layered RomM core remains the foundation; these features are not part of an unmodified RomM checkout.
+The following sections describe the complete current application architecture, including the PC library, metadata, media, download, save-data, localization, and deployment workflows.
 
 ### PC library and storage model
 
@@ -346,10 +346,10 @@ This section records the fork-specific capabilities added after the original cod
 - PC games and console ROMs use the same locale-aware contract.
 - Relevant code: `backend/handler/metadata/manual_description.py`, `backend/handler/metadata/steam_merge.py`, `backend/handler/metadata/ss_handler.py`, `backend/handler/scan_handler.py`, `backend/endpoints/roms/pc_metadata.py`, and `frontend/src/v2/components/GameDetails/OverviewTab.vue`.
 
-### v2 frontend and fork UI
+### v2 frontend and application UI
 
 - New feature work is implemented under `frontend/src/v2/`; the v1 tree remains a frozen compatibility surface.
-- The fork adds PC component details, media management, save-data management, localized descriptions, clickable theme/genre filters, role-aware company metadata, and responsive artwork controls.
+- The application includes PC component details, media management, save-data management, localized descriptions, clickable theme/genre filters, role-aware company metadata, and responsive artwork controls.
 - Shared v2 primitives, design tokens, locale files, and accessibility patterns are used instead of introducing a second UI architecture.
 
 ### Reproducible deployment
@@ -359,5 +359,5 @@ This section records the fork-specific capabilities added after the original cod
 
 ### Documentation status
 
-- This document is an architecture map, not a complete API reference or phase log.
-- Phase-specific acceptance criteria, UAT evidence, and deployment procedures remain in `.planning/phases/`, `.planning/quick/`, `docs/`, and `examples/`.
+- This document is an architecture map, not a complete API reference or release log.
+- Acceptance criteria, UAT evidence, and deployment procedures are maintained alongside the implementation in .planning, docs, and examples.
