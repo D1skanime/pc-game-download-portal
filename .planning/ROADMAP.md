@@ -830,3 +830,17 @@ Plans:
 - [x] 32-01-PLAN.md: Create the naming inventory and align fresh-install Compose/runtime/backend fixtures.
 - [ ] 32-02-PLAN.md
 - [ ] 32-03-PLAN.md
+
+### Phase 33: Fresh-install first-run PC storage mapping before library scan
+
+**Goal:** On a fresh installation, the first-run administrator flow enters the existing PC/Windows storage-mapping workflow first, persists the canonical root `Games` plus relative path `pc` mapping, and exposes library scanning only after that active mapping is server-confirmed reachable, readable, and non-writable.
+**Requirements**: PGDP-33-01
+**Depends on:** Phase 32
+**Plans:** 4 plans
+
+Plans:
+
+- [ ] 33-01-PLAN.md - Lock canonical Games/pc bootstrap representation and read-only readiness contract
+- [ ] 33-02-PLAN.md - Route fresh admin setup into the PC/Windows mapping workflow
+- [ ] 33-03-PLAN.md - Gate empty Home and Scan on server-backed mapping readiness
+- [ ] 33-04-PLAN.md - Execute bounded automated validation and Linux/browser UAT

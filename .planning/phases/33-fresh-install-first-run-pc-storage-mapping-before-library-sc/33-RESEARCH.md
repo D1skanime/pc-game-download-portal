@@ -155,7 +155,7 @@ router.push({ name: ROUTES.SCAN });
 
 **What:** `POST /storage/legacy/bootstrap` registers the protected PC subtree in the canonical mapping model. It resolves filesystem `pc` against `win`/`pc` platform identities and returns the root plus mapping records. [VERIFIED: `backend/endpoints/storage.py`; `frontend/src/services/api/storage.ts`]
 
-**When to use:** On a fresh install where the legacy library mount is already the operator-provided `Games` root and canonical storage rows do not yet exist. The planner should decide whether the first-run flow calls this endpoint automatically or presents its result as an explicit mapping step, but it should not recreate its logic in the frontend. [VERIFIED: `backend/endpoints/storage.py`; explicit UX choice remains open]
+Phase 33 resolves this as an explicit mapping-first handoff: authenticated Setup is the only caller of this mutating endpoint, invokes it once, then routes to the existing mapping page. Home, Scan, and recovery checks do not call it. [DECIDED for D-01; Plan 02]
 
 ### Pattern 3: Preserve storage safety and optimistic concurrency
 
@@ -325,10 +325,10 @@ if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
 
 ### Wave 0 Gaps
 
-- [ ] Setup view/router test for clean-install handoff to the PC mapping workflow. [VERIFIED: targeted frontend test inventory]
-- [ ] Home empty-state test for mapping prerequisite versus scan CTA. [VERIFIED: targeted frontend test inventory]
-- [ ] Fresh-install backend/storage fixture that asserts `Games/pc`, Windows identity resolution, active mapping persistence, and preview. [VERIFIED: existing storage tests do not expose this complete journey]
-- [ ] Disposable UAT script or documented command matrix that proves no scan is offered before mapping and that only the intended temporary state is removed. [VERIFIED: Phase 32 validation pattern]
+- [x] Setup view/router test for clean-install handoff to the PC mapping workflow. [VERIFIED: targeted frontend test inventory]
+- [x] Home empty-state test for mapping prerequisite versus scan CTA. [VERIFIED: targeted frontend test inventory]
+- [x] Fresh-install backend/storage fixture that asserts `Games/pc`, Windows identity resolution, active mapping persistence, and preview. [VERIFIED: existing storage tests do not expose this complete journey]
+- [x] Disposable UAT script or documented command matrix that proves no scan is offered before mapping and that only the intended temporary state is removed. [VERIFIED: Phase 32 validation pattern]
 
 ## Security Domain
 
@@ -367,22 +367,15 @@ if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
 
 **Missing dependencies with fallback:** Host Node/npm/uv/Python version are replaced by the existing `romm-dev` container toolchain. [VERIFIED: Phase 32 validation]
 
-## Open Questions
+## Resolved Decisions
 
-1. **Should `/setup` call legacy bootstrap automatically, or should it navigate to a mapping page that offers the bootstrap action?**
-   - What we know: `POST /storage/legacy/bootstrap` is the existing admin-only bridge for the protected PC subtree, and `StorageRootsSection.vue` already exposes it. [VERIFIED: `backend/endpoints/storage.py`; `frontend/src/v2/components/Settings/StorageRootsSection.vue`]
-   - What is unclear: Phase 33 has no context file or locked UX decision. [VERIFIED: phase directory contains only `.gitkeep`; roadmap says requirements TBD]
-   - Recommendation: Prefer an explicit, observable mapping step that calls the existing bootstrap contract and then opens the persisted PC/Windows mapping. This keeps failures and root health visible and preserves the existing administrator workflow. [RECOMMENDATION based on verified contracts]
+1. **Bootstrap versus mapping page:** Setup is the only mutating bootstrap path. After authenticated admin creation, `Setup.vue` calls the existing `POST /storage/legacy/bootstrap` exactly once, validates the returned mapping, and navigates to the existing PC/Windows mapping page. Home, Scan, and recovery surfaces never call bootstrap. This preserves an observable mapping workflow while keeping mutation ownership in setup. [DECIDED for D-01, D-03, D-04]
 
-2. **Is `Games` the registered root and `pc` the relative path, or is `Games/pc` mounted as the root with an empty relative path?**
-   - What we know: Storage mappings separate `storage_root_id` and `relative_path`; the user explicitly names `Games/pc`. [VERIFIED: `backend/endpoints/responses/storage.py`; user request]
-   - What is unclear: The current configuration defaults and deployment mount shape need to be checked in the implementation phase against the intended fresh-install operator contract. [VERIFIED: no Phase 33 context/requirements]
-   - Recommendation: Lock the exact persisted root/path pair in the plan and assert it in API tests and UAT. Do not accept a visually equivalent path without evidence. [RECOMMENDATION]
+2. **Canonical persisted root/path pair:** The canonical representation is the StorageRoot for configured deployment folder `Games` plus `PlatformStorageMapping.relative_path = "pc"`; its effective target is `Games/pc`. The implementation must reconcile any old bootstrap representation of root `Games/pc` plus empty relative path into this exact pair, without source mutation. Filesystem `pc` resolves to the canonical Windows platform identity returned by the server. [DECIDED for D-02, verified against storage schemas and bootstrap tests]
 
-3. **What is the authoritative condition for “scan offered”?**
-   - What we know: The backend authoritative condition is an active mapping that produces a mapping-bound command; the current browser only knows library emptiness. [VERIFIED: `scan.py`; `Home.vue`]
-   - What is unclear: Whether the frontend should query only the selected Windows platform mapping, a bootstrap status endpoint, or a broader setup readiness response. [VERIFIED: existing API inventory]
-   - Recommendation: Use a small server-backed readiness decision tied to the canonical PC/Windows platform ID and active mapping, while retaining the socket guard. Avoid inferring readiness from ROM count or filesystem probe results. [RECOMMENDATION]
+3. **Readiness authority:** The browser may offer Scan only after a read-only GET-backed check confirms an active mapping, active root, reachable root, readable root, and `non_writable === true`. The backend `mapping_scan_commands` and socket rejection remain authoritative. ROM counts, legacy `/setup/library` discovery, local storage, and optimistic UI state are not readiness authorities. [DECIDED for D-03, D-04]
+
+These decisions are implemented and tested by Plans 01-03, with disposable browser evidence in Plan 04.
 
 ## Sources
 
@@ -409,17 +402,15 @@ if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
 
 | # | Claim | Section | Risk if wrong |
 |---|---|---|---|
-| A1 | [ASSUMED] The intended first-run journey can reuse the existing administrator-only storage workflow. | Summary, Architecture Patterns | A separate product-owned onboarding surface may be required, increasing scope. |
-| A2 | [ASSUMED] `Games/pc` describes a root/path pair that can be represented by the current `StorageRoot` plus `relative_path` contract. | Pitfall 3, Open Questions | The deployment mount may require a different canonical root identity. |
-
-These are explicitly marked as planning assumptions because the phase has no CONTEXT.md or requirement IDs. They must be resolved before locking the plan. [VERIFIED: phase directory and roadmap inspection]
+| A1 | [RESOLVED] Setup owns the sole bootstrap mutation; Home/Scan readiness is GET-only. | Resolved Decisions, Plans 01-03 | None remaining within Phase 33 scope. |
+| A2 | [RESOLVED] Games is the persisted root and pc is the relative path, producing effective Games/pc. | Resolved Decisions, Plan 01, 33-VALIDATION.md | Deployment config must expose the configured Games folder; UAT fails if the exact pair is not observable. |
 
 ## Metadata
 
 **Confidence breakdown:**
 
 - Standard stack: HIGH, based on project manifests and repository instructions. [VERIFIED: `frontend/package.json`; CLAUDE.md]
-- Architecture: HIGH for current behavior and contracts, MEDIUM for the not-yet-decided first-run handoff. [VERIFIED: inspected source; roadmap requirements TBD]
+- Architecture: HIGH for current behavior, contracts, and the Phase 33 first-run handoff. [VERIFIED: inspected source; Phase 33 decision set and roadmap requirement PGDP-33-01 are now resolved]
 - Pitfalls: HIGH for storage/scan safety and current routing mismatch, MEDIUM for the exact `Games/pc` deployment interpretation. [VERIFIED: source and test inspection]
 
 **Research date:** 2026-10-15
