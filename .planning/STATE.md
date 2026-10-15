@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 32-01-PLAN.md
-last_updated: "2026-10-15T10:00:00Z"
+last_updated: "2026-10-15T15:44:38Z"
 last_activity: 2026-10-15
 progress:
   total_phases: 32
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 32 - PGDP naming/Fresh Installation
+**Current focus:** Phase 33 - Fresh-install first-run PC storage mapping before library scan
 
 ## Current Position
 
-Phase: 32 (pgdp-namensumstellung-fresh-installation) - EXECUTING
-Plan: 1 of 3
-Status: Plan complete - ready for Plan 32-02
+Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
+Plan: 3 of 4
+Status: Plan complete - ready for Plan 33-04
 Last activity: 2026-10-15
 
 ## Performance Metrics
@@ -53,6 +53,7 @@ Last activity: 2026-10-15
 - Trend: Stable
 
 | Phase 32 P01 | completed | 2 tasks | 13 files |
+| Phase 33 P03 | completed | 2 tasks | 4 files |
 
 _Updated after each plan completion_
 | Phase 01 P05 | 11min | 2 tasks | 2 files |
@@ -179,6 +180,7 @@ _Updated after each plan completion_
 - Phase 22 edited: defined bulk automation goal, requirements, and plan structure after plan review
 - Phase 22 edited: aligned Phase 22 roadmap waves with validated plan dependencies
 - Phase 22 edited: split locale coverage into a dedicated dependent plan and advanced UAT
+- Phase 33 added: Fresh-install first-run PC storage mapping before library scan.
 
 ### Decisions
 
@@ -486,8 +488,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-15T10:00:00Z
-Stopped at: Completed 32-01-PLAN.md
+Last session: 2026-10-15T15:44:38Z
+Stopped at: Completed 33-03-PLAN.md
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
