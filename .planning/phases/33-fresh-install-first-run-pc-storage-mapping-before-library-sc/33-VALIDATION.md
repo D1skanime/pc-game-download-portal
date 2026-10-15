@@ -21,13 +21,17 @@ All project tooling runs in romm-dev. Host Node/npm/uv are not accepted substitu
 
 ## Disposable browser UAT command and harness
 
-The browser gate uses the existing Playwright dependency, config, fixtures, and reporter from frontend/package.json and frontend/playwright.config.ts. The browser spec is temporary UAT input under a disposable mktemp directory, not product code. [VERIFIED: repository inspection]
+The browser gate uses the existing Playwright dependency and reporter from frontend/package.json, but creates dedicated temporary phase33-playwright.config.ts and phase33-first-run.spec.ts. The dedicated config has one chromium project and no auth.setup import/project/dependency or storageState; the spec explicitly performs first-admin setup against the empty database before asserting mapping. The browser spec is temporary UAT input under a disposable mktemp directory, not product code. [VERIFIED: repository inspection]
 
 Preparation creates a synthetic text fixture and a unique Compose project with empty database/queue volumes, configured root Games, read-only bind mount, and a disposable host port. The exact command sequence is:
 The temporary UAT_ROOT/manifest.py helper must be created in the disposable directory from the Phase 22 manifest snippet, and it must emit relative path, type, size, non-access timestamps, and SHA-256 for every fixture entry; it is not a repository or product file.
 
 ~~~bash
 set -euo pipefail
+VALIDATED_PROJECT=""
+CLEANUP_DONE=0
+cleanup() { set +e; rc=0; if [ "$CLEANUP_DONE" -eq 0 ] && [ -n "$VALIDATED_PROJECT" ] && [ "$COMPOSE_PROJECT_NAME" = "$VALIDATED_PROJECT" ]; then docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" down --volumes --remove-orphans > "$UAT_ROOT/artifacts/compose-cleanup.txt" 2>&1; rc="$?"; printf "%s\n" "$rc" > "$UAT_ROOT/artifacts/teardown-status.txt"; CLEANUP_DONE=1; fi; return "$rc"; }
+trap cleanup EXIT
 UAT_ROOT=$(mktemp -d /tmp/pgdp-phase33-browser.XXXXXX)
 COMPOSE_PROJECT_NAME=pgdp-phase33-browser-$(date +%s)-$RANDOM
 EVIDENCE_DIR="$PWD/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/$COMPOSE_PROJECT_NAME"
@@ -40,10 +44,11 @@ docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compos
 docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" up -d
 PHASE33_PORT="$(docker compose -p "$COMPOSE_PROJECT_NAME" port romm-dev 3000 | awk -F: '{print $NF}')"
 docker compose -p "$COMPOSE_PROJECT_NAME" ps -a > "$UAT_ROOT/artifacts/compose-ps.txt"
-docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" run --rm --no-deps -v "$UAT_ROOT:/uat" -e E2E_BASE_URL="http://host.docker.internal:$PHASE33_PORT" romm-dev bash -lc 'cd /app/frontend && npx playwright test /uat/phase33-first-run.spec.ts --config=playwright.config.ts --project=chromium --trace=on --reporter=line,junit=/uat/artifacts/playwright.xml' > "$UAT_ROOT/artifacts/playwright-command.log" 2>&1
+docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" run --rm --no-deps -v "$UAT_ROOT:/uat" -e E2E_BASE_URL="http://host.docker.internal:$PHASE33_PORT" romm-dev bash -lc 'cd /app/frontend && npx playwright test /uat/phase33-first-run.spec.ts --config=/uat/phase33-playwright.config.ts --project=chromium --trace=on --reporter=line,junit=/uat/artifacts/playwright.xml' > "$UAT_ROOT/artifacts/playwright-command.log" 2>&1
 python3 "$UAT_ROOT/manifest.py" "$UAT_ROOT/fixture/Games" > "$UAT_ROOT/artifacts/after.json"
 cmp "$UAT_ROOT/artifacts/before.json" "$UAT_ROOT/artifacts/after.json"
-docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" down --volumes --remove-orphans > "$UAT_ROOT/artifacts/compose-cleanup.txt" 2>&1
+VALIDATED_PROJECT="$COMPOSE_PROJECT_NAME"
+cleanup
 cp -a "$UAT_ROOT/artifacts/." "$EVIDENCE_DIR/"
 test -s "$EVIDENCE_DIR/playwright.xml"
 test -s "$EVIDENCE_DIR/before.json"
@@ -102,7 +107,7 @@ Task 3 inserts exactly one JSON block into 33-UAT.md:
 
 The allowed automated gate IDs are exactly: auto-naming, auto-frontend, auto-backend, auto-repository. The allowed browser scenario IDs are exactly: fresh-ordering, exact-games-pc, reload-persistence, readonly-source, theme-dark, theme-light, layout-desktop, layout-narrow, input-mouse, input-touch, input-keyboard, input-gamepad, cleanup.
 
-Every entry in both arrays requires id, status, command, exit_code, artifacts, and result. PASS requires exit code 0, a non-empty executed command, a non-empty artifact array whose files exist under retained EVIDENCE_DIR, and a result. BLOCKED requires the attempted command and a non-empty blocked_reason; any listed artifact must also exist under retained EVIDENCE_DIR. Duplicate, missing, or extra IDs fail validation. Artifact references may not point to /uat or UAT_ROOT. Keyword presence in prose does not satisfy the gate. Remove UAT_ROOT only after this validator passes; EVIDENCE_DIR and its cleanup output remain retained.
+Every entry in both arrays requires id, status, command, exit_code, artifacts, and result. PASS requires exit code 0, a non-empty executed command, a non-empty artifact array whose files exist under retained EVIDENCE_DIR, and a result. BLOCKED requires the attempted command and a non-empty blocked_reason; any listed artifact must also exist under retained EVIDENCE_DIR. Duplicate, missing, or extra IDs fail validation. Artifact references may not point to /uat or UAT_ROOT. Keyword presence in prose does not satisfy the gate. The wrapper uses set -euo pipefail and an EXIT trap keyed to the exact validated project; it always runs down --volumes --remove-orphans and captures teardown status. Before removing UAT_ROOT, the validator requires teardown status 0 plus empty post-down project, service, and volume artifacts, and refuses cleanup otherwise. EVIDENCE_DIR and cleanup output remain retained.
 
 Run the structured validator from the canonical checkout:
 
@@ -149,6 +154,15 @@ def check(entries, required, label):
                 raise SystemExit(e["id"] + ": requires scenario screenshot and trace")
 check(data["automated_gates"], gates, "automated gate")
 check(data["scenarios"], scenarios, "browser scenario")
+for key in ("compose_project_labels", "compose_volume_names", "compose_volume_labels", "teardown_status", "post_down_ps", "post_down_services", "post_down_volumes"):
+    path=pathlib.Path(state["artifacts"][key]).resolve()
+    if evidence not in path.parents or not path.is_file(): raise SystemExit("missing isolation artifact: "+key)
+if state["COMPOSE_PROJECT_NAME"] not in pathlib.Path(state["artifacts"]["compose_project_labels"]).read_text(): raise SystemExit("project label mismatch")
+vols=[x.strip() for x in pathlib.Path(state["artifacts"]["compose_volume_names"]).read_text().splitlines() if x.strip()]
+if not vols or len(vols)!=len(set(vols)) or any(state["COMPOSE_PROJECT_NAME"] not in x for x in vols): raise SystemExit("volume names are not unique/project-prefixed")
+if pathlib.Path(state["artifacts"]["teardown_status"]).read_text().strip()!="0": raise SystemExit("teardown failed")
+for key in ("post_down_ps","post_down_services","post_down_volumes"):
+    if pathlib.Path(state["artifacts"][key]).read_text().strip(): raise SystemExit("resources remain: "+key)
 shutil.rmtree(uat_root)
 print("state-backed Phase 33 UAT evidence: PASS")
 PY
