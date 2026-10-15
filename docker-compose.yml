@@ -24,9 +24,9 @@ services:
       - /app/frontend/node_modules # Empty directory
       - /app/frontend/dist # Empty directory
       - ./romm_mock:/app/romm
-      - ./romm_mock/library:/app/romm/library:ro
+      - ./Games:/app/romm/library:ro
 
-      - ./romm_mock/resources:/app/romm/resources
+      - ./Media:/app/romm/resources
       - ~/.vite-plugin-mkcert:/app/.vite-plugin-mkcert
     depends_on:
       - romm-db-dev
