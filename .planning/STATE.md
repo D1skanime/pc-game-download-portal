@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 32-01-PLAN.md
-last_updated: "2026-10-15T15:44:38Z"
+last_updated: "2026-10-15T16:05:00Z"
 last_activity: 2026-10-15
 progress:
   total_phases: 32
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
 Plan: 3 of 4
-Status: Plan complete - ready for Plan 33-04
+Status: Plan 33-04 UAT failed; browser blocker recorded
 Last activity: 2026-10-15
 
 ## Performance Metrics
@@ -433,6 +433,7 @@ Recent decisions affecting current work:
 - Phase 18 Plan 11: canonical-network suite has 184 passes but two product assertion failures; disposable PostgreSQL passes 0115/0116 then blocks at 0118 roms_metadata player_count view type change.
 - Backend pytest is blocked before assertions because the fixture connects to 127.0.0.1:3306/information_schema, which is unavailable in the canonical container.
 - Full frontend suite has one unrelated sourceMutationInventory failure for services/api/storage.ts bootstrapLegacy; Plan 09 leaves it untouched.
+- Phase 33 Plan 04 UAT failed before browser assertions: Chromium could not launch because libglib-2.0.so.0 was unavailable in the one-shot runner; retained evidence is under .planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/.
 - Plan 24-10 backend parity tests are blocked before assertions because the fixture connects to 127.0.0.1:3306/information_schema while the available MariaDB service is Compose-network-only.
 - Plan 24-10 focused frontend verification has one unrelated sourceMutationInventory failure for services/api/storage.ts bootstrapLegacy at /storage/legacy/bootstrap; no source change was made.
 - requirements.mark-complete UI-26-03 returned not_found because UI-26-03 is absent from .planning/REQUIREMENTS.md; no requirement checkbox was changed.
@@ -488,8 +489,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-15T15:44:38Z
-Stopped at: Completed 33-03-PLAN.md
+Last session: 2026-10-15T16:05:00Z
+Stopped at: 33-04 UAT failed; retained browser evidence and teardown verified
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
