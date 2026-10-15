@@ -52,14 +52,14 @@ onBeforeUnmount(() => {
       <router-link to="/" class="r-v2-nav__logo" :aria-label="t('common.home')">
         <RImg
           src="/assets/isotipo.svg"
-          alt="RomM isotipo"
+          alt="PGDP isotipo"
           aria-hidden="true"
           class="r-v2-nav__logo-mark"
           :width="32"
         />
         <RImg
           src="/assets/logotipo.svg"
-          alt="RomM logotipo"
+          alt="PGDP logotipo"
           aria-hidden="true"
           class="r-v2-nav__logo-word"
           :width="70"

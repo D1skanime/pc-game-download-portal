@@ -107,11 +107,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,
-    release="romm@" + get_version(),
+    release="pgdp@" + get_version(),
 )
 
 app = FastAPI(
-    title="RomM API",
+    title="PGDP API",
     version=get_version(),
     lifespan=lifespan,
     docs_url="/api/docs",

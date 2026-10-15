@@ -1,5 +1,5 @@
 import { createApp } from "vue";
-import App from "@/RomM.vue";
+import App from "@/PGDP.vue";
 import { registerPlugins } from "@/plugins";
 import router from "@/plugins/router";
 import storeAuth from "@/stores/auth";

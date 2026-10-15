@@ -13,7 +13,7 @@ import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
 import storeLanguage from "@/stores/language";
 
-// Lazy-loaded: RomM.vue is the first module main.ts evaluates, and the banner
+// Lazy-loaded: PGDP.vue is the first module main.ts evaluates, and the banner
 // transitively imports the API layer (stores → services/api → router). A
 // static import would pull that graph into bootstrap and trip the
 // api-client ↔ router circular-import TDZ (see the theme/scope notes below).
@@ -35,7 +35,7 @@ languageStore.setLanguage(selectedLanguage.value);
 
 // Theme reads the raw localStorage ref. We stay off useUISettings here because it
 // imports the API layer and would trigger an API-client ↔ router circular-
-// import TDZ during bootstrap (RomM.vue is the first module main.ts loads).
+// import TDZ during bootstrap (PGDP.vue is the first module main.ts loads).
 const themeSetting = useLocalStorage<"auto" | "dark" | "light">(
   "settings.theme",
   "dark",

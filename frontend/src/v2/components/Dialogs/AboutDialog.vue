@@ -86,7 +86,7 @@ const links: Link[] = [
             <RImg
               v-if="link.isotipo"
               src="/assets/isotipo.svg"
-              alt="RomM"
+              alt="PGDP"
               :width="18"
               :height="18"
               contain

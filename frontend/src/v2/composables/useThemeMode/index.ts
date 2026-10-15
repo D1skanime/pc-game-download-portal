@@ -1,5 +1,5 @@
 // useThemeMode — reactive `isLight` / `isDark` driven by the same source
-// of truth RomM.vue uses for the global theme: the `settings.theme`
+// of truth PGDP.vue uses for the global theme: the `settings.theme`
 // localStorage key (`"auto" | "dark" | "light"`) combined with the
 // system `prefers-color-scheme: dark` media query when `"auto"`.
 //

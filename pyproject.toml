@@ -1,7 +1,7 @@
 [project]
-name = "romm"
+name = "pgdp"
 version = "0.0.1"
-description = "A beautiful, powerful, self-hosted rom manager"
+description = "A self-hosted PC game library and download portal"
 authors = [
   { name = "Zurdi", email = "zurdi@romm.app" },
   { name = "Arcane", email = "arcane@romm.app" },
