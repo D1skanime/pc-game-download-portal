@@ -841,7 +841,8 @@ async def bootstrap_legacy_storage(
         if pc_platform is None:
             raise MissingStorageRootError(0)
 
-        pc_path = Path(LIBRARY_BASE_PATH) / relative_root / "pc"
+        root_path = Path(LIBRARY_BASE_PATH) / relative_root
+        pc_path = root_path / "pc"
         old_mapping = None
         try:
             old_mapping = db_storage_handler.get_active_mapping(pc_platform.id)
@@ -850,17 +851,18 @@ async def bootstrap_legacy_storage(
 
         roots = db_storage_handler.get_roots()
         root = next(
-            (item for item in roots if item.container_path == str(pc_path)), None
+            (item for item in roots if item.container_path == str(root_path)), None
         )
         if root is None:
-            root = db_storage_handler.register_root("PC Windows library", str(pc_path))
+            root = db_storage_handler.register_root(
+                "PC Windows library", str(root_path)
+            )
 
         if old_mapping is not None:
-            mapped_path = (
-                Path(old_mapping.storage_root.container_path)
-                / old_mapping.relative_path
-            )
-            if mapped_path == pc_path:
+            if (
+                old_mapping.storage_root_id == root.id
+                and old_mapping.relative_path == "pc"
+            ):
                 root = old_mapping.storage_root
                 mapping = old_mapping
                 return LegacyStorageBootstrapSchema(
@@ -880,14 +882,16 @@ async def bootstrap_legacy_storage(
             mapping = db_storage_handler.create_mapping(
                 pc_platform.id,
                 root.id,
-                "",
+                "pc",
                 **_actor(request),
             )
-        elif old_mapping.storage_root_id != root.id or old_mapping.relative_path != "":
+        elif (
+            old_mapping.storage_root_id != root.id or old_mapping.relative_path != "pc"
+        ):
             mapping = db_storage_handler.update_mapping(
                 old_mapping.id,
                 root.id,
-                "",
+                "pc",
                 expected_version=old_mapping.version,
                 **_actor(request),
             )
