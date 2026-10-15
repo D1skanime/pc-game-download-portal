@@ -215,7 +215,7 @@ for attempt in $(seq 1 60); do
 done
 test "${heartbeat}" = passed
 
-test "$(docker exec "${app_container}" getent hosts pgdp-db | awk 'NR == 1 {print $1}')" = pgdp-db
+docker exec "${app_container}" getent hosts pgdp-db | grep -Eq '(^|[[:space:]])pgdp-db([[:space:]]|$)'
 docker inspect "${app_container}" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -Fq 'DB_HOST=pgdp-db'
 docker inspect "${app_container}" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -Fq 'DB_NAME=pgdp_proof'
 docker inspect "${db_container}" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -Fq 'MARIADB_DATABASE=pgdp_proof'
