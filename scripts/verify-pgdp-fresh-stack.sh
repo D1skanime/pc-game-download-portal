@@ -192,8 +192,7 @@ docker compose --project-name "${project}" --project-directory "${clone_root}/ex
 for volume_name in "${project}_pgdp_mysql_data" "${project}_pgdp_resources" "${project}_pgdp_redis_data"; do
 	docker volume inspect "${volume_name}" >/dev/null
 	test "$(docker volume inspect "${volume_name}" --format '{{index .Labels "com.docker.compose.project"}}')" = "${project}"
-	mountpoint="$(docker volume inspect "${volume_name}" --format '{{.Mountpoint}}')"
-	test -z "$(find "${mountpoint}" -mindepth 1 -maxdepth 1 -print -quit)"
+	docker run --rm -v "${volume_name}:/data:ro" alpine:3.23 sh -ec 'test -z "$(find /data -mindepth 1 -maxdepth 1 -print -quit)"'
 done
 empty_volumes='passed, all generated volumes labeled for the disposable project and empty before start'
 
