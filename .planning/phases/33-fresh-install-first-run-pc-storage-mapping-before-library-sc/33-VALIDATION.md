@@ -36,12 +36,14 @@ mkdir -p "$UAT_ROOT/fixture/Games/pc" "$UAT_ROOT/artifacts" "$EVIDENCE_DIR"
 printf 'phase33 synthetic pc fixture
 ' > "$UAT_ROOT/fixture/Games/pc/Phase33-Synthetic.exe"
 python3 "$UAT_ROOT/manifest.py" "$UAT_ROOT/fixture/Games" > "$UAT_ROOT/artifacts/before.json"
-docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml up -d
+docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" config > "$UAT_ROOT/artifacts/compose-config.yml"
+docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" up -d
+PHASE33_PORT="$(docker compose -p "$COMPOSE_PROJECT_NAME" port romm-dev 3000 | awk -F: '{print $NF}')"
 docker compose -p "$COMPOSE_PROJECT_NAME" ps -a > "$UAT_ROOT/artifacts/compose-ps.txt"
-docker compose -p "$COMPOSE_PROJECT_NAME" run --rm --no-deps -v "$UAT_ROOT:/uat" -e E2E_BASE_URL="http://host.docker.internal:$PHASE33_PORT" romm-dev bash -lc 'cd /app/frontend && npx playwright test /uat/phase33-first-run.spec.ts --config=playwright.config.ts --project=chromium --trace=on --reporter=line,junit=/uat/artifacts/playwright.xml' > "$UAT_ROOT/artifacts/playwright-command.log" 2>&1
+docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" run --rm --no-deps -v "$UAT_ROOT:/uat" -e E2E_BASE_URL="http://host.docker.internal:$PHASE33_PORT" romm-dev bash -lc 'cd /app/frontend && npx playwright test /uat/phase33-first-run.spec.ts --config=playwright.config.ts --project=chromium --trace=on --reporter=line,junit=/uat/artifacts/playwright.xml' > "$UAT_ROOT/artifacts/playwright-command.log" 2>&1
 python3 "$UAT_ROOT/manifest.py" "$UAT_ROOT/fixture/Games" > "$UAT_ROOT/artifacts/after.json"
 cmp "$UAT_ROOT/artifacts/before.json" "$UAT_ROOT/artifacts/after.json"
-docker compose -p "$COMPOSE_PROJECT_NAME" down --volumes --remove-orphans > "$UAT_ROOT/artifacts/compose-cleanup.txt" 2>&1
+docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" down --volumes --remove-orphans > "$UAT_ROOT/artifacts/compose-cleanup.txt" 2>&1
 cp -a "$UAT_ROOT/artifacts/." "$EVIDENCE_DIR/"
 test -s "$EVIDENCE_DIR/playwright.xml"
 test -s "$EVIDENCE_DIR/before.json"
@@ -53,7 +55,7 @@ test -s "$EVIDENCE_DIR/compose-ps.txt"
 
 The existing disposable Compose definition is selected by the implementation environment, not a production stack or live service. The harness fails closed if project name, target volume labels, source mount, or port is not unique and disposable. Cleanup saves output, uses only the exact project ID, and removes only UAT_ROOT after the retained-evidence validator passes. [VERIFIED: Phase 22 UAT, Phase 27 UAT, Phase 32 validation patterns]
 
-The temporary phase33-first-run.spec.ts must use the existing Playwright config and attach concrete files for each matrix entry:
+Plan 04 Task 2 must also create phase33.env, phase33.override.yml, and state.json, verify the rendered override has the synthetic Games bind read-only and no container_name entries, and leave UAT_ROOT until the state-backed Task 3 validator passes. The temporary phase33-first-run.spec.ts must use the existing Playwright config and attach concrete files for each matrix entry:
 
 | Scenario | Required assertions/artifacts |
 |---|---|
