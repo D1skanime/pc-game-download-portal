@@ -55,7 +55,7 @@ test -s "$EVIDENCE_DIR/compose-ps.txt"
 
 The existing disposable Compose definition is selected by the implementation environment, not a production stack or live service. The harness fails closed if project name, target volume labels, source mount, or port is not unique and disposable. Cleanup saves output, uses only the exact project ID, and removes only UAT_ROOT after the retained-evidence validator passes. [VERIFIED: Phase 22 UAT, Phase 27 UAT, Phase 32 validation patterns]
 
-Plan 04 Task 2 must also create phase33.env, phase33.override.yml, and state.json, verify the rendered override has the synthetic Games bind read-only and no container_name entries, and leave UAT_ROOT until the state-backed Task 3 validator passes. The temporary phase33-first-run.spec.ts must use the existing Playwright config and attach concrete files for each matrix entry:
+Plan 04 Task 2 must also create phase33.env, phase33.override.yml, and state.json, verify the rendered override has the synthetic Games bind read-only, no container_name entries, only unique generated host ports (no fixed 3100), and DB_HOST=romm-db-dev plus REDIS_HOST=romm-valkey-dev, and leave UAT_ROOT until the state-backed Task 3 validator passes. The temporary phase33-first-run.spec.ts must use the existing Playwright config and attach concrete files for each matrix entry:
 
 | Scenario | Required assertions/artifacts |
 |---|---|
