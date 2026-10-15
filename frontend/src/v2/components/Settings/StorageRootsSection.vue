@@ -18,8 +18,6 @@ const roots = ref<Awaited<ReturnType<typeof storageApi.getRoots>>["data"]>([]);
 const selectedPlatformId = ref<number | null>(null);
 const loading = ref(true);
 const failed = ref(false);
-const bootstrapping = ref(false);
-const bootstrapError = ref(false);
 
 const selectedPlatform = computed(() =>
   platformsStore.allPlatforms.find(
@@ -68,19 +66,6 @@ function openMapping() {
   });
 }
 
-async function bootstrapLegacy() {
-  bootstrapping.value = true;
-  bootstrapError.value = false;
-  try {
-    await storageApi.bootstrapLegacy();
-    await load();
-  } catch {
-    bootstrapError.value = true;
-  } finally {
-    bootstrapping.value = false;
-  }
-}
-
 onMounted(() => void load());
 </script>
 
@@ -98,15 +83,6 @@ onMounted(() => void load());
           }}
         </p>
       </div>
-      <RBtn
-        v-if="canAdmin"
-        variant="outlined"
-        color="primary"
-        :loading="bootstrapping"
-        @click="bootstrapLegacy"
-      >
-        {{ t("storage.reconcile-legacy", "Reconcile legacy library") }}
-      </RBtn>
     </div>
 
     <RAlert v-if="!canAdmin" type="info">
@@ -117,15 +93,7 @@ onMounted(() => void load());
         )
       }}
     </RAlert>
-    <RAlert v-if="bootstrapError" type="error">
-      {{
-        t(
-          "storage.legacy-bootstrap-failed",
-          "The legacy library could not be imported. Verify that the game library is mounted read-only and try again.",
-        )
-      }}
-    </RAlert>
-    <template v-else-if="loading"><RSkeletonBlock height="160" /></template>
+    <template v-if="loading"><RSkeletonBlock height="160" /></template>
     <RAlert v-else-if="failed" type="error">
       <template #title>{{
         t("storage.roots-unavailable", "Storage roots are unavailable")
@@ -143,20 +111,8 @@ onMounted(() => void load());
           t("storage.no-roots", "No storage root is registered")
         }}</template>
         {{
-          t(
-            "storage.legacy-bootstrap-hint",
-            "Import the existing legacy library to create the protected root, platforms, and mappings.",
-          )
+          t("storage.roots-retry", "Check the storage service and try again.")
         }}
-        <template #append>
-          <RBtn
-            variant="flat"
-            color="primary"
-            :loading="bootstrapping"
-            @click="bootstrapLegacy"
-            >{{ t("storage.import-legacy", "Import legacy library") }}</RBtn
-          >
-        </template>
       </RAlert>
       <RCard class="r-storage-roots__card">
         <RList>

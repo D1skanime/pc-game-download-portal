@@ -22,6 +22,18 @@ const {
   refetchCSRFToken: vi.fn(),
 }));
 
+type SetupVm = {
+  step: 1 | 2 | 3;
+  adminUser: {
+    username: string;
+    email: string;
+    password: string;
+    repeatPassword: string;
+  };
+  adminFormValid: boolean;
+  submitting: boolean;
+};
+
 vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -66,14 +78,15 @@ function mountSetup() {
       },
     },
   });
-  wrapper.vm.step = 3;
-  wrapper.vm.adminUser = {
+  const vm = wrapper.vm as typeof wrapper.vm & SetupVm;
+  vm.step = 3;
+  vm.adminUser = {
     username: "admin",
     email: "admin@example.test",
     password: "password123",
     repeatPassword: "password123",
   };
-  wrapper.vm.adminFormValid = true;
+  vm.adminFormValid = true;
   return wrapper;
 }
 
@@ -124,6 +137,36 @@ describe("fresh setup storage handoff", () => {
     await wrapper.findAll("button").at(-1)?.trigger("click");
     await flushPromises();
     expect(router.push).not.toHaveBeenCalled();
-    expect(wrapper.vm.submitting).toBe(false);
+    expect((wrapper.vm as typeof wrapper.vm & SetupVm).submitting).toBe(false);
+  });
+
+  it("retries the authenticated bootstrap without recreating the admin", async () => {
+    bootstrapLegacy
+      .mockRejectedValueOnce(new Error("storage unavailable"))
+      .mockResolvedValueOnce({
+        data: {
+          storage_root: { name: "Games" },
+          mappings: [
+            { platform_id: 42, platform_fs_slug: "win", relative_path: "pc" },
+          ],
+        },
+      });
+    const wrapper = mountSetup();
+    await wrapper.vm.$nextTick();
+    const finish = wrapper.findAll("button").at(-1);
+    await finish?.trigger("click");
+    await flushPromises();
+    await finish?.trigger("click");
+    await flushPromises();
+
+    expect(createUser).toHaveBeenCalledOnce();
+    expect(bootstrapLegacy).toHaveBeenCalledTimes(2);
+    expect(router.push).toHaveBeenCalledWith({
+      name: "platform-storage-mapping",
+      params: { platformId: 42 },
+    });
+    expect(router.push).not.toHaveBeenCalledWith({
+      name: "library-management",
+    });
   });
 });
