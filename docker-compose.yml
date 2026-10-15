@@ -5,11 +5,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: romm-dev
+    container_name: pgdp-dev
     env_file: .env
     environment:
-      - REDIS_HOST=romm-valkey-dev
-      - DB_HOST=${DB_HOST:-romm-db-dev}
+      - REDIS_HOST=pgdp-valkey-dev
+      - DB_HOST=${DB_HOST:-pgdp-db-dev}
       - ROMM_BASE_PATH=/app/romm
     ports:
       - "3000:3000" # Vite dev server (custom)
@@ -38,7 +38,7 @@ services:
 
   romm-db-dev:
     image: mariadb:11.3.2
-    container_name: romm-db-dev
+    container_name: pgdp-db-dev
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
@@ -58,7 +58,7 @@ services:
 
   romm-valkey-dev:
     image: valkey/valkey:8
-    container_name: romm-valkey-dev
+    container_name: pgdp-valkey-dev
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
@@ -90,7 +90,7 @@ services:
     command: server
     env_file: .env
     environment:
-      AUTHENTIK_REDIS__HOST: romm-valkey-dev
+      AUTHENTIK_REDIS__HOST: pgdp-valkey-dev
       AUTHENTIK_POSTGRESQL__HOST: romm-postgres-dev
       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-romm}
       AUTHENTIK_POSTGRESQL__NAME: ${POSTGRES_DB:-authentik}
@@ -114,7 +114,7 @@ services:
     command: worker
     env_file: .env
     environment:
-      AUTHENTIK_REDIS__HOST: romm-valkey-dev
+      AUTHENTIK_REDIS__HOST: pgdp-valkey-dev
       AUTHENTIK_POSTGRESQL__HOST: romm-postgres-dev
       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-romm}
       AUTHENTIK_POSTGRESQL__NAME: ${POSTGRES_DB:-authentik}
