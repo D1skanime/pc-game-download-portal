@@ -23,7 +23,7 @@ All project tooling runs in romm-dev. Host Node/npm/uv are not accepted substitu
 
 The browser gate uses the existing Playwright dependency and reporter from frontend/package.json, but creates dedicated temporary phase33-playwright.config.ts and phase33-first-run.spec.ts. The dedicated config has one chromium project and no auth.setup import/project/dependency or storageState; the spec explicitly performs first-admin setup against the empty database before asserting mapping. The browser spec is temporary UAT input under a disposable mktemp directory, not product code. [VERIFIED: repository inspection]
 
-Preparation creates a synthetic text fixture and a unique Compose project with empty database/queue volumes, configured root Games, read-only bind mount, and a disposable host port. The exact command sequence is:
+Preparation creates a synthetic text fixture and a unique Compose project with empty database/queue volumes, configured root Games, read-only bind mount, and two distinct probed disposable host ports. The wrapper creates manifest.py, phase33.env, and phase33.override.yml before any Compose or manifest use, installs its EXIT trap before Compose, and sets VALIDATED_PROJECT before up so cleanup runs on every later failure. The exact command sequence is:
 The temporary UAT_ROOT/manifest.py helper must be created in the disposable directory from the Phase 22 manifest snippet, and it must emit relative path, type, size, non-access timestamps, and SHA-256 for every fixture entry; it is not a repository or product file.
 
 ~~~bash
@@ -35,7 +35,9 @@ trap cleanup EXIT
 UAT_ROOT=$(mktemp -d /tmp/pgdp-phase33-browser.XXXXXX)
 COMPOSE_PROJECT_NAME=pgdp-phase33-browser-$(date +%s)-$RANDOM
 EVIDENCE_DIR="$PWD/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/$COMPOSE_PROJECT_NAME"
-PHASE33_PORT="$(shuf -i 18080-18999 -n 1)"
+pick_free_port() { for attempt in $(seq 1 20); do candidate="$(shuf -i 18080-19999 -n 1)"; if ! ss -Hln "( sport = :$candidate )" 2>/dev/null | grep -q . && ! lsof -nP -iTCP:"$candidate" -sTCP:LISTEN -t 2>/dev/null | grep -q .; then printf "%s" "$candidate"; return 0; fi; done; return 1; }
+PHASE33_HTTP_PORT="$(pick_free_port)"; PHASE33_API_PORT="$(pick_free_port)"; [ "$PHASE33_HTTP_PORT" != "$PHASE33_API_PORT" ]
+PHASE33_PORT="$PHASE33_HTTP_PORT"
 mkdir -p "$UAT_ROOT/fixture/Games/pc" "$UAT_ROOT/artifacts" "$EVIDENCE_DIR"
 printf 'phase33 synthetic pc fixture
 ' > "$UAT_ROOT/fixture/Games/pc/Phase33-Synthetic.exe"
@@ -50,7 +52,11 @@ PLAYWRIGHT_EXIT="$?"
 set -e
 printf "%s\n" "$PLAYWRIGHT_EXIT" > "$UAT_ROOT/artifacts/playwright-exit-status.txt"
 python3 "$UAT_ROOT/manifest.py" "$UAT_ROOT/fixture/Games" > "$UAT_ROOT/artifacts/after.json"
+set +e
 cmp "$UAT_ROOT/artifacts/before.json" "$UAT_ROOT/artifacts/after.json"
+CMP_EXIT="$?"
+set -e
+printf "%s\n" "$CMP_EXIT" > "$UAT_ROOT/artifacts/cmp-exit-status.txt"
 VALIDATED_PROJECT="$COMPOSE_PROJECT_NAME"
 cleanup
 cp -a "$UAT_ROOT/artifacts/." "$EVIDENCE_DIR/"
@@ -113,6 +119,8 @@ Task 3 inserts exactly one JSON block into 33-UAT.md:
 <!-- phase33-evidence-manifest:end -->
 ~~~
 
+Critical browser scenarios fresh-ordering, exact-games-pc, readonly-source, and cleanup must be PASS. BLOCKED is valid only for a genuinely unavailable optional input modality (input-touch, input-keyboard, or input-gamepad) with an attempted command and reason; all ordering, mapping, persistence, readonly, cleanup, theme, layout, and Compose-isolation scenarios must PASS. Implementation failures, assertion failures, mapping/persistence failures, source mutation, and Compose isolation failures are invalid BLOCKED results and fail validation.
+
 The allowed automated gate IDs are exactly: auto-naming, auto-frontend, auto-backend, auto-repository. The allowed browser scenario IDs are exactly: fresh-ordering, exact-games-pc, reload-persistence, readonly-source, theme-dark, theme-light, layout-desktop, layout-narrow, input-mouse, input-touch, input-keyboard, input-gamepad, cleanup.
 
 Every entry in both arrays requires id, status, command, exit_code, artifacts, and result. PASS requires exit code 0, a non-empty executed command, a non-empty artifact array whose files exist under retained EVIDENCE_DIR, and a result. BLOCKED requires the attempted command and a non-empty blocked_reason; any listed artifact must also exist under retained EVIDENCE_DIR. Duplicate, missing, or extra IDs fail validation. Artifact references may not point to /uat or UAT_ROOT. Keyword presence in prose does not satisfy the gate. The wrapper uses set -euo pipefail and an EXIT trap keyed to the exact validated project; it always runs down --volumes --remove-orphans and captures teardown status. Before removing UAT_ROOT, the validator requires teardown status 0 plus empty post-down project, service, and volume artifacts, and refuses cleanup otherwise. EVIDENCE_DIR and cleanup output remain retained.
@@ -153,6 +161,8 @@ def check(entries, required, label):
         paths = [pathlib.Path(x).resolve() for x in e.get("artifacts", [])]
         if e["status"] == "PASS" and (e.get("exit_code") != 0 or not paths or not e.get("result")):
             raise SystemExit(e["id"] + ": PASS requires exit_code, result, and artifacts")
+        if e["status"] == "BLOCKED" and e["id"] not in {"input-touch", "input-keyboard", "input-gamepad"}: raise SystemExit(e["id"] + ": only optional input modalities may be BLOCKED")
+        if e["status"] == "BLOCKED" and any(token in e.get("blocked_reason", "").lower() for token in ("assert", "implementation", "mapping", "persistence", "mutation", "isolation", "error", "failed")): raise SystemExit(e["id"] + ": implementation/assertion failures cannot be BLOCKED")
         if e["status"] == "BLOCKED" and not e.get("blocked_reason", "").strip():
             raise SystemExit(e["id"] + ": BLOCKED requires reason")
         for path in paths:
@@ -164,12 +174,13 @@ def check(entries, required, label):
                 raise SystemExit(e["id"] + ": requires scenario screenshot and trace")
 check(data["automated_gates"], gates, "automated gate")
 check(data["scenarios"], scenarios, "browser scenario")
-for key in ("compose_project_labels", "compose_volume_names", "compose_volume_labels", "playwright_exit_status", "teardown_status", "post_down_ps", "post_down_services", "post_down_volumes"):
+for key in ("compose_project_labels", "compose_volume_names", "compose_volume_labels", "cmp_exit_status", "playwright_exit_status", "teardown_status", "post_down_ps", "post_down_services", "post_down_volumes"):
     path=pathlib.Path(state["artifacts"][key]).resolve()
     if evidence not in path.parents or not path.is_file(): raise SystemExit("missing isolation artifact: "+key)
 if state["COMPOSE_PROJECT_NAME"] not in pathlib.Path(state["artifacts"]["compose_project_labels"]).read_text(): raise SystemExit("project label mismatch")
 vols=[x.strip() for x in pathlib.Path(state["artifacts"]["compose_volume_names"]).read_text().splitlines() if x.strip()]
 if not vols or len(vols)!=len(set(vols)) or any(state["COMPOSE_PROJECT_NAME"] not in x for x in vols): raise SystemExit("volume names are not unique/project-prefixed")
+if pathlib.Path(state["artifacts"]["cmp_exit_status"]).read_text().strip()!="0": raise SystemExit("source fixture changed")
 if pathlib.Path(state["artifacts"]["teardown_status"]).read_text().strip()!="0": raise SystemExit("teardown failed")
 for key in ("post_down_ps","post_down_services","post_down_volumes"):
     if pathlib.Path(state["artifacts"][key]).read_text().strip(): raise SystemExit("resources remain: "+key)
