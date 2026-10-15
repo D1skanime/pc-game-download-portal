@@ -16,6 +16,7 @@ import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
+import storageApi from "@/services/api/storage";
 import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
@@ -54,10 +55,49 @@ const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<string[]>([]);
+const mappingReadiness = ref<"loading" | "ready" | "blocked" | "error">(
+  "loading",
+);
+const mappingReady = computed(() => mappingReadiness.value === "ready");
+const mappingRoute = computed(() => {
+  const windowsPlatform = platformsStore.allPlatforms.find(
+    (platform) => platform.slug === "win",
+  );
+  return windowsPlatform
+    ? {
+        name: ROUTES.PLATFORM_STORAGE_MAPPING,
+        params: { platformId: windowsPlatform.id },
+      }
+    : { name: ROUTES.LIBRARY_MANAGEMENT };
+});
 
-// Never-scanned folders are fetched on demand.
+async function loadMappingReadiness() {
+  mappingReadiness.value = "loading";
+  try {
+    if (platformsStore.allPlatforms.length === 0) {
+      await platformsStore.fetchPlatforms();
+    }
+    const windowsPlatform = platformsStore.allPlatforms.find(
+      (platform) => platform.slug === "win",
+    );
+    if (!windowsPlatform) {
+      mappingReadiness.value = "blocked";
+      return;
+    }
+    const readiness = await storageApi.getMappingReadiness(windowsPlatform.id);
+    mappingReadiness.value = readiness.ready ? "ready" : "blocked";
+    if (readiness.ready) {
+      await platformsStore.fetchFilesystemPlatforms();
+    }
+  } catch {
+    mappingReadiness.value = "error";
+  }
+}
+
+// Never-scanned folders are fetched only after the server confirms the
+// canonical PC mapping is active and healthy.
 onMounted(() => {
-  platformsStore.fetchFilesystemPlatforms();
+  void loadMappingReadiness();
 });
 // IDs of platforms whose ScanPlatform panel is currently open.
 const openPlatforms = ref<Set<number>>(new Set());
@@ -347,6 +387,7 @@ const scanType = ref<ScanType>("quick");
 
 const canStartScan = computed(
   () =>
+    mappingReady.value &&
     !scanning.value &&
     (effectiveMetadataSources.value.length > 0 || scanType.value === "media"),
 );
@@ -413,6 +454,7 @@ const progressValue = computed(() =>
 );
 
 function scan() {
+  if (!mappingReady.value) return;
   scanningStore.reset();
   scanningPlatforms.value = [];
   userScrolledDown = false;
@@ -527,6 +569,42 @@ function stopScan() {
     <ScanInfoDialog v-model="infoDialogOpen" />
 
     <section
+      v-if="!mappingReady"
+      class="r-v2-scan-card r-v2-scan-card--mapping"
+    >
+      <RIcon icon="mdi-folder-key-outline" size="48" />
+      <h2>
+        {{ t("storage.administration", "Map the PC library before scanning") }}
+      </h2>
+      <p>
+        {{
+          t(
+            "storage.reconcile-legacy",
+            "An active, reachable, read-only PC mapping is required before a library scan can start.",
+          )
+        }}
+      </p>
+      <div class="r-v2-scan-card__mapping-actions">
+        <RBtn
+          variant="flat"
+          color="primary"
+          :to="mappingRoute"
+          prepend-icon="mdi-folder-cog-outline"
+        >
+          {{ t("settings.add-folder-mapping", "Map storage") }}
+        </RBtn>
+        <RBtn
+          v-if="mappingReadiness === 'error'"
+          variant="outlined"
+          @click="loadMappingReadiness"
+        >
+          {{ t("common.retry", "Retry") }}
+        </RBtn>
+      </div>
+    </section>
+
+    <section
+      v-else
       class="r-v2-scan-card"
       :class="{ 'r-v2-scan-card--locked': scanning }"
       :aria-label="t('scan.title')"
@@ -884,7 +962,7 @@ function stopScan() {
          a vertical stack of expansion panels with a transition group
          so each card animates in. Owns its own scroll so logs never
          push the controls off-screen. -->
-    <section class="r-v2-scan-live" aria-live="polite">
+    <section v-if="mappingReady" class="r-v2-scan-live" aria-live="polite">
       <header class="r-v2-scan-live__head">
         <div class="r-v2-scan-live__status">
           <span v-if="scanning" class="r-v2-scan-live__pulse" />
