@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import type {
   StorageDirectoryPageSchema,
   StorageMappingCreateSchema,
@@ -26,6 +27,12 @@ export type StorageMappingTestRequest = StorageMappingCreateSchema & {
   mapping_id?: number;
 };
 
+export interface StorageMappingReadiness {
+  ready: boolean;
+  mapping: StorageMappingSchema | null;
+  root: StorageRootSchema | null;
+}
+
 function getRoots() {
   return api.get<StorageRootSchema[]>("/storage/roots");
 }
@@ -38,6 +45,33 @@ function getMapping(platformId: number) {
   return api.get<StorageMappingSchema>(
     `/storage/mappings/platforms/${platformId}`,
   );
+}
+
+async function getMappingReadiness(
+  platformId: number,
+): Promise<StorageMappingReadiness> {
+  let mapping: StorageMappingSchema;
+  try {
+    mapping = (await getMapping(platformId)).data;
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 404) {
+      return { ready: false, mapping: null, root: null };
+    }
+    throw error;
+  }
+
+  const roots = (await getRoots()).data;
+  const root =
+    roots.find((candidate) => candidate.id === mapping.storage_root_id) ?? null;
+  const ready = Boolean(
+    mapping.active &&
+    root?.active &&
+    root.health.reachable &&
+    root.health.readable &&
+    root.health.non_writable === true,
+  );
+
+  return { ready, mapping, root };
 }
 
 function browseRoot(rootId: number, parent = "", cursor?: string | null) {
@@ -101,6 +135,7 @@ export default {
   getRoots,
   bootstrapLegacy,
   getMapping,
+  getMappingReadiness,
   browseRoot,
   testMapping,
   createMapping,
