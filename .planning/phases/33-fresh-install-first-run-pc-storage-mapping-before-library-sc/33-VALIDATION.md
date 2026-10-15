@@ -29,26 +29,29 @@ The temporary UAT_ROOT/manifest.py helper must be created in the disposable dire
 ~~~bash
 set -euo pipefail
 UAT_ROOT=$(mktemp -d /tmp/pgdp-phase33-browser.XXXXXX)
-COMPOSE_PROJECT_NAME=pgdp-phase33-browser-$(date +%s)
+COMPOSE_PROJECT_NAME=pgdp-phase33-browser-$(date +%s)-$RANDOM
+EVIDENCE_DIR="$PWD/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/$COMPOSE_PROJECT_NAME"
 PHASE33_PORT="$(shuf -i 18080-18999 -n 1)"
-mkdir -p "$UAT_ROOT/fixture/Games/pc" "$UAT_ROOT/artifacts"
-printf 'phase33 synthetic pc fixture\n' > "$UAT_ROOT/fixture/Games/pc/Phase33-Synthetic.exe"
-printf 'phase33 synthetic manifest\n' > "$UAT_ROOT/fixture/Games/pc/Phase33-Synthetic.txt"
+mkdir -p "$UAT_ROOT/fixture/Games/pc" "$UAT_ROOT/artifacts" "$EVIDENCE_DIR"
+printf 'phase33 synthetic pc fixture
+' > "$UAT_ROOT/fixture/Games/pc/Phase33-Synthetic.exe"
 python3 "$UAT_ROOT/manifest.py" "$UAT_ROOT/fixture/Games" > "$UAT_ROOT/artifacts/before.json"
-docker compose -p "$COMPOSE_PROJECT_NAME" -f backend/docker-compose.pc-integration-test.yml --env-file "$UAT_ROOT/uat.env" up -d
-docker compose -p "$COMPOSE_PROJECT_NAME" ps --format json > "$UAT_ROOT/artifacts/compose-before.json"
-docker compose -p "$COMPOSE_PROJECT_NAME" port app 3000
-docker compose -p "$COMPOSE_PROJECT_NAME" run --rm --no-deps -v "$UAT_ROOT:/uat" -e E2E_BASE_URL="http://host.docker.internal:$PHASE33_PORT" romm-dev bash -lc 'cd /app/frontend && npx playwright test /uat/phase33-first-run.spec.ts --config=playwright.config.ts --project=chromium --reporter=line,junit=/uat/artifacts/playwright.xml' > "$UAT_ROOT/artifacts/playwright-command.log" 2>&1
+docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml up -d
+docker compose -p "$COMPOSE_PROJECT_NAME" ps -a > "$UAT_ROOT/artifacts/compose-ps.txt"
+docker compose -p "$COMPOSE_PROJECT_NAME" run --rm --no-deps -v "$UAT_ROOT:/uat" -e E2E_BASE_URL="http://host.docker.internal:$PHASE33_PORT" romm-dev bash -lc 'cd /app/frontend && npx playwright test /uat/phase33-first-run.spec.ts --config=playwright.config.ts --project=chromium --trace=on --reporter=line,junit=/uat/artifacts/playwright.xml' > "$UAT_ROOT/artifacts/playwright-command.log" 2>&1
 python3 "$UAT_ROOT/manifest.py" "$UAT_ROOT/fixture/Games" > "$UAT_ROOT/artifacts/after.json"
 cmp "$UAT_ROOT/artifacts/before.json" "$UAT_ROOT/artifacts/after.json"
-docker compose -p "$COMPOSE_PROJECT_NAME" ps -a > "$UAT_ROOT/artifacts/compose-after.txt"
-docker compose -p "$COMPOSE_PROJECT_NAME" down --volumes --remove-orphans > "$UAT_ROOT/artifacts/cleanup.txt" 2>&1
-test -s "$UAT_ROOT/artifacts/playwright.xml"
-test -s "$UAT_ROOT/artifacts/before.json"
-test -s "$UAT_ROOT/artifacts/after.json"
+docker compose -p "$COMPOSE_PROJECT_NAME" down --volumes --remove-orphans > "$UAT_ROOT/artifacts/compose-cleanup.txt" 2>&1
+cp -a "$UAT_ROOT/artifacts/." "$EVIDENCE_DIR/"
+test -s "$EVIDENCE_DIR/playwright.xml"
+test -s "$EVIDENCE_DIR/before.json"
+test -s "$EVIDENCE_DIR/after.json"
+test -s "$EVIDENCE_DIR/compose-cleanup.txt"
+test -s "$EVIDENCE_DIR/compose-ps.txt"
+# Leave UAT_ROOT until the structured validator passes; retain EVIDENCE_DIR.
 ~~~
 
-The existing disposable Compose definition is selected by the implementation environment, not a production stack or live service. The harness fails closed if project name, target volume labels, source mount, or port is not unique and disposable. Cleanup saves output, uses only the exact project ID, then removes only UAT_ROOT. [VERIFIED: Phase 22 UAT, Phase 27 UAT, Phase 32 validation patterns]
+The existing disposable Compose definition is selected by the implementation environment, not a production stack or live service. The harness fails closed if project name, target volume labels, source mount, or port is not unique and disposable. Cleanup saves output, uses only the exact project ID, and removes only UAT_ROOT after the retained-evidence validator passes. [VERIFIED: Phase 22 UAT, Phase 27 UAT, Phase 32 validation patterns]
 
 The temporary phase33-first-run.spec.ts must use the existing Playwright config and attach concrete files for each matrix entry:
 
@@ -91,48 +94,50 @@ Task 3 inserts exactly one JSON block into 33-UAT.md:
 
 ~~~text
 <!-- phase33-evidence-manifest:start -->
-{"scenarios":[{"id":"fresh-ordering","status":"PASS","command":"...","exit_code":0,"artifacts":["/tmp/.../ordering.png"],"result":"..."},{"id":"input-gamepad","status":"BLOCKED","command":"...","exit_code":127,"artifacts":[],"result":"...","blocked_reason":"..."}]}
+{"automated_gates":[{"id":"auto-naming","status":"PASS","command":"...","exit_code":0,"artifacts":["<EVIDENCE_DIR>/naming.txt"],"result":"..."}],"scenarios":[{"id":"fresh-ordering","status":"PASS","command":"...","exit_code":0,"artifacts":["<EVIDENCE_DIR>/ordering.png"],"result":"..."},{"id":"input-gamepad","status":"BLOCKED","command":"...","exit_code":127,"artifacts":[],"result":"...","blocked_reason":"..."}]}
 <!-- phase33-evidence-manifest:end -->
 ~~~
 
-Required IDs are exactly: fresh-ordering, exact-games-pc, reload-persistence, readonly-source, theme-dark, theme-light, layout-desktop, layout-narrow, input-mouse, input-touch, input-keyboard, input-gamepad, cleanup.
+The allowed automated gate IDs are exactly: auto-naming, auto-frontend, auto-backend, auto-repository. The allowed browser scenario IDs are exactly: fresh-ordering, exact-games-pc, reload-persistence, readonly-source, theme-dark, theme-light, layout-desktop, layout-narrow, input-mouse, input-touch, input-keyboard, input-gamepad, cleanup.
 
-Every entry requires status, command, exit_code, artifacts, and result. PASS requires exit code 0 and at least one existing concrete artifact path. BLOCKED requires the attempted command and a non-empty blocked_reason. Duplicate, missing, or extra IDs fail validation. Keyword presence in prose does not satisfy the gate.
+Every entry in both arrays requires id, status, command, exit_code, artifacts, and result. PASS requires exit code 0, a non-empty executed command, a non-empty artifact array whose files exist under retained EVIDENCE_DIR, and a result. BLOCKED requires the attempted command and a non-empty blocked_reason; any listed artifact must also exist under retained EVIDENCE_DIR. Duplicate, missing, or extra IDs fail validation. Artifact references may not point to /uat or UAT_ROOT. Keyword presence in prose does not satisfy the gate. Remove UAT_ROOT only after this validator passes; EVIDENCE_DIR and its cleanup output remain retained.
 
-Run this validator from the canonical checkout:
+Run the structured validator from the canonical checkout:
 
 ~~~bash
-python3 - .planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-UAT.md <<'PY'
+python3 - .planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-UAT.md "$EVIDENCE_DIR" "$UAT_ROOT" <<'PY'
 import json, pathlib, sys
 text = pathlib.Path(sys.argv[1]).read_text()
+evidence = pathlib.Path(sys.argv[2]).resolve()
+uat_root = pathlib.Path(sys.argv[3]).resolve()
 start = "<!-- phase33-evidence-manifest:start -->"
 end = "<!-- phase33-evidence-manifest:end -->"
 if text.count(start) != 1 or text.count(end) != 1:
     raise SystemExit("missing or duplicate structured evidence markers")
 data = json.loads(text.split(start, 1)[1].split(end, 1)[0].strip())
-required = {"fresh-ordering", "exact-games-pc", "reload-persistence", "readonly-source", "theme-dark", "theme-light", "layout-desktop", "layout-narrow", "input-mouse", "input-touch", "input-keyboard", "input-gamepad", "cleanup"}
-entries = data.get("scenarios")
-if not isinstance(entries, list) or len(entries) != len(required) or {e.get("id") for e in entries} != required:
-    raise SystemExit("scenario IDs are missing, duplicated, or unexpected")
-for entry in entries:
-    if not isinstance(entry.get("command"), str) or not entry["command"].strip():
-        raise SystemExit(f"{entry.get('id')}: missing executed command")
-    if entry.get("status") not in {"PASS", "BLOCKED"}:
-        raise SystemExit(f"{entry['id']}: invalid status")
-    if entry["status"] == "PASS":
-        if entry.get("exit_code") != 0:
-            raise SystemExit(f"{entry['id']}: PASS requires exit_code 0")
-        artifacts = entry.get("artifacts")
-        if not isinstance(artifacts, list) or not artifacts or any(not pathlib.Path(p).is_file() for p in artifacts):
-            raise SystemExit(f"{entry['id']}: PASS requires existing concrete artifacts")
-    elif not isinstance(entry.get("blocked_reason"), str) or not entry["blocked_reason"].strip():
-        raise SystemExit(f"{entry['id']}: BLOCKED requires blocked_reason")
-print(f"validated {len(entries)} structured Phase 33 UAT scenarios")
+required_gates = {"auto-naming", "auto-frontend", "auto-backend", "auto-repository"}
+required_scenarios = {"fresh-ordering", "exact-games-pc", "reload-persistence", "readonly-source", "theme-dark", "theme-light", "layout-desktop", "layout-narrow", "input-mouse", "input-touch", "input-keyboard", "input-gamepad", "cleanup"}
+def check(entries, required, label):
+    if not isinstance(entries, list) or len(entries) != len(required) or {e.get("id") for e in entries} != required:
+        raise SystemExit(label + " IDs are missing, duplicated, or unexpected")
+    for e in entries:
+        if e.get("status") not in {"PASS", "BLOCKED"} or not isinstance(e.get("command"), str) or not e["command"].strip():
+            raise SystemExit(e.get("id", label) + ": missing executed command or invalid status")
+        artifacts = e.get("artifacts")
+        if not isinstance(artifacts, list):
+            raise SystemExit(e["id"] + ": artifacts must be an array")
+        for raw in artifacts:
+            path = pathlib.Path(raw).resolve()
+            if evidence not in path.parents or uat_root in path.parents or not path.is_file():
+                raise SystemExit(e["id"] + ": artifact is not a retained existing file")
+        if e["status"] == "PASS" and (e.get("exit_code") != 0 or not artifacts or not e.get("result")):
+            raise SystemExit(e["id"] + ": PASS requires exit_code 0, artifacts, and result")
+        if e["status"] == "BLOCKED" and not isinstance(e.get("blocked_reason"), str):
+            raise SystemExit(e["id"] + ": BLOCKED requires blocked_reason")
+check(data.get("automated_gates"), required_gates, "automated gate")
+check(data.get("scenarios"), required_scenarios, "browser scenario")
+print("structured Phase 33 UAT evidence: PASS")
 PY
+test -d "$EVIDENCE_DIR"
+rm -rf -- "$UAT_ROOT"
 ~~~
-
-The validator is structural and artifact-backed. [VERIFIED: requested checker blocker]
-
-## Evidence rules
-
-Use disposable state only. Record exact Compose project ID, container image, synthetic credentials policy, fixture manifest before/after, browser URL, viewport/theme/input modality, screenshots or traces, test output, structured scenario command/exit code, and cleanup result. Do not inspect or alter live NAS mounts, Team4s, existing volumes, or production credentials.
