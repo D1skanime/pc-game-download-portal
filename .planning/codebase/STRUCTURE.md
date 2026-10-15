@@ -1,339 +1,115 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-08-04
+**Analysis Date:** 2026-10-15
 
 ## Directory Layout
 
 ```text
-RomM/
-├── backend/                    # FastAPI application, domain, persistence, workers
-│   ├── adapters/services/       # Typed external metadata/API clients
-│   ├── alembic/versions/        # Ordered cross-database schema migrations
-│   ├── config/                  # Environment and YAML configuration
-│   ├── decorators/              # Route protection and DB session injection
-│   ├── endpoints/               # REST and Socket.IO presentation layer
-│   │   ├── responses/          # Pydantic/OpenAPI response contracts
-│   │   ├── roms/               # ROM CRUD, files, uploads, manuals, patching
-│   │   └── sockets/            # Scan/activity/log/netplay/sync events
-│   ├── handler/                 # Business and data-access layers
-│   │   ├── auth/               # Authentication, scopes, middleware
-│   │   ├── database/           # Per-entity SQLAlchemy handlers
-│   │   ├── filesystem/         # Rooted filesystem operations
-│   │   └── metadata/           # Provider normalization and matching
-│   ├── models/                  # SQLAlchemy ORM domain models
-│   ├── tasks/                   # RQ scheduled and manual jobs
-│   ├── tests/                   # Backend tests mirroring runtime packages
-│   ├── tools/                   # Standalone developer/test utilities
-│   ├── utils/                   # Cross-cutting helpers
-│   ├── main.py                  # ASGI composition root
-│   ├── startup.py               # Startup task/cache initialization
-│   ├── watcher.py               # Library filesystem watcher
-│   └── sync_watcher.py          # Save synchronization watcher
-├── frontend/                   # Vue 3 SPA and client tooling
-│   ├── src/__generated__/       # Generated OpenAPI TypeScript client models
-│   ├── src/services/api/        # Shared domain API wrappers
-│   ├── src/stores/              # Canonical shared Pinia stores
-│   ├── src/plugins/             # Router, Pinia, i18n, Vuetify registration
-│   ├── src/locales/             # Feature-namespaced translations
-│   ├── src/views/               # Frozen v1 views
-│   ├── src/components/          # Frozen v1 components
-│   ├── src/v2/                  # Active v2 application
-│   │   ├── components/         # Shared and feature composites
-│   │   ├── composables/        # Typed v2 behavior hooks
-│   │   ├── layouts/            # App/auth/settings route shells
-│   │   ├── lib/                # Reusable R* design-system primitives
-│   │   ├── router/             # v2 named-view registry
-│   │   ├── stores/             # v2-only UI state
-│   │   ├── styles/             # v2 tokens and global styles
-│   │   ├── tokens/             # Theme token source
-│   │   ├── utils/              # Pure v2 utilities
-│   │   └── views/              # Lazy-loaded route views
-│   ├── src/main.ts              # Browser entry point
-│   └── src/RomM.vue             # v1/v2 root gate
-├── docker/                     # Container runtime configuration
-├── docs/                       # Architecture and contributor references
-├── examples/                   # Deployment examples
-├── .github/workflows/          # CI checks, builds, migrations, tests
-├── pyproject.toml               # Python project and tool dependencies
-├── docker-compose.yml           # Default multi-service deployment
-└── Dockerfile                   # Production image build
+pc-game-download-portal/
+├── backend/                 # FastAPI, models, handlers, adapters and tasks
+│   ├── endpoints/           # REST routers, schemas and Socket.IO events
+│   ├── handler/             # database, metadata, filesystem and orchestration
+│   ├── models/              # catalog, PC components, assets and transfers
+│   ├── adapters/services/   # typed external provider clients
+│   ├── alembic/             # database migrations
+│   ├── tasks/               # scheduled and manual RQ jobs
+│   └── tests/               # backend tests by layer
+├── frontend/src/            # Vue bootstrap, plugins, stores, services and v2
+│   ├── v2/                  # active rewrite: views, features, primitives, data
+│   ├── services/api/        # shared Axios modules
+│   ├── stores/              # shared Pinia stores
+│   └── locales/             # locale/namespace JSON and validators
+├── frontend/e2e/            # Playwright flows
+├── desktop/                 # Tauri/Rust desktop shell
+├── docker/                  # container, Nginx and init assets
+├── docs/                    # architecture, setup, provider and design docs
+├── scripts/                 # repository utilities
+├── tests/                   # root fixtures and cross-cutting tests
+└── .planning/               # GSD state, phases, reports and codebase maps
 ```
 
 ## Directory Purposes
 
-**`backend/endpoints/`:**
+**backend/endpoints/:** HTTP/realtime presentation. ROM-specific routes are under backend/endpoints/roms/, including pc_metadata.py, pc_component_resources.py and media.py. Download routes are backend/endpoints/download_manifests.py and download_transfers.py.
 
-- Purpose: Public REST and socket presentation boundary.
-- Contains: FastAPI routers, Pydantic response schemas, request forms, Socket.IO handlers.
-- Key files: `backend/endpoints/roms/__init__.py`, `backend/endpoints/roms/files.py`, `backend/endpoints/responses/rom.py`, `backend/endpoints/sockets/scan.py`
-- Add request parsing and serialization here; put reusable behavior in a handler.
+**backend/handler/:** Application logic independent of HTTP serialization. Important boundaries are backend/handler/database/, backend/handler/metadata/, backend/handler/filesystem/, backend/handler/scan_handler.py and backend/handler/redis_handler.py.
 
-**`backend/handler/`:**
+**backend/models/:** SQLAlchemy domain schema. backend/models/rom.py owns the parent ROM, files, PC components, component manifest members, provider metadata, local/owned media and placements. backend/models/assets.py owns saves, states and screenshots. Download and storage models are separate modules.
 
-- Purpose: Application services and data access.
-- Contains: Scan orchestration plus `auth/`, `database/`, `filesystem/`, `metadata/`, and Redis/socket handlers.
-- Key files: `backend/handler/scan_handler.py`, `backend/handler/database/roms_handler.py`, `backend/handler/filesystem/roms_handler.py`, `backend/handler/redis_handler.py`
-- Add domain behavior to the narrowest existing handler package. Preserve endpoint-to-handler direction.
+**backend/handler/filesystem/:** All library and owned-file I/O. storage_composition.py and storage_policy.py classify roots and operations; resources_handler.py owns generated/uploaded media; roms_handler.py reads and hashes the external library.
 
-**`backend/models/`:**
+**backend/alembic/versions/:** Ordered schema evolution. PC component/media, localized/provider metadata, download manifest/transfer and immutable storage changes are represented by migrations such as 0116, 0118, 0119, 0128 and 0138.
 
-- Purpose: Relational domain and persistence model.
-- Contains: SQLAlchemy models for ROMs, platforms, users, collections, assets, permissions, devices, music, and sync.
-- Key files: `backend/models/rom.py`, `backend/models/platform.py`, `backend/models/assets.py`, `backend/models/collection.py`, `backend/models/base.py`
-- Add columns/relationships here and pair schema changes with a new file in `backend/alembic/versions/`.
+**frontend/src/v2/:** Active frontend rewrite. GameDetails contains ROM, DLC, metadata, media, saves and downloads. MatchRom contains provider matching. Settings contains scan, storage and PC automation administration. data/adapters/legacy/ bridges v2 to canonical shared API/store modules.
 
-**`backend/tasks/`:**
+**frontend/src/services/api/ and frontend/src/stores/:** Shared compatibility data boundary used by v2 adapters and remaining v1 surfaces. ROM, save, state, media and download APIs live here beside auth/config/task stores.
 
-- Purpose: Durable background and recurring work.
-- Contains: `scheduled/` cron-like tasks, `manual/` admin-triggered tasks, and shared task abstractions.
-- Key files: `backend/tasks/tasks.py`, `backend/tasks/scheduled/scan_library.py`, `backend/tasks/manual/sync_folder_scan.py`
-- Add long-running work here and call handlers rather than duplicating scanner or database logic.
-
-**`backend/adapters/services/`:**
-
-- Purpose: Isolate external API protocols and provider-specific types.
-- Contains: Provider clients and companion typed payload modules.
-- Key files: `backend/adapters/services/igdb.py`, `backend/adapters/services/screenscraper.py`, `backend/adapters/services/retroachievements.py`
-- Add a provider client here and normalize it through a corresponding file in `backend/handler/metadata/`.
-
-**`backend/alembic/`:**
-
-- Purpose: Reproducible schema evolution across MariaDB/MySQL/PostgreSQL.
-- Contains: Alembic environment plus ordered revision files.
-- Key files: `backend/alembic/env.py`, `backend/alembic/versions/`
-- Add a new revision; do not edit an applied historical revision.
-
-**`backend/tests/`:**
-
-- Purpose: Backend unit, handler, endpoint, task, and adapter coverage.
-- Contains: Directory structure paralleling runtime packages, VCR cassettes, fixture databases and files.
-- Key files: `backend/tests/conftest.py`, `backend/tests/endpoints/roms/`, `backend/tests/handler/filesystem/test_roms_handler.py`, `backend/tests/tasks/test_scan_library.py`
-
-**`frontend/src/services/api/`:**
-
-- Purpose: Stable, domain-oriented wrappers around the central Axios instance.
-- Contains: API modules for ROMs, platforms, users, collections, assets, tasks, and related features.
-- Key files: `frontend/src/services/api/index.ts`, `frontend/src/services/api/rom.ts`, `frontend/src/services/api/platform.ts`
-- Put browser transport details here; views and components should not duplicate URL building or CSRF behavior.
-
-**`frontend/src/__generated__/`:**
-
-- Purpose: Generated TypeScript representation of backend OpenAPI.
-- Contains: Request/response models and generated index exports.
-- Key files: `frontend/src/__generated__/index.ts`, `frontend/src/__generated__/models/DetailedRomSchema.ts`, `frontend/src/__generated__/models/RomFileSchema.ts`
-- Regenerate from the backend; never hand-edit.
-
-**`frontend/src/stores/`:**
-
-- Purpose: Canonical state shared by both frontend versions.
-- Contains: Auth, config, users, ROM/gallery filters, upload, task, and media state.
-- Key files: `frontend/src/stores/auth.ts`, `frontend/src/stores/config.ts`, `frontend/src/stores/upload.ts`, `frontend/src/stores/roms.ts`
-- Extend additively when both versions need the state. Keep v2-only interaction state under `frontend/src/v2/stores/`.
-
-**`frontend/src/v2/lib/`:**
-
-- Purpose: Domain-free reusable design-system primitives.
-- Contains: `R*` primitives grouped by forms, media, menus, overlays, data, and structural behavior.
-- Key files: `frontend/src/v2/lib/index.ts`, `frontend/src/v2/lib/forms/RDropzone/RDropzone.vue`, `frontend/src/v2/lib/data/RTable/RTable.vue`
-- Add one primitive per folder with `RFoo.vue`, `RFoo.stories.ts`, and `index.ts`; export it from the lib barrel.
-
-**`frontend/src/v2/components/`:**
-
-- Purpose: Shared and feature-owned UI composites.
-- Contains: App shell, Gallery, GameDetails, Dialogs, Scan, Settings, Auth, Soundtrack, and shared components.
-- Key files: `frontend/src/v2/components/GameDetails/FilesTab/FilesTab.vue`, `frontend/src/v2/components/Gallery/GalleryShell.vue`, `frontend/src/v2/components/shared/GameCover.vue`
-- Add domain UI to the owning feature folder. Put only cross-feature composites in `components/shared/`.
-
-**`frontend/src/v2/views/`:**
-
-- Purpose: Route-level orchestration and lazy-loading boundary.
-- Contains: Thin views for home, galleries, details, players, scan/upload, auth, and settings.
-- Key files: `frontend/src/v2/views/GameDetails.vue`, `frontend/src/v2/views/Player/EmulatorJS.vue`, `frontend/src/v2/views/Scan.vue`
-- Keep reusable UI in components and behavior in composables; views compose route state.
-
-**`frontend/src/views/`, `frontend/src/components/`, `frontend/src/console/`, `frontend/src/layouts/`:**
-
-- Purpose: Frozen v1 compatibility UI.
-- Contains: Default named-view implementations still selected for v1 users.
-- Key files: `frontend/src/views/GameDetails.vue`, `frontend/src/components/Details/`, `frontend/src/console/`
-- Do not place new features or broad refactors here. Critical compatibility fixes only.
+**frontend/src/locales/:** Locale and namespace JSON. en_US is the source; parity and sorted-key scripts enforce the catalog.
 
 ## Key File Locations
 
 **Entry Points:**
 
-- `backend/main.py`: FastAPI/Socket.IO application composition and direct-run server startup.
-- `backend/startup.py`: Cache and scheduled-job initialization.
-- `backend/watcher.py`: Library filesystem watcher entry.
-- `backend/sync_watcher.py`: Save synchronization watcher entry.
-- `frontend/src/main.ts`: Vue application bootstrap.
-- `frontend/src/RomM.vue`: Runtime v1/v2 rendering gate and root theme scope.
+- backend/main.py: FastAPI composition, middleware, routers and WebSocket mounts.
+- backend/startup.py: startup initialization and task registration.
+- frontend/src/main.ts: Vue bootstrap, initial heartbeat/auth/config loading and router mount.
+- frontend/src/RomM.vue: root shell, theme scope and global connection banner.
 
 **Configuration:**
 
-- `backend/config/__init__.py`: Environment-driven runtime configuration.
-- `backend/config/config_manager.py`: YAML library/scan configuration singleton.
-- `backend/alembic.ini`: Migration runner configuration.
-- `frontend/vite.config.js`: Frontend build, aliases, proxy, and plugins.
-- `frontend/tsconfig.json`: TypeScript compiler/alias configuration.
-- `frontend/src/plugins/router.ts`: Shared route tree, layouts, permission guards, and named views.
-- `docker-compose.yml`: Default application, database, Redis, and worker topology.
-- `env.template`: Documented environment names only; runtime secret files must not be read or committed.
+- backend/config/**init**.py: environment-backed runtime configuration.
+- backend/config/config_manager.py: YAML-backed configuration singleton.
+- frontend/package.json, frontend/vite.config.js and frontend/tsconfig.json: frontend build/type configuration.
+- .github/workflows/: CI for backend, frontend, migrations and i18n.
 
 **Core Logic:**
 
-- `backend/handler/scan_handler.py`: ROM/platform scanning and provider aggregation.
-- `backend/handler/filesystem/roms_handler.py`: Filesystem ROM discovery, category assignment, hashing, and archive manifests.
-- `backend/handler/database/roms_handler.py`: ROM queries, persistence, filters, file rows, and folder conversion.
-- `backend/models/rom.py`: Logical ROM, physical file, metadata, per-user state, notes, and sibling modeling.
-- `backend/endpoints/roms/__init__.py`: ROM CRUD and single/bulk download surface.
-- `backend/endpoints/roms/files.py`: Individual `RomFile` retrieval, content, and deletion.
-- `backend/endpoints/roms/manual.py`: Provider manual caching and ROM-owned manual file operations.
-- `backend/endpoints/roms/patch.py`: Runtime patch application.
-- `frontend/src/services/api/rom.ts`: Browser ROM CRUD, uploads, selection downloads, and bulk downloads.
-- `frontend/src/v2/components/GameDetails/FilesTab/`: Categorized file management UI.
-- `frontend/src/v2/views/Player/EmulatorJS.vue`: Player setup and disc selection.
+- backend/handler/scan_handler.py: scan and metadata pipeline.
+- backend/models/rom.py: ROM/PC/media aggregate.
+- backend/handler/database/roms_handler.py: catalog mutations and hydration.
+- backend/handler/metadata/: provider normalization and PC matching.
+- frontend/src/v2/components/GameDetails/: user-facing ROM/DLC detail composition.
 
 **Testing:**
 
-- `backend/tests/endpoints/roms/`: ROM route, file, manual, upload, soundtrack, screenshot, patch-adjacent behavior.
-- `backend/tests/handler/filesystem/test_roms_handler.py`: Filesystem scanning/hash/category behavior.
-- `backend/tests/models/test_rom.py`: ROM model computed behavior.
-- `frontend/test/`: Frontend smoke and Storybook composition tests.
-- `frontend/src/v2/**/*.test.ts`: Co-located v2 utility/store/view/component tests.
-- `frontend/e2e/`: Browser end-to-end tests when present.
-
-**Documentation:**
-
-- `CLAUDE.md`: Repository-wide contributor rules and stack overview.
-- `docs/BACKEND_ARCHITECTURE.md`: Backend reference, endpoints, data model, auth, tasks.
-- `docs/FRONTEND_ARCHITECTURE.md`: Frontend routing, state, services, theming, tooling.
-- `.claude/skills/backend-development/SKILL.md`: Backend placement and workflow constraints.
-- `.claude/skills/frontend-v2-components/SKILL.md`: v2 component tiers and file placement.
+- backend/tests/handler/, backend/tests/endpoints/, backend/tests/models/: backend tests by layer.
+- backend/tests/integration/: storage and scan guarantees.
+- frontend/src/v2/**/*.test.ts: colocated v2 tests.
+- frontend/e2e/: browser-level tests.
+- frontend/src/v2/**/*.stories.ts: Storybook coverage for primitives/components.
 
 ## Naming Conventions
 
-**Files:**
+**Files:** Python modules use snake_case, for example pc_steam_enrichment.py. Vue feature files use PascalCase, for example PcComponents.vue and DownloadManager.vue. API modules and stores use domain names such as rom.ts, downloadTransfers.ts and pcAutomation.ts. Tests use test_*.py, *.test.ts or *.stories.ts.
 
-- Python modules use `snake_case.py`: `scan_handler.py`, `roms_handler.py`.
-- Backend domain packages use plural entity names when they expose aggregate handlers/endpoints: `endpoints/roms/`, `database/roms_handler.py`.
-- Vue route and composite components use `PascalCase.vue`: `GameDetails.vue`, `FilesTab.vue`.
-- v2 primitives use an `R` prefix and a same-named directory: `frontend/src/v2/lib/forms/RDropzone/RDropzone.vue`.
-- TypeScript utilities/stores use `camelCase.ts`: `playerDisc.ts`, `galleryRoms.ts`.
-- Tests use `test_*.py` in Python and `*.test.ts` beside frontend code.
-- Generated models mirror backend schema names in `PascalCase.ts` under `frontend/src/__generated__/models/`.
-
-**Directories:**
-
-- Backend packages use lowercase singular functional names (`handler`, `models`) and lowercase plural domain groupings (`endpoints/roms`).
-- v2 feature folders use `PascalCase` (`GameDetails`, `Gallery`, `Settings`); generic layer folders remain lowercase (`components`, `composables`, `utils`).
-- Locale folders use locale codes and namespace JSON files: `frontend/src/locales/en_US/rom.json`.
+**Directories:** Backend directories are lower-case by layer/domain. V2 feature directories are PascalCase. V2 primitive directories use one R* component per folder under frontend/src/v2/lib/.
 
 ## Where to Add New Code
 
-**New Backend Feature:**
+**New backend feature:** Add a route under backend/endpoints/, focused logic under backend/handler/database/, metadata/ or filesystem/, models/migration under backend/models/ and backend/alembic/versions/, response types under backend/endpoints/responses/, and mirrored tests under backend/tests/.
 
-- Router/request boundary: `backend/endpoints/<domain>.py` or `backend/endpoints/<domain>/`
-- Public response contract: `backend/endpoints/responses/<domain>.py`
-- Business logic: `backend/handler/<domain>_handler.py` or the existing `database/`, `filesystem/`, `metadata/`, or `auth/` subpackage
-- Persistence: `backend/models/<domain>.py`
-- Migration: new revision under `backend/alembic/versions/`
-- Tests: matching path under `backend/tests/`
+**New PC catalog behavior:** Extend backend/models/rom.py and its migration; use backend/handler/metadata/pc_match_handler.py and pc_automation.py for candidate/review behavior; use backend/endpoints/roms/pc_metadata.py or pc_component_resources.py for routes. Add frontend behavior under frontend/src/v2/components/GameDetails/, MatchRom/ or Settings/.
 
-**New ROM/File Capability:**
+**New media/assets:** Parent media belongs in backend/endpoints/roms/media.py and backend/handler/metadata/rom_media.py. Component media belongs in backend/endpoints/roms/pc_component_resources.py. Saves, states and screenshots use their dedicated endpoint/database-handler modules. Store bytes through owned resource storage.
 
-- ROM aggregate/category: `backend/models/rom.py`
-- Database query/mutation: `backend/handler/database/roms_handler.py`
-- Scanner/filesystem recognition: `backend/handler/filesystem/roms_handler.py` and `backend/handler/scan_handler.py`
-- HTTP route: existing module under `backend/endpoints/roms/`
-- Response schema: `backend/endpoints/responses/rom.py`
-- Client wrapper: `frontend/src/services/api/rom.ts`
-- Active UI: owning subfolder under `frontend/src/v2/components/GameDetails/`
-- Tests: `backend/tests/endpoints/roms/`, `backend/tests/handler/filesystem/`, and co-located `frontend/src/v2/**/*.test.ts`
+**New download behavior:** Manifest selection belongs in backend/endpoints/download_manifests.py and backend/handler/database/download_manifests_handler.py. Transfer lifecycle belongs in backend/endpoints/download_transfers.py and its handler. The UI belongs in frontend/src/v2/components/GameDetails/Download*.vue and the download adapter/store.
 
-**New Metadata Provider:**
+**New frontend feature/component:** Route views go in frontend/src/v2/views/ and route registration in frontend/src/v2/router/routes.ts or frontend/src/plugins/router.ts. Feature composites go in frontend/src/v2/components/<Feature>/. Shared composites go in components/shared/. Domain-free primitives go in frontend/src/v2/lib/<RName>/ with component, index and Storybook story.
 
-- Typed client: `backend/adapters/services/<provider>.py` plus provider type module
-- Normalization/matching: `backend/handler/metadata/<provider>_handler.py`
-- Scan composition: `backend/handler/scan_handler.py`
-- Configuration: `backend/config/` and documented template keys
-- Tests: `backend/tests/adapters/services/` and `backend/tests/handler/metadata/`
-
-**New Background Task:**
-
-- Recurring: `backend/tasks/scheduled/<task>.py`
-- Admin/on-demand: `backend/tasks/manual/<task>.py`
-- Initialization/registration: `backend/startup.py` or existing task endpoint registry
-- Tests: `backend/tests/tasks/test_<task>.py`
-
-**New v2 Feature:**
-
-- Route view: `frontend/src/v2/views/<Feature>.vue`
-- Feature composites: `frontend/src/v2/components/<Feature>/`
-- Feature behavior: `frontend/src/v2/composables/use<Behavior>/index.ts`
-- v2-only state: `frontend/src/v2/stores/<state>.ts`
-- Shared API/state: extend `frontend/src/services/api/` or `frontend/src/stores/` additively
-- Route registration: `frontend/src/v2/router/routes.ts` and shared route shell in `frontend/src/plugins/router.ts`
-- Tests: co-located `*.test.ts`; primitive stories under the primitive folder
-
-**New Component/Module:**
-
-- Domain-free primitive: `frontend/src/v2/lib/<category>/RFoo/`
-- Cross-feature composite: `frontend/src/v2/components/shared/`
-- Feature composite: `frontend/src/v2/components/<Feature>/`
-- Do not add new components under frozen `frontend/src/components/`.
-
-**Utilities:**
-
-- Backend cross-domain helper: `backend/utils/`; standalone executable developer tooling: `backend/tools/`.
-- Shared frontend helper used by both versions: `frontend/src/utils/`.
-- v2-only pure helper: `frontend/src/v2/utils/`.
-- Avoid a utility when the behavior belongs to a handler, service, store, or composable.
+**Utilities:** Backend shared helpers go in backend/utils/; frontend behavior goes in frontend/src/v2/composables/ or frontend/src/v2/utils/. User-visible strings belong in every frontend/src/locales/<locale>/ namespace, with en_US as source.
 
 ## Special Directories
 
-**`frontend/src/__generated__/`:**
+**frontend/src/**generated**/:** OpenAPI-generated TypeScript types. Generated and committed. Regenerate after backend contract changes; do not hand-edit.
 
-- Purpose: OpenAPI-derived frontend contract.
-- Generated: Yes, by the frontend generation command against the running backend.
-- Committed: Yes.
+**frontend/dist/:** Vite production output. Generated; source changes belong under frontend/src/.
 
-**`frontend/src/v2/styles/tokens.css`:**
+**backend/**pycache**/, frontend/node_modules/, .pytest_cache/:** Generated runtime/dependency/test caches. Not implementation source and not committed.
 
-- Purpose: Generated CSS custom properties for v2 themes.
-- Generated: Yes, from `frontend/src/v2/tokens/index.ts`.
-- Committed: Yes.
+**romm_mock/:** Repository fixture library and owned-resource fixtures for development/tests, not the production library.
 
-**`backend/alembic/versions/`:**
-
-- Purpose: Immutable ordered schema history.
-- Generated: Initial skeleton may be generated, but every revision requires manual review.
-- Committed: Yes.
-
-**`backend/handler/metadata/fixtures/`:**
-
-- Purpose: Static provider/platform indexes used during matching.
-- Generated: Some fixture data is maintained or refreshed by project tooling.
-- Committed: Yes.
-
-**`backend/romm_test/`:**
-
-- Purpose: Mock library and database bootstrap assets for backend tests/development.
-- Generated: No.
-- Committed: Yes.
-
-**`frontend/src/locales/`:**
-
-- Purpose: Per-locale, per-feature translation dictionaries and parity validators.
-- Generated: No.
-- Committed: Yes.
-
-**`.planning/codebase/`:**
-
-- Purpose: GSD codebase reference documents.
-- Generated: Yes, by mapping workflows.
-- Committed: Workflow-dependent.
+**.planning/:** GSD project state, phase plans, reports and codebase references. Mapper documents under .planning/codebase/ feed planning and execution.
 
 ---
 
-_Structure analysis: 2026-08-04_
+_Structure analysis: 2026-10-15_
