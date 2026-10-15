@@ -68,8 +68,8 @@ jobs:
         uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
         with:
           images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
+            name=d1skanime/pc-game-download-portal
+            name=ghcr.io/d1skanime/pc-game-download-portal
           flavor: |
             latest=auto
             suffix=-slim,onlatest=true
@@ -88,8 +88,8 @@ jobs:
         uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
         with:
           images: |
-            name=rommapp/romm
-            name=ghcr.io/rommapp/romm
+            name=d1skanime/pc-game-download-portal
+            name=ghcr.io/d1skanime/pc-game-download-portal
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}

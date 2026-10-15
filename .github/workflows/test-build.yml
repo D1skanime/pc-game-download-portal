@@ -92,8 +92,8 @@ jobs:
         uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
         with:
           images: |
-            ${{ env.USE_GHCR == 'true' && format('name=ghcr.io/{0}/romm-testing', github.repository_owner) || '' }}
-            ${{ env.USE_DOCKERHUB == 'true' && format('name={0}/romm-testing', env.DOCKERHUB_NAMESPACE) || '' }}
+            ${{ env.USE_GHCR == 'true' && format('name=ghcr.io/{0}/pc-game-download-portal-testing', github.repository_owner) || '' }}
+            ${{ env.USE_DOCKERHUB == 'true' && format('name={0}/pc-game-download-portal-testing', env.DOCKERHUB_NAMESPACE) || '' }}
           tags: |
             type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
 
@@ -125,5 +125,5 @@ jobs:
               comment_id: ${{ steps.build-comment.outputs.comment-id }},
               owner: owner,
               repo: context.repo.repo,
-              body: `✅ Preview build completed!\n\nDocker image: \`ghcr.io/${owner}/romm-testing:${tag}\``
+              body: `✅ Preview build completed!\n\nDocker image: \`ghcr.io/${owner}/pc-game-download-portal-testing:${tag}\``
             })
