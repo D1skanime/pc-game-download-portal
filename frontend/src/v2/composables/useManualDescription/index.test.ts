@@ -88,10 +88,17 @@ describe("resolveManualDescription", () => {
       resolveManualDescription({
         manualMetadata: { descriptions: {} },
         steamMetadata: {
-          text_variants: { en: { summary: "Steam English" } },
+          text_variants: {
+            en: { source_language: "english", summary: "Steam English" },
+          },
         },
         ssMetadata: {
-          text_variants: { fr: { summary: "ScreenScraper français" } },
+          text_variants: {
+            fr: {
+              source_language: "french",
+              summary: "ScreenScraper français",
+            },
+          },
         },
         legacySummary: "Legacy summary",
         locale: "fr-FR",
