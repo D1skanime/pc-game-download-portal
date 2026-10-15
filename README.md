@@ -1,6 +1,6 @@
-# RomM PC Library Edition
+# PC Game Download Portal
 
-Ein RomM-Fork zur Verwaltung einer bestehenden PC-Spielebibliothek, ohne Quelldateien oder Ordner umzustrukturieren oder zu verändern.
+PGDP ist eine eigenständige Edition zur Verwaltung einer bestehenden PC-Spielebibliothek, ohne Quelldateien oder Ordner umzustrukturieren oder zu verändern.
 
 Diese Edition verbindet die bekannte ROM-Bibliotheksverwaltung mit einem schreibgeschützten PC-Bibliotheksworkflow, eigenen PC-Spielkomponenten, Metadaten-gestützter DLC-Zuordnung, Medienverwaltung, verifizierten Browser-Downloads und einer reproduzierbaren Docker-Bereitstellung für NAS-Systeme.
 
@@ -78,14 +78,14 @@ Der Git-Stack baut das ausgecheckte Repository mit docker/Dockerfile. Damit enth
 
 | Variable              | Zweck                                                    |
 | --------------------- | -------------------------------------------------------- |
-| ROMM_LIBRARY_PATH     | Bestehende ROM- und PC-Bibliothek, read-only eingebunden |
-| ROMM_ASSETS_PATH      | Schreibbares Verzeichnis für Assets, Saves und States    |
-| ROMM_CONFIG_PATH      | Schreibbares Konfigurationsverzeichnis                   |
-| ROMM_DB_PASSWORD      | Passwort des MariaDB-Anwendungsbenutzers                 |
-| ROMM_DB_ROOT_PASSWORD | Separates MariaDB-root-Passwort                          |
-| ROMM_AUTH_SECRET_KEY  | Langer zufälliger Authentifizierungsschlüssel            |
-| ROMM_HTTP_PORT        | Auf den Container gemappter NAS-Port                     |
-| TZ                    | Zeitzone des Containers                                  |
+| PGDP_LIBRARY_PATH     | Bestehende ROM- und PC-Bibliothek, read-only eingebunden |
+| PGDP_ASSETS_PATH      | Schreibbares Verzeichnis für Assets, Saves und States    |
+| PGDP_CONFIG_PATH      | Schreibbares Konfigurationsverzeichnis                   |
+| PGDP_DB_PASSWORD      | Passwort des MariaDB-Anwendungsbenutzers                 |
+| PGDP_DB_ROOT_PASSWORD | Separates MariaDB-root-Passwort                          |
+| PGDP_AUTH_SECRET_KEY  | Langer zufälliger Authentifizierungsschlüssel            |
+| PGDP_HTTP_PORT        | Auf den Container gemappter NAS-Port                     |
+| PGDP_TZ               | Zeitzone des Containers                                  |
 
 Erzeuge eindeutige Secrets, zum Beispiel:
 
@@ -115,7 +115,7 @@ Binde die NAS-Bibliothek nicht über /romm/resources oder /romm/assets ein. Dies
 
 ### Erster Start und Updates
 
-Warte, bis romm und romm-db als healthy angezeigt werden. Öffne den konfigurierten HTTP-Port und schliesse die Erstanmeldung ab. Der normale Start übernimmt Umgebungsvorbereitung, Migrationen und Healthchecks automatisch.
+Warte, bis pgdp und pgdp-db als healthy angezeigt werden. Öffne den konfigurierten HTTP-Port und schliesse die Erstanmeldung ab. Der normale Start übernimmt Umgebungsvorbereitung, Migrationen und Healthchecks automatisch.
 
 Für ein Update wählst du in Portainer die gewünschte main-Revision und deployest den Git-Stack erneut. Behalte Datenbank- und Ressourcen-Volumes. Sichere die Datenbank vor grösseren Updates. Ersetze niemals die Spielebibliothek durch einen Git-Checkout.
 
@@ -152,7 +152,7 @@ Der produktionsähnliche Portainer-Stack ist vom Entwicklungs-Compose getrennt. 
 ## Fehlerbehebung
 
 - Bei einer fehlenden erforderlichen Variable: Prüfe Variablennamen und Platzhalter, ohne Secrets in Logs oder Screenshots offenzulegen.
-- Bei einem fehlerhaften romm-db-Healthcheck: Prüfe Datenbankpasswörter und das persistente Volume.
+- Bei einem fehlerhaften pgdp-db-Healthcheck: Prüfe Datenbankpasswörter und das persistente Volume.
 - Bei leerer Bibliothek: Prüfe, ob der Pfad auf dem NAS-Host existiert und für Docker sichtbar ist, nicht nur auf einer Arbeitsplatzmaschine.
 - Bei nicht verfügbarer Metadatensuche: Prüfe die Zugangsdaten des ausgewählten Anbieters. Die Basisinstallation bleibt ohne Metadatenanbieter verwendbar.
 - Wenn ein Update unverändert aussieht: Prüfe, ob Portainer die gewünschte Revision ausgecheckt und den Anwendungscontainer neu gebaut hat.

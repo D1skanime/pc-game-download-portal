@@ -31,9 +31,9 @@ jobs:
         ports:
           - 3306
         env:
-          MYSQL_USER: romm_e2e
+          MYSQL_USER: pgdp_e2e
           MYSQL_PASSWORD: passwd
-          MYSQL_DATABASE: romm_e2e
+          MYSQL_DATABASE: pgdp_e2e
           MYSQL_ROOT_PASSWORD: passwd
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
       valkey:
@@ -46,8 +46,8 @@ jobs:
     env:
       DEV_PORT: 5000
       DB_HOST: 127.0.0.1
-      DB_NAME: romm_e2e
-      DB_USER: romm_e2e
+      DB_NAME: pgdp_e2e
+      DB_USER: pgdp_e2e
       DB_PASSWD: passwd
       ROMM_DB_DRIVER: mariadb
       REDIS_HOST: 127.0.0.1

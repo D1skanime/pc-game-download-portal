@@ -1238,6 +1238,7 @@ const reviewedMutationRoutes = [
   /^\/screenshots(?:\/|$)/,
   /^\/states(?:\/|$)/,
   /^\/storage\/mappings(?:\/|$)/,
+  /^\/storage\/legacy\/bootstrap$/,
   /^\/streaming\/sessions(?:\/|$)/,
   /^\/tasks\/run\/\{[^}]+\}$/,
   /^\/users(?:\/|$)/,
@@ -1350,6 +1351,18 @@ function finalAuthority(call: RawCall, source: string): Authority {
       ...call,
       operation: "READ(external)+PATCH",
       storageClass: "assets",
+      forbidden: false,
+    };
+  }
+  if (
+    /^\/roms\/\{[^}]+\}\/pc-components\/\{[^}]+\}\/media\/\{[^}]+\}\/placement$/.test(
+      call.route,
+    )
+  ) {
+    return {
+      ...call,
+      operation: call.method === "DELETE" ? "DELETE" : "WRITE",
+      storageClass: "resources",
       forbidden: false,
     };
   }

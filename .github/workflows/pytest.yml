@@ -28,9 +28,9 @@ jobs:
         ports:
           - 3306
         env:
-          MYSQL_USER: romm_test
+          MYSQL_USER: pgdp_test
           MYSQL_PASSWORD: passwd
-          MYSQL_DATABASE: romm_test
+          MYSQL_DATABASE: pgdp_test
           MYSQL_ROOT_PASSWORD: passwd
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
       postgresql:
@@ -38,9 +38,9 @@ jobs:
         ports:
           - 5432
         env:
-          POSTGRES_USER: romm_test
+          POSTGRES_USER: pgdp_test
           POSTGRES_PASSWORD: passwd
-          POSTGRES_DB: romm_test
+          POSTGRES_DB: pgdp_test
         options: --health-cmd="pg_isready" --health-interval=5s --health-timeout=2s --health-retries=3
       valkey:
         image: valkey/valkey:7.2
@@ -71,11 +71,11 @@ jobs:
       - name: Initiate MariaDB database
         if: matrix.db == 'mariadb'
         run: |
-          # Grant on the `romm_test%` namespace so the test user can create the
-          # per-worker databases (romm_test_gw0, ...) used under pytest-xdist,
+          # Grant on the `pgdp_test%` namespace so the test user can create the
+          # per-worker databases (pgdp_test_gw0, ...) used under pytest-xdist,
           # without granting it global privileges. The backticks are escaped so
           # the shell doesn't treat them as command substitution.
-          mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON \`romm\_test%\`.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+          mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON \`pgdp\_test%\`.* TO 'pgdp_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
 
       - name: Run python tests
         env:

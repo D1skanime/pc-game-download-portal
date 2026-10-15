@@ -79,8 +79,8 @@ jobs:
             type=semver,pattern={{major}}
           labels: |
             org.opencontainers.image.version={{version}}-slim
-            org.opencontainers.image.title="rommapp/romm"
-            org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
+            org.opencontainers.image.title="PGDP"
+            org.opencontainers.image.description="PC Game Download Portal provides a self-hosted library and download portal for PC games with metadata, media, and managed downloads."
             org.opencontainers.image.licenses="AGPLv3"
 
       - name: Generate Docker metadata (full)
@@ -96,8 +96,8 @@ jobs:
             type=semver,pattern={{major}}
           labels: |
             org.opencontainers.image.version={{version}}
-            org.opencontainers.image.title="rommapp/romm"
-            org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
+            org.opencontainers.image.title="PGDP"
+            org.opencontainers.image.description="PC Game Download Portal provides a self-hosted library and download portal for PC games with metadata, media, and managed downloads."
             org.opencontainers.image.licenses="AGPLv3"
 
       - name: Set version

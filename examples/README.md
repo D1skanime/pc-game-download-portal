@@ -17,7 +17,7 @@ source game library readable by the Docker daemon but mounted read-only in the
 container.
 
 The stack builds the checked-out Git fork with docker/Dockerfile. The
-ROMM_IMAGE value is the tag for that build. Change it only when intentionally
+PGDP_IMAGE value is the tag for that build. Change it only when intentionally
 using a compatible prebuilt image. Optional provider credentials may remain
 blank.
 

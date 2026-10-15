@@ -1,4 +1,5 @@
 {
+  "account-exists": "The administrator already exists. Please sign in.",
   "admin-can-configure": "Конфигуриране на източници на метаданни, интеграции и сървърни настройки.",
   "admin-can-manage-library": "Управление на библиотеката: добавяне на платформи, сканиране на ROM-ове, редактиране на метаданни.",
   "admin-can-manage-users": "Създаване и управление на други потребителски акаунти и техните разрешения.",

@@ -1,4 +1,5 @@
 {
+  "account-exists": "The administrator already exists. Please sign in.",
   "admin-can-configure": "메타데이터 소스, 통합 및 서버 설정을 구성합니다.",
   "admin-can-manage-library": "라이브러리 관리: 플랫폼 추가, ROM 스캔, 메타데이터 편집.",
   "admin-can-manage-users": "다른 사용자 계정과 권한을 생성하고 관리합니다.",

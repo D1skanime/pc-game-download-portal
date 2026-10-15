@@ -1,4 +1,5 @@
 {
+  "account-exists": "The administrator already exists. Please sign in.",
   "admin-can-configure": "配置元数据来源、集成和服务器设置。",
   "admin-can-manage-library": "管理游戏库：添加平台、扫描 ROM、编辑元数据。",
   "admin-can-manage-users": "创建并管理其他用户账户及其权限。",

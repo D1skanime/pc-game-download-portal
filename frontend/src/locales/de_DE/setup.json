@@ -1,4 +1,5 @@
 {
+  "account-exists": "Der Administrator existiert bereits. Bitte melde dich an.",
   "admin-can-configure": "Metadaten-Quellen, Integrationen und Servereinstellungen konfigurieren.",
   "admin-can-manage-library": "Bibliothek verwalten: Plattformen hinzufügen, ROMs scannen, Metadaten bearbeiten.",
   "admin-can-manage-users": "Andere Benutzerkonten und deren Berechtigungen erstellen und verwalten.",
@@ -96,6 +97,5 @@
   "supported-platforms": "Verfügbare Plattformen",
   "supported-platforms-lead": "Wähle, welche Plattformen RomM verwalten soll. Erkannte Plattformen sind festgelegt; wähle weitere, um deren Ordner zu erstellen.",
   "unidentified": "Nicht identifiziert",
-  "unidentified-platforms-hint": "Ordner, die RomM keiner bekannten Plattform zuordnen konnte. Sie bleiben unverändert.",
-  "account-exists": "Der Administrator existiert bereits. Bitte melde dich an."
+  "unidentified-platforms-hint": "Ordner, die RomM keiner bekannten Plattform zuordnen konnte. Sie bleiben unverändert."
 }

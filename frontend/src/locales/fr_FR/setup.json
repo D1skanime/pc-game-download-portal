@@ -1,4 +1,5 @@
 {
+  "account-exists": "Lu2019administrateur existe du00e9ju00e0. Veuillez vous connecter.",
   "admin-can-configure": "Configurer les sources de métadonnées, les intégrations et les paramètres du serveur.",
   "admin-can-manage-library": "Gérer la bibliothèque : ajouter des plateformes, analyser les ROMs, modifier les métadonnées.",
   "admin-can-manage-users": "Créer et gérer les autres comptes utilisateurs et leurs permissions.",

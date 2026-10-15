@@ -1,4 +1,5 @@
 {
+  "account-exists": "The administrator already exists. Please sign in.",
   "admin-can-configure": "Configurar fontes de metadados, integrações e ajustes do servidor.",
   "admin-can-manage-library": "Gerenciar a biblioteca: adicionar plataformas, varrer ROMs, editar metadados.",
   "admin-can-manage-users": "Criar e gerenciar outras contas de usuário e suas permissões.",

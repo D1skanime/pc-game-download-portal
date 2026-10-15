@@ -1,4 +1,5 @@
 {
+  "account-exists": "The administrator already exists. Please sign in.",
   "admin-can-configure": "Configurează surse de metadate, integrări și setări de server.",
   "admin-can-manage-library": "Administrează biblioteca: adaugă platforme, scanează ROM-uri, editează metadate.",
   "admin-can-manage-users": "Creează și administrează alte conturi de utilizator și permisiunile lor.",

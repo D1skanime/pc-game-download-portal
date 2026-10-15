@@ -13,8 +13,8 @@ dafür nicht vorgesehen.
 
 Der Stack besteht aus zwei Diensten:
 
-- romm: Weboberfläche, API, Scan- und Download-Funktionen.
-- romm-db: MariaDB für Katalog, Benutzer, Einstellungen und Metadaten.
+- pgdp: Weboberfläche, API, Scan- und Download-Funktionen.
+- pgdp-db: MariaDB für Katalog, Benutzer, Einstellungen und Metadaten.
 
 Zusätzlich werden Docker-Volumes und drei konfigurierbare NAS-Verzeichnisse
 verwendet:
@@ -24,7 +24,7 @@ verwendet:
 | Spielebibliothek | /romm/library   | Bestehende Spiele, immer read-only            |
 | Assets           | /romm/assets    | Schreibbare Uploads, Saves, States und Assets |
 | Konfiguration    | /romm/config    | Schreibbare Anwendungs-Konfiguration          |
-| RomM-Ressourcen  | /romm/resources | Docker-verwaltete RomM-Ressourcen             |
+| PGDP-Ressourcen  | /romm/resources | Docker-verwaltete PGDP-Ressourcen             |
 | Redis/Valkey     | /redis-data     | Laufzeit- und Cache-Daten                     |
 | MariaDB          | /var/lib/mysql  | Dauerhafte Katalogdaten                       |
 
@@ -78,9 +78,9 @@ Konfiguration an.
 Verwende absolute Pfade, die der Docker-Dienst lesen beziehungsweise
 beschreiben kann, zum Beispiel:
 
-    /srv/romm/library
-    /srv/romm/assets
-    /srv/romm/config
+    /srv/pgdp/library
+    /srv/pgdp/assets
+    /srv/pgdp/config
 
 Auch diese Werte sind nur Beispiele. Prüfe vor dem Deployment mit ls -ld,
 ob die Pfade existieren und die Berechtigungen passen.
@@ -108,7 +108,7 @@ Spielebibliothek niemals in das Git-Checkout und mounte sie nicht über
 8. Prüfe vor dem Deploy, dass die Spielebibliothek read-only gemountet wird.
 9. Klicke auf Deploy the stack.
 
-### Build, image und ROMM_IMAGE
+### Build, image und PGDP_IMAGE
 
 Der Stack hat sowohl build als auch image:
 
@@ -116,9 +116,9 @@ Der Stack hat sowohl build als auch image:
 - dockerfile: docker/Dockerfile ist die produktive Build-Datei.
 - target: full-image wählt das vollständige Produktions-Image.
 - image ist der lokale Tag, den Docker dem gebauten Image gibt.
-- ROMM_IMAGE ist standardmässig pc-game-download-portal:portainer.
+- PGDP_IMAGE ist standardmässig pc-game-download-portal:portainer.
 
-Der Standardpfad baut also den ausgecheckten Fork aus Git. ROMM_IMAGE ist
+Der Standardpfad baut also den ausgecheckten Fork aus Git. PGDP_IMAGE ist
 kein Ersatz für den Git-Checkout. Überschreibe den Wert nur, wenn du bewusst
 ein kompatibles, bereits gebautes Image verwendest und dessen Herkunft,
 Version und Funktionsvertrag geprüft hast. Trage niemals versehentlich ein
@@ -128,52 +128,52 @@ offizielles RomM-Image ein, wenn du den Fork installieren möchtest.
 
 ### Allgemeine Anwendungseinstellungen
 
-- COMPOSE_PROJECT_NAME: Name des Compose-Projekts. Standard ist romm.
-- ROMM_CONTAINER_NAME: Containername der Anwendung.
-- ROMM_DB_CONTAINER_NAME: Containername der Datenbank.
-- TZ: Zeitzone des Containers, normalerweise UTC.
-- ROMM_IMAGE: Tag des gebauten Fork-Images. Der dokumentierte Standard ist
+- PGDP_PROJECT_NAME: Name des Compose-Projekts. Standard ist pgdp.
+- PGDP_CONTAINER_NAME: Containername der Anwendung.
+- PGDP_DB_CONTAINER_NAME: Containername der Datenbank.
+- PGDP_TZ: Zeitzone des Containers, normalerweise UTC.
+- PGDP_IMAGE: Tag des gebauten Fork-Images. Der dokumentierte Standard ist
   pc-game-download-portal:portainer.
 
 ### Netzwerk
 
-- ROMM_HTTP_PORT: Host-Port. Der Container hört intern immer auf Port 8080.
+- PGDP_HTTP_PORT: Host-Port. Der Container hört intern immer auf Port 8080.
   Wenn 8080 auf dem NAS belegt ist, kann beispielsweise 8180 verwendet
   werden. Danach öffnest du http://<NAS-IP>:8180.
 
 ### NAS-Verzeichnisse
 
-- ROMM_LIBRARY_PATH: vorhandene Spielebibliothek. Erforderlich und
+- PGDP_LIBRARY_PATH: vorhandene Spielebibliothek. Erforderlich und
   read-only eingebunden.
-- ROMM_ASSETS_PATH: erforderliches, beschreibbares Verzeichnis für Assets,
+- PGDP_ASSETS_PATH: erforderliches, beschreibbares Verzeichnis für Assets,
   Saves, States und weitere verwaltete Dateien.
-- ROMM_CONFIG_PATH: erforderliches, beschreibbares Verzeichnis für die
+- PGDP_CONFIG_PATH: erforderliches, beschreibbares Verzeichnis für die
   Konfiguration.
 
 Synology-Beispiele:
 
-    ROMM_LIBRARY_PATH=/volume1/Games
-    ROMM_ASSETS_PATH=/volume1/docker/pc-downloadportal/assets
-    ROMM_CONFIG_PATH=/volume1/docker/pc-downloadportal/config
+    PGDP_LIBRARY_PATH=/volume1/Games
+    PGDP_ASSETS_PATH=/volume1/docker/pc-downloadportal/assets
+    PGDP_CONFIG_PATH=/volume1/docker/pc-downloadportal/config
 
 Diese Werte sind Beispiele. Bei einem falschen Host-Pfad startet der Stack
 möglicherweise nicht oder die Bibliothek bleibt leer.
 
 ### Datenbank und Sicherheit
 
-- ROMM_DB_NAME: MariaDB-Datenbankname.
-- ROMM_DB_USER: MariaDB-Anwendungsbenutzer.
-- ROMM_DB_PASSWORD: erforderliches Passwort für RomM.
-- ROMM_DB_ROOT_PASSWORD: erforderliches, anderes Passwort für MariaDB root.
-- ROMM_AUTH_SECRET_KEY: erforderlicher geheimer Schlüssel für die
+- PGDP_DB_NAME: MariaDB-Datenbankname.
+- PGDP_DB_USER: MariaDB-Anwendungsbenutzer.
+- PGDP_DB_PASSWORD: erforderliches Passwort für RomM.
+- PGDP_DB_ROOT_PASSWORD: erforderliches, anderes Passwort für MariaDB root.
+- PGDP_AUTH_SECRET_KEY: erforderlicher geheimer Schlüssel für die
   Authentifizierung.
 
 Generiere sichere Werte beispielsweise mit:
 
     openssl rand -hex 32
 
-Verwende für ROMM_DB_PASSWORD, ROMM_DB_ROOT_PASSWORD und
-ROMM_AUTH_SECRET_KEY separate Werte. Schreibe echte Werte nur in Portainer
+Verwende für PGDP_DB_PASSWORD, PGDP_DB_ROOT_PASSWORD und
+PGDP_AUTH_SECRET_KEY separate Werte. Schreibe echte Werte nur in Portainer
 oder in einen dafür vorgesehenen Secret-Store. Committe keine ausgefüllte
 ENV-Datei.
 
@@ -204,7 +204,7 @@ beiden persönlichen ScreenScraper-Werte:
 
 Die offiziellen RomM-Images enthalten die Developer-Daten der Anwendung
 bereits beim Build. Benutzer müssen diese Werte nicht selbst beantragen und
-sehen sie nicht in der RomM-Oberfläche.
+sehen sie nicht in der PGDP-Oberfläche.
 
 Dieser Git-/Portainer-Stack baut jedoch dieses Repository selbst aus dem
 Quellcode. Für diesen Source-Build müssen zusätzlich die Build-Secrets
@@ -221,7 +221,7 @@ Build jedoch mit HTTP 403 ablehnen.
 
 #### SteamGridDB-API-Key besorgen
 
-SteamGridDB liefert zusätzliche Cover- und Artwork-Varianten. Für RomM
+SteamGridDB liefert zusätzliche Cover- und Artwork-Varianten. Für PGDP
 brauchst du den persönlichen API-Key, nicht eine Steam-Login-ID:
 
 1. Erstelle ein Konto auf [SteamGridDB](https://www.steamgriddb.com/) und
@@ -240,7 +240,7 @@ Kontoseite und kopiere keinen Schlüssel aus fremden Beispielen.
 #### IGDB-Zugang über Twitch einrichten
 
 IGDB stellt die Spiele-Metadaten bereit. Der Zugang wird über ein Twitch-
-Entwicklerkonto eingerichtet; RomM benötigt die beiden Werte
+Entwicklerkonto eingerichtet; PGDP benötigt die beiden Werte
 IGDB_CLIENT_ID und IGDB_CLIENT_SECRET:
 
 1. Erstelle oder verwende ein Twitch-Konto.
@@ -265,7 +265,7 @@ IGDB_CLIENT_ID und IGDB_CLIENT_SECRET:
 
 Die [offizielle IGDB-API-Dokumentation](https://api-docs.igdb.com/) beschreibt
 diesen Twitch-OAuth-Weg. Ein IGDB-Login allein erzeugt keine API-Zugangsdaten.
-Erstelle keine Access-Tokens von Hand in der ENV-Datei: RomM verwendet Client
+Erstelle keine Access-Tokens von Hand in der ENV-Datei: PGDP verwendet Client
 ID und Secret und erneuert den kurzlebigen Zugriff intern.
 
 #### Anbieter testen und Fehler eingrenzen
@@ -287,8 +287,8 @@ dass die Spielebibliothek oder der Login defekt ist.
 
 ## 6. Erster Start
 
-1. Warte, bis romm-db den Healthcheck bestanden hat.
-2. Warte danach, bis auch romm als healthy angezeigt wird.
+1. Warte, bis pgdp-db den Healthcheck bestanden hat.
+2. Warte danach, bis auch pgdp als healthy angezeigt wird.
 3. Öffne den konfigurierten Host-Port im Browser.
 4. Lege den ersten Benutzer an oder melde dich mit dem vorgesehenen
    Administratorkonto an.
@@ -301,9 +301,9 @@ Der produktive Entrypoint übernimmt die normale Umgebungsvorbereitung und die
 Migrationen. Eine manuelle Datenbankmigration ist für einen normalen ersten
 Start nicht nötig.
 
-Wenn romm-db unhealthy bleibt, prüfe zuerst, ob ROMM_DB_PASSWORD in
-Anwendung und MariaDB identisch ist und ob ROMM_DB_ROOT_PASSWORD gesetzt ist.
-Wenn RomM nicht startet, prüfe die erforderlichen Variablen und die
+Wenn pgdp-db unhealthy bleibt, prüfe zuerst, ob PGDP_DB_PASSWORD in
+Anwendung und MariaDB identisch ist und ob PGDP_DB_ROOT_PASSWORD gesetzt ist.
+Wenn PGDP nicht startet, prüfe die erforderlichen Variablen und die
 Schreibrechte für Assets und Konfiguration.
 
 ## 7. Funktionstest
@@ -328,11 +328,11 @@ Berechtigungen prüfen.
 
 Für ein Update:
 
-1. Erstelle zuerst ein Backup von MariaDB und den RomM-Ressourcen.
+1. Erstelle zuerst ein Backup von MariaDB und den PGDP-Ressourcen.
 2. Wähle in Portainer die gewünschte Revision oder den gewünschten Tag des
    Git-Repositories.
 3. Ziehe die neue Revision und redeploye den Stack.
-4. Behalte romm_mysql_data, romm_resources und die Host-Verzeichnisse.
+4. Behalte pgdp_mysql_data, pgdp_resources und die Host-Verzeichnisse.
 5. Prüfe danach die Healthchecks und führe einen kurzen Funktionstest aus.
 
 Die Spielebibliothek wird nicht durch Git ersetzt und darf nicht als Teil eines
@@ -342,13 +342,13 @@ Updates gelöscht oder neu kopiert werden.
 
 Sichere mindestens:
 
-- das Docker-Volume romm_mysql_data;
-- das Docker-Volume romm_resources;
-- ROMM_ASSETS_PATH;
-- ROMM_CONFIG_PATH;
+- das Docker-Volume pgdp_mysql_data;
+- das Docker-Volume pgdp_resources;
+- PGDP_ASSETS_PATH;
+- PGDP_CONFIG_PATH;
 - die Portainer-Stack-Variablen und Secrets über einen sicheren Secret-Store.
 
-Die read-only Spielebibliothek muss nicht als Teil des RomM-Stack-Backups
+Die read-only Spielebibliothek muss nicht als Teil des PGDP-Stack-Backups
 kopiert werden, sollte aber nach deiner eigenen NAS-Backup-Strategie geschützt
 sein.
 
@@ -371,7 +371,7 @@ Bei einem fehlerhaften Update:
   Container-Unterordner zeigt und die Bibliothek nicht schreibbar erwartet
   wird.
 - Assets oder Saves können nicht geschrieben werden: Prüfe Besitzer und
-  Schreibrechte von ROMM_ASSETS_PATH.
+  Schreibrechte von PGDP_ASSETS_PATH.
 - Datenbank unhealthy: Prüfe beide Datenbankpasswörter und den dauerhaften
   MariaDB-Volume.
 - Metadaten oder Cover fehlen: Prüfe nur die Zugangsdaten des betreffenden

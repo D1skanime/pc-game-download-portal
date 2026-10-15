@@ -13,7 +13,7 @@ export interface DescriptionResolutionInput {
   ssMetadata?: {
     text_variants?: Record<
       string,
-      { summary?: string | null } | undefined
+      { source_language?: string | null; summary?: string | null } | undefined
     > | null;
   } | null;
   legacySummary: string | null | undefined;
@@ -109,7 +109,7 @@ function normalizedSummary(value: unknown): string | null {
 type ProviderMetadata = {
   text_variants?: Record<
     string,
-    { summary?: string | null } | undefined
+    { source_language?: string | null; summary?: string | null } | undefined
   > | null;
 };
 
