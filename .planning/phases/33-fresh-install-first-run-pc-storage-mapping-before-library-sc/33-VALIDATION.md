@@ -107,39 +107,49 @@ Every entry in both arrays requires id, status, command, exit_code, artifacts, a
 Run the structured validator from the canonical checkout:
 
 ~~~bash
-python3 - .planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-UAT.md "$EVIDENCE_DIR" "$UAT_ROOT" <<'PY'
-import json, pathlib, sys
-text = pathlib.Path(sys.argv[1]).read_text()
-evidence = pathlib.Path(sys.argv[2]).resolve()
-uat_root = pathlib.Path(sys.argv[3]).resolve()
+python3 - .planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-UAT.md <<'PY'
+import json, os, pathlib, re, shutil, sys
+uat = pathlib.Path(sys.argv[1])
+text = uat.read_text()
 start = "<!-- phase33-evidence-manifest:start -->"
 end = "<!-- phase33-evidence-manifest:end -->"
 if text.count(start) != 1 or text.count(end) != 1:
     raise SystemExit("missing or duplicate structured evidence markers")
 data = json.loads(text.split(start, 1)[1].split(end, 1)[0].strip())
-required_gates = {"auto-naming", "auto-frontend", "auto-backend", "auto-repository"}
-required_scenarios = {"fresh-ordering", "exact-games-pc", "reload-persistence", "readonly-source", "theme-dark", "theme-light", "layout-desktop", "layout-narrow", "input-mouse", "input-touch", "input-keyboard", "input-gamepad", "cleanup"}
+state = json.loads(pathlib.Path(data["state_file"]).read_text())
+evidence = pathlib.Path(state["EVIDENCE_DIR"]).resolve()
+uat_root = pathlib.Path(state["UAT_ROOT"]).resolve()
+if not re.fullmatch(r"/tmp/pgdp-phase33-browser\.[A-Za-z0-9]{6}", str(uat_root)) or not uat_root.is_dir():
+    raise SystemExit("refusing cleanup: UAT_ROOT is not an expected disposable directory")
+repo = pathlib.Path.cwd().resolve()
+if uat_root == repo or repo in uat_root.parents or uat_root in evidence.parents or evidence in uat_root.parents:
+    raise SystemExit("refusing cleanup: UAT_ROOT is not distinct from repo/evidence")
+if os.stat(uat_root).st_uid != os.getuid() or not re.fullmatch(r"pgdp-phase33-[0-9]+-[0-9]+", state["COMPOSE_PROJECT_NAME"]) or state["COMPOSE_PROJECT_NAME"] not in evidence.name:
+    raise SystemExit("refusing cleanup: ownership or expected project identity failed")
+gates = {"auto-naming", "auto-frontend", "auto-backend", "auto-repository"}
+scenarios = {"fresh-ordering", "exact-games-pc", "reload-persistence", "readonly-source", "theme-dark", "theme-light", "layout-desktop", "layout-narrow", "input-mouse", "input-touch", "input-keyboard", "input-gamepad", "cleanup"}
+media = {"theme-dark", "theme-light", "layout-desktop", "layout-narrow", "input-mouse", "input-touch", "input-keyboard", "input-gamepad"}
 def check(entries, required, label):
     if not isinstance(entries, list) or len(entries) != len(required) or {e.get("id") for e in entries} != required:
         raise SystemExit(label + " IDs are missing, duplicated, or unexpected")
     for e in entries:
-        if e.get("status") not in {"PASS", "BLOCKED"} or not isinstance(e.get("command"), str) or not e["command"].strip():
-            raise SystemExit(e.get("id", label) + ": missing executed command or invalid status")
-        artifacts = e.get("artifacts")
-        if not isinstance(artifacts, list):
-            raise SystemExit(e["id"] + ": artifacts must be an array")
-        for raw in artifacts:
-            path = pathlib.Path(raw).resolve()
-            if evidence not in path.parents or uat_root in path.parents or not path.is_file():
-                raise SystemExit(e["id"] + ": artifact is not a retained existing file")
-        if e["status"] == "PASS" and (e.get("exit_code") != 0 or not artifacts or not e.get("result")):
-            raise SystemExit(e["id"] + ": PASS requires exit_code 0, artifacts, and result")
-        if e["status"] == "BLOCKED" and not isinstance(e.get("blocked_reason"), str):
-            raise SystemExit(e["id"] + ": BLOCKED requires blocked_reason")
-check(data.get("automated_gates"), required_gates, "automated gate")
-check(data.get("scenarios"), required_scenarios, "browser scenario")
-print("structured Phase 33 UAT evidence: PASS")
+        if e.get("status") not in {"PASS", "BLOCKED"} or not e.get("command", "").strip():
+            raise SystemExit(e.get("id", label) + ": missing command/status")
+        paths = [pathlib.Path(x).resolve() for x in e.get("artifacts", [])]
+        if e["status"] == "PASS" and (e.get("exit_code") != 0 or not paths or not e.get("result")):
+            raise SystemExit(e["id"] + ": PASS requires exit_code, result, and artifacts")
+        if e["status"] == "BLOCKED" and not e.get("blocked_reason", "").strip():
+            raise SystemExit(e["id"] + ": BLOCKED requires reason")
+        for path in paths:
+            if evidence not in path.parents or uat_root in path.parents or "/uat/" in str(path) or not path.is_file():
+                raise SystemExit(e["id"] + ": artifact is not retained")
+        if e["status"] == "PASS" and e["id"] in media:
+            suffixes = {p.suffix.lower() for p in paths}
+            if ".png" not in suffixes or not (".zip" in suffixes or ".trace" in suffixes):
+                raise SystemExit(e["id"] + ": requires scenario screenshot and trace")
+check(data["automated_gates"], gates, "automated gate")
+check(data["scenarios"], scenarios, "browser scenario")
+shutil.rmtree(uat_root)
+print("state-backed Phase 33 UAT evidence: PASS")
 PY
-test -d "$EVIDENCE_DIR"
-rm -rf -- "$UAT_ROOT"
 ~~~
