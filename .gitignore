@@ -71,11 +71,7 @@ switch_titledb.json
 switch_product_ids.json
 
 # AI tools
-# Keep shared agent skills tracked; ignore personal/local Claude config.
-.claude/*
-!.claude/skills/
-!.claude/hooks/
-!.claude/settings.json
+/.claude/
 
 # Local dev scripts
 /dev.sh
