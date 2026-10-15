@@ -15,6 +15,8 @@ Phase 33 proves that a fresh installation enters the existing PC/Windows mapping
 | Empty Home and Scan gates | docker compose run --rm --no-deps --entrypoint bash romm-dev -lc 'cd /app/frontend && npm run test -- src/v2/views/Home.test.ts src/v2/views/Scan.test.ts' | Plan 03 |
 | Frontend integration | docker compose run --rm --no-deps --entrypoint bash romm-dev -lc 'cd /app/frontend && npm run typecheck && npm run test' | Plan 04 |
 | Backend integration | docker compose run --rm --no-deps --entrypoint bash romm-dev -lc 'cd /app/backend && uv run pytest tests --collect-only -q && uv run pytest tests/endpoints/storage/test_legacy_bootstrap_paths.py tests/endpoints/test_storage.py tests/endpoints/sockets/test_scan.py tests/integration/test_mapped_scan.py -q' | Plan 04 |
+| Trunk format/check | trunk fmt --all --ci && trunk check | Plan 04; required gate auto-trunk |
+| Frontend production build | docker compose run --rm --no-deps --entrypoint bash romm-dev -lc 'cd /app/frontend && npm run build' | Plan 04; required gate auto-frontend-build |
 | Repository hygiene | git diff --check and scoped git status --short from the canonical checkout | Plan 04 |
 
 All project tooling runs in romm-dev. Host Node/npm/uv are not accepted substitutes. [VERIFIED: Phase 32 validation and repository package scripts]
@@ -28,21 +30,25 @@ The temporary UAT_ROOT/manifest.py helper must be created in the disposable dire
 
 ~~~bash
 set -euo pipefail
+UAT_ROOT=$(mktemp -d /tmp/pgdp-phase33-browser.XXXXXX)
+COMPOSE_PROJECT_NAME=pgdp-phase33-browser-$(date +%s)-$RANDOM
+EVIDENCE_DIR="$PWD/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/$COMPOSE_PROJECT_NAME"
+mkdir -p "$UAT_ROOT/fixture/Games/pc" "$UAT_ROOT/artifacts" "$EVIDENCE_DIR"
+: > "$UAT_ROOT/manifest.py"
+: > "$UAT_ROOT/phase33.env"
+: > "$UAT_ROOT/phase33.override.yml"
 VALIDATED_PROJECT=""
 CLEANUP_DONE=0
 cleanup() { set +e; rc=0; if [ "$CLEANUP_DONE" -eq 0 ] && [ -n "$VALIDATED_PROJECT" ] && [ "$COMPOSE_PROJECT_NAME" = "$VALIDATED_PROJECT" ]; then docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" down --volumes --remove-orphans > "$UAT_ROOT/artifacts/compose-cleanup.txt" 2>&1; rc="$?"; printf "%s\n" "$rc" > "$UAT_ROOT/artifacts/teardown-status.txt"; CLEANUP_DONE=1; fi; return "$rc"; }
 trap cleanup EXIT
-UAT_ROOT=$(mktemp -d /tmp/pgdp-phase33-browser.XXXXXX)
-COMPOSE_PROJECT_NAME=pgdp-phase33-browser-$(date +%s)-$RANDOM
-EVIDENCE_DIR="$PWD/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/$COMPOSE_PROJECT_NAME"
 pick_free_port() { for attempt in $(seq 1 20); do candidate="$(shuf -i 18080-19999 -n 1)"; if ! ss -Hln "( sport = :$candidate )" 2>/dev/null | grep -q . && ! lsof -nP -iTCP:"$candidate" -sTCP:LISTEN -t 2>/dev/null | grep -q .; then printf "%s" "$candidate"; return 0; fi; done; return 1; }
 PHASE33_HTTP_PORT="$(pick_free_port)"; PHASE33_API_PORT="$(pick_free_port)"; [ "$PHASE33_HTTP_PORT" != "$PHASE33_API_PORT" ]
 PHASE33_PORT="$PHASE33_HTTP_PORT"
-mkdir -p "$UAT_ROOT/fixture/Games/pc" "$UAT_ROOT/artifacts" "$EVIDENCE_DIR"
 printf 'phase33 synthetic pc fixture
 ' > "$UAT_ROOT/fixture/Games/pc/Phase33-Synthetic.exe"
 python3 "$UAT_ROOT/manifest.py" "$UAT_ROOT/fixture/Games" > "$UAT_ROOT/artifacts/before.json"
 docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" config > "$UAT_ROOT/artifacts/compose-config.yml"
+VALIDATED_PROJECT="$COMPOSE_PROJECT_NAME"
 docker compose -p "$COMPOSE_PROJECT_NAME" -f docker-compose.yml -f docker-compose.override.yml -f "$UAT_ROOT/phase33.override.yml" --env-file "$UAT_ROOT/phase33.env" up -d
 PHASE33_PORT="$(docker compose -p "$COMPOSE_PROJECT_NAME" port romm-dev 3000 | awk -F: '{print $NF}')"
 docker compose -p "$COMPOSE_PROJECT_NAME" ps -a > "$UAT_ROOT/artifacts/compose-ps.txt"
@@ -57,7 +63,6 @@ cmp "$UAT_ROOT/artifacts/before.json" "$UAT_ROOT/artifacts/after.json"
 CMP_EXIT="$?"
 set -e
 printf "%s\n" "$CMP_EXIT" > "$UAT_ROOT/artifacts/cmp-exit-status.txt"
-VALIDATED_PROJECT="$COMPOSE_PROJECT_NAME"
 cleanup
 cp -a "$UAT_ROOT/artifacts/." "$EVIDENCE_DIR/"
 cp "$UAT_ROOT/artifacts/playwright.xml" "$EVIDENCE_DIR/playwright-report.xml"
@@ -121,11 +126,11 @@ Task 3 inserts exactly one JSON block into 33-UAT.md:
 
 Critical browser scenarios fresh-ordering, exact-games-pc, readonly-source, and cleanup must be PASS. BLOCKED is valid only for a genuinely unavailable optional input modality (input-touch, input-keyboard, or input-gamepad) with an attempted command and reason; all ordering, mapping, persistence, readonly, cleanup, theme, layout, and Compose-isolation scenarios must PASS. Implementation failures, assertion failures, mapping/persistence failures, source mutation, and Compose isolation failures are invalid BLOCKED results and fail validation.
 
-The allowed automated gate IDs are exactly: auto-naming, auto-frontend, auto-backend, auto-repository. The allowed browser scenario IDs are exactly: fresh-ordering, exact-games-pc, reload-persistence, readonly-source, theme-dark, theme-light, layout-desktop, layout-narrow, input-mouse, input-touch, input-keyboard, input-gamepad, cleanup.
+The allowed automated gate IDs are exactly: auto-naming, auto-frontend, auto-backend, auto-repository, auto-trunk, auto-frontend-build. The allowed browser scenario IDs are exactly: fresh-ordering, exact-games-pc, reload-persistence, readonly-source, theme-dark, theme-light, layout-desktop, layout-narrow, input-mouse, input-touch, input-keyboard, input-gamepad, cleanup.
 
 Every entry in both arrays requires id, status, command, exit_code, artifacts, and result. PASS requires exit code 0, a non-empty executed command, a non-empty artifact array whose files exist under retained EVIDENCE_DIR, and a result. BLOCKED requires the attempted command and a non-empty blocked_reason; any listed artifact must also exist under retained EVIDENCE_DIR. Duplicate, missing, or extra IDs fail validation. Artifact references may not point to /uat or UAT_ROOT. Keyword presence in prose does not satisfy the gate. The wrapper uses set -euo pipefail and an EXIT trap keyed to the exact validated project; it always runs down --volumes --remove-orphans and captures teardown status. Before removing UAT_ROOT, the validator requires teardown status 0 plus empty post-down project, service, and volume artifacts, and refuses cleanup otherwise. EVIDENCE_DIR and cleanup output remain retained.
 
-The validator reads artifacts.playwright_report and artifacts.compose_volume_labels from state.json. A nonzero playwright exit is recorded as BLOCKED with the executed command and reason; collection of after-manifest, state, report, screenshots/traces, labels, cleanup, and teardown artifacts must continue.
+The validator reads artifacts.playwright_report and artifacts.compose_volume_labels from state.json. A nonzero Playwright exit never automatically becomes BLOCKED: it fails validation unless the manifest proves that only optional input-touch, input-keyboard, or input-gamepad is unavailable while all required scenarios and assertions PASS. Evidence collection still continues so failures are retained.
 
 Run the structured validator from the canonical checkout:
 
@@ -149,7 +154,7 @@ if uat_root == repo or repo in uat_root.parents or uat_root in evidence.parents 
     raise SystemExit("refusing cleanup: UAT_ROOT is not distinct from repo/evidence")
 if os.stat(uat_root).st_uid != os.getuid() or not re.fullmatch(r"pgdp-phase33-[0-9]+-[0-9]+", state["COMPOSE_PROJECT_NAME"]) or state["COMPOSE_PROJECT_NAME"] not in evidence.name:
     raise SystemExit("refusing cleanup: ownership or expected project identity failed")
-gates = {"auto-naming", "auto-frontend", "auto-backend", "auto-repository"}
+gates = {"auto-naming", "auto-frontend", "auto-backend", "auto-repository", "auto-trunk", "auto-frontend-build"}
 scenarios = {"fresh-ordering", "exact-games-pc", "reload-persistence", "readonly-source", "theme-dark", "theme-light", "layout-desktop", "layout-narrow", "input-mouse", "input-touch", "input-keyboard", "input-gamepad", "cleanup"}
 media = {"theme-dark", "theme-light", "layout-desktop", "layout-narrow", "input-mouse", "input-touch", "input-keyboard", "input-gamepad"}
 def check(entries, required, label):
@@ -174,6 +179,14 @@ def check(entries, required, label):
                 raise SystemExit(e["id"] + ": requires scenario screenshot and trace")
 check(data["automated_gates"], gates, "automated gate")
 check(data["scenarios"], scenarios, "browser scenario")
+playwright_exit = int(pathlib.Path(state["artifacts"]["playwright_exit_status"]).read_text().strip())
+if playwright_exit != 0:
+    critical = {"fresh-ordering", "exact-games-pc", "readonly-source", "cleanup", "reload-persistence", "theme-dark", "theme-light", "layout-desktop", "layout-narrow", "input-mouse"}
+    statuses = {entry["id"]: entry["status"] for entry in data["scenarios"]}
+    if any(statuses.get(item) != "PASS" for item in critical):
+        raise SystemExit("Playwright failure cannot be BLOCKED for required scenarios")
+    if not any(statuses.get(item) == "BLOCKED" for item in {"input-touch", "input-keyboard", "input-gamepad"}):
+        raise SystemExit("nonzero Playwright exit requires an explicitly unavailable optional modality")
 for key in ("compose_project_labels", "compose_volume_names", "compose_volume_labels", "cmp_exit_status", "playwright_exit_status", "teardown_status", "post_down_ps", "post_down_services", "post_down_volumes"):
     path=pathlib.Path(state["artifacts"][key]).resolve()
     if evidence not in path.parents or not path.is_file(): raise SystemExit("missing isolation artifact: "+key)
