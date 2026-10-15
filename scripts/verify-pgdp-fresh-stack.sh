@@ -79,7 +79,7 @@ cleanup() {
 	local compose_status=0
 	set +e
 	if [[ -f ${env_file} && -d ${clone_root} ]]; then
-		docker compose --project-name "${project}" --project-directory "${clone_root}" \
+		docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 			--env-file "${env_file}" -f "${clone_root}/${stack_relative}" \
 			down --volumes --remove-orphans >"${cleanup_log}" 2>&1
 		compose_status="$?"
@@ -171,7 +171,7 @@ test -z "$(docker ps -aq --filter "name=^${db_container}$")"
 
 bash "${clone_root}/scripts/verify-pgdp-naming.sh"
 bash "${clone_root}/scripts/verify-portainer-stack.sh"
-docker compose --project-name "${project}" --project-directory "${clone_root}" \
+docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" config >"${rendered_file}"
 grep -Fq "name: ${project}" "${rendered_file}"
 grep -Fq "source: ${library_path}" "${rendered_file}"
@@ -182,11 +182,11 @@ grep -Fq 'MARIADB_DATABASE: pgdp_proof' "${rendered_file}"
 ! grep -Fq '/home/d1sk/romm' "${rendered_file}"
 ! grep -E 'romm_(mysql|resources|redis)_data|romm-db-dev|Team4s|Docker/Media' "${rendered_file}"
 
-docker compose --project-name "${project}" --project-directory "${clone_root}" \
+docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" build
 image_digest="$(docker image inspect "pc-game-download-portal:${project}" --format '{{.Id}}')"
 
-docker compose --project-name "${project}" --project-directory "${clone_root}" \
+docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" create
 
 for volume_name in "${project}_pgdp_mysql_data" "${project}_pgdp_resources" "${project}_pgdp_redis_data"; do
@@ -197,7 +197,7 @@ for volume_name in "${project}_pgdp_mysql_data" "${project}_pgdp_resources" "${p
 done
 empty_volumes='passed, all generated volumes labeled for the disposable project and empty before start'
 
-docker compose --project-name "${project}" --project-directory "${clone_root}" \
+docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" start
 
 for attempt in $(seq 1 60); do
@@ -223,7 +223,7 @@ docker inspect "${db_container}" --format '{{range .Config.Env}}{{println .}}{{e
 docker inspect "${db_container}" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -Fq 'MARIADB_USER=pgdp_proof'
 docker inspect "${app_container}" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -Fq 'SCREENSCRAPER_USER='
 
-docker compose --project-name "${project}" --project-directory "${clone_root}" \
+docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" logs --no-color >"${logs_file}"
 ! grep -Fq "${db_password}" "${logs_file}"
 ! grep -Fq "${db_root_password}" "${logs_file}"
