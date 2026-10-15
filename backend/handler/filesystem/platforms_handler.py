@@ -150,7 +150,7 @@ class FSPlatformsHandler(ExternalFSHandler):
                 )
                 try:
                     has_roms_folder = await roms_path.exists()
-                except (OSError, StoragePolicyDenied):
+                except OSError:
                     log.warning(
                         f"Skipping unreadable library directory: {platform}",
                         exc_info=True,
