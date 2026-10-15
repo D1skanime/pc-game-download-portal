@@ -9,6 +9,8 @@ import { RBtn, RIcon, RImg, RSpinner, RSteps } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
+import storageApi from "@/services/api/storage";
 import SetupStepAdmin from "@/v2/components/Auth/SetupStepAdmin.vue";
 import type { AdminUserDraft } from "@/v2/components/Auth/SetupStepAdmin.vue";
 import SetupStepMetadata from "@/v2/components/Auth/SetupStepMetadata.vue";
@@ -62,6 +64,7 @@ const adminFormValid = ref(false);
 
 // Final submission
 const submitting = ref(false);
+const createdUserId = ref<number | null>(null);
 
 const stepTitle = computed(() => {
   switch (step.value) {
@@ -128,32 +131,25 @@ function next() {
 async function finishWizard() {
   submitting.value = true;
   try {
-    const { data: createdUser } = await userApi.createUser({
-      username: adminUser.value.username,
-      email: adminUser.value.email,
-      password: adminUser.value.password,
-      role: "admin",
-    });
+    if (createdUserId.value === null) {
+      const { data: createdUser } = await userApi.createUser({
+        username: adminUser.value.username,
+        email: adminUser.value.email,
+        password: adminUser.value.password,
+        role: "admin",
+      });
+      createdUserId.value = createdUser.id;
+    }
 
-    // If the user picked an avatar, we need to be authenticated to PUT
-    // it on the just-created account. Log in with the chosen credentials
-    // then upload — failures here are non-fatal (the account still
-    // exists; user can set the avatar later from profile settings).
-    if (adminUser.value.avatar) {
+    await identityApi.login(adminUser.value.username, adminUser.value.password);
+    await refetchCSRFToken();
+
+    if (adminUser.value.avatar && createdUserId.value !== null) {
       try {
-        await identityApi.login(
-          adminUser.value.username,
-          adminUser.value.password,
-        );
-        await refetchCSRFToken();
         await userApi.updateUser({
-          id: createdUser.id,
+          id: createdUserId.value,
           avatar: adminUser.value.avatar,
         });
-        await auth.fetchCurrentUser();
-        await heartbeat.fetchHeartbeat();
-        router.push({ name: "home" });
-        return;
       } catch (avatarErr) {
         const e = avatarErr as {
           response?: { data?: { detail?: string } };
@@ -168,9 +164,17 @@ async function finishWizard() {
       }
     }
 
-    await refetchCSRFToken();
+    await auth.fetchCurrentUser();
     await heartbeat.fetchHeartbeat();
-    router.push({ name: "login" });
+    const { data: bootstrap } = await storageApi.bootstrapLegacy();
+    const mapping = bootstrap.mappings[0];
+    if (!mapping || !Number.isSafeInteger(mapping.platform_id)) {
+      throw new Error("Storage bootstrap did not return a platform mapping");
+    }
+    router.push({
+      name: ROUTES.PLATFORM_STORAGE_MAPPING,
+      params: { platformId: mapping.platform_id },
+    });
   } catch (err) {
     const error = err as {
       response?: {
@@ -181,17 +185,6 @@ async function finishWizard() {
       message?: string;
     };
     const detail = error.response?.data?.detail;
-    if (
-      error.response?.status === 400 &&
-      typeof detail === "string" &&
-      /already exists/i.test(detail)
-    ) {
-      snackbar.info(t("setup.account-exists"), {
-        icon: "mdi-account-check",
-      });
-      router.push({ name: "login" });
-      return;
-    }
     snackbar.error(
       [
         t("setup.creating-platforms-failed"),
