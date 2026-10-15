@@ -1,6 +1,6 @@
 services:
   policy-writable:
-    image: romm-romm-dev:latest
+    image: pgdp-dev:latest
     working_dir: /workspace/backend
     environment:
       ROMM_AUTH_SECRET_KEY: 0000000000000000000000000000000000000000000000000000000000000000
@@ -21,7 +21,7 @@ services:
         target: /policy/owned
 
   policy-readonly:
-    image: romm-romm-dev:latest
+    image: pgdp-dev:latest
     working_dir: /workspace/backend
     environment:
       ROMM_AUTH_SECRET_KEY: 0000000000000000000000000000000000000000000000000000000000000000

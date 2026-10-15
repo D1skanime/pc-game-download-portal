@@ -1,18 +1,18 @@
-# Git-based Portainer stack for the PC Game Download Portal fork.
+# Git-based PGDP stack for the PC Game Download Portal fork.
 # In Portainer, select this file from the cloned repository. The build context
 # is the repository root, so Docker builds this fork with docker/Dockerfile.
-name: ${COMPOSE_PROJECT_NAME:-romm}
+name: ${PGDP_PROJECT_NAME:-pgdp}
 
 volumes:
   # MariaDB catalog data. Keep this volume when updating or redeploying.
-  romm_mysql_data:
-  # RomM-owned resources such as generated downloads and managed media.
-  romm_resources:
+  pgdp_mysql_data:
+  # PGDP-owned resources such as generated downloads and managed media.
+  pgdp_resources:
   # Redis/Valkey runtime data used by the application container.
-  romm_redis_data:
+  pgdp_redis_data:
 
 services:
-  romm:
+  pgdp:
     # Build the checked-out Git fork, not an unrelated local directory.
     build:
       context: ..
@@ -21,46 +21,46 @@ services:
       args:
         # ScreenScraper application credentials are used only at image build
         # time. Supply them through Portainer's protected stack environment.
-        SCREENSCRAPER_DEV_ID: ${SCREENSCRAPER_DEV_ID:-}
-        SCREENSCRAPER_DEV_PASSWORD: ${SCREENSCRAPER_DEV_PASSWORD:-}
+        SCREENSCRAPER_DEV_ID: ${PGDP_SCREENSCRAPER_DEV_ID:-}
+        SCREENSCRAPER_DEV_PASSWORD: ${PGDP_SCREENSCRAPER_DEV_PASSWORD:-}
     # This is the tag assigned to the image produced by the build above.
     # It is not a pull instruction while build is present. Override it only
     # when intentionally deploying a compatible, prebuilt image.
-    image: ${ROMM_IMAGE:-pc-game-download-portal:portainer}
-    container_name: ${ROMM_CONTAINER_NAME:-romm}
+    image: ${PGDP_IMAGE:-pc-game-download-portal:portainer}
+    container_name: ${PGDP_CONTAINER_NAME:-pgdp}
     restart: unless-stopped
     environment:
       # DB_HOST points to the Compose service, not to a NAS host path.
-      DB_HOST: romm-db
-      DB_NAME: ${ROMM_DB_NAME:-romm}
-      DB_USER: ${ROMM_DB_USER:-romm-user}
-      DB_PASSWD: ${ROMM_DB_PASSWORD:?Set ROMM_DB_PASSWORD in Portainer}
-      ROMM_AUTH_SECRET_KEY: ${ROMM_AUTH_SECRET_KEY:?Set ROMM_AUTH_SECRET_KEY in Portainer}
-      TZ: ${TZ:-UTC}
+      DB_HOST: pgdp-db
+      DB_NAME: ${PGDP_DB_NAME:-pgdp}
+      DB_USER: ${PGDP_DB_USER:-pgdp-user}
+      DB_PASSWD: ${PGDP_DB_PASSWORD:?Set PGDP_DB_PASSWORD in Portainer}
+      ROMM_AUTH_SECRET_KEY: ${PGDP_AUTH_SECRET_KEY:?Set PGDP_AUTH_SECRET_KEY in Portainer}
+      TZ: ${PGDP_TZ:-UTC}
       # Provider credentials are optional. Empty values disable that provider.
-      SCREENSCRAPER_USER: ${SCREENSCRAPER_USER:-}
-      SCREENSCRAPER_PASSWORD: ${SCREENSCRAPER_PASSWORD:-}
-      RETROACHIEVEMENTS_API_KEY: ${RETROACHIEVEMENTS_API_KEY:-}
-      STEAMGRIDDB_API_KEY: ${STEAMGRIDDB_API_KEY:-}
+      SCREENSCRAPER_USER: ${PGDP_SCREENSCRAPER_USER:-}
+      SCREENSCRAPER_PASSWORD: ${PGDP_SCREENSCRAPER_PASSWORD:-}
+      RETROACHIEVEMENTS_API_KEY: ${PGDP_RETROACHIEVEMENTS_API_KEY:-}
+      STEAMGRIDDB_API_KEY: ${PGDP_STEAMGRIDDB_API_KEY:-}
       # IGDB uses Twitch Developer credentials; both values are optional.
-      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
-      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
-      HASHEOUS_API_ENABLED: ${HASHEOUS_API_ENABLED:-true}
+      IGDB_CLIENT_ID: ${PGDP_IGDB_CLIENT_ID:-}
+      IGDB_CLIENT_SECRET: ${PGDP_IGDB_CLIENT_SECRET:-}
+      HASHEOUS_API_ENABLED: ${PGDP_HASHEOUS_API_ENABLED:-true}
     volumes:
       # These are Docker-managed writable paths and must survive updates.
-      - romm_resources:/romm/resources
-      - romm_redis_data:/redis-data
+      - pgdp_resources:/romm/resources
+      - pgdp_redis_data:/redis-data
       # The source game library is deliberately read-only. Scans must never
       # reorganize, rename, delete, or write files in the original archive.
-      - ${ROMM_LIBRARY_PATH:?Set ROMM_LIBRARY_PATH in Portainer}:/romm/library:ro
+      - ${PGDP_LIBRARY_PATH:?Set PGDP_LIBRARY_PATH in Portainer}:/romm/library:ro
       # Assets and config are writable operator-owned directories on the NAS.
-      - ${ROMM_ASSETS_PATH:?Set ROMM_ASSETS_PATH in Portainer}:/romm/assets
-      - ${ROMM_CONFIG_PATH:?Set ROMM_CONFIG_PATH in Portainer}:/romm/config
+      - ${PGDP_ASSETS_PATH:?Set PGDP_ASSETS_PATH in Portainer}:/romm/assets
+      - ${PGDP_CONFIG_PATH:?Set PGDP_CONFIG_PATH in Portainer}:/romm/config
     ports:
-      # Change only the host-side port in ROMM_HTTP_PORT if 8080 is occupied.
-      - "${ROMM_HTTP_PORT:-8080}:8080"
+      # Change only the host-side port in PGDP_HTTP_PORT if 8080 is occupied.
+      - "${PGDP_HTTP_PORT:-8080}:8080"
     depends_on:
-      romm-db:
+      pgdp-db:
         # The app starts after MariaDB is healthy, including after restarts.
         condition: service_healthy
         restart: true
@@ -76,19 +76,19 @@ services:
       retries: 5
       start_period: 60s
 
-  romm-db:
-    # MariaDB is the persistent catalog database used by RomM.
+  pgdp-db:
+    # MariaDB is the persistent catalog database used by PGDP.
     image: mariadb:11.3
-    container_name: ${ROMM_DB_CONTAINER_NAME:-romm-db}
+    container_name: ${PGDP_DB_CONTAINER_NAME:-pgdp-db}
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: ${ROMM_DB_ROOT_PASSWORD:?Set ROMM_DB_ROOT_PASSWORD in Portainer}
-      MARIADB_DATABASE: ${ROMM_DB_NAME:-romm}
-      MARIADB_USER: ${ROMM_DB_USER:-romm-user}
-      MARIADB_PASSWORD: ${ROMM_DB_PASSWORD:?Set ROMM_DB_PASSWORD in Portainer}
+      MARIADB_ROOT_PASSWORD: ${PGDP_DB_ROOT_PASSWORD:?Set PGDP_DB_ROOT_PASSWORD in Portainer}
+      MARIADB_DATABASE: ${PGDP_DB_NAME:-pgdp}
+      MARIADB_USER: ${PGDP_DB_USER:-pgdp-user}
+      MARIADB_PASSWORD: ${PGDP_DB_PASSWORD:?Set PGDP_DB_PASSWORD in Portainer}
     volumes:
       # Never remove this volume during an ordinary update or redeploy.
-      - romm_mysql_data:/var/lib/mysql
+      - pgdp_mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       start_period: 30s

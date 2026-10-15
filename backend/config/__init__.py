@@ -80,7 +80,7 @@ DB_HOST: Final[str | None] = _get_env("DB_HOST")
 DB_PORT: Final[int] = safe_int(_get_env("DB_PORT"), 3306)
 DB_USER: Final[str | None] = _get_env("DB_USER")
 DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
-DB_NAME: Final[str] = _get_env("DB_NAME", "romm")
+DB_NAME: Final[str] = _get_env("DB_NAME", "pgdp")
 DB_QUERY_JSON: Final[str | None] = _get_env("DB_QUERY_JSON")
 ROMM_DB_DRIVER: Final[str] = _get_env("ROMM_DB_DRIVER", "mariadb")
 

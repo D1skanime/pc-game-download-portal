@@ -7,10 +7,12 @@ services:
     ports:
       - "3306:3306"
     environment:
-      MYSQL_USER: romm_test
+      MYSQL_USER: pgdp_test
       MYSQL_PASSWORD: passwd
-      MYSQL_DATABASE: romm_test
+      MYSQL_DATABASE: pgdp_test
       MYSQL_ROOT_PASSWORD: passwd
+    volumes:
+      - pgdp_test_db:/var/lib/mysql
     healthcheck:
       test:
         [
@@ -35,3 +37,6 @@ services:
       interval: 5s
       timeout: 2s
       retries: 10
+
+volumes:
+  pgdp_test_db:
