@@ -422,7 +422,7 @@ async def auth_middleware(
             "devid": SCREENSCRAPER_DEV_ID or "",
             "devpassword": SCREENSCRAPER_DEV_PASSWORD or "",
             "output": "json",
-            "softname": "romm",
+            "softname": "pgdp",
             "ssid": SCREENSCRAPER_USER or "",
             "sspassword": SCREENSCRAPER_PASSWORD or "",
         },
