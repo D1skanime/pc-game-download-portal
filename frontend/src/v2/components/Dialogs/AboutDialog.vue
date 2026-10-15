@@ -7,6 +7,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
+import { PROJECT_GITHUB_URL } from "@/v2/config/project";
 import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
@@ -39,13 +40,13 @@ const links: Link[] = [
     isotipo: true,
     label: t("common.about-version"),
     value: heartbeatStore.value.SYSTEM.VERSION,
-    href: `https://github.com/rommapp/romm/releases/tag/${heartbeatStore.value.SYSTEM.VERSION}`,
+    href: `https://github.com/D1skanime/pc-game-download-portal/releases/tag/${heartbeatStore.value.SYSTEM.VERSION}`,
   },
   {
     icon: "mdi-code-braces",
     label: t("common.about-source-code"),
     value: "GitHub",
-    href: "https://github.com/rommapp/romm",
+    href: PROJECT_GITHUB_URL,
   },
   {
     icon: "mdi-file-document-outline",

@@ -18,6 +18,7 @@ import { useLocalStorage } from "@vueuse/core";
 import semver from "semver";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { PROJECT_RELEASE_API_URL } from "@/v2/config/project";
 import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
@@ -45,7 +46,7 @@ function onDismiss() {
 
 function onOpenRelease() {
   window.open(
-    `https://github.com/rommapp/romm/releases/tag/${latestVersion.value}`,
+    `https://github.com/D1skanime/pc-game-download-portal/releases/tag/${latestVersion.value}`,
     "_blank",
     "noopener,noreferrer",
   );
@@ -53,9 +54,7 @@ function onOpenRelease() {
 
 async function fetchLatestVersion() {
   try {
-    const response = await fetch(
-      "https://api.github.com/repos/rommapp/romm/releases/latest",
-    );
+    const response = await fetch(PROJECT_RELEASE_API_URL + "/latest");
     const json = await response.json();
     latestVersion.value = json.tag_name;
 

@@ -12,6 +12,10 @@ import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import {
+  PROJECT_RELEASE_API_URL,
+  PROJECT_RELEASES_URL,
+} from "@/v2/config/project";
 
 defineOptions({ inheritAttrs: false });
 
@@ -25,9 +29,8 @@ type Release = {
   draft: boolean;
 };
 
-const RELEASES_URL =
-  "https://api.github.com/repos/rommapp/romm/releases?per_page=10";
-const RELEASES_PAGE_URL = "https://github.com/rommapp/romm/releases";
+const RELEASES_URL = PROJECT_RELEASE_API_URL + "?per_page=10";
+const RELEASES_PAGE_URL = PROJECT_RELEASES_URL;
 
 const { t, locale } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");

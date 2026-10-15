@@ -4,9 +4,9 @@ services:
       - "127.0.0.1:3100:3000"
     depends_on: !override
       romm-db-dev:
-        condition: service_started
+        condition: service_healthy
       romm-valkey-dev:
-        condition: service_started
+        condition: service_healthy
 
   romm-db-dev:
     ports: !reset []
