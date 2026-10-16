@@ -120,4 +120,53 @@ describe("PlatformStorageMapping", () => {
     expect(wrapper.text()).toContain("Map storage");
     expect(wrapper.text()).not.toContain("Something went wrong");
   });
+
+  it("shows the pending preview state after refresh even when the old preview is stale", async () => {
+    vi.useFakeTimers();
+    mocks.getMapping.mockResolvedValue({
+      data: {
+        id: 1,
+        platform_id: 1,
+        storage_root_id: 7,
+        relative_path: "pc",
+        version: 2,
+      },
+    });
+    mocks.getPreview.mockResolvedValue({
+      data: {
+        state: "complete",
+        stale: true,
+        observed_files: 1,
+        observed_directories: 1,
+      },
+    });
+    mocks.refreshPreview.mockResolvedValue({
+      data: {
+        state: "pending",
+        stale: true,
+        observed_files: 1,
+        observed_directories: 1,
+      },
+    });
+
+    try {
+      const wrapper = mount(PlatformStorageMapping);
+      await flushPromises();
+
+      const refreshButton = wrapper
+        .findAll("button")
+        .find((button) => button.text().includes("Refresh preview"));
+      expect(refreshButton).toBeDefined();
+      await refreshButton!.trigger("click");
+      await flushPromises();
+
+      expect(mocks.refreshPreview).toHaveBeenCalledWith(1);
+      expect(wrapper.text()).toContain(
+        "Preview started. The mapping remains active.",
+      );
+      wrapper.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
