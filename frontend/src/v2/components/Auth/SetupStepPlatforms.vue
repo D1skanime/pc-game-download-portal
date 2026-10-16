@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { RSelect } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 
 export interface SetupFolder {
   name: string;
@@ -75,10 +75,11 @@ const updateFolder = (folder: SetupFolder, value: unknown) => {
               }}</small>
             </th>
             <td>
-              <PlatformSelect
+              <RSelect
                 :model-value="props.draft[folder.name]"
                 :items="options"
-                item-key="slug"
+                item-title="display_name"
+                item-value="slug"
                 :disabled="disabled || submitting"
                 :label="t('setup.assign-folder', { folder: folder.name })"
                 :placeholder="t('setup.choose-platform')"

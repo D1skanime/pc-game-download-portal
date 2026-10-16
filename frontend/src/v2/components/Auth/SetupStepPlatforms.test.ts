@@ -37,7 +37,7 @@ describe("SetupStepPlatforms", () => {
       },
       global: {
         stubs: {
-          PlatformSelect: {
+          RSelect: {
             props: ["modelValue", "items"],
             emits: ["update:modelValue"],
             template:
