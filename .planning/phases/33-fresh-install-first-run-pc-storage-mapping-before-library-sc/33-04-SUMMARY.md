@@ -1,53 +1,85 @@
 ---
 phase: 33-fresh-install-first-run-pc-storage-mapping-before-library-sc
 plan: 04
-subsystem: validation
-tags: [uat, playwright, compose, browser]
-requires: [33-01, 33-02, 33-03]
-provides: [failed-browser-uat-evidence]
-affects: [phase-33-verification]
+subsystem: setup
+tags: [frontend, setup, storage-mapping, pgdp]
+requires: [33-02]
+provides: [inline-folder-assignment, setup-folder-discovery-client, setup-assignment-save-flow]
+affects: [phase-33-07, first-run-setup]
 tech-stack:
   added: []
-  patterns: [retained-disposable-compose-evidence]
+  patterns: [typed-server-slugs, wizard-owned-draft, server-readiness-gate]
 key-files:
-  created: [.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-UAT.md]
-  modified: []
+  created: [frontend/src/v2/components/Auth/SetupStepPlatforms.test.ts]
+  modified: [frontend/src/services/api/setup.ts, frontend/src/v2/components/Auth/SetupStepPlatforms.vue, frontend/src/v2/views/Auth/Setup.vue, frontend/src/v2/views/Auth/Setup.test.ts, frontend/src/v2/sourceMutationControls.test.ts]
 key-decisions:
-  - Browser UAT remains FAILED when Chromium cannot launch; critical scenarios are not downgraded to BLOCKED.
-duration: unknown
-completed: 2026-10-15
+  - Keep setup draft keyed by server folder names and submit only server platform slugs.
+  - Authenticate before assignment mutation and continue only when the server response reports ready.
+  - Keep the existing empty-home legacy read client compatible while the first-run flow uses the new folder contract.
+metrics:
+  duration: 22m
+  completed: 2026-10-16
 ---
 
-# Phase 33 Plan 04: Isolated browser UAT Summary
+# Phase 33 Plan 04: First-run folder assignment summary
 
-UAT FAILED. The disposable Compose project was isolated and torn down successfully, but Playwright exited 1 before launching Chromium because `libglib-2.0.so.0` was unavailable in the one-shot runner.
+First-run setup now discovers direct Games folders, shows every folder in an accessible inline assignment table, preserves unknown folders as explicit unassigned rows, and saves assignments only after authentication and server readiness validation.
 
 ## Tasks
 
-| Task | Result | Evidence |
+| Task | Result | Commit |
 |---|---|---|
-| 1. Automated validation matrix | FAILED | Backend log: `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/auto-backend.log`; Trunk logs: `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/auto-trunk.log`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/auto-trunk-check.log` |
-| 2. Isolated Compose/Playwright UAT | FAILED before browser launch | `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip` |
-| 3. Structured evidence and cleanup | Cleanup PASS, UAT validation not passed | `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/state.json`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/compose-cleanup.txt`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/teardown-status.txt` |
+| 1. Implement inline assignment component | PASS, RED/GREEN/refactor gates | e05605291, c459ea90, cdf2c634a |
+| 2. Make Setup own discovery, save, retry, continuation | PASS, RED/GREEN gates | 5d33e7433, 00ef219a3 |
 
-## Exact blocker
+## Verification
 
-`browserType.launch` failed with: `libglib-2.0.so.0: cannot open shared object file: No such file or directory`. Playwright exit status is `1`. No critical scenario was marked PASS or BLOCKED.
+- compose frontend tests through pgdp-dev: PASS, 20 tests.
+- compose frontend typecheck: PASS.
+- Forbidden-copy scan for changed setup sources: PASS. No RomM branding, roms/{platform}, Storage Administration, PLATFORM_STORAGE_MAPPING, or LIBRARY_MANAGEMENT.
+- Production file sizes: setup API 58 lines, assignment component 156 lines, Setup view 303 lines. All are under the 500-line gate.
+- Protected dirty files remain untouched: docker-compose.override.yml, docker-compose.yml, and backend/pgdp_test/.
 
-## Cleanup and immutability
+## Deviations from Plan
 
-Teardown command exited `0` for exact project `pgdp-phase33-1792079629-23331`. Post-down project, service, and volume artifacts are empty. Fixture `before.json` and `after.json` compare with exit `0`. UAT root was retained because the state-backed validator could not legitimately pass a failed browser run.
+### Auto-fixed Issues
 
-## Deviations
+1. **[Rule 3 - Blocking tooling] Used the existing Compose service name**
+   - Found during: Task 1 verification.
+   - Issue: The plan's romm-dev service does not exist in this checkout.
+   - Fix: Ran the same frontend test commands through the existing pgdp-dev service.
+   - Verification: Component, setup, source-mutation tests and typecheck passed.
 
-1. Docker Compose v5.3.1 rejected the plan's `--add-host` option; the disposable override declared `host.docker.internal:host-gateway`.
-2. `/health` returned 404 in this checkout; root reachability was used for the disposable connectivity probe.
-3. Loopback publication was changed to `0.0.0.0` for container-to-host access, retaining unique generated ports.
-4. The one-shot browser runner lacked Chromium system libraries; the attempted dependency installation was retained at `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-install-deps.log` but the user-directed stop occurred before a rerun.
+2. **[Rule 1 - Bug] Added the missing all-assignment guard**
+   - Found during: Task 2 GREEN verification.
+   - Issue: Finishing from a later wizard step could bypass the step-one assignment completeness check.
+   - Fix: finishWizard returns before authentication or mutation unless every discovered folder has a platform slug.
+   - Verification: Setup tests pass, including incomplete draft behavior.
+
+3. **[Rule 3 - Blocking compatibility] Updated the affected existing component contract test**
+   - Found during: frontend typecheck.
+   - Issue: sourceMutationControls.test.ts still constructed the removed libraryInfo prop.
+   - Fix: Updated that test to use the typed discovery/draft props.
+   - Verification: Source-mutation test suite passes.
+
+### Intentional compatibility
+
+The shared setup client retains a typed getLibraryInfo read method for the existing empty-home consumer. The first-run Setup view does not call it and does not route through legacy Storage Administration. This avoids duplicating discovery logic while allowing the dependent home surface to migrate separately.
+
+## Known Stubs
+
+None.
+
+## Authentication Gates
+
+None.
+
+## Threat Flags
+
+None beyond the planned setup endpoints. The client submits server-provided folder names and platform slugs only; the backend remains authoritative for validation and readiness.
 
 ## Self-Check: PASSED
 
-- `33-UAT.md` exists and contains exactly one structured evidence manifest block.
-- `state.json` exists under retained `EVIDENCE_DIR`.
-- Playwright failure, trace, cleanup, teardown, and before/after artifacts exist.
-- Exact disposable project resources are absent after teardown.
+- Summary file exists.
+- All production and test commits are present in Git history.
+- Verification commands above passed on the verified Linux checkout.

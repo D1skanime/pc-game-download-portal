@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: 33-04 UAT failed; retained browser evidence and teardown verified
-last_updated: "2026-10-16T19:14:50.064Z"
+stopped_at: Completed 33-04-PLAN.md
+last_updated: "2026-10-16T19:27:18.890Z"
 last_activity: 2026-10-16
 progress:
   total_phases: 33
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: Phase 33 Plan 02 complete; corrected Plans 04, 05, and 06 pending
+Plan: Phase 33 Plan 04 complete; Plans 05, 06, 07, 08, and 09 pending
 Status: executing
 Last activity: 2026-10-16
 
@@ -54,6 +54,7 @@ Last activity: 2026-10-16
 
 | Phase 32 P01 | completed | 2 tasks | 13 files |
 | Phase 33 P03 | completed | 2 tasks | 4 files |
+| Phase 33 P04 | 22min | 2 tasks | 6 files |
 
 _Updated after each plan completion_
 | Phase 01 P05 | 11min | 2 tasks | 2 files |
@@ -490,9 +491,11 @@ Recent decisions affecting current work:
 
 | Phase 33 P02 | 32min | 2 tasks | 6 files |
 
+- [Phase 33]: Setup owns typed folder discovery, inline assignments, authenticated save, and server-readiness continuation.
+- [Phase 33]: First-run drafts use server folder names and platform slugs, preserving unknown folders until explicitly assigned.
 ## Session Continuity
 
-Last session: 2026-10-16T19:45:00Z
+Last session: 2026-10-16T19:27:18.873Z
 Stopped at: Completed 33-02-PLAN.md
 Resume file: None
 
