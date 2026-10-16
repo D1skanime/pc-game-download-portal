@@ -73,6 +73,18 @@ def test_assignment_requires_every_row_and_returns_idempotent_mappings(monkeypat
     monkeypatch.setattr(
         handler, "_reconcile", lambda root, platform, path, actor: saved
     )
+    monkeypatch.setattr(
+        "handler.setup_folder_handler.db_storage_handler.get_active_mapping",
+        lambda platform_id: (_ for _ in ()).throw(Exception("missing")),
+    )
+    monkeypatch.setattr(
+        "handler.setup_folder_handler.MissingPlatformStorageMappingError",
+        Exception,
+    )
+    monkeypatch.setattr(
+        "handler.setup_folder_handler.db_storage_handler.test_mapping",
+        lambda *args, **kwargs: saved,
+    )
     root = _root(Path("/games"))
 
     result = handler.assign(
@@ -80,6 +92,6 @@ def test_assignment_requires_every_row_and_returns_idempotent_mappings(monkeypat
     )
 
     assert result.ready is True
-    assert result.mappings[0].mapping_id == 11
+    assert result.mappings[0]["mapping_id"] == 11
     with pytest.raises(ValueError, match="every"):
         handler.assign(root, [], actor={})

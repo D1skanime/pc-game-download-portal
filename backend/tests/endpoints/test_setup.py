@@ -39,6 +39,6 @@ def test_setup_assignment_requires_admin_write_scope(client, viewer_access_token
 
 
 def test_setup_contract_does_not_reintroduce_legacy_structure_detection():
-    source = open("backend/endpoints/setup.py", encoding="utf-8").read()
+    source = open("endpoints/setup.py", encoding="utf-8").read()
     assert "detect_library_structure" not in source
     assert "roms/{platform}" not in source
