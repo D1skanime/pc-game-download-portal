@@ -132,7 +132,10 @@ describe("storage service", () => {
   });
 
   it("remains blocked while no persisted mappings are returned", async () => {
-    mocks.apiGet.mockResolvedValueOnce({ data: [] });
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === "/storage/roots") return Promise.resolve({ data: [] });
+      return Promise.reject({ isAxiosError: true, response: { status: 404 } });
+    });
 
     await expect(storageApi.getMappingsReadiness([17])).resolves.toEqual({
       ready: false,
