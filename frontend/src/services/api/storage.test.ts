@@ -75,6 +75,72 @@ describe("storage service", () => {
     expect(mocks.apiPost).not.toHaveBeenCalled();
   });
 
+  it("reports readiness for every saved mapping with one GET-only root snapshot", async () => {
+    const secondMapping = {
+      ...mapping,
+      id: 42,
+      platform_id: 18,
+      relative_path: "my-games",
+    };
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === "/storage/roots") return Promise.resolve({ data: [root] });
+      if (url === "/storage/mappings/platforms/17")
+        return Promise.resolve({ data: mapping });
+      if (url === "/storage/mappings/platforms/18")
+        return Promise.resolve({ data: secondMapping });
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+
+    await expect(storageApi.getMappingsReadiness([17, 18])).resolves.toEqual({
+      ready: true,
+      mappings: [
+        { ready: true, mapping, root },
+        { ready: true, mapping: secondMapping, root },
+      ],
+    });
+    expect(mocks.apiGet).toHaveBeenCalledWith("/storage/roots");
+    expect(mocks.apiGet).toHaveBeenCalledWith("/storage/mappings/platforms/17");
+    expect(mocks.apiGet).toHaveBeenCalledWith("/storage/mappings/platforms/18");
+    expect(mocks.apiPost).not.toHaveBeenCalled();
+    expect(JSON.stringify(mocks.apiGet.mock.calls)).not.toContain("C:");
+    expect(JSON.stringify(mocks.apiGet.mock.calls)).not.toContain("/home/");
+  });
+
+  it("does not become ready when a saved mapping is missing or unhealthy", async () => {
+    const unhealthyRoot = {
+      ...root,
+      health: { ...root.health, readable: false },
+    };
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === "/storage/roots")
+        return Promise.resolve({ data: [unhealthyRoot] });
+      if (url === "/storage/mappings/platforms/17")
+        return Promise.resolve({ data: mapping });
+      if (url === "/storage/mappings/platforms/18")
+        return Promise.reject({
+          isAxiosError: true,
+          response: { status: 404 },
+        });
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+
+    await expect(storageApi.getMappingsReadiness([17, 18])).resolves.toEqual({
+      ready: false,
+      mappings: [{ ready: false, mapping, root: unhealthyRoot }],
+    });
+    expect(mocks.apiPost).not.toHaveBeenCalled();
+  });
+
+  it("remains blocked while no persisted mappings are returned", async () => {
+    mocks.apiGet.mockResolvedValueOnce({ data: [] });
+
+    await expect(storageApi.getMappingsReadiness([17])).resolves.toEqual({
+      ready: false,
+      mappings: [],
+    });
+    expect(mocks.apiPost).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["inactive mapping", { ...mapping, active: false }, root],
     ["missing root", mapping, undefined],
