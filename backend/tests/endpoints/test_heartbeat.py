@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from exceptions.storage_exceptions import MissingStorageTargetError
 from handler.scan_handler import MetadataSource
 from utils import get_version
 
@@ -213,6 +214,25 @@ def test_get_setup_library_info_structure_b_detected(client, admin_user, access_
                 assert len(data["existing_platforms"]) == 1
                 assert data["existing_platforms"][0]["fs_slug"] == "gba"
                 assert data["existing_platforms"][0]["rom_count"] == 3
+
+
+def test_get_setup_library_info_missing_read_only_target_starts_empty(
+    client, admin_user, access_token
+):
+    """Fresh read-only installs expose an empty setup library instead of HTTP 500."""
+    with patch(
+        "endpoints.heartbeat.fs_platform_handler.open_access",
+        side_effect=MissingStorageTargetError(),
+    ):
+        response = client.get(
+            "/api/setup/library",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["detected_structure"] is None
+    assert data["existing_platforms"] == []
 
 
 def test_get_setup_library_info_no_structure_detected(client, admin_user, access_token):

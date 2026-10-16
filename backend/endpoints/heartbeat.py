@@ -29,7 +29,7 @@ from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
 from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from exceptions.storage_exceptions import StoragePolicyDenied
+from exceptions.storage_exceptions import MissingStorageTargetError, StoragePolicyDenied
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler, legacy_external_storage
@@ -206,10 +206,15 @@ async def get_setup_library_info(request: Request):
     """
 
     assert fs_platform_handler.storage is legacy_external_storage
-    with fs_platform_handler.open_access(
-        StorageOperation.LIST, fs_platform_handler.get_platforms_directory()
-    ) as access:
-        access.list()
+    try:
+        with fs_platform_handler.open_access(
+            StorageOperation.LIST, fs_platform_handler.get_platforms_directory()
+        ) as access:
+            access.list()
+    except MissingStorageTargetError:
+        # A fresh install may have an empty read-only library mount. Treat the
+        # missing default directory as an empty library and let setup continue.
+        pass
 
     # Check authentication - only allow public access if no admin users
     # If admin users exist, this would need authentication (but won't be called during setup)
