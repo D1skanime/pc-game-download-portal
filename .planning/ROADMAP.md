@@ -833,14 +833,16 @@ Plans:
 
 ### Phase 33: Fresh-install first-run PC storage mapping before library scan
 
-**Goal:** On a fresh installation, the first-run administrator flow enters the existing PC/Windows storage-mapping workflow first, persists the canonical root `Games` plus relative path `pc` mapping, and exposes library scanning only after that active mapping is server-confirmed reachable, readable, and non-writable.
+**Goal:** On a fresh installation, setup discovers direct folders under the mounted `Games` directory, auto-associates known names, lets the administrator assign unknown folders to PGDP platforms inline, persists safe internal mappings, and continues to normal administration only after the server confirms those mappings are ready for later scan/read flows.
 **Requirements**: PGDP-33-01
 **Depends on:** Phase 32
-**Plans:** 3/4 plans executed
+**Plans:** 2/6 plans executed
 
 Plans:
 
-- [x] 33-01-PLAN.md - Lock canonical Games/pc bootstrap representation and read-only readiness contract
-- [ ] 33-02-PLAN.md - Route fresh admin setup into the PC/Windows mapping workflow
-- [x] 33-03-PLAN.md - Gate empty Home and Scan on server-backed mapping readiness
-- [ ] 33-04-PLAN.md - Execute bounded automated validation and Linux/browser UAT
+- [x] 33-01-PLAN.md - Historical storage primitives retained as internal mapping foundation
+- [ ] 33-02-PLAN.md - Implement server-owned direct Games-folder discovery and assignment API
+- [x] 33-03-PLAN.md - Historical Home/Scan readiness gate retained for integration updates
+- [ ] 33-04-PLAN.md - Replace first-run summary with inline PGDP folder assignment
+- [ ] 33-05-PLAN.md - Connect saved assignments to generic scan/read readiness
+- [ ] 33-06-PLAN.md - Run fresh Linux stack and in-app browser UAT

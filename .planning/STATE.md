@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: 3 of 4
-Status: Plan 33-04 UAT failed; browser blocker recorded
+Plan: corrected Phase 33 plans 02, 04, 05, and 06 pending
+Status: re-planned for setup-owned direct Games-folder discovery and inline PGDP assignment
 Last activity: 2026-10-16
 
 ## Performance Metrics
