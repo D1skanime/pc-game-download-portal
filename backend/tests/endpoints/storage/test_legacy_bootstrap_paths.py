@@ -38,7 +38,7 @@ def _root_schema(root):
     )
 
 
-def _bootstrap_fixtures(monkeypatch, *, roots, mapping=None):
+def _bootstrap_fixtures(monkeypatch, *, roots, mapping=None, include_windows=True):
     from endpoints import storage as endpoint
 
     platform = SimpleNamespace(id=41, slug="win", fs_slug="win")
@@ -56,12 +56,21 @@ def _bootstrap_fixtures(monkeypatch, *, roots, mapping=None):
     )
     monkeypatch.setattr(endpoint, "get_filesystem_platforms", lambda: _async([]))
     monkeypatch.setattr(
-        endpoint.db_platform_handler, "get_platforms", lambda: [platform]
+        endpoint.db_platform_handler,
+        "get_platforms",
+        lambda: [platform] if include_windows else [],
     )
     monkeypatch.setattr(
         endpoint.db_platform_handler,
         "get_platform_by_slug",
-        lambda slug: platform if slug == "win" else None,
+        lambda slug: platform if include_windows and slug == "win" else None,
+    )
+    monkeypatch.setattr(
+        endpoint.db_platform_handler,
+        "add_platform",
+        lambda candidate: SimpleNamespace(
+            id=41, slug=candidate.slug, fs_slug=candidate.fs_slug
+        ),
     )
     monkeypatch.setattr(endpoint, "_root_schema", _root_schema)
     monkeypatch.setattr(
@@ -139,7 +148,7 @@ async def test_bootstrap_persists_games_root_and_pc_relative_path(monkeypatch):
 
     response = await endpoint.bootstrap_legacy_storage(request)
 
-    assert calls["register"] == [("PC Windows library", "/romm/library/Games")]
+    assert calls["register"] == [("PC Windows library", "/romm/library")]
     assert calls["create"][0][0:3] == (41, 2, "pc")
     assert response.mappings[0].platform_fs_slug == "win"
     assert response.mappings[0].relative_path == "pc"
@@ -147,7 +156,7 @@ async def test_bootstrap_persists_games_root_and_pc_relative_path(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_bootstrap_is_idempotent_for_canonical_mapping(monkeypatch):
-    root = _root(2, "/romm/library/Games")
+    root = _root(2, "/romm/library")
     mapping = SimpleNamespace(
         id=9,
         platform_id=41,
@@ -172,7 +181,7 @@ async def test_bootstrap_is_idempotent_for_canonical_mapping(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_bootstrap_reconciles_old_games_pc_empty_mapping(monkeypatch):
-    old_root = _root(1, "/romm/library/Games/pc")
+    old_root = _root(1, "/romm/library/pc")
     old_mapping = SimpleNamespace(
         id=9,
         platform_id=41,
@@ -188,7 +197,23 @@ async def test_bootstrap_reconciles_old_games_pc_empty_mapping(monkeypatch):
 
     response = await endpoint.bootstrap_legacy_storage(request)
 
-    assert calls["register"] == [("PC Windows library", "/romm/library/Games")]
+    assert calls["register"] == [("PC Windows library", "/romm/library")]
     assert calls["update"][0][0:3] == (9, 2, "pc")
     assert response.storage_root.id == 2
     assert response.mappings[0].relative_path == "pc"
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_creates_windows_platform_for_empty_library(monkeypatch):
+    endpoint, request, calls = _bootstrap_fixtures(
+        monkeypatch, roots=[], include_windows=False
+    )
+    monkeypatch.setattr(
+        endpoint.fs_platform_handler, "get_platforms", lambda: _async([])
+    )
+
+    response = await endpoint.bootstrap_legacy_storage(request)
+
+    assert calls["register"] == [("PC Windows library", "/romm/library")]
+    assert calls["create"][0][0:3] == (41, 2, "pc")
+    assert response.mappings[0].platform_fs_slug == "win"

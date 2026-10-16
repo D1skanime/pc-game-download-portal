@@ -764,7 +764,9 @@ async def bootstrap_legacy_storage(
     assert_admin(request)
     try:
         config = cm.get_config()
-        relative_root = config.ROMS_FOLDER_NAME
+        # PGDP mounts the operator-selected Games directory directly at the
+        # library root. Do not append the legacy ROMS_FOLDER_NAME again.
+        relative_root = ""
         filesystem_slugs = await fs_platform_handler.get_platforms()
         missing_platforms = {
             item.fs_slug: item for item in await get_filesystem_platforms()
@@ -839,7 +841,13 @@ async def bootstrap_legacy_storage(
             if pc_platform is None:
                 pc_platform = db_platform_handler.get_platform_by_slug("win")
         if pc_platform is None:
-            raise MissingStorageRootError(0)
+            # A fresh PC-game install may have no platform folder yet.
+            # Bootstrap the canonical Windows platform so setup can continue
+            # to the storage-mapping step without requiring a writable library.
+            pc_platform = db_platform_handler.add_platform(
+                Platform(name="Windows", slug="win", fs_slug="win")
+            )
+            created_platform_count += 1
 
         root_path = Path(LIBRARY_BASE_PATH) / relative_root
         pc_path = root_path / "pc"
