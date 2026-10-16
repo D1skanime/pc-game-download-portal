@@ -59,17 +59,7 @@ const mappingReadiness = ref<"loading" | "ready" | "blocked" | "error">(
   "loading",
 );
 const mappingReady = computed(() => mappingReadiness.value === "ready");
-const mappingRoute = computed(() => {
-  const windowsPlatform = platformsStore.allPlatforms.find(
-    (platform) => platform.slug === "win",
-  );
-  return windowsPlatform
-    ? {
-        name: ROUTES.PLATFORM_STORAGE_MAPPING,
-        params: { platformId: windowsPlatform.id },
-      }
-    : { name: ROUTES.LIBRARY_MANAGEMENT };
-});
+const mappingRoute = { name: ROUTES.LIBRARY_MANAGEMENT };
 
 async function loadMappingReadiness() {
   mappingReadiness.value = "loading";
@@ -77,14 +67,9 @@ async function loadMappingReadiness() {
     if (platformsStore.allPlatforms.length === 0) {
       await platformsStore.fetchPlatforms();
     }
-    const windowsPlatform = platformsStore.allPlatforms.find(
-      (platform) => platform.slug === "win",
+    const readiness = await storageApi.getMappingsReadiness(
+      platformsStore.allPlatforms.map((platform) => platform.id),
     );
-    if (!windowsPlatform) {
-      mappingReadiness.value = "blocked";
-      return;
-    }
-    const readiness = await storageApi.getMappingReadiness(windowsPlatform.id);
     mappingReadiness.value = readiness.ready ? "ready" : "blocked";
     if (readiness.ready) {
       await platformsStore.fetchFilesystemPlatforms();
@@ -574,7 +559,7 @@ function stopScan() {
     >
       <RIcon icon="mdi-folder-key-outline" size="48" />
       <h2>
-        {{ t("storage.administration", "Map the PC library before scanning") }}
+        {{ t("storage.administration") }}
       </h2>
       <p>
         {{
@@ -591,7 +576,7 @@ function stopScan() {
           :to="mappingRoute"
           prepend-icon="mdi-folder-cog-outline"
         >
-          {{ t("settings.add-folder-mapping", "Map storage") }}
+          {{ t("settings.add-folder-mapping") }}
         </RBtn>
         <RBtn
           v-if="mappingReadiness === 'error'"

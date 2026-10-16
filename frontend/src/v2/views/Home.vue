@@ -146,17 +146,7 @@ async function loadLibraryInfo() {
 }
 
 const mappingReady = computed(() => mappingReadiness.value === "ready");
-const mappingRoute = computed(() => {
-  const windowsPlatform = platformsStore.allPlatforms.find(
-    (platform) => platform.slug === "win",
-  );
-  return windowsPlatform
-    ? {
-        name: ROUTES.PLATFORM_STORAGE_MAPPING,
-        params: { platformId: windowsPlatform.id },
-      }
-    : { name: ROUTES.LIBRARY_MANAGEMENT };
-});
+const mappingRoute = { name: ROUTES.LIBRARY_MANAGEMENT };
 
 async function loadMappingReadiness() {
   if (mappingReadiness.value === "loading") return;
@@ -165,14 +155,9 @@ async function loadMappingReadiness() {
     if (platformsStore.allPlatforms.length === 0) {
       await platformsStore.fetchPlatforms();
     }
-    const windowsPlatform = platformsStore.allPlatforms.find(
-      (platform) => platform.slug === "win",
+    const readiness = await storageApi.getMappingsReadiness(
+      platformsStore.allPlatforms.map((platform) => platform.id),
     );
-    if (!windowsPlatform) {
-      mappingReadiness.value = "blocked";
-      return;
-    }
-    const readiness = await storageApi.getMappingReadiness(windowsPlatform.id);
     mappingReadiness.value = readiness.ready ? "ready" : "blocked";
   } catch {
     mappingReadiness.value = "error";
@@ -290,21 +275,14 @@ function collectionCovers(c: {
       <section v-else class="r-v2-home-empty__mapping">
         <RIcon icon="mdi-folder-key-outline" size="48" />
         <h3 class="r-v2-home-empty__choice-title">
-          {{
-            t("storage.administration", "Map the PC library before scanning")
-          }}
+          {{ t("storage.administration") }}
         </h3>
         <p class="r-v2-home-empty__choice-desc">
-          {{
-            t(
-              "storage.reconcile-legacy",
-              "An active, reachable, read-only PC mapping is required before a library scan can start.",
-            )
-          }}
+          {{ t("storage.reconcile-legacy") }}
         </p>
         <div class="r-v2-home-empty__mapping-actions">
           <router-link :to="mappingRoute" class="r-v2-home-empty__choice-cta">
-            {{ t("settings.add-folder-mapping", "Map storage") }}
+            {{ t("settings.add-folder-mapping") }}
             <RIcon icon="mdi-arrow-right" size="16" />
           </router-link>
           <RBtn
