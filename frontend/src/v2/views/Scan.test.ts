@@ -5,10 +5,10 @@ const source = readFileSync("src/v2/views/Scan.vue", "utf8");
 
 describe("Scan mapping readiness gate", () => {
   it("uses the same GET-only readiness helper and hides controls until ready", () => {
-    expect(source).toContain("storageApi.getMappingReadiness");
+    expect(source).toContain("storageApi.getMappingsReadiness");
     expect(source).toContain('v-if="!mappingReady"');
     expect(source).toContain('v-else\n      class="r-v2-scan-card"');
-    expect(source).toContain('platform.slug === "win"');
+    expect(source).not.toContain('platform.slug === "win"');
   });
 
   it("defends the operation boundary even if scan is invoked directly", () => {

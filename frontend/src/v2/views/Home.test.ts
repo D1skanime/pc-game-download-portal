@@ -5,9 +5,9 @@ const source = readFileSync("src/v2/views/Home.vue", "utf8");
 
 describe("Home mapping readiness gate", () => {
   it("uses the GET-only server readiness contract before exposing Scan", () => {
-    expect(source).toContain("storageApi.getMappingReadiness");
+    expect(source).toContain("storageApi.getMappingsReadiness");
     expect(source).toContain('v-if="mappingReady"');
-    expect(source).toContain('platform.slug === "win"');
+    expect(source).not.toContain('platform.slug === "win"');
   });
 
   it("keeps readiness evaluation free of storage mutations", () => {
@@ -18,8 +18,9 @@ describe("Home mapping readiness gate", () => {
   });
 
   it("renders recovery guidance for blocked and errored readiness", () => {
-    expect(source).toContain("Map the PC library before scanning");
+    expect(source).toContain('t("storage.administration")');
     expect(source).toContain("loadMappingReadiness");
+    expect(source).not.toContain("PLATFORM_STORAGE_MAPPING");
     expect(source).toContain("mappingReadiness === 'error'");
   });
 });
