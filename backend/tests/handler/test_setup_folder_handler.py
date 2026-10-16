@@ -10,6 +10,28 @@ def _root(path: Path):
     return SimpleNamespace(id=7, name="Games", container_path=str(path), active=True)
 
 
+def test_root_registers_configured_library_when_database_is_empty(
+    monkeypatch, tmp_path
+):
+    import handler.setup_folder_handler as setup_module
+
+    registered = _root(tmp_path)
+    monkeypatch.setattr(setup_module, "LIBRARY_BASE_PATH", str(tmp_path))
+    monkeypatch.setattr(setup_module.db_storage_handler, "get_roots", lambda: [])
+    calls = []
+
+    def register_root(name, container_path):
+        calls.append((name, container_path))
+        return registered
+
+    monkeypatch.setattr(setup_module.db_storage_handler, "register_root", register_root)
+
+    result = SetupFolderHandler().root()
+
+    assert result is registered
+    assert calls == [(setup_module.ROOT_LABEL, str(tmp_path))]
+
+
 def test_discovery_is_sorted_direct_and_suggests_known_folders(tmp_path, monkeypatch):
     (tmp_path / "My Games").mkdir()
     (tmp_path / "Windows").mkdir()
