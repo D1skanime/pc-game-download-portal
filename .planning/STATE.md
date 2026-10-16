@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 33-07-PLAN.md
-last_updated: "2026-10-16T19:40:02.725Z"
+stopped_at: Completed 33-08-PLAN.md
+last_updated: "2026-10-16T19:48:16.532Z"
 last_activity: 2026-10-16
 progress:
   total_phases: 33
-  completed_phases: 23
-  total_plans: 239
-  completed_plans: 216
-  percent: 70
+  completed_phases: 22
+  total_plans: 241
+  completed_plans: 217
+  percent: 67
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: Phase 33 Plan 07 complete; Plans 06, 08, and 09 pending
+Plan: 08 of 9
 Status: executing
 Last activity: 2026-10-16
 
@@ -168,6 +168,7 @@ _Updated after each plan completion_
 | Phase 26 P01 | 25min | 3 tasks | 21 files |
 | Phase 26 P02 | 50min | 7 tasks | 28 files |
 | Phase 26 P03 | 35min | 2 tasks | 2 files |
+| Phase 33 P08 | 15m | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -418,6 +419,8 @@ Recent decisions affecting current work:
 - [Phase 26]: Do not guess Linux Dev credentials or seed infrastructure; record the login-route blocker and leave working features unchanged.
 - [Phase 26]: Treat the default build EACCES as a mounted dist-volume limitation because the same production build succeeds under /tmp.
 - [Phase 26]: Preserve unrelated dirty changes and commit only the Plan 26-03 UAT and closeout artifacts.
+- [Phase 33]: Aggregate GET-only readiness over persisted platform mappings and require every returned mapping to be healthy — Home and Scan share the server-backed predicate without browser paths or mutation calls.
+- [Phase 33]: Keep Home and Scan mutation-free and free of hard-coded platform routes — Persisted server identity and health remain the source of truth.
 
 ### Blockers/Concerns
 
@@ -501,8 +504,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-16T19:42:00Z
-Stopped at: Completed 33-07-PLAN.md
+Last session: 2026-10-16T19:47:40.190Z
+Stopped at: Completed 33-08-PLAN.md
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
