@@ -836,7 +836,7 @@ Plans:
 **Goal:** On a fresh installation, setup discovers direct folders under the mounted `Games` directory, auto-associates known names, lets the administrator assign unknown folders to PGDP platforms inline, persists safe internal mappings, and continues to normal administration only after the server confirms those mappings are ready for later scan/read flows.
 **Requirements**: PGDP-33-01
 **Depends on:** Phase 32
-**Plans:** 2/6 plans executed
+**Plans:** 2/8 plans executed
 
 Plans:
 
@@ -844,5 +844,7 @@ Plans:
 - [ ] 33-02-PLAN.md - Implement server-owned direct Games-folder discovery and assignment API
 - [x] 33-03-PLAN.md - Historical Home/Scan readiness gate retained for integration updates
 - [ ] 33-04-PLAN.md - Replace first-run summary with inline PGDP folder assignment
-- [ ] 33-05-PLAN.md - Connect saved assignments to generic scan/read readiness
+- [ ] 33-05-PLAN.md - Connect saved assignments to backend scan and mapped read readiness
+- [ ] 33-07-PLAN.md - Complete mandatory locale parity for inline assignment
+- [ ] 33-08-PLAN.md - Gate Home and Scan on all-mapping readiness
 - [ ] 33-06-PLAN.md - Run fresh Linux stack and in-app browser UAT
