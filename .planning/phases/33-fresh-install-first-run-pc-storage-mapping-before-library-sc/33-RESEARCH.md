@@ -1,294 +1,293 @@
-# Phase 33: Fresh-install first-run PC storage mapping before library scan - Research
+# Phase 33: Fresh-install PGDP first-run folder discovery and direct platform assignment - Research
 
-**Researched:** 2026-10-15
-**Domain:** First-run routing, PC storage mappings, library scan gating, and fresh-install UAT
-**Confidence:** HIGH for repository behavior and test contracts; MEDIUM for the final UX transition because no Phase 33 context or requirement IDs exist yet
+**Researched:** 2026-10-16
+**Domain:** PGDP first-run setup, direct Games-folder discovery, platform assignment, internal read-only mappings, and pre-scan gating
+**Confidence:** HIGH for current repository behavior; MEDIUM for the replacement API contract
 
+<user_constraints>
 ## User Constraints
 
-- Work in the canonical Linux checkout `/home/d1sk/pc-game-download-portal` on `team4s-linux`.
-- On a fresh installation, the first-run screen must open the storage/platform mapping workflow instead of the empty-library screen.
-- The PC/Windows mapping (`Games/pc`) must be completed before a scan is offered.
-- Analyze existing setup, library management, storage roots/mappings, scan routing, backend contracts, and UAT/test patterns.
-- Write only the phase research artifact. Do not implement product code.
+- The stack mounts one main Games directory, for example ./Games:/app/romm/library:ro.
+- First-run setup inspects direct subfolders inside that mounted Games directory.
+- Known folder names are auto-associated with PGDP platforms.
+- Unknown folder names are still listed and can be assigned directly to a PGDP platform in the same setup screen.
+- The user should not be sent to a separate Storage Administration tab during first-run setup.
+- The user should not see RomM branding or roms/{platform} terminology in this PGDP flow.
+- The setup screen should explain the concrete action, show folder name, assigned PGDP platform, and inline editing/selection.
+- Technical storage mappings may remain internal for safe scan/read authorization, but must not create a second user-facing mapping step.
+- Verify the complete fresh install flow in the Linux dev stack and the in-app browser.
+
+### Project execution constraints
+
+- The canonical checkout is /home/d1sk/pc-game-download-portal on team4s-linux; Windows is coordination-only. [VERIFIED: AGENTS.md; CLAUDE.md; remote preflight 2026-10-16]
+- Do not edit product code in this research task. Preserve unrelated dirty docker-compose.yml, docker-compose.override.yml, and backend/pgdp_test/ changes. [VERIFIED: remote status 2026-10-16]
+- Update this existing research artifact in the verified Linux checkout. [VERIFIED: task scope]
+</user_constraints>
+
+<phase_requirements>
+## Phase Requirements
+
+| ID | Description | Research support |
+|---|---|---|
+| PGDP-33-01 | Fresh-install PGDP setup discovers direct folders under the mounted Games directory, auto-associates known names, lets the user assign unknown names to PGDP platforms inline, persists safe internal mappings, and exposes scanning only after assignments are server-confirmed ready. | Current setup, filesystem, platform, storage, scan, and validation contracts are mapped below. The previous implementation must be replanned because it routes to a separate mapping page and preserves legacy structure copy. [VERIFIED: .planning/ROADMAP.md; source inspection 2026-10-16] |
+</phase_requirements>
 
 ## Project Constraints (from AGENTS.md and CLAUDE.md)
 
-- The Windows checkout is coordination and reference only. Planning artifacts and tests for this phase run in `/home/d1sk/pc-game-download-portal` through `ssh team4s-linux`. [VERIFIED: AGENTS.md; CLAUDE.md; remote preflight 2026-10-15]
-- Preserve unrelated worktree changes. The canonical checkout had pre-existing changes in `.planning/ROADMAP.md` and `.planning/STATE.md`; this research file is additive. [VERIFIED: remote `git status --short` 2026-10-15]
-- The active frontend is v2 under `frontend/src/v2/`; v1 is frozen. New behavior belongs in v2 surfaces and must reuse canonical shared stores, services, generated API types, and locale files. [VERIFIED: CLAUDE.md; `.claude/skills/frontend-v2-components/SKILL.md`]
-- Backend endpoints remain thin and the backend owns the OpenAPI contract. Schema or route changes require generated frontend types and a frontend typecheck. [VERIFIED: `.claude/skills/backend-development/SKILL.md`; CLAUDE.md]
-- New logic needs tests. Code and Markdown are English, and em-dashes are forbidden. [VERIFIED: CLAUDE.md]
-- Do not use live Team4s services, NAS data, real credentials, ROMs, media, databases, or existing populated volumes for this fresh-install phase. [VERIFIED: AGENTS.md; Phase 32 context and validation]
+- Run all GSD planning, implementation, tests, and commits in the verified Linux checkout, never Windows. [VERIFIED: AGENTS.md; CLAUDE.md]
+- New frontend behavior belongs in v2 and must reuse canonical services, generated OpenAPI types, stores, locale files, and R* primitives. v1 is frozen. [VERIFIED: CLAUDE.md; .claude/skills/frontend-v2-components/SKILL.md]
+- Backend endpoints stay thin, delegate to handlers, enforce scopes, and remain the OpenAPI source of truth. Route/schema changes require generated frontend types and typecheck. [VERIFIED: .claude/skills/backend-development/SKILL.md]
+- New logic needs tests. New user-visible strings belong in all 18 locales and must pass both locale validators. [VERIFIED: CLAUDE.md; .claude/skills/frontend-i18n/SKILL.md]
+- Do not use RomM branding or legacy roms/{platform} wording in the replacement first-run surface. [VERIFIED: task constraints; current SetupStepPlatforms.vue]
+- Do not add filesystem mutation. The external root is mounted read-only and the storage policy remains authoritative for safe list/read/scan access. [VERIFIED: docker-compose.yml; storage policy implementation]
 
 ## Summary
 
-The current fresh-install path has two separate concepts that do not yet meet. The `/setup` wizard probes the legacy filesystem layout, displays detected platforms, creates the first administrator, and then routes to `home`. It does not register a canonical `StorageRoot` or create a `PlatformStorageMapping`. [VERIFIED: `frontend/src/v2/views/Auth/Setup.vue`; `frontend/src/v2/components/Auth/SetupStepPlatforms.vue`; `backend/endpoints/heartbeat.py`]
+The previous Phase 33 implementation is not the requested product flow. Setup.vue currently creates the administrator, logs in, calls POST /storage/legacy/bootstrap, and navigates to platform-storage-mapping, exposing the separate storage-mapping screen. [VERIFIED: frontend/src/v2/views/Auth/Setup.vue:131-177; frontend/src/services/api/storage.ts:40-46; frontend/src/plugins/router.ts:168-176] SetupStepPlatforms.vue only renders a legacy detected-structure summary and displays either roms/{platform} or {platform}/roms. [VERIFIED: frontend/src/v2/components/Auth/SetupStepPlatforms.vue:1-89] Prior verification records that all browser scenarios failed before Chromium launch and the roadmap remains incomplete. [VERIFIED: 33-VERIFICATION.md; 33-UAT.md]
 
-After setup, `Home.vue` treats an empty database/library as a normal empty state and offers a direct link to the scan view. The scan socket already rejects a scan when no active mapping commands exist, but this is a late error after the user has been offered scanning. [VERIFIED: `frontend/src/v2/views/Home.vue`; `backend/endpoints/sockets/scan.py`; `backend/tests/endpoints/sockets/test_scan.py`]
+The target is one setup-owned folder assignment surface. It lists direct children of the mounted Games root, shows a server-provided known association where safe, leaves unknown folders visible with an inline PGDP platform selector, and submits choices as part of setup. The browser never sends a host path or invents a platform ID. [ASSUMED: recommended contract derived from task constraints and existing storage boundary]
 
-The canonical storage workflow already provides the required primitives: administrator-only root listing, legacy bootstrap that registers the protected PC subtree, safe root browsing, mapping test, create/update with optimistic versioning, preview, and audit/removal semantics. The recommended phase boundary is to route the first-run administrator into this existing workflow, ensure the canonical PC/Windows mapping is established for `Games/pc`, and make the scan affordance conditional on that prerequisite. Do not create a second mapping model, path resolver, or scan lifecycle. [VERIFIED: `backend/endpoints/storage.py`; `backend/handler/database/storage_handler.py`; `frontend/src/v2/components/Settings/StorageRootsSection.vue`; `frontend/src/v2/views/Storage/PlatformStorageMapping.vue`]
+Keep StorageRoot and PlatformStorageMapping as internal authorization state, but compose them behind setup. Reuse the existing storage handler, resolver, health checks, mapping lifecycle, and scan readiness predicate. Do not route setup to PLATFORM_STORAGE_MAPPING, expose Storage Administration copy, call the legacy structure detector as truth, or create a second user-facing mapping step. [VERIFIED: backend/endpoints/storage.py; backend/handler/database/storage_handler.py; frontend/src/services/api/storage.ts; task constraints]
 
-**Primary recommendation:** Add a first-run prerequisite state around the existing storage-root/mapping contracts, route `/setup` completion to the mapping workflow for the PC/Windows platform, and expose scan only after a valid active PC mapping is observable. Reuse `/storage/legacy/bootstrap`, `/storage/mappings/*`, and existing mapping UI behavior. [VERIFIED: inspected routes, API adapters, and tests]
+**Primary recommendation:** Replace the legacy setup platform summary with a setup-specific direct-folder discovery and assignment contract, save assignments after the new administrator is authenticated through one server-owned setup operation, then route to Home only when the server confirms the selected mappings are active and healthy. [ASSUMED: recommended architecture]
 
 ## Architectural Responsibility Map
 
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |---|---|---|---|
-| First-run prerequisite and redirect | Browser / Client | API / Backend | The router and setup view decide where the administrator lands, while the backend heartbeat/setup state remains authoritative for whether setup is complete. [VERIFIED: `frontend/src/plugins/router.ts`; `frontend/src/v2/views/Auth/Setup.vue`; `backend/endpoints/heartbeat.py`] |
-| Storage-root health and safe path resolution | API / Backend | Database / Storage | Backend storage handlers validate absolute roots, reachability, readability, non-writability, symlink safety, and containment. [VERIFIED: `backend/handler/database/storage_handler.py`; `backend/handler/filesystem/storage_resolver.py`; `backend/endpoints/storage.py`] |
-| Platform-to-folder mapping persistence | Database / Storage | API / Backend | `PlatformStorageMapping` is persisted by the database handler and exposed through typed storage endpoints. [VERIFIED: `backend/models/storage.py`; `backend/handler/database/storage_handler.py`; `backend/endpoints/responses/storage.py`] |
-| PC/Windows identity translation | API / Backend | Browser / Client | Legacy bootstrap maps filesystem `pc` to an existing `win` platform when applicable and can create a platform with Windows identity. [VERIFIED: `backend/endpoints/storage.py`; `backend/utils/platform_slugs.py`] |
-| Scan eligibility and command construction | API / Backend | Browser / Client | The socket builds mapping-bound commands and rejects requests with no active mappings; the browser should prevent the premature affordance. [VERIFIED: `backend/endpoints/sockets/scan.py`; `backend/handler/scan_command.py`; `frontend/src/v2/views/Scan.vue`] |
-| Empty-library presentation | Browser / Client | API / Backend | `Home.vue` computes the empty state from loaded ROM/platform/collection data and currently links directly to scan. [VERIFIED: `frontend/src/v2/views/Home.vue`] |
-| Acceptance evidence | Browser / Client and API / Backend | Deployment | Existing UAT combines focused automated tests, typecheck, Linux service smoke, and browser checks; fresh-install evidence must use disposable state. [VERIFIED: Phase 27 UAT; Phase 29 UAT; Phase 32 validation]
+| Direct child discovery | API / Backend | Browser / Client | Backend lists the mounted root through storage policy and rejects unsafe paths; browser renders returned entries. [VERIFIED: storage policy/resolver; backend/endpoints/storage.py:923-987] |
+| Known-folder association | API / Backend | Browser / Client | Platform aliases, bindings, canonical slugs, and database identity are server-owned. [VERIFIED: backend/utils/platforms.py; backend/utils/platform_slugs.py; config manager] |
+| Unknown-folder selection | Browser / Client | API / Backend | Browser owns draft editing; server validates the selected platform and folder again before persistence. [ASSUMED: v2 form split] |
+| Assignment persistence | API / Backend | Database / Storage | Compose existing root/mapping persistence through handlers and one setup boundary. [VERIFIED: storage handler; ASSUMED: one setup composition operation] |
+| First-run sequencing | Browser / Client | API / Backend | Setup owns wizard state/navigation; backend authorizes and confirms saved readiness. [VERIFIED: Setup.vue; heartbeat; router] |
+| Scan eligibility | API / Backend | Browser / Client | Scan already fails closed without mappings; Home/Scan need the same read-only readiness UX gate. [VERIFIED: scan socket; Home; Scan; storage.ts] |
+| Acceptance evidence | Linux dev stack and in-app browser | API / Backend | The task requires the complete disposable flow and prior UAT never reached browser assertions. [VERIFIED: task; 33-UAT.md] |
+
+## Current-State Findings and Re-plan Implications
+
+| Finding | Evidence | Consequence |
+|---|---|---|
+| Compose mounts ./Games directly to /app/romm/library:ro. | [VERIFIED: docker-compose.yml:29] | Treat /app/romm/library as Games. Never append ROMS_FOLDER_NAME or require a roms child. |
+| There is no backend/endpoints/setup.py; /setup/library is in heartbeat.py. | [VERIFIED: file check; backend/endpoints/heartbeat.py:194-305] | Plan changes in the actual route or extract a focused setup handler without inventing a nonexistent module. |
+| /setup/library uses legacy structure detection; get_platforms() can attempt to create a default roms directory when structure detection fails. | [VERIFIED: heartbeat.py; platforms_handler.py:112-141] | Do not use it for PGDP direct-folder discovery. Use a read-only direct-child listing path. |
+| SetupStepPlatforms.vue is a legacy summary, not an assignment editor. | [VERIFIED: SetupStepPlatforms.vue:40-89] | Replace it with rows showing folder name, PGDP assignment, and inline edit/select state. |
+| bootstrapLegacy persists one pc mapping and routes to mapping administration. | [VERIFIED: storage.py:750-933; Setup.vue:165-177] | Replace/narrow the visible setup composition; keep low-level storage handlers. |
+| Generic mapping create requires a positive database platform ID; supported unmatched entries can have id -1. | [VERIFIED: storage schemas; platform.py; utils/platforms.py] | Submit platform slugs/server identities and resolve/create a real platform before mapping. Never submit -1. |
+| Root browse uses root ID plus safe relative parent; mapping APIs use root ID plus relative path. | [VERIFIED: storage.ts:76-105; storage.py:923-1035] | Reuse safety internally; return no host paths to the browser. |
+| Readiness requires active mapping/root, reachable, readable, and non_writable === true. | [VERIFIED: storage.ts:50-73] | Use this rule for setup completion and Home/Scan. Define multi-row semantics explicitly. |
+| Prior browser UAT failed because the runner lacked libglib-2.0.so.0; host probing now reports Docker and libglib available. | [VERIFIED: 33-UAT.md; remote probe 2026-10-16] | Add browser-runner preflight and use the requested in-app browser for final evidence. |
+
+## Proposed Setup Contract
+
+The following is a recommended composition over existing storage primitives, not a new storage model. [ASSUMED: recommendation]
+
+### Discovery response
+
+Use a setup read response equivalent to:
+
+~~~ts
+type SetupFolderDiscovery = {
+  root_label: "Games";
+  folders: Array<{
+    name: string;
+    relative_path: string;
+    association: "known" | "unknown";
+    suggested_platform: { slug: string; display_name: string } | null;
+  }>;
+  platform_options: Array<{ slug: string; display_name: string }>;
+};
+~~~
+
+Exact schema names remain a planning decision, but the response must be server-owned, bounded, direct-child-only, and free of host paths and RomM/roms terminology. [ASSUMED: response shape]
+
+Discovery should enumerate only direct directories below LIBRARY_BASE_PATH, through the existing safe list policy, with no writes. It should reject unsafe symlinks and return relative names such as pc only as internal data. [VERIFIED: resolver/storage routes; ASSUMED: hidden-entry policy requires explicit tests]
+
+Known matching should be deterministic and server-side: exact canonical filesystem slug first, then configured binding/version aliases, then a safe supported-platform match. Ambiguous or unrecognized names remain unknown; do not infer from contents or ROM counts. [VERIFIED: platform/config utilities; ASSUMED: precedence]
+
+### Assignment submission
+
+After admin creation and authentication, submit draft assignments from the same Setup view through one protected setup operation. The server re-lists direct children, validates each as an existing direct directory below Games, resolves each selected PGDP platform, creates/reuses its database identity without source mutation, and creates/reconciles internal root/mappings through db_storage_handler. [ASSUMED: recommended composition; existing handler operations verified]
+
+Preferred shape: a setup-specific POST /setup/folders/assign accepting {folder_name, platform_slug} rows and returning persisted assignments plus readiness. This keeps the multi-row first-run operation atomic and prevents the browser needing a mapping screen. [ASSUMED: recommendation] A fallback is sequential generic mapping calls, but that risks partial persistence and spreads first-run orchestration across administration APIs. [ASSUMED: tradeoff]
+
+The save must be idempotent, reject duplicate platform assignments and unsafe overlaps, and return server IDs/health. It must not accept absolute paths, a client-supplied root outside the deployment-owned path, or placeholder platform IDs. [VERIFIED: existing storage rules; ASSUMED: multi-row contract]
+
+### First-run state machine
+
+~~~text
+Fresh empty DB + Games:/app/romm/library:ro
+  -> GET setup direct-folder discovery
+  -> known folders preselected; unknown folders visible with inline selector
+  -> user reviews/edits rows on Setup
+  -> create admin -> login -> CSRF/current-user/heartbeat refresh
+  -> POST setup assignment composition
+       -> validation failure: remain on Setup, preserve draft, retry
+       -> valid mappings: GET readiness for selected platforms
+            -> not ready: actionable Setup error
+            -> ready: Home may expose Scan
+~~~
+
+Setup is the only first-run assignment surface. Home and Scan may offer later recovery, but must not call setup mutation or route the fresh user through Storage Administration. [ASSUMED: navigation rule]
 
 ## Standard Stack
 
-### Core
-
-| Library / component | Version | Purpose | Why standard |
+| Component | Version | Purpose | Source |
 |---|---:|---|---|
-| FastAPI | Project-managed, documented in repository stack | Setup, storage, platform, and generated OpenAPI endpoints. [VERIFIED: CLAUDE.md; `backend/endpoints/heartbeat.py`; `backend/endpoints/storage.py`] | Existing backend route and contract layer. [VERIFIED: repository architecture] |
-| SQLAlchemy 2.0 | 2.0 family | Storage root, platform, mapping, and audit persistence. [VERIFIED: CLAUDE.md; `backend/models/storage.py`; `backend/handler/database/storage_handler.py`] | Existing ORM and transaction boundary. [VERIFIED: repository architecture] |
-| Vue | `^3.4.27` | Setup, home, settings, and mapping views. [VERIFIED: `frontend/package.json`] | Existing v2 frontend framework. [VERIFIED: `frontend/package.json`] |
-| Vue Router | `^4.3.2` | Setup/home/settings/mapping navigation and route guards. [VERIFIED: `frontend/package.json`; `frontend/src/plugins/router.ts`] | Existing route contract. [VERIFIED: `frontend/src/plugins/router.ts`] |
-| Pinia | `^3.0.1` | Auth, heartbeat, platform, and related shared state. [VERIFIED: `frontend/package.json`; inspected v2 adapters/stores] | Existing state layer. [VERIFIED: repository source] |
-| Vuetify plus project `R*` wrappers | `^3.9.2` | Existing v2 controls, alerts, cards, forms, and navigation. [VERIFIED: `frontend/package.json`; `.claude/skills/frontend-v2-components/SKILL.md`] | Project constitution requires primitives/wrappers when available. [VERIFIED: `.claude/skills/frontend-v2-components/SKILL.md`] |
+| FastAPI | Project-managed | Setup/platform HTTP contracts | [VERIFIED: CLAUDE.md; heartbeat/platform endpoints] |
+| SQLAlchemy | 2.0 family | Platform/root/mapping persistence | [VERIFIED: CLAUDE.md; storage models/handler] |
+| Vue | ^3.4.27 | Setup surface | [VERIFIED: frontend/package.json] |
+| Vue Router | ^4.3.2 | Setup/Home navigation | [VERIFIED: frontend/package.json; router] |
+| Pinia | ^3.0.1 | Auth/heartbeat/platform state | [VERIFIED: frontend/package.json; platform store] |
+| Vuetify and project R* wrappers | ^3.9.2 | Accessible controls/layout | [VERIFIED: frontend/package.json; v2 component skill] |
+| Vitest | ^4.1.5 | Frontend contracts | [VERIFIED: frontend/package.json] |
+| pytest/uv | Project-managed | Backend contracts | [VERIFIED: CLAUDE.md; backend skill] |
+| Playwright plus in-app browser | Project-managed/requested | Disposable fresh-install UAT | [VERIFIED: playwright config; task constraints] |
 
-### Supporting
-
-| Tool | Version | Purpose | When to use |
-|---|---:|---|---|
-| Vitest | `^4.1.5` | Focused frontend tests for setup/home/routing/mapping behavior. [VERIFIED: `frontend/package.json`] | Run focused tests and the full frontend suite in `romm-dev`. [VERIFIED: Phase 32 validation; `frontend/package.json`] |
-| pytest | Project-managed through `uv` | Backend endpoint, handler, and scan contract tests. [VERIFIED: CLAUDE.md; `.claude/skills/backend-development/SKILL.md`] | Run focused backend tests and collection in the dev container. [VERIFIED: Phase 32 validation] |
-| OpenAPI generated TypeScript models | Repository-generated | Keep storage/setup response types aligned with backend schemas. [VERIFIED: CLAUDE.md; `frontend/src/__generated__/`] | Regenerate if the backend contract changes. [VERIFIED: CLAUDE.md] |
-
-**Installation:** None. This phase should reuse the existing lockfiles, frontend packages, backend environment, and project containers. [VERIFIED: `frontend/package.json`; `pyproject.toml`; Phase 32 validation]
-
-**Version verification:** The manifest versions above were inspected in the canonical checkout. Host `node`, `npm`, and `uv` are unavailable, so package and backend gates must use the project container path already established by Phase 32. [VERIFIED: remote runtime probe 2026-10-15; Phase 32 validation]
+**Installation:** Reuse lockfiles and Compose services. Do not add a second mapping library or filesystem abstraction. [VERIFIED: manifests; existing storage implementation]
 
 ## Architecture Patterns
 
-### System Architecture Diagram
+### Pattern 1: Server-owned direct-folder discovery
 
-```text
-Fresh install
-    |
-    v
-Router heartbeat: SHOW_SETUP_WIZARD?
-    | yes
-    v
-/setup -> create first admin
-    |
-    v
-First-run mapping prerequisite
-    |
-    +--> GET /storage/roots --------------------+
-    |                                            |
-    +--> POST /storage/legacy/bootstrap --------+--> StorageRoot + PC/Windows mapping
-    |                                            |
-    +--> GET /storage/mappings/platforms/{id}   |
-    |                                            |
-    +--> browse -> test -> POST /storage/mappings
-                                                 |
-                                                 v
-                                  Active mapping + healthy read-only root
-                                                 |
-                                                 v
-                         Home/library state exposes Scan action
-                                                 |
-                                                 v
-                         Socket scan -> mapping_scan_commands
-                                      |
-                    no commands -> scan:done_ko and no enqueue
-                    valid commands -> mapping-bound scan execution
-```
+List direct folders with the existing storage policy/resolver and return server-derived association suggestions. Do not call FSPlatformsHandler.get_platforms(), because it can bootstrap a legacy directory. [VERIFIED: platforms_handler.py; storage policy; ASSUMED: setup response]
 
-[VERIFIED: `frontend/src/plugins/router.ts`; `frontend/src/v2/views/Auth/Setup.vue`; `frontend/src/v2/components/Settings/StorageRootsSection.vue`; `frontend/src/v2/views/Storage/PlatformStorageMapping.vue`; `backend/endpoints/storage.py`; `backend/endpoints/sockets/scan.py`]
+### Pattern 2: Setup-owned inline assignment table
 
-### Recommended Project Structure
+Each row displays the concrete folder name and PGDP platform. Known rows are preselected; unknown rows require an inline v2 select; edits remain draft state until submit. [ASSUMED: UX recommendation] Keep async state in Setup.vue or a setup composable and keep row rendering presentational. [VERIFIED: current orchestrator pattern; component skill]
 
-```text
-frontend/src/v2/views/Auth/Setup.vue                 # first-run orchestration and handoff
-frontend/src/v2/views/Home.vue                       # empty-library gating and CTA
-frontend/src/v2/views/Settings/LibraryManagement.vue # existing storage/mapping entry
-frontend/src/v2/components/Settings/StorageRootsSection.vue
-frontend/src/v2/views/Storage/PlatformStorageMapping.vue
-frontend/src/services/api/storage.ts                 # typed storage API adapter
-backend/endpoints/heartbeat.py                       # setup state and legacy filesystem probe
-backend/endpoints/storage.py                         # storage root/mapping contract
-backend/handler/database/storage_handler.py          # persistence, locking, versioning
-backend/endpoints/sockets/scan.py                    # mapping-bound scan routing
-backend/tests/endpoints/test_heartbeat.py
-backend/tests/endpoints/test_storage.py
-backend/tests/endpoints/sockets/test_scan.py
-backend/tests/integration/test_mapped_scan.py
-frontend/src/v2/views/Storage/PlatformStorageMapping.test.ts
-```
+~~~ts
+type FolderAssignmentDraft = {
+  folderName: string;
+  platformSlug: string | null;
+  association: "known" | "unknown";
+};
+const canSubmit = computed(() =>
+  assignments.value.every((row) => row.platformSlug !== null),
+);
+~~~
 
-[VERIFIED: repository paths and inspected source files]
+The draft is not authorization. Backend revalidates direct-child containment, platform identity, duplicates, overlap, root health, and read-only status. [VERIFIED: storage boundary; ASSUMED: draft shape]
 
-### Pattern 1: Treat mapping as a prerequisite, not a scan error
+### Pattern 3: Internal mapping persistence behind setup
 
-**What:** The browser should determine whether the required PC/Windows mapping is available through the existing storage contract and route to mapping when it is not. The backend remains fail-closed through `mapping_scan_commands` and must continue rejecting unmapped scan requests. [VERIFIED: `backend/endpoints/sockets/scan.py`; `backend/tests/endpoints/sockets/test_scan.py`]
+Compose existing root/mapping persistence after login and CSRF refresh, then return readiness. Do not navigate to platform-storage-mapping during first run. [VERIFIED: current auth sequence; task constraints; ASSUMED: composition]
 
-**When to use:** On setup completion and any empty-library entry point where a scan CTA would otherwise be rendered. [VERIFIED: `frontend/src/v2/views/Auth/Setup.vue`; `frontend/src/v2/views/Home.vue`]
+### Pattern 4: One readiness predicate
 
-**Example:**
+Home, direct Scan, and setup completion use active mapping/root, reachable, readable, and non_writable === true. [VERIFIED: frontend/src/services/api/storage.ts:50-73] Extend deliberately if multiple assignments are required. [ASSUMED: multi-row rule]
 
-```ts
-// Use existing route and storage API contracts. Keep mapping identity server-owned.
-if (!hasActivePcMapping.value) {
-  router.push({
-    name: ROUTES.PLATFORM_STORAGE_MAPPING,
-    params: { platformId: pcPlatformId.value },
-  });
-  return;
-}
-router.push({ name: ROUTES.SCAN });
-```
+### Anti-Patterns
 
-[VERIFIED pattern basis: `frontend/src/v2/views/Storage/PlatformStorageMapping.vue`; `frontend/src/services/api/storage.ts`; `frontend/src/plugins/router.ts`]
-
-### Pattern 2: Use the legacy bootstrap as the bridge to canonical PC storage
-
-**What:** `POST /storage/legacy/bootstrap` registers the protected PC subtree in the canonical mapping model. It resolves filesystem `pc` against `win`/`pc` platform identities and returns the root plus mapping records. [VERIFIED: `backend/endpoints/storage.py`; `frontend/src/services/api/storage.ts`]
-
-Phase 33 resolves this as an explicit mapping-first handoff: authenticated Setup is the only caller of this mutating endpoint, invokes it once, then routes to the existing mapping page. Home, Scan, and recovery checks do not call it. [DECIDED for D-01; Plan 02]
-
-### Pattern 3: Preserve storage safety and optimistic concurrency
-
-**What:** Root registration requires an absolute path and checks reachability, readability, non-writability, and symlink safety. Mapping creation normalizes a relative path, rejects overlap and duplicate platform mappings, and update/removal uses an expected mapping version. [VERIFIED: `backend/handler/database/storage_handler.py`; `backend/handler/filesystem/storage_resolver.py`; `backend/endpoints/responses/storage.py`]
-
-**When to use:** Every first-run mapping action, including the fixed PC path and any later administrator edit. [VERIFIED: `frontend/src/v2/views/Storage/PlatformStorageMapping.vue`; `backend/endpoints/storage.py`]
-
-### Anti-Patterns to Avoid
-
-- **Route setup directly to `/scan`:** It bypasses the storage prerequisite and produces a late socket failure. [VERIFIED: `frontend/src/v2/views/Auth/Setup.vue`; `frontend/src/v2/views/Home.vue`; `backend/endpoints/sockets/scan.py`]
-- **Treat `/setup/library` as a mapping contract:** It only reports legacy filesystem structure and counts, not `StorageRoot` or `PlatformStorageMapping` records. [VERIFIED: `backend/endpoints/heartbeat.py`; `frontend/src/services/api/setup.ts`]
-- **Use a browser-supplied absolute path:** The storage API accepts a root ID plus safe relative path; backend root registration and resolution own filesystem safety. [VERIFIED: `frontend/src/services/api/storage.ts`; `backend/handler/database/storage_handler.py`]
-- **Create a second PC platform identity in the frontend:** Legacy bootstrap already handles `pc` to `win` resolution and platform creation. [VERIFIED: `backend/endpoints/storage.py`]
-- **Make the scan CTA merely disabled without a recovery route:** The user must have a direct path to complete mapping and understand why scanning is unavailable. [VERIFIED: `frontend/src/v2/views/Home.vue`; mapping UI behavior in `frontend/src/v2/views/Storage/PlatformStorageMapping.vue`]
-- **Use v1 settings or raw Vuetify controls for new v2 behavior:** v1 is frozen and v2 wrappers/primitives are required where available. [VERIFIED: CLAUDE.md; `.claude/skills/frontend-v2-components/SKILL.md`]
+- Route setup to Storage Administration. [VERIFIED: current Setup; task constraints]
+- Render roms/{platform} or RomM branding. [VERIFIED: current component; task constraints]
+- Use legacy structure detection for direct Games truth. [VERIFIED: heartbeat; platforms handler]
+- Let browser create platform IDs or send absolute paths. [VERIFIED: platform/storage schemas]
+- Save rows through a hidden admin screen, creating partial failure and violating the same-screen requirement. [ASSUMED: UX risk]
+- Disable Scan without an actionable recovery path. [VERIFIED: frontend patterns; current Home/Scan gating]
 
 ## Don't Hand-Roll
 
-| Problem | Do not build | Use instead | Why |
+| Problem | Don't build | Use instead | Why |
 |---|---|---|---|
-| Root/path safety | Client-side absolute-path validation or a second resolver | `StorageRoot`, `storage_resolver`, `resolve_directory`, and `/storage/roots/*` | Backend enforces containment, symlink, health, and read-only policy. [VERIFIED: storage handler and resolver] |
-| PC/Windows identity mapping | Frontend slug conversion or duplicate platform creation | `POST /storage/legacy/bootstrap` and existing platform lookup rules | Existing backend handles `pc`, `win`, bindings, versions, and platform creation. [VERIFIED: `backend/endpoints/storage.py`] |
-| Mapping persistence | Local storage, config-file mutation, or a new table | `PlatformStorageMapping` and `/storage/mappings` endpoints | Existing model supports uniqueness, overlap checks, versions, and audit behavior. [VERIFIED: `backend/models/storage.py`; `backend/handler/database/storage_handler.py`] |
-| Scan lifecycle | New first-run scan event or queue path | Existing `mapping_scan_commands`, `execute_mixed_scans`, and socket events | Existing scan routing already freezes mapping identity and fails closed when absent. [VERIFIED: `backend/endpoints/sockets/scan.py`; `backend/handler/scan_command.py`] |
-| Empty-state presentation | A parallel first-run page with duplicated library logic | Existing `Home.vue` empty state plus a prerequisite-aware CTA/redirect | Keeps library state and navigation in one home surface. [VERIFIED: `frontend/src/v2/views/Home.vue`] |
-| API types | Hand-written frontend response interfaces for changed backend schemas | Generated OpenAPI types and existing adapters | Backend is the source of truth. [VERIFIED: CLAUDE.md; `.claude/skills/backend-development/SKILL.md`]
+| Root containment/symlink safety | Client checks or second resolver | Existing storage resolver/policy | Server owns root authority and bounded errors. [VERIFIED: resolver/policy] |
+| Mapping lifecycle | Setup table/localStorage mappings | Existing root/mapping models and handler | Existing duplicate, overlap, audit, and version semantics. [VERIFIED: storage model/handler/routes] |
+| Platform matching | Frontend alias table/ID map | Server platform catalog, config bindings, slug utilities | Metadata/aliases are server-owned. [VERIFIED: platform utilities/config] |
+| Scan authorization | Setup boolean or ROM count | Mapping-bound scan commands plus readiness | Backend remains fail-closed. [VERIFIED: scan socket/handler; storage API] |
+| Form validation | Zod/Yup/raw v-form | RForm and native rules | Required by v2 patterns. [VERIFIED: frontend patterns] |
 
-**Key insight:** The repository already has a security-conscious mapping system and a fail-closed scan boundary. Phase 33 is primarily an orchestration and first-run UX gap, not a storage or scanner implementation gap. [VERIFIED: inspected storage and scan contracts]
+**Key insight:** The user-facing concept is a folder assignment; the safe implementation concept is a mapping. Expose the former and keep the latter behind one setup boundary. [ASSUMED: architecture conclusion]
 
 ## Common Pitfalls
 
-### Pitfall 1: Setup completion still lands on Home before mapping
+### Pitfall 1: Legacy structure leakage
 
-**What goes wrong:** The new administrator sees the empty-library screen and a scan CTA before the PC mapping exists. [VERIFIED: `Setup.vue` routes to `home` for avatar flow and `login` otherwise; `Home.vue` renders empty CTA]
+**What goes wrong:** Direct Games is interpreted as roms/{platform} or {platform}/roms. [VERIFIED: current component/heartbeat]
+**Why:** Compatibility code still uses ROMS_FOLDER_NAME and structure detection. [VERIFIED: platforms handler]
+**Avoid:** Direct-child discovery and fixtures with no roms child. [ASSUMED: test recommendation]
+**Warning signs:** roms/, RomM, or mkdir appears in the PGDP setup path. [VERIFIED: current source/policy]
 
-**Why it happens:** Setup step 1 is a legacy structure/platform probe, not canonical storage setup. [VERIFIED: `Setup.vue`; `setup.ts`; `heartbeat.py`]
+### Pitfall 2: Placeholder IDs leak
 
-**How to avoid:** Make the first-run handoff observe the canonical mapping prerequisite and route directly to the existing platform storage mapping workflow before exposing scan. [VERIFIED: existing route/API contracts]
+Supported unmatched platforms can have id -1, while mapping schemas require positive IDs. [VERIFIED: utils/platforms.py; storage schemas] Resolve/create server-side from stable slugs. [ASSUMED: contract]
 
-**Warning signs:** Fresh disposable database has no rows in storage-root/mapping tables, but browser shows Scan as the primary action. [VERIFIED: storage model/API behavior]
+### Pitfall 3: Unknown folders disappear or are guessed
 
-### Pitfall 2: `pc` and `win` are treated as unrelated platforms
+Return every safe direct folder, mark uncertain names unknown, require explicit selection, and never silently omit or fuzzy-assign. [ASSUMED: product safety recommendation]
 
-**What goes wrong:** A mapping is created for a duplicate or wrong platform ID, so the scan command for the actual PC platform remains absent. [VERIFIED: `backend/endpoints/storage.py` platform resolution logic; `scan.py` mapping lookup]
+### Pitfall 4: Partial save/retry duplicates
 
-**Why it happens:** Filesystem slug and canonical platform slug are not always identical. [VERIFIED: `backend/utils/platform_slugs.py`; storage bootstrap]
+Prefer one idempotent composition operation, existing conflict/overlap checks, and preserved draft on failure. [VERIFIED: existing mapping conflicts; ASSUMED: composition]
 
-**How to avoid:** Use the bootstrap response and persisted platform ID, then query the active mapping by that ID. Do not infer the ID from a hard-coded frontend slug. [VERIFIED: `frontend/src/services/api/storage.ts`; storage endpoint response]
+### Pitfall 5: One mapping gates multiple rows
 
-### Pitfall 3: Mapping the wrong relative level
+The current code checks only Windows. Decide whether all submitted assignments or only PC gates initial Scan, then use one rule everywhere. [VERIFIED: Home/Scan/storage API; NEEDS DECISION]
 
-**What goes wrong:** The mapping points at `Games` or `Games/roms` when the intended PC subtree is `Games/pc`, so preview and scan see the wrong directory. [VERIFIED: user requirement; `StorageRoot` relative-path contract; mapping UI]
+### Pitfall 6: Source-level tests substitute for browser proof
 
-**Why it happens:** The storage root and mapping relative path are separate fields, and legacy structure A uses `roms/{platform}` while the requested fresh-install contract names the operator path `Games/pc`. [VERIFIED: user request; `FSPlatformsHandler`; storage schemas]
+Prior UAT failed before Chromium assertions. Add a runner preflight, disposable Linux stack, and in-app-browser evidence before completion. [VERIFIED: 33-UAT.md; 33-VERIFICATION.md; task]
 
-**How to avoid:** Make the desired root and relative path explicit in the plan and assert the persisted mapping identity/path in backend and UAT checks. [VERIFIED: storage schemas and API]
+## Runtime State Inventory
 
-### Pitfall 4: Scan is hidden but no route completes the prerequisite
-
-**What goes wrong:** The user cannot scan, but is left at an empty page with no mapping CTA or with an admin-only error. [VERIFIED: `StorageRootsSection.vue`; mapping permissions in `storage.py`]
-
-**Why it happens:** Storage roots and mappings require administrator scopes, while the empty-home path is generic. [VERIFIED: storage route decorators; `StorageRootsSection.vue`]
-
-**How to avoid:** Route the first-run administrator directly to the mapping workflow and provide an actionable error/retry path for unhealthy or missing roots. [VERIFIED: `PlatformStorageMapping.vue`; `StorageRootsSection.vue`]
-
-### Pitfall 5: Tests prove only the late backend rejection
-
-**What goes wrong:** The scan socket test passes while the first-run browser still offers the wrong screen. [VERIFIED: existing scan rejection test and absence of setup/home mapping test]
-
-**How to avoid:** Add tests at the routing/setup boundary, the storage prerequisite boundary, and the scan fail-closed boundary, then cover the complete disposable fresh-install path in UAT. [VERIFIED: existing test layout and Phase 32 validation pattern]
+| Category | Items found | Action required |
+|---|---|---|
+| Stored data | Existing platform, root, mapping, and audit records are internal state. [VERIFIED: storage models/handler] | No source migration; fresh disposable DB must prove intended records and idempotent retry. [ASSUMED: test action] |
+| Live service config | Not accessed; Compose defines disposable services and has unrelated dirty changes. [VERIFIED: AGENTS; git status] | Do not touch live services or unrelated Compose edits. |
+| OS-registered state | None relevant to this code-only setup flow found. [ASSUMED: scope inspection] | None. |
+| Secrets/env vars | Library base path, database, and auth/CSRF inputs are deployment configuration. [VERIFIED: backend config/Compose] | Keep host paths/credentials out of browser payloads/evidence. |
+| Build artifacts/packages | Dependencies are container-mounted; host node/npm/uv unavailable. [VERIFIED: remote probe] | Run gates through Compose and in-app browser. |
 
 ## Code Examples
 
-### Existing typed mapping API shape
+~~~ts
+// Recommended browser payload: stable names, not root paths or database IDs.
+type SetupAssignmentRequest = {
+  folder_name: string;
+  platform_slug: string;
+};
+~~~
 
-```ts
-const roots = await storageApi.getRoots();
-const mapping = await storageApi.getMapping(platformId);
-await storageApi.testMapping({
-  platform_id: platformId,
-  storage_root_id: rootId,
-  relative_path: "pc",
-});
-await storageApi.createMapping({
-  platform_id: platformId,
-  storage_root_id: rootId,
-  relative_path: "pc",
-});
-```
+The server must revalidate both fields against the mounted root and supported catalog. [ASSUMED: request contract]
 
-[VERIFIED pattern: `frontend/src/services/api/storage.ts`; `frontend/src/v2/views/Storage/PlatformStorageMapping.vue`]
+~~~ts
+const ready = Boolean(
+  mapping.active &&
+  root?.active &&
+  root.health.reachable &&
+  root.health.readable &&
+  root.health.non_writable === true,
+);
+~~~
 
-### Existing backend scan gate
-
-```python
-commands = mapping_scan_commands(
-    platform_ids,
-    trigger=ScanTrigger.MANUAL,
-    scope=ScanScope.ROM if roms_ids else ScanScope.PLATFORM,
-    scan_type=scan_type,
-    platform_fs_slugs=platform_fs_slugs,
-)
-if not commands:
-    await socket_handler.socket_server.emit(
-        "scan:done_ko",
-        "No active storage mapping was found for the requested platform selection.",
-        to=sid,
-    )
-    return
-```
-
-[VERIFIED pattern: `backend/endpoints/sockets/scan.py`; `backend/tests/endpoints/sockets/test_scan.py`]
-
-### Existing first-run route guard
-
-```ts
-if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
-  return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
-}
-```
-
-[VERIFIED pattern: `frontend/src/plugins/router.ts`]
+This is the existing readiness implementation to reuse. [VERIFIED: frontend/src/services/api/storage.ts:50-73]
 
 ## State of the Art
 
-| Existing behavior | Required Phase 33 direction | Evidence |
+| Old approach | Recommended approach | Impact |
 |---|---|---|
-| Setup probes legacy structure and then finishes into auth/home. | Setup completion must enter a canonical mapping prerequisite before scan is offered. | [VERIFIED: `Setup.vue`; `heartbeat.py`; user request] |
-| Home always uses an empty-library scan CTA when no ROMs/platforms/collections are loaded. | Empty state must be mapping-aware and provide mapping workflow first on fresh install. | [VERIFIED: `Home.vue`] |
-| Storage administration is reachable under Library Management and can bootstrap legacy storage. | Reuse it as the first-run workflow or extract only a shared prerequisite decision around it. | [VERIFIED: `LibraryManagement.vue`; `StorageRootsSection.vue`] |
-| Scan backend rejects missing mappings at socket execution time. | Retain this defense and add earlier browser routing/visibility. | [VERIFIED: `scan.py`; scan test] |
+| Legacy structure summary and roms/{platform} copy. [VERIFIED: current UI] | Direct Games folder rows with PGDP assignment. [ASSUMED: re-plan] | Makes unknown folders actionable and removes wrong terminology. |
+| One PC bootstrap followed by Storage Administration. [VERIFIED: current Setup] | Setup owns discovery, inline assignment, save, and completion. [ASSUMED: re-plan] | Removes the second first-run step. |
+| One known mapping readiness gate. [VERIFIED: current Home/Scan] | Same predicate over the selected assignment set. [ASSUMED: multi-row extension] | Prevents premature scan exposure. |
 
-**Deprecated/outdated:** None identified in the inspected contracts. The legacy filesystem setup probe is still used by the setup wizard, but it is not a substitute for canonical mapping state. [VERIFIED: `heartbeat.py`; `setup.ts`; storage endpoints]
+**Deprecated/outdated for this flow:** detected_structure/structure copy in PGDP setup, visible legacy bootstrap handoff, and platform-storage-mapping as first-run destination. Compatibility consumers and later administration may retain their contracts. [VERIFIED: current code; ASSUMED: scope]
+
+## Open Questions
+
+1. **Must every discovered folder be assigned, or can the user skip one?** Known and unknown folders must be listed; skip semantics are unspecified. [VERIFIED: task] Recommendation: require assignment or add an explicit Skip state, never silently omit. [ASSUMED]
+2. **Does initial readiness require every assigned mapping or only PC?** Current code checks only Windows. [VERIFIED: Home/Scan/storage API] Recommendation: require every submitted assignment, while later optional mappings can be separate. [ASSUMED]
+3. **Atomic setup endpoint or sequential generic mapping calls?** Generic calls exist but are single-mapping. [VERIFIED: storage routes] Recommendation: one setup composition endpoint to avoid partial persistence. [ASSUMED]
+4. **Exact alias table?** Config bindings/versions and slug utilities exist, but product-owned PGDP aliases need locking. [VERIFIED: config/platform utilities] Recommendation: small exact server-side table; ambiguous names remain unknown. [ASSUMED]
+
+## Environment Availability
+
+| Dependency | Required by | Available | Version | Fallback |
+|---|---|---:|---|---|
+| Linux canonical checkout | All GSD work | Yes | team4s-linux; Linux confirmed 2026-10-16 | None; Windows forbidden. [VERIFIED: preflight] |
+| Docker | Disposable dev stack | Yes | 29.6.2 | None. [VERIFIED: remote docker] |
+| Node/npm | Direct frontend commands | No | - | Compose dev container. [VERIFIED: remote probe] |
+| uv | Direct backend commands | No | - | Compose dev container. [VERIFIED: remote probe] |
+| Trunk | Lint/format | No | - | Container if available; otherwise explicit blocker. [VERIFIED: prior UAT/remote probe] |
+| Python | Inspection only | Yes | 3.10.12 | Not substitute for project Python 3.13+. [VERIFIED: remote probe; CLAUDE] |
+| Browser libraries | UAT | Host libglib present; prior one-shot runner failed | libglib-2.0.so.0 host present | In-app browser plus launch preflight. [VERIFIED: remote ldconfig; prior UAT; task] |
 
 ## Validation Architecture
 
@@ -296,122 +295,101 @@ if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
 
 | Property | Value |
 |---|---|
-| Frontend framework | Vitest `^4.1.5`, Vue Test Utils, existing project config. [VERIFIED: `frontend/package.json`] |
-| Backend framework | pytest through project `uv` environment. [VERIFIED: CLAUDE.md; `.claude/skills/backend-development/SKILL.md`] |
-| Frontend quick run | `docker compose run --rm --no-deps romm-dev bash -lc 'cd /app/frontend && npm run test -- <focused-file>'` [VERIFIED: Phase 32 validation container path; package script] |
-| Frontend full suite | `docker compose run --rm --no-deps romm-dev bash -lc 'cd /app/frontend && npm run test'` [VERIFIED: Phase 32 validation] |
-| Frontend typecheck | `docker compose run --rm --no-deps romm-dev bash -lc 'cd /app/frontend && npm run typecheck'` [VERIFIED: Phase 32 validation] |
-| Backend quick run | `docker compose run --rm --no-deps romm-dev bash -lc 'cd /app/backend && uv run pytest <focused-tests>'` [VERIFIED: CLAUDE.md; Phase 32 validation] |
-| Backend collection | `docker compose run --rm --no-deps romm-dev bash -lc 'cd /app/backend && uv run pytest tests --collect-only -q'` [VERIFIED: Phase 32 validation] |
+| Frontend | Vitest ^4.1.5 and Playwright. [VERIFIED: package/config] |
+| Backend | pytest via project uv environment. [VERIFIED: CLAUDE; pyproject] |
+| Config | frontend/vitest.config.ts, frontend/playwright.config.ts, backend pytest configuration. [VERIFIED: repository files] |
+| Quick frontend | Compose dev service, focused Vitest path. [VERIFIED: existing phase commands/Compose] |
+| Quick backend | Compose dev service, focused pytest path. [VERIFIED: existing phase commands/Compose] |
+| Full gate | typecheck, frontend tests/build, backend focused/integration tests, Trunk, disposable UAT, in-app browser. [VERIFIED: pre-pr skill; phase validation] |
 
-### Phase Behavior to Test Map
+### Phase Requirements -> Test Map
 
-| Behavior | Test type | Suggested automated evidence | File status |
+| Req ID | Behavior | Test type | Automated coverage |
 |---|---|---|---|
-| Setup completion routes to mapping prerequisite rather than home/scan on a clean install. | Frontend unit/router | Focused setup/router test exercising `finishWizard` and the mapping prerequisite decision. | New Wave 0 test likely needed. [VERIFIED: no existing setup view test found] |
-| Existing setup library probe remains compatible with empty fresh storage. | Backend endpoint | `backend/tests/endpoints/test_heartbeat.py` setup-library tests plus empty-structure handler tests. | Exists. [VERIFIED: listed tests] |
-| PC filesystem identity resolves to Windows/canonical platform identity. | Backend endpoint/handler | Extend storage bootstrap tests and assert returned `platform_id`, `platform_fs_slug`, and mapping path. | Existing storage tests exist; exact fresh PC case needs explicit coverage. [VERIFIED: `backend/tests/endpoints/test_storage.py`; storage endpoint] |
-| `Games/pc` mapping is tested and persisted only after safety validation. | Backend endpoint/integration | Focused storage endpoint tests for root, relative path, test, create, duplicate, overlap, and unhealthy root. | Existing mapping tests exist; fresh-install path needs composition. [VERIFIED: `backend/tests/endpoints/storage/test_mapping_preview.py`; `backend/tests/endpoints/test_storage.py`] |
-| Empty home does not offer scan before the active PC mapping exists. | Frontend unit | Mount Home with empty ROM state and missing mapping; assert mapping CTA/route and no scan CTA. | New Wave 0 test likely needed. [VERIFIED: `Home.vue`; no Home test found in targeted test inventory] |
-| Scan remains fail-closed when mapping is absent. | Backend socket unit | `backend/tests/endpoints/sockets/test_scan.py::test_scan_handler_rejects_unmapped_library_without_enqueuing`. | Exists. [VERIFIED: test file] |
-| A valid mapping produces mapping-bound scan commands and reaches execution. | Backend integration | `backend/tests/integration/test_mapped_scan.py`, `backend/tests/integration/test_scan_source_immutability.py`, and scan handler tests. | Exists. [VERIFIED: test files] |
-| Browser first-run journey reaches mapping, completes it, then offers scan. | Disposable UAT | Fresh empty database/volumes, synthetic operator paths, login, mapping, reload, scan visibility, and no premature scan. | New Phase 33 UAT evidence required. [VERIFIED: Phase 27/29/32 UAT patterns] |
+| PGDP-33-01 | Direct child discovery lists known/unknown folders with no source mutation or roms creation. | Backend | Extend setup/heartbeat and storage tests; add source immutability fixture. [VERIFIED: existing locations; ASSUMED: new cases] |
+| PGDP-33-01 | Known rows preselect; unknown rows remain visible and inline-selectable; copy has folder and PGDP platform, no RomM/legacy path. | Frontend | Add SetupStepPlatforms component tests and update Setup.test.ts. [VERIFIED: current files; ASSUMED: new tests] |
+| PGDP-33-01 | Save uses server-owned slugs/IDs, retries preserve draft, and no Storage Administration route occurs. | Frontend/backend | Focused setup tests and endpoint tests. [VERIFIED: current patterns; ASSUMED: new cases] |
+| PGDP-33-01 | Persist/reconcile internal mappings, reject unsafe/duplicate/overlap, and return health/readiness. | Backend integration | Run against reachable disposable DB, not host-loopback-only fixture. [VERIFIED: prior backend blocker; ASSUMED: new contract] |
+| PGDP-33-01 | Home/Scan stay unavailable until readiness. | Unit + browser | Existing storage/Home/Scan tests plus browser assertion. [VERIFIED: existing test files] |
+| PGDP-33-01 | Complete fresh install works in Linux dev stack/in-app browser after reload, both themes, responsive layouts, and mouse/touch/keyboard/gamepad. | Disposable UAT | Extend Phase 33 matrix; prior run failed before Chromium. [VERIFIED: phase artifacts; task] |
 
 ### Sampling Rate
 
-- **Per task commit:** Run the focused frontend or backend test for the changed contract. [VERIFIED: repository test conventions]
-- **Per wave merge:** Run focused storage/setup/scan tests, frontend typecheck, and relevant frontend tests in `romm-dev`. [VERIFIED: Phase 32 validation]
-- **Phase gate:** Run the full frontend suite, backend collection/focused integration tests, disposable fresh-install UAT, and browser checks before `$gsd-verify-work`. [VERIFIED: Phase 27, 29, and 32 validation/UAT patterns]
+- Per task: focused Vitest or pytest for the changed contract. [ASSUMED: recommendation]
+- Per wave: typecheck plus focused backend/API collection and generated OpenAPI check. [VERIFIED: project skill]
+- Phase gate: full relevant gates, disposable Linux UAT, and in-app browser evidence before verification. [VERIFIED: task; pre-pr skill]
 
 ### Wave 0 Gaps
 
-- [x] Setup view/router test for clean-install handoff to the PC mapping workflow. [VERIFIED: targeted frontend test inventory]
-- [x] Home empty-state test for mapping prerequisite versus scan CTA. [VERIFIED: targeted frontend test inventory]
-- [x] Fresh-install backend/storage fixture that asserts `Games/pc`, Windows identity resolution, active mapping persistence, and preview. [VERIFIED: existing storage tests do not expose this complete journey]
-- [x] Disposable UAT script or documented command matrix that proves no scan is offered before mapping and that only the intended temporary state is removed. [VERIFIED: Phase 32 validation pattern]
+- Define/test direct-folder discovery and safe direct-child listing. [ASSUMED: gap]
+- Define/test assignment request/response, transaction, idempotence, and platform resolution. [ASSUMED: gap]
+- Replace summary test with inline assignment coverage. [VERIFIED: current component; ASSUMED: gap]
+- Add known/unknown/empty/nested/hidden/symlink synthetic fixtures and source immutability assertions. [ASSUMED: gap]
+- Repair/prove browser prerequisites and execute requested in-app browser path. [VERIFIED: prior UAT; task]
 
 ## Security Domain
 
-### Applicable ASVS Categories
+| ASVS area | Applies | Control |
+|---|---:|---|
+| V2 Authentication | Yes | Preserve admin creation, login, CSRF, and protected assignment sequence. [VERIFIED: Setup/auth decorators] |
+| V3 Session | Yes | Refresh session/current user before assignment mutation. [VERIFIED: Setup] |
+| V4 Access Control | Yes | Admin/users-write for assignment; if discovery is public, allow only no-admin setup state. [VERIFIED: protected routes; ASSUMED: final scope] |
+| V5 Input Validation | Yes | Direct-child validation; reject traversal/absolute/UNC/drive paths and symlink escape; validate platform slug; reject duplicates/overlap. [VERIFIED: resolver/schemas; ASSUMED: payload] |
+| V6 Cryptography | No new crypto | Reuse existing session/CSRF/audit; no custom token/hash. [ASSUMED: no new crypto] |
 
-| ASVS category | Applies | Standard control |
+| Threat | STRIDE | Mitigation |
 |---|---|---|
-| V2 Authentication | Yes | Preserve the existing setup/admin creation and authenticated storage route guards. [VERIFIED: `heartbeat.py`; `storage.py`] |
-| V3 Session Management | Yes | Preserve existing login, CSRF refresh, heartbeat, and router guard flow. [VERIFIED: `Setup.vue`; `router.ts`] |
-| V4 Access Control | Yes | Storage roots/mappings require administrator scopes and scan requests require server-side task permission. [VERIFIED: `storage.py`; `scan.py`] |
-| V5 Input Validation | Yes | Use Pydantic schemas, normalized relative paths, root containment, overlap checks, and backend error codes. [VERIFIED: `storage.py`; `storage_handler.py`; `responses/storage.py`] |
-| V6 Cryptography | Indirect | Do not add new cryptography; preserve existing auth/session secret handling and synthetic-secret-only UAT. [VERIFIED: CLAUDE.md; Phase 32 validation]
-
-### Known Threat Patterns for this stack
-
-| Pattern | STRIDE | Standard mitigation |
-|---|---|---|
-| Path traversal or root escape | Tampering / Elevation | Backend `normalize_relative_path`, `resolve_directory`, approved root IDs, and containment checks. [VERIFIED: storage resolver/handler] |
-| Unsafe symlink or writable source | Tampering | Root health and mapping test require read-only, reachable, safe storage. [VERIFIED: storage handler/resolver] |
-| Unauthorized mapping or scan | Elevation | Protected routes, admin assertions, scope checks, and server-side socket authorization. [VERIFIED: storage.py; scan.py] |
-| Stale concurrent mapping edit | Tampering | Expected mapping version and conflict responses. [VERIFIED: storage schemas/handler] |
-| Premature scan affordance | Denial of service / integrity | Browser gates the action on mapping state while backend remains fail-closed. [VERIFIED: Home.vue; scan.py] |
-
-## Environment Availability
-
-| Dependency | Required by | Available | Version | Fallback |
-|---|---|---|---|---|
-| Linux canonical checkout | All research and writes | Yes | `team4slinux`, `/home/d1sk/pc-game-download-portal` | None. [VERIFIED: preflight 2026-10-15] |
-| Docker | Disposable/UAT and project tooling | Yes | 29.6.2 | None. [VERIFIED: remote probe] |
-| Node/npm | Frontend test/typecheck | Not on host PATH | None | Use `romm-dev` container, as Phase 32 does. [VERIFIED: remote probe; Phase 32 validation] |
-| uv | Backend test tooling | Not on host PATH | None | Use `romm-dev` container. [VERIFIED: remote probe; Phase 32 validation] |
-| Host Python | Repository inspection only | Available, 3.10.12 | Below project Python 3.13+ | Use containerized project environment for tests. [VERIFIED: remote probe; CLAUDE.md] |
-| MariaDB/Redis test services | Backend integration/UAT | Not independently verified in this research | — | Start only disposable project services under the phase UAT contract; do not use live services. [VERIFIED: AGENTS.md; Phase 32 validation]
-
-**Missing dependencies with no fallback:** None for planning. [VERIFIED: containerized gate path]
-
-**Missing dependencies with fallback:** Host Node/npm/uv/Python version are replaced by the existing `romm-dev` container toolchain. [VERIFIED: Phase 32 validation]
-
-## Resolved Decisions
-
-1. **Bootstrap versus mapping page:** Setup is the only mutating bootstrap path. After authenticated admin creation, `Setup.vue` calls the existing `POST /storage/legacy/bootstrap` exactly once, validates the returned mapping, and navigates to the existing PC/Windows mapping page. Home, Scan, and recovery surfaces never call bootstrap. This preserves an observable mapping workflow while keeping mutation ownership in setup. [DECIDED for D-01, D-03, D-04]
-
-2. **Canonical persisted root/path pair:** The canonical representation is the StorageRoot for configured deployment folder `Games` plus `PlatformStorageMapping.relative_path = "pc"`; its effective target is `Games/pc`. The implementation must reconcile any old bootstrap representation of root `Games/pc` plus empty relative path into this exact pair, without source mutation. Filesystem `pc` resolves to the canonical Windows platform identity returned by the server. [DECIDED for D-02, verified against storage schemas and bootstrap tests]
-
-3. **Readiness authority:** The browser may offer Scan only after a read-only GET-backed check confirms an active mapping, active root, reachable root, readable root, and `non_writable === true`. The backend `mapping_scan_commands` and socket rejection remain authoritative. ROM counts, legacy `/setup/library` discovery, local storage, and optimistic UI state are not readiness authorities. [DECIDED for D-03, D-04]
-
-These decisions are implemented and tested by Plans 01-03, with disposable browser evidence in Plan 04.
+| Traversal/absolute injection | Tampering/Elevation | Server validates names/slugs and resolves safe relative paths. [VERIFIED: storage resolver] |
+| Symlink escape | Tampering/Disclosure | Reject unsafe symlinks and prove containment. [VERIFIED: resolver] |
+| Writable/unhealthy root | Tampering | Require active, reachable, readable, non-writable health. [VERIFIED: storage API] |
+| Wrong unknown-folder guess | Integrity | Unknown remains explicit and requires selection. [ASSUMED: safety] |
+| Partial multi-row save | Integrity/DoS | Prefer atomic idempotent composition and preserve drafts on failure. [ASSUMED: recommendation] |
 
 ## Sources
 
-### Primary, HIGH confidence
+### Primary (HIGH confidence)
 
-- `AGENTS.md`, `CLAUDE.md`, and `.claude/skills/*` in `/home/d1sk/pc-game-download-portal`, project constraints and stack. [VERIFIED: remote inspection 2026-10-15]
-- `frontend/src/v2/views/Auth/Setup.vue`, `frontend/src/v2/components/Auth/SetupStepPlatforms.vue`, and `frontend/src/services/api/setup.ts`, first-run behavior and legacy library probe. [VERIFIED: source inspection]
-- `frontend/src/v2/views/Home.vue`, empty-library state and current scan CTA. [VERIFIED: source inspection]
-- `frontend/src/v2/views/Settings/LibraryManagement.vue`, `frontend/src/v2/components/Settings/StorageRootsSection.vue`, and `frontend/src/v2/views/Storage/PlatformStorageMapping.vue`, existing mapping workflow. [VERIFIED: source inspection]
-- `frontend/src/services/api/storage.ts`, typed storage API routes. [VERIFIED: source inspection]
-- `frontend/src/plugins/router.ts`, setup guard and mapping/scan routes. [VERIFIED: source inspection]
-- `backend/endpoints/heartbeat.py`, setup library contract and setup platform behavior. [VERIFIED: source inspection]
-- `backend/endpoints/storage.py`, storage-root/bootstrap/mapping contracts and permissions. [VERIFIED: source inspection]
-- `backend/models/storage.py`, `backend/handler/database/storage_handler.py`, and `backend/handler/filesystem/storage_resolver.py`, persistence and safety rules. [VERIFIED: source inspection]
-- `backend/endpoints/sockets/scan.py` and `backend/handler/scan_command.py`, mapping-bound scan routing and fail-closed behavior. [VERIFIED: source inspection]
-- `backend/tests/endpoints/test_heartbeat.py`, `backend/tests/endpoints/test_storage.py`, `backend/tests/endpoints/sockets/test_scan.py`, `backend/tests/integration/test_mapped_scan.py`, and `frontend/src/v2/views/Storage/PlatformStorageMapping.test.ts`, test patterns. [VERIFIED: source inspection]
-- `.planning/phases/27-*/27-UAT.md`, `.planning/phases/29-*/29-UAT.md`, and `.planning/phases/32-*/32-VALIDATION.md`, disposable UAT and containerized gate patterns. [VERIFIED: source inspection]
+- AGENTS.md and CLAUDE.md - execution boundary, canonical checkout, stack, and project rules.
+- .planning/ROADMAP.md, 33-UAT.md, 33-VERIFICATION.md, 33-VALIDATION.md - current goal, incomplete prior phase, and browser failure.
+- docker-compose.yml - direct Games read-only mount.
+- frontend/src/v2/views/Auth/Setup.vue, SetupStepPlatforms.vue, services/api/setup.ts, services/api/storage.ts - current frontend contracts.
+- backend/endpoints/heartbeat.py, storage.py, endpoints/responses/storage.py - actual setup and mapping contracts.
+- backend/handler/filesystem/platforms_handler.py, storage_resolver.py, storage_policy.py - filesystem behavior and safety.
+- backend/utils/platforms.py, platform_slugs.py, config manager - platform catalog/alias behavior.
+- backend/endpoints/sockets/scan.py, frontend/src/v2/views/Home.vue, Scan.vue - scan readiness.
+- Project skill files for v2 components/patterns/i18n/backend/pre-verification conventions. [VERIFIED: skill files]
 
-### Secondary, MEDIUM confidence
+### Secondary (MEDIUM confidence)
 
-- No external web or library documentation was needed for this repository-bound research. Framework and package versions are from the canonical manifest and project instructions, not training-memory claims. [VERIFIED: `frontend/package.json`; CLAUDE.md]
+- None required. This is codebase/product-contract research; no new library documentation was needed. [VERIFIED: scope]
+
+### Tertiary (LOW confidence)
+
+- None.
 
 ## Assumptions Log
 
-| # | Claim | Section | Risk if wrong |
-|---|---|---|---|
-| A1 | [RESOLVED] Setup owns the sole bootstrap mutation; Home/Scan readiness is GET-only. | Resolved Decisions, Plans 01-03 | None remaining within Phase 33 scope. |
-| A2 | [RESOLVED] Games is the persisted root and pc is the relative path, producing effective Games/pc. | Resolved Decisions, Plan 01, 33-VALIDATION.md | Deployment config must expose the configured Games folder; UAT fails if the exact pair is not observable. |
+| # | Claim | Risk if wrong |
+|---|---|---|
+| A1 | Setup-specific composition endpoint is preferable to sequential generic mapping calls. | Medium: endpoint scope/transaction planning. |
+| A2 | Setup submits stable platform slugs; server creates/reuses positive database IDs. | High: wrong identity contract can duplicate/fail mappings. |
+| A3 | Every non-hidden folder requires assignment unless explicit Skip state is added. | Medium: completion UX. |
+| A4 | Initial readiness requires all submitted assignments. | Medium: Home/Scan semantics. |
+| A5 | Matching precedence is exact canonical slug, configured alias, then safe supported match; ambiguous remains unknown. | High: wrong precedence can misassociate folders. |
+| A6 | Hidden/system filtering follows a bounded helper and is locked by tests. | Medium: visible folder set. |
+| A7 | No OS registration/live service config belongs to this phase. | Low: scope expansion. |
+| A8 | In-app browser can provide final evidence after preflight. | High: prior browser failure. |
 
 ## Metadata
 
 **Confidence breakdown:**
 
-- Standard stack: HIGH, based on project manifests and repository instructions. [VERIFIED: `frontend/package.json`; CLAUDE.md]
-- Architecture: HIGH for current behavior, contracts, and the Phase 33 first-run handoff. [VERIFIED: inspected source; Phase 33 decision set and roadmap requirement PGDP-33-01 are now resolved]
-- Pitfalls: HIGH for storage/scan safety and current routing mismatch, MEDIUM for the exact `Games/pc` deployment interpretation. [VERIFIED: source and test inspection]
+- Standard stack: HIGH, repository manifests and skills verify it.
+- Current architecture: HIGH, setup/storage/platform/scan paths were inspected in the canonical Linux checkout.
+- Replacement architecture: MEDIUM, the single-screen contract follows explicit constraints but requires decisions A1-A6.
+- Validation: MEDIUM, test locations/failures are verified but browser execution is deferred to implementation/UAT.
 
-**Research date:** 2026-10-15
-**Valid until:** 2026-11-14, unless storage/setup contracts or Phase 33 context changes sooner.
+**Research date:** 2026-10-16
+**Valid until:** 2026-10-23 for browser/runtime availability; 2026-11-15 for stable repository architecture.
+
+## RESEARCH COMPLETE
