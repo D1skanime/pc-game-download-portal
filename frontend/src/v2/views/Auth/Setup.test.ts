@@ -2,24 +2,44 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Setup from "./Setup.vue";
 
-const {
-  router,
-  createUser,
-  login,
-  updateUser,
-  bootstrapLegacy,
-  fetchCurrentUser,
-  fetchHeartbeat,
-  refetchCSRFToken,
-} = vi.hoisted(() => ({
+const mocks = vi.hoisted(() => ({
   router: { push: vi.fn() },
   createUser: vi.fn(),
   login: vi.fn(),
-  updateUser: vi.fn(),
-  bootstrapLegacy: vi.fn(),
+  discoverFolders: vi.fn(),
+  assignFolders: vi.fn(),
   fetchCurrentUser: vi.fn(),
   fetchHeartbeat: vi.fn(),
   refetchCSRFToken: vi.fn(),
+}));
+vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRouter: () => mocks.router,
+}));
+vi.mock("@/v2/composables/useSnackbar", () => ({
+  useSnackbar: () => ({ warning: vi.fn(), error: vi.fn(), info: vi.fn() }),
+}));
+vi.mock("@/services/api/setup", () => ({
+  default: {
+    discoverFolders: mocks.discoverFolders,
+    assignFolders: mocks.assignFolders,
+  },
+}));
+vi.mock("@/v2/data/adapters/legacy/services/api/user", () => ({
+  default: { createUser: mocks.createUser },
+}));
+vi.mock("@/v2/data/adapters/legacy/services/api/identity", () => ({
+  default: { login: mocks.login },
+}));
+vi.mock("@/v2/data/adapters/legacy/services/api", () => ({
+  refetchCSRFToken: mocks.refetchCSRFToken,
+}));
+vi.mock("@/v2/data/adapters/legacy/stores/auth", () => ({
+  default: () => ({ fetchCurrentUser: mocks.fetchCurrentUser }),
+}));
+vi.mock("@/v2/data/adapters/legacy/stores/heartbeat", () => ({
+  default: () => ({ fetchHeartbeat: mocks.fetchHeartbeat }),
 }));
 
 type SetupVm = {
@@ -31,34 +51,29 @@ type SetupVm = {
     repeatPassword: string;
   };
   adminFormValid: boolean;
-  submitting: boolean;
+  folderDraft: Record<string, string | null>;
 };
-
-vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock("vue-router", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("vue-router")>()),
-  useRouter: () => router,
-}));
-vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ warning: vi.fn(), error: vi.fn(), info: vi.fn() }),
-}));
-vi.mock("@/v2/data/adapters/legacy/services/api/setup", () => ({
-  default: { getLibraryInfo: vi.fn().mockResolvedValue({ data: null }) },
-}));
-vi.mock("@/v2/data/adapters/legacy/services/api/user", () => ({
-  default: { createUser, updateUser },
-}));
-vi.mock("@/v2/data/adapters/legacy/services/api/identity", () => ({
-  default: { login },
-}));
-vi.mock("@/v2/data/adapters/legacy/services/api", () => ({ refetchCSRFToken }));
-vi.mock("@/v2/data/adapters/legacy/stores/auth", () => ({
-  default: () => ({ fetchCurrentUser }),
-}));
-vi.mock("@/v2/data/adapters/legacy/stores/heartbeat", () => ({
-  default: () => ({ fetchHeartbeat }),
-}));
-vi.mock("@/services/api/storage", () => ({ default: { bootstrapLegacy } }));
+const discovery = {
+  root_label: "Games",
+  folders: [
+    {
+      name: "Known",
+      relative_path: "Known",
+      association: "known",
+      suggested_platform: "windows",
+    },
+    {
+      name: "Mystery",
+      relative_path: "Mystery",
+      association: "unknown",
+      suggested_platform: null,
+    },
+  ],
+  platform_options: [
+    { slug: "windows", display_name: "Windows" },
+    { slug: "linux", display_name: "Linux" },
+  ],
+};
 
 function mountSetup() {
   const wrapper = mount(Setup, {
@@ -78,7 +93,7 @@ function mountSetup() {
       },
     },
   });
-  const vm = wrapper.vm as typeof wrapper.vm & SetupVm;
+  const vm = wrapper.vm as SetupVm;
   vm.step = 3;
   vm.adminUser = {
     username: "admin",
@@ -89,84 +104,60 @@ function mountSetup() {
   vm.adminFormValid = true;
   return wrapper;
 }
-
 beforeEach(() => {
   vi.clearAllMocks();
-  createUser.mockResolvedValue({ data: { id: 7 } });
-  login.mockResolvedValue({});
-  updateUser.mockResolvedValue({});
-  refetchCSRFToken.mockResolvedValue(undefined);
-  fetchCurrentUser.mockResolvedValue(undefined);
-  fetchHeartbeat.mockResolvedValue(undefined);
-  bootstrapLegacy.mockResolvedValue({
-    data: {
-      storage_root: { name: "Games" },
-      mappings: [
-        { platform_id: 42, platform_fs_slug: "win", relative_path: "pc" },
-      ],
-    },
-  });
+  mocks.discoverFolders.mockResolvedValue({ data: discovery });
+  mocks.createUser.mockResolvedValue({ data: { id: 7 } });
+  mocks.login.mockResolvedValue({});
+  mocks.refetchCSRFToken.mockResolvedValue(undefined);
+  mocks.fetchCurrentUser.mockResolvedValue(undefined);
+  mocks.fetchHeartbeat.mockResolvedValue(undefined);
 });
-
-describe("fresh setup storage handoff", () => {
-  it("authenticates, refreshes session state, bootstraps, and opens the server mapping", async () => {
+describe("setup folder assignment flow", () => {
+  it("discovers folders and does not finish with an incomplete draft", async () => {
     const wrapper = mountSetup();
-    await wrapper.vm.$nextTick();
+    await flushPromises();
+    expect(mocks.discoverFolders).toHaveBeenCalledOnce();
     await wrapper.findAll("button").at(-1)?.trigger("click");
     await flushPromises();
-    expect(createUser).toHaveBeenCalledOnce();
-    expect(login).toHaveBeenCalledWith("admin", "password123");
-    expect(refetchCSRFToken).toHaveBeenCalledOnce();
-    expect(fetchCurrentUser).toHaveBeenCalledOnce();
-    expect(fetchHeartbeat).toHaveBeenCalledOnce();
-    expect(bootstrapLegacy).toHaveBeenCalledOnce();
-    expect(router.push).toHaveBeenCalledWith({
-      name: "platform-storage-mapping",
-      params: { platformId: 42 },
-    });
-    expect(router.push).not.toHaveBeenCalledWith({ name: "home" });
-    expect(router.push).not.toHaveBeenCalledWith({ name: "login" });
+    expect(mocks.assignFolders).not.toHaveBeenCalled();
+    expect(mocks.router.push).not.toHaveBeenCalled();
   });
-
-  it("keeps setup retryable when bootstrap returns no mapping", async () => {
-    bootstrapLegacy.mockResolvedValueOnce({
-      data: { storage_root: { name: "Games" }, mappings: [] },
+  it("authenticates, assigns once, and continues only when the server is ready", async () => {
+    mocks.assignFolders.mockResolvedValue({
+      data: {
+        ready: true,
+        mappings: [],
+        root_health: { reachable: true, readable: true, non_writable: true },
+      },
     });
     const wrapper = mountSetup();
-    await wrapper.vm.$nextTick();
+    await flushPromises();
+    const vm = wrapper.vm as SetupVm;
+    vm.folderDraft = { Known: "windows", Mystery: "linux" };
     await wrapper.findAll("button").at(-1)?.trigger("click");
     await flushPromises();
-    expect(router.push).not.toHaveBeenCalled();
-    expect((wrapper.vm as typeof wrapper.vm & SetupVm).submitting).toBe(false);
+    expect(mocks.assignFolders).toHaveBeenCalledWith([
+      { folder_name: "Known", platform_slug: "windows" },
+      { folder_name: "Mystery", platform_slug: "linux" },
+    ]);
+    expect(mocks.router.push).toHaveBeenCalledWith({ name: "home" });
   });
-
-  it("retries the authenticated bootstrap without recreating the admin", async () => {
-    bootstrapLegacy
-      .mockRejectedValueOnce(new Error("storage unavailable"))
-      .mockResolvedValueOnce({
-        data: {
-          storage_root: { name: "Games" },
-          mappings: [
-            { platform_id: 42, platform_fs_slug: "win", relative_path: "pc" },
-          ],
-        },
-      });
+  it("keeps the draft and route unchanged when assignment is not ready", async () => {
+    mocks.assignFolders.mockResolvedValue({
+      data: {
+        ready: false,
+        mappings: [],
+        root_health: { reachable: true, readable: true, non_writable: false },
+      },
+    });
     const wrapper = mountSetup();
-    await wrapper.vm.$nextTick();
-    const finish = wrapper.findAll("button").at(-1);
-    await finish?.trigger("click");
     await flushPromises();
-    await finish?.trigger("click");
+    const vm = wrapper.vm as SetupVm;
+    vm.folderDraft = { Known: "windows", Mystery: "linux" };
+    await wrapper.findAll("button").at(-1)?.trigger("click");
     await flushPromises();
-
-    expect(createUser).toHaveBeenCalledOnce();
-    expect(bootstrapLegacy).toHaveBeenCalledTimes(2);
-    expect(router.push).toHaveBeenCalledWith({
-      name: "platform-storage-mapping",
-      params: { platformId: 42 },
-    });
-    expect(router.push).not.toHaveBeenCalledWith({
-      name: "library-management",
-    });
+    expect(mocks.router.push).not.toHaveBeenCalled();
+    expect(vm.folderDraft).toEqual({ Known: "windows", Mystery: "linux" });
   });
 });
