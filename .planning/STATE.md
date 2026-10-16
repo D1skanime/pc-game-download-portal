@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 33-08-PLAN.md
-last_updated: "2026-10-16T19:48:16.532Z"
+stopped_at: Completed 33-09-PLAN.md
+last_updated: "2026-10-16T19:54:00.000Z"
 last_activity: 2026-10-16
 progress:
   total_phases: 33
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: 08 of 9
+Plan: 09 of 9
 Status: executing
 Last activity: 2026-10-16
 
@@ -496,16 +496,18 @@ Recent decisions affecting current work:
 | Phase 33 P02 | 32min | 2 tasks | 6 files |
 | Phase 33 P05 | 7min | 2 tasks | 2 files |
 | Phase 33 P07 | 19min | 2 tasks | 18 files |
+| Phase 33 P09 | 14min | 2 tasks | 10 files |
 
 - [Phase 33]: Setup owns typed folder discovery, inline assignments, authenticated save, and server-readiness continuation.
 - [Phase 33]: First-run drafts use server folder names and platform slugs, preserving unknown folders until explicitly assigned.
 - [Phase 33 P07]: Keep identical setup assignment structure across all 18 locales, with assignment copy in locale JSON only and no duplicate locale logic.
 - [Phase 33 P07]: Remove RomM branding and legacy roms path wording from setup values.
+- [Phase 33 P09]: Keep batch-B setup locale parity and interpolation structure aligned with en_US; defer unrelated storage.json extras.
 
 ## Session Continuity
 
-Last session: 2026-10-16T19:47:40.190Z
-Stopped at: Completed 33-08-PLAN.md
+Last session: 2026-10-16T19:54:00.000Z
+Stopped at: Completed 33-09-PLAN.md
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
