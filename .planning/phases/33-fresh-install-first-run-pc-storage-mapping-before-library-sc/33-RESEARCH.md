@@ -272,10 +272,10 @@ This is the existing readiness implementation to reuse. [VERIFIED: frontend/src/
 
 ## Open Questions
 
-1. **Must every discovered folder be assigned, or can the user skip one?** Known and unknown folders must be listed; skip semantics are unspecified. [VERIFIED: task] Recommendation: require assignment or add an explicit Skip state, never silently omit. [ASSUMED]
-2. **Does initial readiness require every assigned mapping or only PC?** Current code checks only Windows. [VERIFIED: Home/Scan/storage API] Recommendation: require every submitted assignment, while later optional mappings can be separate. [ASSUMED]
-3. **Atomic setup endpoint or sequential generic mapping calls?** Generic calls exist but are single-mapping. [VERIFIED: storage routes] Recommendation: one setup composition endpoint to avoid partial persistence. [ASSUMED]
-4. **Exact alias table?** Config bindings/versions and slug utilities exist, but product-owned PGDP aliases need locking. [VERIFIED: config/platform utilities] Recommendation: small exact server-side table; ambiguous names remain unknown. [ASSUMED]
+1. **Must every discovered folder be assigned, or can the user skip one? (RESOLVED)** Every direct child returned by discovery is a required assignment row. The client must not silently omit or skip a row; the assignment endpoint rejects incomplete submissions, so both the known pc row and the unknown My Games row are explicitly assigned before setup can continue. [RESOLVED: locked phase contract in 33-02/33-04]
+2. **Does initial readiness require every assigned mapping or only PC? (RESOLVED)** Initial readiness requires every submitted assignment and the shared root to be active, reachable, readable, and non-writable. Home/Scan remains unavailable until the all-mapping predicate passes, including after reload. [RESOLVED: locked phase contract in 33-02/33-08]
+3. **Atomic setup endpoint or sequential generic mapping calls? (RESOLVED)** Use the setup composition endpoint POST /api/setup/folders/assign as the single atomic/idempotent reconciliation boundary. It re-lists and validates all rows server-side, persists the complete assignment set, and returns mapping identities and readiness; the browser does not sequence generic mapping mutations. [RESOLVED: locked phase contract in 33-02/33-04]
+4. **Exact alias table? (RESOLVED)** Platform association is server-owned and deterministic: canonical PGDP slug first, then configured binding/version alias, then one unambiguous supported match. Ambiguous or unsupported names remain unknown and require explicit platform selection; no client alias table is permitted. [RESOLVED: locked phase contract in 33-02/33-04]
 
 ## Environment Availability
 
