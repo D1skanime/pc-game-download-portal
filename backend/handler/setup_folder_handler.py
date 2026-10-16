@@ -52,7 +52,7 @@ class SetupFolderHandler:
                 root.name == ROOT_LABEL or root.container_path == LIBRARY_BASE_PATH
             ):
                 return root
-        raise ValueError("Games storage root is unavailable")
+        return db_storage_handler.register_root(ROOT_LABEL, LIBRARY_BASE_PATH)
 
     @staticmethod
     def _platform_options() -> list[Any]:
