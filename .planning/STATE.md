@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 33-05-PLAN.md
-last_updated: "2026-10-16T19:33:58Z"
+stopped_at: Completed 33-07-PLAN.md
+last_updated: "2026-10-16T19:40:02.725Z"
 last_activity: 2026-10-16
 progress:
   total_phases: 33
   completed_phases: 23
   total_plans: 239
-  completed_plans: 214
+  completed_plans: 216
   percent: 70
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: Phase 33 Plan 05 complete; Plans 06, 07, 08, and 09 pending
+Plan: Phase 33 Plan 07 complete; Plans 06, 08, and 09 pending
 Status: executing
 Last activity: 2026-10-16
 
@@ -439,7 +439,8 @@ Recent decisions affecting current work:
 - Plan 24-10 focused frontend verification has one unrelated sourceMutationInventory failure for services/api/storage.ts bootstrapLegacy at /storage/legacy/bootstrap; no source change was made.
 - requirements.mark-complete UI-26-03 returned not_found because UI-26-03 is absent from .planning/REQUIREMENTS.md; no requirement checkbox was changed.
 
-- GSD SDK is unavailable on team4s-linux, so this quick task used manual SUMMARY and STATE updates instead of state-handler commands.
+- GSD state handlers could not parse the legacy STATE.md position/progress format; equivalent STATE and ROADMAP updates were applied manually after the SDK roadmap update.
+- Requirement PGDP-33-01 is not present in REQUIREMENTS.md; no requirement checkbox was changed.
 
 ### Quick Tasks Completed
 
@@ -491,13 +492,17 @@ Recent decisions affecting current work:
 
 | Phase 33 P02 | 32min | 2 tasks | 6 files |
 | Phase 33 P05 | 7min | 2 tasks | 2 files |
+| Phase 33 P07 | 19min | 2 tasks | 18 files |
 
 - [Phase 33]: Setup owns typed folder discovery, inline assignments, authenticated save, and server-readiness continuation.
 - [Phase 33]: First-run drafts use server folder names and platform slugs, preserving unknown folders until explicitly assigned.
+- [Phase 33 P07]: Keep identical setup assignment structure across all 18 locales, with assignment copy in locale JSON only and no duplicate locale logic.
+- [Phase 33 P07]: Remove RomM branding and legacy roms path wording from setup values.
+
 ## Session Continuity
 
-Last session: 2026-10-16T19:33:58Z
-Stopped at: Completed 33-05-PLAN.md
+Last session: 2026-10-16T19:42:00Z
+Stopped at: Completed 33-07-PLAN.md
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
