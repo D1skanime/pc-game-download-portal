@@ -768,6 +768,17 @@ async def bootstrap_legacy_storage(
         # library root. Do not append the legacy ROMS_FOLDER_NAME again.
         relative_root = ""
         filesystem_slugs = await fs_platform_handler.get_platforms()
+        if not filesystem_slugs:
+            filesystem_slugs = await fs_platform_handler.list_directories(path="")
+        pc_fs_slug = next(
+            (
+                slug
+                for slug in filesystem_slugs
+                if slug == "pc" or slug.lower().startswith("pc-")
+            ),
+            "pc",
+        )
+        pc_relative_path = pc_fs_slug
         missing_platforms = {
             item.fs_slug: item for item in await get_filesystem_platforms()
         }
@@ -783,7 +794,7 @@ async def bootstrap_legacy_storage(
                 db_platform_handler.get_platform_by_slug("win")
                 or db_platform_handler.get_platform_by_fs_slug("win")
                 or db_platform_handler.get_platform_by_fs_slug("pc")
-                if fs_slug == "pc"
+                if fs_slug == pc_fs_slug
                 else db_platform_handler.get_platform_by_fs_slug(fs_slug)
             )
             mapped_slug = None
@@ -816,14 +827,14 @@ async def bootstrap_legacy_storage(
                         "firmware_count",
                     }
                 )
-                if fs_slug == "pc":
+                if fs_slug == pc_fs_slug:
                     platform_data["fs_slug"] = "win"
                 platform = db_platform_handler.add_platform(Platform(**platform_data))
                 created_platform_count += 1
             else:
                 existing_platform_count += 1
 
-            if fs_slug == "pc":
+            if fs_slug == pc_fs_slug:
                 pc_platform = platform
 
         if pc_platform is None:
@@ -869,7 +880,7 @@ async def bootstrap_legacy_storage(
         if old_mapping is not None:
             if (
                 old_mapping.storage_root_id == root.id
-                and old_mapping.relative_path == "pc"
+                and old_mapping.relative_path == pc_relative_path
             ):
                 root = old_mapping.storage_root
                 mapping = old_mapping
@@ -890,16 +901,17 @@ async def bootstrap_legacy_storage(
             mapping = db_storage_handler.create_mapping(
                 pc_platform.id,
                 root.id,
-                "pc",
+                pc_relative_path,
                 **_actor(request),
             )
         elif (
-            old_mapping.storage_root_id != root.id or old_mapping.relative_path != "pc"
+            old_mapping.storage_root_id != root.id
+            or old_mapping.relative_path != pc_relative_path
         ):
             mapping = db_storage_handler.update_mapping(
                 old_mapping.id,
                 root.id,
-                "pc",
+                pc_relative_path,
                 expected_version=old_mapping.version,
                 **_actor(request),
             )

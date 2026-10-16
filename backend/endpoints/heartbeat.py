@@ -241,9 +241,20 @@ async def get_setup_library_info(request: Request):
         log.warning("Error retrieving existing platforms", exc_info=True)
         existing_platform_slugs = []
 
+    # The PGDP Games mount is already the library root, so flat platform
+    # folders such as pc-Games must also be visible during first-run setup.
+    if not existing_platform_slugs:
+        try:
+            existing_platform_slugs = await fs_platform_handler.list_directories(
+                path=""
+            )
+        except Exception:
+            log.warning("Error retrieving flat library platforms", exc_info=True)
+            existing_platform_slugs = []
+
     # Build existing platforms with rom counts
     existing_platforms = []
-    if detected_structure and existing_platform_slugs:
+    if existing_platform_slugs:
         cnfg = cm.get_config()
         for fs_slug in existing_platform_slugs:
             rom_count = 0
