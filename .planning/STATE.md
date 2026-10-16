@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Completed 32-01-PLAN.md
-last_updated: "2026-10-15T16:05:00Z"
+last_updated: "2026-10-16T09:00:00Z"
 last_activity: 2026-10-15
 progress:
   total_phases: 32
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
 Plan: 3 of 4
 Status: Plan 33-04 UAT failed; browser blocker recorded
-Last activity: 2026-10-15
+Last activity: 2026-10-16
 
 ## Performance Metrics
 
@@ -444,6 +444,7 @@ Recent decisions affecting current work:
 
 | #                         | Description                                                                                                                 | Date       | Commit       | Directory                                                                                                           |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| 261016-cgq               | Fix storage preview button state and translations                                                                                | 2026-10-16 | 37e73ab3e   | [261016-cgq-fix-storage-preview-button-state-and-tra](./quick/261016-cgq-fix-storage-preview-button-state-and-tra/) |
 | 261010-sdf                | Localize PC DLC media role selector labels while preserving enum values                                                     | 2026-10-10 | d52bd8532    | [261010-sdf-localize-pc-dlc-media-role-labe](./quick/261010-sdf-localize-pc-dlc-media-role-labe/)                   |
 | 20261007-background-media | Fix selected media backgrounds and reduced-motion visibility                                                                | 2026-10-07 | bd0b4fee5    | [20261007-background-media-display](./quick/20261007-background-media-display/)                                     |
 | 20261007-setup-error-type | Fix setup error response typing                                                                                             | 2026-10-07 | pending      | [20261007-setup-error-type](./quick/20261007-setup-error-type/)                                                     |
