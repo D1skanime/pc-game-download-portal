@@ -5,7 +5,7 @@ from config import (
 )
 from endpoints.sockets.scan import (
     ScanStats,
-    execute_mixed_scans,
+    execute_mapping_scans,
     mapping_scan_commands,
 )
 from handler.metadata import (
@@ -84,10 +84,13 @@ class ScanLibraryTask(PeriodicTask):
             scope=ScanScope.LIBRARY,
             scan_type=ScanType.QUICK,
         )
-        scan_stats = await execute_mixed_scans(
+        if not commands:
+            log.info(
+                "No healthy mapped storage assignments, skipping scheduled library scan"
+            )
+            return scan_stats.to_dict()
+        scan_stats = await execute_mapping_scans(
             commands,
-            platform_ids=[],
-            platform_fs_slugs=[],
             metadata_sources=metadata_sources,
         )
         log.info("Scheduled library scan done")
