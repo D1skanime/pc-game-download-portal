@@ -93,7 +93,7 @@ function mountSetup() {
       },
     },
   });
-  const vm = wrapper.vm as SetupVm;
+  const vm = wrapper.vm as Partial<SetupVm> as SetupVm;
   vm.step = 3;
   vm.adminUser = {
     username: "admin",
@@ -133,7 +133,7 @@ describe("setup folder assignment flow", () => {
     });
     const wrapper = mountSetup();
     await flushPromises();
-    const vm = wrapper.vm as SetupVm;
+    const vm = wrapper.vm as Partial<SetupVm> as SetupVm;
     vm.folderDraft = { Known: "windows", Mystery: "linux" };
     await wrapper.findAll("button").at(-1)?.trigger("click");
     await flushPromises();
@@ -153,7 +153,7 @@ describe("setup folder assignment flow", () => {
     });
     const wrapper = mountSetup();
     await flushPromises();
-    const vm = wrapper.vm as SetupVm;
+    const vm = wrapper.vm as Partial<SetupVm> as SetupVm;
     vm.folderDraft = { Known: "windows", Mystery: "linux" };
     await wrapper.findAll("button").at(-1)?.trigger("click");
     await flushPromises();

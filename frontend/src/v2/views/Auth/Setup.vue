@@ -1,16 +1,14 @@
-^
 <script setup lang="ts">
-// Setup — three-step first-run wizard. Orchestrates library info loading,
-// platform selection, admin user creation, and metadata source review.
-// The wizard owns all wizard-level state (current step, selection set,
-// admin form, async flight); the per-step components are pure UI that
-// emit input changes back to the orchestrator.
-import { RBtn, RIcon, RImg, RSpinner, RSteps } from "@v2/lib";
+import { RBtn, RIcon, RSpinner, RSteps } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import storageApi from "@/services/api/storage";
+import setupApi from "@/services/api/setup";
+import type {
+  SetupFolderDiscovery,
+  SetupFolderDraft,
+} from "@/services/api/setup";
 import SetupStepAdmin from "@/v2/components/Auth/SetupStepAdmin.vue";
 import type { AdminUserDraft } from "@/v2/components/Auth/SetupStepAdmin.vue";
 import SetupStepMetadata from "@/v2/components/Auth/SetupStepMetadata.vue";
@@ -18,40 +16,22 @@ import SetupStepPlatforms from "@/v2/components/Auth/SetupStepPlatforms.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { refetchCSRFToken } from "@/v2/data/adapters/legacy/services/api";
 import identityApi from "@/v2/data/adapters/legacy/services/api/identity";
-import setupApi from "@/v2/data/adapters/legacy/services/api/setup";
-import type { SetupLibraryInfo } from "@/v2/data/adapters/legacy/services/api/setup";
 import userApi from "@/v2/data/adapters/legacy/services/api/user";
 import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 const { t } = useI18n();
 const router = useRouter();
-const heartbeat = storeHeartbeat();
 const auth = storeAuth();
+const heartbeat = storeHeartbeat();
 const snackbar = useSnackbar();
-
 const TOTAL_STEPS = 3;
-
 const step = ref<1 | 2 | 3>(1);
-// Direction of the last step change, used to pick the slide transition.
-// "forward" — slide left out, slide in from the right.
-// "back"    — slide right out, slide in from the left.
 const stepDirection = ref<"forward" | "back">("forward");
-
-// Step 1 — library + platforms
-const EMPTY_LIBRARY_INFO: SetupLibraryInfo = {
-  detected_structure: null,
-  existing_platforms: [],
-  supported_platforms: [],
-};
-const libraryInfo = ref<SetupLibraryInfo>({ ...EMPTY_LIBRARY_INFO });
-// Starts true so the first paint shows the spinner, not an empty flash.
-const loadingLibrary = ref(true);
-// Non-null when the library probe failed — the step 1 body swaps to an inline
-// error with a retry instead of silently showing an empty platform list.
-const libraryError = ref<string | null>(null);
-
-// Step 2 — admin user
+const discovery = ref<SetupFolderDiscovery | null>(null);
+const folderDraft = ref<SetupFolderDraft>({});
+const loadingDiscovery = ref(true);
+const discoveryError = ref<string | null>(null);
 const adminUser = ref<AdminUserDraft>({
   username: "",
   email: "",
@@ -59,203 +39,173 @@ const adminUser = ref<AdminUserDraft>({
   repeatPassword: "",
 });
 const adminFormValid = ref(false);
-
-// Step 3 — metadata (purely informational)
-
-// Final submission
 const submitting = ref(false);
 const createdUserId = ref<number | null>(null);
 
-const stepTitle = computed(() => {
-  switch (step.value) {
-    case 1:
-      return t("setup.library-structure-step");
-    case 2:
-      return t("setup.admin-user-step");
-    case 3:
-      return t("setup.check-metadata-step");
-    default:
-      return "";
-  }
-});
-
+const stepTitle = computed(
+  () =>
+    [
+      t("setup.folders-title"),
+      t("setup.admin-user-step"),
+      t("setup.check-metadata-step"),
+    ][step.value - 1],
+);
+const assignments = computed(
+  () =>
+    discovery.value?.folders
+      .map((folder) => ({
+        folder_name: folder.name,
+        platform_slug: folderDraft.value[folder.name],
+      }))
+      .filter(
+        (item): item is { folder_name: string; platform_slug: string } =>
+          typeof item.platform_slug === "string" &&
+          item.platform_slug.length > 0,
+      ) ?? [],
+);
+const allFoldersAssigned = computed(() =>
+  Boolean(
+    discovery.value &&
+    assignments.value.length === discovery.value.folders.length,
+  ),
+);
 const canProceed = computed(() => {
-  if (step.value === 1) return !loadingLibrary.value;
-  if (step.value === 2) {
-    const u = adminUser.value;
+  if (step.value === 1)
+    return (
+      !loadingDiscovery.value &&
+      !discoveryError.value &&
+      allFoldersAssigned.value
+    );
+  if (step.value === 2)
     return (
       adminFormValid.value &&
-      !!u.username &&
-      !!u.password &&
-      !!u.repeatPassword &&
-      u.password === u.repeatPassword
+      adminUser.value.username.length > 0 &&
+      adminUser.value.password === adminUser.value.repeatPassword
     );
-  }
   return true;
 });
-
 const isFirstStep = computed(() => step.value === 1);
 const isLastStep = computed(() => step.value === TOTAL_STEPS);
 
-async function loadLibraryInfo() {
-  loadingLibrary.value = true;
-  libraryError.value = null;
+async function loadDiscovery() {
+  loadingDiscovery.value = true;
+  discoveryError.value = null;
   try {
-    const { data } = await setupApi.getLibraryInfo();
-    if (data) libraryInfo.value = data;
-  } catch (err) {
-    console.error("Failed to load setup library info:", err);
-    libraryError.value = t("setup.loading-library-failed");
+    const { data } = await setupApi.discoverFolders();
+    discovery.value = data;
+    folderDraft.value = Object.fromEntries(
+      data.folders.map((folder) => [folder.name, folder.suggested_platform]),
+    );
+  } catch (error) {
+    console.error("Failed to discover setup folders:", error);
+    discoveryError.value = t("setup.loading-folders-failed");
   } finally {
-    loadingLibrary.value = false;
+    loadingDiscovery.value = false;
   }
 }
-
+function updateDraft(next: SetupFolderDraft) {
+  folderDraft.value = next;
+}
 function prev() {
   if (step.value > 1) {
     stepDirection.value = "back";
     step.value = (step.value - 1) as 1 | 2 | 3;
   }
 }
-
 function next() {
   if (!canProceed.value) return;
   if (step.value < TOTAL_STEPS) {
     stepDirection.value = "forward";
     step.value = (step.value + 1) as 1 | 2 | 3;
-    return;
+  } else {
+    void finishWizard();
   }
-  void finishWizard();
 }
-
 async function finishWizard() {
+  if (!allFoldersAssigned.value) return;
   submitting.value = true;
   try {
     if (createdUserId.value === null) {
-      const { data: createdUser } = await userApi.createUser({
+      const { data } = await userApi.createUser({
         username: adminUser.value.username,
         email: adminUser.value.email,
         password: adminUser.value.password,
         role: "admin",
       });
-      createdUserId.value = createdUser.id;
+      createdUserId.value = data.id;
     }
-
     await identityApi.login(adminUser.value.username, adminUser.value.password);
     await refetchCSRFToken();
-
-    if (adminUser.value.avatar && createdUserId.value !== null) {
-      try {
-        await userApi.updateUser({
-          id: createdUserId.value,
-          avatar: adminUser.value.avatar,
-        });
-      } catch (avatarErr) {
-        const e = avatarErr as {
-          response?: { data?: { detail?: string } };
-          message?: string;
-        };
-        snackbar.warning(
-          t("login.avatar-save-warning", {
-            error: e.response?.data?.detail ?? e.message ?? "",
-          }),
-          { icon: "mdi-alert-circle" },
-        );
-      }
-    }
-
     await auth.fetchCurrentUser();
     await heartbeat.fetchHeartbeat();
-    const { data: bootstrap } = await storageApi.bootstrapLegacy();
-    const mapping = bootstrap.mappings[0];
-    if (!mapping || !Number.isSafeInteger(mapping.platform_id)) {
-      throw new Error("Storage bootstrap did not return a platform mapping");
+    const { data } = await setupApi.assignFolders(assignments.value);
+    if (!data.ready) {
+      throw new Error(t("setup.folders-not-ready"));
     }
-    router.push({
-      name: ROUTES.PLATFORM_STORAGE_MAPPING,
-      params: { platformId: mapping.platform_id },
-    });
-  } catch (err) {
-    const error = err as {
-      response?: {
-        data?: { detail?: string };
-        status?: number;
-        statusText?: string;
-      };
-      message?: string;
-    };
-    const detail = error.response?.data?.detail;
+    await router.push({ name: ROUTES.HOME });
+  } catch (error) {
+    const detail =
+      (error as { response?: { data?: { detail?: string } }; message?: string })
+        .response?.data?.detail ?? (error as { message?: string }).message;
     snackbar.error(
-      [
-        t("setup.creating-platforms-failed"),
-        detail ?? error.response?.statusText ?? error.message,
-      ]
-        .filter(Boolean)
-        .join(": "),
+      [t("setup.saving-folders-failed"), detail].filter(Boolean).join(": "),
       { icon: "mdi-close-circle" },
     );
   } finally {
     submitting.value = false;
   }
 }
-
-onMounted(loadLibraryInfo);
+onMounted(loadDiscovery);
 </script>
 
 <template>
   <div class="r-v2-setup">
     <header class="r-v2-setup__header">
-      <RImg
-        src="/assets/isotipo.svg"
-        :width="56"
-        class="r-v2-setup__logo"
-        alt="RomM"
-      />
       <RSteps :current="step" :total="TOTAL_STEPS" :direction="stepDirection" />
       <div class="r-v2-setup__title">
-        <span class="r-v2-setup__step-of">
-          {{ t("setup.step-of", { current: step, total: TOTAL_STEPS }) }}
-        </span>
+        <span>{{
+          t("setup.step-of", { current: step, total: TOTAL_STEPS })
+        }}</span>
         <h2>{{ stepTitle }}</h2>
       </div>
     </header>
-
     <div class="r-v2-setup__body">
-      <div v-if="loadingLibrary && step === 1" class="r-v2-setup__loading">
-        <RSpinner />
-        <span>{{ t("setup.loading-library") }}</span>
+      <div v-if="loadingDiscovery && step === 1" class="r-v2-setup__loading">
+        <RSpinner /><span>{{ t("setup.loading-folders") }}</span>
       </div>
-
       <div
-        v-else-if="libraryError && step === 1"
+        v-else-if="discoveryError && step === 1"
         class="r-v2-setup__error"
         role="alert"
       >
-        <RIcon icon="mdi-alert-circle-outline" :size="32" />
-        <span>{{ libraryError }}</span>
-        <RBtn
+        <RIcon icon="mdi-alert-circle-outline" :size="32" /><span>{{
+          discoveryError
+        }}</span
+        ><RBtn
           variant="flat"
           color="primary"
           prepend-icon="mdi-refresh"
-          @click="loadLibraryInfo"
+          @click="loadDiscovery"
+          >{{ t("common.try-again") }}</RBtn
         >
-          {{ t("common.try-again") }}
-        </RBtn>
       </div>
-
       <Transition
         v-else
+        mode="out-in"
         :name="
           stepDirection === 'forward'
             ? 'r-v2-setup-step-forward'
             : 'r-v2-setup-step-back'
         "
-        mode="out-in"
       >
         <SetupStepPlatforms
-          v-if="step === 1"
+          v-if="step === 1 && discovery"
           key="step-1"
-          :library-info="libraryInfo"
+          :discovery="discovery"
+          :draft="folderDraft"
+          :disabled="submitting"
+          :submitting="submitting"
+          @update:draft="updateDraft"
         />
         <SetupStepAdmin
           v-else-if="step === 2"
@@ -264,10 +214,9 @@ onMounted(loadLibraryInfo);
           v-model:valid="adminFormValid"
           @submit="next"
         />
-        <SetupStepMetadata v-else-if="step === 3" key="step-3" />
+        <SetupStepMetadata v-else key="step-3" />
       </Transition>
     </div>
-
     <footer class="r-v2-setup__footer">
       <RBtn
         v-if="!isFirstStep"
@@ -275,12 +224,9 @@ onMounted(loadLibraryInfo);
         :disabled="submitting"
         prepend-icon="mdi-chevron-left"
         @click="prev"
+        >{{ t("setup.previous") }}</RBtn
       >
-        {{ t("setup.previous") }}
-      </RBtn>
-
-      <div class="r-v2-setup__footer-spacer" />
-
+      <span />
       <RBtn
         variant="flat"
         color="primary"
@@ -288,9 +234,8 @@ onMounted(loadLibraryInfo);
         :loading="submitting"
         :disabled="!canProceed || submitting"
         @click="next"
+        >{{ isLastStep ? t("setup.finish") : t("setup.next") }}</RBtn
       >
-        {{ isLastStep ? t("setup.finish") : t("setup.next") }}
-      </RBtn>
     </footer>
   </div>
 </template>
@@ -299,64 +244,34 @@ onMounted(loadLibraryInfo);
 .r-v2-setup {
   width: 100%;
   max-width: 1080px;
-  /* Flex item inside the centred auth stage: without `min-width: 0` it keeps
-     its min-content width and, on a phone narrower than that, spills past the
-     viewport instead of shrinking. Letting it shrink lets `overflow: hidden`
-     clip the inner chrome cleanly. */
   min-width: 0;
   height: min(86dvh, 880px);
   display: flex;
   flex-direction: column;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--r-color-canvas-bg-deep) 65%, transparent) 0%,
-    color-mix(in srgb, var(--r-color-canvas-bg-deep) 65%, transparent) 100%
-  );
-  backdrop-filter: blur(20px);
+  background: var(--r-color-canvas-bg-deep);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   box-shadow: var(--r-elev-4);
   overflow: hidden;
 }
-
 .r-v2-setup__header {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
   gap: var(--r-space-4);
   padding: var(--r-space-5) var(--r-space-6) var(--r-space-4);
   border-bottom: 1px solid var(--r-color-border);
 }
-
-.r-v2-setup__logo {
-  filter: drop-shadow(
-    0 0 16px color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent)
-  );
-  justify-self: start;
-}
-
 .r-v2-setup__title {
-  grid-column: 1 / -1;
   text-align: center;
-  margin-top: var(--r-space-3);
 }
-
 .r-v2-setup__title h2 {
-  margin: 0;
-  font-size: var(--r-font-size-lg);
-  font-weight: var(--r-font-weight-semibold);
+  margin: var(--r-space-1) 0 0;
   color: var(--r-color-fg);
+  font-size: var(--r-font-size-lg);
 }
-
-.r-v2-setup__step-of {
-  display: block;
-  font-size: var(--r-font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+.r-v2-setup__title span {
   color: var(--r-color-fg-muted);
-  margin-bottom: var(--r-space-1);
+  font-size: var(--r-font-size-xs);
 }
-
 .r-v2-setup__body {
   flex: 1 1 auto;
   min-height: 0;
@@ -365,31 +280,16 @@ onMounted(loadLibraryInfo);
   flex-direction: column;
   padding: var(--r-space-5) var(--r-space-6);
 }
-
-.r-v2-setup__loading {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--r-space-4);
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
-}
-
+.r-v2-setup__loading,
 .r-v2-setup__error {
-  flex: 1 1 auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--r-space-4);
-  padding: var(--r-space-6);
-  text-align: center;
-  color: var(--r-color-danger);
-  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-secondary);
 }
-
 .r-v2-setup__footer {
   display: flex;
   align-items: center;
@@ -397,82 +297,7 @@ onMounted(loadLibraryInfo);
   padding: var(--r-space-4) var(--r-space-6);
   border-top: 1px solid var(--r-color-border);
 }
-
-.r-v2-setup__footer-spacer {
-  flex: 1 1 auto;
-}
-
-/* Step transitions — slide horizontally based on direction. The fade
-   keeps the overlap clean during the brief out-in handoff. */
-.r-v2-setup-step-forward-enter-active,
-.r-v2-setup-step-back-enter-active {
-  transition:
-    transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 280ms ease-out;
-}
-
-.r-v2-setup-step-forward-leave-active,
-.r-v2-setup-step-back-leave-active {
-  transition:
-    transform 220ms cubic-bezier(0.4, 0, 0.7, 0.2),
-    opacity 200ms ease-in;
-}
-
-.r-v2-setup-step-forward-enter-from {
-  opacity: 0;
-  transform: translateX(40px);
-}
-.r-v2-setup-step-forward-leave-to {
-  opacity: 0;
-  transform: translateX(-40px);
-}
-
-.r-v2-setup-step-back-enter-from {
-  opacity: 0;
-  transform: translateX(-40px);
-}
-.r-v2-setup-step-back-leave-to {
-  opacity: 0;
-  transform: translateX(40px);
-}
-
-/* Small tablets (sm): the fixed-height card keeps header + footer pinned and
-   the BODY scrolls, instead of the desktop fixed-pane model where each list
-   scrolled in its own box. (xs overrides this below — the whole card flows
-   and the auth stage scrolls.) */
-html[data-bp~="sm-and-down"] .r-v2-setup__body {
-  /* Body clips; each step scrolls its own content region internally (the
-     platform lists, the metadata list), keeping header + footer pinned. */
-  overflow: hidden;
-}
-
-/* Phones: the card fills the auth stage via a definite flex cross-size
-   (align-self: stretch — NOT height:100%, whose percentage collapses on a
-   reactive re-layout). Header + footer stay pinned; the step's lists region
-   scrolls internally, like desktop. */
-html[data-bp~="xs"] .r-v2-setup {
-  align-self: stretch;
-  height: auto;
-  max-height: none;
-}
-html[data-bp~="xs"] .r-v2-setup__header {
-  /* Logo is hidden on xs, so the 1fr/auto/1fr grid would strand the step
-     dots in the left track. Stack the header (steps over title), centred. */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: var(--r-space-4) var(--r-space-4) var(--r-space-3);
-}
-html[data-bp~="xs"] .r-v2-setup__body {
-  overflow: hidden;
-  padding: var(--r-space-4);
-}
-html[data-bp~="xs"] .r-v2-setup__footer {
-  padding: var(--r-space-3) var(--r-space-4);
-}
-/* The RomM isotype eats vertical room in the phone header; the step dots and
-   title carry the wizard identity, so drop it on xs. */
-html[data-bp~="xs"] .r-v2-setup__logo {
-  display: none;
+.r-v2-setup__footer > span {
+  flex: 1;
 }
 </style>
