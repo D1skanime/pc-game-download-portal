@@ -143,6 +143,34 @@ describe("setup folder assignment flow", () => {
     ]);
     expect(mocks.router.push).toHaveBeenCalledWith({ name: "home" });
   });
+  it("assigns the read-only library before bootstrapping legacy platform state", async () => {
+    const events: string[] = [];
+    mocks.fetchCurrentUser.mockImplementation(async () => {
+      events.push("current-user");
+    });
+    mocks.fetchHeartbeat.mockImplementation(async () => {
+      events.push("heartbeat");
+    });
+    mocks.assignFolders.mockImplementation(async () => {
+      events.push("assign");
+      return {
+        data: {
+          ready: true,
+          mappings: [],
+          root_health: { reachable: true, readable: true, non_writable: true },
+        },
+      };
+    });
+    const wrapper = mountSetup();
+    await flushPromises();
+    const vm = wrapper.vm as Partial<SetupVm> as SetupVm;
+    vm.folderDraft = { Known: "windows", Mystery: "linux" };
+    await wrapper.findAll("button").at(-1)?.trigger("click");
+    await flushPromises();
+    expect(events.indexOf("assign")).toBeLessThan(
+      events.indexOf("current-user"),
+    );
+  });
   it("keeps the draft and route unchanged when assignment is not ready", async () => {
     mocks.assignFolders.mockResolvedValue({
       data: {

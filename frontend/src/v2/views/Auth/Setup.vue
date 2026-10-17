@@ -136,12 +136,12 @@ async function finishWizard() {
     }
     await identityApi.login(adminUser.value.username, adminUser.value.password);
     await refetchCSRFToken();
-    await auth.fetchCurrentUser();
-    await heartbeat.fetchHeartbeat();
     const { data } = await setupApi.assignFolders(assignments.value);
     if (!data.ready) {
       throw new Error(t("setup.folders-not-ready"));
     }
+    await auth.fetchCurrentUser();
+    await heartbeat.fetchHeartbeat();
     await router.push({ name: ROUTES.HOME });
   } catch (error) {
     const detail =
