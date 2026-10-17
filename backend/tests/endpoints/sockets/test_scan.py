@@ -13,6 +13,7 @@ from endpoints.sockets.scan import (
     _emit_scanning_rom,
     _identify_rom,
     _refresh_rom_for_scan_emit,
+    execute_mapping_scan,
     reject_unauthorized_scan,
     scan_handler,
     scan_platforms,
@@ -509,6 +510,31 @@ class TestScanTotals:
         # Only the selected folder is scanned, not every filesystem platform.
         assert result.total_platforms == 1
         assert result.total_roms == 100
+
+
+@pytest.mark.asyncio
+async def test_mapping_scan_uses_mapping_scope_without_global_platform_listing(mocker):
+    command = SimpleNamespace(mapping_id=7, scan_type=ScanType.QUICK.value)
+    mapping = SimpleNamespace(platform_id=11, platform=SimpleNamespace(fs_slug="win"))
+    mocker.patch.object(
+        scan_module.db_storage_handler, "get_mapping", return_value=mapping
+    )
+    global_platforms = mocker.patch.object(
+        scan_module.fs_platform_handler, "get_platforms", new=AsyncMock()
+    )
+    scan = mocker.patch.object(scan_module, "scan_platforms", new=AsyncMock())
+
+    async def run_batch(_command, scan_batch):
+        return await scan_batch(_command, [], object())
+
+    mocker.patch.object(scan_module, "execute_mapped_scan", side_effect=run_batch)
+
+    await execute_mapping_scan(command, metadata_sources=[])
+
+    global_platforms.assert_not_awaited()
+    scan.assert_awaited_once()
+    assert scan.call_args.kwargs["platform_ids"] == [mapping.platform_id]
+    assert scan.call_args.kwargs["filesystem_platform_scope"] == ["win"]
 
 
 class TestScreenScraperScanReporting:

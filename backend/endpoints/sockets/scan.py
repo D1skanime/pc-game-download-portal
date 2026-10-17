@@ -1168,6 +1168,7 @@ async def scan_platforms(
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
     platform_fs_slugs: list[str] | None = None,
+    filesystem_platform_scope: list[str] | None = None,
     metadata_locale: str | None = None,
     metadata_only: bool = False,
     media_only: bool = False,
@@ -1265,12 +1266,15 @@ async def scan_platforms(
     if MetadataSource.SS in metadata_sources:
         await begin_ss_scan()
 
-    try:
-        fs_platforms: list[str] = await fs_platform_handler.get_platforms()
-    except FolderStructureNotMatchException as e:
-        log.error(e)
-        await socket_manager.emit("scan:done_ko", e.message)
-        return scan_stats
+    if filesystem_platform_scope is not None:
+        fs_platforms = filesystem_platform_scope
+    else:
+        try:
+            fs_platforms = await fs_platform_handler.get_platforms()
+        except FolderStructureNotMatchException as e:
+            log.error(e)
+            await socket_manager.emit("scan:done_ko", e.message)
+            return scan_stats
 
     # Clear the gamelist cache to ensure we're using fresh gamelist.xml data
     meta_gamelist_handler.clear_cache()
@@ -1367,7 +1371,12 @@ async def scan_platforms(
                 scan_stats=scan_stats,
             )
 
-        missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
+        missed_platforms = db_platform_handler.mark_missing_platforms(
+            fs_platforms,
+            platform_ids=(
+                platform_ids if filesystem_platform_scope is not None else None
+            ),
+        )
         if len(missed_platforms) > 0:
             log.warning(f"{hl('Missing')} platforms from filesystem:")
             for p in missed_platforms:
@@ -1493,6 +1502,7 @@ async def execute_mapping_scan(
             metadata_locale=metadata_locale,
             metadata_only=metadata_only,
             media_only=media_only,
+            filesystem_platform_scope=[mapping.platform.fs_slug],
         )
 
     return await execute_mapped_scan(

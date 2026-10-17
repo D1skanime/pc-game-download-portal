@@ -2,12 +2,13 @@ import functools
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Query, QueryableAttribute, Session, load_only, selectinload
 
 from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
+from utils.platform_slugs import canonicalize_filesystem_slug
 
 from .base_handler import DBBaseHandler
 
@@ -93,7 +94,19 @@ class DBPlatformsHandler(DBBaseHandler):
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Platform | None:
-        return session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
+        canonical_slug = canonicalize_filesystem_slug(fs_slug)
+        platforms = session.scalars(query).unique().all()
+        return next(
+            (
+                platform
+                for platform in sorted(
+                    platforms,
+                    key=lambda platform: platform.fs_slug != canonical_slug,
+                )
+                if canonicalize_filesystem_slug(platform.fs_slug) == canonical_slug
+            ),
+            None,
+        )
 
     @begin_session
     @with_firmware
@@ -128,34 +141,36 @@ class DBPlatformsHandler(DBBaseHandler):
     def mark_missing_platforms(
         self,
         fs_platforms_to_keep: list[str],
+        platform_ids: Sequence[int] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Sequence[Platform]:
-        missing_platforms = (
-            session.scalars(
-                select(Platform)
-                .order_by(Platform.name.asc())
-                .where(
-                    or_(
-                        Platform.fs_slug.not_in(fs_platforms_to_keep),
-                        Platform.slug.is_(None),
-                    )
-                )
-            )  # type: ignore[attr-defined]
-            .unique()
-            .all()
-        )
-        session.execute(
-            update(Platform)
-            .where(or_(Platform.fs_slug.not_in(fs_platforms_to_keep), Platform.slug.is_(None)))  # type: ignore[attr-defined]
-            .values(**{"missing_from_fs": True})
-            .execution_options(synchronize_session="fetch")
-        )
+        keep_slugs = {
+            canonicalize_filesystem_slug(fs_slug) for fs_slug in fs_platforms_to_keep
+        }
+        scope = select(Platform).order_by(Platform.name.asc())
+        if platform_ids is not None:
+            scope = scope.where(Platform.id.in_(platform_ids))
 
-        session.execute(
-            update(Rom)
-            .where(Rom.platform_id.in_([p.id for p in missing_platforms]))  # type: ignore[attr-defined]
-            .values(**{"missing_from_fs": True})
-            .execution_options(synchronize_session="fetch")
-        )
+        scoped_platforms = session.scalars(scope).unique().all()
+        missing_platforms = [
+            platform
+            for platform in scoped_platforms
+            if platform.slug is None
+            or canonicalize_filesystem_slug(platform.fs_slug) not in keep_slugs
+        ]
+        missing_platform_ids = [platform.id for platform in missing_platforms]
+        if missing_platform_ids:
+            session.execute(
+                update(Platform)
+                .where(Platform.id.in_(missing_platform_ids))
+                .values(**{"missing_from_fs": True})
+                .execution_options(synchronize_session="fetch")
+            )
+            session.execute(
+                update(Rom)
+                .where(Rom.platform_id.in_(missing_platform_ids))  # type: ignore[attr-defined]
+                .values(**{"missing_from_fs": True})
+                .execution_options(synchronize_session="fetch")
+            )
         return missing_platforms
