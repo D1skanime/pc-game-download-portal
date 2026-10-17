@@ -13,6 +13,9 @@ export type PcAutomationQueueItemSchema = {
     target_kind: PcAutomationTargetKind;
     normalized_query: string;
     target_title: string;
+    source_name: string;
+    source_path: string;
+    main_game_label: string;
     candidate_fingerprint: string;
     candidate_title: (string | null);
     candidate_cover_url: (string | null);

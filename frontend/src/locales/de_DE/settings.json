@@ -272,6 +272,7 @@
     "empty": "Keine PC-Automatisierungselemente müssen geprüft werden.",
     "load-failed": "Die Warteschlange für die PC-Automatisierung konnte nicht geladen werden.",
     "load-more": "Mehr laden",
+    "main-game": "Hauptspiel",
     "outstanding": "{count} Element wartet auf Prüfung | {count} Elemente warten auf Prüfung",
     "progress": "Prüffortschritt der PC-Automatisierung",
     "request-failed": "Die Anfrage zur PC-Automatisierung ist fehlgeschlagen.",
@@ -280,6 +281,8 @@
     "selected": "{count} ausgewählt",
     "skip": "{title} überspringen",
     "skipped": "Element übersprungen",
+    "source-name": "Quellname",
+    "source-path": "Quellpfad",
     "title": "PC-Automatisierung prüfen",
     "unnamed-candidate": "Unbenannter Kandidat"
   },

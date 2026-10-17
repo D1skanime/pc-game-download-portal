@@ -272,6 +272,7 @@
     "empty": "Žádné položky automatizace PC nevyžadují kontrolu.",
     "load-failed": "Frontu automatizace PC se nepodařilo načíst.",
     "load-more": "Načíst další",
+    "main-game": "Hlavní hra",
     "outstanding": "{count} položka čeká na kontrolu | {count} položky čekají na kontrolu | {count} položek čeká na kontrolu",
     "progress": "Průběh kontroly automatizace PC",
     "request-failed": "Požadavek automatizace PC selhal.",
@@ -280,6 +281,8 @@
     "selected": "Vybráno: {count}",
     "skip": "Přeskočit {title}",
     "skipped": "Položka přeskočena",
+    "source-name": "Název zdroje",
+    "source-path": "Cesta ke zdroji",
     "title": "Kontrola automatizace PC",
     "unnamed-candidate": "Neznámý kandidát"
   },

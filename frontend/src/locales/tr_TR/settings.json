@@ -272,6 +272,7 @@
     "empty": "İnceleme gerektiren PC otomasyon ögesi yok.",
     "load-failed": "PC otomasyon kuyruğu yüklenemedi.",
     "load-more": "Daha fazla yükle",
+    "main-game": "Ana oyun",
     "outstanding": "{count} öge inceleme bekliyor",
     "progress": "PC otomasyon inceleme ilerlemesi",
     "request-failed": "PC otomasyon isteği başarısız oldu.",
@@ -280,6 +281,8 @@
     "selected": "{count} seçildi",
     "skip": "{title} atla",
     "skipped": "Öge atlandı",
+    "source-name": "Kaynak adı",
+    "source-path": "Kaynak yolu",
     "title": "PC otomasyon incelemesi",
     "unnamed-candidate": "Adsız aday"
   },

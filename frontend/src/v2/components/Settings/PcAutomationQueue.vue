@@ -227,6 +227,23 @@ onMounted(() => {
             <span v-if="proposedTitle(item) !== null">
               {{ proposedTitle(item) }}
             </span>
+            <div
+              class="r-v2-pc-automation__source-details"
+              data-testid="pc-automation-source-details"
+            >
+              <span>
+                <strong>{{ t("settings.pc-automation.source-name") }}:</strong>
+                {{ item.source_name }}
+              </span>
+              <span>
+                <strong>{{ t("settings.pc-automation.source-path") }}:</strong>
+                {{ item.source_path }}
+              </span>
+              <span>
+                <strong>{{ t("settings.pc-automation.main-game") }}:</strong>
+                {{ item.main_game_label }}
+              </span>
+            </div>
             <span>{{
               item.reason ?? t("settings.pc-automation.review-required")
             }}</span>

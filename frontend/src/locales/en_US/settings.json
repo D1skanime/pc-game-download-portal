@@ -272,6 +272,7 @@
     "empty": "No PC automation items need review.",
     "load-failed": "Couldn't load the PC automation queue.",
     "load-more": "Load more",
+    "main-game": "Main game",
     "outstanding": "{count} item awaiting review | {count} items awaiting review",
     "progress": "PC automation review progress",
     "request-failed": "The PC automation request failed.",
@@ -280,6 +281,8 @@
     "selected": "{count} selected",
     "skip": "Skip {title}",
     "skipped": "Item skipped",
+    "source-name": "Source name",
+    "source-path": "Source path",
     "title": "PC Automation Review",
     "unnamed-candidate": "Unnamed candidate"
   },

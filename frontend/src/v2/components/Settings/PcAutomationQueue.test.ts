@@ -37,6 +37,10 @@ const queueItem = {
   component_id: 12,
   component_kind: "dlc",
   target_kind: "component",
+  normalized_query: "Road to the Black Sea",
+  source_name: "DLC/Road to the Black Sea",
+  source_path: "pc/roms/Euro Truck Simulator 2/DLC/Road to the Black Sea",
+  main_game_label: "Euro Truck Simulator 2",
   candidate_fingerprint: "steam:42",
   candidate_title: "Road to the Black Sea",
   candidate_cover_url: "https://example.test/cover.jpg",
@@ -72,6 +76,9 @@ vi.mock("vue-i18n", () => ({
     t: (key: string, values?: { title?: string }) =>
       ({
         "settings.pc-automation.unnamed-candidate": "Unbenannter Eintrag",
+        "settings.pc-automation.main-game": "Main game",
+        "settings.pc-automation.source-name": "Source name",
+        "settings.pc-automation.source-path": "Source path",
       })[key] ?? (values?.title ? `${key}: ${values.title}` : key),
   }),
 }));
@@ -155,6 +162,28 @@ describe("PcAutomationQueue", () => {
 
     expect(wrapper?.find("[data-testid='pc-automation-queue']").exists()).toBe(
       false,
+    );
+  });
+
+  it("renders source details for parent and component rows", () => {
+    const parentItem = {
+      ...queueItem,
+      id: 3,
+      component_id: null,
+      component_kind: null,
+      target_kind: "parent",
+      source_name: "Euro Truck Simulator 2.exe",
+      source_path: "pc/roms/Euro Truck Simulator 2.exe",
+      main_game_label: "Euro Truck Simulator 2",
+    } as const;
+    mocks.store.items = [parentItem, queueItem];
+    const wrapper = mountQueue()!;
+
+    expect(wrapper.get("[data-testid='pc-automation-row-3']").text()).toContain(
+      "Source name: Euro Truck Simulator 2.exeSource path: pc/roms/Euro Truck Simulator 2.exeMain game: Euro Truck Simulator 2",
+    );
+    expect(wrapper.get("[data-testid='pc-automation-row-4']").text()).toContain(
+      "Source name: DLC/Road to the Black SeaSource path: pc/roms/Euro Truck Simulator 2/DLC/Road to the Black SeaMain game: Euro Truck Simulator 2",
     );
   });
 

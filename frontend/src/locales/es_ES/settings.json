@@ -272,6 +272,7 @@
     "empty": "No hay elementos de automatización de PC que requieran revisión.",
     "load-failed": "No se pudo cargar la cola de automatización de PC.",
     "load-more": "Cargar más",
+    "main-game": "Juego principal",
     "outstanding": "{count} elemento pendiente de revisión | {count} elementos pendientes de revisión",
     "progress": "Progreso de revisión de automatización de PC",
     "request-failed": "La solicitud de automatización de PC falló.",
@@ -280,6 +281,8 @@
     "selected": "{count} seleccionados",
     "skip": "Omitir {title}",
     "skipped": "Elemento omitido",
+    "source-name": "Nombre de origen",
+    "source-path": "Ruta de origen",
     "title": "Revisión de automatización de PC",
     "unnamed-candidate": "Candidato sin nombre"
   },

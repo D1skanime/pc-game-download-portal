@@ -272,6 +272,7 @@
     "empty": "Aucun élément d'automatisation PC ne nécessite de vérification.",
     "load-failed": "Impossible de charger la file d'automatisation PC.",
     "load-more": "Charger plus",
+    "main-game": "Jeu principal",
     "outstanding": "{count} élément en attente de vérification | {count} éléments en attente de vérification",
     "progress": "Progression de la vérification de l'automatisation PC",
     "request-failed": "La demande d'automatisation PC a échoué.",
@@ -280,6 +281,8 @@
     "selected": "{count} sélectionnés",
     "skip": "Ignorer {title}",
     "skipped": "Élément ignoré",
+    "source-name": "Nom de la source",
+    "source-path": "Chemin de la source",
     "title": "Vérification de l'automatisation PC",
     "unnamed-candidate": "Candidat sans nom"
   },

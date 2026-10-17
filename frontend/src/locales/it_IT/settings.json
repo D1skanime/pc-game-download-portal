@@ -272,6 +272,7 @@
     "empty": "Nessun elemento dell'automazione PC richiede una revisione.",
     "load-failed": "Impossibile caricare la coda di automazione PC.",
     "load-more": "Carica altro",
+    "main-game": "Gioco principale",
     "outstanding": "{count} elemento in attesa di revisione | {count} elementi in attesa di revisione",
     "progress": "Avanzamento revisione automazione PC",
     "request-failed": "La richiesta di automazione PC non è riuscita.",
@@ -280,6 +281,8 @@
     "selected": "{count} selezionati",
     "skip": "Ignora {title}",
     "skipped": "Elemento ignorato",
+    "source-name": "Nome origine",
+    "source-path": "Percorso origine",
     "title": "Revisione automazione PC",
     "unnamed-candidate": "Candidato senza nome"
   },

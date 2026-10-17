@@ -272,6 +272,7 @@
     "empty": "沒有需要審核的 PC 自動化項目。",
     "load-failed": "無法載入 PC 自動化佇列。",
     "load-more": "載入更多",
+    "main-game": "主遊戲",
     "outstanding": "{count} 個項目等待審核",
     "progress": "PC 自動化審核進度",
     "request-failed": "PC 自動化請求失敗。",
@@ -280,6 +281,8 @@
     "selected": "已選擇 {count} 個",
     "skip": "跳過 {title}",
     "skipped": "項目已跳過",
+    "source-name": "來源名稱",
+    "source-path": "來源路徑",
     "title": "PC 自動化審核",
     "unnamed-candidate": "未命名候選項"
   },
