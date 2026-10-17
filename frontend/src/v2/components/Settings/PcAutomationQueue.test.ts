@@ -343,7 +343,7 @@ describe("PcAutomationQueue", () => {
       expect.objectContaining({ query: { tab: "users" } }),
     );
   });
-  it("renders each queue item as a structured review card", () => {
+  it("renders each queue item as a structured review list row", () => {
     mocks.store.items = [queueItem];
     const wrapper = mountQueue()!;
     const row = wrapper.get("[data-testid='pc-automation-row-4']");
@@ -352,6 +352,10 @@ describe("PcAutomationQueue", () => {
     expect(row.get("[data-testid='pc-automation-title']").element.tagName).toBe(
       "H3",
     );
+    expect(row.classes()).toContain("r-v2-pc-automation__row");
+    expect(
+      row.get("[data-testid='pc-automation-actions']").classes(),
+    ).toContain("r-v2-pc-automation__actions");
     expect(
       checkbox.element.compareDocumentPosition(content.element) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -365,6 +369,11 @@ describe("PcAutomationQueue", () => {
         field.find(".r-v2-pc-automation__source-label").text(),
       ),
     ).toEqual(["Source name:", "Source path:", "Main game:"]);
+    expect(sourceFields.map((field) => field.text())).toEqual([
+      "Source name: DLC/Road to the Black Sea",
+      "Source path: pc/roms/Euro Truck Simulator 2/DLC/Road to the Black Sea",
+      "Main game: Euro Truck Simulator 2",
+    ]);
     expect(
       row.get("[data-testid='pc-automation-tags']").findAll(".r-chip"),
     ).toHaveLength(3);
