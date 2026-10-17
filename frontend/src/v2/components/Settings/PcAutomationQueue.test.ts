@@ -343,4 +343,35 @@ describe("PcAutomationQueue", () => {
       expect.objectContaining({ query: { tab: "users" } }),
     );
   });
+  it("renders each queue item as a structured review card", () => {
+    mocks.store.items = [queueItem];
+    const wrapper = mountQueue()!;
+    const row = wrapper.get("[data-testid='pc-automation-row-4']");
+    const checkbox = row.get("[data-testid='pc-automation-select']");
+    const content = row.get("[data-testid='pc-automation-content']");
+    expect(row.get("[data-testid='pc-automation-title']").element.tagName).toBe(
+      "H3",
+    );
+    expect(
+      checkbox.element.compareDocumentPosition(content.element) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const sourceFields = row.findAll(
+      "[data-testid='pc-automation-source-field']",
+    );
+    expect(sourceFields).toHaveLength(3);
+    expect(
+      sourceFields.map((field) =>
+        field.find(".r-v2-pc-automation__source-label").text(),
+      ),
+    ).toEqual(["Source name:", "Source path:", "Main game:"]);
+    expect(
+      row.get("[data-testid='pc-automation-tags']").findAll(".r-chip"),
+    ).toHaveLength(3);
+    const reason = row.get("[data-testid='pc-automation-reason']");
+    expect(reason.element.tagName).toBe("DETAILS");
+    expect(reason.get("summary").text()).toContain(
+      "settings.pc-automation.review-required",
+    );
+  });
 });

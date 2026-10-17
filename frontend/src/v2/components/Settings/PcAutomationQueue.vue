@@ -208,6 +208,7 @@ onMounted(() => {
           :data-testid="`pc-automation-row-${item.id}`"
         >
           <RCheckbox
+            data-testid="pc-automation-select"
             :model-value="queue.selection.has(item.id)"
             :aria-label="
               t('settings.pc-automation.select-row', {
@@ -222,32 +223,65 @@ onMounted(() => {
             :src="item.candidate_cover_url ?? undefined"
             :alt="targetTitle(item)"
           />
-          <div class="r-v2-pc-automation__details">
-            <strong>{{ targetTitle(item) }}</strong>
-            <span v-if="proposedTitle(item) !== null">
-              {{ proposedTitle(item) }}
-            </span>
+          <div
+            class="r-v2-pc-automation__details"
+            data-testid="pc-automation-content"
+          >
+            <div class="r-v2-pc-automation__identity">
+              <h3 data-testid="pc-automation-title">
+                {{ targetTitle(item) }}
+              </h3>
+              <p
+                v-if="proposedTitle(item) !== null"
+                class="r-v2-pc-automation__candidate-title"
+              >
+                {{ proposedTitle(item) }}
+              </p>
+            </div>
             <div
               class="r-v2-pc-automation__source-details"
               data-testid="pc-automation-source-details"
             >
-              <span>
-                <strong>{{ t("settings.pc-automation.source-name") }}:</strong>
-                {{ item.source_name }}
-              </span>
-              <span>
-                <strong>{{ t("settings.pc-automation.source-path") }}:</strong>
-                {{ item.source_path }}
-              </span>
-              <span>
-                <strong>{{ t("settings.pc-automation.main-game") }}:</strong>
-                {{ item.main_game_label }}
-              </span>
+              <div
+                v-for="field in [
+                  {
+                    label: t('settings.pc-automation.source-name'),
+                    value: item.source_name,
+                  },
+                  {
+                    label: t('settings.pc-automation.source-path'),
+                    value: item.source_path,
+                  },
+                  {
+                    label: t('settings.pc-automation.main-game'),
+                    value: item.main_game_label,
+                  },
+                ]"
+                :key="field.label"
+                class="r-v2-pc-automation__source-field"
+                data-testid="pc-automation-source-field"
+              >
+                <span class="r-v2-pc-automation__source-label">
+                  {{ field.label }}:
+                </span>
+                <span>{{ field.value }}</span>
+              </div>
             </div>
-            <span>{{
-              item.reason ?? t("settings.pc-automation.review-required")
-            }}</span>
-            <div class="r-v2-pc-automation__tags">
+            <details
+              class="r-v2-pc-automation__reason"
+              data-testid="pc-automation-reason"
+            >
+              <summary>
+                {{ t("settings.pc-automation.review-required") }}
+              </summary>
+              <p>
+                {{ item.reason ?? t("settings.pc-automation.review-required") }}
+              </p>
+            </details>
+            <div
+              class="r-v2-pc-automation__tags"
+              data-testid="pc-automation-tags"
+            >
               <RChip size="small">{{ item.target_kind }}</RChip>
               <RChip v-if="item.component_kind" size="small">{{
                 item.component_kind
@@ -257,7 +291,10 @@ onMounted(() => {
               }}</RChip>
             </div>
           </div>
-          <div class="r-v2-pc-automation__actions">
+          <div
+            class="r-v2-pc-automation__actions"
+            data-testid="pc-automation-actions"
+          >
             <RBtn
               icon="mdi-check"
               color="success"
@@ -320,7 +357,6 @@ onMounted(() => {
 <style scoped>
 .r-v2-pc-automation__summary,
 .r-v2-pc-automation__batch,
-.r-v2-pc-automation__row,
 .r-v2-pc-automation__actions,
 .r-v2-pc-automation__tags {
   display: flex;
@@ -342,9 +378,13 @@ onMounted(() => {
 }
 
 .r-v2-pc-automation__row {
+  display: grid;
+  grid-template-columns: auto 48px minmax(0, 1fr) auto;
+  align-items: start;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 16px;
   border-top: 1px solid var(--r-color-border);
+  background: var(--r-color-panel);
 }
 
 .r-v2-pc-automation__cover {
@@ -357,19 +397,69 @@ onMounted(() => {
 
 .r-v2-pc-automation__details {
   min-width: 0;
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 12px;
   color: var(--r-color-fg-muted);
 }
 
-.r-v2-pc-automation__details strong {
-  color: var(--r-color-fg);
+.r-v2-pc-automation__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.r-v2-pc-automation__tags,
+.r-v2-pc-automation__identity h3 {
+  margin: 0;
+  color: var(--r-color-fg);
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.r-v2-pc-automation__candidate-title {
+  margin: 0;
+}
+
+.r-v2-pc-automation__source-details {
+  display: grid;
+  gap: 8px;
+}
+
+.r-v2-pc-automation__source-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.r-v2-pc-automation__source-label {
+  color: var(--r-color-fg);
+  font-weight: 600;
+}
+
+.r-v2-pc-automation__reason {
+  border-top: 1px solid var(--r-color-border);
+  padding-top: 8px;
+}
+
+.r-v2-pc-automation__reason summary {
+  color: var(--r-color-fg);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.r-v2-pc-automation__reason p {
+  margin: 8px 0 0;
+}
+
+.r-v2-pc-automation__tags {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .r-v2-pc-automation__actions {
+  align-self: center;
+  justify-content: flex-end;
   gap: 6px;
 }
 
@@ -380,10 +470,13 @@ onMounted(() => {
 }
 
 html[data-bp~="xs"] .r-v2-pc-automation__row {
-  align-items: flex-start;
+  grid-template-columns: auto 48px minmax(0, 1fr);
 }
 
 html[data-bp~="xs"] .r-v2-pc-automation__actions {
+  grid-column: 3 / -1;
+  grid-row: 2;
+  justify-content: flex-start;
   flex-wrap: wrap;
 }
 </style>
