@@ -44,6 +44,7 @@ from handler.filesystem import (
     fs_platform_handler,
     fs_resource_handler,
     fs_rom_handler,
+    get_fs_rom_handler,
     legacy_external_storage,
     open_storage_access,
     storage_composition,
@@ -605,8 +606,8 @@ async def _identify_rom(
         return
 
     # Update properties that don't require metadata
-    parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+    parsed_tags = get_fs_rom_handler().parse_tags(fs_rom["fs_name"])
+    roms_path = get_fs_rom_handler().get_logical_roms_fs_structure(platform.fs_slug)
 
     rom_attrs = {
         "fs_name": fs_rom["fs_name"],
@@ -617,7 +618,7 @@ async def _identify_rom(
         "languages": parsed_tags.languages,
         "tags": parsed_tags.other_tags,
         "platform_id": platform.id,
-        "name": fs_rom_handler.get_file_name_with_no_tags(fs_rom["fs_name"]),
+        "name": get_fs_rom_handler().get_file_name_with_no_tags(fs_rom["fs_name"]),
         "url_cover": "",
         "url_manual": "",
         "url_screenshots": [],
@@ -634,7 +635,7 @@ async def _identify_rom(
         # the files and check whether they belong to an existing entry that went
         # missing (a renamed or moved ROM), so its collections, notes, and
         # uploaded assets carry over instead of being orphaned on a duplicate.
-        parsed_rom_files = await fs_rom_handler.get_rom_files(
+        parsed_rom_files = await get_fs_rom_handler().get_rom_files(
             Rom(
                 **rom_attrs,
                 platform=platform,
@@ -703,7 +704,7 @@ async def _identify_rom(
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
-        parsed_rom_files = await fs_rom_handler.get_rom_files(
+        parsed_rom_files = await get_fs_rom_handler().get_rom_files(
             rom, calculate_hashes=calculate_hashes
         )
         fs_rom.update(
@@ -1033,7 +1034,7 @@ async def _identify_platform(
     )
 
     try:
-        fs_roms = await fs_rom_handler.get_roms(platform)
+        fs_roms = await get_fs_rom_handler().get_roms(platform)
     except RomsNotFoundException as e:
         log.error(e)
         return scan_stats
@@ -1323,7 +1324,7 @@ async def scan_platforms(
     total_roms = 0
     for platform_slug in platforms_to_scan:
         try:
-            total_roms += await fs_rom_handler.count_roms(
+            total_roms += await get_fs_rom_handler().count_roms(
                 Platform(fs_slug=platform_slug)
             )
         except RomsNotFoundException as e:

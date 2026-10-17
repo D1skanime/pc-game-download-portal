@@ -1,3 +1,7 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+
 from .assets_handler import FSAssetsHandler
 from .firmware_handler import FSFirmwareHandler
 from .launchbox_handler import FSLaunchboxHandler, get_fs_launchbox_handler
@@ -34,6 +38,24 @@ fs_rom_handler = FSRomsHandler(legacy_external_storage)
 fs_resource_handler = FSResourcesHandler(
     storage_composition.owned[OwnedStorageKind.RESOURCES]
 )
+
+_active_fs_rom_handler: ContextVar[FSRomsHandler] = ContextVar(
+    "active_fs_rom_handler", default=fs_rom_handler
+)
+
+
+def get_fs_rom_handler() -> FSRomsHandler:
+    return _active_fs_rom_handler.get()
+
+
+@contextmanager
+def use_fs_rom_handler(handler: FSRomsHandler) -> Iterator[None]:
+    token = _active_fs_rom_handler.set(handler)
+    try:
+        yield
+    finally:
+        _active_fs_rom_handler.reset(token)
+
 
 __all__ = [
     "FSAssetsHandler",

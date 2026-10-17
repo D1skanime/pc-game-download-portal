@@ -15,8 +15,10 @@ from handler.filesystem import (
     fs_firmware_handler,
     fs_resource_handler,
     fs_rom_handler,
+    get_fs_rom_handler,
     legacy_external_storage,
     open_storage_access,
+    use_fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.filesystem.storage_policy import StorageOperation
@@ -197,9 +199,12 @@ async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
     with context.open(StorageOperation.SCAN, first_use_operation="scan") as capability:
         entries = capability.scan()
         context.boundary()
-        result = scan_batch(command, entries, context)
-        if asyncio.iscoroutine(result):
-            result = await result
+        mapping = context.validate()
+        mapped_handler = fs_rom_handler.for_mapping(mapping)
+        with use_fs_rom_handler(mapped_handler):
+            result = scan_batch(command, entries, context)
+            if asyncio.iscoroutine(result):
+                result = await result
     context.before_owned_write()
     context.before_response_commit()
     return result
@@ -224,7 +229,7 @@ class MetadataSource(enum.StrEnum):
 
 
 def _windows_igdb_lookup_name(fs_name: str) -> str:
-    name = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+    name = get_fs_rom_handler().get_file_name_with_no_tags(fs_name)
     return COMPACT_TITLE_BOUNDARY.sub(" ", name) if " " not in name else name
 
 
@@ -345,7 +350,7 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
             db_rom_handler.upsert_track_meta(rom_file.id, rom.id, {"cover_path": None})
         return
 
-    abs_audio_path = fs_rom_handler.validate_path(rom_file.full_path)
+    abs_audio_path = get_fs_rom_handler().validate_path(rom_file.full_path)
     cover_path = persist_embedded_cover(
         audio_full_path=str(abs_audio_path),
         platform_id=rom.platform_id,
@@ -682,7 +687,7 @@ async def scan_rom(
 
     if not metadata_only and platform.slug == UPS.WIN and fs_rom["nested"]:
         try:
-            pc_components = await fs_rom_handler.get_pc_components(_added_rom)
+            pc_components = await get_fs_rom_handler().get_pc_components(_added_rom)
             unresolved_count = 0
             for component in pc_components:
                 if (
@@ -1311,7 +1316,7 @@ async def scan_rom(
         # A ROM's name defaults to a filename-derived placeholder when first
         # created. Treat that placeholder as "no name" so a freshly matched provider
         # name replaces it (while preserving user-edited names).
-        fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
+        fs_name_no_tags = get_fs_rom_handler().get_file_name_with_no_tags(
             rom_attrs["fs_name"]
         )
         # Both the existing name and the seeded rom_attrs name can hold the
@@ -1363,7 +1368,7 @@ async def scan_rom(
         and not rom_attrs.get("url_cover")
         and not rom_attrs.get("path_cover_s")
     ):
-        pico8_url = fs_rom_handler.get_pico8_cover_url(
+        pico8_url = get_fs_rom_handler().get_pico8_cover_url(
             platform.slug, rom_attrs["fs_name"], rom_attrs["fs_path"]
         )
         if pico8_url:
@@ -1407,7 +1412,7 @@ async def scan_rom(
                 )
                 return await meta_sgdb_handler.get_rom_by_id(playmatch_rom["sgdb_id"])
 
-            file_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
+            file_name_no_tags = get_fs_rom_handler().get_file_name_with_no_tags(
                 str(rom_attrs["fs_name"])
             )
             game_names = [

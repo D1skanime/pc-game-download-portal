@@ -68,7 +68,12 @@ from .base_handler import (
     REGIONS_NAME_KEYS,
     ExternalFSHandler,
 )
-from .storage_policy import ExternalStorageDescriptor, StorageOperation
+from .storage_policy import (
+    ExternalStorageDescriptor,
+    StorageOperation,
+    _create_external_descriptor,
+)
+from .storage_resolver import resolve_directory
 
 if TYPE_CHECKING:
     from handler.storage.read_context import MappingReadContext
@@ -334,6 +339,17 @@ class FSRomsHandler(ExternalFSHandler):
 
             storage = legacy_external_storage
         super().__init__(base_path=Path(storage._root_path), storage=storage)
+        self._logical_root = ""
+
+    @classmethod
+    def for_mapping(cls, mapping) -> "FSRomsHandler":
+        mapped_root = resolve_directory(mapping.storage_root, mapping.relative_path)
+        descriptor = _create_external_descriptor(
+            mapping.storage_root_id, mapped_root, mapping_id=mapping.id
+        )
+        handler = cls(descriptor)
+        handler._logical_root = mapping.relative_path
+        return handler
 
     def open_rom_read(self, relative_path: str):
         return self.open_access(StorageOperation.READ, relative_path)
@@ -546,7 +562,11 @@ class FSRomsHandler(ExternalFSHandler):
         All filesystem work goes through the external read capabilities. This
         method neither creates nor mutates source-library entries.
         """
-        rom_path = f"{rom.fs_path}/{rom.fs_name}"
+        rom_path = (
+            rom.fs_name
+            if self._logical_root and rom.fs_path == self._logical_root
+            else f"{rom.fs_path}/{rom.fs_name}"
+        )
         components: list[RomComponent] = []
 
         async def build_component(
@@ -712,6 +732,8 @@ class FSRomsHandler(ExternalFSHandler):
         return _make_file_hash(crc_c, md5_h, sha1_h)
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
+        if self._logical_root:
+            return ""
         cnfg = cm.get_config()
         resolved_slug = resolve_filesystem_slug(
             fs_slug,
@@ -721,6 +743,9 @@ class FSRomsHandler(ExternalFSHandler):
             ).exists(),
         )
         return self._build_roms_fs_structure(resolved_slug, cnfg)
+
+    def get_logical_roms_fs_structure(self, fs_slug: str) -> str:
+        return self._logical_root or self.get_roms_fs_structure(fs_slug)
 
     @staticmethod
     def _build_roms_fs_structure(fs_slug: str, cnfg) -> str:
@@ -879,7 +904,9 @@ class FSRomsHandler(ExternalFSHandler):
         rel_roms_path = self.get_roms_fs_structure(
             rom.platform.fs_slug
         )  # Relative path to roms
-        abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to roms
+        abs_fs_path = (
+            self.base_path if not rel_roms_path else self.validate_path(rel_roms_path)
+        )
         rom_files: list[RomFile] = []
 
         # Skip hashing games for platforms that don't have a hash database or when hashes are disabled
