@@ -1,6 +1,7 @@
 """Protected review routes for durable PC metadata automation evidence."""
 
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 from typing import Annotated
 
 from fastapi import HTTPException, Path, Query, Request, status
@@ -37,10 +38,62 @@ def _match_stored_timestamp(value: datetime, stored: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def _safe_relative_path(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.replace("\\", "/").strip()
+    path = PurePosixPath(normalized)
+    if (
+        path.is_absolute()
+        or normalized.startswith("/")
+        or (len(normalized) > 1 and normalized[1] == ":")
+        or ".." in path.parts
+    ):
+        return None
+    return path.as_posix()
+
+
+def _source_details(item, rom, component) -> tuple[str, str, str]:
+    fallback_name = _safe_relative_path(getattr(rom, "fs_name", None))
+    fallback_name = fallback_name or _safe_relative_path(item.normalized_query)
+    fallback_name = fallback_name or "source"
+
+    source_name = _safe_relative_path(
+        getattr(component, "relative_path", None) if component is not None else None
+    )
+    source_name = source_name or fallback_name
+
+    parent_path = _safe_relative_path(
+        "/".join(
+            part
+            for part in (
+                getattr(rom, "fs_path", None) if rom is not None else None,
+                getattr(rom, "fs_name", None) if rom is not None else None,
+            )
+            if part
+        )
+    )
+    parent_path = parent_path or fallback_name
+    component_path = (
+        _safe_relative_path(getattr(component, "relative_path", None))
+        if component is not None
+        else None
+    )
+    source_path = "/".join(filter(None, (parent_path, component_path)))
+    main_game_label = (
+        (getattr(rom, "name", None) or getattr(rom, "fs_name", None))
+        if rom is not None
+        else None
+    )
+    main_game_label = (main_game_label or item.normalized_query).strip()
+    return source_name, source_path, main_game_label
+
+
 def _schema(item) -> PcAutomationQueueItemSchema:
     rom = db_rom_handler.get_rom(item.rom_id)
     target_title = item.normalized_query
     component_kind = None
+    component = None
     if item.component_id is not None:
         component = next(
             (
@@ -63,6 +116,7 @@ def _schema(item) -> PcAutomationQueueItemSchema:
             target_title = metadata_name or component.relative_path
     elif rom is not None:
         target_title = rom.name or item.normalized_query
+    source_name, source_path, main_game_label = _source_details(item, rom, component)
     return PcAutomationQueueItemSchema(
         id=item.id,
         rom_id=item.rom_id,
@@ -71,6 +125,9 @@ def _schema(item) -> PcAutomationQueueItemSchema:
         target_kind=item.target_kind,
         normalized_query=item.normalized_query,
         target_title=target_title,
+        source_name=source_name,
+        source_path=source_path,
+        main_game_label=main_game_label,
         candidate_fingerprint=item.candidate_fingerprint,
         candidate_title=item.candidate_title,
         candidate_cover_url=item.candidate_cover_url,
