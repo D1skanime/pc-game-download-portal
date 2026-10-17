@@ -13,6 +13,7 @@ from handler.filesystem.storage_resolver import (
     get_storage_root_health_snapshot,
     normalize_relative_path,
 )
+from models.platform import Platform
 from models.storage import StorageRoot
 from utils.platforms import get_supported_platforms
 
@@ -145,7 +146,9 @@ class SetupFolderHandler:
             slug
         ) or db_platform_handler.get_platform_by_fs_slug(option.fs_slug)
         if platform is None:
-            raise ValueError("Platform is not available")
+            platform = db_platform_handler.add_platform(
+                Platform(name=option.name, slug=option.slug, fs_slug=option.fs_slug)
+            )
         return platform
 
     @staticmethod

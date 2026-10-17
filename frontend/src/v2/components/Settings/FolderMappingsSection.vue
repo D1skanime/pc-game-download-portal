@@ -24,13 +24,13 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import FolderMappingPlatformCell from "@/v2/components/Settings/FolderMappingPlatformCell.vue";
 import FolderMappingTypeCell from "@/v2/components/Settings/FolderMappingTypeCell.vue";
+import { loadPgdPFolderMappings } from "@/v2/components/Settings/pgdpFolderMappings";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import configApi from "@/v2/data/adapters/legacy/services/api/config";
 import platformApi from "@/v2/data/adapters/legacy/services/api/platform";
 import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
-import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
 
 defineOptions({ inheritAttrs: false });
@@ -39,7 +39,6 @@ const { t } = useI18n();
 const authStore = storeAuth();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
-const heartbeat = storeHeartbeat();
 const snackbar = useSnackbar();
 
 const supportedPlatforms = ref<Platform[]>([]);
@@ -67,59 +66,8 @@ const TYPE_ORDER: Record<NonNullable<RowType> | "none", number> = {
   none: 3,
 };
 
-const mappings = computed<Row[]>(() => {
-  const rows: Row[] = [];
-  const folders = heartbeat.value?.FILESYSTEM?.FS_PLATFORMS || [];
-  const bindings = config.value.PLATFORMS_BINDING || {};
-  const versions = config.value.PLATFORMS_VERSIONS || {};
-  const autoSlug: Record<string, string | undefined> = {};
-
-  for (const p of supportedPlatforms.value) autoSlug[p.slug] = p.slug;
-
-  for (const folder of folders) {
-    if (bindings[folder]) {
-      const slug = bindings[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
-      rows.push({
-        fsSlug: folder,
-        slug,
-        displayName: platform?.display_name || platform?.name || slug,
-        type: "alias",
-      });
-      continue;
-    }
-    if (versions[folder]) {
-      const slug = versions[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
-      rows.push({
-        fsSlug: folder,
-        slug,
-        displayName: platform?.display_name || platform?.name || slug,
-        type: "variant",
-      });
-      continue;
-    }
-    const auto = autoSlug[folder];
-    if (auto) {
-      const platform = supportedPlatforms.value.find((p) => p.slug === auto);
-      rows.push({
-        fsSlug: folder,
-        slug: auto,
-        displayName: platform?.display_name || platform?.name || auto,
-        type: "auto",
-      });
-    } else {
-      rows.push({
-        fsSlug: folder,
-        slug: undefined,
-        displayName: undefined,
-        type: null,
-      });
-    }
-  }
-
-  return rows;
-});
+const pgdpMappings = ref<Row[]>([]);
+const mappings = computed<Row[]>(() => pgdpMappings.value);
 
 const sortedMappings = computed(() => {
   const list = [...mappings.value];
@@ -306,11 +254,10 @@ const initialLoading = ref(false);
 onMounted(async () => {
   initialLoading.value = true;
   loading.value = true;
-  // Refresh FS_PLATFORMS from heartbeat when this page mounts
-  heartbeat.fetchHeartbeat().catch(() => {});
   try {
     const { data } = await platformApi.getSupportedPlatforms();
     supportedPlatforms.value = data || [];
+    pgdpMappings.value = await loadPgdPFolderMappings(supportedPlatforms.value);
     // Populate the in-memory icon cache so every PlatformIcon
     // rendered by the table rows + Platform picker reads blob URLs
     // instead of refetching. Fires in idle time, non-blocking.

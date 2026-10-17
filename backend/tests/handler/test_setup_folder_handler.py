@@ -32,7 +32,48 @@ def test_root_registers_configured_library_when_database_is_empty(
     assert calls == [(setup_module.ROOT_LABEL, str(tmp_path))]
 
 
-def test_discovery_is_sorted_direct_and_suggests_known_folders(tmp_path, monkeypatch):
+def test_resolve_platform_bootstraps_missing_supported_platform(monkeypatch):
+    import handler.setup_folder_handler as setup_module
+
+    option = SimpleNamespace(
+        slug="win",
+        fs_slug="win",
+        name="Windows",
+    )
+    monkeypatch.setattr(
+        setup_module.SetupFolderHandler,
+        "_platform_options",
+        staticmethod(lambda: [option]),
+    )
+    monkeypatch.setattr(
+        setup_module.db_platform_handler,
+        "get_platform_by_slug",
+        lambda slug: None,
+    )
+    monkeypatch.setattr(
+        setup_module.db_platform_handler,
+        "get_platform_by_fs_slug",
+        lambda fs_slug: None,
+    )
+    created = []
+
+    def add_platform(platform):
+        created.append(platform)
+        return SimpleNamespace(id=9, slug=platform.slug)
+
+    monkeypatch.setattr(
+        setup_module.db_platform_handler,
+        "add_platform",
+        add_platform,
+    )
+
+    result = SetupFolderHandler()._resolve_platform("win")
+
+    assert result.id == 9
+    assert created[0].name == "Windows"
+    assert created[0].slug == "win"
+    assert created[0].fs_slug == "win"
+
     (tmp_path / "My Games").mkdir()
     (tmp_path / "Windows").mkdir()
     (tmp_path / "ignored.txt").write_text("source")
