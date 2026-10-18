@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: executing
-stopped_at: Phase 34 planning verified; ready to execute
-last_updated: "2026-10-18T20:00:03.620Z"
-last_activity: 2026-10-18 -- Phase 34 planning complete
+status: "Blocked at 34-02: historical MySQL/PostgreSQL migrations need scope decision"
+stopped_at: 34-01 complete; 34-02 Task 1 blocked pending historical migration repair authorization
+last_updated: "2026-10-18T20:42:04.099Z"
+last_activity: 2026-10-18 -- Phase 34 execution started
 progress:
   total_phases: 34
   completed_phases: 23
   total_plans: 256
-  completed_plans: 219
+  completed_plans: 220
   percent: 68
 ---
 
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 ## Current Position
 
-Phase: 34 (reliable-fresh-installation-and-scan-lifecycle) - PLANNED
-Plan: 0 of 14
-Status: Ready to execute
-Last activity: 2026-10-18 -- Phase 34 planning complete
+Phase: 34 (reliable-fresh-installation-and-scan-lifecycle) - EXECUTING
+Plan: 1 of 14
+Status: Blocked at 34-02: historical MySQL/PostgreSQL migrations need scope decision
+Last activity: 2026-10-18 -- Phase 34 execution started
 
 ## Performance Metrics
 
@@ -509,9 +509,9 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-18T19:59:28.620Z
-Stopped at: Phase 34 planning verified; ready to execute
-Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-01-PLAN.md
+Last session: 2026-10-18T20:42:04.090Z
+Stopped at: 34-01 complete; 34-02 Task 1 blocked pending historical migration repair authorization
+Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-02-CHECKPOINT.md
 
 - Phase 25 added: Scan-/Medien-Integration härten
 - Phase 26 added: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege.

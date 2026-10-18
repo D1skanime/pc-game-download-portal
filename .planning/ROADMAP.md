@@ -855,13 +855,13 @@ Plans:
 **Goal:** A fresh PGDP installation recovers incomplete setup and reaches a completed first library scan. First and normal scans expose confirmed durable state, bounded actionable failures and safe restart/cancellation recovery while preserving source storage.
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16
 **Depends on:** Phase 33 implementation foundation; its open 33-06 browser acceptance is repeated after stabilization.
-**Plans:** 0/14 plans executed
+**Plans:** 1/14 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 34-01-PLAN.md - Safe isolated test harness and executable defect reproductions
+- [x] 34-01-PLAN.md - Safe isolated test harness and executable defect reproductions
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
