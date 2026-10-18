@@ -1,6 +1,7 @@
 services:
   sql:
     image: ${P34_SQL_IMAGE}
+    command: ${P34_SQL_COMMAND}
     labels:
       org.pgdp.phase34.run: ${PHASE34_RUN_TOKEN}
     environment:

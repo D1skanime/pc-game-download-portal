@@ -69,6 +69,25 @@ def prepare(root, repo):
     return games, snapshot
 
 
+def cleanup_snapshot(root, project):
+    import re
+    import tempfile
+
+    snapshot = root / "checkout"
+    if not snapshot.exists():
+        return
+    if (
+        not re.fullmatch(r"pgdp34-[a-f0-9]{32}", project)
+        or root.parent.resolve() != Path(tempfile.gettempdir()).resolve()
+        or not root.name.startswith(project + "-")
+        or root.is_symlink()
+        or snapshot.is_symlink()
+        or snapshot.resolve() != root.resolve() / "checkout"
+    ):
+        raise RuntimeError("snapshot cleanup containment failed")
+    shutil.rmtree(snapshot)
+
+
 def backend_command(args, name="backend"):
     return [
         "uv",
@@ -182,6 +201,9 @@ def schema_parity():
         assert conn.execute(select(parent.c.slot)).scalar_one() == 2
         conn.execute(parent.delete())
         metadata.drop_all(conn)
+    from tools.phase34_operation_schema import check_operations
+
+    check_operations(engine)
     print("PASS schema constraints, lock statement and CRUD:", engine.dialect.name)
 
 

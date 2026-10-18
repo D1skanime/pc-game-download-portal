@@ -16,6 +16,7 @@ from phase34_fixtures import (
     LIFECYCLE,
     SQL_IMAGES,
     backend_command,
+    cleanup_snapshot,
     expected_red,
     frontend_command,
     prepare,
@@ -135,6 +136,11 @@ class Run:
         env.update(
             {
                 "P34_SQL_IMAGE": SQL_IMAGES[self.driver],
+                "P34_SQL_COMMAND": {
+                    "mysql": "mysqld --log-bin-trust-function-creators=1",
+                    "mariadb": "mariadbd",
+                    "postgresql": "postgres",
+                }[self.driver],
                 "P34_RUNNER_IMAGE": IMAGE,
                 "P34_REPO": str(self.root / "checkout"),
                 "P34_CONTROL": str(self.control),
@@ -340,6 +346,7 @@ class Run:
         )
         if not clean or self.before != after:
             raise RuntimeError("cleanup or source immutability gate failed")
+        cleanup_snapshot(self.root, self.project)
         print("PASS cleanup and source immutability", flush=True)
 
 

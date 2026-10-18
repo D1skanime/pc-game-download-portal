@@ -54,6 +54,7 @@ class RunnerTests(unittest.TestCase):
             run: Any = runner.Run.__new__(runner.Run)
             run.token = "a" * 32
             run.root = Path(temp)
+            run.project = "pgdp34-" + "a" * 32
             run.evidence = Path(temp) / "evidence"
             run.control = Path(temp) / "control"
             run.driver = "mariadb"
@@ -124,6 +125,7 @@ class RunnerTests(unittest.TestCase):
             run: Any = runner.Run.__new__(runner.Run)
             run.root = Path(temp)
             run.evidence = Path(temp)
+            run.project = "pgdp34-" + "a" * 32
             run.before = []
             run.owned = Mock(
                 side_effect=[
@@ -149,6 +151,21 @@ class RunnerTests(unittest.TestCase):
             self.assertTrue(
                 json.loads((Path(temp) / "cleanup.json").read_text())["clean"]
             )
+
+    def test_snapshot_cleanup_preserves_evidence_and_rejects_symlinks(self):
+        project = "pgdp34-" + "a" * 32
+        with tempfile.TemporaryDirectory(prefix=project + "-") as temp:
+            root = Path(temp)
+            (root / "checkout").mkdir()
+            (root / "evidence").mkdir()
+            (root / "evidence/receipt.json").write_text("{}")
+            runner.cleanup_snapshot(root, project)
+            self.assertFalse((root / "checkout").exists())
+            self.assertTrue((root / "evidence/receipt.json").is_file())
+            (root / "checkout").symlink_to(root / "evidence", target_is_directory=True)
+            with self.assertRaisesRegex(RuntimeError, "containment"):
+                runner.cleanup_snapshot(root, project)
+            self.assertTrue((root / "evidence/receipt.json").is_file())
 
     def test_schema_enforces_three_real_dialects_and_all_directions(self):
         commands = schema_commands()
