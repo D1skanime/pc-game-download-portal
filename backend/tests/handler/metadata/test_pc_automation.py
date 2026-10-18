@@ -57,6 +57,53 @@ async def test_parent_uses_one_validated_steam_result_and_targets_the_parent():
 
 
 @pytest.mark.asyncio
+async def test_existing_parent_metadata_is_not_queued_again():
+    rom = _rom(steam_id=1091500)
+    matcher = Mock()
+    queue = Mock(resolve_after_manual_selection=Mock())
+    handler = PcAutomationHandler(match_handler=matcher, queue_handler=queue)
+
+    result = await handler.process_parent(rom)
+
+    assert result.decision is AutomationDecision.SKIPPED
+    assert result.reason == "existing_metadata"
+    matcher.fetch_unique_steam_match.assert_not_called()
+    queue.resolve_after_manual_selection.assert_called_once_with(
+        target_kind=pc_automation_module.PcAutomationTargetKind.PARENT,
+        rom_id=rom.id,
+        component_id=None,
+        consumed_target_updated_at=rom.updated_at,
+    )
+
+
+@pytest.mark.asyncio
+async def test_existing_component_metadata_is_not_queued_again():
+    component = SimpleNamespace(
+        id=7,
+        kind="dlc",
+        relative_path="DLC/Blood and Wine",
+        updated_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        component_metadata=SimpleNamespace(steam_id=1234, metadata_source="steam"),
+    )
+    rom = _rom(steam_id=1091500)
+    matcher = Mock()
+    queue = Mock(resolve_after_manual_selection=Mock())
+    handler = PcAutomationHandler(match_handler=matcher, queue_handler=queue)
+
+    result = await handler.process_component(rom, component)
+
+    assert result.decision is AutomationDecision.SKIPPED
+    assert result.reason == "existing_metadata"
+    matcher.fetch_parent_listed_steam_dlc.assert_not_called()
+    queue.resolve_after_manual_selection.assert_called_once_with(
+        target_kind=pc_automation_module.PcAutomationTargetKind.COMPONENT,
+        rom_id=rom.id,
+        component_id=component.id,
+        consumed_target_updated_at=component.updated_at,
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("steam_match", [None, {"steam_id": 0}])
 async def test_parent_without_one_validated_steam_result_is_pending_without_apply(
     steam_match,

@@ -87,6 +87,16 @@ class PcAutomationHandler:
         )
         if not query:
             return AutomationResult(AutomationDecision.SKIPPED, query, "empty_query")
+        if self._positive_int(getattr(rom, "steam_id", None)):
+            self.queue_handler.resolve_after_manual_selection(
+                target_kind=PcAutomationTargetKind.PARENT,
+                rom_id=rom.id,
+                component_id=None,
+                consumed_target_updated_at=rom.updated_at,
+            )
+            return AutomationResult(
+                AutomationDecision.SKIPPED, query, "existing_metadata"
+            )
         if getattr(rom, "manual_metadata", None):
             self._queue(rom, None, query, None, "protected_target")
             return AutomationResult(
@@ -127,6 +137,16 @@ class PcAutomationHandler:
                 AutomationDecision.PENDING, query, "untrusted_parent_steam"
             )
         metadata = getattr(component, "component_metadata", None)
+        if self._positive_int(getattr(metadata, "steam_id", None)):
+            self.queue_handler.resolve_after_manual_selection(
+                target_kind=PcAutomationTargetKind.COMPONENT,
+                rom_id=rom.id,
+                component_id=component.id,
+                consumed_target_updated_at=component.updated_at,
+            )
+            return AutomationResult(
+                AutomationDecision.SKIPPED, query, "existing_metadata"
+            )
         if (
             metadata is not None
             and getattr(metadata, "metadata_source", None) == "manual"
