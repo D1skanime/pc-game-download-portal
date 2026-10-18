@@ -44,13 +44,13 @@ def operation_snapshot(session, row, *, offset=0, limit=100):
         items=[ScanOperationItemResult.model_validate(item) for item in items],
         items_offset=offset,
         items_total=total,
-        created_at=row.created_at.replace(microsecond=0, tzinfo=timezone.utc),
-        updated_at=row.updated_at.replace(microsecond=0, tzinfo=timezone.utc),
+        created_at=row.created_at.replace(tzinfo=timezone.utc),
+        updated_at=row.updated_at.replace(tzinfo=timezone.utc),
     )
 
 
 def with_queue_projection(snapshot):
-    if snapshot.dispatch_pending:
+    if snapshot.dispatch_pending or snapshot.state in {"accepted", "recovering"}:
         return snapshot
     from redis.exceptions import RedisError
     from rq.exceptions import NoSuchJobError

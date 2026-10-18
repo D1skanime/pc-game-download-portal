@@ -6,6 +6,8 @@ Revises: 0138_rom_metadata_facet_roles_view
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.mysql import DATETIME as MYSQL_DATETIME
+from sqlalchemy.dialects.mysql import TIMESTAMP as MYSQL_TIMESTAMP
 
 revision = "0139_scan_operations"
 down_revision = "0138_rom_metadata_facet_roles_view"
@@ -30,9 +32,18 @@ def upgrade() -> None:
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column("attempt_id", sa.String(36)),
         sa.Column("lease_owner", sa.String(64)),
-        sa.Column("lease_expires_at", sa.DateTime()),
-        sa.Column("dispatch_due", sa.DateTime()),
-        sa.Column("dispatch_claim_until", sa.DateTime()),
+        sa.Column(
+            "lease_expires_at",
+            sa.DateTime().with_variant(MYSQL_DATETIME(fsp=6), "mysql", "mariadb"),
+        ),
+        sa.Column(
+            "dispatch_due",
+            sa.DateTime().with_variant(MYSQL_DATETIME(fsp=6), "mysql", "mariadb"),
+        ),
+        sa.Column(
+            "dispatch_claim_until",
+            sa.DateTime().with_variant(MYSQL_DATETIME(fsp=6), "mysql", "mariadb"),
+        ),
         sa.Column("dispatch_owner", sa.String(64)),
         sa.Column("rq_job_id", sa.String(100), nullable=False),
         sa.Column("intentional_cancel", sa.Boolean(), nullable=False),
@@ -43,14 +54,18 @@ def upgrade() -> None:
         sa.Column("mutation_keys", sa.JSON(), nullable=False),
         sa.Column(
             "created_at",
-            sa.TIMESTAMP(timezone=True),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            sa.TIMESTAMP(timezone=True).with_variant(
+                MYSQL_TIMESTAMP(fsp=6), "mysql", "mariadb"
+            ),
+            server_default=sa.text("CURRENT_TIMESTAMP(6)"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
-            sa.TIMESTAMP(timezone=True),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            sa.TIMESTAMP(timezone=True).with_variant(
+                MYSQL_TIMESTAMP(fsp=6), "mysql", "mariadb"
+            ),
+            server_default=sa.text("CURRENT_TIMESTAMP(6)"),
             nullable=False,
         ),
         sa.UniqueConstraint(
@@ -95,14 +110,18 @@ def upgrade() -> None:
         sa.Column("source_evidence", sa.JSON(), nullable=False),
         sa.Column(
             "created_at",
-            sa.TIMESTAMP(timezone=True),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            sa.TIMESTAMP(timezone=True).with_variant(
+                MYSQL_TIMESTAMP(fsp=6), "mysql", "mariadb"
+            ),
+            server_default=sa.text("CURRENT_TIMESTAMP(6)"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
-            sa.TIMESTAMP(timezone=True),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            sa.TIMESTAMP(timezone=True).with_variant(
+                MYSQL_TIMESTAMP(fsp=6), "mysql", "mariadb"
+            ),
+            server_default=sa.text("CURRENT_TIMESTAMP(6)"),
             nullable=False,
         ),
         sa.UniqueConstraint(
@@ -120,14 +139,18 @@ def upgrade() -> None:
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column(
             "created_at",
-            sa.TIMESTAMP(timezone=True),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            sa.TIMESTAMP(timezone=True).with_variant(
+                MYSQL_TIMESTAMP(fsp=6), "mysql", "mariadb"
+            ),
+            server_default=sa.text("CURRENT_TIMESTAMP(6)"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
-            sa.TIMESTAMP(timezone=True),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            sa.TIMESTAMP(timezone=True).with_variant(
+                MYSQL_TIMESTAMP(fsp=6), "mysql", "mariadb"
+            ),
+            server_default=sa.text("CURRENT_TIMESTAMP(6)"),
             nullable=False,
         ),
         sa.CheckConstraint("id = 1", name="ck_scan_execution_singleton"),

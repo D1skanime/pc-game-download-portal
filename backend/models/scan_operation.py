@@ -4,21 +4,37 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
+    TIMESTAMP,
     Boolean,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
     String,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.mysql import DATETIME as MYSQL_DATETIME
+from sqlalchemy.dialects.mysql import TIMESTAMP as MYSQL_TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
 
 from handler.scan_operation_state import STATES
-from models.base import BaseModel
+from models.base import BaseModel, utc_now
+
+_PRECISE_TIME = DateTime().with_variant(MYSQL_DATETIME(fsp=6), "mysql", "mariadb")
+_PRECISE_TIMESTAMP = TIMESTAMP(timezone=True).with_variant(
+    MYSQL_TIMESTAMP(fsp=6), "mysql", "mariadb"
+)
 
 
-class ScanOperation(BaseModel):
+class ScanTimestamps:
+    created_at: Mapped[datetime] = mapped_column(_PRECISE_TIMESTAMP, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        _PRECISE_TIMESTAMP, default=utc_now, onupdate=utc_now
+    )
+
+
+class ScanOperation(ScanTimestamps, BaseModel):
     __tablename__ = "scan_operations"
     __table_args__ = (
         UniqueConstraint("actor_id", "request_key", name="uq_scan_operation_actor_key"),
@@ -38,9 +54,13 @@ class ScanOperation(BaseModel):
     version: Mapped[int] = mapped_column(Integer, default=1)
     attempt_id: Mapped[str | None] = mapped_column(String(36), default=None)
     lease_owner: Mapped[str | None] = mapped_column(String(64), default=None)
-    lease_expires_at: Mapped[datetime | None] = mapped_column(default=None)
-    dispatch_due: Mapped[datetime | None] = mapped_column(default=None)
-    dispatch_claim_until: Mapped[datetime | None] = mapped_column(default=None)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        _PRECISE_TIME, default=None
+    )
+    dispatch_due: Mapped[datetime | None] = mapped_column(_PRECISE_TIME, default=None)
+    dispatch_claim_until: Mapped[datetime | None] = mapped_column(
+        _PRECISE_TIME, default=None
+    )
     dispatch_owner: Mapped[str | None] = mapped_column(String(64), default=None)
     rq_job_id: Mapped[str] = mapped_column(String(100), unique=True)
     intentional_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -51,7 +71,7 @@ class ScanOperation(BaseModel):
     mutation_keys: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
-class ScanOperationItem(BaseModel):
+class ScanOperationItem(ScanTimestamps, BaseModel):
     __tablename__ = "scan_operation_items"
     __table_args__ = (
         UniqueConstraint(
@@ -74,7 +94,7 @@ class ScanOperationItem(BaseModel):
     source_evidence: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
-class ScanExecutionSlot(BaseModel):
+class ScanExecutionSlot(ScanTimestamps, BaseModel):
     __tablename__ = "scan_execution_slot"
     __table_args__ = (CheckConstraint("id = 1", name="ck_scan_execution_singleton"),)
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)

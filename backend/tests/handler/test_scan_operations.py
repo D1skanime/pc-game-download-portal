@@ -99,6 +99,31 @@ def test_acceptance_is_committed_before_enqueue(admin_user, command):
     assert repo.find_active(admin_user.id).id == accepted.id
 
 
+def test_dispatch_precision_never_rounds_into_future(admin_user, command, monkeypatch):
+    from datetime import datetime, timedelta
+
+    from handler.database import scan_operations_handler
+
+    instant = datetime(2026, 1, 1, 0, 0, 0, 777777)
+    monkeypatch.setattr(scan_operations_handler, "utc_now", lambda: instant)
+    repo = repository()
+    accepted = repo.accept(admin_user.id, "precision-key", command)
+    with sync_session.begin() as session:
+        assert session.get(ScanOperation, accepted.id).dispatch_due == instant
+    claim = repo.claim_dispatch(accepted.id, accepted.version, "dispatcher")
+    with sync_session.begin() as session:
+        assert session.get(
+            ScanOperation, accepted.id
+        ).dispatch_claim_until == instant + timedelta(seconds=30)
+    queued = repo.mark_enqueued(claim.id, claim.version, "dispatcher")
+    attempt = repo.claim_attempt(queued.id, queued.version, "worker")
+    with sync_session.begin() as session:
+        assert session.get(
+            ScanOperation, accepted.id
+        ).lease_expires_at == instant + timedelta(seconds=60)
+    assert repo.get_by_id(attempt.id, admin_user.id) == attempt
+
+
 def test_payload_conflict_and_global_slot(admin_user, viewer_user, command):
     from handler.database.scan_operations_handler import OperationConflict
 
