@@ -29,6 +29,13 @@ function matchDialogSource(): string {
 }
 
 describe("MatchRomDialog operation parity guards", () => {
+  it("uses the typed PC cover helper without changing classic search mapping", () => {
+    const source = matchDialogSource();
+
+    expect(source).toContain("getPcCandidateCover(candidate)");
+    expect(source).not.toContain("candidate.media[0]?.url");
+  });
+
   it("keeps the classic match context until the update succeeds", () => {
     const source = matchDialogSource();
 

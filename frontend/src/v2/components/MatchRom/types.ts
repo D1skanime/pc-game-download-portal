@@ -26,6 +26,63 @@ export type MatchSearchRom = SearchRom & {
   steam_url_cover?: string;
 };
 
+export type PcMatchProvider =
+  | "igdb"
+  | "steam"
+  | "moby"
+  | "sgdb"
+  | "launchbox"
+  | "screenscraper"
+  | "flashpoint"
+  | "libretro";
+
+export type PcMatchCoverField =
+  | "igdb_url_cover"
+  | "steam_url_cover"
+  | "moby_url_cover"
+  | "sgdb_url_cover"
+  | "launchbox_url_cover"
+  | "ss_url_cover"
+  | "flashpoint_url_cover"
+  | "libretro_url_cover";
+
+export interface PcCandidateMedia {
+  kind: string;
+  url: string;
+}
+
+export interface PcCandidateCover {
+  field: PcMatchCoverField;
+  url: string;
+}
+
+const PC_MATCH_COVER_FIELDS: Readonly<
+  Record<PcMatchProvider, PcMatchCoverField>
+> = {
+  igdb: "igdb_url_cover",
+  steam: "steam_url_cover",
+  moby: "moby_url_cover",
+  sgdb: "sgdb_url_cover",
+  launchbox: "launchbox_url_cover",
+  screenscraper: "ss_url_cover",
+  flashpoint: "flashpoint_url_cover",
+  libretro: "libretro_url_cover",
+};
+
+function isPcMatchProvider(value: string): value is PcMatchProvider {
+  return Object.hasOwn(PC_MATCH_COVER_FIELDS, value);
+}
+
+export function getPcCandidateCover(candidate: {
+  provider: string;
+  media: readonly PcCandidateMedia[];
+}): PcCandidateCover | null {
+  if (!isPcMatchProvider(candidate.provider)) return null;
+  const url = candidate.media.find((media) => media.kind === "cover")?.url;
+  if (!url) return null;
+  return { field: PC_MATCH_COVER_FIELDS[candidate.provider], url };
+}
+
 export type SourceName =
   | "IGDB"
   | "Steam"

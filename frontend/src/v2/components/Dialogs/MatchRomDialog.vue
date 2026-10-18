@@ -25,6 +25,7 @@ import MatchRomBodyList from "@/v2/components/MatchRom/MatchRomBodyList.vue";
 import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFilter.vue";
 import type {
   ConfirmPayload,
+  getPcCandidateCover,
   MatchSearchRom,
   MatchVariant,
   PcMatchTarget,
@@ -269,9 +270,10 @@ async function searchRom() {
         is_unidentified: false,
         is_identified: true,
         ...(candidate.provider === "igdb" ? { igdb_id: index + 1 } : {}),
-        ...(candidate.provider === "steam"
-          ? { steam_url_cover: candidate.media[0]?.url }
-          : {}),
+        ...(() => {
+          const cover = getPcCandidateCover(candidate);
+          return cover ? { [cover.field]: cover.url } : {};
+        })(),
         ...(candidate.provider === "moby" ? { moby_id: index + 1 } : {}),
         ...(candidate.provider === "screenscraper" ? { ss_id: index + 1 } : {}),
         ...(candidate.provider === "launchbox"
