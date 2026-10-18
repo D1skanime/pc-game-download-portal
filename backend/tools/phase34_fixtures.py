@@ -38,6 +38,26 @@ def redact_evidence(evidence, token):
                 replacement.replace(path)
 
 
+def restore_generated_owner(run, resources):
+    import os
+
+    if not run.runner or run.manifest is None:
+        return
+    for identity in resources["container"]:
+        if run.inspect("container", identity)["Id"] == run.runner:
+            run.exec(
+                [
+                    "chown",
+                    "-R",
+                    "--",
+                    str(os.getuid()) + ":" + str(os.getgid()),
+                    "/app/frontend/src/__generated__",
+                ],
+                check=False,
+            )
+            return
+
+
 def source_manifest(root):
     return [
         {

@@ -23,6 +23,7 @@ from phase34_fixtures import (
     quality,
     redact_evidence,
     redact_output,
+    restore_generated_owner,
     schema_commands,
     source_manifest,
 )
@@ -327,17 +328,7 @@ class Run:
         resources = {
             kind: self.owned(kind) for kind in ("container", "volume", "network")
         }
-        if self.runner in resources["container"] and self.manifest is not None:
-            self.exec(
-                [
-                    "chown",
-                    "-R",
-                    "--",
-                    str(os.getuid()) + ":" + str(os.getgid()),
-                    "/app/frontend/src/__generated__",
-                ],
-                check=False,
-            )
+        restore_generated_owner(self, resources)
         for kind, identities in resources.items():
             for identity in identities:
                 args = ["docker", kind, "rm"]

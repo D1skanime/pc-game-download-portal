@@ -185,6 +185,18 @@ class RunnerTests(unittest.TestCase):
             self.assertNotIn("test-token", payload)
             self.assertEqual(ElementTree.fromstring(payload).tag, "testsuite")
 
+    def test_generated_owner_uses_verified_full_container_identity(self):
+        run = Mock()
+        run.runner = "a" * 64
+        run.manifest = {}
+        run.inspect.return_value = {"Id": run.runner}
+        runner.restore_generated_owner(run, {"container": ["a" * 12]})
+        run.exec.assert_called_once()
+        run.exec.reset_mock()
+        run.inspect.return_value = {"Id": "b" * 64}
+        runner.restore_generated_owner(run, {"container": ["a" * 12]})
+        run.exec.assert_not_called()
+
     def test_schema_enforces_three_real_dialects_and_all_directions(self):
         commands = schema_commands()
         self.assertEqual(commands[1][2:], ["alembic", "upgrade", "head"])
