@@ -111,12 +111,18 @@ def schema_commands():
         ["uv", "run", "alembic", "upgrade", "head"],
         ["uv", "run", "alembic", "downgrade", BASELINE],
         ["uv", "run", "alembic", "upgrade", "head"],
-        ["uv", "run", "python", "/app/backend/tools/phase34_fixtures.py", "parity"],
+        [
+            "uv",
+            "run",
+            "python",
+            "-c",
+            "from tools.phase34_fixtures import schema_parity; schema_parity()",
+        ],
     ]
 
 
 def schema_parity():
-    from phase34_target_guard import validate_target
+    from tools.phase34_target_guard import validate_target
 
     validate_target()
     from sqlalchemy import (
