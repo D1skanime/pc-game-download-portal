@@ -331,6 +331,11 @@ type ScanType =
   | "hashes"
   | "complete";
 
+interface SubfolderScan {
+  platformFsSlug: string;
+  relativePath: string;
+}
+
 const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
   {
     title: t("scan.new-platforms"),
@@ -438,7 +443,7 @@ const progressValue = computed(() =>
     : 0,
 );
 
-function scan() {
+function scan(subfolder?: SubfolderScan) {
   if (!mappingReady.value) return;
   scanningStore.reset();
   scanningPlatforms.value = [];
@@ -459,8 +464,15 @@ function scan() {
   const selectedScanType = scanType.value;
   let scope: OperationScope;
   try {
-    scope =
-      selectedScanType === "media"
+    scope = subfolder
+      ? {
+          kind: "filesystem",
+          platformFsSlugs: [subfolder.platformFsSlug],
+          relativePaths: {
+            [subfolder.platformFsSlug]: subfolder.relativePath,
+          },
+        }
+      : selectedScanType === "media"
         ? resolveMediaOnlyScope(
             platformsToScan.value,
             sortedPlatforms.value.map((platform) => ({
@@ -542,6 +554,10 @@ function scan() {
   };
 
   void libraryOperation.start(request);
+}
+
+function scanSubfolder(subfolder: SubfolderScan) {
+  scan(subfolder);
 }
 
 function stopScan() {
@@ -1090,6 +1106,7 @@ function stopScan() {
             :open="openPlatforms.has(platform.id)"
             class="r-v2-scan-live__panel"
             @update:open="(v) => setOpen(platform.id, v)"
+            @scan-subfolder="scanSubfolder"
           />
         </TransitionGroup>
       </div>

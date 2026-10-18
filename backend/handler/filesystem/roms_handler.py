@@ -342,13 +342,16 @@ class FSRomsHandler(ExternalFSHandler):
         self._logical_root = ""
 
     @classmethod
-    def for_mapping(cls, mapping) -> "FSRomsHandler":
-        mapped_root = resolve_directory(mapping.storage_root, mapping.relative_path)
+    def for_mapping(cls, mapping, relative_path: str | None = None) -> "FSRomsHandler":
+        mapping_path = mapping.relative_path.strip("/")
+        selected_path = (relative_path or "").strip("/")
+        logical_root = "/".join(part for part in (mapping_path, selected_path) if part)
+        mapped_root = resolve_directory(mapping.storage_root, logical_root)
         descriptor = _create_external_descriptor(
             mapping.storage_root_id, mapped_root, mapping_id=mapping.id
         )
         handler = cls(descriptor)
-        handler._logical_root = mapping.relative_path
+        handler._logical_root = logical_root
         return handler
 
     def open_rom_read(self, relative_path: str):

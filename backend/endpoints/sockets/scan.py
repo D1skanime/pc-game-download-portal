@@ -48,6 +48,7 @@ from handler.filesystem import (
     legacy_external_storage,
     open_storage_access,
     storage_composition,
+    use_fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.filesystem.storage_access import (
@@ -961,6 +962,7 @@ async def _identify_platform(
     scan_stats: ScanStats,
     metadata_locale: str | None = None,
     metadata_only: bool = False,
+    filesystem_scope_path: str | None = None,
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -1054,7 +1056,10 @@ async def _identify_platform(
     # moved ROM (a new file with no fs_name match) can be reassociated by hash
     # with its now-missing entry instead of spawning a duplicate. The end-of-scan
     # call below re-syncs and logs, unmarking any entry that got reassociated.
-    db_rom_handler.mark_missing_roms(platform.id, [rom["fs_name"] for rom in fs_roms])
+    if filesystem_scope_path is None:
+        db_rom_handler.mark_missing_roms(
+            platform.id, [rom["fs_name"] for rom in fs_roms]
+        )
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
@@ -1137,8 +1142,12 @@ async def _identify_platform(
                 if isinstance(result, Exception):
                     log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
 
-    missing_roms = db_rom_handler.mark_missing_roms(
-        platform.id, [rom["fs_name"] for rom in fs_roms]
+    missing_roms = (
+        db_rom_handler.mark_missing_roms(
+            platform.id, [rom["fs_name"] for rom in fs_roms]
+        )
+        if filesystem_scope_path is None
+        else []
     )
     if len(missing_roms) > 0:
         log.warning(f"{hl('Missing')} roms from filesystem:")
@@ -1172,6 +1181,7 @@ async def scan_platforms(
     metadata_locale: str | None = None,
     metadata_only: bool = False,
     media_only: bool = False,
+    filesystem_scope_path: str | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -1369,6 +1379,7 @@ async def scan_platforms(
                 metadata_only=metadata_only,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
+                filesystem_scope_path=filesystem_scope_path,
             )
 
         missed_platforms = db_platform_handler.mark_missing_platforms(
@@ -1488,22 +1499,26 @@ async def execute_mapping_scan(
 ) -> ScanStats:
     """Run a scan from immutable mapping identity, never a caller-supplied path."""
     mapping = db_storage_handler.get_mapping(command.mapping_id)
+    scope_path = dict(command.options).get("relative_path")
 
     async def _scan_batch(
         _command: MappedScanCommand, _entries: list[str], _context: object
     ) -> ScanStats:
-        return await scan_platforms(
-            platform_ids=[mapping.platform_id],
-            metadata_sources=metadata_sources,
-            scan_type=ScanType(command.scan_type),
-            roms_ids=roms_ids,
-            launchbox_remote_enabled=launchbox_remote_enabled,
-            playmatch_enabled=playmatch_enabled,
-            metadata_locale=metadata_locale,
-            metadata_only=metadata_only,
-            media_only=media_only,
-            filesystem_platform_scope=[mapping.platform.fs_slug],
-        )
+        scoped_handler = fs_rom_handler.for_mapping(mapping, scope_path)
+        with use_fs_rom_handler(scoped_handler):
+            return await scan_platforms(
+                platform_ids=[mapping.platform_id],
+                metadata_sources=metadata_sources,
+                scan_type=ScanType(command.scan_type),
+                roms_ids=roms_ids,
+                launchbox_remote_enabled=launchbox_remote_enabled,
+                playmatch_enabled=playmatch_enabled,
+                metadata_locale=metadata_locale,
+                metadata_only=metadata_only,
+                media_only=media_only,
+                filesystem_platform_scope=[mapping.platform.fs_slug],
+                filesystem_scope_path=scope_path,
+            )
 
     return await execute_mapped_scan(
         cast(HandlerMappedScanCommand, command),
@@ -1518,6 +1533,7 @@ def mapping_scan_commands(
     scope: ScanScope,
     scan_type: ScanType,
     platform_fs_slugs: list[str] | None = None,
+    filesystem_scope_paths: dict[str, str] | None = None,
 ) -> list[MappedScanCommand]:
     """Freeze the active mapping revision for each selected platform."""
     platforms = db_platform_handler.get_platforms()
@@ -1544,6 +1560,10 @@ def mapping_scan_commands(
                 continue
         except (MissingPlatformStorageMappingError, StorageResolutionError):
             continue
+        options = ()
+        scope_path = (filesystem_scope_paths or {}).get(platform.fs_slug)
+        if scope_path:
+            options = (("relative_path", scope_path),)
         commands.append(
             MappedScanCommand(
                 mapping_id=mapping.id,
@@ -1551,6 +1571,7 @@ def mapping_scan_commands(
                 trigger=trigger,
                 scope=scope,
                 scan_type=scan_type.value,
+                options=options,
             )
         )
     return commands
@@ -1715,6 +1736,16 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     platform_fs_slugs = options.get("platform_fs_slugs", [])
     if not isinstance(platform_fs_slugs, list):
         platform_fs_slugs = []
+    raw_scope_paths = options.get("filesystem_scope_paths", {})
+    filesystem_scope_paths = (
+        {
+            key: value
+            for key, value in raw_scope_paths.items()
+            if isinstance(key, str) and isinstance(value, str)
+        }
+        if isinstance(raw_scope_paths, dict)
+        else {}
+    )
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
@@ -1743,6 +1774,7 @@ async def scan_handler(sid: str, options: dict[str, Any]):
             scope=ScanScope.ROM if roms_ids else ScanScope.PLATFORM,
             scan_type=scan_type,
             platform_fs_slugs=platform_fs_slugs,
+            filesystem_scope_paths=filesystem_scope_paths,
         )
     except MissingPlatformStorageMappingError:
         await socket_handler.socket_server.emit(

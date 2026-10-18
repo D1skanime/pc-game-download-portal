@@ -110,7 +110,11 @@ export type OperationScope =
       componentId: number;
       componentKind: Exclude<ItemKind, "game" | "firmware">;
     }
-  | { kind: "filesystem"; platformFsSlugs: string[] };
+  | {
+      kind: "filesystem";
+      platformFsSlugs: string[];
+      relativePaths?: Record<string, string>;
+    };
 
 export interface LibraryProfile {
   rootId: string;

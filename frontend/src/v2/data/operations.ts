@@ -91,6 +91,7 @@ export interface LegacyScanOptions {
   type: ScanType;
   roms_ids: number[];
   platform_fs_slugs: string[];
+  filesystem_scope_paths?: Record<string, string>;
   apis: string[];
   launchbox_remote_enabled: boolean;
   playmatch_enabled: boolean;
@@ -290,7 +291,10 @@ export function normalizeOperationRequest(
 
 function scopeOptions(
   request: OperationRequest,
-): Pick<LegacyScanOptions, "platforms" | "roms_ids" | "platform_fs_slugs"> {
+): Pick<
+  LegacyScanOptions,
+  "platforms" | "roms_ids" | "platform_fs_slugs" | "filesystem_scope_paths"
+> {
   switch (request.scope.kind) {
     case "library":
       return {
@@ -315,6 +319,9 @@ function scopeOptions(
         platforms: profilePlatformIds(request),
         roms_ids: [],
         platform_fs_slugs: uniqueStrings(request.scope.platformFsSlugs),
+        ...(request.scope.relativePaths
+          ? { filesystem_scope_paths: request.scope.relativePaths }
+          : {}),
       };
     case "component":
       throw new OperationTranslationError(

@@ -26,6 +26,10 @@ const props = defineProps<{
 
 defineEmits<{
   (e: "update:open", value: boolean): void;
+  (
+    e: "scan-subfolder",
+    value: { platformFsSlug: string; relativePath: string },
+  ): void;
 }>();
 
 const { t } = useI18n();
@@ -110,7 +114,10 @@ function getItemKey(item: unknown) {
       class="r-v2-scan-platform__virtual"
     >
       <template #default="{ item }">
-        <ScanPlatformRow :rom="item as SimpleRom" />
+        <ScanPlatformRow
+          :rom="item as SimpleRom"
+          @scan-subfolder="$emit('scan-subfolder', $event)"
+        />
       </template>
     </RVirtualScroller>
   </RCollapsible>

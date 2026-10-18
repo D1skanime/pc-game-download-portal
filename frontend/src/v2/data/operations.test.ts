@@ -94,6 +94,23 @@ describe("operation compatibility translation", () => {
     });
   });
 
+  it("preserves a selected filesystem subfolder for a scoped scan", () => {
+    const request = baseRequest({
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: { win: "Tales of War/The Witcher 3" },
+      },
+    });
+
+    expect(toLegacyScanOptions(request)).toMatchObject({
+      platforms: [7],
+      roms_ids: [],
+      platform_fs_slugs: ["win"],
+      filesystem_scope_paths: { win: "Tales of War/The Witcher 3" },
+    });
+  });
+
   it("keeps PC nested ROM identity and provider options intact", () => {
     const request = baseRequest({
       kind: "discovery",
