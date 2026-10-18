@@ -37,9 +37,9 @@ RED_BACKEND = {
     "test_stop_finds_manual_job": "P34_RQ_STOP",
 }
 RED_FRONTEND = {
-    "reinstalls listeners after scope disposal": "P34_REMOUNT",
-    "keeps listeners while another owner survives": "P34_OWNERS",
-    "cancels debounce work on final disposal": "P34_DEBOUNCE",
+    "scan lifecycle scope ownership > reinstalls listeners after scope disposal": "P34_REMOUNT",
+    "scan lifecycle scope ownership > keeps listeners while another owner survives": "P34_OWNERS",
+    "scan lifecycle scope ownership > cancels debounce work on final disposal": "P34_DEBOUNCE",
 }
 
 
