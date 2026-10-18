@@ -66,7 +66,7 @@ def upgrade() -> None:
         "rom_user",
         "note_raw_markdown",
         existing_type=sa.Text(),
-        server_default="",
+        server_default=sa.text("('')"),
         nullable=True,
     )
     op.alter_column(
@@ -112,7 +112,10 @@ def downgrade() -> None:
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
-                "note_raw_markdown", sa.Text(), nullable=False, server_default=""
+                "note_raw_markdown",
+                sa.Text(),
+                nullable=False,
+                server_default=sa.text("('')"),
             ),
             if_not_exists=True,
         )
