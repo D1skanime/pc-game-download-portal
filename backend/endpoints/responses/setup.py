@@ -47,3 +47,31 @@ class SetupFolderAssignmentResponse(BaseModel):
     mappings: list[SetupFolderMappingSchema] = Field(max_length=100)
     ready: bool
     root_health: SetupRootHealthSchema
+
+
+class SetupRecoverySnapshot(BaseModel):
+    enrolled: bool
+    setup_complete: bool
+    current_step: Literal["account", "folders", "complete"]
+    saved_assignments: list[SetupFolderMappingSchema] = Field(max_length=100)
+    missing_assignments: list[SetupFolderSchema] = Field(max_length=100)
+    root_health: SetupRootHealthSchema
+    cause_code: (
+        Literal[
+            "root_missing",
+            "root_unreadable",
+            "root_not_read_only",
+            "root_inactive",
+            "root_discovery_failed",
+            "assignments_missing",
+            "mapping_conflict",
+        ]
+        | None
+    )
+    next_action: Literal[
+        "create_admin",
+        "retry_check",
+        "assign_missing",
+        "resolve_conflicts",
+        "start_first_scan",
+    ]
