@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -53,6 +54,23 @@ def test_heartbeat(client):
     assert isinstance(oidc["ENABLED"], bool)
     assert isinstance(oidc["PROVIDER"], str)
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_skips_legacy_filesystem_discovery_for_flat_pgdp_root():
+    from endpoints.heartbeat import _legacy_filesystem_platforms
+
+    config = SimpleNamespace(has_structure_path_a=False, has_structure_path_b=False)
+    with (
+        patch("endpoints.heartbeat.cm.get_config", return_value=config),
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.get_platforms",
+            new_callable=AsyncMock,
+        ) as get_platforms,
+    ):
+        assert await _legacy_filesystem_platforms() == []
+
+    get_platforms.assert_not_awaited()
 
 
 @pytest.mark.parametrize("authorization_header", ["Bearer ", "Foo", "a b c"])

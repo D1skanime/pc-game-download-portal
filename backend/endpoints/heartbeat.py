@@ -62,6 +62,13 @@ router = APIRouter(
 )
 
 
+async def _legacy_filesystem_platforms() -> list[str]:
+    config = cm.get_config()
+    if not (config.has_structure_path_a or config.has_structure_path_b):
+        return []
+    return await fs_platform_handler.get_platforms()
+
+
 @router.get("/heartbeat")
 async def heartbeat() -> HeartbeatResponse:
     """Endpoint to set the CSRF token in cache and return all the basic RomM config
@@ -118,7 +125,7 @@ async def heartbeat() -> HeartbeatResponse:
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
-            "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
+            "FS_PLATFORMS": await _legacy_filesystem_platforms(),
         },
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
@@ -234,22 +241,22 @@ async def get_setup_library_info(request: Request):
 
     detected_structure = fs_platform_handler.detect_library_structure()
 
-    # Get existing platforms from filesystem
-    try:
-        existing_platform_slugs = await fs_platform_handler.get_platforms()
-    except Exception:
-        log.warning("Error retrieving existing platforms", exc_info=True)
-        existing_platform_slugs = []
-
-    # The PGDP Games mount is already the library root, so flat platform
-    # folders such as pc-Games must also be visible during first-run setup.
-    if not existing_platform_slugs:
+    # PGDP uses the mapped library root directly. Only legacy structures need
+    # the legacy platform discovery helper, which bootstraps a missing roms
+    # directory as a side effect.
+    if detected_structure is None:
         try:
             existing_platform_slugs = await fs_platform_handler.list_directories(
                 path=""
             )
         except Exception:
             log.warning("Error retrieving flat library platforms", exc_info=True)
+            existing_platform_slugs = []
+    else:
+        try:
+            existing_platform_slugs = await fs_platform_handler.get_platforms()
+        except Exception:
+            log.warning("Error retrieving existing platforms", exc_info=True)
             existing_platform_slugs = []
 
     # Build existing platforms with rom counts

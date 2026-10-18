@@ -71,9 +71,6 @@ async function loadMappingReadiness() {
       platformsStore.allPlatforms.map((platform) => platform.id),
     );
     mappingReadiness.value = readiness.ready ? "ready" : "blocked";
-    if (readiness.ready) {
-      await platformsStore.fetchFilesystemPlatforms();
-    }
   } catch {
     mappingReadiness.value = "error";
   }

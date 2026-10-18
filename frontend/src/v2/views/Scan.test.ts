@@ -22,4 +22,8 @@ describe("Scan mapping readiness gate", () => {
     expect(source).not.toContain("updateMapping");
     expect(source).not.toContain("removeMapping");
   });
+
+  it("does not call legacy filesystem discovery after mapping readiness", () => {
+    expect(source).not.toContain("fetchFilesystemPlatforms");
+  });
 });
