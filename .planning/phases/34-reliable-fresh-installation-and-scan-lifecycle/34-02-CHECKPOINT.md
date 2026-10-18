@@ -1,7 +1,9 @@
 ---
 phase: 34-reliable-fresh-installation-and-scan-lifecycle
 plan: "02"
-status: blocked
+status: resolved
+resolved: 2026-10-18
+resolution_summary: 34-02-SUMMARY.md
 subsystem: testing
 tags: [alembic, mariadb, mysql, postgresql, isolated-tests]
 requires:
@@ -28,7 +30,9 @@ completed: null
 recorded: 2026-10-18
 ---
 
-# Phase 34 Plan 02: Durable Operations, Blocked Execution Summary
+# Phase 34 Plan 02: Historical Execution Checkpoint (Resolved)
+
+This checkpoint was resolved on 2026-10-18 after explicit user authorization for bounded historical migration portability repairs. All three 34-02 tasks are implemented and verified. The authoritative completion record is 34-02-SUMMARY.md. The sections below preserve the original pre-authorization checkpoint and its evidence; they do not describe the current execution status.
 
 The disposable schema parity command now imports application configuration correctly; pre-existing MySQL and PostgreSQL migrations block operation-schema acceptance.
 
