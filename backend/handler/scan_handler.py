@@ -173,7 +173,7 @@ async def process_pc_automation_after_scan(
     newly_added: bool,
 ) -> None:
     """Queue PC automation only from the final durable scan target."""
-    if platform.slug != UPS.WIN or (not newly_added and scanned_rom.steam_id):
+    if platform.slug != UPS.WIN:
         return
 
     refreshed_rom = db_rom_handler.get_rom(durable_rom.id)

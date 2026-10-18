@@ -1891,6 +1891,36 @@ class TestPcComponentManifests:
         ]
 
     @pytest.mark.asyncio
+    async def test_dlc_container_with_direct_files_keeps_only_nested_components(
+        self, tmp_path: Path
+    ):
+        root = tmp_path / "roms" / "win" / "Example Game" / "dlc"
+        (root / "README.txt").parent.mkdir(parents=True, exist_ok=True)
+        (root / "README.txt").write_text("container documentation")
+        for name in ("blood-and-wine", "hearts-of-stone"):
+            path = root / name / "content.bin"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(name.encode())
+
+        handler = FSRomsHandler(_create_external_descriptor(1, tmp_path, mapping_id=1))
+        rom = Rom(
+            id=1,
+            fs_name="Example Game",
+            fs_path="roms/win",
+            platform=Platform(name="Windows", slug="win", fs_slug="win"),
+        )
+
+        components = await handler.get_pc_components(rom)
+
+        assert [
+            (component.relative_path, component.kind) for component in components
+        ] == [
+            ("dlc", RomComponentKind.UNRESOLVED),
+            ("dlc/blood-and-wine", RomComponentKind.DLC),
+            ("dlc/hearts-of-stone", RomComponentKind.DLC),
+        ]
+
+    @pytest.mark.asyncio
     async def test_root_files_form_a_deterministic_base_component(self, tmp_path: Path):
         root = tmp_path / "roms" / "win" / "The Witcher 3 Wild Hunt"
         root_members = {

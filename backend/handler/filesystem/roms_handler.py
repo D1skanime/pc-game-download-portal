@@ -662,7 +662,10 @@ class FSRomsHandler(ExternalFSHandler):
             if kind == RomComponentKind.DLC and nested_directories:
                 if await self.list_files(component_path):
                     await add_component(
-                        component_path, component_name, kind, recursive=False
+                        component_path,
+                        component_name,
+                        RomComponentKind.UNRESOLVED,
+                        recursive=False,
                     )
                 for nested_name in nested_directories:
                     await add_component(
