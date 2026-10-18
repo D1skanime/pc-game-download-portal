@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.storage_exceptions import MissingPlatformStorageMappingError
@@ -47,13 +49,14 @@ def _normalized(value: str) -> str:
 
 
 class SetupFolderHandler:
-    def root(self) -> StorageRoot:
-        for root in db_storage_handler.get_roots():
+    def root(self, *, session: Session | None = None) -> StorageRoot:
+        shared = {"session": session} if session is not None else {}
+        for root in db_storage_handler.get_roots(**shared):
             if root.active and (
                 root.name == ROOT_LABEL or root.container_path == LIBRARY_BASE_PATH
             ):
                 return root
-        return db_storage_handler.register_root(ROOT_LABEL, LIBRARY_BASE_PATH)
+        return db_storage_handler.register_root(ROOT_LABEL, LIBRARY_BASE_PATH, **shared)
 
     @staticmethod
     def _platform_options() -> list[Any]:
@@ -137,17 +140,19 @@ class SetupFolderHandler:
             "platform_options": list(result.platform_options),
         }
 
-    def _resolve_platform(self, slug: str) -> Any:
+    def _resolve_platform(self, slug: str, *, session: Session | None = None) -> Any:
+        shared = {"session": session} if session is not None else {}
         options = {platform.slug: platform for platform in self._platform_options()}
         option = options.get(slug)
         if option is None:
             raise ValueError("Unsupported platform")
         platform = db_platform_handler.get_platform_by_slug(
-            slug
-        ) or db_platform_handler.get_platform_by_fs_slug(option.fs_slug)
+            slug, **shared
+        ) or db_platform_handler.get_platform_by_fs_slug(option.fs_slug, **shared)
         if platform is None:
             platform = db_platform_handler.add_platform(
-                Platform(name=option.name, slug=option.slug, fs_slug=option.fs_slug)
+                Platform(name=option.name, slug=option.slug, fs_slug=option.fs_slug),
+                **shared,
             )
         return platform
 
@@ -161,12 +166,15 @@ class SetupFolderHandler:
         platform: Any,
         relative_path: str,
         actor: dict[str, Any],
+        *,
+        session: Session | None = None,
     ) -> Any:
+        shared = {"session": session} if session is not None else {}
         try:
-            mapping = db_storage_handler.get_active_mapping(platform.id)
+            mapping = db_storage_handler.get_active_mapping(platform.id, **shared)
         except MissingPlatformStorageMappingError:
             return db_storage_handler.create_mapping(
-                platform.id, root.id, relative_path, **actor
+                platform.id, root.id, relative_path, **actor, **shared
             )
         if (
             mapping.storage_root_id == root.id
@@ -179,6 +187,7 @@ class SetupFolderHandler:
             relative_path,
             expected_version=mapping.version,
             **actor,
+            **shared,
         )
 
     def assign(
@@ -186,12 +195,16 @@ class SetupFolderHandler:
         root: StorageRoot,
         assignments: list[dict[str, str]],
         actor: dict[str, Any],
+        *,
+        session: Session | None = None,
     ) -> AssignmentResult:
+        shared = {"session": session} if session is not None else {}
         expected = {
             folder.name: folder.relative_path for folder in self.discover(root).folders
         }
         provided = {
-            item.get("folder_name"): item.get("platform_slug") for item in assignments
+            item.get("folder_name", ""): item.get("platform_slug", "")
+            for item in assignments
         }
         if set(provided) != set(expected) or any(not name for name in provided):
             raise ValueError("every discovered folder must be assigned exactly once")
@@ -200,27 +213,34 @@ class SetupFolderHandler:
         ):
             raise ValueError("Folder and platform assignments must be unique")
         platforms = {
-            name: self._resolve_platform(slug) for name, slug in provided.items()
+            name: self._resolve_platform(slug, **shared)
+            for name, slug in provided.items()
         }
         for name, platform in platforms.items():
             relative_path = expected[name]
             try:
-                existing = db_storage_handler.get_active_mapping(platform.id)
+                existing = db_storage_handler.get_active_mapping(platform.id, **shared)
             except MissingPlatformStorageMappingError:
                 existing = None
             if existing is None:
-                db_storage_handler.test_mapping(platform.id, root.id, relative_path)
+                db_storage_handler.test_mapping(
+                    platform.id, root.id, relative_path, **shared
+                )
             elif (
                 existing.storage_root_id != root.id
                 or existing.relative_path != relative_path
             ):
                 db_storage_handler.test_mapping(
-                    platform.id, root.id, relative_path, exclude_mapping_id=existing.id
+                    platform.id,
+                    root.id,
+                    relative_path,
+                    exclude_mapping_id=existing.id,
+                    **shared,
                 )
         mappings = []
         for name in sorted(expected, key=lambda value: value.encode("utf-8")):
             platform = platforms[name]
-            mapping = self._reconcile(root, platform, expected[name], actor)
+            mapping = self._reconcile(root, platform, expected[name], actor, **shared)
             mappings.append(
                 {
                     "folder_name": name,

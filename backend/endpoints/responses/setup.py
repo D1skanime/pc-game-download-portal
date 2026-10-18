@@ -43,12 +43,6 @@ class SetupFolderMappingSchema(BaseModel):
     relative_path: str = Field(min_length=1, max_length=700)
 
 
-class SetupFolderAssignmentResponse(BaseModel):
-    mappings: list[SetupFolderMappingSchema] = Field(max_length=100)
-    ready: bool
-    root_health: SetupRootHealthSchema
-
-
 class SetupRecoverySnapshot(BaseModel):
     enrolled: bool
     setup_complete: bool
@@ -75,3 +69,10 @@ class SetupRecoverySnapshot(BaseModel):
         "resolve_conflicts",
         "start_first_scan",
     ]
+
+
+class SetupFolderAssignmentResponse(BaseModel):
+    mappings: list[SetupFolderMappingSchema] = Field(max_length=100)
+    ready: bool
+    root_health: SetupRootHealthSchema
+    recovery: SetupRecoverySnapshot

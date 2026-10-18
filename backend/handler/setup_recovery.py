@@ -13,7 +13,10 @@ from endpoints.responses.setup import (
     SetupRecoverySnapshot,
     SetupRootHealthSchema,
 )
-from exceptions.storage_exceptions import StorageResolutionError
+from exceptions.storage_exceptions import (
+    MissingPlatformStorageMappingError,
+    StorageResolutionError,
+)
 from handler.database import db_storage_handler, db_user_handler
 from handler.filesystem.storage_resolver import (
     get_storage_root_health_snapshot,
@@ -23,6 +26,7 @@ from handler.filesystem.storage_resolver import (
 from handler.setup_folder_handler import ROOT_LABEL, setup_folder_handler
 from models.platform import Platform
 from models.storage import EXTERNAL_READ_ONLY_MODE, PlatformStorageMapping, StorageRoot
+from models.user import Role, User
 
 
 class SetupRecoveryHandler:
@@ -143,6 +147,49 @@ class SetupRecoveryHandler:
             cause_code=cause,
             next_action=action,
         )
+
+    @begin_session
+    def assign(
+        self, assignments: list[dict[str, str]], actor: dict, *, session: Session = None
+    ) -> dict:  # type: ignore
+        # Serialize setup retries, including first root registration, across admins.
+        session.scalars(
+            select(User)
+            .where(User.role == Role.ADMIN)
+            .order_by(User.id)
+            .with_for_update()
+        ).all()
+        snapshot = self.snapshot(session=session)
+        if snapshot.cause_code not in {None, "assignments_missing"}:
+            raise ValueError(snapshot.cause_code)
+        root = setup_folder_handler.root(session=session)
+        saved = {
+            row.folder_name: row.platform_slug for row in snapshot.saved_assignments
+        }
+        provided = {row["folder_name"]: row["platform_slug"] for row in assignments}
+        if len(provided) != len(assignments):
+            raise ValueError("setup_assignment_conflict")
+        for name, slug in provided.items():
+            if name in saved and saved[name] != slug:
+                raise ValueError("setup_assignment_conflict")
+            platform = setup_folder_handler._resolve_platform(slug, session=session)
+            try:
+                mapping = db_storage_handler.get_active_mapping(
+                    platform.id, session=session
+                )
+            except MissingPlatformStorageMappingError:
+                continue
+            if mapping.storage_root_id != root.id or mapping.relative_path != name:
+                raise ValueError("setup_assignment_conflict")
+        merged = [
+            {"folder_name": name, "platform_slug": slug}
+            for name, slug in (saved | provided).items()
+        ]
+        result = setup_folder_handler.assign(root, merged, actor, session=session)
+        response = setup_folder_handler.response(result)
+        recovery = self.snapshot(session=session)
+        response.update(ready=recovery.setup_complete, recovery=recovery.model_dump())
+        return response
 
 
 setup_recovery_handler = SetupRecoveryHandler()

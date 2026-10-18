@@ -20,7 +20,7 @@ from handler.database.base_handler import sync_session
 from handler.redis_handler import redis_client
 from handler.setup_folder_handler import setup_folder_handler
 from models.scan_operation import ScanOperation
-from models.storage import PlatformStorageMapping, StorageMappingAudit, StorageRoot
+from models.storage import PlatformStorageMapping, StorageMappingAudit
 
 BASE = "/api/setup"
 SLUGS = {
@@ -83,7 +83,11 @@ def test_real_enrollment_failure_relogin_lost_response_and_completion(
         "email": "",
         "role": "admin",
     }
-    created = client.post("/api/users", json=enrollment)
+    created = client.post(
+        "/api/users",
+        json=enrollment,
+        headers={"x-csrftoken": client.cookies.get("romm_csrftoken")},
+    )
     assert created.status_code == 201, created.text
     csrf = login(client, enrollment["username"], enrollment["password"])
     original = setup_folder_handler.assign
@@ -100,7 +104,9 @@ def test_real_enrollment_failure_relogin_lost_response_and_completion(
     assert client.get(BASE + "/status").status_code in {401, 403}
     assert (
         client.post(
-            "/api/users", json=enrollment | {"username": "second_admin"}
+            "/api/users",
+            json=enrollment | {"username": "second_admin"},
+            headers={"x-csrftoken": client.cookies.get("romm_csrftoken")},
         ).status_code
         == 403
     )
@@ -122,7 +128,14 @@ def test_real_enrollment_failure_relogin_lost_response_and_completion(
     assert replay.json()["recovery"] == reconciled
     with sync_session.begin() as session:
         assert session.query(PlatformStorageMapping).count() == 8
-        assert session.query(StorageMappingAudit).count() == 8
+        assert (
+            session.query(StorageMappingAudit)
+            .filter(
+                StorageMappingAudit.mapping_id.in_(select(PlatformStorageMapping.id))
+            )
+            .count()
+            == 8
+        )
     assert_no_scan()
 
 
@@ -199,7 +212,14 @@ def test_partial_persisted_batch_only_repeats_missing_work(
     with sync_session.begin() as session:
         stored = session.get(PlatformStorageMapping, mapping.id)
         assert stored.version == mapping.version
-        assert session.query(StorageMappingAudit).count() == 8
+        assert (
+            session.query(StorageMappingAudit)
+            .filter(
+                StorageMappingAudit.mapping_id.in_(select(PlatformStorageMapping.id))
+            )
+            .count()
+            == 8
+        )
     assert_no_scan()
 
 
@@ -221,7 +241,14 @@ def test_conflicting_saved_request_is_not_rewritten(recovery_client, admin_user)
     )
     assert snapshot["setup_complete"]
     with sync_session.begin() as session:
-        assert session.query(StorageMappingAudit).count() == 8
+        assert (
+            session.query(StorageMappingAudit)
+            .filter(
+                StorageMappingAudit.mapping_id.in_(select(PlatformStorageMapping.id))
+            )
+            .count()
+            == 8
+        )
 
 
 def test_concurrent_assignment_retries_are_idempotent(
@@ -251,7 +278,14 @@ def test_concurrent_assignment_retries_are_idempotent(
     assert ids[0] == ids[1]
     with sync_session.begin() as session:
         assert session.query(PlatformStorageMapping).count() == 8
-        assert session.query(StorageMappingAudit).count() == 8
+        assert (
+            session.query(StorageMappingAudit)
+            .filter(
+                StorageMappingAudit.mapping_id.in_(select(PlatformStorageMapping.id))
+            )
+            .count()
+            == 8
+        )
     assert_no_scan()
 
 
@@ -292,4 +326,32 @@ def test_safe_root_failure_and_retry(
         assert "/private" not in response.text
     assert save(recovery_client, ASSIGNMENTS, csrf).json()["ready"]
     assert db_storage_handler.get_root(root.id).active
+    assert_no_scan()
+
+
+def test_mid_batch_failure_rolls_back_and_retry_completes(
+    recovery_client, admin_user, monkeypatch
+):
+    csrf = login(recovery_client)
+    original = db_storage_handler.create_mapping
+    calls = []
+
+    def fail_third(*args, **kwargs):
+        calls.append(args[0])
+        if len(calls) == 3:
+            raise ValueError("interrupted synthetic batch")
+        return original(*args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(db_storage_handler, "create_mapping", fail_third)
+        response = save(recovery_client, ASSIGNMENTS, csrf)
+        assert response.status_code == 409
+    assert len(calls) == 3
+    with sync_session.begin() as session:
+        assert session.query(PlatformStorageMapping).count() == 0
+    snapshot = recovery_client.get(BASE + "/status").json()
+    assert len(snapshot["missing_assignments"]) == 8
+    assert snapshot["saved_assignments"] == []
+    assert save(recovery_client, ASSIGNMENTS, csrf).json()["recovery"]["setup_complete"]
+    assert len(db_user_handler.get_admin_users()) == 1
     assert_no_scan()

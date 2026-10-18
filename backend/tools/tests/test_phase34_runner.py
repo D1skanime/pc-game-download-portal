@@ -185,6 +185,12 @@ class RunnerTests(unittest.TestCase):
             self.assertNotIn("test-token", payload)
             self.assertEqual(ElementTree.fromstring(payload).tag, "testsuite")
 
+    def test_evidence_redacts_bare_jwt_in_pytest_locals(self):
+        token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmaXh0dXJlIn0.signature"
+        self.assertNotIn(
+            token, runner.redact_output("access_token = '" + token + "'", "owned")
+        )
+
     def test_generated_owner_uses_verified_full_container_identity(self):
         run = Mock()
         run.runner = "a" * 64

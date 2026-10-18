@@ -19,6 +19,11 @@ def redact_output(output, token):
     import re
 
     output = output.replace(token, "[run-token]")
+    output = re.sub(
+        r"eyJ[A-Za-z0-9_.-]+",
+        "[redacted-jwt]",
+        output,
+    )
     return re.sub(r"(?i)Bearer\s+[A-Za-z0-9_.-]+", "Bearer [redacted]", output)
 
 
