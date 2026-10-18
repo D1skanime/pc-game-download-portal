@@ -21,6 +21,8 @@ from phase34_fixtures import (
     frontend_command,
     prepare,
     quality,
+    redact_evidence,
+    redact_output,
     schema_commands,
     source_manifest,
 )
@@ -108,7 +110,7 @@ class Run:
         )
         name = str(self.counter).zfill(2)
         # The run token doubles as disposable credentials. Retain no credentials in logs.
-        output = (result.stdout + result.stderr).replace(self.token, "<run-token>")
+        output = redact_output(result.stdout + result.stderr, self.token)
         (self.evidence / (name + ".log")).write_text(output)
         self.records.append(
             {
@@ -325,6 +327,17 @@ class Run:
         resources = {
             kind: self.owned(kind) for kind in ("container", "volume", "network")
         }
+        if self.runner in resources["container"] and self.manifest is not None:
+            self.exec(
+                [
+                    "chown",
+                    "-R",
+                    "--",
+                    str(os.getuid()) + ":" + str(os.getgid()),
+                    "/app/frontend/src/__generated__",
+                ],
+                check=False,
+            )
         for kind, identities in resources.items():
             for identity in identities:
                 args = ["docker", kind, "rm"]
@@ -346,6 +359,7 @@ class Run:
         )
         if not clean or self.before != after:
             raise RuntimeError("cleanup or source immutability gate failed")
+        redact_evidence(self.evidence, self.token)
         cleanup_snapshot(self.root, self.project)
         print("PASS cleanup and source immutability", flush=True)
 

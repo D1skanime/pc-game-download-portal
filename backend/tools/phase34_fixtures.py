@@ -15,6 +15,29 @@ LIFECYCLE = "src/v2/composables/useScanLifecycle/index.test.ts"
 JOB_IDENTITY = "tests/endpoints/sockets/test_scan_job_identity.py"
 
 
+def redact_output(output, token):
+    import re
+
+    output = output.replace(token, "[run-token]")
+    return re.sub(r"(?i)Bearer\s+[A-Za-z0-9_.-]+", "Bearer [redacted]", output)
+
+
+def redact_evidence(evidence, token):
+    from tempfile import NamedTemporaryFile
+
+    for path in evidence.iterdir():
+        if path.is_file() and not path.is_symlink() and path.suffix in {".log", ".xml"}:
+            output = path.read_text()
+            redacted = redact_output(output, token)
+            if output != redacted:
+                with NamedTemporaryFile(
+                    mode="w", dir=evidence, delete=False
+                ) as temporary:
+                    temporary.write(redacted)
+                    replacement = Path(temporary.name)
+                replacement.replace(path)
+
+
 def source_manifest(root):
     return [
         {

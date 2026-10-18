@@ -125,6 +125,8 @@ class RunnerTests(unittest.TestCase):
             run: Any = runner.Run.__new__(runner.Run)
             run.root = Path(temp)
             run.evidence = Path(temp)
+            run.runner = None
+            run.token = "a" * 32
             run.project = "pgdp34-" + "a" * 32
             run.before = []
             run.owned = Mock(
@@ -166,6 +168,22 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "containment"):
                 runner.cleanup_snapshot(root, project)
             self.assertTrue((root / "evidence/receipt.json").is_file())
+
+    def test_evidence_redacts_bearer_values_without_breaking_xml(self):
+        from xml.etree import ElementTree
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / "proof.xml"
+            path.write_text(
+                '<testsuite><testcase name="case"><failure message="Bearer abc.def.ghi">test-token</failure></testcase></testsuite>'
+            )
+            path.chmod(0o444)
+            runner.redact_evidence(root, "test-token")
+            payload = path.read_text()
+            self.assertNotIn("abc.def.ghi", payload)
+            self.assertNotIn("test-token", payload)
+            self.assertEqual(ElementTree.fromstring(payload).tag, "testsuite")
 
     def test_schema_enforces_three_real_dialects_and_all_directions(self):
         commands = schema_commands()
