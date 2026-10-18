@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 33-09-PLAN.md
-last_updated: "2026-10-16T19:54:00.000Z"
-last_activity: 2026-10-16
+stopped_at: Phase 34 planning verified; ready to execute
+last_updated: "2026-10-18T20:00:03.620Z"
+last_activity: 2026-10-18 -- Phase 34 planning complete
 progress:
-  total_phases: 33
-  completed_phases: 22
-  total_plans: 241
-  completed_plans: 217
-  percent: 67
+  total_phases: 34
+  completed_phases: 23
+  total_plans: 256
+  completed_plans: 219
+  percent: 68
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 33 - Fresh-install first-run PC storage mapping before library scan
+**Current focus:** Phase 34 - Reliable fresh installation and scan lifecycle; Phase 33 browser acceptance remains open
 
 ## Current Position
 
-Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: 09 of 9
-Status: executing
-Last activity: 2026-10-16
+Phase: 34 (reliable-fresh-installation-and-scan-lifecycle) - PLANNED
+Plan: 0 of 14
+Status: Ready to execute
+Last activity: 2026-10-18 -- Phase 34 planning complete
 
 ## Performance Metrics
 
@@ -173,6 +173,9 @@ _Updated after each plan completion_
 ## Accumulated Context
 
 ### Roadmap Evolution
+
+- Phase 34 added: Reliable fresh installation and scan lifecycle.
+- Phase 33 browser acceptance remains open pending a successful fresh setup and first scan after Phase 34 stabilization.
 
 - Phase 19 added: Fix PC quick-scan IGDB matching and safe DLC/expansion enrichment.
 - Phase 20 added: Media management and owned soundtrack uploads.
@@ -506,9 +509,9 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-16T19:54:00.000Z
-Stopped at: Completed 33-09-PLAN.md
-Resume file: None
+Last session: 2026-10-18T19:59:28.620Z
+Stopped at: Phase 34 planning verified; ready to execute
+Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-01-PLAN.md
 
 - Phase 25 added: Scan-/Medien-Integration härten
 - Phase 26 added: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege.

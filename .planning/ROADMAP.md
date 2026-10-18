@@ -849,3 +849,54 @@ Plans:
 - [x] 33-08-PLAN.md - Gate Home and Scan on all-mapping readiness
 - [ ] 33-06-PLAN.md - Run fresh Linux stack and in-app browser UAT
 - [x] 33-09-PLAN.md - Complete dependent locale batch for inline assignment
+
+### Phase 34: Reliable fresh installation and scan lifecycle
+
+**Goal:** A fresh PGDP installation recovers incomplete setup and reaches a completed first library scan. First and normal scans expose confirmed durable state, bounded actionable failures and safe restart/cancellation recovery while preserving source storage.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16
+**Depends on:** Phase 33 implementation foundation; its open 33-06 browser acceptance is repeated after stabilization.
+**Plans:** 0/14 plans executed
+
+Plans:
+
+**Wave 1**
+
+- [ ] 34-01-PLAN.md - Safe isolated test harness and executable defect reproductions
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 34-02-PLAN.md - Durable acceptance, operation persistence and authorized lookup
+- [ ] 34-05-PLAN.md - Authenticated setup recovery and completion state
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 34-03-PLAN.md - Recoverable dispatch, job recognition and worker fencing
+- [ ] 34-07-PLAN.md - Generated contracts and typed scan operation adapter
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 34-04-PLAN.md - Trusted checkpoints, safe restart and targeted metadata retry
+- [ ] 34-06-PLAN.md - Resumable setup interface and explicit first-scan action
+- [ ] 34-11-PLAN.md - Scope-safe lifecycle listeners and status reconciliation
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 34-09-PLAN.md - Setup recovery translations, first locale batch
+- [ ] 34-12-PLAN.md - Server-confirmed scan states and persistent recovery actions
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 34-10-PLAN.md - Setup recovery translations, remaining locales
+- [ ] 34-13-PLAN.md - Scan recovery translations, first locale batch
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 34-14-PLAN.md - Scan recovery translations, remaining locales
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 34-08-PLAN.md - Cross-process faults, production-like installation and Phase 33 reacceptance
+
+**Cross-cutting constraints:**
+
+- PGDP terminology, accessibility labels and interpolation semantics remain consistent.

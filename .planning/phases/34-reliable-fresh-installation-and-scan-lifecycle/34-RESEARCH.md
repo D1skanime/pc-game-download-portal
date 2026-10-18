@@ -149,3 +149,13 @@ Infrastructure prerequisites must be completed first:
   additional guarantees and refresh-safe replay require application support.
 Source code findings above are primary project evidence. No runtime root cause
 was asserted without a completed reproduction.
+
+## Bounded lifecycle reproduction
+Executed read-only inside pgdp-dev using installed TypeScript.transpileModule
+and Node vm on the actual useScanLifecycle/index.ts. Stores were stubbed;
+useSocketEvent registration and scope disposal were simulated. The real
+installScanLifecycle function produced:
+- listeners_after_first_install=5
+- listeners_after_scope_disposal=0
+- listeners_after_reinstall=0
+This proves the install/dispose/reinstall defect, not the exact live route trigger.
