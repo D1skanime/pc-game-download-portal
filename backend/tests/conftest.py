@@ -1,3 +1,5 @@
+# ruff: noqa: E402
+# Target validation must precede dependency and application imports.
 from tools.phase34_target_guard import validate_target
 
 validate_target()
@@ -10,7 +12,7 @@ import alembic.config
 import pytest
 from hypothesis import settings
 from joserfc import jwt
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 
 from config import ROMM_DB_DRIVER
@@ -37,6 +39,7 @@ from models.device_save_sync import DeviceSaveSync
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
+from models.scan_operation import ScanExecutionSlot, ScanOperation, ScanOperationItem
 from models.storage import (
     LegacyDetectionResult,
     LegacyMigration,
@@ -108,6 +111,15 @@ def setup_database():
 def clear_database():
     validate_target(resolved_url=engine.url)
     with session.begin() as s:
+        slot = s.scalar(
+            select(ScanExecutionSlot).where(ScanExecutionSlot.id == 1).with_for_update()
+        )
+        if slot is None:
+            raise RuntimeError("missing seeded scan execution slot")
+        slot.active_operation_id, slot.version = None, 0
+        s.flush()
+        s.query(ScanOperationItem).delete(synchronize_session=False)
+        s.query(ScanOperation).delete(synchronize_session=False)
         s.query(PlaySession).delete(synchronize_session="evaluate")
         s.query(ClientToken).delete(synchronize_session="evaluate")
         s.query(SyncSession).delete(synchronize_session="evaluate")

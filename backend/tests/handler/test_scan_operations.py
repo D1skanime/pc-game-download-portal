@@ -180,6 +180,85 @@ def test_terminal_replay_and_global_slot_release(admin_user, command):
     assert repo.accept(admin_user.id, "new-key", command).id != row.id
 
 
+def test_item_crud_lease_and_scope_are_fenced(admin_user, command):
+    from handler.database.scan_operations_handler import OperationConflict
+
+    repo = repository()
+    row = running(repo, admin_user, command)
+    row = repo.renew_lease(row.id, row.version, row.attempt_id, "worker")
+    item = dict(
+        target_key="game-1",
+        mapping_id=command["commands"][0]["mapping_id"],
+        expected_revision=1,
+        relative_path="Phase34-Synthetic.bin",
+        provider="igdb",
+        outcome="warning",
+        cause_code="provider_timeout",
+    )
+    saved = repo.record_item(row.id, row.version, row.attempt_id, item)
+    assert saved.items_total == 1 and saved.items[0].outcome == "warning"
+    with pytest.raises(OperationConflict):
+        repo.record_item(row.id, row.version, row.attempt_id, item)
+    for changes in (
+        {"mapping_id": 999},
+        {"expected_revision": 999},
+        {"provider": "steam"},
+    ):
+        with pytest.raises(OperationConflict):
+            repo.record_item(saved.id, saved.version, saved.attempt_id, item | changes)
+    updated = repo.record_item(
+        saved.id,
+        saved.version,
+        saved.attempt_id,
+        item | {"outcome": "completed", "cause_code": None},
+    )
+    assert updated.items_total == 1 and updated.items[0].outcome == "completed"
+
+
+def test_cancel_completion_race_has_one_winner(admin_user, command):
+    from handler.database.scan_operations_handler import OperationConflict
+
+    repo = repository()
+    row = running(repo, admin_user, command)
+    barrier = Barrier(2)
+
+    def mutate(cancel):
+        barrier.wait(timeout=10)
+        try:
+            if cancel:
+                repo.request_cancel(row.id, admin_user.id, row.version, "race-cancel")
+            else:
+                repo.transition(row.id, row.version, row.attempt_id, "completed")
+            return "committed"
+        except OperationConflict:
+            return "stale"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(mutate, [True, False], timeout=20))
+    assert sorted(results) == ["committed", "stale"]
+    current = repo.get_by_id(row.id, admin_user.id)
+    assert current.version == row.version + 1 and current.state in {
+        "stopping",
+        "completed",
+    }
+
+
+def test_stale_dispatch_claim_cannot_enqueue(admin_user, command):
+    from handler.database.scan_operations_handler import OperationConflict
+
+    repo = repository()
+    row = repo.accept(admin_user.id, "dispatch-race", command)
+    claim = repo.claim_dispatch(row.id, row.version, "dispatcher")
+    with pytest.raises(OperationConflict):
+        repo.claim_dispatch(claim.id, claim.version, "other-dispatcher")
+    stopping = repo.request_cancel(
+        claim.id, admin_user.id, claim.version, "cancel-dispatch"
+    )
+    with pytest.raises(OperationConflict):
+        repo.mark_enqueued(claim.id, claim.version, "dispatcher")
+    assert repo.get_by_id(row.id, admin_user.id).version == stopping.version
+
+
 def test_lookup_masks_other_owner(admin_user, viewer_user, command):
     from handler.database.scan_operations_handler import OperationNotFound
 
