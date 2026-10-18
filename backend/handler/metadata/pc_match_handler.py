@@ -24,6 +24,7 @@ COMPACT_TITLE_BOUNDARY = re.compile(
 )
 GENERIC_DLC_COMPONENT_NAMES = frozenset({"dlc", "dlcs", "expansion", "expansions"})
 STEAM_DLC_MIN_SIMILARITY = 0.9
+PC_MATCH_PROVIDER_TIMEOUT_SECONDS = 5.0
 INSTALLER_PREFIX = re.compile(r"^(?:setup|install|installer)[_. -]+", re.IGNORECASE)
 PARENTHESIZED_SUFFIX = re.compile(r"\([^)]*\)")
 VERSION_SUFFIX = re.compile(
@@ -126,7 +127,10 @@ class PcMetadataMatchHandler:
         if steam_id is None or get_by_id is None:
             return None
         try:
-            details = await get_by_id(steam_id, rom.platform_slug)
+            details = await asyncio.wait_for(
+                get_by_id(steam_id, rom.platform_slug),
+                timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+            )
         except Exception:
             return None
         if not isinstance(details, dict) or details.get("steam_id") != steam_id:
@@ -272,7 +276,10 @@ class PcMetadataMatchHandler:
             ):
                 continue
             try:
-                details = await get_by_id(steam_id, rom.platform_slug)
+                details = await asyncio.wait_for(
+                    get_by_id(steam_id, rom.platform_slug),
+                    timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+                )
             except Exception:
                 return None
             if not isinstance(details, dict) or details.get("steam_id") != steam_id:
@@ -312,7 +319,10 @@ class PcMetadataMatchHandler:
             ):
                 continue
             try:
-                details = await get_by_id(steam_id, rom.platform_slug)
+                details = await asyncio.wait_for(
+                    get_by_id(steam_id, rom.platform_slug),
+                    timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+                )
             except Exception:
                 return None
             if isinstance(details, dict) and details.get("steam_id") == steam_id:
@@ -352,7 +362,10 @@ class PcMetadataMatchHandler:
         if steam_id is None:
             return None
         try:
-            details = await get_by_id(steam_id)
+            details = await asyncio.wait_for(
+                get_by_id(steam_id),
+                timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+            )
         except Exception:
             return None
         if not isinstance(details, dict) or details.get("steam_id") != steam_id:
@@ -474,7 +487,10 @@ class PcMetadataMatchHandler:
     ) -> PcMetadataCandidate:
         igdb_id = candidate.provider_ids["igdb_id"]
         try:
-            details = await get_by_id(rom, igdb_id)
+            details = await asyncio.wait_for(
+                get_by_id(rom, igdb_id),
+                timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+            )
         except Exception:
             details = None
         if not details:
@@ -517,7 +533,9 @@ class PcMetadataMatchHandler:
                 (
                     provider_name,
                     provider,
-                    self._lookup_result(provider_name, provider, rom, title),
+                    self._lookup_result_with_timeout(
+                        provider_name, provider, rom, title
+                    ),
                 )
             )
 
@@ -534,6 +552,21 @@ class PcMetadataMatchHandler:
         return {
             provider_name: results[provider_name] for provider_name in self.providers
         }
+
+    async def _lookup_result_with_timeout(
+        self,
+        provider_name: str,
+        provider: PcMetadataProvider,
+        rom: Rom,
+        title: str,
+    ) -> PcMetadataProviderResult:
+        try:
+            return await asyncio.wait_for(
+                self._lookup_result(provider_name, provider, rom, title),
+                timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            return PcMetadataProviderResult(provider_name, False, [], "timeout")
 
     async def _lookup_result(
         self, provider_name: str, provider: PcMetadataProvider, rom: Rom, title: str
