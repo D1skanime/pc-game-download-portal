@@ -23,9 +23,9 @@ import type { Events } from "@/types/emitter";
 import MatchRomBodyGrid from "@/v2/components/MatchRom/MatchRomBodyGrid.vue";
 import MatchRomBodyList from "@/v2/components/MatchRom/MatchRomBodyList.vue";
 import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFilter.vue";
+import { getPcCandidateCover } from "@/v2/components/MatchRom/types";
 import type {
   ConfirmPayload,
-  getPcCandidateCover,
   MatchSearchRom,
   MatchVariant,
   PcMatchTarget,
