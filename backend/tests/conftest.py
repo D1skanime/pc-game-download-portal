@@ -1,3 +1,7 @@
+from tools.phase34_target_guard import validate_target
+
+validate_target()
+
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -11,6 +15,9 @@ from sqlalchemy.orm import sessionmaker
 
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
+
+validate_target(resolved_url=ConfigManager.get_db_engine())
+
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import (
@@ -39,6 +46,7 @@ from models.storage import (
 from models.sync_session import SyncSession
 from models.user import Role, User
 
+validate_target(resolved_url=ConfigManager.get_db_engine())
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -55,6 +63,7 @@ def _ensure_database_exists() -> None:
     created on demand here, just before migrations run.
     """
     url = ConfigManager.get_db_engine()
+    validate_target(resolved_url=url)
     db_name = url.database
     if not db_name:
         return
@@ -90,12 +99,14 @@ def _ensure_database_exists() -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
+    validate_target(resolved_url=ConfigManager.get_db_engine())
     _ensure_database_exists()
     alembic.config.main(argv=["upgrade", "head"])
 
 
 @pytest.fixture(autouse=True)
 def clear_database():
+    validate_target(resolved_url=engine.url)
     with session.begin() as s:
         s.query(PlaySession).delete(synchronize_session="evaluate")
         s.query(ClientToken).delete(synchronize_session="evaluate")
