@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -595,3 +596,83 @@ def test_dlc_component_filter_keeps_only_related_igdb_and_parent_steam_entries()
     assert [item.title for item in filtered["igdb"].candidates] == ["Blood and Wine"]
     assert [item.title for item in filtered["steam"].candidates] == ["Blood and Wine"]
     assert filtered["moby"].candidates == []
+
+
+@pytest.mark.asyncio
+async def test_collect_candidates_runs_enabled_provider_lookups_concurrently_and_isolates_failure():
+    started = 0
+    max_started = 0
+    all_started = asyncio.Event()
+
+    async def igdb_lookup(rom, title, platform_id):
+        nonlocal started, max_started
+        started += 1
+        max_started = max(max_started, started)
+        if started == 2:
+            all_started.set()
+        await asyncio.wait_for(all_started.wait(), timeout=1)
+        started -= 1
+        raise RuntimeError("IGDB offline")
+
+    async def steam_lookup(title, platform_slug):
+        nonlocal started, max_started
+        started += 1
+        max_started = max(max_started, started)
+        if started == 2:
+            all_started.set()
+        await asyncio.wait_for(all_started.wait(), timeout=1)
+        started -= 1
+        return [{"steam_id": 1091500, "name": "Cyberpunk 2077"}]
+
+    igdb = Mock(is_enabled=Mock(return_value=True))
+    igdb.get_matched_roms_by_name = AsyncMock(side_effect=igdb_lookup)
+    steam = Mock(is_enabled=Mock(return_value=True))
+    steam.get_matched_roms_by_name = AsyncMock(side_effect=steam_lookup)
+    handler = PcMetadataMatchHandler(providers={"igdb": igdb, "steam": steam})
+    rom = Mock(
+        fs_name_no_ext="Cyberpunk 2077",
+        platform=Mock(igdb_id=6),
+        platform_slug="win",
+    )
+
+    results = await asyncio.wait_for(handler.collect_candidates(rom), timeout=2)
+
+    assert max_started == 2
+    assert list(results) == ["igdb", "steam"]
+    assert results["igdb"].available is False
+    assert results["igdb"].reason == "unavailable"
+    assert results["steam"].available is True
+    assert [candidate.title for candidate in results["steam"].candidates] == [
+        "Cyberpunk 2077"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_related_steam_detail_fanout_keeps_valid_dlc_and_rejects_unrelated_or_failed():
+    async def get_by_id(steam_id, platform_slug):
+        if steam_id == 2:
+            raise RuntimeError("provider timeout")
+        metadata = (
+            {"type": "dlc", "fullgame": {"appid": 100}}
+            if steam_id == 1
+            else {"type": "dlc", "fullgame": {"appid": 999}}
+        )
+        return {
+            "steam_id": steam_id,
+            "name": f"DLC {steam_id}",
+            "steam_metadata": metadata,
+        }
+
+    steam = Mock(is_enabled=Mock(return_value=True))
+    steam.get_rom_by_id = AsyncMock(side_effect=get_by_id)
+    handler = PcMetadataMatchHandler(providers={"steam": steam})
+    rom = Mock(platform_slug="win", steam_id=100)
+    related = [
+        handler._candidate("igdb", {"igdb_id": 1, "steam_id": 1, "name": "One"}),
+        handler._candidate("igdb", {"igdb_id": 2, "steam_id": 2, "name": "Two"}),
+        handler._candidate("igdb", {"igdb_id": 3, "steam_id": 3, "name": "Three"}),
+    ]
+
+    candidates = await handler._steam_candidates_from_related(rom, related)
+
+    assert [candidate.provider_ids["steam_id"] for candidate in candidates] == [1]
