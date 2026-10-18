@@ -210,3 +210,43 @@ class RunnerTests(unittest.TestCase):
             before = source_manifest(games)
             next(games.rglob("*.bin")).write_bytes(b"changed")
             self.assertNotEqual(before, source_manifest(games))
+
+    def test_later_gates_refuse_missing_helpers_before_launch(self):
+        cases = [
+            ["e2e", "--suite", "lifecycle"],
+            ["production", "--mode", "portainer", "--suite", "fresh-install"],
+            ["evidence", "--assert-complete"],
+        ]
+        for args in cases:
+            with self.subTest(args=args), patch.object(
+                sys, "argv", ["phase34.py", *args]
+            ), patch.object(runner, "host_preflight"), patch.object(
+                runner.Path, "is_file", return_value=False
+            ), patch.object(
+                runner.subprocess, "call"
+            ) as process, patch.object(
+                runner, "execute", side_effect=AssertionError("unexpected provisioning")
+            ):
+                with self.assertRaisesRegex(RuntimeError, "missing helper"):
+                    runner.main()
+                process.assert_not_called()
+
+    def test_later_evidence_gate_delegates_exact_contract(self):
+        with patch.object(
+            sys, "argv", ["phase34.py", "evidence", "--assert-complete"]
+        ), patch.object(runner, "host_preflight"), patch.object(
+            runner.Path, "is_file", return_value=True
+        ), patch.object(
+            runner.subprocess, "call", return_value=1
+        ) as process, patch.object(
+            runner, "execute", side_effect=AssertionError("unexpected provisioning")
+        ):
+            self.assertEqual(runner.main(), 1)
+            self.assertEqual(
+                process.call_args.args[0],
+                [
+                    sys.executable,
+                    str(TOOLS / "phase34_evidence.py"),
+                    "--assert-complete",
+                ],
+            )

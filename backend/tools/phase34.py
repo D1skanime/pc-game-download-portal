@@ -419,13 +419,6 @@ def execute(mode, args):
             print(json.dumps(proof), flush=True)
         elif mode == "quality":
             quality(run, args, REPO)
-        elif mode == "e2e":
-            spec = "tests/phase34/lifecycle.spec.ts"
-            if not (REPO / "frontend" / spec).exists():
-                raise RuntimeError(
-                    "lifecycle browser suite unavailable, requires plan 34-08"
-                )
-            run.exec(["npm", "run", "test:e2e", "--", spec], frontend=True)
     finally:
         run.close()
 
@@ -448,7 +441,9 @@ def main():
     e2e = sub.add_parser("e2e")
     e2e.add_argument("--suite", choices=("lifecycle",), required=True)
     prod = sub.add_parser("production")
-    prod.add_argument("--mode", choices=("portainer",), required=True)
+    prod.add_argument(
+        "--mode", dest="deployment_mode", choices=("portainer",), required=True
+    )
     prod.add_argument("--suite", choices=("fresh-install",), required=True)
     evidence = sub.add_parser("evidence")
     evidence.add_argument("--assert-complete", action="store_true", required=True)
@@ -472,11 +467,20 @@ def main():
                 "-v",
             ]
         )
-    if args.mode in ("production", "evidence"):
-        raise RuntimeError(
-            args.mode
-            + " gate unavailable until approved 34-08 integration evidence exists"
-        )
+    if args.mode in ("e2e", "production", "evidence"):
+        helper, options = {
+            "e2e": ("phase34_faults.py", ["--suite", "lifecycle"]),
+            "production": (
+                "phase34_portainer.py",
+                ["--mode", "portainer", "--suite", "fresh-install"],
+            ),
+            "evidence": ("phase34_evidence.py", ["--assert-complete"]),
+        }[args.mode]
+        entry = Path(__file__).with_name(helper)
+        if not entry.is_file():
+            raise RuntimeError("34-08 gate requires missing helper: " + helper)
+        # trunk-ignore(bandit/B603): Exact repository-owned helper and fixed options.
+        return subprocess.call([sys.executable, str(entry), *options], cwd=REPO)
     if args.mode in ("backend", "frontend") and args.tests != ["--smoke"]:
         safe_test_args(args.tests, args.mode == "frontend")
     if args.mode == "schema":
