@@ -1,6 +1,6 @@
 """Authenticated HTTP commands against real disposable operation persistence."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -205,12 +205,16 @@ def test_missing_and_symlink_scope_do_not_reach_scanner(
     monkeypatch.setattr(
         read_context,
         "get_storage_root_health_snapshot",
-        lambda root: StorageRootHealthSnapshot(True, True, True, None, None),
+        lambda root: StorageRootHealthSnapshot(
+            True, True, True, datetime.now(timezone.utc), None
+        ),
     )
     monkeypatch.setattr(
         scan,
         "get_storage_root_health_snapshot",
-        lambda root: StorageRootHealthSnapshot(True, True, True, None, None),
+        lambda root: StorageRootHealthSnapshot(
+            True, True, True, datetime.now(timezone.utc), None
+        ),
     )
     import os
 
@@ -232,6 +236,155 @@ def test_missing_and_symlink_scope_do_not_reach_scanner(
         )
         assert response.status_code == 409
     assert not called
+
+
+def test_owner_resume_replays_one_fenced_continuation(client, other_headers, mapped):
+    from handler.database.scan_operations_handler import DBScanOperationsHandler
+
+    accepted = client.post(
+        BASE, headers=other_headers, json=request_body(mapped)
+    ).json()
+    url = BASE + "/" + accepted["id"]
+    stopping = client.post(
+        url + "/cancel",
+        headers=other_headers,
+        json={"request_key": "stop-key", "expected_version": accepted["version"]},
+    ).json()
+    stopped = DBScanOperationsHandler().confirm_stopped(
+        accepted["id"], stopping["version"], None
+    )
+    payload = {"request_key": "resume-key", "expected_version": stopped.version}
+    resumed = client.post(url + "/resume", headers=other_headers, json=payload)
+    assert resumed.status_code == 200
+    assert (
+        resumed.json()["state"] == "recovering"
+        and not resumed.json()["dispatch_pending"]
+    )
+    assert (
+        client.post(url + "/resume", headers=other_headers, json=payload).json()
+        == resumed.json()
+    )
+    assert (
+        client.post(
+            url + "/resume",
+            headers=other_headers,
+            json=payload | {"request_key": "other-resume"},
+        ).status_code
+        == 409
+    )
+
+
+@pytest.mark.parametrize("admin_control", [False, True])
+def test_metadata_retry_is_bounded_to_failed_items(
+    client, other_headers, headers, mapped, admin_control
+):
+    from handler.database.scan_operations_handler import DBScanOperationsHandler
+
+    repo = DBScanOperationsHandler()
+    accepted = client.post(
+        BASE, headers=other_headers, json=request_body(mapped)
+    ).json()
+    row = repo.claim_dispatch(accepted["id"], accepted["version"], "dispatcher")
+    row = repo.mark_enqueued(row.id, row.version, "dispatcher")
+    row = repo.claim_attempt(row.id, row.version, "worker")
+    row = repo.record_item(
+        row.id,
+        row.version,
+        row.attempt_id,
+        dict(
+            target_key="fixture",
+            mapping_id=mapped.id,
+            expected_revision=1,
+            relative_path="Phase34-Synthetic.bin",
+            provider="igdb",
+            outcome="warning",
+            cause_code="provider_timeout",
+        ),
+    )
+    row = repo.transition(
+        row.id, row.version, row.attempt_id, "completed-with-warnings"
+    )
+    control = headers if admin_control else other_headers
+    url = BASE + "/" + row.id + "/retry-metadata"
+    body = {
+        "request_key": "retry-key",
+        "expected_version": row.version,
+        "item_ids": [row.items[0].id],
+    }
+    assert (
+        client.post(
+            url, headers=control, json=body | {"item_ids": [999999]}
+        ).status_code
+        == 409
+    )
+    result = client.post(url, headers=control, json=body)
+    assert result.status_code == 200 and result.json()["state"] == "recovering"
+    assert client.post(url, headers=control, json=body).json() == result.json()
+    assert (
+        client.post(
+            url, headers=control, json=body | {"item_ids": [999999]}
+        ).status_code
+        == 409
+    )
+
+
+def test_existing_rq_projection_reports_real_job_status(client, headers, mapped):
+    from rq.job import Job, JobStatus
+
+    from endpoints.sockets.scan import execute_mixed_scans
+    from handler.database.scan_operations_handler import DBScanOperationsHandler
+    from handler.redis_handler import redis_client
+    from tasks.tasks import TaskType
+
+    repo = DBScanOperationsHandler()
+    accepted = client.post(BASE, headers=headers, json=request_body(mapped)).json()
+    row = repo.claim_dispatch(accepted["id"], accepted["version"], "dispatcher")
+    row = repo.mark_enqueued(row.id, row.version, "dispatcher")
+    job = Job.create(
+        execute_mixed_scans,
+        id=row.job_id,
+        connection=redis_client,
+        status=JobStatus.QUEUED,
+        meta={"task_type": TaskType.SCAN, "scan_stats": {"total_roms": 1}},
+    )
+    job.save()
+    response = client.get(BASE + "/" + row.id, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["queue_condition"] == "available"
+    assert response.json()["queue_status"] == "queued"
+    assert (
+        response.json()["state"] == "queued"
+        and response.json()["version"] == row.version
+    )
+
+
+def test_enqueued_redis_outage_is_distinct_from_job_expiry(
+    client, headers, mapped, monkeypatch
+):
+    from redis.exceptions import ConnectionError
+    from rq.exceptions import NoSuchJobError
+    from rq.job import Job
+
+    from handler.database.scan_operations_handler import DBScanOperationsHandler
+
+    repo = DBScanOperationsHandler()
+    accepted = client.post(BASE, headers=headers, json=request_body(mapped)).json()
+    row = repo.claim_dispatch(accepted["id"], accepted["version"], "dispatcher")
+    row = repo.mark_enqueued(row.id, row.version, "dispatcher")
+    url = BASE + "/" + row.id
+    for error, expected in [
+        (ConnectionError(), "unavailable"),
+        (NoSuchJobError(), "expired"),
+    ]:
+        monkeypatch.setattr(
+            Job, "fetch", lambda *a, error=error, **k: (_ for _ in ()).throw(error)
+        )
+        response = client.get(url, headers=headers)
+        assert (
+            response.status_code == 200
+            and response.json()["queue_condition"] == expected
+        )
+        assert response.json()["state"] == "queued" and response.json()["id"] == row.id
 
 
 def test_pending_acceptance_survives_redis_failure(
@@ -294,6 +447,61 @@ def test_cookie_acceptance_with_valid_csrf(csrf_client, mapped):
         BASE, headers={"x-csrftoken": token}, json=request_body(mapped)
     )
     assert response.status_code == 202
+
+
+def test_subfolder_and_provider_policies_are_frozen_and_replayable(
+    client, headers, mapped
+):
+    with sync_session.begin() as session:
+        session.get(PlatformStorageMapping, mapped.id).relative_path = ""
+    body = request_body(
+        mapped,
+        type="update",
+        apis=["steam", "igdb"],
+        metadata_only=True,
+        metadata_locale="de_DE",
+        filesystem_scope_paths={"test_platform_slug": "PC"},
+    )
+    response = client.post(BASE, headers=headers, json=body)
+    assert response.status_code == 202
+    identity = response.json()["id"]
+    with sync_session.begin() as session:
+        stored = session.get(ScanOperation, identity).command
+        assert (
+            stored["request"]["metadata_only"]
+            and stored["request"]["metadata_locale"] == "de_DE"
+        )
+        assert stored["request"]["apis"] == ["igdb", "steam"]
+        assert stored["commands"][0]["options"] == [["relative_path", "PC"]]
+        assert stored["commands"][0]["expected_revision"] == 1
+        session.get(PlatformStorageMapping, mapped.id).version += 1
+    assert (
+        client.post(
+            BASE, headers=headers, json=body | {"apis": ["igdb", "steam"]}
+        ).json()
+        == response.json()
+    )
+    assert (
+        client.get(BASE + "/" + identity + "?limit=0", headers=headers).status_code
+        == 422
+    )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"platforms": [999999]},
+        {"apis": ["unknown_provider"]},
+        {"filesystem_scope_paths": {"unselected": "PC"}},
+    ],
+)
+def test_invalid_selection_cannot_create_partial_intent(
+    client, headers, mapped, changes
+):
+    response = client.post(BASE, headers=headers, json=request_body(mapped, **changes))
+    assert response.status_code == 409
+    with sync_session.begin() as session:
+        assert session.query(ScanOperation).count() == 0
 
 
 def test_malformed_identity_and_extra_authority(client, headers, mapped):

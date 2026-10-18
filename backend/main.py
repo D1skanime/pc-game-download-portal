@@ -54,6 +54,7 @@ from endpoints.platform import router as platform_router
 from endpoints.play_sessions import router as play_sessions_router
 from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
+from endpoints.scan_operations import router as scan_operations_router
 from endpoints.screenshots import router as screenshots_router
 from endpoints.search import router as search_router
 from endpoints.setup import router as setup_router
@@ -124,6 +125,10 @@ app = FastAPI(
 async def download_manifest_validation_error(
     request: Request, _error: RequestValidationError
 ):
+    if request.url.path.startswith("/api/scan-operations"):
+        return JSONResponse(
+            status_code=422, content={"detail": "invalid_scan_operation_request"}
+        )
     if request.url.path.startswith("/api/roms/") and request.url.path.endswith(
         "/download-manifests"
     ):
@@ -208,6 +213,7 @@ app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
+app.include_router(scan_operations_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")
 app.include_router(configs_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")

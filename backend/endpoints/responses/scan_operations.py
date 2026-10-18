@@ -103,6 +103,7 @@ class ScanOperationSnapshot(StrictContract):
     items: list[ScanOperationItemResult] = Field(default_factory=list, max_length=100)
     items_offset: int = 0
     items_total: int = 0
+    queue_status: str | None = Field(default=None, max_length=32)
     queue_condition: Literal["available", "expired", "unavailable", "pending"] = (
         "pending"
     )

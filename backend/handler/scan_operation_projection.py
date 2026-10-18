@@ -59,12 +59,16 @@ def with_queue_projection(snapshot):
     from endpoints.tasks import _build_task_status_response
     from handler.redis_handler import redis_client
 
+    status = None
     try:
         job = Job.fetch(snapshot.job_id, connection=redis_client)
-        _build_task_status_response(job)
+        task = _build_task_status_response(job)
+        status = getattr(task["status"], "value", task["status"])
         condition = "available"
     except NoSuchJobError:
         condition = "expired"
     except RedisError:
         condition = "unavailable"
-    return snapshot.model_copy(update={"queue_condition": condition})
+    return snapshot.model_copy(
+        update={"queue_condition": condition, "queue_status": status}
+    )
