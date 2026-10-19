@@ -28,3 +28,16 @@ An exploratory full API regeneration also exposed existing schema/store drift at
 34-02 does not repair the RQ callable-recognition or Vue listener-ownership defects reproduced by 34-01. Dispatcher/worker integration, proven source recovery, frontend transport/lifecycle, production-like worker/Portainer faults and browser acceptance remain with their owning plans. Phase 33 acceptance remains open.
 
 Existing Alembic configuration and SQLAlchemy relationship warnings were observed in successful pytest runs and remain out of scope.
+
+## Existing setup regression exposed during 34-05 closeout (2026-10-19)
+
+The guarded adjacent regression command ran 12 cases: 11 passed and one failed.
+backend/tests/handler/test_setup_folder_handler.py:77 references tmp_path without
+declaring its fixture in test_resolve_platform_bootstraps_missing_supported_platform.
+The file is byte-identical to the pre-34-05 revision f7b40a7c1^, last changed in
+65166f410. It remains outside this plan's implementation scope and was not fixed.
+
+Actual failed evidence: /tmp/pgdp34-9ec96abf216d41c2acc694a79d0a26f3-yhozqb_d/evidence.
+Cleanup and source immutability both passed. The exact 34-05 task suites passed
+9/9 handler and 18/18 endpoint cases. The global typecheck still reports the five
+known diagnostics above; neither failed gate is relabeled green.
