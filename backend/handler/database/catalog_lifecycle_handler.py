@@ -388,7 +388,13 @@ class CatalogLifecycleHandler:
                 .with_for_update()
             ).all()
         )
-        detached = [row for row in candidates if row.active_rom_id is None]
+        from handler.scan_collection_policy import retained_identity_can_reconnect
+
+        detached = [
+            row
+            for row in candidates
+            if row.active_rom_id is None and retained_identity_can_reconnect(row)
+        ]
 
         selected: RetainedCatalogIdentity | None = None
         if logical_path is not None:

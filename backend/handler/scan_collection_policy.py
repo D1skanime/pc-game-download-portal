@@ -147,3 +147,12 @@ def guard_scan_rom_publication(session, rom, changes=None):
         return
     if find_classification(session, mapping, relative) is not None:
         raise ScanWriteRejected("classified_collection_not_game")
+
+
+def retained_identity_can_reconnect(identity):
+    """Collection retirement audit permanently reserves the parent's user state.
+
+    Non-null audit belongs to explicit collection retirement. Empty or malformed
+    evidence must fail closed as well; ordinary catalog removals have no audit.
+    """
+    return identity.retained_audit is None
