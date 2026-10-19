@@ -1,6 +1,6 @@
 # Phase 34 Plan 03: Scope checkpoint
 
-Status: blocked at decomposition review, 0/3 tasks complete. No SUMMARY exists.
+Status: scope decision resolved by user-approved prerequisite 34-15; implementation remains 0/3 tasks complete. No SUMMARY exists.
 Date: 2026-10-19. Inspected HEAD: 37ccc9f5f.
 
 ## Verified environment
@@ -10,7 +10,7 @@ Branch: codex/phase-32-pgdp-naming.
 Origin: https://github.com/D1skanime/pc-game-download-portal.git.
 Compatibility CLI confirmed Phase 34 and completed 01/02/05. No branch switch, worktree, nested agent, live scan, reset, restart or deployment.
 
-## Scope decision required
+## Original scope decision (historical)
 
 The plan's decomposition_review says: "if the actual persistence seam exceeds this budget, report an additional-plan need rather than omit commit fencing."
 
@@ -44,3 +44,7 @@ Runner log: 13.log. cleanup.json: clean=true, source_unchanged=true, empty remai
 Resolve the additional publication-plan boundary, then execute all three tasks with real RED/GREEN gates. Acceptance/repository implementation was not rerun or changed. No dispatch/worker modules or task commits were created. Do not treat inventory as complete.
 
 Unrelated dirty STATE, Phase 33 UAT/VALIDATION, setup response, Compose files and both pgdp_test directories remain untouched. Shared tracking is orchestrator-owned. No frontend work or browser acceptance.
+
+## Approved resolution (2026-10-19)
+
+The user answered "ja" to the bounded prerequisite proposal. 34-15 now owns attempt-owned media staging, publication/association/deletion, confined crash recovery and the shared transactional write-fence primitive. 34-03 depends on 15 and consumes that primitive while retaining dispatch, actual job recognition, worker/catalog/progress fencing and cancellation acknowledgement. Watcher entry is backend/watcher.py. No runtime implementation was performed by this revision. Historical 3-pass/3-fail RQ evidence (checkpoint commit 567e0b80e) remains RED. Independent plan checking is pending; parent orchestrator controls subsequent execution and STATE.

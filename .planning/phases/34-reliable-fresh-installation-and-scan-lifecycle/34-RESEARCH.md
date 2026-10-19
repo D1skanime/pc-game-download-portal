@@ -159,3 +159,17 @@ installScanLifecycle function produced:
 - listeners_after_scope_disposal=0
 - listeners_after_reinstall=0
 This proves the install/dispose/reinstall defect, not the exact live route trigger.
+
+## Approved additive media publication prerequisite (2026-10-19)
+
+User approved the 34-03 checkpoint proposal with "ja": add one prerequisite plan, then continue implementation after independent checking. This section supplements existing research and UI-CONTRACT; no recognition redesign, new phase or UI research is introduced.
+
+Source inspection confirms COMPLETE pre-deletes cover/manual/screenshots/special-media directories in endpoints/sockets/scan.py before replacement downloads. resources_handler streams/copies to final deterministic paths; scan_handler.persist_soundtrack_cover and audio_tags persist/remove deterministic cover files; sync_rom_files returns orphan cover paths that scan.py unlinks. Parent refresh_provider_owned_media and Steam inventory code publish before separate association calls; DLC import/reconcile has the same cleanup/association seam. The library watcher is backend/watcher.py::_enqueue_watcher_command. tasks/manual/sync_folder_scan.py is save synchronization.
+
+34-02 already provides claim_attempt, renew_lease, record_item, cancellation/resume CAS and the singleton execution slot. Versions advance during heartbeat and mutations. There is no need for another lease owner or state machine. Lock slot then operation, check current version/attempt/owner/state/expiry, and reuse the caller's catalog session. The new shared fence must not import worker or decorated repositories at module load.
+
+Reuse OwnedCreate's existing _OwnedStagedPublication no-clobber link/fsync/abort semantics through a narrow prepared-create capability seam; network streaming and validation precede the short publication transaction. Existing owned-media cleanup rows hold unique exact paths, but the current task unlinks without checking live references and processing rows have no restart reconciliation. Extend that task's exact ownership/refcheck/recovery seam; do not reuse catalog RESOURCE directory deletion or create retained identities.
+
+Chosen SQL/FS protocol: immutable attempt-generated final names plus a bounded durable manifest in existing owned resources, written before staging. Publish complete bytes only under the checked attempt transaction; associate through existing parent/DLC/track/resource repositories with the same session and insert old-path cleanup intent in that commit. On rollback/crash, preserve old assets and reconcile manifest-owned orphan files; on uncertain commit read real references before cleanup. Recovery runs from the existing cleanup scheduler, skips live attempts and serializes reference-check/unlink. No new journal table or migration. Manifest is a confined recovery receipt, not a second job lifecycle. Manuals must remain direct PDF/Markdown children of the existing manual directory; attempt uniqueness belongs in their filename, not a new nested manual directory. Public media getters must prefer committed paths and exclude reserved staging names.
+
+34-15 owns this publication unit and shared fence; 34-03 adopts it for worker/catalog/progress fences. Real SQL/FS barriers must prove revocation during streaming, both cancellation/commit orders, publication/association failures and crashes before/after publish and catalog commit. Historical source evidence is not passing fault-test evidence.

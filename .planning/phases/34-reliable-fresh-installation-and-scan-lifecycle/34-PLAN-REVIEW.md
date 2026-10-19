@@ -32,3 +32,7 @@ are future implementation outputs, not already passing evidence.
 
 Research reproduces the listener install/dispose/reinstall defect (5, 0, 0),
 but the exact trigger of the live incident still needs the planned route test.
+
+## Additive revision, pending independent checker (2026-10-19)
+
+The historical passed verdict above applies to the original 14-plan set only. User-approved 34-15 adds three tasks and a shared fence/publication prerequisite, for 15 plans, 36 tasks and nine waves. 34-03 consumes that fence, retains dispatch/worker/catalog/progress ownership and uses backend/watcher.py. All unfinished old waves >=3 shift one wave; completed 01/02/05 plans and summaries are unchanged. 34-08 receives media crash/rollback/cancellation fault acceptance. Research/pattern/validation notes record exact ownership and non-atomic SQL/filesystem recovery semantics. No runtime implementation or test was executed; no new runtime acceptance is claimed. The independent checker must assess the revised contracts, source coverage, context budget, same-wave ownership and SQL/FS failure protocol before parent-directed execution. STATE and requirement completion remain orchestrator-owned.

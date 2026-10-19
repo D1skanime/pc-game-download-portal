@@ -274,3 +274,15 @@ Use 34-RESEARCH.md for these designs. No wider search or provider survey is need
 **Files read/excerpted:** 17 source/test files plus selected symbol/path checks; research-only targets are labeled.
 **Extraction date:** 2026-10-18.
 **Verification:** Canonical Linux host/path/branch/origin and Phase 34 state verified before artifact creation. Existing unrelated work preserved. No runtime-cause or passing-test claim.
+
+## Approved additive publication ownership (2026-10-19)
+
+34-15 (wave 3, after 02) owns scan_write_fence.py, begin_session integration, scan_media_publication.py and scan_media_recovery.py. It extracts/delegates existing media writers rather than duplicating provider download logic. storage_access.py gains only the prepared-create seam over its existing staged capability. Use composition.owned[RESOURCES], open_owned_access and existing CREATE/DELETE/MKDIR capabilities; no ambient path authority. New production modules each remain <=500 logical lines.
+
+The shared context binds operation_id, attempt_id and lease_owner. checked_scan_write(session, expected_version=None) locks existing singleton slot then operation and checks live owner/attempt/state/lease/cancel flag. Its models/session-only import boundary prevents the decorator -> repository -> decorator cycle and needs no future worker module. 34-03 binds this context to actual manual/scheduled/watcher/development execution and owns lease/dispatch/progress/catalog behavior.
+
+Publication requires a durable bounded owned manifest before staging; streamed bytes and transformations stay outside row locks. Immutable family-compatible filenames, same-session associations and cleanup intents preserve old assets until successful replacement. The manual validator requires a direct child. COMPLETE must force refresh without pre-deleting. Include parent provider and Steam inventories, DLC import/reconcile, soundtrack embedded and orphan covers, screenshots/manuals/covers/special media and other scan-reachable artwork/badges. Broad provider handlers cannot swallow fence revocation or uncertain commits.
+
+Recovery joins the existing scheduled/owned_media_cleanup.py runner, verifies manifest-generated exact objects and all live catalog reference surfaces before unlink, handles interrupted processing claims, and never deletes resource directories or another attempt's files. Existing legacy/base filesystem and non-scan consumers retain their contracts. Library watcher integration is backend/watcher.py, not manual/sync_folder_scan.py.
+
+File ownership edges: 15 -> 03 for scan.py and shared fence consumption; 15 -> 04 for scan_handler.py; 03 -> 04 for worker. All earlier overlaps remain dependency ordered. Completed plans 01/02/05 and their summaries are protected. No new UI contract is needed.
