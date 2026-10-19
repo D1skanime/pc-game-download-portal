@@ -17,6 +17,7 @@ from handler.filesystem.storage_resolver import (
 )
 from models.platform import Platform
 from models.storage import StorageRoot
+from utils.platform_identity import legacy_platform_slug_for_filesystem_slug
 from utils.platforms import get_supported_platforms
 
 MAX_SETUP_FOLDERS = 100
@@ -76,6 +77,14 @@ class SetupFolderHandler:
                 exact.append(platform.slug)
         if len(set(exact)) == 1:
             return exact[0]
+        if exact:
+            return None
+        candidate = name.casefold()
+        alias = legacy_platform_slug_for_filesystem_slug(
+            candidate, {platform.slug for platform in platforms}
+        )
+        if alias != candidate:
+            return alias
         normalized_name = _normalized(name)
         matches = {
             platform.slug

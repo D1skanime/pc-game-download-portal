@@ -108,18 +108,13 @@ from models.storage import (
 )
 from tasks.manual.detect_legacy_storage import detect_legacy_storage_task
 from tasks.manual.preview_mapping import preview_mapping_task
+from utils.platform_identity import (
+    legacy_platform_slug_for_filesystem_slug as _legacy_platform_slug_for_filesystem_slug,
+)
 from utils.platforms import get_filesystem_platforms
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/storage", tags=["storage"])
-
-
-def _legacy_platform_slug_for_filesystem_slug(
-    filesystem_slug: str, known_platform_slugs: set[str]
-) -> str:
-    if filesystem_slug == "pc" and "pc" not in known_platform_slugs:
-        return "win" if "win" in known_platform_slugs else filesystem_slug
-    return filesystem_slug
 
 
 @dataclass(frozen=True, slots=True)
@@ -861,7 +856,6 @@ async def bootstrap_legacy_storage(
             created_platform_count += 1
 
         root_path = Path(LIBRARY_BASE_PATH) / relative_root
-        pc_path = root_path / "pc"
         old_mapping = None
         try:
             old_mapping = db_storage_handler.get_active_mapping(pc_platform.id)
