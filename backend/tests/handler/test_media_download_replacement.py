@@ -151,6 +151,8 @@ async def test_replacement_collision_preserves_another_writers_private_file(rom)
             cover_size="big",
         )
     assert result is None
+    assert final.read_bytes() == b"prior good bytes"
+    assert private.read_bytes() == b"another writer owns this private file"
 
 
 @pytest.mark.asyncio
@@ -184,5 +186,3 @@ async def test_nonscan_screenshot_failure_returns_committed_generation(
         )
     assert paths == [path]
     assert resource_snapshot(rom) == before
-    assert final.read_bytes() == b"prior good bytes"
-    assert private.read_bytes() == b"another writer owns this private file"
