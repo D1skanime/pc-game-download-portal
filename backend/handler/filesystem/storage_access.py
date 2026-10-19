@@ -607,6 +607,7 @@ class OwnedReplace(_OwnedMutationCapability):
         parent = self._require_parent()
         temporary = f".{self._name}.{os.getpid()}.tmp"
         descriptor: int | None = None
+        created = False
         try:
             descriptor = os.open(
                 temporary,
@@ -614,6 +615,7 @@ class OwnedReplace(_OwnedMutationCapability):
                 0o644,
                 dir_fd=parent,
             )
+            created = True
             with os.fdopen(descriptor, "w+b", closefd=False) as file:
                 yield file
                 file.flush()
@@ -624,10 +626,11 @@ class OwnedReplace(_OwnedMutationCapability):
         except BaseException:
             if descriptor is not None:
                 os.close(descriptor)
-            try:
-                os.unlink(temporary, dir_fd=parent)
-            except OSError:
-                pass
+            if created:
+                try:
+                    os.unlink(temporary, dir_fd=parent)
+                except OSError:
+                    pass
             raise
 
     def replace(self, content: bytes) -> None:
