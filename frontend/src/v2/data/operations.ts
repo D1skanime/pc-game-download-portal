@@ -4,6 +4,7 @@ import type {
   OperationKind,
   OperationRequest,
   OperationScope,
+  ScanOperationRequest,
   ScanType,
 } from "./contracts";
 
@@ -261,6 +262,21 @@ export function normalizeOperationRequest(
       "Operation, idempotency, and job identifiers are required.",
     );
   }
+  if (!/^[a-z0-9][a-z0-9_-]{0,95}$/.test(request.idempotencyKey)) {
+    throw new OperationTranslationError("Invalid scan request key.");
+  }
+  if (
+    [request.operationId, request.jobId].some(
+      (identity) =>
+        identity.length > 128 ||
+        [...identity].some((character) => {
+          const code = character.charCodeAt(0);
+          return code < 32 || code === 127;
+        }),
+    )
+  ) {
+    throw new OperationTranslationError("Invalid local operation identity.");
+  }
   const maxConcurrency = Math.max(
     1,
     Math.min(16, Math.floor(request.execution.maxConcurrency)),
@@ -327,6 +343,8 @@ function scopeOptions(
       throw new OperationTranslationError(
         "Component operations require the PC/DLC matcher API and cannot use the scan socket.",
       );
+    default:
+      return assertNever(request.scope);
   }
 }
 
@@ -365,6 +383,29 @@ export function toLegacyScanOptions(
           metadata_only: request.metadataOnly === true,
           media_only: request.mediaOnly === true,
         }
+      : {}),
+  };
+}
+
+export function toScanOperationRequest(
+  input: OperationRequest,
+): ScanOperationRequest {
+  if (input.preview) {
+    throw new OperationTranslationError("Preview cannot submit scan work.");
+  }
+  const payload = toLegacyScanOptions(input);
+  const type =
+    payload.type === "full"
+      ? "complete"
+      : payload.type === "media"
+        ? "update"
+        : payload.type;
+  return {
+    ...payload,
+    request_key: input.idempotencyKey,
+    type,
+    ...(payload.type === "media"
+      ? { metadata_only: false, media_only: true }
       : {}),
   };
 }

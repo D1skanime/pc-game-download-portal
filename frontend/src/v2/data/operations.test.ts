@@ -7,6 +7,7 @@ import {
   operationItemIds,
   resolveMediaOnlyScope,
   toLegacyScanOptions,
+  toScanOperationRequest,
 } from "./operations";
 
 const baseRequest = (
@@ -55,6 +56,66 @@ const baseRequest = (
 });
 
 describe("operation compatibility translation", () => {
+  it("serializes the backend request without replacing the reconciliation key", () => {
+    const input = baseRequest({
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: { win: "Games/Spiel 日本" },
+      },
+      scanType: "full",
+    });
+    const payload = toScanOperationRequest(input);
+    expect(payload).toEqual({
+      ...toLegacyScanOptions(input),
+      type: "complete",
+      request_key: "idem-1",
+    });
+    expect(toScanOperationRequest(normalizeOperationRequest(input))).toEqual(
+      payload,
+    );
+    expect(payload.filesystem_scope_paths).toEqual({ win: "Games/Spiel 日本" });
+    expect(payload.apis).toEqual(["igdb", "launchbox", "playmatch"]);
+    expect(payload).not.toHaveProperty("operationId");
+    expect(payload).not.toHaveProperty("jobId");
+  });
+
+  it("adapts media and metadata intent to the generated backend contract", () => {
+    expect(
+      toScanOperationRequest(baseRequest({ scanType: "media" })),
+    ).toMatchObject({
+      type: "update",
+      metadata_only: false,
+      media_only: true,
+    });
+    expect(
+      toScanOperationRequest(
+        baseRequest({
+          metadataOnly: true,
+          mediaPolicy: { mode: "none", targets: [] },
+        }),
+      ),
+    ).toMatchObject({
+      metadata_only: true,
+      media_only: false,
+    });
+    expect(
+      toScanOperationRequest(
+        baseRequest({
+          mediaOnly: true,
+          metadataPolicy: { mode: "none", fields: [] },
+        }),
+      ),
+    ).toMatchObject({
+      type: "update",
+      metadata_only: false,
+      media_only: true,
+    });
+    expect(() =>
+      toScanOperationRequest(baseRequest({ preview: true })),
+    ).toThrow("Preview");
+  });
+
   it("retains the original request identity through repeated normalization", () => {
     const original = baseRequest();
     const normalized = normalizeOperationRequest(original);

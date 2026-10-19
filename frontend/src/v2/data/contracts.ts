@@ -1,3 +1,13 @@
+import type { ScanOperationSnapshot } from "@/__generated__";
+
+export type {
+  ScanOperationRequest,
+  ScanOperationSnapshot,
+  ScanOperationMutationRequest,
+  ScanOperationItemResult,
+  SetupRecoverySnapshot,
+} from "@/__generated__";
+
 export interface DataError {
   message: string;
   status?: number;
@@ -228,6 +238,7 @@ export interface OperationRequest {
 }
 
 export type OperationStatus =
+  | ScanOperationSnapshot["state"]
   | "queued"
   | "running"
   | "stopping"
@@ -277,6 +288,8 @@ export interface OperationDiagnostic {
 }
 
 export interface OperationResult {
+  /** Server lineage is separate from local presentation and request identity. */
+  confirmed?: ScanOperationSnapshot;
   operationId: string;
   jobId: string;
   status: OperationStatus;
