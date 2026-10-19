@@ -180,40 +180,36 @@ describe("durable scan reconciliation", () => {
     expect(input.scope).toEqual(request().scope);
   });
 
-  it("replays the same key and exact payload only after a confirmed missing lookup", async () => {
-    let posts = 0;
+  it("retains the original key on confirmed absence after a lost response without blind resubmission", async () => {
     transport.mockImplementation(async (config) => {
-      if (config.method === "get") throw failure(config, 404);
-      if (++posts === 1) throw failure(config);
-      return response(
-        config,
-        snapshot({
-          state: "accepted",
-          version: 1,
-          dispatch_pending: true,
-          queue_condition: "unavailable",
-        }),
-      );
+      throw failure(config, config.method === "get" ? 404 : undefined);
     });
-    expect(await scanOperations.submit(request())).toEqual(
-      snapshot({
-        state: "accepted",
-        version: 1,
-        dispatch_pending: true,
-        queue_condition: "unavailable",
-      }),
-    );
-    expect(transport.mock.calls.map(([c]) => c.method)).toEqual([
+    await expect(scanOperations.submit(request())).rejects.toMatchObject({
+      code: "ECONNABORTED",
+    });
+    expect(transport.mock.calls.map(([config]) => config.method)).toEqual([
       "post",
       "get",
-      "post",
     ]);
-    const postsSent = transport.mock.calls
-      .filter(([c]) => c.method === "post")
-      .map(([c]) => JSON.parse(c.data));
-    expect(postsSent).toEqual([
-      toScanOperationRequest(request()),
-      toScanOperationRequest(request()),
+    expect(JSON.parse(localStorage.getItem("pgdp.scan-operation.7")!)).toEqual({
+      request_key: "request-34-07",
+    });
+  });
+
+  it("allows a new request after an authoritative stale-key 404", async () => {
+    localStorage.setItem(
+      "pgdp.scan-operation.7",
+      JSON.stringify({ request_key: "stale-request" }),
+    );
+    transport.mockImplementation(async (config) => {
+      if (config.url === "/scan-operations/by-request/stale-request")
+        throw failure(config, 404);
+      return response(config, snapshot());
+    });
+    expect((await scanOperations.submit(request())).id).toBe(snapshot().id);
+    expect(transport.mock.calls.map(([config]) => config.method)).toEqual([
+      "get",
+      "post",
     ]);
   });
 

@@ -17,9 +17,11 @@ import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import storageApi from "@/services/api/storage";
+import OperationStatusPanel from "@/v2/components/Scan/OperationStatusPanel.vue";
 import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useLibraryOperation } from "@/v2/composables/useLibraryOperation";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
@@ -47,6 +49,17 @@ const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
 const { t, locale } = useI18n();
 const scanningStore = storeScanning();
 const libraryOperation = useLibraryOperation();
+const {
+  snapshot,
+  checking,
+  uncertain,
+  disconnected,
+  reconciling,
+  actionError,
+  status,
+  busy,
+} = libraryOperation;
+const canManageScan = useCan("library.scan");
 const snackbar = useSnackbar();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
@@ -375,8 +388,9 @@ const scanType = ref<ScanType>("quick");
 const canStartScan = computed(
   () =>
     mappingReady.value &&
-    !scanning.value &&
-    (effectiveMetadataSources.value.length > 0 || scanType.value === "media"),
+    !busy.value &&
+    canManageScan.value &&
+    (scanType.value !== "update" || effectiveMetadataSources.value.length > 0),
 );
 
 // Live status header — pulled in from the (now retired) floating
@@ -418,11 +432,12 @@ const liveStats = computed(() => {
 });
 
 const hasResults = computed(
-  () => scanning.value || scanningPlatforms.value.length > 0,
+  () =>
+    scanningPlatforms.value.length > 0 || (scanStats.value.total_roms ?? 0) > 0,
 );
 
 const liveStatusLabel = computed(() => {
-  if (scanning.value) return t("scan.scanning");
+  if (snapshot.value) return t("scan.recovery-" + status.value);
   if (scanningPlatforms.value.length > 0) return t("scan.scan-complete");
   return t("scan.live-progress");
 });
@@ -441,7 +456,7 @@ const progressValue = computed(() =>
 );
 
 function scan(subfolder?: SubfolderScan) {
-  if (!mappingReady.value) return;
+  if (!canStartScan.value) return;
   scanningStore.reset();
   scanningPlatforms.value = [];
   userScrolledDown = false;
@@ -457,7 +472,7 @@ function scan(subfolder?: SubfolderScan) {
   const playmatchMatcher = hashMatchers.value.find(
     (m) => m.value === "playmatch",
   );
-  const operationId = "library-scan-" + Date.now();
+  const operationId = "library-scan-" + crypto.randomUUID();
   const selectedScanType = scanType.value;
   let scope: OperationScope;
   try {
@@ -550,7 +565,9 @@ function scan(subfolder?: SubfolderScan) {
     scanType: selectedScanType,
   };
 
-  void libraryOperation.start(request);
+  void libraryOperation.start(request).then(() => {
+    if (actionError.value) snackbar.error(t("scan.recovery-cause-failed"));
+  });
 }
 
 function scanSubfolder(subfolder: SubfolderScan) {
@@ -565,6 +582,22 @@ function stopScan() {
 <template>
   <div class="r-v2-scan">
     <ScanInfoDialog v-model="infoDialogOpen" />
+    <OperationStatusPanel
+      class="r-v2-scan__operation"
+      v-if="snapshot || checking || uncertain || actionError || disconnected"
+      :snapshot="snapshot"
+      :checking="checking"
+      :uncertain="uncertain"
+      :disconnected="disconnected"
+      :reconciling="reconciling"
+      :action-error="actionError"
+      :status="status"
+      :can-manage="canManageScan"
+      @stop="libraryOperation.cancel()"
+      @resume="libraryOperation.resume()"
+      @retry-status="libraryOperation.retryStatus()"
+      @retry="libraryOperation.retry($event)"
+    />
 
     <section
       v-if="!mappingReady"
@@ -898,7 +931,9 @@ function stopScan() {
       <footer class="r-v2-scan-card__section r-v2-scan-card__cta">
         <div class="r-v2-scan-card__hints">
           <RAlert
-            v-if="effectiveMetadataSources.length === 0"
+            v-if="
+              effectiveMetadataSources.length === 0 && scanType === 'update'
+            "
             type="warning"
             density="compact"
             :icon="false"
@@ -937,11 +972,11 @@ function stopScan() {
           variant="flat"
           color="primary"
           prepend-icon="mdi-magnify-scan"
-          :loading="scanning"
+          :loading="checking"
           :disabled="!canStartScan"
-          @click="scan"
+          @click="scan()"
         >
-          {{ scanning ? t("scan.scanning") : t("scan.scan") }}
+          {{ checking ? t("scan.recovery-checking") : t("scan.scan") }}
         </RBtn>
 
         <RBtn
@@ -1120,6 +1155,12 @@ function stopScan() {
   grid-template-columns: minmax(360px, 1fr) minmax(0, 1.6fr);
   gap: 18px;
   align-items: stretch;
+}
+
+.r-v2-scan__operation {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* === Config card (left column) ================================

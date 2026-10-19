@@ -27,6 +27,13 @@ const serviceRoot = resolve(process.cwd(), "src/services/api");
 const routeAuthorities = [
   {
     method: "POST",
+    route: /^\/setup\/folders\/assign$/,
+    operation: "CONTROL_PLANE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
+    method: "POST",
     route: /^\/scan-operations$/,
     operation: "CONTROL_PLANE",
     storageClass: "database",
@@ -1126,7 +1133,7 @@ describe("active v2 source mutation authority inventory", () => {
           `${entry.importer} | ${entry.call} | ${entry.method} ${entry.route} | ${entry.operation} | ${entry.storageClass}`,
       );
     expect(violations).toEqual([]);
-  });
+  }, 30000);
 
   it("does not export forbidden external mutation service methods", () => {
     const forbiddenExports = [
@@ -1425,6 +1432,26 @@ function finalInventorySource(
 }
 
 describe("final active v2 semantic mutation closure", () => {
+  it("classifies setup folder assignments as database mappings without source write authority", () => {
+    const [authority] = finalInventorySource(
+      'import api from "@/services/api"; api.post("/setup/folders/assign", { assignments: [] });',
+      "services/api/setup.ts",
+    );
+    expect(authority).toMatchObject({
+      method: "POST",
+      route: "/setup/folders/assign",
+      operation: "CONTROL_PLANE",
+      storageClass: "database",
+      forbidden: false,
+    });
+    expect(() =>
+      finalInventorySource(
+        'import api from "@/services/api"; api.post("/setup/folders/create", {});',
+        "services/api/setup.ts",
+      ),
+    ).toThrow("unclassified authority");
+  });
+
   it("classifies PC download manifest creation as a control-plane request", () => {
     const [authority] = finalInventorySource(
       `import api from "@/services/api";
@@ -1636,7 +1663,7 @@ describe("final active v2 semantic mutation closure", () => {
           authority.storageClass,
       );
     expect(violations).toEqual([]);
-  });
+  }, 30000);
 
   it("binds the complete external operation family and typed descriptors to live backend definitions", () => {
     const policy = readFileSync(

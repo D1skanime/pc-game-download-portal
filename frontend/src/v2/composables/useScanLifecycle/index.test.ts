@@ -12,6 +12,9 @@ const fake = vi.hoisted(() => ({
   platformResponse: { id: 1, rom_count: 0 },
 }));
 
+vi.mock("@/v2/composables/useScanOperationStatus", () => ({
+  useScanOperationStatus: () => ({ refresh: vi.fn() }),
+}));
 vi.mock("@/v2/data/adapters/legacy/services/socket", () => ({
   default: {
     connected: true,
@@ -191,7 +194,7 @@ describe("scan lifecycle scope ownership", () => {
       platform_slug: "pc",
       name: "Synthetic",
     });
-    expect(scanning.scanning).toBe(true);
+    expect(scanning.scanning).toBe(false);
     expect(scanning.scanningPlatforms).toHaveLength(0);
     first.unmount();
     owners.splice(owners.indexOf(first), 1);

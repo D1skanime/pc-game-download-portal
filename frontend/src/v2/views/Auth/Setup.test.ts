@@ -1,191 +1,164 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ref } from "vue";
+import { createI18n } from "vue-i18n";
 import Setup from "./Setup.vue";
 
-const mocks = vi.hoisted(() => ({
-  router: { push: vi.fn() },
-  createUser: vi.fn(),
-  login: vi.fn(),
+const fake = vi.hoisted(() => ({
   discoverFolders: vi.fn(),
-  assignFolders: vi.fn(),
-  fetchCurrentUser: vi.fn(),
-  fetchHeartbeat: vi.fn(),
-  refetchCSRFToken: vi.fn(),
+  retryCheck: vi.fn(),
+  finish: vi.fn(),
+  push: vi.fn(),
+  scan: vi.fn(),
 }));
-vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock("vue-router", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("vue-router")>()),
-  useRouter: () => mocks.router,
+const complete = ref(false),
+  cause = ref<string | null>(null),
+  loginRequired = ref(false),
+  enrolled = ref(false);
+vi.mock("@/plugins/router", () => ({
+  ROUTES: { LOGIN: "login", SCAN: "scan" },
 }));
+vi.mock("vue-router", () => ({ useRouter: () => ({ push: fake.push }) }));
 vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ warning: vi.fn(), error: vi.fn(), info: vi.fn() }),
+  useSnackbar: () => ({ error: vi.fn() }),
 }));
 vi.mock("@/services/api/setup", () => ({
-  default: {
-    discoverFolders: mocks.discoverFolders,
-    assignFolders: mocks.assignFolders,
+  default: { discoverFolders: fake.discoverFolders },
+}));
+vi.mock("@/v2/composables/useSetupRecovery", () => ({
+  useSetupRecovery: () => ({
+    complete,
+    cause,
+    loginRequired,
+    enrolled,
+    busy: ref(false),
+    retryCheck: fake.retryCheck,
+    finish: fake.finish,
+    mergeDraft: (draft: object) => draft,
+  }),
+}));
+const namespaces = import.meta.glob<Record<string, string>>(
+  "../../../locales/*/setup.json",
+  { eager: true, import: "default" },
+);
+const locales = process.env.PGDP_TEST_LOCALES?.split(",") ?? ["en_US", "de_DE"];
+const stubs = {
+  RBtn: {
+    props: ["disabled", "to"],
+    template:
+      '<button :disabled="disabled" :data-route="to?.name"><slot /></button>',
   },
-}));
-vi.mock("@/v2/data/adapters/legacy/services/api/user", () => ({
-  default: { createUser: mocks.createUser },
-}));
-vi.mock("@/v2/data/adapters/legacy/services/api/identity", () => ({
-  default: { login: mocks.login },
-}));
-vi.mock("@/v2/data/adapters/legacy/services/api", () => ({
-  refetchCSRFToken: mocks.refetchCSRFToken,
-}));
-vi.mock("@/v2/data/adapters/legacy/stores/auth", () => ({
-  default: () => ({ fetchCurrentUser: mocks.fetchCurrentUser }),
-}));
-vi.mock("@/v2/data/adapters/legacy/stores/heartbeat", () => ({
-  default: () => ({ fetchHeartbeat: mocks.fetchHeartbeat }),
-}));
-
-type SetupVm = {
-  step: 1 | 2 | 3;
-  adminUser: {
-    username: string;
-    email: string;
-    password: string;
-    repeatPassword: string;
-  };
-  adminFormValid: boolean;
-  folderDraft: Record<string, string | null>;
+  RAlert: { template: '<div role="alert"><slot /></div>' },
+  RSteps: true,
+  RSpinner: true,
+  RIcon: true,
+  SetupStepAdmin: true,
+  SetupStepMetadata: true,
+  SetupStepPlatforms: {
+    props: ["draft"],
+    emits: ["update:draft"],
+    template:
+      "<button data-testid=\"assign\" @click=\"$emit('update:draft', { Windows: 'win' })\">Assign</button>",
+  },
 };
-const discovery = {
-  root_label: "Games",
-  folders: [
-    {
-      name: "Known",
-      relative_path: "Known",
-      association: "known",
-      suggested_platform: "windows",
-    },
-    {
-      name: "Mystery",
-      relative_path: "Mystery",
-      association: "unknown",
-      suggested_platform: null,
-    },
-  ],
-  platform_options: [
-    { slug: "windows", display_name: "Windows" },
-    { slug: "linux", display_name: "Linux" },
-  ],
-};
-
-function mountSetup() {
-  const wrapper = mount(Setup, {
+function mountSetup(locale = "en_US") {
+  const dictionary = namespaces["../../../locales/" + locale + "/setup.json"];
+  expect(dictionary, "missing real setup locale " + locale).toBeTruthy();
+  return mount(Setup, {
     global: {
-      stubs: {
-        SetupStepPlatforms: true,
-        SetupStepAdmin: true,
-        SetupStepMetadata: true,
-        RImg: true,
-        RSteps: true,
-        RSpinner: true,
-        RIcon: true,
-        RBtn: {
-          props: ["disabled", "loading"],
-          template: '<button :disabled="disabled"><slot /></button>',
-        },
-      },
+      stubs,
+      plugins: [
+        createI18n({
+          legacy: false,
+          locale,
+          fallbackLocale: false,
+          messages: {
+            [locale]: { setup: dictionary, common: { "try-again": "Retry" } },
+          },
+        }),
+      ],
     },
   });
-  const vm = wrapper.vm as Partial<SetupVm> as SetupVm;
-  vm.step = 3;
-  vm.adminUser = {
-    username: "admin",
-    email: "admin@example.test",
-    password: "password123",
-    repeatPassword: "password123",
-  };
-  vm.adminFormValid = true;
-  return wrapper;
 }
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.discoverFolders.mockResolvedValue({ data: discovery });
-  mocks.createUser.mockResolvedValue({ data: { id: 7 } });
-  mocks.login.mockResolvedValue({});
-  mocks.refetchCSRFToken.mockResolvedValue(undefined);
-  mocks.fetchCurrentUser.mockResolvedValue(undefined);
-  mocks.fetchHeartbeat.mockResolvedValue(undefined);
-});
-describe("setup folder assignment flow", () => {
-  it("discovers folders and does not finish with an incomplete draft", async () => {
-    const wrapper = mountSetup();
-    await flushPromises();
-    expect(mocks.discoverFolders).toHaveBeenCalledOnce();
-    await wrapper.findAll("button").at(-1)?.trigger("click");
-    await flushPromises();
-    expect(mocks.assignFolders).not.toHaveBeenCalled();
-    expect(mocks.router.push).not.toHaveBeenCalled();
-  });
-  it("authenticates, assigns once, and continues only when the server is ready", async () => {
-    mocks.assignFolders.mockResolvedValue({
-      data: {
-        ready: true,
-        mappings: [],
-        root_health: { reachable: true, readable: true, non_writable: true },
-      },
-    });
-    const wrapper = mountSetup();
-    await flushPromises();
-    const vm = wrapper.vm as Partial<SetupVm> as SetupVm;
-    vm.folderDraft = { Known: "windows", Mystery: "linux" };
-    await wrapper.findAll("button").at(-1)?.trigger("click");
-    await flushPromises();
-    expect(mocks.assignFolders).toHaveBeenCalledWith([
-      { folder_name: "Known", platform_slug: "windows" },
-      { folder_name: "Mystery", platform_slug: "linux" },
-    ]);
-    expect(mocks.router.push).toHaveBeenCalledWith({ name: "home" });
-  });
-  it("assigns the read-only library before bootstrapping legacy platform state", async () => {
-    const events: string[] = [];
-    mocks.fetchCurrentUser.mockImplementation(async () => {
-      events.push("current-user");
-    });
-    mocks.fetchHeartbeat.mockImplementation(async () => {
-      events.push("heartbeat");
-    });
-    mocks.assignFolders.mockImplementation(async () => {
-      events.push("assign");
-      return {
-        data: {
-          ready: true,
-          mappings: [],
-          root_health: { reachable: true, readable: true, non_writable: true },
+  complete.value = false;
+  cause.value = null;
+  loginRequired.value = false;
+  enrolled.value = true;
+  fake.discoverFolders.mockResolvedValue({
+    data: {
+      root_label: "Games",
+      folders: [
+        {
+          name: "Windows",
+          relative_path: "Windows",
+          association: "known",
+          suggested_platform: "win",
         },
-      };
-    });
-    const wrapper = mountSetup();
-    await flushPromises();
-    const vm = wrapper.vm as Partial<SetupVm> as SetupVm;
-    vm.folderDraft = { Known: "windows", Mystery: "linux" };
-    await wrapper.findAll("button").at(-1)?.trigger("click");
-    await flushPromises();
-    expect(events.indexOf("assign")).toBeLessThan(
-      events.indexOf("current-user"),
-    );
+      ],
+      platform_options: [{ slug: "win", display_name: "Windows" }],
+    },
   });
-  it("keeps the draft and route unchanged when assignment is not ready", async () => {
-    mocks.assignFolders.mockResolvedValue({
-      data: {
-        ready: false,
-        mappings: [],
-        root_health: { reachable: true, readable: true, non_writable: false },
-      },
-    });
-    const wrapper = mountSetup();
+});
+describe("mounted setup recovery", () => {
+  it.each(locales)(
+    "renders real recovery copy and accessible actions in %s",
+    async (locale) => {
+      complete.value = true;
+      const panel = mountSetup(locale);
+      await flushPromises();
+      expect(panel.text()).toContain(
+        namespaces["../../../locales/" + locale + "/setup.json"][
+          "recovery-complete"
+        ],
+      );
+      expect(panel.find('button[data-route="scan"]').exists()).toBe(true);
+      expect(fake.scan).not.toHaveBeenCalled();
+      complete.value = false;
+      cause.value = "root_unreadable";
+      await flushPromises();
+      expect(panel.get('[role="alert"]').text()).toContain(
+        namespaces["../../../locales/" + locale + "/setup.json"][
+          "recovery-root"
+        ],
+      );
+      expect(panel.text()).not.toContain("setup.recovery-");
+      panel.unmount();
+    },
+  );
+  it("finishes existing setup without account form or automatic navigation/scan", async () => {
+    const panel = mountSetup();
     await flushPromises();
-    const vm = wrapper.vm as Partial<SetupVm> as SetupVm;
-    vm.folderDraft = { Known: "windows", Mystery: "linux" };
-    await wrapper.findAll("button").at(-1)?.trigger("click");
+    await panel
+      .findAll("button")
+      .find((button) => button.text() === "Next")!
+      .trigger("click");
+    await panel
+      .findAll("button")
+      .find((button) => button.text() === "Finish")!
+      .trigger("click");
     await flushPromises();
-    expect(mocks.router.push).not.toHaveBeenCalled();
-    expect(vm.folderDraft).toEqual({ Known: "windows", Mystery: "linux" });
+    expect(fake.finish).toHaveBeenCalledTimes(1);
+    expect(fake.push).not.toHaveBeenCalled();
+    expect(fake.scan).not.toHaveBeenCalled();
+    panel.unmount();
+  });
+  it("keeps persistent errors, supports GET-only retry, and links enrollment recovery to login", async () => {
+    cause.value = "root_unreadable";
+    loginRequired.value = true;
+    const panel = mountSetup();
+    await flushPromises();
+    expect(panel.find('button[data-route="login"]').exists()).toBe(true);
+    await panel
+      .findAll("button")
+      .find((button) => button.text() === "Retry check")!
+      .trigger("click");
+    await flushPromises();
+    expect(fake.retryCheck).toHaveBeenCalledTimes(2);
+    expect(panel.get('[role="status"]').text()).toContain("already exists");
+    expect(panel.get('[role="alert"]').text()).toContain("root");
+    expect(fake.finish).not.toHaveBeenCalled();
+    panel.unmount();
   });
 });

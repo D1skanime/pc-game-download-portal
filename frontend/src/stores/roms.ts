@@ -209,8 +209,8 @@ export default defineStore("roms", {
       if (total !== null) this.fetchTotalRoms = total;
 
       // Set the character index for the current platform
-      this.characterIndex = char_index;
-      this.romIdIndex = rom_id_index;
+      this.characterIndex = char_index ?? {};
+      this.romIdIndex = rom_id_index ?? [];
 
       // Only set the list of platforms on first fetch
       if (galleryFilter.filterPlatforms.length === 0) {

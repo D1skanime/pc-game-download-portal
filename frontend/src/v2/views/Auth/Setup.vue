@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { RBtn, RIcon, RSpinner, RSteps } from "@v2/lib";
-import { computed, onMounted, ref } from "vue";
+import { RAlert, RBtn, RIcon, RSpinner, RSteps } from "@v2/lib";
+import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import setupApi from "@/services/api/setup";
 import type {
@@ -13,17 +12,11 @@ import SetupStepAdmin from "@/v2/components/Auth/SetupStepAdmin.vue";
 import type { AdminUserDraft } from "@/v2/components/Auth/SetupStepAdmin.vue";
 import SetupStepMetadata from "@/v2/components/Auth/SetupStepMetadata.vue";
 import SetupStepPlatforms from "@/v2/components/Auth/SetupStepPlatforms.vue";
+import { useSetupRecovery } from "@/v2/composables/useSetupRecovery";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { refetchCSRFToken } from "@/v2/data/adapters/legacy/services/api";
-import identityApi from "@/v2/data/adapters/legacy/services/api/identity";
-import userApi from "@/v2/data/adapters/legacy/services/api/user";
-import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
-import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 const { t } = useI18n();
-const router = useRouter();
-const auth = storeAuth();
-const heartbeat = storeHeartbeat();
+const recovery = useSetupRecovery();
 const snackbar = useSnackbar();
 const TOTAL_STEPS = 3;
 const step = ref<1 | 2 | 3>(1);
@@ -40,7 +33,13 @@ const adminUser = ref<AdminUserDraft>({
 });
 const adminFormValid = ref(false);
 const submitting = ref(false);
-const createdUserId = ref<number | null>(null);
+const { complete, cause, loginRequired, enrolled } = recovery;
+watch(loginRequired, (required) => {
+  if (required) {
+    adminUser.value.password = "";
+    adminUser.value.repeatPassword = "";
+  }
+});
 
 const stepTitle = computed(
   () =>
@@ -78,9 +77,10 @@ const canProceed = computed(() => {
     );
   if (step.value === 2)
     return (
-      adminFormValid.value &&
-      adminUser.value.username.length > 0 &&
-      adminUser.value.password === adminUser.value.repeatPassword
+      enrolled.value ||
+      (adminFormValid.value &&
+        adminUser.value.username.length > 0 &&
+        adminUser.value.password === adminUser.value.repeatPassword)
     );
   return true;
 });
@@ -93,8 +93,13 @@ async function loadDiscovery() {
   try {
     const { data } = await setupApi.discoverFolders();
     discovery.value = data;
-    folderDraft.value = Object.fromEntries(
-      data.folders.map((folder) => [folder.name, folder.suggested_platform]),
+    folderDraft.value = recovery.mergeDraft(
+      Object.fromEntries(
+        data.folders.map((folder) => [
+          folder.name,
+          folderDraft.value[folder.name] ?? folder.suggested_platform,
+        ]),
+      ),
     );
   } catch (error) {
     console.error("Failed to discover setup folders:", error);
@@ -109,134 +114,156 @@ function updateDraft(next: SetupFolderDraft) {
 function prev() {
   if (step.value > 1) {
     stepDirection.value = "back";
-    step.value = (step.value - 1) as 1 | 2 | 3;
+    step.value = (step.value === 3 && enrolled.value ? 1 : step.value - 1) as
+      1 | 2 | 3;
   }
 }
 function next() {
   if (!canProceed.value) return;
   if (step.value < TOTAL_STEPS) {
     stepDirection.value = "forward";
-    step.value = (step.value + 1) as 1 | 2 | 3;
+    step.value = (step.value === 1 && enrolled.value ? 3 : step.value + 1) as
+      1 | 2 | 3;
   } else {
     void finishWizard();
   }
 }
 async function finishWizard() {
-  if (!allFoldersAssigned.value) return;
+  if (!allFoldersAssigned.value || submitting.value) return;
   submitting.value = true;
   try {
-    if (createdUserId.value === null) {
-      const { data } = await userApi.createUser({
-        username: adminUser.value.username,
-        email: adminUser.value.email,
-        password: adminUser.value.password,
-        role: "admin",
-      });
-      createdUserId.value = data.id;
-    }
-    await identityApi.login(adminUser.value.username, adminUser.value.password);
-    await refetchCSRFToken();
-    const { data } = await setupApi.assignFolders(assignments.value);
-    if (!data.ready) {
-      throw new Error(t("setup.folders-not-ready"));
-    }
-    await auth.fetchCurrentUser();
-    await heartbeat.fetchHeartbeat();
-    await router.push({ name: ROUTES.HOME });
-  } catch (error) {
-    const detail =
-      (error as { response?: { data?: { detail?: string } }; message?: string })
-        .response?.data?.detail ?? (error as { message?: string }).message;
-    snackbar.error(
-      [t("setup.saving-folders-failed"), detail].filter(Boolean).join(": "),
-      { icon: "mdi-close-circle" },
-    );
+    await recovery.finish(adminUser.value, assignments.value);
+    folderDraft.value = recovery.mergeDraft(folderDraft.value);
+    if (cause.value) snackbar.error(t("setup.recovery-failed"));
   } finally {
     submitting.value = false;
   }
 }
-onMounted(loadDiscovery);
+async function retryRecovery() {
+  await recovery.retryCheck();
+  await loadDiscovery();
+}
+onMounted(async () => {
+  await recovery.retryCheck();
+  await loadDiscovery();
+});
 </script>
 
 <template>
   <div class="r-v2-setup">
-    <header class="r-v2-setup__header">
-      <RSteps :current="step" :total="TOTAL_STEPS" :direction="stepDirection" />
-      <div class="r-v2-setup__title">
-        <span>{{
-          t("setup.step-of", { current: step, total: TOTAL_STEPS })
-        }}</span>
-        <h2>{{ stepTitle }}</h2>
+    <section
+      v-if="complete"
+      class="pa-6 d-flex flex-column ga-4"
+      role="status"
+      aria-live="polite"
+    >
+      <h2>{{ t("setup.recovery-complete") }}</h2>
+      <p>{{ t("setup.recovery-read-only") }}</p>
+      <RBtn color="primary" :to="{ name: ROUTES.SCAN }">{{
+        t("setup.recovery-start-scan")
+      }}</RBtn>
+    </section>
+    <template v-else>
+      <RAlert v-if="loginRequired" type="info" role="status">
+        {{ t("setup.recovery-login") }}
+        <RBtn :to="{ name: ROUTES.LOGIN, query: { next: '/setup' } }">{{
+          t("setup.recovery-login-action")
+        }}</RBtn>
+      </RAlert>
+      <RAlert v-if="cause" type="warning" role="alert">
+        {{
+          t(
+            cause.startsWith("root_")
+              ? "setup.recovery-root"
+              : "setup.recovery-failed",
+          )
+        }}
+        <RBtn :loading="recovery.busy.value" @click="retryRecovery">{{
+          t("setup.recovery-retry")
+        }}</RBtn>
+      </RAlert>
+      <header class="r-v2-setup__header">
+        <RSteps
+          :current="step"
+          :total="TOTAL_STEPS"
+          :direction="stepDirection"
+        />
+        <div class="r-v2-setup__title">
+          <span>{{
+            t("setup.step-of", { current: step, total: TOTAL_STEPS })
+          }}</span>
+          <h2>{{ stepTitle }}</h2>
+        </div>
+      </header>
+      <div class="r-v2-setup__body">
+        <div v-if="loadingDiscovery && step === 1" class="r-v2-setup__loading">
+          <RSpinner /><span>{{ t("setup.loading-folders") }}</span>
+        </div>
+        <div
+          v-else-if="discoveryError && step === 1"
+          class="r-v2-setup__error"
+          role="alert"
+        >
+          <RIcon icon="mdi-alert-circle-outline" :size="32" /><span>{{
+            discoveryError
+          }}</span
+          ><RBtn
+            variant="flat"
+            color="primary"
+            prepend-icon="mdi-refresh"
+            @click="loadDiscovery"
+            >{{ t("common.try-again") }}</RBtn
+          >
+        </div>
+        <Transition
+          v-else
+          mode="out-in"
+          :name="
+            stepDirection === 'forward'
+              ? 'r-v2-setup-step-forward'
+              : 'r-v2-setup-step-back'
+          "
+        >
+          <SetupStepPlatforms
+            v-if="step === 1 && discovery"
+            key="step-1"
+            :discovery="discovery"
+            :draft="folderDraft"
+            :disabled="submitting"
+            :submitting="submitting"
+            @update:draft="updateDraft"
+          />
+          <SetupStepAdmin
+            v-else-if="step === 2"
+            key="step-2"
+            v-model="adminUser"
+            v-model:valid="adminFormValid"
+            @submit="next"
+          />
+          <SetupStepMetadata v-else key="step-3" />
+        </Transition>
       </div>
-    </header>
-    <div class="r-v2-setup__body">
-      <div v-if="loadingDiscovery && step === 1" class="r-v2-setup__loading">
-        <RSpinner /><span>{{ t("setup.loading-folders") }}</span>
-      </div>
-      <div
-        v-else-if="discoveryError && step === 1"
-        class="r-v2-setup__error"
-        role="alert"
-      >
-        <RIcon icon="mdi-alert-circle-outline" :size="32" /><span>{{
-          discoveryError
-        }}</span
-        ><RBtn
+      <footer class="r-v2-setup__footer">
+        <RBtn
+          v-if="!isFirstStep"
+          variant="text"
+          :disabled="submitting"
+          prepend-icon="mdi-chevron-left"
+          @click="prev"
+          >{{ t("setup.previous") }}</RBtn
+        >
+        <span />
+        <RBtn
           variant="flat"
           color="primary"
-          prepend-icon="mdi-refresh"
-          @click="loadDiscovery"
-          >{{ t("common.try-again") }}</RBtn
+          :append-icon="isLastStep ? 'mdi-check' : 'mdi-chevron-right'"
+          :loading="submitting"
+          :disabled="!canProceed || submitting || loginRequired"
+          @click="next"
+          >{{ isLastStep ? t("setup.finish") : t("setup.next") }}</RBtn
         >
-      </div>
-      <Transition
-        v-else
-        mode="out-in"
-        :name="
-          stepDirection === 'forward'
-            ? 'r-v2-setup-step-forward'
-            : 'r-v2-setup-step-back'
-        "
-      >
-        <SetupStepPlatforms
-          v-if="step === 1 && discovery"
-          key="step-1"
-          :discovery="discovery"
-          :draft="folderDraft"
-          :disabled="submitting"
-          :submitting="submitting"
-          @update:draft="updateDraft"
-        />
-        <SetupStepAdmin
-          v-else-if="step === 2"
-          key="step-2"
-          v-model="adminUser"
-          v-model:valid="adminFormValid"
-          @submit="next"
-        />
-        <SetupStepMetadata v-else key="step-3" />
-      </Transition>
-    </div>
-    <footer class="r-v2-setup__footer">
-      <RBtn
-        v-if="!isFirstStep"
-        variant="text"
-        :disabled="submitting"
-        prepend-icon="mdi-chevron-left"
-        @click="prev"
-        >{{ t("setup.previous") }}</RBtn
-      >
-      <span />
-      <RBtn
-        variant="flat"
-        color="primary"
-        :append-icon="isLastStep ? 'mdi-check' : 'mdi-chevron-right'"
-        :loading="submitting"
-        :disabled="!canProceed || submitting"
-        @click="next"
-        >{{ isLastStep ? t("setup.finish") : t("setup.next") }}</RBtn
-      >
-    </footer>
+      </footer>
+    </template>
   </div>
 </template>
 

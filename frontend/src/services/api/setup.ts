@@ -1,3 +1,4 @@
+import type { SetupRecoverySnapshot } from "@/__generated__";
 import api from "@/services/api";
 import type { Platform } from "@/stores/platforms";
 
@@ -55,4 +56,7 @@ function assignFolders(assignments: SetupFolderAssignment[]) {
 function getLibraryInfo() {
   return api.get<SetupLibraryInfo>("/setup/library");
 }
-export default { discoverFolders, assignFolders, getLibraryInfo };
+function getStatus() {
+  return api.get<SetupRecoverySnapshot>("/setup/status", { timeout: 5000 });
+}
+export default { discoverFolders, assignFolders, getLibraryInfo, getStatus };

@@ -13,7 +13,7 @@ import {
   toScanOperationRequest,
 } from "../operations";
 
-const options = { timeout: 8000 };
+const options = { timeout: 5000 };
 const storagePrefix = "pgdp.scan-operation.";
 type Session = { actor: number; generation: number };
 type Identity = { request_key: string; operation_id?: string };
@@ -223,6 +223,8 @@ async function restore() {
         : await lookup(context, saved.request_key);
     } catch (error) {
       if (statusCode(error) !== 404) throw error;
+      clear();
+      return active();
     }
   }
   assertSession(context);
@@ -234,7 +236,7 @@ async function post(context: Session, payload: ScanOperationRequest) {
   const { data } = await api.post<ScanOperationSnapshot>(
     "/scan-operations",
     payload,
-    options,
+    { timeout: 10000 },
   );
   return confirmed(context, data, payload.request_key);
 }
@@ -242,32 +244,30 @@ async function post(context: Session, payload: ScanOperationRequest) {
 async function submitRequest(context: Session, payload: ScanOperationRequest) {
   const saved = readIdentity(context);
   if (saved) {
-    if (!saved.operation_id && saved.request_key !== payload.request_key) {
-      return lookup(context, saved.request_key);
-    }
-    if (saved.request_key === payload.request_key) {
-      try {
-        await lookup(context, saved.request_key);
-      } catch (error) {
-        if (statusCode(error) !== 404) throw error;
-      }
+    try {
+      const previous = await lookup(context, saved.request_key);
+      if (
+        saved.request_key !== payload.request_key &&
+        ["accepted", "queued", "running", "stopping", "recovering"].includes(
+          previous.state,
+        )
+      )
+        return previous;
+    } catch (error) {
+      if (statusCode(error) !== 404) throw error;
+      // An authoritative absence permits a new identity after a database reset.
     }
   }
   saveIdentity(context, { request_key: payload.request_key });
+  // Lost acknowledgements are reconciled with GETs, never a second blind POST.
   try {
     return await post(context, payload);
   } catch (error) {
     if (!uncertain(error)) throw error;
     try {
       return await lookup(context, payload.request_key);
-    } catch (lookupError) {
-      if (statusCode(lookupError) !== 404) throw lookupError;
-    }
-    try {
-      return await post(context, payload);
-    } catch (retryError) {
-      if (!uncertain(retryError)) throw retryError;
-      return lookup(context, payload.request_key);
+    } catch {
+      throw error;
     }
   }
 }

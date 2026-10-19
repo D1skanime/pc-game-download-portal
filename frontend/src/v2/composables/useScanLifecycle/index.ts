@@ -22,10 +22,11 @@
 // on unmount; since AppLayout never unmounts during normal use the
 // listeners effectively live for the session.
 import { debounce } from "lodash";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
+import { effectScope, getCurrentScope, onScopeDispose } from "vue";
 import type { ScanStats } from "@/__generated__";
-import type { Events } from "@/types/emitter";
+import i18n from "@/locales";
+import { useScanOperationStatus } from "@/v2/composables/useScanOperationStatus";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import platformApi from "@/v2/data/adapters/legacy/services/api/platform";
 import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
@@ -50,23 +51,51 @@ export function observeScanLifecycle(
   observer: ScanLifecycleObserver,
 ): () => void {
   observers.add(observer);
-  return () => observers.delete(observer);
+  const remove = () => {
+    observers.delete(observer);
+  };
+  if (getCurrentScope()) onScopeDispose(remove);
+  return remove;
 }
 
 function notify(event: ScanLifecycleEvent): void {
   observers.forEach((observer) => observer(event));
 }
 
-let installed = false;
+let owners = 0;
+let stopListeners: (() => void) | undefined;
 
 export function installScanLifecycle(): void {
-  if (installed) return;
-  installed = true;
+  if (!getCurrentScope())
+    throw new Error("Scan lifecycle requires an owner scope");
+  owners += 1;
+  let released = false;
+  onScopeDispose(() => {
+    if (released) return;
+    released = true;
+    owners -= 1;
+    if (!owners) {
+      stopListeners?.();
+      stopListeners = undefined;
+    }
+  });
+  if (owners > 1) return;
+  const scope = effectScope(true);
+  stopListeners = () => scope.stop();
+  scope.run(() => wireScanLifecycle());
+}
+
+function wireScanLifecycle(): void {
   const scanningStore = storeScanning();
   const romsStore = storeRoms();
   const platformsStore = storePlatforms();
   const galleryRomsStore = storeGalleryRoms();
-  const emitter = inject<Emitter<Events>>("emitter");
+  const snackbar = useSnackbar();
+  const status = useScanOperationStatus();
+  let active = true;
+  onScopeDispose(() => {
+    active = false;
+  });
 
   useSocketEvent<ScanningPlatform>(
     "scan:scanning_platform",
@@ -79,8 +108,7 @@ export function installScanLifecycle(): void {
       is_identified,
       new_firmware_count,
     }) => {
-      scanningStore.setScanning(true);
-      notify({ type: "started" });
+      void status.refresh();
       // De-dupe by display_name so a re-scan of the same platform
       // doesn't render two panels for it.
       scanningStore.scanningPlatforms = scanningStore.scanningPlatforms.filter(
@@ -107,7 +135,8 @@ export function installScanLifecycle(): void {
         platformApi
           .getPlatform(id)
           .then(({ data }) => {
-            if (!platformsStore.has(data.id)) platformsStore.add(data);
+            if (active && !platformsStore.has(data.id))
+              platformsStore.add(data);
           })
           .catch((error) => console.error(error));
       }
@@ -185,9 +214,13 @@ export function installScanLifecycle(): void {
     });
   }, 100);
 
+  onScopeDispose(() => {
+    processRomUpdates.cancel();
+    refreshGallery.cancel();
+    romUpdateQueue.length = 0;
+  });
+
   useSocketEvent<SimpleRom>("scan:scanning_rom", (rom) => {
-    scanningStore.setScanning(true);
-    notify({ type: "started" });
     romUpdateQueue.push(rom);
     processRomUpdates();
   });
@@ -200,26 +233,16 @@ export function installScanLifecycle(): void {
   useSocketEvent<ScanStats>("scan:done", (stats) => {
     scanningStore.setScanStats(stats);
     notify({ type: "completed", stats });
-    scanningStore.setScanning(false);
+    void status.refresh();
     // Reconcile against the backend once the scan settles: pick up anything
     // the live updates missed and correct rom_counts that drifted.
     void platformsStore.fetchPlatforms();
-    emitter?.emit("snackbarShow", {
-      msg: "Scan completed successfully.",
-      color: "success",
-      icon: "mdi-check-bold",
-      timeout: 4000,
-    });
+    snackbar.success(i18n.global.t("scan.scan-complete"));
   });
 
   useSocketEvent<string>("scan:done_ko", (msg) => {
-    scanningStore.setScanning(false);
+    void status.refresh();
     notify({ type: "failed", message: msg });
-    emitter?.emit("snackbarShow", {
-      msg: `Scan failed: ${msg}`,
-      color: "error",
-      icon: "mdi-close-circle",
-      timeout: 6000,
-    });
+    snackbar.error(i18n.global.t("scan.recovery-failed"));
   });
 }

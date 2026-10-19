@@ -18,7 +18,7 @@ class SetupPlatformOptionSchema(BaseModel):
 class SetupFoldersResponse(BaseModel):
     root_label: str = Field(min_length=1, max_length=100)
     folders: list[SetupFolderSchema] = Field(max_length=100)
-    platform_options: list[SetupPlatformOptionSchema] = Field(max_length=200)
+    platform_options: list[SetupPlatformOptionSchema] = Field(max_length=500)
 
 
 class SetupFolderAssignmentSchema(BaseModel):

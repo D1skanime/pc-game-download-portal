@@ -1,19 +1,21 @@
-import { ref, type Ref } from "vue";
+import axios from "axios";
 import {
-  observeScanLifecycle,
-  type ScanLifecycleEvent,
-} from "@/v2/composables/useScanLifecycle";
-import {
-  startLegacyScan,
-  stopLegacyScan,
-} from "@/v2/data/adapters/legacy/scan";
-import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
+  computed,
+  getCurrentScope,
+  onScopeDispose,
+  ref,
+  watch,
+  type Ref,
+} from "vue";
+import { useScanOperationStatus } from "@/v2/composables/useScanOperationStatus";
+import scanOperations from "@/v2/data/adapters/scanOperations";
 import type {
   OperationDiagnostic,
   OperationItemResult,
   OperationRequest,
   OperationResult,
   OperationStatus,
+  ScanOperationSnapshot,
 } from "@/v2/data/contracts";
 import {
   normalizeOperationRequest,
@@ -117,228 +119,267 @@ function impact(request: OperationRequest): OperationResult["impact"] {
   };
 }
 
-function eventDiagnostic(
-  request: OperationRequest,
-  event: ScanLifecycleEvent,
-): OperationDiagnostic | null {
-  if (event.type !== "failed") return null;
-  const retryable = /rate|timeout|temporar|busy|network/i.test(event.message);
-  return {
-    code: retryable ? "provider-failed" : "validation-failed",
-    operationId: request.operationId,
-    jobId: request.jobId,
-    retryable,
-    message: retryable
-      ? "The operation can be retried."
-      : "The operation failed validation or execution.",
-  };
-}
-
-export function useLibraryOperation(): LibraryOperationState & {
-  start(request: OperationRequest): Promise<OperationResult>;
-  cancel(): void;
-  resume(): Promise<OperationResult | null>;
-  retry(itemIds?: readonly string[]): Promise<OperationResult | null>;
-  dispose(): void;
-} {
-  const status = ref<OperationStatus>("queued");
+export function useLibraryOperation() {
+  const server = useScanOperationStatus();
   const request = ref<OperationRequest | null>(null);
   const result = ref<OperationResult | null>(null);
   const diagnostics = ref<OperationDiagnostic[]>([]);
-  const scanningStore = storeScanning();
-  const completedByIdempotency = new Map<string, OperationResult>();
-  let disposed = false;
+  const checking = ref(false);
+  const uncertain = ref(false);
+  const localError = ref<string | null>(null);
+  const actionError = computed(
+    () => localError.value ?? server.errorCode.value,
+  );
+  const pendingStop = ref(false);
+  const mutating = ref(false);
+  const status = computed<OperationStatus>(() =>
+    pendingStop.value
+      ? "stopping"
+      : (server.snapshot.value?.state ?? result.value?.status ?? "queued"),
+  );
+  const holdsSlot = computed(
+    () =>
+      server.active.value ||
+      ["blocked", "interrupted"].includes(server.snapshot.value?.state ?? ""),
+  );
+  const busy = computed(
+    () =>
+      checking.value ||
+      uncertain.value ||
+      server.reconciling.value ||
+      holdsSlot.value ||
+      mutating.value,
+  );
+  let alive = true;
+  let startFlight: Promise<OperationResult> | undefined;
+  let reconciliationTimer: ReturnType<typeof setTimeout> | undefined;
+  let releaseWait: (() => void) | undefined;
+  let mutationKey: string | undefined;
 
-  const onLifecycle = (event: ScanLifecycleEvent): void => {
-    const active = request.value;
-    if (!active || disposed) return;
-    if (event.type === "stats") return;
-    if (event.type === "started") {
-      status.value = "running";
-      return;
-    }
-    if (event.type === "completed") {
-      status.value = "completed";
-      result.value = {
-        operationId: active.operationId,
-        jobId: active.jobId,
-        status: "completed",
-        items: itemResults(active, "changed"),
-        preview: active.preview,
-        diagnostics: diagnostics.value,
-        impact: impact(active),
-      };
-      completedByIdempotency.set(active.idempotencyKey, result.value);
-      return;
-    }
-    const diagnostic = eventDiagnostic(active, event);
-    if (diagnostic) diagnostics.value = [...diagnostics.value, diagnostic];
-    status.value = diagnostic?.retryable ? "retryable" : "failed";
-    result.value = {
-      operationId: active.operationId,
-      jobId: active.jobId,
-      status: status.value,
-      items: itemResults(
-        active,
-        diagnostic?.retryable ? "retryable" : "failed",
-      ),
-      preview: active.preview,
-      diagnostics: diagnostics.value,
-      impact: impact(active),
+  function project(next: ScanOperationSnapshot): OperationResult {
+    const projected: OperationResult = {
+      confirmed: next,
+      operationId: next.id,
+      jobId: next.job_id,
+      status: next.state,
+      items: (next.items ?? []).map((item) => ({
+        itemId: String(item.id),
+        outcome:
+          item.outcome === "indexed" || item.outcome === "completed"
+            ? "changed"
+            : item.outcome === "warning" || item.outcome === "failed"
+              ? "retryable"
+              : "skipped",
+        operationId: next.id,
+        jobId: next.job_id,
+      })),
+      preview: false,
     };
-  };
+    result.value = projected;
+    if (!["accepted", "queued", "running", "recovering"].includes(next.state))
+      pendingStop.value = false;
+    return projected;
+  }
+  const unwatch = watch(
+    server.snapshot,
+    (next) => {
+      if (next) project(next);
+      else {
+        result.value = null;
+        pendingStop.value = false;
+      }
+    },
+    { immediate: true },
+  );
+  function failed(code: string): OperationResult {
+    localError.value = code;
+    const active = request.value;
+    const failure: OperationResult = {
+      operationId: active?.operationId ?? "",
+      jobId: active?.jobId ?? "",
+      status: code === "permission-denied" ? "permission-denied" : "failed",
+      items: [],
+      preview: false,
+    };
+    result.value = failure;
+    return failure;
+  }
+  function pause() {
+    return new Promise<void>((resolve) => {
+      releaseWait = resolve;
+      reconciliationTimer = setTimeout(() => {
+        releaseWait = undefined;
+        resolve();
+      }, 2000);
+    });
+  }
+  async function reconcile(): Promise<OperationResult> {
+    const key = request.value?.idempotencyKey;
+    if (!key) return failed("start-failed");
+    const deadline = Date.now() + 30000;
+    uncertain.value = true;
+    while (alive && Date.now() < deadline) {
+      try {
+        const next = await scanOperations.byRequest(key);
+        if (!alive) break;
+        uncertain.value = false;
+        localError.value = null;
+        return project(server.accept(next));
+      } catch (error) {
+        if (
+          axios.isAxiosError(error) &&
+          [401, 403].includes(error.response?.status ?? 0)
+        ) {
+          uncertain.value = false;
+          return failed("permission-denied");
+        }
+      }
+      await pause();
+    }
+    return failed("acceptance-uncertain");
+  }
 
-  const removeObserver = observeScanLifecycle(onLifecycle);
-
-  async function start(input: OperationRequest): Promise<OperationResult> {
+  function start(input: OperationRequest): Promise<OperationResult> {
+    if (startFlight) return startFlight;
+    if (uncertain.value) return retryStatus();
+    if (holdsSlot.value)
+      return Promise.resolve(project(server.snapshot.value!));
     const normalized = normalizeOperationRequest(input);
     request.value = normalized;
+    localError.value = null;
     diagnostics.value = [];
-    const existing = completedByIdempotency.get(normalized.idempotencyKey);
-    if (existing) {
-      result.value = existing;
-      status.value = existing.status;
-      return existing;
-    }
-
-    if (!normalized.permissions.scopes.includes("tasks:run")) {
-      status.value = "permission-denied";
-      const diagnostic: OperationDiagnostic = {
-        code: "permission-denied",
-        operationId: normalized.operationId,
-        jobId: normalized.jobId,
-        retryable: false,
-        message: "The current user cannot run this operation.",
-      };
-      diagnostics.value = [diagnostic];
-      const denied: OperationResult = {
-        operationId: normalized.operationId,
-        jobId: normalized.jobId,
-        status: "permission-denied",
-        items: itemResults(normalized, "skipped"),
-        preview: normalized.preview,
-        diagnostics: diagnostics.value,
-        impact: impact(normalized),
-      };
-      result.value = denied;
-      return denied;
-    }
-
-    status.value = "queued";
-    scanningStore.reset();
-    if (normalized.preview) {
-      status.value = "completed";
-      const previewResult: OperationResult = {
-        operationId: normalized.operationId,
-        jobId: normalized.jobId,
-        status: "completed",
-        items: itemResults(normalized, "unchanged"),
-        preview: true,
-        diagnostics: [
-          {
-            code: "preview",
-            operationId: normalized.operationId,
-            jobId: normalized.jobId,
-            retryable: false,
-            message: "Preview completed without changing library data.",
-          },
-        ],
-        impact: impact(normalized),
-      };
-      result.value = previewResult;
-      completedByIdempotency.set(normalized.idempotencyKey, previewResult);
-      return previewResult;
-    }
-
-    scanningStore.setScanning(true);
-    startLegacyScan(normalized);
-    status.value = "running";
-    return {
-      operationId: normalized.operationId,
-      jobId: normalized.jobId,
-      status: "running",
-      items: itemResults(normalized, "unchanged"),
-      preview: false,
-      diagnostics: diagnostics.value,
-      impact: impact(normalized),
+    checking.value = true;
+    const run = async () => {
+      if (!normalized.permissions.scopes.includes("tasks:run"))
+        return failed("permission-denied");
+      if (normalized.preview) {
+        const preview: OperationResult = {
+          operationId: normalized.operationId,
+          jobId: normalized.jobId,
+          status: "completed",
+          items: itemResults(normalized, "unchanged"),
+          preview: true,
+          impact: impact(normalized),
+        };
+        result.value = preview;
+        return preview;
+      }
+      try {
+        const next = await scanOperations.submit(normalized);
+        if (!alive) return result.value ?? failed("start-failed");
+        return project(server.accept(next));
+      } catch (error) {
+        if (
+          axios.isAxiosError(error) &&
+          (!error.response || error.response.status >= 500)
+        )
+          return reconcile();
+        return failed(
+          axios.isAxiosError(error) &&
+            [401, 403].includes(error.response?.status ?? 0)
+            ? "permission-denied"
+            : "start-failed",
+        );
+      }
     };
+    startFlight = run().finally(() => {
+      checking.value = false;
+      startFlight = undefined;
+    });
+    return startFlight;
   }
-
-  function cancel(): void {
+  async function retryStatus(): Promise<OperationResult> {
+    if (!uncertain.value) {
+      const next = await server.refresh();
+      return next
+        ? project(next)
+        : (result.value ?? failed("status-unavailable"));
+    }
+    if (checking.value && startFlight) return startFlight;
+    checking.value = true;
+    try {
+      return await reconcile();
+    } finally {
+      checking.value = false;
+    }
+  }
+  async function mutate(
+    kind: "cancel" | "resume" | "retry",
+    itemIds: readonly string[] = [],
+  ) {
+    const current = server.snapshot.value;
+    if (!current || mutating.value) return result.value;
     if (
-      !request.value ||
-      (status.value !== "running" && status.value !== "queued")
+      kind === "resume" &&
+      current.state !== "cancelled" &&
+      current.state !== "interrupted"
     )
-      return;
-    status.value = "stopping";
-    stopLegacyScan();
-    scanningStore.setScanning(false);
-    status.value = "cancelled";
-    const active = request.value;
-    result.value = {
-      operationId: active.operationId,
-      jobId: active.jobId,
-      status: "cancelled",
-      items: itemResults(active, "retryable"),
-      preview: active.preview,
-      diagnostics: [
-        {
-          code: "cancelled",
-          operationId: active.operationId,
-          jobId: active.jobId,
-          retryable: true,
-          message: "The operation was cancelled and can be resumed.",
-        },
-      ],
-      impact: impact(active),
-    };
-  }
-
-  async function resume(): Promise<OperationResult | null> {
-    const active = request.value;
-    if (!active || status.value !== "cancelled") return result.value;
-    return start({
-      ...active,
-      idempotencyKey: active.idempotencyKey + ":resume",
-      retry: {
-        ...active.retry,
-        resumeFrom: active.jobId,
-        maxAttempts: active.retry?.maxAttempts ?? 1,
-      },
-    });
-  }
-
-  async function retry(
-    itemIds?: readonly string[],
-  ): Promise<OperationResult | null> {
-    const active = request.value;
-    if (!active || (status.value !== "retryable" && status.value !== "partial"))
       return result.value;
-    return start({
-      ...active,
-      idempotencyKey: active.idempotencyKey + ":retry",
-      retry: {
-        ...active.retry,
-        itemIds: itemIds ? [...itemIds] : active.retry?.itemIds,
-        maxAttempts: active.retry?.maxAttempts ?? 1,
-      },
-    });
+    const selected = itemIds.map(Number);
+    const failedIds = new Set(
+      (current.items ?? [])
+        .filter(
+          (item) => item.outcome === "warning" || item.outcome === "failed",
+        )
+        .map((item) => item.id),
+    );
+    if (
+      kind === "retry" &&
+      (!selected.length || selected.some((id) => !failedIds.has(id)))
+    )
+      return failed("select-failed-items");
+    mutating.value = true;
+    mutationKey ??= crypto.randomUUID();
+    if (kind === "cancel") pendingStop.value = true;
+    localError.value = null;
+    try {
+      const next =
+        kind === "cancel"
+          ? await scanOperations.cancel(current, mutationKey)
+          : kind === "resume"
+            ? await scanOperations.resume(current, mutationKey)
+            : await scanOperations.retryMetadata(
+                current,
+                selected,
+                mutationKey,
+              );
+      if (!alive) return result.value;
+      mutationKey = undefined;
+      return project(server.accept(next));
+    } catch {
+      localError.value = "status-unavailable";
+      await server.refresh();
+      return result.value;
+    } finally {
+      mutating.value = false;
+    }
   }
-
-  function dispose(): void {
-    disposed = true;
-    removeObserver();
+  function dispose() {
+    if (!alive) return;
+    alive = false;
+    unwatch();
+    if (reconciliationTimer) clearTimeout(reconciliationTimer);
+    releaseWait?.();
+    server.dispose();
   }
-
+  if (getCurrentScope()) onScopeDispose(dispose);
   return {
     status,
     request,
     result,
     diagnostics,
+    checking,
+    uncertain,
+    busy,
+    actionError,
+    snapshot: server.snapshot,
+    disconnected: server.disconnected,
+    reconciling: server.reconciling,
     start,
-    cancel,
-    resume,
-    retry,
+    cancel: () => mutate("cancel"),
+    resume: () => mutate("resume"),
+    retry: (ids?: readonly string[]) => mutate("retry", ids),
+    retryStatus,
     dispose,
   };
 }
