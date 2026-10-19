@@ -41,6 +41,22 @@ async def configure_scanner(rom, platform, command, monkeypatch, family):
     paths = await seed_primary(rom)
     special = f"{rom.fs_resources_path}/video/fixture.mp4"
     badge = f"{rom.fs_resources_path}/retroachievements/badges/1.png"
+    achievement = dict(
+        id=1,
+        ra_id=1,
+        title="Fixture",
+        description="Fixture",
+        points=1,
+        num_awarded=0,
+        num_awarded_hardcore=0,
+        badge_id="1",
+        badge_url="https://fixture.invalid/badge",
+        badge_url_lock="https://fixture.invalid/lock",
+        badge_path=badge,
+        badge_path_lock=badge,
+        display_order=1,
+        type=None,
+    )
     for path in (special, badge):
         directory, filename = path.rsplit("/", 1)
         await fs_resource_handler.write_file(b"prior good bytes", directory, filename)
@@ -51,7 +67,7 @@ async def configure_scanner(rom, platform, command, monkeypatch, family):
             fs_name="Phase34-Synthetic.bin",
             fs_path="PC",
             ss_metadata={"video_path": special},
-            ra_metadata={"achievements": [{"id": 1, "badge_path": badge}]},
+            ra_metadata={"achievements": [achievement]},
         ),
     )
     desired = (
@@ -84,18 +100,7 @@ async def configure_scanner(rom, platform, command, monkeypatch, family):
         scan_handler.meta_ra_handler,
         "get_rom",
         AsyncMock(
-            return_value={
-                "ra_id": 201,
-                "ra_metadata": {
-                    "achievements": [
-                        {
-                            "id": 1,
-                            "badge_url": "https://fixture.invalid/badge",
-                            "badge_path": badge,
-                        }
-                    ]
-                },
-            }
+            return_value={"ra_id": 201, "ra_metadata": {"achievements": [achievement]}}
         ),
     )
     with sync_session.begin() as session:
@@ -231,3 +236,82 @@ async def test_actual_dlc_optional_transport_retains_prior(
         (item.id, item.owned_path) for item in prior
     ]
     assert resource_snapshot(rom) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("family", ["primary", "special", "badge"])
+@pytest.mark.parametrize("fault", ["cancel", "sql", "indeterminate"])
+async def test_actual_scanner_fatal_publication_faults_propagate(
+    attempt, rom, platform, command, monkeypatch, family, fault, admin_user
+):
+    import httpx
+    from sqlalchemy.exc import SQLAlchemyError
+    from tests.handler.media_download_helpers import Body, png_bytes
+    from tests.handler.test_scan_operations import repository
+
+    from handler.database.scan_write_fence import ScanWriteRejected
+    from handler.filesystem.scan_media_publication import ScanMediaBatch
+    from handler.filesystem.storage_access import IndeterminateOwnedPublicationError
+    from utils.context import ctx_httpx_client
+
+    mapping, current = await configure_scanner(
+        rom, platform, command, monkeypatch, family
+    )
+    fatal = {
+        "cancel": ScanWriteRejected,
+        "sql": SQLAlchemyError,
+        "indeterminate": IndeterminateOwnedPublicationError,
+    }[fault]
+    original = ScanMediaBatch.publish_and_associate
+
+    def publish(unit, associate, *, session=None):
+        def inject(session):
+            associate(session)
+            raise fatal()
+
+        return original(
+            unit,
+            inject if unit.outputs and fault != "cancel" else associate,
+            session=session,
+        )
+
+    monkeypatch.setattr(ScanMediaBatch, "publish_and_associate", publish)
+
+    def respond(request):
+        if fault == "cancel":
+            repository().request_cancel(
+                attempt.id, admin_user.id, attempt.version, "transport-cancel"
+            )
+        return httpx.Response(
+            200, headers={"content-type": "image/png"}, stream=Body([png_bytes()])
+        )
+
+    sources = ["ss", "ra"] if family == "badge" else ["ss"]
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        token = ctx_httpx_client.set(client)
+        try:
+            with use_fs_rom_handler(
+                fs_rom_handler.for_mapping(mapping)
+            ), bind_scan_write_context(context(attempt)):
+                with pytest.raises(fatal):
+                    await scan_module._identify_rom(
+                        mapping.platform,
+                        fs_input(),
+                        current,
+                        scan_handler.ScanType.COMPLETE,
+                        [],
+                        sources,
+                        False,
+                        False,
+                        AsyncMock(),
+                        scan_module.ScanStats(),
+                    )
+        finally:
+            ctx_httpx_client.reset(token)
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved.path_cover_l == current.path_cover_l
+    assert saved.ss_metadata.get("video_path") == current.ss_metadata["video_path"]
+    assert (
+        saved.ra_metadata["achievements"][0]["badge_path"]
+        == current.ra_metadata["achievements"][0]["badge_path"]
+    )
