@@ -8,10 +8,13 @@ import {
 
 describe("PC metadata match provider media", () => {
   it("keeps Steam covers attributed to Steam", () => {
-    const candidate = {
+    const candidate: MatchSearchRom = {
       name: "The Witcher 3: Wild Hunt - Blood and Wine",
+      platform_id: 1,
+      is_unidentified: false,
+      is_identified: true,
       steam_url_cover: "https://cdn.example/steam-cover.jpg",
-    } as MatchSearchRom;
+    };
 
     expect(firstAvailableCover(candidate)).toBe(
       "https://cdn.example/steam-cover.jpg",
@@ -49,10 +52,13 @@ describe("PC candidate cover mapping", () => {
 
     expect(cover).toEqual({ field, url: coverUrl });
 
-    const matchedRom = {
+    const matchedRom: MatchSearchRom = {
       name: provider,
+      platform_id: 1,
+      is_unidentified: false,
+      is_identified: true,
       [field]: cover?.url,
-    } as MatchSearchRom;
+    };
     expect(firstAvailableCover(matchedRom)).toBe(coverUrl);
     expect(getMatchSources(matchedRom)[0]?.url_cover).toBe(coverUrl);
   });

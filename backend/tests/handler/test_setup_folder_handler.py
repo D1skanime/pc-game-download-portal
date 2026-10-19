@@ -32,7 +32,7 @@ def test_root_registers_configured_library_when_database_is_empty(
     assert calls == [(setup_module.ROOT_LABEL, str(tmp_path))]
 
 
-def test_resolve_platform_bootstraps_missing_supported_platform(monkeypatch):
+def test_resolve_platform_bootstraps_missing_supported_platform(monkeypatch, tmp_path):
     import handler.setup_folder_handler as setup_module
 
     option = SimpleNamespace(

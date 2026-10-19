@@ -30,6 +30,6 @@ export async function loadPgdPFolderMappings(
   );
 
   return rows
-    .filter((row): row is PgdPFolderMappingRow => row !== null)
+    .filter((row): row is NonNullable<typeof row> => row !== null)
     .sort((a, b) => a.fsSlug.localeCompare(b.fsSlug));
 }
