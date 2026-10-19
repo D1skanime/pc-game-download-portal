@@ -5,14 +5,12 @@ from collections.abc import Collection
 from typing import Any
 
 import socketio  # type: ignore
-from sqlalchemy.exc import SQLAlchemyError
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.scan_write_fence import (
-    ScanWriteRejected,
     current_scan_write_context,
     require_scan_write_context,
 )
@@ -32,7 +30,6 @@ from handler.filesystem.scan_media_publication import (
     merge_scan_rom,
     preserve_current_scan_media,
 )
-from handler.filesystem.storage_access import IndeterminateOwnedPublicationError
 from handler.filesystem.storage_policy import StorageOperation
 from handler.metadata import (
     meta_flashpoint_handler,
@@ -606,6 +603,7 @@ async def scan_rom(
                 "igdb_id": rom.igdb_id,
                 "moby_id": rom.moby_id,
                 "ss_id": rom.ss_id,
+                "steam_id": rom.steam_id,
                 "sgdb_id": rom.sgdb_id,
                 "ra_id": rom.ra_id,
                 "launchbox_id": rom.launchbox_id,
@@ -618,6 +616,8 @@ async def scan_rom(
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
                 "ss_metadata": rom.ss_metadata,
+                "steam_metadata": rom.steam_metadata,
+                "manual_metadata": rom.manual_metadata,
                 "ra_metadata": rom.ra_metadata,
                 "launchbox_metadata": rom.launchbox_metadata,
                 "hasheous_metadata": rom.hasheous_metadata,
@@ -636,7 +636,10 @@ async def scan_rom(
         if (
             meta_playmatch_handler.is_enabled()
             and MetadataSource.PLAYMATCH in metadata_sources
-            and any(PLAYMATCH_SUPPORTED_SOURCES.intersection(metadata_sources))
+            and (
+                metadata_only
+                or any(PLAYMATCH_SUPPORTED_SOURCES.intersection(metadata_sources))
+            )
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
@@ -743,14 +746,52 @@ async def scan_rom(
                 extra=LOGGER_MODULE_NAME,
             )
 
-    # Run hash fetches concurrently
+    from handler.scan_metadata_result import (
+        record_provider_result,
+        resolve_provider_fetch,
+    )
+
+    playmatch_fallback = PlaymatchRomMatch(
+        igdb_id=None,
+        moby_id=None,
+        ss_id=None,
+        launchbox_id=None,
+        sgdb_id=None,
+        ra_id=None,
+        hasheous_id=None,
+        tgdb_id=None,
+        flashpoint_id=None,
+        hltb_id=None,
+        libretro_id=None,
+        gamelist_id=None,
+    )
     (
         playmatch_hash_match,
         (hasheous_hash_match, hasheous_lookup_conclusive),
     ) = await asyncio.gather(
-        fetch_playmatch_hash_match(),
-        fetch_hasheous_hash_match(),
+        resolve_provider_fetch(
+            MetadataSource.PLAYMATCH,
+            fetch_playmatch_hash_match(),
+            fs_rom["fs_name"],
+            playmatch_fallback,
+        ),
+        resolve_provider_fetch(
+            MetadataSource.HASHEOUS,
+            fetch_hasheous_hash_match(),
+            fs_rom["fs_name"],
+            (
+                HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+                False,
+            ),
+        ),
     )
+    if MetadataSource.PLAYMATCH in metadata_sources:
+        record_provider_result(
+            MetadataSource.PLAYMATCH,
+            fs_rom["fs_name"],
+            rom=rom,
+            files=get_match_files(),
+        )
 
     async def fetch_igdb_rom(
         playmatch_rom: PlaymatchRomMatch, hasheous_rom: HasheousRom
@@ -972,6 +1013,11 @@ async def scan_rom(
                     rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
                 )
             except ScreenScraperRateLimitError:
+                from handler.scan_metadata_result import record_auxiliary_warning
+
+                record_auxiliary_warning(
+                    "ss", fs_rom["fs_name"], "metadata_rate_limited"
+                )
                 note_rate_limited_rom(rom_attrs["fs_name"])
                 return SSRom(ss_id=None)
 
@@ -1165,27 +1211,52 @@ async def scan_rom(
         (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
         (fetch_steam_updates(), {}),
     )
+    from handler.scan_metadata_result import (
+        observe_provider_fetch,
+        record_provider_result,
+    )
+
+    providers = (
+        MetadataSource.IGDB,
+        MetadataSource.MOBY,
+        MetadataSource.SS,
+        MetadataSource.RA,
+        MetadataSource.LAUNCHBOX,
+        MetadataSource.HASHEOUS,
+        MetadataSource.FLASHPOINT,
+        MetadataSource.HLTB,
+        MetadataSource.GAMELIST,
+        MetadataSource.LIBRETRO,
+        MetadataSource.STEAM,
+    )
     fetch_results = await asyncio.gather(
-        *(coro for coro, _ in provider_fetches), return_exceptions=True
+        *(
+            observe_provider_fetch(provider, coro, fs_rom["fs_name"])
+            for provider, (coro, _) in zip(providers, provider_fetches, strict=True)
+        ),
+        return_exceptions=True,
     )
 
     resolved: list[Any] = []
-    for (_, fallback), result in zip(provider_fetches, fetch_results, strict=True):
-        if isinstance(
-            result,
-            (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError),
-        ):
-            raise result
+    for provider, (_, fallback), result in zip(
+        providers, provider_fetches, fetch_results, strict=True
+    ):
         if isinstance(result, BaseException):
             if not isinstance(result, Exception):
                 raise result
-            provider = fallback.__class__.__name__
-            log.error(
-                f"Error fetching {hl(provider)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
-                extra=LOGGER_MODULE_NAME,
+            record_provider_result(
+                provider,
+                fs_rom["fs_name"],
+                error=result,
+                rom=rom,
+                files=get_match_files(),
             )
             resolved.append(fallback)
         else:
+            if provider in metadata_sources:
+                record_provider_result(
+                    provider, fs_rom["fs_name"], rom=rom, files=get_match_files()
+                )
             resolved.append(result)
 
     (
@@ -1272,7 +1343,7 @@ async def scan_rom(
 
     # For COMPLETE rescans, explicitly clear metadata IDs and metadata for unselected sources
     # This ensures that when a source is no longer selected, its data is removed from the ROM
-    if not newly_added and scan_type == ScanType.COMPLETE:
+    if not newly_added and scan_type == ScanType.COMPLETE and not metadata_only:
         for source, fields in metadata_handlers.items():
             if source not in metadata_sources:
                 rom_attrs[fields["id_field"]] = None
@@ -1462,9 +1533,18 @@ async def scan_rom(
 
     sgdb_hander_rom = (
         SGDBRom(sgdb_id=None)
-        if metadata_only
-        else await fetch_sgdb_details(playmatch_hash_match)
+        if metadata_only and MetadataSource.SGDB not in metadata_sources
+        else await resolve_provider_fetch(
+            MetadataSource.SGDB,
+            fetch_sgdb_details(playmatch_hash_match),
+            fs_rom["fs_name"],
+            SGDBRom(sgdb_id=None),
+        )
     )
+    if MetadataSource.SGDB in metadata_sources:
+        record_provider_result(
+            MetadataSource.SGDB, fs_rom["fs_name"], rom=rom, files=get_match_files()
+        )
     if sgdb_hander_rom.get("sgdb_id"):
         rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
 
@@ -1477,7 +1557,7 @@ async def scan_rom(
             and scan_type in (ScanType.UNMATCHED, ScanType.UPDATE)
             and rom.path_cover_s
         )
-        if sgdb_cover and not manual_cover_preserved:
+        if sgdb_cover and not manual_cover_preserved and not metadata_only:
             cover_sources = [
                 name
                 for name, fields in metadata_handlers.items()

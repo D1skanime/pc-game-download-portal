@@ -12,6 +12,7 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.provider_diagnostics import report_provider_fault
 
 LIBRETRO_THUMBNAIL_ROOT = "https://thumbnails.libretro.com"
 LIBRETRO_LISTING_CACHE_KEY = "romm:libretro:listing"
@@ -94,6 +95,7 @@ class LibretroThumbnailsService:
             res.raise_for_status()
             body = await res.text()
         except aiohttp.client_exceptions.ClientResponseError as exc:
+            report_provider_fault(exc)
             log.warning(
                 "Libretro listing request failed with status %s for URL: %s",
                 exc.status,
@@ -101,6 +103,7 @@ class LibretroThumbnailsService:
             )
             return []
         except aiohttp.client_exceptions.ClientError as exc:
+            report_provider_fault(exc)
             log.warning("Libretro listing request failed for URL %s: %s", url, exc)
             return []
 

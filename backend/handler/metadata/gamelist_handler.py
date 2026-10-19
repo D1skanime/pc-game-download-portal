@@ -15,6 +15,7 @@ from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, compute_name_sort_key
+from utils.provider_diagnostics import report_provider_fault
 
 from .base_handler import BaseRom, MetadataHandler
 
@@ -372,9 +373,11 @@ class GamelistHandler(MetadataHandler):
             xml_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub("", xml_content)
             root: Element | None = ET.fromstring(xml_content)
         except ET.ParseError as e:
+            report_provider_fault(e)
             log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
             root = None
         except Exception as e:
+            report_provider_fault(e)
             log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
             root = None
 
@@ -467,6 +470,7 @@ class GamelistHandler(MetadataHandler):
             # Cache the parsed data for this platform
             self._gamelist_cache[cache_key] = roms_data
         except Exception as e:
+            report_provider_fault(e)
             log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
 
         return roms_data

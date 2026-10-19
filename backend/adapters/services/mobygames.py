@@ -14,6 +14,7 @@ from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.provider_diagnostics import report_provider_fault
 from utils.rate_limiter import RateLimiter
 
 # MobyGames caps the free/non-commercial tier at 1 request per second.
@@ -63,6 +64,7 @@ class MobyGamesService:
             # Retry the request once if it times out
             log.debug("Request to URL=%s timed out. Retrying...", url)
         except aiohttp.ClientConnectionError as exc:
+            report_provider_fault(exc)
             log.critical("Connection error: can't connect to MobyGames", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -71,6 +73,7 @@ class MobyGamesService:
         except aiohttp.ClientResponseError as exc:
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
                 # Sometimes MobyGames returns 401 even with a valid API key
+                report_provider_fault(exc)
                 log.error(exc)
                 return {}
             elif exc.status == http.HTTPStatus.TOO_MANY_REQUESTS:
@@ -78,9 +81,11 @@ class MobyGamesService:
                 await asyncio.sleep(2)
             else:
                 # Log the error and return an empty dict if the request fails with a different code
+                report_provider_fault(exc)
                 log.error(exc)
                 return {}
         except json.JSONDecodeError as exc:
+            report_provider_fault(exc)
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
@@ -101,6 +106,7 @@ class MobyGamesService:
             res.raise_for_status()
             return await res.json()
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
+            report_provider_fault(exc)
             if (
                 isinstance(exc, aiohttp.ClientResponseError)
                 and exc.status == http.HTTPStatus.UNAUTHORIZED
@@ -110,6 +116,7 @@ class MobyGamesService:
             log.error(exc)
             return {}
         except json.JSONDecodeError as exc:
+            report_provider_fault(exc)
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 

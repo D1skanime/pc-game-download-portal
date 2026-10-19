@@ -13,6 +13,7 @@ from logger.logger import log
 from models.rom import Rom, RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
+from utils.provider_diagnostics import report_provider_fault
 from utils.rate_limiter import RateLimiter
 
 # Playmatch caps clients at 4 req/s per IP
@@ -129,6 +130,7 @@ class PlaymatchHandler(MetadataHandler):
             )
             res.raise_for_status()
         except Exception as e:
+            report_provider_fault(e)
             log.error("Error checking Playmatch API: %s", e)
             return False
 
@@ -174,6 +176,7 @@ class PlaymatchHandler(MetadataHandler):
                 httpx.ConnectError,
                 httpx.ReadTimeout,
             ) as exc:
+                report_provider_fault(exc)
                 if (
                     attempt == 0
                     and isinstance(exc, httpx.HTTPStatusError)
@@ -190,6 +193,7 @@ class PlaymatchHandler(MetadataHandler):
                     detail="Can't connect to Playmatch, check your internet connection",
                 ) from exc
             except json.JSONDecodeError as exc:
+                report_provider_fault(exc)
                 log.error("Error decoding JSON response from Playmatch: %s", exc)
                 return {}
 
@@ -241,6 +245,7 @@ class PlaymatchHandler(MetadataHandler):
             )
         except Exception as exc:
             # We silently fail if the service is unavailable as this should not block the rest of RomM.
+            report_provider_fault(exc)
             log.warning("Playmatch lookup failed, skipping: %s", exc)
             return fallback_rom
 

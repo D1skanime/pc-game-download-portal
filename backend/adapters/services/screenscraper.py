@@ -25,6 +25,7 @@ from config import (
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.provider_diagnostics import report_provider_fault
 from utils.rate_limiter import ConcurrencyLimiter, RateLimiter
 
 LOGIN_ERROR_CHECK: Final = "Erreur de login"
@@ -483,6 +484,7 @@ class ScreenScraperService:
             # Retry the request once if it times out
             pass
         except aiohttp.ClientConnectionError as exc:
+            report_provider_fault(exc)
             log.critical(
                 "Connection error: can't connect to ScreenScraper", exc_info=True
             )
@@ -517,14 +519,17 @@ class ScreenScraperService:
                     detail="ScreenScraper API is currently offline.",
                 ) from err
             elif err.status == http.HTTPStatus.UNAUTHORIZED:
+                report_provider_fault(HTTPException(status_code=503))
                 log.warning(
                     "ScreenScraper API is temporarily unavailable (server CPU >60%)"
                 )
                 return {}
             else:
+                report_provider_fault(err)
                 log.error(err)
                 return {}
         except json.JSONDecodeError as exc:
+            report_provider_fault(exc)
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
@@ -561,6 +566,7 @@ class ScreenScraperService:
                     # skipped instead of quietly saved without our metadata.
                     raise ScreenScraperRateLimitError() from err
                 elif err.status == http.HTTPStatus.UNAUTHORIZED:
+                    report_provider_fault(HTTPException(status_code=503))
                     log.warning(
                         "ScreenScraper API is temporarily unavailable (server CPU >60%)"
                     )
@@ -588,9 +594,11 @@ class ScreenScraperService:
                         detail="ScreenScraper API is currently offline.",
                     ) from err
 
+            report_provider_fault(err)
             log.error(err)
             return {}
         except json.JSONDecodeError as exc:
+            report_provider_fault(exc)
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 

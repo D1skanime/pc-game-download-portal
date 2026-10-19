@@ -12,9 +12,8 @@ from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
+from config import REDIS_URL, SCAN_WORKERS
 from config.config_manager import config_manager as cm
-from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
 from endpoints.sockets.activity import get_authenticated_user
@@ -50,10 +49,10 @@ from handler.filesystem import (
     get_fs_rom_handler,
     legacy_external_storage,
     open_storage_access,
-    storage_composition,
     use_fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.scan_media_inventory import ScanMediaInventory
 from handler.filesystem.scan_media_publication import (
     ScanMediaBatch,
     merge_scan_rom,
@@ -61,11 +60,9 @@ from handler.filesystem.scan_media_publication import (
 )
 from handler.filesystem.storage_access import (
     IndeterminateOwnedPublicationError,
-    OwnedReplace,
     ScanCapability,
-    open_owned_access,
 )
-from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
+from handler.filesystem.storage_policy import StorageOperation
 from handler.filesystem.storage_resolver import get_storage_root_health_snapshot
 from handler.metadata import (
     meta_gamelist_handler,
@@ -117,8 +114,6 @@ from models.rom import (
 from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
 from utils import emoji
 from utils.context import initialize_context
-from utils.gamelist_exporter import GamelistExporter
-from utils.pegasus_exporter import PegasusExporter
 from utils.platform_slugs import canonicalize_filesystem_slug
 
 STOP_SCAN_FLAG: Final = "scan:stop"
@@ -372,7 +367,16 @@ def _scan_job_func_names() -> frozenset[str]:
     rescan enqueues its own task and calls scan_platforms in process. Both have
     to be recognised or an in-flight scan goes unseen.
     """
-    return frozenset((_scan_platforms_func_name(), SCAN_LIBRARY_TASK_FUNC))
+    return frozenset(
+        (
+            _scan_platforms_func_name(),
+            SCAN_LIBRARY_TASK_FUNC,
+            "endpoints.sockets.scan.execute_mapping_scan",
+            "endpoints.sockets.scan.execute_mapping_scans",
+            "endpoints.sockets.scan.execute_mixed_scans",
+            "handler.scan_operation_worker.run_scan_operation",
+        )
+    )
 
 
 def _get_running_scan_job() -> Job | None:
@@ -406,11 +410,10 @@ def _get_queued_scan_jobs() -> list[Job]:
     # The scheduler registry also holds the standing cron entry for the
     # scheduled rescan, which is a schedule rather than a pending scan, so only
     # delayed scan_platforms jobs count as queued here.
-    scan_platforms_func_name = _scan_platforms_func_name()
     for job in tasks_scheduler.get_jobs():
         if (
             isinstance(job, Job)
-            and get_job_func_name(job) == scan_platforms_func_name
+            and get_job_func_name(job) in (func_names - {SCAN_LIBRARY_TASK_FUNC})
             and job.get_status() in (JobStatus.SCHEDULED, JobStatus.QUEUED)
         ):
             jobs[job.id] = job
@@ -441,6 +444,9 @@ class ScanStats:
                 if hasattr(self, key):
                     setattr(self, key, value)
 
+            from handler.scan_operation_worker import persist_scan_stats
+
+            persist_scan_stats(self.to_dict())
             update_job_meta({"scan_stats": self.to_dict()})
             await socket_manager.emit("scan:update_stats", self.to_dict())
 
@@ -451,6 +457,9 @@ class ScanStats:
                     current_value = getattr(self, key)
                     setattr(self, key, current_value + value)
 
+            from handler.scan_operation_worker import persist_scan_stats
+
+            persist_scan_stats(self.to_dict())
             update_job_meta({"scan_stats": self.to_dict()})
             await socket_manager.emit("scan:update_stats", self.to_dict())
 
@@ -471,7 +480,10 @@ class ScanStats:
 
 def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
-    return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    from handler.scan_operation_worker import AttemptSocketManager, active_scan_worker
+
+    manager = socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    return AttemptSocketManager(manager) if active_scan_worker() else manager
 
 
 async def _identify_firmware(
@@ -479,6 +491,9 @@ async def _identify_firmware(
     fs_fw: str,
 ) -> int:
     require_scan_write_context()
+    from handler.scan_operation_worker import check_worker_boundary
+
+    check_worker_boundary()
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return 0
@@ -628,6 +643,9 @@ async def _identify_rom(
     metadata_only: bool = False,
 ) -> None:
     require_scan_write_context()
+    from handler.scan_operation_worker import check_worker_boundary
+
+    check_worker_boundary()
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return
@@ -720,11 +738,14 @@ async def _identify_rom(
 
     # Build rom files object before scanning. A reassociated ROM always rebuilds
     # its files so the stale paths from the old filename are replaced.
-    should_update_files = reassociated or _should_get_rom_files(
-        scan_type=scan_type,
-        rom=rom,
-        newly_added=newly_added,
-        roms_ids=roms_ids,
+    should_update_files = not metadata_only and (
+        reassociated
+        or _should_get_rom_files(
+            scan_type=scan_type,
+            rom=rom,
+            newly_added=newly_added,
+            roms_ids=roms_ids,
+        )
     )
     if should_update_files and not files_built:
         # Get hash calculation setting from config
@@ -821,9 +842,10 @@ async def _identify_rom(
             persist_soundtrack_cover(saved, _added_rom)
 
     # Short circuit if the scan type is hashes
-    if scan_type == ScanType.HASHES:
-        return
-    if metadata_only:
+    if scan_type == ScanType.HASHES or metadata_only:
+        from handler.scan_operation_checkpoint import record_completed_game
+
+        record_completed_game(_added_rom)
         return
 
     try:
@@ -914,10 +936,18 @@ async def _identify_rom(
         from copy import deepcopy
 
         try:
-            with ScanMediaBatch(
-                _added_rom.id, platform.id, fs_resource_handler.storage
+            achievements = deepcopy(pending["ra_metadata"]["achievements"])
+            output_limit = sum(
+                bool(item.get("badge_url" + suffix) and item.get("badge_path" + suffix))
+                for item in achievements
+                for suffix in ("", "_lock")
+            )
+            with ScanMediaInventory(
+                _added_rom.id,
+                platform.id,
+                fs_resource_handler.storage,
+                output_limit=output_limit,
             ) as unit:
-                achievements = deepcopy(pending["ra_metadata"]["achievements"])
                 for achievement in achievements:
                     for suffix in ("", "_lock"):
                         url, path = achievement.get(
@@ -946,6 +976,9 @@ async def _identify_rom(
     await process_pc_automation_after_scan(
         platform, scanned_rom, _added_rom, newly_added
     )
+    from handler.scan_operation_checkpoint import record_completed_game
+
+    record_completed_game(_added_rom)
 
 
 async def _identify_platform(
@@ -1136,9 +1169,11 @@ async def _identify_platform(
 
         if scan_tasks:
             batched_results = await asyncio.gather(*scan_tasks, return_exceptions=True)
-            for result, (fs_rom, _) in zip(batched_results, roms_to_scan, strict=False):
-                if isinstance(result, Exception):
-                    log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
+            for result, (_fs_rom, _) in zip(
+                batched_results, roms_to_scan, strict=False
+            ):
+                if isinstance(result, BaseException):
+                    raise result
 
     missing_roms = (
         db_rom_handler.mark_missing_roms(
@@ -1191,6 +1226,9 @@ async def scan_platforms(
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
     require_scan_write_context()
+    from handler.scan_operation_worker import check_worker_boundary
+
+    check_worker_boundary()
     with cast(
         ScanCapability,
         open_storage_access(legacy_external_storage, StorageOperation.SCAN, ""),
@@ -1417,61 +1455,17 @@ async def scan_platforms(
         db_platforms = db_platform_handler.get_platforms()
         db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
-        if config.GAMELIST_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting gamelist.xml for all platforms...")
-            gamelist_exporter = GamelistExporter(local_export=True)
-            for platform_slug in platform_list:
-                platform = db_platforms_by_slug.get(platform_slug)
-                if platform:
-                    with cast(
-                        OwnedReplace,
-                        open_owned_access(
-                            storage_composition.owned[OwnedStorageKind.RESOURCES],
-                            StorageOperation.OVERWRITE,
-                            f"gamelist_{platform.id}.xml",
-                        ),
-                    ) as destination:
-                        export_success = (
-                            await gamelist_exporter.export_platform_to_file(
-                                platform.id, request=None, destination=destination
-                            )
-                        )
-                    if export_success:
-                        log.info(
-                            f"Auto-exported gamelist.xml for platform {platform.name} after scan"
-                        )
-                    else:
-                        log.warning(
-                            f"Failed to auto-export gamelist.xml for platform {platform.name} after scan"
-                        )
-            log.info("Gamelist.xml auto-export completed.")
+        if config.GAMELIST_AUTO_EXPORT_ON_SCAN or config.PEGASUS_AUTO_EXPORT_ON_SCAN:
+            from handler.filesystem.scan_output_publication import export_scan_platform
 
-        if config.PEGASUS_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting metadata.pegasus.txt for all platforms...")
-            pegasus_exporter = PegasusExporter(local_export=True)
             for platform_slug in platform_list:
                 platform = db_platforms_by_slug.get(platform_slug)
-                if platform:
-                    with cast(
-                        OwnedReplace,
-                        open_owned_access(
-                            storage_composition.owned[OwnedStorageKind.RESOURCES],
-                            StorageOperation.OVERWRITE,
-                            f"metadata_pegasus_{platform.id}.txt",
-                        ),
-                    ) as destination:
-                        export_success = await pegasus_exporter.export_platform_to_file(
-                            platform.id, request=None, destination=destination
-                        )
-                    if export_success:
-                        log.info(
-                            f"Auto-exported metadata.pegasus.txt for platform {platform.name} after scan"
-                        )
-                    else:
-                        log.warning(
-                            f"Failed to auto-export metadata.pegasus.txt for platform {platform.name} after scan"
-                        )
-            log.info("Pegasus metadata auto-export completed.")
+                if platform is not None:
+                    export_scan_platform(
+                        platform.id,
+                        gamelist=config.GAMELIST_AUTO_EXPORT_ON_SCAN,
+                        pegasus=config.PEGASUS_AUTO_EXPORT_ON_SCAN,
+                    )
 
         await socket_manager.emit("scan:done", scan_stats.to_dict())
     except ScanStoppedException:
@@ -1563,7 +1557,7 @@ def mapping_scan_commands(
                 continue
         except (MissingPlatformStorageMappingError, StorageResolutionError):
             continue
-        options = ()
+        options: tuple[tuple[str, str], ...] = ()
         scope_path = (filesystem_scope_paths or {}).get(platform.fs_slug)
         if scope_path:
             options = (("relative_path", scope_path),)
@@ -1722,114 +1716,33 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     if await reject_unauthorized_scan(sid):
         return
 
-    # Without this, every request enqueues another full scan behind the running
-    # one, and a client that lost the progress socket has no way to tell.
-    if not DEV_MODE and (_get_running_scan_job() or _get_queued_scan_jobs()):
-        log.info(f"{emoji.EMOJI_STOP_SIGN} Scan already in progress, ignoring request")
-        await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "A scan is already in progress",
-            to=sid,
-        )
-        return
+    from uuid import uuid4
 
-    log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
+    from endpoints.responses.scan_operations import ScanOperationRequest
+    from handler.database.scan_operations_handler import (
+        DBScanOperationsHandler,
+        OperationConflict,
+    )
+    from handler.scan_operation_commands import normalize_scan_request
+    from tasks.scan_operation_dispatch import dispatch_operation
 
-    platform_ids = options.get("platforms", [])
-    platform_fs_slugs = options.get("platform_fs_slugs", [])
-    if not isinstance(platform_fs_slugs, list):
-        platform_fs_slugs = []
-    raw_scope_paths = options.get("filesystem_scope_paths", {})
-    filesystem_scope_paths = (
-        {
-            key: value
-            for key, value in raw_scope_paths.items()
-            if isinstance(key, str) and isinstance(value, str)
-        }
-        if isinstance(raw_scope_paths, dict)
-        else {}
-    )
-    scan_type = ScanType[options.get("type", "quick").upper()]
-    roms_ids = options.get("roms_ids", [])
-    metadata_sources = options.get("apis", [])
-    launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
-    playmatch_enabled = bool(options.get("playmatch_enabled", True))
-    requested_metadata_locale = options.get("metadata_locale")
-    metadata_locale = (
-        requested_metadata_locale.strip()
-        if isinstance(requested_metadata_locale, str)
-        and requested_metadata_locale.strip()
-        else None
-    )
-    metadata_only = bool(options.get("metadata_only", False))
-    media_only = bool(options.get("media_only", False))
-    if metadata_only and media_only:
-        await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "metadata_only and media_only cannot be combined",
-            to=sid,
-        )
+    user = await get_authenticated_user(sid)
+    if user is None:
         return
     try:
-        commands = mapping_scan_commands(
-            platform_ids,
-            trigger=ScanTrigger.MANUAL,
-            scope=ScanScope.ROM if roms_ids else ScanScope.PLATFORM,
-            scan_type=scan_type,
-            platform_fs_slugs=platform_fs_slugs,
-            filesystem_scope_paths=filesystem_scope_paths,
+        body = ScanOperationRequest.model_validate(
+            options
+            | {"request_key": options.get("request_key") or "socket-" + str(uuid4())}
         )
-    except MissingPlatformStorageMappingError:
+        command = normalize_scan_request(body)
+        accepted = DBScanOperationsHandler().accept(user.id, body.request_key, command)
+        dispatch_operation(accepted.id)
+        return accepted.model_dump(mode="json")
+    except (ValueError, OperationConflict, StorageResolutionError):
         await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "No active storage mapping was found for the selected platform.",
-            to=sid,
+            "scan:done_ko", "scan_request_rejected", to=sid
         )
-        return
-
-    if not commands:
-        await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "No active storage mapping was found for the requested platform selection.",
-            to=sid,
-        )
-        return
-
-    if DEV_MODE:
-        return await execute_mixed_scans(
-            commands,
-            platform_ids=platform_ids,
-            platform_fs_slugs=platform_fs_slugs,
-            metadata_sources=metadata_sources,
-            scan_type=scan_type,
-            roms_ids=roms_ids,
-            launchbox_remote_enabled=launchbox_remote_enabled,
-            playmatch_enabled=playmatch_enabled,
-            metadata_locale=metadata_locale,
-            metadata_only=metadata_only,
-            media_only=media_only,
-        )
-
-    return high_prio_queue.enqueue(
-        execute_mixed_scans,
-        commands=commands,
-        platform_ids=platform_ids,
-        platform_fs_slugs=platform_fs_slugs,
-        metadata_sources=metadata_sources,
-        scan_type=scan_type,
-        roms_ids=roms_ids,
-        launchbox_remote_enabled=launchbox_remote_enabled,
-        playmatch_enabled=playmatch_enabled,
-        metadata_locale=metadata_locale,
-        metadata_only=metadata_only,
-        media_only=media_only,
-        job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
-        result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": f"{scan_type.value.capitalize()} Scan",
-            "task_type": TaskType.SCAN,
-        },
-    )
+        return {"error": "scan_request_rejected"}
 
 
 @socket_handler.socket_server.on("scan:stop")  # type: ignore
@@ -1839,26 +1752,41 @@ async def stop_scan_handler(sid: str):
     if await reject_unauthorized_scan(sid):
         return
 
-    log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")
+    from uuid import uuid4
 
-    # Queued scans have not started, so cancelling them is enough. They have to
-    # go too: stopping only the running scan would hand the worker the next one.
-    queued_jobs = _get_queued_scan_jobs()
-    for job in queued_jobs:
-        job.cancel()
+    from handler.database.scan_operations_handler import DBScanOperationsHandler
+    from models.user import Role
 
-    # A running scan cannot be interrupted from here, it polls the stop flag
-    # between platforms and ROMs and unwinds itself.
-    running_job = _get_running_scan_job()
-    if running_job is not None:
-        running_job.cancel()
-        redis_client.set(STOP_SCAN_FLAG, 1)
-
-    if running_job is None and not queued_jobs:
-        log.info(f"{emoji.EMOJI_STOP_BUTTON} No running scan to stop")
-        return
-
-    log.info(
-        f"{emoji.EMOJI_STOP_BUTTON} Stopping scan "
-        f"({int(running_job is not None)} running, {len(queued_jobs)} queued)"
+    user = await get_authenticated_user(sid)
+    repository = DBScanOperationsHandler()
+    active = (
+        repository.find_active(user.id, admin=user.role == Role.ADMIN)
+        if user is not None
+        else None
     )
+    if active is None:
+        durable_callable = "handler.scan_operation_worker.run_scan_operation"
+        queued = [
+            job
+            for job in _get_queued_scan_jobs()
+            if get_job_func_name(job) != durable_callable
+        ]
+        running = _get_running_scan_job()
+        if running is not None and get_job_func_name(running) == durable_callable:
+            running = None
+        for job in queued:
+            job.cancel()
+        if running is not None:
+            running.cancel()
+            redis_client.set(STOP_SCAN_FLAG, 1)
+        return None
+    if user is None:
+        return
+    stopped = repository.request_cancel(
+        active.id,
+        user.id,
+        active.version,
+        "socket-" + str(uuid4()),
+        admin=user.role == Role.ADMIN,
+    )
+    return stopped.model_dump(mode="json")

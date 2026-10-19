@@ -60,11 +60,17 @@ def submit(request: Request, body: ScanOperationRequest):
     digest = payload_digest(canonical_request(body))
     existing = _call(operations.replay, request.user.id, body.request_key, digest)
     if existing is not None:
-        return _project(existing)
-    command = _call(normalize_scan_request, body)
-    return _project(
-        _call(operations.accept, request.user.id, body.request_key, command, digest)
-    )
+        accepted = existing
+    else:
+        command = _call(normalize_scan_request, body)
+        accepted = _call(
+            operations.accept, request.user.id, body.request_key, command, digest
+        )
+    # Acceptance is committed before Redis, so a lost enqueue is recoverable.
+    from tasks.scan_operation_dispatch import dispatch_operation
+
+    dispatch_operation(accepted.id, repository=operations)
+    return _project(_call(operations.get_by_id, accepted.id, request.user.id))
 
 
 @protected_route(
@@ -120,13 +126,22 @@ def by_id(
     response_model=ScanOperationSnapshot,
 )
 def cancel(request: Request, operation_id: UUID, body: ScanOperationMutationRequest):
+    _call(
+        operations.request_cancel,
+        str(operation_id),
+        request.user.id,
+        body.expected_version,
+        body.request_key,
+        admin=_admin(request),
+    )
+    from handler.scan_operation_recovery import recover_operation
+
+    recover_operation(str(operation_id), repository=operations)
     return _project(
         _call(
-            operations.request_cancel,
+            operations.get_by_id,
             str(operation_id),
             request.user.id,
-            body.expected_version,
-            body.request_key,
             admin=_admin(request),
         )
     )

@@ -11,6 +11,7 @@ from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
+from utils.provider_diagnostics import report_provider_fault
 
 from .base_handler import BaseRom, MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
@@ -144,6 +145,7 @@ class HasheousHandler(MetadataHandler):
             response = await httpx_client.get(self.healthcheck_endpoint)
             response.raise_for_status()
         except Exception as e:
+            report_provider_fault(e)
             log.error("Error checking Hasheous API: %s", e)
             return False
 
@@ -193,6 +195,7 @@ class HasheousHandler(MetadataHandler):
             return res.json()
         except httpx.HTTPStatusError as exc:
             # Check if its a 404 error
+            report_provider_fault(exc)
             if exc.response.status_code == status.HTTP_404_NOT_FOUND:
                 log.debug("Game not found in Hasheous API")
                 return {}
@@ -204,6 +207,7 @@ class HasheousHandler(MetadataHandler):
             )
             pass
         except httpx.NetworkError as exc:
+            report_provider_fault(exc)
             log.critical("Connection error: can't connect to Hasheous")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -211,9 +215,11 @@ class HasheousHandler(MetadataHandler):
             ) from exc
         except json.decoder.JSONDecodeError as exc:
             # Log the error and return an empty dict if the response is not valid JSON
+            report_provider_fault(exc)
             log.error(exc)
             return {}
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as error:
+            report_provider_fault(error)
             pass
 
         return {}
@@ -304,6 +310,7 @@ class HasheousHandler(MetadataHandler):
                 data=data,
             )
         except Exception as exc:
+            report_provider_fault(exc)
             log.error("Hasheous hash lookup failed, skipping: %s", exc)
             return fallback_rom, False
 

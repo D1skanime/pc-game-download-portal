@@ -3,7 +3,6 @@ import fnmatch
 import json
 import os
 from collections.abc import Sequence
-from datetime import timedelta
 from pathlib import Path
 from typing import cast
 
@@ -14,12 +13,9 @@ from rq.job import Job, JobStatus
 
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    SCAN_TIMEOUT,
     SENTRY_DSN,
-    TASK_RESULT_TTL,
 )
 from config.config_manager import config_manager as cm
-from endpoints.sockets.scan import execute_mapping_scan
 from exceptions.storage_exceptions import MissingPlatformStorageMappingError
 from handler.database import db_platform_handler, db_storage_handler
 from handler.filesystem.storage_resolver import resolve_directory
@@ -42,7 +38,7 @@ from handler.redis_handler import low_prio_queue, redis_client
 from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
 from handler.scan_handler import MetadataSource, ScanType
 from logger.logger import log
-from tasks.tasks import TaskType, tasks_scheduler
+from tasks.tasks import tasks_scheduler
 from utils import get_version
 
 sentry_sdk.init(dsn=SENTRY_DSN, release=f"romm@{get_version()}")
@@ -152,39 +148,23 @@ def get_pending_scan_jobs(mapping_id: int | None = None) -> list[Job]:
 def _enqueue_watcher_command(
     command: MappedScanCommand, metadata_sources: list[str]
 ) -> None:
-    jobs = get_pending_scan_jobs(command.mapping_id)
-    queued = [
-        job
-        for job in jobs
-        if job.get_status() in {JobStatus.SCHEDULED, JobStatus.QUEUED}
-    ]
-    if queued:
+    from handler.database.scan_operations_handler import OperationConflict
+    from tasks.scan_operation_dispatch import accept_commands, system_actor
+
+    actor = system_actor()
+    if actor is None:
+        log.warning("Watcher scan requires an existing administrator")
         return
-    tasks_scheduler.enqueue_in(
-        timedelta(seconds=WATCHER_DEBOUNCE_SECONDS),
-        execute_mapping_scan,
-        command=command,
-        metadata_sources=metadata_sources,
-        timeout=SCAN_TIMEOUT,
-        job_result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": "Watcher Scan",
-            "task_type": TaskType.SCAN,
-            "mapping_id": command.mapping_id,
-            "expected_revision": command.expected_revision,
-            "trigger": ScanTrigger.WATCHER.value,
-            "authoritative": False,
-        },
-    )
+    try:
+        accept_commands(actor, [command], {"apis": metadata_sources, "type": "quick"})
+    except OperationConflict:
+        log.info("Watcher scan coalesced with an active library operation")
 
 
 def process_changes(changes: Sequence[Change]) -> None:
     if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
         return
     metadata_sources = _metadata_sources()
-    if not metadata_sources:
-        log.warning("No metadata sources enabled, skipping watcher scan")
-        return
     mappings = _active_mappings()
     affected: dict[int, object] = {}
     with tracer.start_as_current_span("process_changes"):

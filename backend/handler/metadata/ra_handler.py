@@ -198,11 +198,36 @@ class RAHandler(MetadataHandler):
             )
 
             json_file = json.dumps(hash_index, indent=4)
-            await fs_resource_handler.write_file(
-                json_file.encode("utf-8"),
-                platform_resources_path,
-                self.HASHES_FILE_NAME,
-            )
+            from handler.database.scan_write_fence import current_scan_write_context
+
+            if current_scan_write_context() is not None:
+                from handler.filesystem.scan_output_publication import (
+                    ScanOutputPreparationError,
+                    publish_scan_output,
+                )
+
+                try:
+                    publish_scan_output(
+                        fs_resource_handler.storage,
+                        f"{platform_resources_path}/{self.HASHES_FILE_NAME}",
+                        json_file.encode("utf-8"),
+                    )
+                except ScanOutputPreparationError:
+                    from handler.scan_metadata_result import record_auxiliary_warning
+
+                    record_auxiliary_warning(
+                        "ra", rom.fs_name, "cache_publication_failed"
+                    )
+                    log.warning(
+                        "RA cache publication failed before replacement; using fetched index"
+                    )
+            else:
+                await fs_resource_handler.write_file(
+                    json_file.encode("utf-8"),
+                    platform_resources_path,
+                    self.HASHES_FILE_NAME,
+                )
+
         else:
             # Read the hash index from the JSON file
             json_file_bytes = await fs_resource_handler.read_file(

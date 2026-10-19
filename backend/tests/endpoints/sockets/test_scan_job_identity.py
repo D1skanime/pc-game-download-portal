@@ -86,3 +86,12 @@ def test_existing_scan_family_controls(jobs, monkeypatch, family):
     assert found.id == job.id
     scan.low_prio_queue.enqueue_job(job)
     assert job.id in {item.id for item in scan._get_queued_scan_jobs()}
+
+
+def test_all_scan_entry_points_are_recognized_by_rq_identity():
+    names = scan._scan_job_func_names()
+    assert "handler.scan_operation_worker.run_scan_operation" in names
+    assert "endpoints.sockets.scan.execute_mapping_scan" in names
+    assert "endpoints.sockets.scan.execute_mapping_scans" in names
+    assert "endpoints.sockets.scan.execute_mixed_scans" in names
+    assert "tasks.scheduled.scan_library.scan_library_task.run" in names

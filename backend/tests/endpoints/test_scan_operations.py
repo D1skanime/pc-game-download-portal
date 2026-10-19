@@ -10,6 +10,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 
 from config import ROMM_AUTH_SECRET_KEY
 from endpoints.auth import router as auth_router
+from endpoints.responses.scan_operations import ScanOperationSnapshot
 from handler.auth import oauth_handler
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
@@ -106,7 +107,7 @@ def test_duplicate_and_lost_response_reconcile(client, headers, mapped):
     first = client.post(BASE, headers=headers, json=request_body(mapped))
     assert first.status_code == 202, first.text
     snapshot = first.json()
-    assert snapshot["state"] == "accepted" and snapshot["dispatch_pending"]
+    assert snapshot["state"] == "queued" and not snapshot["dispatch_pending"]
     assert (
         client.post(BASE, headers=headers, json=request_body(mapped)).json() == snapshot
     )
@@ -166,7 +167,8 @@ def test_admin_can_discover_and_cancel_foreign_operation(
     )
     assert response.status_code == 200
     assert (
-        response.json()["state"] == "stopping" and response.json()["intentional_cancel"]
+        response.json()["state"] == "cancelled"
+        and response.json()["intentional_cancel"]
     )
 
 
@@ -239,21 +241,18 @@ def test_missing_and_symlink_scope_do_not_reach_scanner(
 
 
 def test_owner_resume_replays_one_fenced_continuation(client, other_headers, mapped):
-    from handler.database.scan_operations_handler import DBScanOperationsHandler
-
     accepted = client.post(
         BASE, headers=other_headers, json=request_body(mapped)
     ).json()
     url = BASE + "/" + accepted["id"]
-    stopping = client.post(
+    stopped = client.post(
         url + "/cancel",
         headers=other_headers,
         json={"request_key": "stop-key", "expected_version": accepted["version"]},
     ).json()
-    stopped = DBScanOperationsHandler().confirm_stopped(
-        accepted["id"], stopping["version"], None
-    )
-    payload = {"request_key": "resume-key", "expected_version": stopped.version}
+    assert stopped["state"] == "cancelled"
+    assert stopped["intentional_cancel"] is True
+    payload = {"request_key": "resume-key", "expected_version": stopped["version"]}
     resumed = client.post(url + "/resume", headers=other_headers, json=payload)
     assert resumed.status_code == 200
     assert (
@@ -284,8 +283,7 @@ def test_metadata_retry_is_bounded_to_failed_items(
     accepted = client.post(
         BASE, headers=other_headers, json=request_body(mapped)
     ).json()
-    row = repo.claim_dispatch(accepted["id"], accepted["version"], "dispatcher")
-    row = repo.mark_enqueued(row.id, row.version, "dispatcher")
+    row = ScanOperationSnapshot.model_validate(accepted)
     row = repo.claim_attempt(row.id, row.version, "worker")
     row = repo.record_item(
         row.id,
@@ -329,25 +327,17 @@ def test_metadata_retry_is_bounded_to_failed_items(
 
 
 def test_existing_rq_projection_reports_real_job_status(client, headers, mapped):
-    from rq.job import Job, JobStatus
+    from rq.job import Job
 
-    from endpoints.sockets.scan import execute_mixed_scans
-    from handler.database.scan_operations_handler import DBScanOperationsHandler
     from handler.redis_handler import redis_client
     from tasks.tasks import TaskType
 
-    repo = DBScanOperationsHandler()
     accepted = client.post(BASE, headers=headers, json=request_body(mapped)).json()
-    row = repo.claim_dispatch(accepted["id"], accepted["version"], "dispatcher")
-    row = repo.mark_enqueued(row.id, row.version, "dispatcher")
-    job = Job.create(
-        execute_mixed_scans,
-        id=row.job_id,
-        connection=redis_client,
-        status=JobStatus.QUEUED,
-        meta={"task_type": TaskType.SCAN, "scan_stats": {"total_roms": 1}},
-    )
-    job.save()
+    row = ScanOperationSnapshot.model_validate(accepted)
+    job = Job.fetch(row.job_id, connection=redis_client)
+    assert job.func_name == "handler.scan_operation_worker.run_scan_operation"
+    job.meta.update({"task_type": TaskType.SCAN, "scan_stats": {"total_roms": 1}})
+    job.save_meta()
     response = client.get(BASE + "/" + row.id, headers=headers)
     assert response.status_code == 200
     assert response.json()["queue_condition"] == "available"
@@ -365,12 +355,8 @@ def test_enqueued_redis_outage_is_distinct_from_job_expiry(
     from rq.exceptions import NoSuchJobError
     from rq.job import Job
 
-    from handler.database.scan_operations_handler import DBScanOperationsHandler
-
-    repo = DBScanOperationsHandler()
     accepted = client.post(BASE, headers=headers, json=request_body(mapped)).json()
-    row = repo.claim_dispatch(accepted["id"], accepted["version"], "dispatcher")
-    row = repo.mark_enqueued(row.id, row.version, "dispatcher")
+    row = ScanOperationSnapshot.model_validate(accepted)
     url = BASE + "/" + row.id
     for error, expected in [
         (ConnectionError(), "unavailable"),

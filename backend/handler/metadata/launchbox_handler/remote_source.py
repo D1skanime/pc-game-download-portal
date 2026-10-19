@@ -2,6 +2,7 @@ import json
 
 from handler.redis_handler import async_cache
 from logger.logger import log
+from utils.provider_diagnostics import ProviderUnavailable, report_provider_fault
 
 from .platforms import get_platform
 from .types import (
@@ -32,6 +33,7 @@ class RemoteSource:
         if not assume_cache_present and not (
             await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)
         ):
+            report_provider_fault(ProviderUnavailable())
             log.error("Could not find the Launchbox Metadata.xml file in cache")
             return None
 

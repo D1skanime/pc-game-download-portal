@@ -15,6 +15,7 @@ from endpoints.responses.scan_operations import (
     ScanOperationItemResult,
 )
 from handler.database.base_handler import DBBaseHandler
+from handler.database.scan_operation_lifecycle import ScanOperationLifecycle
 from handler.filesystem.storage_resolver import normalize_relative_path
 from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
 from handler.scan_operation_projection import operation_snapshot
@@ -95,7 +96,7 @@ def _release(slot, row):
         slot.version += 1
 
 
-class DBScanOperationsHandler(DBBaseHandler):
+class DBScanOperationsHandler(ScanOperationLifecycle, DBBaseHandler):
     @begin_session
     def replay(self, actor, request_key, digest, *, session: Session = None):  # type: ignore
         _slot(session)
@@ -230,6 +231,8 @@ class DBScanOperationsHandler(DBBaseHandler):
             row,
             version,
             state="queued",
+            cause_code=None,
+            next_action=None,
             dispatch_due=None,
             dispatch_owner=None,
             dispatch_claim_until=None,
@@ -242,7 +245,13 @@ class DBScanOperationsHandler(DBBaseHandler):
         row = _row(session, identity)
         if (
             slot.active_operation_id != identity
-            or row.state != "queued"
+            or (
+                row.state != "queued"
+                and not (
+                    row.state in {"accepted", "recovering"}
+                    and _alive(row.dispatch_claim_until)
+                )
+            )
             or _alive(row.lease_expires_at)
         ):
             raise OperationConflict("attempt_not_claimable")
@@ -256,6 +265,21 @@ class DBScanOperationsHandler(DBBaseHandler):
             attempt_id=row.attempt_id or str(uuid4()),
             lease_owner=owner,
             lease_expires_at=utc_now() + timedelta(seconds=seconds),
+            dispatch_due=None,
+            dispatch_owner=None,
+            dispatch_claim_until=None,
+            cause_code=None,
+            next_action=None,
+            checkpoint={
+                key: value
+                for key, value in row.checkpoint.items()
+                if key
+                not in {
+                    "previous_rq_job_id",
+                    "previous_never_started",
+                    "stopped_job_id",
+                }
+            },
         )
         return operation_snapshot(session, row)
 
@@ -308,7 +332,7 @@ class DBScanOperationsHandler(DBBaseHandler):
         return operation_snapshot(session, row)
 
     @begin_session
-    def record_item(self, identity, version, attempt_id, item, *, checkpoint=None, source_evidence=None, session: Session = None):  # type: ignore
+    def record_item(self, identity, version, attempt_id, item, *, checkpoint=None, source_evidence=None, _advance_version=True, session: Session = None):  # type: ignore
         _slot(session)
         row = _row(session, identity)
         if row.state != "running" or not _alive(row.lease_expires_at):
@@ -338,7 +362,14 @@ class DBScanOperationsHandler(DBBaseHandler):
             or len(json.dumps(source_evidence or {})) > 8192
         ):
             raise ValueError("item_evidence_too_large")
-        _cas(session, row, version, attempt_id)
+        if _advance_version:
+            _cas(session, row, version, attempt_id)
+        else:
+            if row.version != version or row.attempt_id != attempt_id:
+                raise OperationConflict("stale_operation")
+            from handler.database.scan_operation_lifecycle import observe_execution
+
+            observe_execution(session, row, {})
         result = session.scalar(
             select(ScanOperationItem).where(
                 ScanOperationItem.operation_id == identity,
@@ -467,7 +498,11 @@ class DBScanOperationsHandler(DBBaseHandler):
             next_action="verify_source",
             mutation_keys=row.mutation_keys | {key: signature},
             checkpoint=row.checkpoint
-            | {"retry_item_ids": ",".join(str(i.id) for i in items)},
+            | {
+                "retry_item_ids": ",".join(str(i.id) for i in items),
+                "previous_rq_job_id": row.rq_job_id,
+                "previous_never_started": row.attempt_id is None,
+            },
         )
         slot.active_operation_id = identity
         slot.version += 1
