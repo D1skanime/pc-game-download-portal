@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from starlette.authentication import AuthCredentials
+from starlette.requests import Request
 
 from endpoints.responses.storage import StorageRootHealthSchema, StorageRootSchema
 from endpoints.storage import _legacy_platform_slug_for_filesystem_slug
+from handler.auth.constants import Scope
 
 
 def _root(root_id: int, container_path: str):
@@ -47,9 +49,17 @@ def _bootstrap_fixtures(monkeypatch, *, roots, mapping=None, include_windows=Tru
         PLATFORMS_BINDING={},
         PLATFORMS_VERSIONS={},
     )
-    calls = {"register": [], "create": [], "update": []}
+    calls: dict[str, list[tuple[object, ...]]] = {
+        "register": [],
+        "create": [],
+        "update": [],
+    }
 
     monkeypatch.setattr(endpoint, "assert_admin", lambda request: None)
+    monkeypatch.setattr(endpoint, "LIBRARY_BASE_PATH", "/romm/library")
+    monkeypatch.setattr(
+        endpoint.fs_platform_handler, "list_directories", lambda **kwargs: _async([])
+    )
     monkeypatch.setattr(endpoint.cm, "get_config", lambda: config)
     monkeypatch.setattr(
         endpoint.fs_platform_handler, "get_platforms", lambda: _async(["pc"])
@@ -121,7 +131,16 @@ def _bootstrap_fixtures(monkeypatch, *, roots, mapping=None, include_windows=Tru
         return mapping
 
     monkeypatch.setattr(endpoint.db_storage_handler, "update_mapping", update_mapping)
-    request = SimpleNamespace(user=SimpleNamespace(id=1, username="admin"))
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/storage/legacy/bootstrap",
+            "headers": [],
+            "auth": AuthCredentials([Scope.USERS_WRITE]),
+            "user": SimpleNamespace(id=1, username="admin", is_authenticated=True),
+        }
+    )
     return endpoint, request, calls
 
 
