@@ -1,43 +1,141 @@
 ---
 phase: 33-fresh-install-first-run-pc-storage-mapping-before-library-sc
-plan: 04
-status: FAILED
+plan: 06
+status: pending-human-verify
 ---
 
-# Phase 33 Browser UAT
+# Phase 33 mandatory final UAT
 
-UAT FAILED. The isolated Compose project rendered and started, but the browser matrix exited 1 before any scenario assertion because the one-shot Playwright runner could not launch Chromium: `libglib-2.0.so.0` was unavailable. No critical browser scenario is marked PASS or BLOCKED.
+The executable harness creates a fresh MariaDB database, mounts only
+UAT_ROOT/fixture/Games:/app/romm/library:ro, discovers direct pc and My Games
+folders, records request/response and screenshot evidence, compares fixture
+manifests, and removes only its generated Compose project and volumes.
 
-## Environment and isolation
+Run bash 33-uat.sh from the canonical Linux checkout. Inspect state.json and
+the evidence directory before approving the browser checkpoint.
 
-- Canonical Linux checkout: `/home/d1sk/pc-game-download-portal`
-- Disposable project: `pgdp-phase33-1792079629-23331`
-- UAT root retained for failure analysis: `/tmp/pgdp-phase33-browser.I1XQfQ`
-- Retained evidence: `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331`
-- Teardown status: `0`; post-down project, service, and volume listings are empty.
-- Source fixture immutability: `cmp-exit-status.txt` is `0`.
 
-## Browser blocker
+## 2026-10-19 resumed acceptance evidence
 
-Playwright exit status is `1`. Exact blocker and launch trace are retained in:
+The user accepted the complete live library scan. The later manually selected
+Belmont child scan exposed a separate path/collection case. Broader Phase 33
+acceptance stays open while plan 33-10 implements the explicit collection
+decision and safe retirement of the mistaken parent.
 
-- `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log`
-- `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt`
-- `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md`
-- `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip`
+Canonical disposable runs never touched pgdp-dev, its database, Redis, Media,
+or Games. All four attempted browser stacks were removed, and their source
+immutability/cleanup receipts are retained under evidence. No failed or
+skipped browser run is classified as PASS.
 
-The first runner also recorded the missing dependency in the same command log. Because the browser never launched, fresh-ordering, exact-games-pc, readonly-source, cleanup, themes, layouts, reload, and input modalities have no passing evidence.
+- Focused reachable-MariaDB baseline: 21 tests passed. Historical stale
+  test fixtures were corrected to use an authenticated Starlette Request,
+  the fixture library constant, and an explicit empty-directory fallback.
+- The real fresh browser discovered direct pc and My Games, then failed because
+  pc was unknown. That assertion remains unchanged. The shared existing PC to
+  Windows identity now fixes discovery: RED one failed/one passed, GREEN
+  18 focused setup/bootstrap tests passed.
+- Latest stable frontend before the new collection contract: typecheck,
+  129 files and 1,093 tests, and production build passed.
+- No final theme/layout/input/promotion matrix is claimed from the early
+  failed browser. Physical gamepad availability must be recorded separately.
 
-## Automated gate results
+Receipts and hashes: 33-ACCEPTANCE-RECEIPTS.json. The generated state.json
+currently describes the retained failed browser attempt, not final approval.
+The final harness requires actual request/response bodies, ready=true, Home
+and Scan after reload, fixture Games/pc and Games/My Games, real worker
+completion, and cleanup. It now includes explicit collection retirement and
+normal/scheduled discovery of host-added synthetic direct children.
 
-- PASS: naming, frontend typecheck/full suite, deployment render, frontend build.
-- FAIL: backend focused integration, 183 errors from unavailable `127.0.0.1:3306` test database.
-- FAIL: Trunk, executable unavailable (`127`).
+The primary synthetic bind remains
+UAT_ROOT/fixture/Games:/app/romm/library:ro. The guarded disposable runner also
+binds that identical source read-only at its isolated library path. No symlink
+or writable source alias is permitted. Browser execution uses an isolated
+snapshot-local Playwright config because the normal config excludes planning
+specs and requires seeded users.
 
-## Retained artifacts
+Run bash -n 33-uat.sh, then bash 33-uat.sh from the canonical phase directory.
+The actual playwright test command and all target identities are retained in
+state.json. The standalone Python adapter lives in backend/tools/phase33_uat.py
+under the repository's tool-location rule.
 
-The machine-readable state is `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/state.json`. Compose render and cleanup evidence are `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/compose-config.yml`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/compose-ps.txt`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/compose-cleanup.txt`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/teardown-status.txt`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/post-down-ps.txt`, `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/post-down-services.txt`, and `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/post-down-volumes.txt`. Before/after fixture manifests are `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/before.json` and `/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/after.json`.
+## Final disposable technical acceptance
 
-<!-- phase33-evidence-manifest:start -->
-{"state_file":"/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/state.json","automated_gates":[{"id":"auto-naming","status":"PASS","command":"bash scripts/verify-pgdp-naming.sh","exit_code":0,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/auto-naming.log"],"result":"PGDP naming inventory and retained-name allowlist gate passed."},{"id":"auto-frontend","status":"PASS","command":"docker compose run --rm --no-deps --entrypoint bash romm-dev -lc 'cd /app/frontend && npm run typecheck && npm run test'","exit_code":0,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/auto-frontend.log"],"result":"119 test files and 985 tests passed."},{"id":"auto-backend","status":"FAIL","command":"docker compose run --rm --no-deps --entrypoint bash romm-dev -lc 'cd /app/backend && uv run pytest tests --collect-only -q && uv run pytest tests/endpoints/storage/test_legacy_bootstrap_paths.py tests/endpoints/test_storage.py tests/endpoints/sockets/test_scan.py tests/integration/test_mapped_scan.py -q'","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/auto-backend.log"],"result":"4060 tests collected; focused run stopped with 183 database connection errors against 127.0.0.1:3306."},{"id":"auto-repository","status":"PASS","command":"docker compose --env-file examples/portainer.env.example -f examples/portainer-stack.yml config","exit_code":0,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/phase33-deployment-render.yml"],"result":"Deployment render is non-empty; scoped repository diff check had no output."},{"id":"auto-trunk","status":"FAIL","command":"trunk fmt --all --ci && trunk check","exit_code":127,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/auto-trunk.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/auto-trunk-check.log"],"result":"The canonical Linux host has no trunk executable."},{"id":"auto-frontend-build","status":"PASS","command":"docker compose run --rm --no-deps --entrypoint bash romm-dev -lc 'cd /app/frontend && npm run build'","exit_code":0,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/auto-frontend-build.log"],"result":"Frontend production build completed successfully."}],"scenarios":[{"id":"fresh-ordering","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"exact-games-pc","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"reload-persistence","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"readonly-source","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"theme-dark","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"theme-light","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"layout-desktop","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"layout-narrow","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"input-mouse","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"input-touch","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"input-keyboard","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"input-gamepad","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."},{"id":"cleanup","status":"FAIL","command":"docker compose -p pgdp-phase33-1792079629-23331 ... Playwright disposable first-run matrix","exit_code":1,"artifacts":["/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-command.log","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/playwright-exit-status.txt","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/error-context.md","/home/d1sk/pc-game-download-portal/.planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/evidence/pgdp-phase33-1792079629-23331/trace.zip"],"result":"No browser scenario passed: Playwright failed before Chromium could launch because libglib-2.0.so.0 was unavailable in the one-shot runner; teardown and source immutability were collected separately."}]}
-<!-- phase33-evidence-manifest:end -->
+The final run is evidence/pgdp34-f4dd7651eda049868d9483e52118cfcb.
+Its actual Playwright command, browser and frontend exit codes are zero.
+Both evidence validators passed. Its current-production-proof.json matches
+the final retained-state reconnect fix, and the unchanged frontend manifest
+matches the retained 64fa62f2 frontend receipt.
+
+All 22 named browser checks passed: discovery, inline_assignment, ready,
+reload, get_only, scan_completed, mapped_reads, explicit_child_scope,
+parent_retired, safe_owned_cleanup, known_child_preserved,
+normal_discovers_children, scheduled_discovers_children, theme_dark,
+theme_light, layout_320, layout_desktop, mouse, keyboard, touch,
+touch_target, and progress_counts.
+
+| Actual worker operation | Total games | Scanned games |
+| --- | --- | --- |
+| Fresh two-platform scan | 3 | 3 |
+| Explicit Belmont child | 1 | 1 |
+| Normal complete Windows scan | 4 | 4 |
+| Registered scheduled scan | 6 | 6 |
+
+The selected child detail response contains exactly game.part01.rar and
+game.part02.rar at pc/Castlevania/Belmonts.Curse. Its sibling was absent from
+the initial targeted result. The mistaken parent was retired and classified.
+The parent's note and rating/backlog audit were retained separately from the
+child. Two exclusively owned media files were removed; the shared-media
+control and Games source hashes were preserved. A normal complete scan and
+the actual registered scheduled consumer each discovered a host-added direct
+child without recreating the parent. The immutable manifests match before and
+after each application segment; only the two explicit host fixture additions
+are permitted between segments.
+
+The actual primary bind is
+UAT_ROOT/fixture/Games:/app/romm/library:ro. The guarded alias binds the identical
+source read-only. Retained Docker inspection proves both exact source paths,
+Mode ro and RW false. The generated stack, network, volumes and snapshot/root
+were removed. No live database, Redis, Media or Games was reset by this harness.
+
+Theme classes and both theme screenshots were captured; 320px and 1440px had
+no document overflow. Mouse selection, keyboard focus and touchscreen
+continuation ran. Both visible Next and Previous controls measured 48px high.
+The existing dark canvas styling remains visible in the light-theme screenshot;
+human visual acceptance is still required. Physical gamepad input is BLOCKED:
+navigator.getGamepads() returned zero connected devices in headless Chromium.
+That optional hardware limitation is not reported as a passed input test.
+
+Latest unchanged-frontend quality: typecheck, all 1,102 tests, build and
+maintainability passed. Focused historical setup/backend gates passed 21 and
+18 tests. The final retained-identity reconnect regression and existing
+lifecycle controls passed 9 tests on each of MariaDB and PostgreSQL. Eight
+adversarial harness tests passed, including target refusal, immutable fixture
+segments and rejection of writable or external Docker library mounts.
+
+Historical failures remain retained: stale authenticated fixtures, PC alias
+discovery, an unsafe symlink fixture, 40px navigation targets, actual worker
+session/lock/import bugs, and harness CSRF/gallery-read/compose-normalization
+mistakes. Failed runs were never converted to browser PASS. The earlier
+47a9b75c run passed all 22 browser checks but its initial validator rejected a
+lexically equivalent Compose source; authoritative Docker inspection and the
+corrected strict validator passed afterwards. The final f4dd run uses the
+direct source path and passed the complete command without that repair.
+
+The operator enabled Dev autoscan every 15 minutes after technical validation.
+The sanitized activation receipt is
+evidence/live-autoscan-15m/activation-receipt.json. Root verified the registered
+cron job, enabled flag, idle worker, frontend/API HTTP 200, unchanged DB/Redis
+identities and the existing 33 games/one user. This is separate from the
+disposable fixture's scheduled-consumer proof.
+
+Schema receipts and SHA-256 provenance are listed in
+33-ACCEPTANCE-RECEIPTS.json. Fresh final MariaDB, MySQL and PostgreSQL schema
+upgrade/downgrade/re-upgrade/parity runs passed with 39, 39 and 40 successful
+commands. Each full source manifest is identical to the final browser manifest
+3326a6533fc597e42198ddcff6b62a3276203540ba007dbe388fdfcfba9d0b9d.
+Cleanup and source immutability passed on every dialect. These refreshes
+supersede historical receipts that predated the final audit/cleanup columns.
+
+Plan 33-06 task 1 is technically verified. Task 2 remains the mandatory human
+browser checkpoint. The earlier live full scan approval does not approve the
+new collection-retirement behavior automatically. No following phase starts.

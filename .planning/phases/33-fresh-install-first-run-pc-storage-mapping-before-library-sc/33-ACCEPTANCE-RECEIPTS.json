@@ -1,0 +1,226 @@
+{
+  "version": 1,
+  "final_browser": "evidence/pgdp34-f4dd7651eda049868d9483e52118cfcb",
+  "human_browser_checkpoint": "PENDING",
+  "physical_gamepad": "BLOCKED: navigator.getGamepads() returned zero connected devices",
+  "historical_failure_index": {
+    "path": "evidence/historical-acceptance-receipts.json",
+    "sha256": "7c22bd31ddd0396c613c8f143a964250c5063a41366d853408bb5a7a7b52b0e4"
+  },
+  "runner_sources": {
+    "backend/tools/phase33_uat.py": "ca657bc52d879ae4a7fa2c33f780470385d582c3e922cd91e9807170f16a6005",
+    "backend/tools/phase33_worker_probe.py": "24109d9972e5a3378f3b17af4693cf79675b062a1c39005d3368fc1ecd4b786f",
+    "backend/tools/phase33_collection_fixture.py": "6b39708d3c2b0d3581303946926dea5a6bb778f15b3bf5a3774a45b01608c46e",
+    "backend/tools/tests/test_phase33_uat.py": "3f9d12535c038123e1586a7088953949e483d27e41e764b6b2dc828bd1677a7e"
+  },
+  "records": [
+    {
+      "directory": "evidence/pgdp34-f4dd7651eda049868d9483e52118cfcb",
+      "purpose": "Final exact product browser,22 checks,four actual worker scans",
+      "status": "PASS",
+      "sha256": {
+        "browser.json": "44d4297555daed20d334dbb22aa05f5b5508a048b4ce467606ff8d4994dd1413",
+        "state.json": "da085e6d616652e8fabfd5bd61e1daaaaf6be598879d1a753c8b31e454853bb2",
+        "cleanup.json": "2a20061fc1dfa13b7a7bd14bb8a3d528d512646924246d69eb63fe924883a1fb",
+        "code-before.json": "3d5020d2d545b62f70f085c0e33695649a6bf48bfb6e30f6987c87a468bbc043",
+        "current-production-proof.json": "7f64c00a0931e09b041e2f94998cf73026118ae761ae6c4ed8fb134d9a1045b0",
+        "rendered.json": "9b1eccc532a3de4199180c250be2a08ac0f349dfabf1550fa7b0be9a405d6334",
+        "fixture-segments.json": "60dab865e7fed23b2541fc22f2fbf8a0d4a1eabd5b80a307f88324ef86a9c4df",
+        "before.json": "8c3fe59ccd0a763ef50ce02c1ff7abf12948f1b14a4bdc7eeed88360a6830fc8",
+        "after.json": "0abc27db580c085614cb2e2b423aac72a02cd92f1425712308e049962624ecdf",
+        "commands.json": "a5b150f2a6800da8617d3388e559be19c51c04dd2529d5e92273a3f42af34a51",
+        "browser-results/phase33-fresh-direct-Games-aeedb-ness-inputs-and-mapped-scan-chromium/trace.zip": "bb063d624cb8ce6ca85e5e838b5de87d1f20d3f9e1f72d7ab541a58402d973b1",
+        "mapped-scan-completed.png": "3b6fe5c7c1aabf8650ee9ce9b2c17ea1946522f0f138835512605623e2eb520f",
+        "setup-1440.png": "9179d5cb4f8a158820240827137dd236b2ab4a24dd7d83d5bf25f81366869919",
+        "setup-320.png": "9a02d91fb6d15e4f8023de8a34d76db45139eb6ff9f701939ed6bb23b17de803",
+        "setup-dark.png": "5c2b5370fb4bcd2098d4a2323d9878b8c7b4296913a2e5943ec5b2c5c2ce2e5e",
+        "setup-keyboard.png": "2bda3c5617bc9d255872e8fd212356d72da3f2d0461e56ee3165569e07cef6b1",
+        "setup-light.png": "f70898aee0bd3ad9f40f0b29bb3a340e5fa12bf7ac584c0883a0a7e5b578537d"
+      }
+    },
+    {
+      "directory": "evidence/frontend-pgdp34-64fa62f2f2a7456b9052eb312559621f",
+      "purpose": "Exact unchanged frontend,typecheck,1102tests,build,maintainability",
+      "status": "PASS",
+      "sha256": {
+        "frontend-quality.json": "18b4fa6e6ca26ccd77daa68a479867f987685a1da7dae9d0c0c2b3f3370067ee",
+        "frontend.xml": "14f919f0b6fbd72db742d8bbc082de6b5c713fcfd5d5cdeaf8ad67ed28ea263c",
+        "code-before.json": "6f2758420cc4d0dd75c5dc3c93c4d0cb6730e1a81d8110a7981092e36310f387",
+        "commands.json": "36f1c9601c3483db5b8ff56b5d28f0656d86ee828e4aaf17651b5f58da8ce7b6",
+        "cleanup.json": "7aff1590df02221c1e8316ac53cae05a481ba40ff3b166d897de0f619a6d9f2d"
+      }
+    },
+    {
+      "directory": "evidence/backend-retained-c05-maria9-green",
+      "purpose": "Retained-identity reconnect MariaDB9",
+      "status": "PASS focused tests",
+      "sha256": {
+        "backend.xml": "066ff56824fe9bde91ecb57f8ec4e9614dae2d2a097e2b80e9c44d09a1e7f07c",
+        "code-before.json": "3d5020d2d545b62f70f085c0e33695649a6bf48bfb6e30f6987c87a468bbc043",
+        "cleanup.json": "f5ff5f73335774c1548dde09658c2ea9a0588c5fc6ede8dc7aaec415f904f35a"
+      }
+    },
+    {
+      "directory": "evidence/backend-retained-c05-pg9-green",
+      "purpose": "Retained-identity reconnect PostgreSQL9",
+      "status": "PASS focused tests",
+      "sha256": {
+        "backend.xml": "e925a61c1066b17a62311dac7a87d5e55bfa1b01e1f2382f09faab32dfb01d2c",
+        "code-before.json": "3d5020d2d545b62f70f085c0e33695649a6bf48bfb6e30f6987c87a468bbc043",
+        "cleanup.json": "1f5788abe20c72e2701af64d3b4e202f83a49a0594e354e4130423889dc4b30f"
+      }
+    },
+    {
+      "directory": "evidence/pgdp34-fb7a219c3a53486d868f7d1cb7ff7fd3",
+      "purpose": "Historical setup/backend fixture21",
+      "status": "PASS focused tests",
+      "sha256": {
+        "phase33-backend.xml": "e14166030779c416791b582ab272b181f5bfd7024700ec2cddaf230d1b542500",
+        "code-before.json": "1114d74a5e9b69172c1f3657ff77255d90d1ba8e6ac8dce7eaf718659a6b6c2f",
+        "cleanup.json": "e6eeeca668feecbcb09b98d83130507b4165d1169c093c80de27b0c6d957f55d"
+      }
+    },
+    {
+      "directory": "evidence/alias-pgdp34-0dcbd593295442cd91d835b8c4b37b6a",
+      "purpose": "PC identity alias18",
+      "status": "PASS focused tests",
+      "sha256": {
+        "backend.xml": "c610a5df78e52ae3e5dba0747379e7dde0524bdbbf895bbc6ba9e9e948029911",
+        "code-before.json": "4c731c4c4166a94face2c301805dcfa560c693c8f6d573612cfed5aac89a079c",
+        "cleanup.json": "89f6dec290f852a1c96ef4be511e827bc1169186f14c18598674ee5d7ef65ed0"
+      }
+    },
+    {
+      "directory": "evidence/harness-local",
+      "purpose": "Eight adversarial tests,Trunk,shellsyntax",
+      "status": "PASS",
+      "sha256": {
+        "commands.json": "25ad2c762cdd0a65760bdf9968e080018d6fc721c67347bb1963ef8aac641e77",
+        "1.log": "63514e6c87935196c83aaa107553df2ee0156a08857a707f7466ddcc21029934",
+        "2.log": "5cce616311c403ff973bcf1b37d52e00b84e22feb33d7eb1fbc4252395ee4269",
+        "3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "directory": "evidence/live-autoscan-15m",
+      "purpose": "Parent-verified authorized15-minute Dev scheduled task activation",
+      "status": "VERIFIED activation; human collection UAT pending",
+      "sha256": {
+        "activation-receipt.json": "1c4f0d1af0dfa8f73dbd338aea7a63d285434619f62c5de3346e8628457eb394"
+      }
+    },
+    {
+      "directory": "evidence/schema-final-mariadb",
+      "purpose": "Final0140 schema upgrade/downgrade/reupgrade/parity, exact final browser source",
+      "status": "PASS",
+      "sha256": {
+        "commands.json": "43cda5ac1017bd580325712d235697734b21e17c01dc0d7bc4007616d2ebbeef",
+        "cleanup.json": "7009d323bdecbe8db712540189311132e20d36065eb1825e74e555512a0edd15",
+        "code-before.json": "3d5020d2d545b62f70f085c0e33695649a6bf48bfb6e30f6987c87a468bbc043",
+        "14.log": "700bfacd41d48fdb20c7626a4a8305a11b5d3b2d24ed33611d9e02e798d5cb7b",
+        "15.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "16.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "17.log": "9134e72becc334f13f466f9633385a87ffa6db40047244674fb03a31acacdde4"
+      },
+      "command_count": 39,
+      "source_manifest_sha256": "3326a6533fc597e42198ddcff6b62a3276203540ba007dbe388fdfcfba9d0b9d"
+    },
+    {
+      "directory": "evidence/schema-final-mysql",
+      "purpose": "Final0140 schema upgrade/downgrade/reupgrade/parity, exact final browser source",
+      "status": "PASS",
+      "sha256": {
+        "commands.json": "7d760d01b5e93e68816b9afa0ea2550950cfb37c9956a4ead28b6683b53d5448",
+        "cleanup.json": "6d1a9acc83801c3dfb277bbba23835b812958ea14d7c12c472274d975701e4e2",
+        "code-before.json": "3d5020d2d545b62f70f085c0e33695649a6bf48bfb6e30f6987c87a468bbc043",
+        "14.log": "353b039e0928a28775007b318cd3cab5ae0d1b64f932f16a851a7603c6bda7a1",
+        "15.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "16.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "17.log": "207b81e6b1dbab74e06ba73a92142a11cef4fbb7022059f0e3647c7d67591a1b"
+      },
+      "command_count": 39,
+      "source_manifest_sha256": "3326a6533fc597e42198ddcff6b62a3276203540ba007dbe388fdfcfba9d0b9d"
+    },
+    {
+      "directory": "evidence/schema-final-postgresql",
+      "purpose": "Final0140 schema upgrade/downgrade/reupgrade/parity, exact final browser source",
+      "status": "PASS",
+      "sha256": {
+        "commands.json": "77088c4b02912836edfadc37df6c980192fd13e21022f86a297f03314cb3c6e6",
+        "cleanup.json": "e27d30d1d832ce6fd79e794a7244e113c5b93a2f9d115a829abc59dc03f0a78c",
+        "code-before.json": "3d5020d2d545b62f70f085c0e33695649a6bf48bfb6e30f6987c87a468bbc043",
+        "14.log": "237bf7083920d1b541d80cc487e245ed685d7b77eb4951104b0a6123097746ae",
+        "15.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "16.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "17.log": "4e93f09ff3d0fbc9508e483367d4587efade80e26c6501fdd17504016a1c309f"
+      },
+      "command_count": 40,
+      "source_manifest_sha256": "3326a6533fc597e42198ddcff6b62a3276203540ba007dbe388fdfcfba9d0b9d"
+    },
+    {
+      "directory": "evidence/schema-mariadb-4f78de578b0843a4be91039704ddcc71",
+      "purpose": "Historical schema4commands; pre-final audit columns",
+      "status": "PASS historical; final schema refresh tracked separately",
+      "sha256": {
+        "commands.json": "d16420725d6b927cdb9edceaf6de1524395ee32e2c14fe222d0bc84ded747921",
+        "cleanup.json": "f327f507ca8171ef52b401d55a5b038f4f06f3d31ee83ad38a0d35b0c35d2187",
+        "code-before.json": "5ba70bd0f2d843fcf03026ed250aa97e91f60b12889589d4ce6df0d178e01cba",
+        "14.log": "1c0561bc0aa74e3c73e515a8ae015141a398cfdf09d93a1bad838aeab1d186f8",
+        "15.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "16.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "17.log": "9134e72becc334f13f466f9633385a87ffa6db40047244674fb03a31acacdde4"
+      }
+    },
+    {
+      "directory": "evidence/schema-mysql-b1325ae3cb05453788760b87d88b24e4",
+      "purpose": "Historical schema4commands; pre-final audit columns",
+      "status": "PASS historical; final schema refresh tracked separately",
+      "sha256": {
+        "commands.json": "1cdf76b7f8b2c1a1cd9619202952a75cd2269fe3f49c0ce9bd2730bcbf98ef0f",
+        "cleanup.json": "c0f6da63574ad49d2788ac1ec55ec18450dafd23f82014f9fdda39ff6cb681ce",
+        "code-before.json": "32c619ef55957356465192d4c2f5c114a53a8c5765cdac81c443a1a615eb2738",
+        "14.log": "00cf76f112d88629fd934c6c19f37589543c54968a6d23b12b97e348b6455f93",
+        "15.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "16.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "17.log": "207b81e6b1dbab74e06ba73a92142a11cef4fbb7022059f0e3647c7d67591a1b"
+      }
+    },
+    {
+      "directory": "evidence/schema-postgresql-bdff8203413044a99b0f329fe0ebacda",
+      "purpose": "Historical schema4commands; pre-final audit columns",
+      "status": "PASS historical; final schema refresh tracked separately",
+      "sha256": {
+        "commands.json": "172884dee23d7766865df504c76534ee7a7fb7a744bab9fd1ac842a0fa3a81df",
+        "cleanup.json": "bb4914877f2cab16588579f357a51767bba746f182ceb754d756a5fc14e40c56",
+        "code-before.json": "cb363ffbda747200884e0bf75fafa712427fc2771db04d995a3b0ed5cc1a9418",
+        "14.log": "63ca083ad4fad416a35343bb97448546a2d08d6bb28339702c28f97c95cb5028",
+        "15.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "16.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "17.log": "4e93f09ff3d0fbc9508e483367d4587efade80e26c6501fdd17504016a1c309f"
+      }
+    }
+  ],
+  "final_schema_source_parity": {
+    "path": "evidence/schema-final-source-parity.json",
+    "sha256": "4ec77ba0e29c6d85f2bae822ddcbb320114fd482ba988045d2f3ba96884840b1"
+  },
+  "final_browser_check_count": 22,
+  "actual_total_scanned": {
+    "initial": [
+      3,
+      3
+    ],
+    "selected": [
+      1,
+      1
+    ],
+    "normal_complete": [
+      4,
+      4
+    ],
+    "scheduled": [
+      6,
+      6
+    ]
+  }
+}
