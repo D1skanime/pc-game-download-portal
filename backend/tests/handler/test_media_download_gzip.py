@@ -242,7 +242,6 @@ async def test_large_decoded_video_uses_bounded_writes(attempt, rom):
 
     # A spy on the real capability file observes writes without replacing authority.
     count, maximum, digest = 0, 0, hashlib.sha256()
-    original = PreparedScanMedia.file.fget
 
     class Writer:
         def __init__(self, file):
@@ -263,7 +262,9 @@ async def test_large_decoded_video_uses_bounded_writes(attempt, rom):
     payload = b"bounded-output" * (4 * 1024 * 1024)
     parts = [gzip.compress(payload)]
     with patch.object(
-        PreparedScanMedia, "file", property(lambda output: Writer(original(output)))
+        PreparedScanMedia,
+        "file",
+        property(lambda output: Writer(output.capability.file)),
     ):
         with bind_scan_write_context(context(attempt)):
             with ScanMediaBatch(

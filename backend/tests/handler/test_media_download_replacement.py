@@ -9,7 +9,6 @@ from tests.handler.media_download_helpers import (
     owned_resource_files as owned_resource_files,
 )
 from tests.handler.media_download_helpers import (
-    png_bytes,
     provider_response,
     resource_snapshot,
     seed_primary,
@@ -41,20 +40,20 @@ async def test_nonscan_replacement_preserves_old(rom, family, failure):
         mime="application/pdf" if family == "manual" else "image/png",
     ):
         if family == "cover":
-            result = await fs_resource_handler.get_cover(
+            covers = await fs_resource_handler.get_cover(
                 current, True, "https://fixture.invalid/cover"
             )
-            assert result == (paths["path_cover_s"], paths["path_cover_l"])
+            assert covers == (paths["path_cover_s"], paths["path_cover_l"])
         elif family == "manual":
-            result = await fs_resource_handler.get_manual(
+            manual = await fs_resource_handler.get_manual(
                 current, True, "https://fixture.invalid/manual"
             )
-            assert result == paths["path_manual"]
+            assert manual == paths["path_manual"]
         else:
-            result = await fs_resource_handler.get_rom_screenshots(
+            screenshots = await fs_resource_handler.get_rom_screenshots(
                 current, True, ["https://fixture.invalid/screenshot"]
             )
-            assert result == paths["path_screenshots"]
+            assert screenshots == paths["path_screenshots"]
     assert resource_snapshot(rom) == before
 
 

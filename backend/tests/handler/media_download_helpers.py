@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from io import BytesIO
+from typing import TypedDict
 
 import httpx
 import pytest
@@ -56,8 +57,15 @@ async def provider_response(
             ctx_httpx_client.reset(token)
 
 
+class PrimaryPaths(TypedDict):
+    path_cover_s: str
+    path_cover_l: str
+    path_manual: str
+    path_screenshots: list[str]
+
+
 async def seed_primary(rom):
-    paths = {
+    paths: PrimaryPaths = {
         "path_cover_s": f"{rom.fs_resources_path}/cover/small.png",
         "path_cover_l": f"{rom.fs_resources_path}/cover/big.png",
         "path_manual": f"{rom.fs_resources_path}/manual/{rom.id}.pdf",
