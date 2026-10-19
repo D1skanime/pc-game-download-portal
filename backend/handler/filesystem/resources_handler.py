@@ -4,6 +4,7 @@ import secrets
 import zipfile
 from io import BytesIO
 from pathlib import Path
+from typing import BinaryIO
 
 import httpx
 from fastapi import status
@@ -101,7 +102,7 @@ _CHROMA_KEY_TOLERANCE = 24
 _CHROMA_KEY_COVERAGE = 0.9
 
 
-def _is_chroma_key_placeholder(image_path: Path) -> bool:
+def _is_chroma_key_placeholder(image_path: Path | BinaryIO) -> bool:
     """True if the image is (almost) entirely a chroma-key green fill."""
     try:
         with Image.open(image_path) as img:

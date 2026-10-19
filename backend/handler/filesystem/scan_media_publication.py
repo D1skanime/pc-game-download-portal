@@ -16,6 +16,7 @@ from handler.database.scan_write_fence import (
     checked_scan_write,
     require_scan_write_context,
 )
+from handler.filesystem.resource_download import store_resource as store_resource
 from handler.filesystem.storage_access import (
     OwnedCreate,
     OwnedDirectory,
@@ -311,136 +312,6 @@ def require_scan_media_batch():
     if batch is None:
         raise ValueError("scan_media_batch_required")
     return batch
-
-
-async def store_resource(handler, url, path, allowed, *, cover_size=None, image=False):
-    """Stream provider or local bytes before the short publication transaction."""
-    import httpx
-    from anyio import open_file
-    from PIL import Image
-
-    from adapters.services.screenscraper import media_download_slot
-    from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP
-    from handler.database.scan_write_fence import current_scan_write_context
-    from handler.filesystem import resources_handler as resource_module
-    from handler.filesystem.resources_handler import (
-        LOCAL_FILE_SCHEMES,
-        _check_content_type,
-        _is_chroma_key_placeholder,
-        _resolve_local_file_uri,
-    )
-
-    async def chunks():
-        if url.startswith("file://") and current_scan_write_context() is not None:
-            from handler.filesystem import get_fs_rom_handler
-
-            with get_fs_rom_handler().open_rom_read(url[len("file://") :]) as access:
-                with access.binary_file() as source:
-                    while chunk := source.read(1024 * 1024):
-                        yield chunk
-            return
-        if url.startswith(LOCAL_FILE_SCHEMES):
-            resolved = _resolve_local_file_uri(url)
-            if resolved is None:
-                raise ValueError("scan_media_source_invalid")
-            async with await open_file(resolved, "rb") as source:
-                while chunk := await source.read(1024 * 1024):
-                    yield chunk
-        else:
-            async with media_download_slot(url) as timeout:
-                async with resource_module.ctx_httpx_client.get().stream(
-                    "GET", url, timeout=timeout
-                ) as response:
-                    if response.status_code != 200 or not _check_content_type(
-                        response, allowed, "resource"
-                    ):
-                        raise ValueError("scan_media_response_invalid")
-                    import zlib
-
-                    decoder = (
-                        zlib.decompressobj(16 + zlib.MAX_WBITS)
-                        if response.headers.get("content-encoding", "").lower()
-                        == "gzip"
-                        else None
-                    )
-                    async for chunk in response.aiter_raw():
-                        if decoder is None:
-                            yield chunk
-                        else:
-                            try:
-                                while chunk:
-                                    decoded = decoder.decompress(chunk, 1024 * 1024)
-                                    chunk = decoder.unconsumed_tail
-                                    if decoded:
-                                        yield decoded
-                            except zlib.error:
-                                decoder = None
-                                yield chunk
-
-    if current_scan_write_context() is not None:
-        unit = require_scan_media_batch()
-        if cover_size and ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-            path = str(PurePosixPath(path).with_suffix(".webp"))
-        output = unit.prepare(path)
-        try:
-            async for chunk in chunks():
-                output.file.write(chunk)
-                output.file.flush()
-            output.file.flush()
-            if image or cover_size:
-                output.file.seek(0)
-                if _is_chroma_key_placeholder(output.file):
-                    raise ValueError("scan_media_chroma_key")
-                output.file.seek(0)
-                with Image.open(output.file) as original:
-                    original.load()
-                    transformed = original.copy()
-                if cover_size == "small":
-                    ratio = 0.2 if transformed.height >= 1000 else 0.4
-                    transformed = transformed.resize(
-                        (
-                            max(1, int(transformed.width * ratio)),
-                            max(1, int(transformed.height * ratio)),
-                        )
-                    )
-                if cover_size:
-                    transformed = handler.image_converter._convert_image_mode(
-                        transformed
-                    )
-                    output.file.seek(0)
-                    output.file.truncate()
-                    transformed.save(
-                        output.file, "WEBP" if path.endswith(".webp") else "PNG"
-                    )
-            unit.finish(output)
-            return output.path
-        except BaseException:
-            output.capability.abort()
-            raise
-    directory, filename = path.rsplit("/", 1)
-    await handler.make_directory(directory)
-    try:
-        async with await handler.write_file_streamed(
-            directory, filename
-        ) as destination:
-            async for chunk in chunks():
-                await destination.write(chunk)
-        if image or cover_size:
-            if await handler._discard_if_chroma_key(path):
-                return None
-        if cover_size == "small":
-            with Image.open(handler.validate_path(path)) as original:
-                handler.resize_cover_to_small(
-                    original, str(handler.validate_path(path))
-                )
-        if cover_size and ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-            handler.image_converter.convert_to_webp(
-                handler.validate_path(path), force=True
-            )
-        return path
-    except (ValueError, OSError, httpx.TransportError):
-        await handler._discard_partial_file(path)
-        return None
 
 
 def preserve_scan_media_references(scanned, previous):
