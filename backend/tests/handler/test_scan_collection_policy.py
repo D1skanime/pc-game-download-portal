@@ -15,6 +15,7 @@ from models.storage import PlatformStorageMapping, StorageRoot
 @pytest.fixture
 def promotion_body(mapped, rom, tmp_path, monkeypatch):
     (tmp_path / "PC/Castlevania/Belmonts.Curse").mkdir(parents=True)
+    (tmp_path / "PC/Castlevania/Belmonts.Curse/game.rar").write_bytes(b"game")
     with sync_session.begin() as session:
         session.get(StorageRoot, mapped.storage_root_id).container_path = str(tmp_path)
         parent = session.get(Rom, rom.id)
