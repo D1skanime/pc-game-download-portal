@@ -855,7 +855,7 @@ Plans:
 **Goal:** A fresh PGDP installation recovers incomplete setup and reaches a completed first library scan. First and normal scans expose confirmed durable state, bounded actionable failures and safe restart/cancellation recovery while preserving source storage.
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16
 **Depends on:** Phase 33 implementation foundation; its open 33-06 browser acceptance is repeated after stabilization.
-**Plans:** 3/15 plans executed
+**Plans:** 4/15 plans executed
 
 Plans:
 
@@ -870,7 +870,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 34-15-PLAN.md - Attempt-owned media publication, exact recovery and shared transaction fence
+- [x] 34-15-PLAN.md - Attempt-owned media publication, exact recovery and shared transaction fence
 
 **Wave 4** *(34-03 blocked on 34-15; 34-07 needs completed 02/05)*
 
