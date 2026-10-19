@@ -1,9 +1,38 @@
 """Shared streaming resource preparation using existing storage capabilities."""
 
+import zlib
 from pathlib import PurePosixPath
 
 from handler.filesystem.storage_access import OwnedReplace, open_owned_access
 from handler.filesystem.storage_policy import StorageOperation
+
+
+async def _response_chunks(response):
+    """Decode each complete gzip member with bounded output and no raw fallback."""
+    encoding = response.headers.get("content-encoding", "").strip().lower()
+    if encoding not in {"", "identity", "gzip"}:
+        raise ValueError("resource_encoding_unsupported")
+    decoder = zlib.decompressobj(16 + zlib.MAX_WBITS) if encoding == "gzip" else None
+    limit = 1024 * 1024
+    async for chunk in response.aiter_raw():
+        if decoder is None:
+            for offset in range(0, len(chunk), limit):
+                yield chunk[offset : offset + limit]
+            continue
+        while True:
+            if decoder.eof:
+                decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+            try:
+                decoded = decoder.decompress(chunk, limit)
+            except zlib.error as error:
+                raise ValueError("resource_gzip_corrupt") from error
+            chunk = decoder.unused_data if decoder.eof else decoder.unconsumed_tail
+            if decoded:
+                yield decoded
+            if not chunk and (decoder.eof or len(decoded) < limit):
+                break
+    if decoder is not None and not decoder.eof:
+        raise ValueError("resource_gzip_incomplete")
 
 
 async def store_resource(handler, url, path, allowed, *, cover_size=None, image=False):
@@ -54,27 +83,8 @@ async def store_resource(handler, url, path, allowed, *, cover_size=None, image=
                         response, allowed, "resource"
                     ):
                         raise ValueError("scan_media_response_invalid")
-                    import zlib
-
-                    decoder = (
-                        zlib.decompressobj(16 + zlib.MAX_WBITS)
-                        if response.headers.get("content-encoding", "").lower()
-                        == "gzip"
-                        else None
-                    )
-                    async for chunk in response.aiter_raw():
-                        if decoder is None:
-                            yield chunk
-                        else:
-                            try:
-                                while chunk:
-                                    decoded = decoder.decompress(chunk, 1024 * 1024)
-                                    chunk = decoder.unconsumed_tail
-                                    if decoded:
-                                        yield decoded
-                            except zlib.error:
-                                decoder = None
-                                yield chunk
+                    async for chunk in _response_chunks(response):
+                        yield chunk
 
     if current_scan_write_context() is not None:
         unit = require_scan_media_batch()
