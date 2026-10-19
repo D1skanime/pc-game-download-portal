@@ -115,3 +115,95 @@ SQL rollback cannot undo stable replacement. Revoke-first preserves exact prior 
 Current verdict: pending-independent-recheck for this bounded revision. Historical PASS applies only to its recorded revision. Local structural/dependency checks are not independent recheck or runtime GREEN.
 
 Local static validation of this revision: all 15 plans pass installed GSD frontmatter and plan-structure checks, with 36 automated tasks in nine waves. Dependency/ownership analysis finds no cycles, same-wave overlaps or unordered shared files; 08 has all 14 predecessors transitively. Budgets are 15: three tasks/17 files, 03: three tasks/12 files, 08: three tasks/10 files. Byte comparisons confirm unchanged 15 Tasks 1/2, completed 01/02/05 artifacts and the full historical 4235bd2bf checkpoint prefix. All five recorded RED/GREEN commit identities resolve. No runtime tests ran; independent recheck remains pending.
+
+## Independent bounded execution-checkpoint recheck (2026-10-19)
+
+VERIFICATION PASSED. Independently reviewed checkpoint clarification commit
+804a8729d against the previously passed ef50d0cd3 baseline and checkpoint
+4235bd2bf. Zero blockers and zero warnings. This verdict supersedes the pending
+independent recheck for this clarification only; historical entries and their
+scope remain preserved. This is a static planning verdict, not runtime GREEN.
+
+Preflight reconfirmed Linux on team4s-linux, canonical Git root
+/home/d1sk/pc-game-download-portal, branch codex/phase-32-pgdp-naming,
+origin https://github.com/D1skanime/pc-game-download-portal.git and HEAD
+804a8729d. Read AGENTS.md, CLAUDE.md and the repository verification guide.
+
+Read full plans 15/03/08, the historical 15 checkpoint and approval supplement,
+and research/pattern/validation/review artifacts. Checked the changed contracts
+against locked context, the roadmap goal/requirements and relevant PROJECT.md
+source-safety constraints. Other plans received metadata and preservation checks
+only. No full replan, new research survey or pending implementation review.
+
+| Plan | Tasks | Files | Wave | Targeted result |
+| --- | --- | --- | --- | --- |
+| 34-15 | 3 | 17 | 3 | Bounded fixture and compatibility clarification passes |
+| 34-03 | 3 | 12 | 4 | Stable-output ownership and failure contract pass |
+| 34-08 | 3 | 10 | 9 | Cross-process, HTTP and evidence gates retained |
+
+- Fixture preparation explicitly precedes read-only mounting and source-before
+  fingerprints. Valid deterministic image/manual/embedded-PNG FLAC inputs use
+  the existing prepare path without host imaging/tagging dependencies. The exact
+  eight original game inputs and added inventory remain fingerprinted. The
+  existing runner-test adjustment preserves symlink/mutation negatives and all
+  23 host tests. All three previously excluded real-source cases must execute.
+- The seventeen-file scope has a concrete two-file, test-only justification.
+  Completed Tasks 1/2 stay fixed; remaining Task 3 has eight declared files and
+  existing compatibility tests. The twelve-file 03 scope adds one coherent
+  <=500-line helper, RA integration and a narrow existing-capability seam.
+  No file-count-only blocker or new plan/task is warranted.
+- 03 Task 3 names RA JSON, Gamelist and Pegasus, explicit implementation
+  ownership, capability/fence/exporter read-first inputs and runnable focused
+  verification. Existing serializers preserve bytes/configuration and manual
+  consumers; their broad file-export catches cannot swallow fence rejection.
+  Ordinary auxiliary-cache I/O warnings are distinguished from authority,
+  programming and uncertain-publication failures.
+- Stable replacement has a feasible non-atomic contract. Prepare, serialize,
+  stream, validate, hash and pre-fsync outside SQL locks. Final descriptor-relative
+  replacement alone uses the existing checked attempt authority. Revoke-first
+  preserves prior bytes; publish-first retains legitimate complete bytes across
+  later SQL failure. Neither rollback nor old cleanup may delete a stable target
+  or restore old bytes over a newer attempt. Post-replace fsync/acknowledgement
+  uncertainty is explicit, with fresh-authority/content reconciliation before
+  retry and no promise of persistence without acknowledged durability.
+- Stop acknowledgement follows authority-lock serialization. Both lock orders
+  have bounded barriers, no cancellation-acknowledgement wait under its lock,
+  stale/new attempt interleaving and post-replace crash/failure cases. 08 owns
+  separate-process proof, real existing-private-file HTTP denial, committed
+  output controls, production repeat and rejection of missing family/order or
+  uncertain-outcome evidence. These remain future execution gates.
+- Installed legacy GSD structural validation passes the three scoped plans:
+  nine tasks have files/action/verify/done and automated commands. 15 Task 3 now
+  runs host discovery and the full listed compatibility/media suites without
+  exclusions; 03 uses test_scan_operation_worker.py; 08 retains integration,
+  production, schema/quality and evidence-completeness commands. Nyquist
+  planning sampling passes 3/3 in each scoped plan, with no missing automation
+  or watch mode. Existing integration gates retain bounded scenario deadlines;
+  their commands were inspected, not executed. Runtime Nyquist flags unchanged.
+- Static dependency/ownership analysis confirms 15 plans, 36 tasks, nine waves,
+  no cycles or unordered shared files, 02 -> 15 -> 03 and all fourteen
+  predecessors before 08. Shared storage_access is ordered 15 then 03.
+  No second authority, lifecycle, resolver or reverse integration is introduced.
+- No original requirement or locked D-01 through D-16 is removed. Existing
+  implementing actions and decision mapping remain, including setup/status,
+  metadata warnings/retries, retained results, source immutability and reuse.
+  Deferred recognition/download redesign remains excluded. Pattern ownership
+  and proposed verification match the supplemental research/validation.
+  Dimension 7c: SKIPPED (no responsibility map found). Research has no unresolved
+  Open Questions section.
+- Byte comparisons confirm completed 01/02/05 plans/summaries, 15 Tasks 1/2
+  and the entire historical 4235bd2bf checkpoint prefix are unchanged.
+  Progress remains 3/15; 15 Task 3 is incomplete, its eight pending files are
+  preserved and Phase 33 acceptance stays open. Prior recorded test counts are
+  historical evidence only, not rerun or newly certified by this review.
+
+Structured issues:
+
+~~~yaml
+issues: []
+~~~
+
+Only this independent result is appended. No implementation, application tests,
+runtime/DB access, reset, deployment, nested agent, STATE or requirement
+completion changes are part of this review. Commit only this review file with
+normal hooks; leave unrelated pending work unstaged.
