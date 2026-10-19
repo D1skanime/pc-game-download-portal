@@ -855,7 +855,7 @@ Plans:
 **Goal:** A fresh PGDP installation recovers incomplete setup and reaches a completed first library scan. First and normal scans expose confirmed durable state, bounded actionable failures and safe restart/cancellation recovery while preserving source storage.
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16
 **Depends on:** Phase 33 implementation foundation; its open 33-06 browser acceptance is repeated after stabilization.
-**Plans:** 5/15 plans executed
+**Plans:** 5/16 plans executed; media corrective acceptance remains open
 
 Plans:
 
@@ -872,10 +872,16 @@ Plans:
 
 - [x] 34-15-PLAN.md - Attempt-owned media publication, exact recovery and shared transaction fence
 
-**Wave 4** *(34-03 blocked on 34-15; 34-07 needs completed 02/05)*
+**Wave 4** *(34-16 is the next isolated feasibility experiment; 34-07 needs completed 02/05)*
+
+- [ ] 34-16-PLAN.md - Bounded test-only content-proof feasibility and mandatory decision checkpoint
+- [x] 34-07-PLAN.md - Generated contracts and typed scan operation adapter
+
+**Worker corrective prerequisite** *(after 34-16 decision and accepted media correction)*
 
 - [ ] 34-03-PLAN.md - Recoverable dispatch, job recognition and worker fencing
-- [x] 34-07-PLAN.md - Generated contracts and typed scan operation adapter
+
+The 34-16 experiment does not close CR05 or release 03 by SUMMARY existence. Production integration needs a subsequent explicit planning decision, unchanged regression evidence and independent review. CR10, CR09 and WR02 remain open. Historical 34-15 completion does not constitute media quality acceptance.
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
