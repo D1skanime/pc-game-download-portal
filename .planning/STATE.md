@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: milestone
 status: executing
 stopped_at: Phase 33 resumed; full live scan accepted, targeted Belmont child-folder UAT failed HTTP 409
-last_updated: "2026-10-19T21:56:44.610973+00:00"
+last_updated: "2026-10-19T22:08:25.387209+00:00"
 last_activity: 2026-10-18 -- Phase 34 execution started
 progress:
   total_phases: 34
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: 8 of 9 accepted; plan 33-06 acceptance resumed
+Plan: 8 of 10 accepted; plan 33-06 acceptance resumed and corrective 33-10 added
 Status: Full live scan accepted; targeted Belmont child-folder scan failed HTTP 409 and is being corrected
 Last activity: 2026-10-19 -- User accepted 33-game scan and requested Phase 33 continuation
 
@@ -38,7 +38,7 @@ Final technical validation passed: 1,086 frontend tests, API generation/typechec
 
 pgdp-dev is running on 127.0.0.1:3100 with current canonical backend/frontend bind mounts. Frontend/API HTTP 200 and one current idle RQ worker were verified. The user-opened in-app browser shows the authenticated admin Scan page ready for a quick scan. No new live scan was started by the agent. One existing user and eight mapped platforms were preserved; no further DB/media reset occurred. Games remains read-only. Existing DB/Redis containers are unchanged.
 
-Current: the user accepted the full live scan (8/8 platforms, 33/33 games). Phase 33 is resumed by explicit request. Targeted child-folder scan of Belmonts Curse returned HTTP 409 without accepting a new operation. Correct and verify this case before Phase 33 closure. Independent deep code review remains pending. Do not start another phase automatically. Production Portainer acceptance remains open without explicit approved connection configuration. The frozen plan 34-16 evidence remains INCONCLUSIVE.
+Current: the user accepted the full live scan (8/8 platforms, 33/33 games). Phase 33 is resumed by explicit request. Targeted child-folder scan of Belmonts Curse returned HTTP 409 without accepting a new operation. Correct and verify this case before Phase 33 closure. Latest explicit user requirement: after successful manual deep-child indexing, retire the erroneous parent game and its PGDP-owned media, preserve user data through the existing catalog lifecycle, and persist the parent as a collection folder so normal scans cannot recreate it. Do not automatically classify unrelated folders. Subsequent normal and scheduled autoscans must discover newly added direct child games inside explicitly classified collection folders. Manual and scheduled paths must share the same implementation; no code duplication and existing module line limits remain mandatory. Planning and implementation of this corrective extension are in progress. Root causes reproduced in disposable tests: the dialog submitted a root-relative path where a mapping-relative path is required; the scoped scanner enumerated archive parts inside the selected child instead of indexing the selected child as one game. Corrections and regression checks are in progress. Existing parent catalog records and all source files are preserved. Independent deep code review remains pending. Do not start another phase automatically. Production Portainer acceptance remains open without explicit approved connection configuration. The frozen plan 34-16 evidence remains INCONCLUSIVE.
 
 ## Performance Metrics
 

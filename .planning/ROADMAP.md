@@ -836,7 +836,7 @@ Plans:
 **Goal:** On a fresh installation, setup discovers direct folders under the mounted `Games` directory, auto-associates known names, lets the administrator assign unknown folders to PGDP platforms inline, persists safe internal mappings, and continues to normal administration only after the server confirms those mappings are ready for later scan/read flows.
 **Requirements**: PGDP-33-01
 **Depends on:** Phase 32
-**Plans:** 8/9 plans executed
+**Plans:** 8/10 plans executed; live-UAT collection correction added
 
 Plans:
 
@@ -849,6 +849,7 @@ Plans:
 - [x] 33-08-PLAN.md - Gate Home and Scan on all-mapping readiness
 - [ ] 33-06-PLAN.md - Run fresh Linux stack and in-app browser UAT
 - [x] 33-09-PLAN.md - Complete dependent locale batch for inline assignment
+- [ ] 33-10-PLAN.md - Persist explicit collection folders, retire mistaken parent games safely and discover future children through normal and scheduled scans
 
 ### Phase 34: Reliable fresh installation and scan lifecycle
 
