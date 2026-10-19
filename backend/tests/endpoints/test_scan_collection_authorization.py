@@ -1,9 +1,11 @@
 """Collection promotion requires the existing catalog deletion permission."""
 
-from tests.endpoints.test_scan_operations import (  # noqa: F401
+from tests.endpoints.test_scan_operations import (
     BASE,
-    mapped,
-    other_headers,
+)
+from tests.endpoints.test_scan_operations import mapped as mapped_fixture  # noqa: F401
+from tests.endpoints.test_scan_operations import other_headers as other_headers_fixture
+from tests.endpoints.test_scan_operations import (
     request_body,
 )
 from tests.handler.test_scan_collection_policy import (
@@ -11,6 +13,8 @@ from tests.handler.test_scan_collection_policy import (
 )
 
 promotion_body = promotion_body_fixture
+mapped = mapped_fixture
+other_headers = other_headers_fixture
 
 
 def test_task_runner_without_catalog_delete_cannot_promote(

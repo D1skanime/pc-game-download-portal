@@ -13,6 +13,7 @@ from endpoints.responses.scan_operations import (
 )
 from exceptions.storage_exceptions import StorageResolutionError
 from handler.auth.constants import Scope
+from handler.auth.dependencies import assert_can, get_permissions
 from handler.database.scan_operations_handler import (
     DBScanOperationsHandler,
     OperationConflict,
@@ -21,6 +22,7 @@ from handler.database.scan_operations_handler import (
 )
 from handler.scan_operation_commands import canonical_request, normalize_scan_request
 from handler.scan_operation_projection import with_queue_projection
+from models.permission import PermAction, PermEntity
 from models.user import Role
 from utils.router import APIRouter
 
@@ -57,6 +59,8 @@ def _project(snapshot):
     status_code=202,
 )
 def submit(request: Request, body: ScanOperationRequest):
+    if body.collection_promotion is not None:
+        assert_can(get_permissions(request), PermEntity.ROMS, PermAction.DELETE)
     digest = payload_digest(canonical_request(body))
     existing = _call(operations.replay, request.user.id, body.request_key, digest)
     if existing is not None:
