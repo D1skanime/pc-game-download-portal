@@ -282,3 +282,76 @@ def test_publication_protocol_exact_cleanup_claims(
         recovery().reconcile_cleanup_intent(fs_resource_handler.storage, intent.id)
         is False
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("entry", ["scan_rom", "execute_mapped_scan"])
+async def test_scan_media_families_require_context(entry, rom, platform):
+    from handler import scan_handler
+    from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
+
+    with pytest.raises(ScanWriteRejected, match="context"):
+        if entry == "scan_rom":
+            await scan_handler.scan_rom(
+                scan_handler.ScanType.COMPLETE, platform, rom, {}, [], False
+            )
+        else:
+            await scan_handler.execute_mapped_scan(
+                MappedScanCommand(
+                    1, 1, ScanTrigger.MANUAL, ScanScope.PLATFORM, "quick"
+                ),
+                lambda *args: None,
+            )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["igdb", "steam"])
+async def test_scan_media_families_parent_association(attempt, rom, provider):
+    from io import BytesIO
+
+    import httpx
+    from PIL import Image
+
+    from handler.metadata.rom_media import refresh_provider_owned_media
+    from handler.metadata.steam_owned_media import reconcile_steam_patch_media
+    from models.rom import RomOwnedMedia
+    from utils.context import ctx_httpx_client
+
+    image = BytesIO()
+    Image.new("RGB", (16, 16), (80, 70, 60)).save(image, "PNG")
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200, content=image.getvalue(), headers={"content-type": "image/png"}
+        )
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        token = ctx_httpx_client.set(client)
+        try:
+            with bind_scan_write_context(context(attempt)):
+                rom = db_rom_handler.update_rom(
+                    rom.id, {"url_cover": "https://fixture.invalid/cover.png"}
+                )
+                if provider == "igdb":
+                    _, failures = await refresh_provider_owned_media(
+                        rom, rom.updated_at, provider
+                    )
+                    assert failures == []
+                else:
+                    assert await reconcile_steam_patch_media(
+                        rom,
+                        {
+                            "media": {
+                                "cover": ["https://fixture.invalid/cover.png"],
+                                "screenshots": [],
+                            }
+                        },
+                    )
+        finally:
+            ctx_httpx_client.reset(token)
+    with sync_session.begin() as session:
+        media = session.scalar(
+            select(RomOwnedMedia).where(RomOwnedMedia.rom_id == rom.id)
+        )
+        assert media is not None
+        assert ".scan-" in media.owned_path
+        assert read(media.owned_path) == image.getvalue()
