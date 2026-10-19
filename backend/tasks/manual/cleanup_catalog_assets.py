@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from exceptions.storage_exceptions import StorageResolutionError
 from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
 from handler.filesystem import fs_asset_handler, fs_resource_handler
+from handler.filesystem.catalog_collection_cleanup import (
+    process_collection_cleanup_intent,
+)
 from models.catalog_lifecycle import OwnedCleanupKind
 from tasks.tasks import Task, TaskType
 
@@ -45,6 +49,10 @@ class CleanupCatalogAssetsTask(Task):
         failed = 0
         for intent in self.lifecycle.claim_cleanup_intents(limit=limit):
             try:
+                exact = process_collection_cleanup_intent(intent.id, intent.version)
+                if exact is not None:
+                    completed += int(exact is True)
+                    continue
                 await self._cleanup_intent(
                     kind=intent.kind,
                     relative_path=intent.relative_path,
@@ -55,7 +63,7 @@ class CleanupCatalogAssetsTask(Task):
                     intent.id, expected_version=intent.version
                 )
                 completed += 1
-            except (OSError, ValueError):
+            except (OSError, ValueError, StorageResolutionError):
                 self.lifecycle.fail_cleanup_intent(
                     intent.id, expected_version=intent.version
                 )

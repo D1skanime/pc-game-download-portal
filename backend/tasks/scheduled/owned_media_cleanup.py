@@ -4,6 +4,9 @@ from datetime import datetime, timezone
 
 from handler.database import db_rom_handler
 from handler.filesystem import storage_composition
+from handler.filesystem.catalog_collection_cleanup import (
+    process_pending_collection_cleanup,
+)
 from handler.filesystem.scan_media_recovery import (
     reconcile_cleanup_intent,
     reconcile_scan_media,
@@ -33,10 +36,13 @@ class OwnedMediaCleanupTask(PeriodicTask):
         try:
             reconcile_scan_media(storage)
         finally:
-            for intent_id in db_rom_handler.get_due_owned_media_cleanup_intent_ids(
-                datetime.now(timezone.utc)
-            ):
-                reconcile_cleanup_intent(storage, intent_id)
+            try:
+                for intent_id in db_rom_handler.get_due_owned_media_cleanup_intent_ids(
+                    datetime.now(timezone.utc)
+                ):
+                    reconcile_cleanup_intent(storage, intent_id)
+            finally:
+                process_pending_collection_cleanup()
 
 
 owned_media_cleanup_task = OwnedMediaCleanupTask()
