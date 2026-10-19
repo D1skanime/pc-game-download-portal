@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from io import BytesIO
 
 import httpx
+import pytest
 from PIL import Image
 
 from handler.filesystem import fs_resource_handler
@@ -80,3 +81,16 @@ def resource_snapshot(rom):
         for path in root.rglob("*")
         if path.is_file()
     }
+
+
+@pytest.fixture(autouse=True)
+def owned_resource_files(rom):
+    """Retire only new files created under this test's exact owned ROM path."""
+    root = fs_resource_handler.validate_path(rom.fs_resources_path)
+    previous = {path for path in root.rglob("*") if path.is_file()}
+    try:
+        yield
+    finally:
+        for path in root.rglob("*"):
+            if path.is_file() and path not in previous:
+                path.unlink()
