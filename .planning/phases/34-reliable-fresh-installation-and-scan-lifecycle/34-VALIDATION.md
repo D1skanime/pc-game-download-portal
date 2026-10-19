@@ -210,3 +210,35 @@ One checker BLOCKER (0 warnings) is addressed in the revised plans, pending inde
 HTTP methods use 5-second timeouts; individual fault scenarios stay under 60 seconds with bounded byte barriers and process joins. Cover cache-busting query, encoded dot and normalized path forms; nonexistent-file 404 alone cannot pass. Retain safe exact paths, methods/status/body digests and filesystem existence at denial time. Rules cover reserved namespace including manifest internal temporaries, plus the capability exact sibling grammar outside it. Preserve resource cache semantics and committed URLs, all non-scan API contracts, direct-child manual layout and immutable Games.
 
 Four-source coverage audit supplement: GOAL reliable source-safe scan and REQ SAFE-02/SAFE-06/SCAN-02/SCAN-06 remain covered by 15 and 08; RESEARCH production webroot exposure now maps to 08-1/2/3 and 15-2; CONTEXT D-11/12 recovery/preservation and D-14/15/16 reuse/file bounds/Linux map to the same tasks. No deferred idea introduced or locked decision reduced. T-34-15-07 and T-34-08-07 cover direct-resource disclosure. No new source item left unplanned. No runtime/HTTP tests were run during this revision.
+
+## Bounded execution-checkpoint ownership revision (2026-10-19)
+
+This supplements historical counts/verdicts above. Parent approved both ownership decisions; independent recheck of this revision is PENDING. Planning-only changes, no implementation/test/DB/restart/deployment activity. Overall remains 3/15 complete (01/02/05), 15 Tasks 1/2 verified GREEN, Task 3 RED 589894565 with eight pending files, no Task 3 GREEN or 15 SUMMARY. Historical checkpoint 4235bd2bf and all evidence remain preserved.
+
+15 Task 3 owns phase34_fixtures.py as file 16, preparing deterministic image/manual/tagged FLAC before read-only mounting and source-before fingerprints. The existing runner host test hardcodes len(source_manifest(games)) == 8, so test_phase34_runner.py is the justified seventeenth file; retain the eight original .bin entries plus exact fixture inventory, symlink/mutation safety and all 23 existing host tests. No extra runner/test file, writable Games, extraction mock or receipt weakening. All three previously excluded local-copy/soundtrack source cases must run GREEN without exclusion. Existing non-scan Steam omitted-session and uncertain-commit cleanup safety repairs stay in Task 3, not another phase.
+
+03 Task 3 explicitly owns NON-ROM RA platform JSON cache and Gamelist/Pegasus stable exports. Its manifest grows from nine to twelve files: ra_handler.py, coherent scan_output_publication.py <=500 lines and narrowly delegated storage_access.py prepared replacement. Existing worker tests contain race/compatibility coverage; existing exporters are read-only serializer dependencies, avoiding their broad file-export exception handlers. One 15 ScanWriteContext/checked_scan_write and existing owned capabilities remain authoritative; no media-association protocol for stable outputs and no reverse 15 -> 03 import/dependency. Generate/stream/hash/pre-fsync outside locks; only bounded replacement under the current-attempt fence.
+
+SQL rollback cannot undo stable replacement. Revoke-first preserves exact prior bytes; publish-first preserves the legitimate complete pre-cancel output even across later SQL failure, and all subsequent stale overwrites fail. Crash/fsync uncertainty retains complete bytes with explicit uncertain acknowledgement/durability and fresh-authority/content reconciliation, never destructive rollback over a newer output. Auxiliary RA pre-publication I/O failure may retain old cache/use fetched index with bounded warning; authority, fence and indeterminate failures propagate. Stop acknowledgement follows existing authority serialization, with no network lock or second lifecycle.
+
+08 retains ten files/three tasks and adds real cross-process both-order/cache/export crash and serving proof in existing fault files, production repeat and evidence completeness. 15 may finish ROM-media scope while documenting this remaining 03/08 boundary; whole phase/live acceptance stays open until those proofs. Fifteen plans, 36 tasks, nine waves unchanged. 15 wave3 depends02; 03 wave4 depends02+15; 08 wave9 remains downstream. storage_access overlap is ordered 15 then03. Parent exclusively owns STATE/ROADMAP/requirement completion; completed01/02/05 remain unchanged.
+
+### Current verification and four-source audit supplement
+
+| Task | Existing command / added gate | Status |
+| --- | --- | --- |
+| 15-1/2 | Existing verified commits/evidence in historical checkpoint | GREEN, unchanged, not rerun |
+| 15-3 | Full unfiltered harness command in revised plan plus existing host unittest discovery | OPEN: all three real-source cases, compatibility, 23 host tests and source receipts required |
+| 03-3 | python3 backend/tools/phase34.py backend tests/tasks/test_scan_operation_worker.py -q | PLANNED: each RA/Gamelist/Pegasus family, both orders, pre-cancel retention, SQL rollback/crash uncertainty and non-scan parity |
+| 08-1/2/3 | Existing integration/production/evidence commands | PLANNED: stable_output_acceptance cross-process/HTTP proof and complete family receipts |
+
+| Source | Contract | Coverage | Status |
+| --- | --- | --- | --- |
+| GOAL | Reliable first/normal scan with safe cancel/restart | 15-3,03-3,08 plus unchanged setup/status plans | COVERED, acceptance open |
+| REQ | ROADMAP D-01..D-16 and existing SCAN-01/02/06, SAFE-02/06 | Existing full decision map, narrowed additions per D-07/11/12/14/15/16 in15/03/08 | COVERED, no completion claims |
+| RESEARCH | Actual fixture count, readonly source extraction and Steam compatibility | 15-3, fixtures and justified runner-test ownership | COVERED, no excluded cases |
+| RESEARCH | Actual RA stable JSON and two exporter replace paths, broad exception trap, CREATE-versus-REPLACE semantics | 03 stable_output_protocol and08 stable_output_acceptance | COVERED, no exemption/second authority |
+| CONTEXT | D-07 actionable failure, D-11 fence/recovery, D-12 retained valid results, D-14 reuse, D-15 bounded helper, D-16 immutable source/Linux | 15-3,03-3,08-1/2/3 | COVERED |
+| CONTEXT | D-01..06/08..10/13 and deferred recognition/download redesign | Existing decision map unchanged; deferred items excluded | COVERED / explicit exclusions |
+
+No new source gap, plan, task, dependency or UI/provider/scanner added. Runtime Nyquist flags remain unchanged. The seventeen-file 15 exception is restricted to the two approved test-only additions; 03 remains at twelve files/three tasks. Any actual overrun requires concrete reporting, not assumed infeasibility.

@@ -1,7 +1,7 @@
 ---
 phase: 34
 status: pending-independent-recheck
-revision_rounds: 3
+revision_rounds: 4
 ---
 # Phase 34 Plan Review
 
@@ -99,3 +99,19 @@ DB reset, deployment, nested agent or runtime acceptance was executed or claimed
 Only this appended review is authorized for the normal-hook documentation commit.
 
 Structured issues: []
+
+## Bounded execution-checkpoint ownership revision (2026-10-19)
+
+This supplements historical counts/verdicts above. Parent approved both ownership decisions; independent recheck of this revision is PENDING. Planning-only changes, no implementation/test/DB/restart/deployment activity. Overall remains 3/15 complete (01/02/05), 15 Tasks 1/2 verified GREEN, Task 3 RED 589894565 with eight pending files, no Task 3 GREEN or 15 SUMMARY. Historical checkpoint 4235bd2bf and all evidence remain preserved.
+
+15 Task 3 owns phase34_fixtures.py as file 16, preparing deterministic image/manual/tagged FLAC before read-only mounting and source-before fingerprints. The existing runner host test hardcodes len(source_manifest(games)) == 8, so test_phase34_runner.py is the justified seventeenth file; retain the eight original .bin entries plus exact fixture inventory, symlink/mutation safety and all 23 existing host tests. No extra runner/test file, writable Games, extraction mock or receipt weakening. All three previously excluded local-copy/soundtrack source cases must run GREEN without exclusion. Existing non-scan Steam omitted-session and uncertain-commit cleanup safety repairs stay in Task 3, not another phase.
+
+03 Task 3 explicitly owns NON-ROM RA platform JSON cache and Gamelist/Pegasus stable exports. Its manifest grows from nine to twelve files: ra_handler.py, coherent scan_output_publication.py <=500 lines and narrowly delegated storage_access.py prepared replacement. Existing worker tests contain race/compatibility coverage; existing exporters are read-only serializer dependencies, avoiding their broad file-export exception handlers. One 15 ScanWriteContext/checked_scan_write and existing owned capabilities remain authoritative; no media-association protocol for stable outputs and no reverse 15 -> 03 import/dependency. Generate/stream/hash/pre-fsync outside locks; only bounded replacement under the current-attempt fence.
+
+SQL rollback cannot undo stable replacement. Revoke-first preserves exact prior bytes; publish-first preserves the legitimate complete pre-cancel output even across later SQL failure, and all subsequent stale overwrites fail. Crash/fsync uncertainty retains complete bytes with explicit uncertain acknowledgement/durability and fresh-authority/content reconciliation, never destructive rollback over a newer output. Auxiliary RA pre-publication I/O failure may retain old cache/use fetched index with bounded warning; authority, fence and indeterminate failures propagate. Stop acknowledgement follows existing authority serialization, with no network lock or second lifecycle.
+
+08 retains ten files/three tasks and adds real cross-process both-order/cache/export crash and serving proof in existing fault files, production repeat and evidence completeness. 15 may finish ROM-media scope while documenting this remaining 03/08 boundary; whole phase/live acceptance stays open until those proofs. Fifteen plans, 36 tasks, nine waves unchanged. 15 wave3 depends02; 03 wave4 depends02+15; 08 wave9 remains downstream. storage_access overlap is ordered 15 then03. Parent exclusively owns STATE/ROADMAP/requirement completion; completed01/02/05 remain unchanged.
+
+Current verdict: pending-independent-recheck for this bounded revision. Historical PASS applies only to its recorded revision. Local structural/dependency checks are not independent recheck or runtime GREEN.
+
+Local static validation of this revision: all 15 plans pass installed GSD frontmatter and plan-structure checks, with 36 automated tasks in nine waves. Dependency/ownership analysis finds no cycles, same-wave overlaps or unordered shared files; 08 has all 14 predecessors transitively. Budgets are 15: three tasks/17 files, 03: three tasks/12 files, 08: three tasks/10 files. Byte comparisons confirm unchanged 15 Tasks 1/2, completed 01/02/05 artifacts and the full historical 4235bd2bf checkpoint prefix. All five recorded RED/GREEN commit identities resolve. No runtime tests ran; independent recheck remains pending.
