@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: completed
-stopped_at: "Safety checkpoint: live pgdp-dev reloaded pending recovery code; ask approval to stop only dev app before continuation"
-last_updated: "2026-10-19T12:16:35.856Z"
+status: executing
+stopped_at: User approved dev app stop; pgdp-dev exited, resume pending recovery fixtures and verification
+last_updated: "2026-10-19T12:46:05.435Z"
 last_activity: 2026-10-18 -- Phase 34 execution started
 progress:
   total_phases: 34
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 Phase: 34 (reliable-fresh-installation-and-scan-lifecycle) - EXECUTING
 Plan: 5 of 15
-Status: Awaiting approval to isolate pgdp-dev from pending source edits; media recovery correction incomplete
+Status: Executing recovery correction group 2; dev app stopped under user authorization
 Last activity: 2026-10-18 -- Phase 34 execution started
 
 ## Performance Metrics
@@ -509,8 +509,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-19T12:16:35.845Z
-Stopped at: Safety checkpoint: live pgdp-dev reloaded pending recovery code; ask approval to stop only dev app before continuation
+Last session: 2026-10-19T12:46:05.424Z
+Stopped at: User approved dev app stop; pgdp-dev exited, resume pending recovery fixtures and verification
 Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-MEDIA-RECOVERY-SAFETY-CHECKPOINT.md
 
 - Phase 25 added: Scan-/Medien-Integration härten
