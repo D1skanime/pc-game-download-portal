@@ -158,3 +158,52 @@ def test_assignment_requires_every_row_and_returns_idempotent_mappings(monkeypat
     assert result.mappings[0]["mapping_id"] == 11
     with pytest.raises(ValueError, match="every"):
         handler.assign(root, [], actor={})
+
+
+def test_pc_setup_discovery_reuses_windows_alias_without_assigning_unknown(
+    monkeypatch, tmp_path
+):
+    import handler.setup_folder_handler as setup_module
+
+    for name in ("pc", "My Games"):
+        (tmp_path / name).mkdir()
+    monkeypatch.setattr(
+        setup_module.SetupFolderHandler,
+        "_platform_options",
+        staticmethod(
+            lambda: [SimpleNamespace(slug="win", fs_slug="win", name="Windows")]
+        ),
+    )
+    monkeypatch.setattr(
+        setup_module.cm,
+        "get_config",
+        lambda: SimpleNamespace(PLATFORMS_BINDING={}, PLATFORMS_VERSIONS={}),
+    )
+
+    discovered = {
+        folder.name: folder
+        for folder in SetupFolderHandler().discover(_root(tmp_path)).folders
+    }
+
+    assert discovered["pc"].association == "known"
+    assert discovered["pc"].suggested_platform == "win"
+    assert discovered["My Games"].association == "unknown"
+    assert discovered["My Games"].suggested_platform is None
+
+
+def test_pc_setup_alias_keeps_explicit_platform_binding_authoritative(monkeypatch):
+    import handler.setup_folder_handler as setup_module
+
+    monkeypatch.setattr(
+        setup_module.cm,
+        "get_config",
+        lambda: SimpleNamespace(
+            PLATFORMS_BINDING={"pc": "snes"}, PLATFORMS_VERSIONS={}
+        ),
+    )
+    platforms = [
+        SimpleNamespace(slug="win", fs_slug="win", name="Windows"),
+        SimpleNamespace(slug="snes", fs_slug="snes", name="Super Nintendo"),
+    ]
+
+    assert SetupFolderHandler._suggestion("pc", platforms) == "snes"
