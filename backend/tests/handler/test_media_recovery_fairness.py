@@ -64,7 +64,12 @@ async def test_32_retained_receipts_do_not_starve_later_orphan(
     document["outputs"] = [
         dict(
             final=final,
-            private=None,
+            private=final.rsplit("/", 1)[0]
+            + "/."
+            + final.rsplit("/", 1)[1]
+            + "."
+            + "a" * 32
+            + ".tmp",
             digest=hashlib.sha256(data).hexdigest(),
             size=len(data),
         )

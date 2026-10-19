@@ -5,9 +5,9 @@ import json
 import os
 
 import pytest
+from tests.handler.media_recovery_helpers import attempt as attempt
+from tests.handler.media_recovery_helpers import command as command
 from tests.handler.media_recovery_helpers import (
-    attempt,
-    command,
     drain_until,
     orphan,
     seed_receipt,
@@ -47,7 +47,7 @@ async def test_disappearing_child_preserves_directory_continuity(
     removed, later = ordered[0], ordered[1]
     module = importlib.import_module("handler.filesystem.scan_media_traversal")
     actual = module._entry
-    raced = []
+    raced: list[str] = []
 
     def disappear(descriptor, cookie):
         entry = actual(descriptor, cookie)
@@ -67,6 +67,20 @@ async def test_disappearing_child_preserves_directory_continuity(
         return entry
 
     stop(attempt, admin_user)
+    reached = False
+    relative_parent = unit.manifest_directory.rsplit("/", 1)[0]
+    for _ in range(20):
+        with RecoveryWalk(unit.storage) as walk:
+            for _ in range(512):
+                kind, path = walk.step()
+                if kind == "done":
+                    break
+                if kind == "skip" and path == relative_parent:
+                    reached = True
+                    break
+        if reached:
+            break
+    assert reached, "test directory was not reached within bounded cursor sessions"
     monkeypatch.setattr(module, "_entry", disappear)
     await owned_media_cleanup_task.run()
     assert raced == [removed.name]
@@ -89,15 +103,21 @@ async def test_live_page_cannot_starve_stopped_orphan(attempt, rom, admin_user):
         live, protected = orphan(current, rom)
     paths = [seed_receipt(template_for(live)) for _ in range(40)]
     # Start this invocation inside the live page; later calls must wrap fairly.
-    with RecoveryWalk(live.storage) as walk:
-        for _ in range(100):
-            kind, path = walk.step()
-            if kind == "batch" and path.startswith(
-                live.manifest_directory.rsplit("/", 1)[0]
-            ):
-                break
-        else:
-            pytest.fail("live page was not reached")
+    reached = False
+    for _ in range(20):
+        with RecoveryWalk(live.storage) as walk:
+            for _ in range(512):
+                kind, path = walk.step()
+                if kind == "done":
+                    break
+                if kind == "batch" and path.startswith(
+                    live.manifest_directory.rsplit("/", 1)[0]
+                ):
+                    reached = True
+                    break
+        if reached:
+            break
+    assert reached, "live page was not reached within bounded cursor sessions"
     await drain_until(
         lambda: not fs_resource_handler.validate_path(output.path).exists(), calls=20
     )

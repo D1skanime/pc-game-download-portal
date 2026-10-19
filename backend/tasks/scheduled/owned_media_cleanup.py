@@ -30,11 +30,13 @@ class OwnedMediaCleanupTask(PeriodicTask):
 
     async def run(self) -> None:
         storage = storage_composition.owned[OwnedStorageKind.RESOURCES]
-        reconcile_scan_media(storage)
-        for intent_id in db_rom_handler.get_due_owned_media_cleanup_intent_ids(
-            datetime.now(timezone.utc)
-        ):
-            reconcile_cleanup_intent(storage, intent_id)
+        try:
+            reconcile_scan_media(storage)
+        finally:
+            for intent_id in db_rom_handler.get_due_owned_media_cleanup_intent_ids(
+                datetime.now(timezone.utc)
+            ):
+                reconcile_cleanup_intent(storage, intent_id)
 
 
 owned_media_cleanup_task = OwnedMediaCleanupTask()

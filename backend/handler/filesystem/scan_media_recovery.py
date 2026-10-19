@@ -1,11 +1,11 @@
 """Exact, reference-safe reconciliation through the existing cleanup scheduler."""
 
+import errno
 import hashlib
 import itertools
 import os
 import re
 from datetime import datetime, timedelta, timezone
-from pathlib import Path, PurePosixPath
 
 from sqlalchemy import select
 
@@ -17,9 +17,9 @@ from exceptions.storage_exceptions import (
 from handler.database import db_rom_handler
 from handler.filesystem.scan_media_publication import (
     MAX_MANIFEST_BYTES,
-    RESERVED,
     parse_manifest,
 )
+from handler.filesystem.scan_media_traversal import RecoveryWalk, open_directory
 from handler.filesystem.storage_access import (
     OwnedDelete,
     OwnedDirectory,
@@ -33,17 +33,18 @@ from models.scan_operation import ScanExecutionSlot, ScanOperation
 
 
 def _children(storage, relative, limit=512):
-    directory = Path(storage._root_path) / relative
     try:
-        if directory.is_symlink():
-            raise ValueError("scan_media_recovery_symlink")
-        with os.scandir(directory) as entries:
+        descriptor = open_directory(storage, relative)
+    except MissingStorageTargetError:
+        return []
+    try:
+        with os.scandir(descriptor) as entries:
             children = list(itertools.islice(entries, limit + 1))
         if len(children) > limit:
-            raise ValueError("scan_media_recovery_limit")
+            raise ValueError("scan_media_recovery_receipt_limit")
         return children
-    except FileNotFoundError:
-        return []
+    finally:
+        os.close(descriptor)
 
 
 def _lock_attempt(session, identity):
@@ -131,7 +132,10 @@ def reconcile_manifest(storage, directory, *, session=None):
         assert isinstance(access, OwnedRead)
         if os.fstat(access.fileno()).st_size > MAX_MANIFEST_BYTES:
             raise ValueError("scan_media_manifest_limit")
-        document = parse_manifest(access.read(), directory)
+        with access.binary_file() as stream:
+            document = parse_manifest(stream.read(MAX_MANIFEST_BYTES + 1), directory)
+    if any(output["private"] is None for output in document["outputs"]):
+        raise ValueError("scan_media_unrecorded_private")
     if any(
         not re.fullmatch(r"receipt-[0-9]{4}[.]json", entry.name)
         and not re.fullmatch(
@@ -168,13 +172,7 @@ def _reconcile_manifest(
                 if _identity(os.fstat(access.fileno())) != identities[final]:
                     raise ValueError("scan_media_final_changed")
                 _delete(storage, final)
-        parent = str(PurePosixPath(final).parent)
-        grammar = re.compile(
-            r"[.]" + re.escape(PurePosixPath(final).name) + r"[.][a-f0-9]{32}[.]tmp"
-        )
-        for entry in _children(storage, parent):
-            if grammar.fullmatch(entry.name):
-                _delete(storage, parent + "/" + entry.name)
+        _delete(storage, output["private"])
     for entry in receipts:
         if re.fullmatch(r"receipt-[0-9]{4}[.]json", entry.name) or re.fullmatch(
             r"[.]receipt-[0-9]{4}[.]json[.][a-f0-9]{32}[.]tmp", entry.name
@@ -188,34 +186,51 @@ def _reconcile_manifest(
     return True
 
 
+@begin_session
+def _prune_ancestor(storage, directory, *, session=None):
+    parts = directory.split("/")
+    if len(parts) not in {2, 3}:
+        return
+    row = _lock_attempt(session, parts[1])
+    if row is not None and _live(row, row.attempt_id):
+        return
+    try:
+        with open_owned_access(storage, StorageOperation.MKDIR, directory) as access:
+            assert isinstance(access, OwnedDirectory)
+            access.rmdir()
+    except StorageResolutionError as error:
+        if not isinstance(error.__cause__, OSError) or error.__cause__.errno not in {
+            errno.ENOENT,
+            errno.ENOTEMPTY,
+            errno.EEXIST,
+        }:
+            raise
+
+
 def reconcile_scan_media(storage, limit=32):
+    if type(limit) is not int or not 1 <= limit <= 32:
+        raise ValueError("scan_media_recovery_budget")
     processed = 0
-    for operation in _children(storage, RESERVED):
-        if not operation.is_dir(follow_symlinks=False):
-            continue
-        for attempt in _children(storage, RESERVED + "/" + operation.name):
-            if not attempt.is_dir(follow_symlinks=False):
-                continue
-            parent = RESERVED + "/" + operation.name + "/" + attempt.name
-            for batch in _children(storage, parent):
-                if processed >= limit:
-                    return processed
-                if not batch.is_dir(follow_symlinks=False):
-                    continue
-                try:
-                    reconcile_manifest(storage, parent + "/" + batch.name)
-                except (
-                    ValueError,
-                    KeyError,
-                    TypeError,
-                    OSError,
-                    StorageResolutionError,
-                ) as error:
-                    log.warning(
-                        "Scan media recovery retained ambiguous receipt (%s)",
-                        type(error).__name__,
-                    )
-                processed += 1
+    with RecoveryWalk(storage) as walk:
+        for _ in range(512):
+            kind, path = walk.step()
+            if kind == "done":
+                break
+            try:
+                if kind == "exit":
+                    _prune_ancestor(storage, path)
+                elif kind == "batch":
+                    reconcile_manifest(storage, path)
+                    processed += 1
+            except (ValueError, OSError, StorageResolutionError) as error:
+                log.warning(
+                    "Scan media recovery retained ambiguous receipt (%s)",
+                    type(error).__name__,
+                )
+                if kind == "batch":
+                    processed += 1
+            if processed >= limit:
+                break
     return processed
 
 
