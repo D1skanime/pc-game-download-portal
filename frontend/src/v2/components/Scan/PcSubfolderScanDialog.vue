@@ -2,7 +2,7 @@
 import { RBtn, RDialog, RIcon } from "@v2/lib";
 import { onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import storageApi from "@/services/api/storage";
+import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
 import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 const props = defineProps<{

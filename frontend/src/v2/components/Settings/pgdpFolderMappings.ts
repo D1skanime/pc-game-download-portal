@@ -1,4 +1,4 @@
-import storageApi from "@/services/api/storage";
+import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
 import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
 
 export interface PgdPFolderMappingRow {

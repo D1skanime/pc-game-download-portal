@@ -4,9 +4,9 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
-import platformApi from "@/services/api/platform";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useCan } from "@/v2/composables/useCan";
+import platformApi from "@/v2/data/adapters/legacy/services/api/platform";
 import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
 import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 

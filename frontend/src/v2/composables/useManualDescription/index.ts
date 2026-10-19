@@ -4,8 +4,8 @@ import type {
   ManualMetadata,
   SteamMetadataSchema,
 } from "@/__generated__";
-import romApi from "@/services/api/rom";
 import { normalizeLocale } from "@/v2/composables/useProviderResolution";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 
 export interface DescriptionResolutionInput {
   manualMetadata: ManualMetadata | null | undefined;

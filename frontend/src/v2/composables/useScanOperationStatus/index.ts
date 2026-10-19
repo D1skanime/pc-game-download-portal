@@ -7,8 +7,8 @@ import {
   ref,
   watch,
 } from "vue";
-import useAuthStore from "@/stores/auth";
 import socket from "@/v2/data/adapters/legacy/services/socket";
+import useAuthStore from "@/v2/data/adapters/legacy/stores/auth";
 import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
 import scanOperations from "@/v2/data/adapters/scanOperations";
 import type { ScanOperationSnapshot } from "@/v2/data/contracts";

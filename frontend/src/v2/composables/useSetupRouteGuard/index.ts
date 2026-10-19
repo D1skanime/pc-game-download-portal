@@ -1,5 +1,5 @@
-import setupApi from "@/services/api/setup";
-import type { User } from "@/stores/users";
+import setupApi from "@/v2/data/adapters/legacy/services/api/setup";
+import type { User } from "@/v2/data/adapters/legacy/stores/users";
 
 interface SetupRouteContext {
   route: string | undefined;

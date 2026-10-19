@@ -12,7 +12,6 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
-import storageApi from "@/services/api/storage";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import CardRow from "@/v2/components/Home/CardRow.vue";
@@ -25,6 +24,7 @@ import {
   type SetupLibraryInfo,
   type SimpleRom,
 } from "@/v2/data/adapters/home";
+import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 const { t } = useI18n();

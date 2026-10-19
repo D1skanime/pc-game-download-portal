@@ -3,17 +3,17 @@ import { RAlert, RBtn, RIcon, RSpinner, RSteps } from "@v2/lib";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
-import setupApi from "@/services/api/setup";
-import type {
-  SetupFolderDiscovery,
-  SetupFolderDraft,
-} from "@/services/api/setup";
 import SetupStepAdmin from "@/v2/components/Auth/SetupStepAdmin.vue";
 import type { AdminUserDraft } from "@/v2/components/Auth/SetupStepAdmin.vue";
 import SetupStepMetadata from "@/v2/components/Auth/SetupStepMetadata.vue";
 import SetupStepPlatforms from "@/v2/components/Auth/SetupStepPlatforms.vue";
 import { useSetupRecovery } from "@/v2/composables/useSetupRecovery";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import setupApi from "@/v2/data/adapters/legacy/services/api/setup";
+import type {
+  SetupFolderDiscovery,
+  SetupFolderDraft,
+} from "@/v2/data/adapters/legacy/services/api/setup";
 
 const { t } = useI18n();
 const recovery = useSetupRecovery();

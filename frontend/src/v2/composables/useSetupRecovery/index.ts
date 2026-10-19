@@ -1,12 +1,12 @@
 import { computed, ref } from "vue";
 import type { SetupRecoverySnapshot } from "@/__generated__";
-import setupApi, {
-  type SetupFolderAssignment,
-  type SetupFolderDraft,
-} from "@/services/api/setup";
 import type { AdminUserDraft } from "@/v2/components/Auth/SetupStepAdmin.vue";
 import { refetchCSRFToken } from "@/v2/data/adapters/legacy/services/api";
 import identityApi from "@/v2/data/adapters/legacy/services/api/identity";
+import setupApi, {
+  type SetupFolderAssignment,
+  type SetupFolderDraft,
+} from "@/v2/data/adapters/legacy/services/api/setup";
 import userApi from "@/v2/data/adapters/legacy/services/api/user";
 import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
