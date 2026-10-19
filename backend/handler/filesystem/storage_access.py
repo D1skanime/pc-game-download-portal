@@ -3,7 +3,6 @@ from __future__ import annotations
 import errno
 import hashlib
 import os
-import secrets
 import stat as stat_module
 import time
 from collections.abc import Iterator
@@ -23,6 +22,17 @@ from exceptions.storage_exceptions import (
     UnreadableStorageTargetError,
     UnsafeSymlinkError,
 )
+from handler.filesystem.owned_publication import (
+    IndeterminateOwnedPublicationError as IndeterminateOwnedPublicationError,
+)
+from handler.filesystem.owned_publication import PreparedOwnedFile as PreparedOwnedFile
+from handler.filesystem.owned_publication import (
+    PreparedOwnedReplace,
+    _OwnedStagedPublication,
+    open_replacement_temporary,
+    serialized_owned_write,
+)
+from handler.filesystem.owned_writer_domain import owned_writer_domain
 from handler.filesystem.storage_policy import (
     ExternalStorageDescriptor,
     OwnedStorageDescriptor,
@@ -402,155 +412,19 @@ class _OwnedMutationCapability:
             self._parent_descriptor = None
 
 
-class IndeterminateOwnedPublicationError(StorageResolutionError):
-    """Complete owned bytes may be visible, but publication was not acknowledged."""
-
-    code = "indeterminate_owned_publication"
-
-    def __init__(self) -> None:
-        super().__init__("Owned publication state is indeterminate")
-
-
-class _OwnedStagedPublication:
-    _OPEN_ATTEMPTS = 8
-
-    def __init__(self, parent_descriptor: int, final_name: str) -> None:
-        self._parent_descriptor = parent_descriptor
-        self._final_name = final_name
-        self._staging_name = ""
-        self._descriptor: int | None = None
-
-        for _attempt in range(self._OPEN_ATTEMPTS):
-            staging_name = f".{final_name}.{secrets.token_hex(16)}.tmp"
-            try:
-                descriptor = os.open(
-                    staging_name,
-                    os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
-                    0o644,
-                    dir_fd=parent_descriptor,
-                )
-            except OSError as error:
-                if error.errno == errno.EEXIST:
-                    continue
-                raise _bounded_open_error(error) from error
-            self._staging_name = staging_name
-            self._descriptor = descriptor
-            return
-        raise StorageResolutionError("Owned staging file could not be created")
-
-    @property
-    def descriptor(self) -> int:
-        if self._descriptor is None:
-            raise StorageResolutionError("Owned staging file is closed")
-        return self._descriptor
-
-    def _close_descriptor(self) -> None:
-        descriptor = self.descriptor
-        self._descriptor = None
-        os.close(descriptor)
-
-    def abort(self) -> None:
-        descriptor = self._descriptor
-        self._descriptor = None
-        if descriptor is not None:
-            try:
-                os.close(descriptor)
-            except OSError:
-                pass
-        try:
-            os.unlink(self._staging_name, dir_fd=self._parent_descriptor)
-        except OSError:
-            pass
-        try:
-            os.fsync(self._parent_descriptor)
-        except OSError:
-            pass
-
-    def _rollback_published(self) -> bool:
-        rollback_complete = True
-        try:
-            os.unlink(self._final_name, dir_fd=self._parent_descriptor)
-        except OSError:
-            rollback_complete = False
-        try:
-            os.unlink(self._staging_name, dir_fd=self._parent_descriptor)
-        except FileNotFoundError:
-            pass
-        except OSError:
-            rollback_complete = False
-        try:
-            os.fsync(self._parent_descriptor)
-        except OSError:
-            rollback_complete = False
-        return rollback_complete
-
-    def publish(self) -> None:
-        try:
-            os.fsync(self.descriptor)
-            self._close_descriptor()
-            os.link(
-                self._staging_name,
-                self._final_name,
-                src_dir_fd=self._parent_descriptor,
-                dst_dir_fd=self._parent_descriptor,
-                follow_symlinks=False,
-            )
-        except OSError as error:
-            self.abort()
-            raise _bounded_open_error(error) from error
-
-        try:
-            os.unlink(self._staging_name, dir_fd=self._parent_descriptor)
-            os.fsync(self._parent_descriptor)
-        except OSError as error:
-            if self._rollback_published():
-                raise _bounded_open_error(error) from error
-            raise IndeterminateOwnedPublicationError() from error
-
-
-class PreparedOwnedFile:
-    """Keep the existing staged publication open across local validation."""
-
-    def __init__(self, parent_descriptor: int, final_name: str) -> None:
-        self._parent = os.dup(parent_descriptor)
-        self._closed = False
-        try:
-            self._publication = _OwnedStagedPublication(self._parent, final_name)
-            self.private_basename = self._publication._staging_name
-            self.file = os.fdopen(self._publication.descriptor, "w+b", closefd=False)
-        except BaseException:
-            if hasattr(self, "_publication"):
-                self._publication.abort()
-            os.close(self._parent)
-            raise
-
-    def publish(self) -> None:
-        if self._closed:
-            raise StorageResolutionError("Prepared owned file is closed")
-        try:
-            self.file.flush()
-            self.file.close()
-            self._publication.publish()
-        except BaseException:
-            self._publication.abort()
-            raise
-        finally:
-            self._closed = True
-            os.close(self._parent)
-
-    def abort(self) -> None:
-        if not self._closed:
-            try:
-                self.file.close()
-            finally:
-                self._publication.abort()
-                os.close(self._parent)
-                self._closed = True
-
-
 class OwnedCreate(_OwnedMutationCapability):
+    def __init__(self, parent_descriptor, name, *, storage=None, relative_path=None):
+        super().__init__(parent_descriptor, name)
+        self._storage = storage
+        self._relative_path = relative_path
+
     def prepare_binary_file(self) -> PreparedOwnedFile:
-        return PreparedOwnedFile(self._require_parent(), self._name)
+        return PreparedOwnedFile(
+            self._require_parent(),
+            self._name,
+            storage=self._storage,
+            relative_path=self._relative_path,
+        )
 
     @contextmanager
     def subprocess_file(self) -> Iterator[int]:
@@ -602,18 +476,28 @@ class OwnedCreate(_OwnedMutationCapability):
 
 
 class OwnedReplace(_OwnedMutationCapability):
+    def __init__(self, parent_descriptor, name, *, storage=None, relative_path=None):
+        super().__init__(parent_descriptor, name)
+        self._storage = storage
+        self._relative_path = relative_path
+
+    def prepare_binary_file(self):
+        return PreparedOwnedReplace(
+            self._require_parent(),
+            self._name,
+            storage=self._storage,
+            relative_path=self._relative_path,
+        )
+
     @contextmanager
-    def binary_file(self) -> Iterator[BinaryIO]:
+    def binary_file(self, *, unique=False) -> Iterator[BinaryIO]:
         parent = self._require_parent()
-        temporary = f".{self._name}.{os.getpid()}.tmp"
+        temporary = ""
         descriptor: int | None = None
         created = False
         try:
-            descriptor = os.open(
-                temporary,
-                os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
-                0o644,
-                dir_fd=parent,
+            descriptor, temporary = open_replacement_temporary(
+                parent, self._name, os.O_RDWR, unique=unique
             )
             created = True
             with os.fdopen(descriptor, "w+b", closefd=False) as file:
@@ -622,7 +506,9 @@ class OwnedReplace(_OwnedMutationCapability):
                 os.fsync(descriptor)
             os.close(descriptor)
             descriptor = None
-            os.replace(temporary, self._name, src_dir_fd=parent, dst_dir_fd=parent)
+            with owned_writer_domain():
+                os.replace(temporary, self._name, src_dir_fd=parent, dst_dir_fd=parent)
+                os.fsync(parent)
         except BaseException:
             if descriptor is not None:
                 os.close(descriptor)
@@ -633,33 +519,36 @@ class OwnedReplace(_OwnedMutationCapability):
                     pass
             raise
 
-    def replace(self, content: bytes) -> None:
+    def replace(self, content: bytes, *, unique=False) -> None:
         parent = self._require_parent()
-        temporary = f".{self._name}.{os.getpid()}.tmp"
+        temporary = ""
         descriptor: int | None = None
+        created = False
         try:
-            descriptor = os.open(
-                temporary,
-                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
-                0o644,
-                dir_fd=parent,
+            descriptor, temporary = open_replacement_temporary(
+                parent, self._name, os.O_WRONLY, unique=unique
             )
+            created = True
             _write_all(descriptor, content)
             os.fsync(descriptor)
             os.close(descriptor)
             descriptor = None
-            os.replace(temporary, self._name, src_dir_fd=parent, dst_dir_fd=parent)
+            with owned_writer_domain():
+                os.replace(temporary, self._name, src_dir_fd=parent, dst_dir_fd=parent)
+                os.fsync(parent)
         except OSError as error:
             if descriptor is not None:
                 os.close(descriptor)
-            try:
-                os.unlink(temporary, dir_fd=parent)
-            except OSError:
-                pass
+            if created:
+                try:
+                    os.unlink(temporary, dir_fd=parent)
+                except OSError:
+                    pass
             raise _bounded_open_error(error) from error
 
 
 class OwnedDelete(_OwnedMutationCapability):
+    @serialized_owned_write
     def delete(self) -> None:
         try:
             os.unlink(self._name, dir_fd=self._require_parent())
@@ -722,4 +611,8 @@ def open_owned_access(
     if capability_type is OwnedRead:
         return OwnedRead(_open_target(storage, relative_path, directory=False))
     parent, name = _open_owned_parent(storage, relative_path)
+    if capability_type in (OwnedCreate, OwnedReplace):
+        return capability_type(
+            parent, name, storage=storage, relative_path=relative_path
+        )
     return capability_type(parent, name)

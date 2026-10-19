@@ -1,13 +1,11 @@
 """Immutable attempt media and durable, bounded filesystem recovery receipts."""
 
 import errno
-import hashlib
-import json
-import os
 import re
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import PurePosixPath
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from decorators.database import begin_session
@@ -16,7 +14,30 @@ from handler.database.scan_write_fence import (
     checked_scan_write,
     require_scan_write_context,
 )
+from handler.filesystem.owned_content_proof import (
+    OwnedContentProofRejected,
+    content_proof_scope,
+)
+from handler.filesystem.owned_writer_domain import owned_writer_domain
 from handler.filesystem.resource_download import store_resource as store_resource
+from handler.filesystem.scan_media_manifest import (
+    MAX_MANIFEST_BYTES as MAX_MANIFEST_BYTES,
+)
+from handler.filesystem.scan_media_manifest import MAX_OUTPUTS as MAX_OUTPUTS
+from handler.filesystem.scan_media_manifest import RESERVED as RESERVED
+from handler.filesystem.scan_media_manifest import (
+    ManifestValidationError as ManifestValidationError,
+)
+from handler.filesystem.scan_media_manifest import (
+    encode_manifest,
+)
+from handler.filesystem.scan_media_manifest import parse_manifest as parse_manifest
+from handler.filesystem.scan_media_manifest import (
+    prior_reference_fingerprint,
+)
+from handler.filesystem.scan_media_manifest import (
+    validate_manifest as validate_manifest,
+)
 from handler.filesystem.storage_access import (
     OwnedCreate,
     OwnedDirectory,
@@ -25,13 +46,6 @@ from handler.filesystem.storage_access import (
 )
 from handler.filesystem.storage_policy import StorageOperation
 from handler.filesystem.storage_resolver import normalize_relative_path
-
-RESERVED = ".scan-media-staging"
-MAX_OUTPUTS = 128
-MAX_MANIFEST_BYTES = 128 * 1024
-_GENERATED = re.compile(
-    r"[A-Za-z0-9_-]+[.]scan-([a-f0-9]{32})-([a-f0-9]{32})-([0-9]{1,3})[.][a-z0-9]{1,8}"
-)
 
 
 def ensure_directory(storage, relative):
@@ -64,13 +78,6 @@ def _prior_paths(value, root, depth=0):
     elif isinstance(value, (list, tuple)):
         for child in value:
             yield from _prior_paths(child, root, depth + 1)
-
-
-def encode_manifest(document):
-    content = json.dumps(document, sort_keys=True, separators=(",", ":")).encode()
-    if len(content) > MAX_MANIFEST_BYTES:
-        raise ValueError("scan_media_manifest_limit")
-    return content
 
 
 @dataclass
@@ -122,21 +129,38 @@ class ScanMediaBatch:
         self.publication_started = False
         from handler.database import db_rom_handler
 
-        self.expected_prior = list(
+        self.expected_prior = prior_reference_fingerprint(
             _prior_paths(db_rom_handler.locked_scan_media_references(rom_id), self.root)
         )
         ensure_directory(storage, self.manifest_directory)
         self._snapshot()
 
-    def _snapshot(self, pending=None):
+    def _document(self, pending=None, *, reserve=False):
         outputs = [
-            dict(final=o.path, private=o.private_path, digest=o.digest, size=o.size)
+            dict(
+                final=o.path,
+                private=o.private_path,
+                digest=o.digest,
+                size=o.size,
+                ownership=o.capability.ownership,
+            )
             for o in self.outputs
         ]
         if pending:
             outputs.append(pending)
-        document = dict(
-            schema=1,
+        if reserve:
+            for output in outputs:
+                output.update(
+                    digest="0" * 64,
+                    size=2**63 - 1,
+                    ownership=dict(
+                        parent=[2**64 - 1] * 2,
+                        file=[2**64 - 1] * 2,
+                        sealed=[2**64 - 1] * 3,
+                    ),
+                )
+        return dict(
+            schema=2,
             operation=self.context.operation_id,
             attempt=self.context.attempt_id,
             batch=self.token,
@@ -145,15 +169,16 @@ class ScanMediaBatch:
             outputs=outputs,
             expected_prior=self.expected_prior,
         )
+
+    def _snapshot(self, pending=None):
+        document = self._document(pending)
         path = f"{self.manifest_directory}/receipt-{self.sequence:04d}.json"
         with open_owned_access(self.storage, StorageOperation.CREATE, path) as access:
             assert isinstance(access, OwnedCreate)
             access.create(encode_manifest(document))
         self.sequence += 1
 
-    def prepare(self, original_path):
-        if self._closed or len(self.outputs) >= MAX_OUTPUTS:
-            raise ValueError("scan_media_batch_closed_or_full")
+    def _output_path(self, original_path):
         path = PurePosixPath(normalize_relative_path(original_path))
         if not str(path).startswith(self.root + "/"):
             raise ValueError("scan_media_outside_rom")
@@ -167,7 +192,33 @@ class ScanMediaBatch:
                 f"{stem}.scan-{UUID(self.context.attempt_id).hex}-{self.token}-{len(self.outputs)}.{extension}"
             )
         )
-        self._snapshot(dict(final=final, private=None, digest=None, size=None))
+        return final
+
+    def can_prepare(self, original_path):
+        if self._closed or len(self.outputs) >= MAX_OUTPUTS:
+            return False
+        final = self._output_path(original_path)
+        path = PurePosixPath(final)
+        private = str(path.parent / f".{path.name}.{'0' * 32}.tmp")
+        if len(final) > 1024 or len(private) > 1024:
+            raise ValueError("scan_media_manifest_path")
+        pending = dict(
+            final=final, private=private, digest=None, size=None, ownership=None
+        )
+        try:
+            encode_manifest(self._document(pending, reserve=True))
+        except ValueError:
+            return False
+        return True
+
+    def prepare(self, original_path):
+        if not self.can_prepare(original_path):
+            raise ValueError("scan_media_batch_closed_or_full")
+        final = self._output_path(original_path)
+        path = PurePosixPath(final)
+        self._snapshot(
+            dict(final=final, private=None, digest=None, size=None, ownership=None)
+        )
         ensure_directory(self.storage, str(path.parent))
         prepared = None
         try:
@@ -189,189 +240,89 @@ class ScanMediaBatch:
     def finish(self, output):
         if output not in self.outputs or self._closed:
             raise ValueError("scan_media_output_invalid")
-        output.file.flush()
-        os.fsync(output.file.fileno())
-        output.file.seek(0)
-        digest = hashlib.sha256()
-        total = 0
-        while chunk := output.file.read(1024 * 1024):
-            digest.update(chunk)
-            total += len(chunk)
-        output.digest, output.size = digest.hexdigest(), total
+        output.digest, output.size = output.capability.seal()
         self._snapshot()
 
-    @begin_session
     def publish_and_associate(self, associate, *, session=None):
-        if require_scan_write_context() != self.context or self._closed:
-            raise ValueError("scan_media_batch_context")
-        if any(output.digest is None for output in self.outputs):
-            raise ValueError("scan_media_unfinished")
-        with checked_scan_write(session):
-            self.publication_started = True
-            for output in self.outputs:
-                output.capability.publish()
-            self._closed = True
-            # Unknown commit outcomes always retain receipts for authoritative recovery.
-            from handler.database import db_rom_handler
+        units = self._publication_units()
+        expected_bytes = sum(
+            (output.size or 0) * 2 for unit in units for output in unit.outputs
+        )
+        try:
+            with content_proof_scope(
+                expected_bytes=expected_bytes,
+                expected_records=sum(len(unit.outputs) * 2 for unit in units),
+            ), owned_writer_domain():
+                return _publish_media_batches(units, associate, session=session)
+        except OwnedContentProofRejected:
+            for unit in units:
+                unit._retain = True
+            raise
 
-            prior = list(
-                _prior_paths(
-                    db_rom_handler.locked_scan_media_references(
-                        self.rom_id, session=session
-                    ),
-                    self.root,
-                )
-            )
-            result = associate(session)
-            session.flush()
-            retained = set(
-                _prior_paths(
-                    db_rom_handler.locked_scan_media_references(
-                        self.rom_id, session=session
-                    ),
-                    self.root,
-                )
-            )
-            for path in set(prior) - retained:
-                db_rom_handler.create_owned_media_cleanup_intent(
-                    self.rom_id, 0, path, session=session
-                )
-            return result
+    def _publication_units(self):
+        return [self]
 
     def abort(self):
-        for output in self.outputs:
-            output.capability.abort()
+        if getattr(self, "_retain", False):
+            self._closed = True
+            return
+        try:
+            expected_bytes = sum(output.size or 0 for output in self.outputs)
+            with content_proof_scope(
+                expected_bytes=expected_bytes, expected_records=len(self.outputs)
+            ), owned_writer_domain():
+                for output in self.outputs:
+                    output.capability.abort()
+        except StorageResolutionError:
+            pass
         self._closed = True
 
 
-class ManifestValidationError(ValueError):
-    """Untrusted evidence cannot grant recovery authority."""
+@begin_session
+def _publish_media_batches(units, associate, *, session=None):
+    context = require_scan_write_context()
+    if not units or any(unit.context != context or unit._closed for unit in units):
+        raise ValueError("scan_media_batch_context")
+    if any(output.digest is None for unit in units for output in unit.outputs):
+        raise ValueError("scan_media_unfinished")
+    from handler.database import db_rom_handler
 
-
-def parse_manifest(content, directory):
-    if len(content) > MAX_MANIFEST_BYTES:
-        raise ManifestValidationError("scan_media_manifest_limit")
-    depth, quoted, escaped = 0, False, False
-    for char in content:
-        if quoted:
-            if escaped:
-                escaped = False
-            elif char == 92:
-                escaped = True
-            elif char == 34:
-                quoted = False
-        elif char == 34:
-            quoted = True
-        elif char in (91, 123):
-            depth += 1
-            if depth > 8:
-                raise ManifestValidationError("scan_media_manifest_depth")
-        elif char in (93, 125):
-            depth -= 1
-    try:
-        return validate_manifest(json.loads(content), directory)
-    except (ValueError, TypeError, RecursionError) as error:
-        raise ManifestValidationError("scan_media_manifest_invalid") from error
-
-
-def validate_manifest(document, directory):
-    try:
-        return _validate_manifest(document, directory)
-    except (ValueError, KeyError, TypeError, StorageResolutionError) as error:
-        raise ManifestValidationError("scan_media_manifest_invalid") from error
-
-
-def _validate_manifest(document, directory):
-    if (
-        type(document) is not dict
-        or set(document)
-        != {
-            "schema",
-            "operation",
-            "attempt",
-            "batch",
-            "rom",
-            "platform",
-            "outputs",
-            "expected_prior",
-        }
-        or type(document["schema"]) is not int
-        or document["schema"] != 1
-    ):
-        raise ManifestValidationError("scan_media_manifest_schema")
-    operation, attempt, batch = (
-        document[key] for key in ("operation", "attempt", "batch")
-    )
-    if any(type(value) is not str for value in (operation, attempt, batch)):
-        raise ManifestValidationError("scan_media_manifest_identity")
-    if (
-        len(operation) != 36
-        or len(attempt) != 36
-        or str(UUID(operation)) != operation
-        or str(UUID(attempt)) != attempt
-        or not re.fullmatch(r"[a-f0-9]{32}", batch)
-    ):
-        raise ManifestValidationError("scan_media_manifest_identity")
-    if directory != f"{RESERVED}/{operation}/{attempt}/{batch}":
-        raise ManifestValidationError("scan_media_manifest_scope")
-    rom, platform = document["rom"], document["platform"]
-    if type(rom) is not int or rom <= 0 or type(platform) is not int or platform <= 0:
-        raise ManifestValidationError("scan_media_manifest_identity")
-    prior, outputs = document["expected_prior"], document["outputs"]
-    if type(prior) is not list or any(type(path) is not str for path in prior):
-        raise ManifestValidationError("scan_media_manifest_prior")
-    if type(outputs) is not list or len(outputs) > MAX_OUTPUTS:
-        raise ManifestValidationError("scan_media_manifest_limit")
-    seen = set()
-    for output in outputs:
-        if type(output) is not dict or set(output) != {
-            "final",
-            "private",
-            "digest",
-            "size",
-        }:
-            raise ManifestValidationError("scan_media_manifest_output")
-        final, private, digest, size = (
-            output[key] for key in ("final", "private", "digest", "size")
+    first = units[0]
+    with checked_scan_write(session):
+        prior = set(
+            _prior_paths(
+                db_rom_handler.locked_scan_media_references(
+                    first.rom_id, session=session
+                ),
+                first.root,
+            )
         )
-        if type(final) is not str or (private is not None and type(private) is not str):
-            raise ManifestValidationError("scan_media_manifest_path")
-        if (
-            len(final) > 1024
-            or normalize_relative_path(final) != final
-            or not final.startswith(f"roms/{platform}/{rom}/")
-        ):
-            raise ManifestValidationError("scan_media_manifest_path")
-        name = PurePosixPath(final).name
-        match = _GENERATED.fullmatch(name)
-        if (
-            not match
-            or match[1] != UUID(attempt).hex
-            or match[2] != batch
-            or final in seen
-        ):
-            raise ManifestValidationError("scan_media_manifest_generation")
-        seen.add(final)
-        if private is not None and (
-            len(private) > 1024
-            or PurePosixPath(private).parent != PurePosixPath(final).parent
-            or not re.fullmatch(
-                r"[.]" + re.escape(name) + r"[.][a-f0-9]{32}[.]tmp",
-                PurePosixPath(private).name,
+
+        def final_authority_check():
+            with checked_scan_write(session):
+                pass
+
+        for unit in units:
+            unit.publication_started = True
+        for unit in units:
+            for output in unit.outputs:
+                output.capability.publish(final_authority_check=final_authority_check)
+            unit._closed = True
+        result = associate(session)
+        session.flush()
+        retained = set(
+            _prior_paths(
+                db_rom_handler.locked_scan_media_references(
+                    first.rom_id, session=session
+                ),
+                first.root,
             )
-        ):
-            raise ManifestValidationError("scan_media_manifest_private")
-        if (digest is None and size is not None) or (
-            digest is not None
-            and (
-                type(digest) is not str
-                or not re.fullmatch(r"[a-f0-9]{64}", digest)
-                or type(size) is not int
-                or size < 0
+        )
+        for path in prior - retained:
+            db_rom_handler.create_owned_media_cleanup_intent(
+                first.rom_id, 0, path, session=session
             )
-        ):
-            raise ManifestValidationError("scan_media_manifest_digest")
-    return document
+        return result
 
 
 _ACTIVE_BATCH: ContextVar[ScanMediaBatch | None] = ContextVar(
@@ -436,8 +387,10 @@ def preserve_scan_media_references(scanned, previous):
 def preserve_current_scan_media(scanned, *, session=None):
     from handler.database import db_rom_handler
 
-    db_rom_handler.locked_scan_media_references(scanned.id, session=session)
-    current = db_rom_handler.get_rom(scanned.id, session=session)
+    snapshot = db_rom_handler.locked_scan_media_references(
+        scanned.id, snapshot=True, session=session
+    )
+    current = SimpleNamespace(**snapshot) if snapshot is not None else None
     if current is None:
         raise ValueError("scan_media_catalog_missing")
     pending = getattr(scanned, "_pending_scan_media", None)

@@ -205,3 +205,65 @@ def test_final_merge_preserves_current_references_with_stale_session(attempt, ro
     saved = db_rom_handler.get_rom(rom.id)
     assert saved.path_cover_l == new.path
     assert scanned._pending_scan_media["ss_metadata"]["video_path"].endswith("new.mp4")
+
+
+def test_final_merge_preserves_fresh_provider_json_after_retired_bytes_removed(
+    attempt, rom
+):
+    from handler.filesystem.scan_media_publication import merge_scan_rom
+    from handler.filesystem.scan_media_recovery import reconcile_cleanup_intent
+    from models.rom import Rom
+
+    with bind_scan_write_context(context(attempt)):
+        with batch(rom) as unit:
+            old = prepare(unit, rom, png_bytes())
+            unit.publish_and_associate(
+                lambda session: db_rom_handler.update_rom(
+                    rom.id,
+                    {
+                        "ss_metadata": {
+                            "video_path": old.path,
+                            "video_url": "https://fixture.invalid/old",
+                        }
+                    },
+                    session=session,
+                )
+            )
+        with batch(rom) as unit:
+            new = prepare(unit, rom, png_bytes())
+            unit.publish_and_associate(lambda session: None)
+    pending = f"{rom.fs_resources_path}/video/pending.mp4"
+    scanned = Rom(
+        id=rom.id,
+        ss_metadata={
+            "video_path": pending,
+            "video_url": "https://fixture.invalid/pending",
+        },
+    )
+    with sync_session.begin() as session:
+        stale = session.get(Rom, rom.id)
+        assert stale.ss_metadata["video_path"] == old.path
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pool.submit(
+                db_rom_handler.update_rom,
+                rom.id,
+                {
+                    "ss_metadata": {
+                        "video_path": new.path,
+                        "video_url": "https://fixture.invalid/current",
+                    }
+                },
+            ).result(timeout=10)
+            intent = pool.submit(
+                db_rom_handler.create_owned_media_cleanup_intent, rom.id, 0, old.path
+            ).result(timeout=10)
+            assert pool.submit(
+                reconcile_cleanup_intent, fs_resource_handler.storage, intent.id
+            ).result(timeout=10)
+        assert not fs_resource_handler.validate_path(old.path).exists()
+        with bind_scan_write_context(context(attempt)):
+            merged = merge_scan_rom(scanned, session=session)
+            assert merged.ss_metadata["video_path"] == new.path
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved.ss_metadata["video_path"] == new.path
+    assert scanned._pending_scan_media["ss_metadata"]["video_path"] == pending

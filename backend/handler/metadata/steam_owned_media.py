@@ -15,7 +15,7 @@ from handler.database.scan_write_fence import (
     current_scan_write_context,
 )
 from handler.filesystem import fs_resource_handler
-from handler.filesystem.scan_media_publication import ScanMediaBatch
+from handler.filesystem.scan_media_inventory import ScanMediaInventory
 from handler.filesystem.storage_access import IndeterminateOwnedPublicationError
 from handler.metadata.rom_media import ProviderMediaCandidate, discover_provider_media
 from models.rom import RomOwnedMediaState
@@ -107,7 +107,12 @@ async def reconcile_steam_patch_media(
     association_started = False
     try:
         scope = (
-            ScanMediaBatch(rom.id, rom.platform_id, fs_resource_handler.storage)
+            ScanMediaInventory(
+                rom.id,
+                rom.platform_id,
+                fs_resource_handler.storage,
+                output_limit=len(candidates),
+            )
             if current_scan_write_context() is not None
             else nullcontext()
         )

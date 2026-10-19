@@ -542,7 +542,7 @@ class DBRomsHandler(DBBaseHandler):
                 selectinload(Rom.owned_background_audio),
             )
             .where(and_(*predicates))
-            .with_for_update()
+            .with_for_update(of=Rom)
         )
 
     @staticmethod
@@ -556,7 +556,7 @@ class DBRomsHandler(DBBaseHandler):
                 selectinload(Rom.local_background_audio),
             )
             .where(Rom.id == rom_id, Rom.updated_at == expected_updated_at)
-            .with_for_update()
+            .with_for_update(of=Rom)
         )
 
     @begin_session
@@ -1062,7 +1062,7 @@ class DBRomsHandler(DBBaseHandler):
         return AppliedOwnedMedia(rom, media, owned_paths)
 
     @begin_session
-    def locked_scan_media_references(self, rom_id, *, session=None):
+    def locked_scan_media_references(self, rom_id, *, snapshot=False, session=None):
         """Read reference surfaces while holding the catalog parent's write lock."""
         rom = (
             session.execute(
@@ -1072,7 +1072,9 @@ class DBRomsHandler(DBBaseHandler):
             .first()
         )
         if rom is None:
-            return []
+            return None if snapshot else []
+        if snapshot:
+            return dict(rom)
         values = [
             rom["path_cover_s"],
             rom["path_cover_l"],

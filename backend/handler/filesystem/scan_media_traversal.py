@@ -7,7 +7,6 @@ import json
 import os
 import re
 import stat
-import struct
 import sys
 
 from exceptions.storage_exceptions import (
@@ -58,29 +57,49 @@ def open_directory(storage, path):
     return _open_target(storage, path, directory=True)
 
 
+class _Dirent(ctypes.Structure):
+    _fields_ = [
+        ("inode", ctypes.c_uint64),
+        ("offset", ctypes.c_int64),
+        ("length", ctypes.c_ushort),
+        ("kind", ctypes.c_ubyte),
+        ("name", ctypes.c_char * 256),
+    ]
+
+
 def _entry(descriptor, cookie):
-    # Linux d_off is opaque. Reuse it only for this directory's dev/inode.
+    # fdopendir/readdir/seekdir are provided by both supported Linux C libraries.
     if sys.platform != "linux" or ctypes.sizeof(ctypes.c_long) != 8:
         raise OSError("scan_media_recovery_platform")
     libc = ctypes.CDLL(None, use_errno=True)
-    getdents = libc.getdents64
-    getdents.argtypes = (ctypes.c_int, ctypes.c_void_p, ctypes.c_size_t)
-    getdents.restype = ctypes.c_ssize_t
-    os.lseek(descriptor, cookie, os.SEEK_SET)
-    buffer = ctypes.create_string_buffer(4096)
-    count = getdents(descriptor, buffer, len(buffer))
-    if count < 0:
-        code = ctypes.get_errno()
-        raise OSError(code, "scan_media_recovery_listing")
-    if count == 0:
-        return None
-    if count < 20:
-        raise OSError("scan_media_recovery_record")
-    _, following, length, _ = struct.unpack_from("=QqHB", buffer.raw)
-    if length < 20 or length > count or following < 0 or following == cookie:
-        raise OSError("scan_media_recovery_cookie")
-    name = os.fsdecode(buffer.raw[19:length].split(b"\0", 1)[0])
-    return following, name
+    libc.fdopendir.argtypes = (ctypes.c_int,)
+    libc.fdopendir.restype = ctypes.c_void_p
+    libc.seekdir.argtypes = (ctypes.c_void_p, ctypes.c_long)
+    libc.readdir.argtypes = (ctypes.c_void_p,)
+    libc.readdir.restype = ctypes.POINTER(_Dirent)
+    libc.telldir.argtypes = (ctypes.c_void_p,)
+    libc.telldir.restype = ctypes.c_long
+    libc.closedir.argtypes = (ctypes.c_void_p,)
+    duplicate = os.dup(descriptor)
+    stream = libc.fdopendir(duplicate)
+    if not stream:
+        os.close(duplicate)
+        raise OSError(ctypes.get_errno(), "scan_media_recovery_listing")
+    try:
+        libc.seekdir(stream, cookie)
+        ctypes.set_errno(0)
+        entry = libc.readdir(stream)
+        if not entry:
+            code = ctypes.get_errno()
+            if code:
+                raise OSError(code, "scan_media_recovery_listing")
+            return None
+        following = libc.telldir(stream)
+        if following < 0 or following == cookie:
+            raise OSError("scan_media_recovery_cookie")
+        return following, os.fsdecode(bytes(entry.contents.name))
+    finally:
+        libc.closedir(stream)
 
 
 class RecoveryWalk:
@@ -179,7 +198,7 @@ class RecoveryWalk:
                     self.storage, StorageOperation.OVERWRITE, _CURSOR
                 ) as access:
                     assert isinstance(access, OwnedReplace)
-                    with access.binary_file() as stream:
+                    with access.binary_file(unique=True) as stream:
                         stream.write(
                             json.dumps(self.stack, separators=(",", ":")).encode()
                         )

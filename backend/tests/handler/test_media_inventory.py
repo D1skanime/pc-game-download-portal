@@ -105,8 +105,28 @@ async def test_scanner_publishes_65_complete_two_badge_achievements(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("count", [129, 1000])
 async def test_complete_steam_inventory_replaces_large_prior_atomically(
-    attempt, rom, admin_user, count
+    attempt, rom, admin_user, count, monkeypatch
 ):
+    from traceback import extract_tb
+
+    from handler.filesystem.scan_media_inventory import ScanMediaInventory
+
+    failures = []
+    original_exit = ScanMediaInventory.__exit__
+
+    def record_failure(unit, kind, error, trace):
+        if error is not None:
+            failures.append(
+                (
+                    type(error).__name__,
+                    getattr(error.__cause__, "errno", None),
+                    str(error),
+                    extract_tb(trace)[-2:],
+                )
+            )
+        return original_exit(unit, kind, error, trace)
+
+    monkeypatch.setattr(ScanMediaInventory, "__exit__", record_failure)
     old = seed_steam(rom, count, png_bytes())
     if count == 1000:
         assert len(json.dumps(old).encode()) > MAX_MANIFEST_BYTES
@@ -116,7 +136,7 @@ async def test_complete_steam_inventory_replaces_large_prior_atomically(
             result = await reconcile_steam_patch_media(
                 current, steam_patch(count), force=True
             )
-    assert result is True, "accepted complete Steam inventory was rejected"
+    assert result is True, ("accepted complete Steam inventory was rejected", failures)
     inventory = active_steam(rom)
     assert len(inventory) == count
     assert set(inventory.values()).isdisjoint(old)

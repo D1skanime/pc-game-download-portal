@@ -1,7 +1,6 @@
 """Exact, reference-safe reconciliation through the existing cleanup scheduler."""
 
 import errno
-import hashlib
 import itertools
 import os
 import re
@@ -15,6 +14,12 @@ from exceptions.storage_exceptions import (
     StorageResolutionError,
 )
 from handler.database import db_rom_handler
+from handler.filesystem.owned_content_proof import (
+    content_proof_scope,
+    verify_owned_content,
+)
+from handler.filesystem.owned_publication import _private_metadata
+from handler.filesystem.owned_writer_domain import owned_writer_domain
 from handler.filesystem.scan_media_publication import (
     MAX_MANIFEST_BYTES,
     parse_manifest,
@@ -88,7 +93,7 @@ def _delete(storage, path):
         pass
 
 
-def _digest_matches(storage, output):
+def _verify_output_content(storage, output):
     try:
         with open_owned_access(
             storage, StorageOperation.READ, output["final"]
@@ -97,27 +102,75 @@ def _digest_matches(storage, output):
             if output["digest"] is None:
                 raise ValueError("scan_media_unproven_final")
             before = os.fstat(access.fileno())
-            digest = hashlib.sha256()
-            total = 0
-            with access.binary_file() as stream:
-                while chunk := stream.read(1024 * 1024):
-                    total += len(chunk)
-                    digest.update(chunk)
-            if digest.hexdigest() != output["digest"] or total != output["size"]:
+            ownership = output.get("ownership")
+            if ownership is not None:
+                if list((before.st_dev, before.st_ino)) != ownership["file"]:
+                    raise ValueError("scan_media_final_changed")
+                with open_owned_access(
+                    storage, StorageOperation.DELETE, output["final"]
+                ) as parent:
+                    assert isinstance(parent, OwnedDelete)
+                    if (
+                        list(
+                            (
+                                os.fstat(parent._require_parent()).st_dev,
+                                os.fstat(parent._require_parent()).st_ino,
+                            )
+                        )
+                        != ownership["parent"]
+                    ):
+                        raise ValueError("scan_media_parent_changed")
+            verify_owned_content(
+                access.fileno(), output["digest"], output["size"], _identity(before)
+            )
+            if _identity(before) != _identity(os.fstat(access.fileno())):
                 raise ValueError("scan_media_final_changed")
-            after = os.fstat(access.fileno())
-            if _identity(before) != _identity(after):
-                raise ValueError("scan_media_final_changed")
-            return _identity(after)
+            return _identity(before)
     except MissingStorageTargetError:
         return None
+
+
+def _digest_matches(storage, output):
+    return _verify_output_content(storage, output)
 
 
 def _identity(info):
     return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
 
 
-def reconcile_manifest(storage, directory, *, session=None):
+def _private_identity(storage, output, *, delete=False, expected=None):
+    path = output["private"]
+    try:
+        with open_owned_access(storage, StorageOperation.DELETE, path) as access:
+            assert isinstance(access, OwnedDelete)
+            ownership = output.get("ownership")
+            if ownership is not None:
+                info = _private_metadata(
+                    access._require_parent(), access._name, ownership
+                )
+            else:
+                if not delete:
+                    return _digest_matches(storage, {**output, "final": path})
+                info = os.stat(
+                    access._name, dir_fd=access._require_parent(), follow_symlinks=False
+                )
+            identity = _identity(info)
+            if output["digest"] is not None:
+                actual = _verify_output_content(storage, {**output, "final": path})
+                if actual != identity:
+                    raise ValueError("scan_media_private_changed")
+            elif ownership is None or ownership["sealed"] is not None:
+                raise ValueError("scan_media_unproven_private")
+            if delete:
+                if identity != expected:
+                    raise ValueError("scan_media_private_changed")
+                access.delete()
+            return identity
+    except (FileNotFoundError, MissingStorageTargetError):
+        return None
+
+
+def _prepare_manifest(storage, directory, *, session=None):
     receipts = _children(storage, directory)
     names = [
         entry.name
@@ -144,19 +197,53 @@ def reconcile_manifest(storage, directory, *, session=None):
         for entry in receipts
     ):
         raise ValueError("scan_media_manifest_unknown_child")
-    # Hashing finishes before acquiring SQL row locks.
+    with content_proof_scope(
+        expected_bytes=sum((output["size"] or 0) * 4 for output in document["outputs"]),
+        expected_records=len(document["outputs"]) * 4,
+        operation=document["operation"],
+        attempt=document["attempt"],
+    ):
+        return _prepare_reconciliation(
+            storage, directory, receipts, document, session=session
+        )
+
+
+def reconcile_manifest(storage, directory, *, session=None):
+    return _prepare_manifest(storage, directory, session=session)
+
+
+def _prepare_reconciliation(storage, directory, receipts, document, *, session=None):
+    # Initial proof is outside SQL. Final proof shares the writer domain with mutation.
     identities = {
         output["final"]: _digest_matches(storage, output)
         for output in document["outputs"]
     }
-    return _reconcile_manifest(
-        storage, directory, receipts, document, identities, session=session
-    )
+    private_identities = {
+        output["private"]: _private_identity(storage, output)
+        for output in document["outputs"]
+    }
+    with owned_writer_domain():
+        return _reconcile_manifest(
+            storage,
+            directory,
+            receipts,
+            document,
+            identities,
+            private_identities,
+            session=session,
+        )
 
 
 @begin_session
 def _reconcile_manifest(
-    storage, directory, receipts, document, identities, *, session=None
+    storage,
+    directory,
+    receipts,
+    document,
+    identities,
+    private_identities,
+    *,
+    session=None,
 ):
     row = _lock_attempt(session, document["operation"])
     if _live(row, document["attempt"]):
@@ -171,8 +258,12 @@ def _reconcile_manifest(
                 assert isinstance(access, OwnedRead)
                 if _identity(os.fstat(access.fileno())) != identities[final]:
                     raise ValueError("scan_media_final_changed")
+                if _verify_output_content(storage, output) != identities[final]:
+                    raise ValueError("scan_media_final_changed")
                 _delete(storage, final)
-        _delete(storage, output["private"])
+        _private_identity(
+            storage, output, delete=True, expected=private_identities[output["private"]]
+        )
     for entry in receipts:
         if re.fullmatch(r"receipt-[0-9]{4}[.]json", entry.name) or re.fullmatch(
             r"[.]receipt-[0-9]{4}[.]json[.][a-f0-9]{32}[.]tmp", entry.name
