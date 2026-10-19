@@ -29,7 +29,8 @@ from handler.filesystem import (
 from handler.filesystem.roms_handler import FSRom
 from handler.filesystem.scan_media_publication import (
     ScanMediaBatch,
-    preserve_scan_media_references,
+    merge_scan_rom,
+    preserve_current_scan_media,
 )
 from handler.filesystem.storage_access import IndeterminateOwnedPublicationError
 from handler.filesystem.storage_policy import StorageOperation
@@ -731,6 +732,9 @@ async def scan_rom(
             # before it asks providers again, while this link is deliberately based
             # only on the already cached, exact IGDB relation.
             auto_link_pc_dlc_components(rom, synced_components)
+            rom = db_rom_handler.get_rom(rom.id)
+            if rom is None:
+                raise ValueError("scan_media_catalog_missing")
         except (OSError, ValueError) as exc:
             log.warning(
                 "Failed to reconcile PC components for %s: %s",
@@ -1417,7 +1421,7 @@ async def scan_rom(
             extra=LOGGER_MODULE_NAME,
         )
         unidentified = Rom(**rom_attrs)
-        preserve_scan_media_references(unidentified, rom)
+        preserve_current_scan_media(unidentified)
         return unidentified
 
     async def fetch_sgdb_details(playmatch_rom: PlaymatchRomMatch) -> SGDBRom:
@@ -1499,7 +1503,7 @@ async def scan_rom(
 
     rom_attrs["missing_from_fs"] = False
     scanned_rom = Rom(**rom_attrs)
-    preserve_scan_media_references(scanned_rom, rom)
+    preserve_current_scan_media(scanned_rom)
 
     steam_metadata = steam_updates.get("metadata")
     has_steam_metadata = isinstance(steam_metadata, dict) and bool(steam_metadata)
@@ -1510,7 +1514,7 @@ async def scan_rom(
     # D-04/D-06/D-07: Structured Steam data and provider candidates are applied
     # only after the ROM has a durable identity. Media never uses legacy URLs.
     if has_steam_patch:
-        durable_rom = db_rom_handler.add_rom(scanned_rom)
+        durable_rom = merge_scan_rom(scanned_rom)
         # MariaDB rounds the optimistic-lock timestamp at persistence. Reload it
         # before the owned-media transaction so its compare-and-swap can succeed.
         refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
@@ -1556,7 +1560,7 @@ async def scan_rom(
     ):
         # The mapped scan already created this durable catalog target. Never pass
         # a filesystem path to automation, only the persisted ROM and components.
-        durable_rom = db_rom_handler.add_rom(scanned_rom)
+        durable_rom = merge_scan_rom(scanned_rom)
     return scanned_rom
 
 

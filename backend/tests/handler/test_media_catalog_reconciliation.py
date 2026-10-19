@@ -49,6 +49,8 @@ def test_complete_keeps_reconciled_local_cover_detached(
     with sync_session.begin() as session:
         session.get(type(platform), platform.id).slug = UPS.WIN
     db_rom_handler.update_rom(rom.id, {"fs_name": "soundtracks", "fs_path": "PC"})
+    asyncio.run(fs_resource_handler.remove_file(original.path_cover_l))
+    asyncio.run(fs_resource_handler.remove_file(original.path_cover_s))
     member_path = "cover.png" if source_change == "changed" else "removed-cover.png"
     old_hash = "a" * 64
     with bind_scan_write_context(context(attempt)):
@@ -167,3 +169,39 @@ def test_complete_keeps_reconciled_local_cover_detached(
     assert saved.path_screenshots == original.path_screenshots
     assert read(saved.ss_metadata["video_path"]) == b"complete new video"
     assert saved.ss_metadata["video_path"] != original.ss_metadata["video_path"]
+
+
+def test_final_merge_preserves_current_references_with_stale_session(attempt, rom):
+    from handler.filesystem.scan_media_publication import merge_scan_rom
+    from models.rom import Rom
+
+    with bind_scan_write_context(context(attempt)):
+        with batch(rom) as unit:
+            old = prepare(unit, rom, png_bytes())
+            unit.publish_and_associate(
+                lambda session: db_rom_handler.update_rom(
+                    rom.id, {"path_cover_l": old.path}, session=session
+                )
+            )
+        with batch(rom) as unit:
+            new = prepare(unit, rom, png_bytes())
+            unit.publish_and_associate(lambda session: None)
+    scanned = Rom(
+        id=rom.id,
+        ss_metadata={
+            "video_url": "https://fixture.invalid/new",
+            "video_path": f"{rom.fs_resources_path}/video/new.mp4",
+        },
+    )
+    with sync_session.begin() as session:
+        stale = session.get(Rom, rom.id)
+        assert stale.path_cover_l == old.path
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pool.submit(
+                db_rom_handler.update_rom, rom.id, {"path_cover_l": new.path}
+            ).result(timeout=10)
+        with bind_scan_write_context(context(attempt)):
+            merge_scan_rom(scanned, session=session)
+    saved = db_rom_handler.get_rom(rom.id)
+    assert saved.path_cover_l == new.path
+    assert scanned._pending_scan_media["ss_metadata"]["video_path"].endswith("new.mp4")

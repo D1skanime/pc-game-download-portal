@@ -432,6 +432,29 @@ def preserve_scan_media_references(scanned, previous):
         setattr(scanned, field, deepcopy(getattr(previous, field)))
 
 
+@begin_session
+def preserve_current_scan_media(scanned, *, session=None):
+    from handler.database import db_rom_handler
+
+    db_rom_handler.locked_scan_media_references(scanned.id, session=session)
+    current = db_rom_handler.get_rom(scanned.id, session=session)
+    if current is None:
+        raise ValueError("scan_media_catalog_missing")
+    pending = getattr(scanned, "_pending_scan_media", None)
+    preserve_scan_media_references(scanned, current)
+    if pending is not None:
+        scanned._pending_scan_media = pending
+    return scanned
+
+
+@begin_session
+def merge_scan_rom(scanned, *, session=None):
+    from handler.database import db_rom_handler
+
+    preserve_current_scan_media(scanned, session=session)
+    return db_rom_handler.add_rom(scanned, session=session)
+
+
 async def publish_rom_resources(handler, rom, previous, *, complete=False):
     from handler.database import db_rom_handler
     from handler.metadata.ss_handler import add_ss_auth_to_url

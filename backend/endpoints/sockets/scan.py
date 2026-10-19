@@ -56,6 +56,7 @@ from handler.filesystem import (
 from handler.filesystem.roms_handler import FSRom
 from handler.filesystem.scan_media_publication import (
     ScanMediaBatch,
+    merge_scan_rom,
     publish_rom_resources,
 )
 from handler.filesystem.storage_access import (
@@ -765,7 +766,7 @@ async def _identify_rom(
         identified_roms=1 if scanned_rom.is_identified else 0,
     )
 
-    _added_rom = db_rom_handler.add_rom(scanned_rom)
+    _added_rom = merge_scan_rom(scanned_rom)
 
     if (
         not metadata_only
