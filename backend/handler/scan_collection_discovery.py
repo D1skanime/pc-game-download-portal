@@ -120,3 +120,14 @@ async def identify_collection_game(fs_rom, identify, **kwargs):
         FSRomsHandler.for_mapping(mapping, scope)
     ), bind_checkpoint_command(child_command):
         return await identify(fs_rom=fs_rom, **kwargs)
+
+
+async def count_scan_inventory(platform, filesystem_scope_path=None):
+    from handler.filesystem import get_fs_rom_handler
+
+    handler = get_fs_rom_handler()
+    if current_checkpoint_command() is None:
+        return await handler.count_roms(platform)
+    entries = await handler.get_roms(platform)
+    inventory, _ = collection_inventory(platform, entries, filesystem_scope_path)
+    return len(inventory)

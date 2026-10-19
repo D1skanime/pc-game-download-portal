@@ -55,6 +55,8 @@ async def test_scan_total_uses_selected_collection_inventory(
             )
     scope = "Castlevania/Belmonts.Curse" if kind == "targeted" else None
     handler = FSRomsHandler.for_mapping(mapping, scope)
+    from handler.filesystem import use_fs_rom_handler
+
     monkeypatch.setattr(scan, "get_fs_rom_handler", lambda: handler)
     monkeypatch.setattr(scan, "require_scan_write_context", lambda: None)
     monkeypatch.setattr(scan, "_get_socket_manager", lambda: AsyncMock())
@@ -72,7 +74,7 @@ async def test_scan_total_uses_selected_collection_inventory(
         "quick",
         options,
     )
-    with bind_checkpoint_command(command):
+    with bind_checkpoint_command(command), use_fs_rom_handler(handler):
         result = await scan.scan_platforms(
             platform_ids=[mapped.platform_id],
             metadata_sources=[],

@@ -1104,10 +1104,7 @@ async def _identify_platform(
         known_nested = present_known_nested_roms(
             get_fs_rom_handler(),
             platform.fs_slug,
-            db_rom_handler.get_roms_scalar(
-                platform_ids=[platform.id],
-                only_fields=[Rom.fs_name, Rom.fs_path],
-            ),
+            db_rom_handler.get_rom_filesystem_paths(platform.id),
         )
         fs_rom_names.extend(rom.fs_name for rom in known_nested)
         identities = {
@@ -1420,8 +1417,10 @@ async def scan_platforms(
     total_roms = 0
     for platform_slug in platforms_to_scan:
         try:
-            total_roms += await get_fs_rom_handler().count_roms(
-                Platform(fs_slug=platform_slug)
+            from handler.scan_collection_discovery import count_scan_inventory
+
+            total_roms += await count_scan_inventory(
+                Platform(fs_slug=platform_slug), filesystem_scope_path
             )
         except RomsNotFoundException as e:
             log.error(e)

@@ -8,20 +8,10 @@ import os
 import secrets
 import stat
 from contextlib import contextmanager
-from functools import wraps
 
+from decorators.owned_io import serialized_owned_write
 from exceptions.storage_exceptions import StorageResolutionError
 from handler.filesystem.owned_content_proof import verify_owned_content
-from handler.filesystem.owned_writer_domain import owned_writer_domain
-
-
-def serialized_owned_write(function):
-    @wraps(function)
-    def wrapped(*args, **kwargs):
-        with owned_writer_domain():
-            return function(*args, **kwargs)
-
-    return wrapped
 
 
 def _prove(parent, name, ownership, expected: tuple[str, int] | None):

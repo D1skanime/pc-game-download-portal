@@ -225,7 +225,12 @@ else:
         assert session.get(Platform, platform.id).name == original
 
 
-def test_real_rq_worker_indexes_first_generated_game(admin_user, command, real_queue):
+@pytest.mark.parametrize("media_only", [False, True])
+def test_real_rq_worker_indexes_first_generated_game(
+    admin_user, command, real_queue, media_only, request
+):
+    if media_only:
+        request.getfixturevalue("rom")
     repository = DBScanOperationsHandler()
     normalized = {
         **command,
@@ -234,7 +239,7 @@ def test_real_rq_worker_indexes_first_generated_game(admin_user, command, real_q
             "type": "quick",
             "roms_ids": [],
             "metadata_only": False,
-            "media_only": False,
+            "media_only": media_only,
             "launchbox_remote_enabled": False,
             "playmatch_enabled": False,
         },

@@ -44,6 +44,7 @@ from sqlalchemy.sql.selectable import Select
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
+from decorators.owned_io import serialized_owned_write
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.manual_description import set_manual_description
 from handler.redis_handler import sync_cache
@@ -2295,6 +2296,16 @@ class DBRomsHandler(DBBaseHandler):
         return query.order_by(*order_clauses), order_attr_column  # type: ignore
 
     @begin_session
+    def get_rom_filesystem_paths(
+        self, platform_id: int, *, session: Session = None  # type: ignore
+    ):
+        """Project known source identities without generic catalog filters."""
+        return session.execute(
+            select(Rom.fs_name, Rom.fs_path).where(Rom.platform_id == platform_id)
+        ).all()
+
+    @serialized_owned_write
+    @begin_session
     def get_roms_scalar(
         self,
         *,
@@ -2307,6 +2318,7 @@ class DBRomsHandler(DBBaseHandler):
             order_dir=kwargs.get("order_dir", "asc"),
             search_term=kwargs.get("search_term", None),
             user_id=kwargs.get("user_id", None),
+            session=session,
         )
 
         if only_fields:
@@ -2360,6 +2372,7 @@ class DBRomsHandler(DBBaseHandler):
             include_files=kwargs.get("include_files", False),
             hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
             hidden_rom_ids=kwargs.get("hidden_rom_ids", None),
+            session=session,
         )
         return session.scalars(roms).all()
 
