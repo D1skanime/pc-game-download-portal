@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Catalog CR02/08 verified; CR05 descriptor lifecycle correction next, recovery CR09/WR02 follow-up pending
-last_updated: "2026-10-19T13:37:48.391Z"
+stopped_at: CR05 awaits user decision on bounded final content verification; runtime drafts and failing tests preserved
+last_updated: "2026-10-19T14:03:35.954Z"
 last_activity: 2026-10-18 -- Phase 34 execution started
 progress:
   total_phases: 34
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 Phase: 34 (reliable-fresh-installation-and-scan-lifecycle) - EXECUTING
 Plan: 5 of 15
-Status: Executing bounded prepared descriptor correction
+Status: Executing CR05 design checkpoint
 Last activity: 2026-10-18 -- Phase 34 execution started
 
 ## Performance Metrics
@@ -509,9 +509,9 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-19T13:37:48.384Z
-Stopped at: Catalog CR02/08 verified; CR05 descriptor lifecycle correction next, recovery CR09/WR02 follow-up pending
-Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-MEDIA-INVENTORY-CONTINUATION.md
+Last session: 2026-10-19T14:03:35.946Z
+Stopped at: CR05 awaits user decision on bounded final content verification; runtime drafts and failing tests preserved
+Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-MEDIA-INVENTORY-DESIGN-CHECKPOINT.md
 
 - Phase 25 added: Scan-/Medien-Integration härten
 - Phase 26 added: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege.
