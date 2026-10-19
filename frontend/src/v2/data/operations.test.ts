@@ -56,6 +56,58 @@ const baseRequest = (
 });
 
 describe("operation compatibility translation", () => {
+  it("preserves explicit collection promotion through the typed request builder", () => {
+    const collectionPromotion = {
+      parent_rom_id: 41,
+      mapping_id: 12,
+      expected_revision: 3,
+      parent_relative_path: "Castlevania",
+      selected_child_relative_path: "Castlevania/Belmonts.Curse",
+    };
+    const request = buildLibraryScanRequest({
+      operationId: "collection-selection",
+      kind: "discovery",
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: {
+          win: collectionPromotion.selected_child_relative_path,
+        },
+      },
+      profiles: [],
+      uiLocale: "de-DE",
+      metadataLocale: "en-US",
+      providers: [],
+      playmatchEnabled: false,
+      launchboxRemoteEnabled: false,
+      scanType: "quick",
+      collectionPromotion,
+    });
+    expect(normalizeOperationRequest(request).collectionPromotion).toEqual(
+      collectionPromotion,
+    );
+    expect(toScanOperationRequest(request)).toMatchObject({
+      collection_promotion: collectionPromotion,
+      filesystem_scope_paths: { win: "Castlevania/Belmonts.Curse" },
+    });
+    expect(toLegacyScanOptions(request)).not.toHaveProperty(
+      "collection_promotion",
+    );
+  });
+
+  it("does not infer collection promotion from generic filesystem scope", () => {
+    const request = baseRequest({
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: { win: "Castlevania/Belmonts.Curse" },
+      },
+    });
+    expect(toScanOperationRequest(request)).not.toHaveProperty(
+      "collection_promotion",
+    );
+  });
+
   it("serializes the backend request without replacing the reconciliation key", () => {
     const input = baseRequest({
       scope: {
