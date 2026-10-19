@@ -110,7 +110,7 @@ def record_provider_result(
         return
     from handler.database.scan_operations_handler import DBScanOperationsHandler
 
-    scope = dict(command.options).get("relative_path", "")
+    scope = dict(command.options).get("relative_path", "").rpartition("/")[0]
     path = "/".join(part for part in (scope, relative_path) if part)
     item = {
         "target_key": "game-"

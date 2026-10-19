@@ -340,18 +340,21 @@ class FSRomsHandler(ExternalFSHandler):
             storage = legacy_external_storage
         super().__init__(base_path=Path(storage._root_path), storage=storage)
         self._logical_root = ""
+        self._selected_rom_name: str | None = None
 
     @classmethod
     def for_mapping(cls, mapping, relative_path: str | None = None) -> "FSRomsHandler":
         mapping_path = mapping.relative_path.strip("/")
         selected_path = (relative_path or "").strip("/")
-        logical_root = "/".join(part for part in (mapping_path, selected_path) if part)
+        parent, _, selected_name = selected_path.rpartition("/")
+        logical_root = "/".join(part for part in (mapping_path, parent) if part)
         mapped_root = resolve_directory(mapping.storage_root, logical_root)
         descriptor = _create_external_descriptor(
             mapping.storage_root_id, mapped_root, mapping_id=mapping.id
         )
         handler = cls(descriptor)
         handler._logical_root = logical_root
+        handler._selected_rom_name = selected_name or None
         return handler
 
     def open_rom_read(self, relative_path: str):
@@ -1311,6 +1314,14 @@ class FSRomsHandler(ExternalFSHandler):
             fs_multi_roms = await self.list_directories(path=rel_roms_path)
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
+
+        if self._selected_rom_name is not None:
+            fs_single_roms = [
+                name for name in fs_single_roms if name == self._selected_rom_name
+            ]
+            fs_multi_roms = [
+                name for name in fs_multi_roms if name == self._selected_rom_name
+            ]
 
         fs_roms: list[dict] = [
             {"fs_name": rom, "flat": True, "nested": False}

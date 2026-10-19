@@ -68,3 +68,20 @@ def test_missing_hashes_are_not_mislabeled_as_verifiable():
     rom = SimpleNamespace(fs_path="roms/win", fs_name="game.bin")
     file = SimpleNamespace(full_path="roms/win/game.bin", sha1_hash=None)
     assert checkpoint.game_file_evidence(command, rom, [file]) == {"verifiable": False}
+
+
+def test_scoped_game_evidence_uses_mapping_relative_child_once():
+    command = SimpleNamespace(
+        mapping_id=1,
+        expected_revision=2,
+        options=(("relative_path", "Castlevania/Belmonts.Curse"),),
+    )
+    rom = SimpleNamespace(fs_path="pc-Games/Castlevania", fs_name="Belmonts.Curse")
+    file = SimpleNamespace(
+        full_path="pc-Games/Castlevania/Belmonts.Curse/game.rar",
+        sha1_hash="digest",
+        file_size_bytes=4,
+    )
+    evidence = checkpoint.game_file_evidence(command, rom, [file])
+    assert evidence["target"] == "Castlevania/Belmonts.Curse"
+    assert evidence["files"][0]["path"] == "Castlevania/Belmonts.Curse/game.rar"

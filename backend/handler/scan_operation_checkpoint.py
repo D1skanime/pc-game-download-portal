@@ -89,7 +89,7 @@ def validate_recovery_checkpoint(execution, *, generation_validator=None):
 
 
 def game_file_evidence(command, rom, files):
-    scope = dict(command.options).get("relative_path", "")
+    scope = dict(command.options).get("relative_path", "").rpartition("/")[0]
     entries = []
     if not files or len(files) > 24:
         return {"verifiable": False}

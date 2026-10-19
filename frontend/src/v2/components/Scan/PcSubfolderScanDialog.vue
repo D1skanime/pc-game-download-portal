@@ -24,6 +24,7 @@ const entries = ref<
   Awaited<ReturnType<typeof storageApi.browseRoot>>["data"]["entries"]
 >([]);
 let rootId: number | null = null;
+let mappingPath = "";
 
 function joinPath(...parts: string[]): string {
   return parts
@@ -55,6 +56,7 @@ async function openDialog() {
       props.rom.platform_id,
     );
     rootId = mapping.storage_root_id;
+    mappingPath = joinPath(mapping.relative_path);
     parentPath.value = joinPath(mapping.relative_path, props.rom.fs_name);
     await browse(parentPath.value);
   } catch {
@@ -68,7 +70,18 @@ function close() {
 }
 
 function select(path: string) {
-  emit("scan", path);
+  const parts = path.split("/");
+  const prefix = mappingPath ? mappingPath + "/" : "";
+  if (
+    parts.some((part) => !part || part === "." || part === "..") ||
+    path.includes("\\") ||
+    !path.startsWith(parentPath.value + "/") ||
+    (prefix && !path.startsWith(prefix))
+  ) {
+    error.value = true;
+    return;
+  }
+  emit("scan", path.slice(prefix.length));
   close();
 }
 

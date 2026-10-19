@@ -1087,10 +1087,21 @@ async def _identify_platform(
     # moved ROM (a new file with no fs_name match) can be reassociated by hash
     # with its now-missing entry instead of spawning a duplicate. The end-of-scan
     # call below re-syncs and logs, unmarking any entry that got reassociated.
+    fs_rom_names = [rom["fs_name"] for rom in fs_roms]
     if filesystem_scope_path is None:
-        db_rom_handler.mark_missing_roms(
-            platform.id, [rom["fs_name"] for rom in fs_roms]
+        from handler.scan_known_paths import present_known_nested_names
+
+        fs_rom_names.extend(
+            present_known_nested_names(
+                get_fs_rom_handler(),
+                platform.fs_slug,
+                db_rom_handler.get_roms_scalar(
+                    platform_ids=[platform.id],
+                    only_fields=[Rom.fs_name, Rom.fs_path],
+                ),
+            )
         )
+        db_rom_handler.mark_missing_roms(platform.id, fs_rom_names)
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
@@ -1176,9 +1187,7 @@ async def _identify_platform(
                     raise result
 
     missing_roms = (
-        db_rom_handler.mark_missing_roms(
-            platform.id, [rom["fs_name"] for rom in fs_roms]
-        )
+        db_rom_handler.mark_missing_roms(platform.id, fs_rom_names)
         if filesystem_scope_path is None
         else []
     )
