@@ -544,7 +544,9 @@ class FSResourcesHandler(FSHandler):
         # Download and store new screenshots
         path_screenshots: list[str] = []
         for idx, url_screenshot in enumerate(url_screenshots):
-            await self._store_screenshot(rom, url_screenshot, idx)
+            stored = await self._store_screenshot(rom, url_screenshot, idx)
+            if stored is None:
+                return rom.path_screenshots or []
             path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
         return path_screenshots
