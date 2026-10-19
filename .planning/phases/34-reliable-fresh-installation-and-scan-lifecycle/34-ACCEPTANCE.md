@@ -21,7 +21,7 @@ The user authorized complete Phase 34 implementation before technical tests, fol
 | nginx existing-file streaming/crash proof | Passed against the built production image: 414 real HTTP requests over streaming, confirmed process death and nginx restart; 200/206 positive controls and 404 private-file denials |
 | Production Portainer stack | Open: no explicit approved connection configured; no endpoint or credentials guessed |
 | v2 maintainability | Passed for 476 production files after existing-adapter imports and coherent provider-preferences extraction |
-| Shared in-app UAT | Dev is running; authenticated admin Scan page is visible in the user-opened browser; user scan/acceptance remains open |
+| Shared in-app UAT | User explicitly accepted the full library scan on 2026-10-19. Live UI shows completed, 8/8 platforms, 33/33 games. Subsequent Phase 33 targeted child-folder UAT exposed HTTP 409; that scenario remains open. |
 | Independent deep code review | Deferred until after shared UAT by user instruction |
 
 Passing individual checks does not imply phase acceptance. Earlier failed runs remain evidence of their actual outcomes. The evidence index requires matching complete source snapshots, complete stable-output process scenarios, real HTTP controls, cleanup and explicit human acceptance.
@@ -46,3 +46,9 @@ Games remains immutable, with the live library mounted read-only. Disposable tes
 Eleven passing run directories, including the three schema dialects, were copied byte-for-byte to evidence/retained/ inside this canonical Linux phase directory. evidence/retained-receipts.json records original paths, archive paths and SHA-256 fingerprints. The archives remain local and are not committed as bulk logs. Historical failed receipts and frozen plan 34-16 evidence are not rewritten.
 
 Live readiness receipts and the browser screenshot are retained in evidence/live-dev-runtime/. The authenticated admin Scan page is visibly ready. This proves readiness for shared UAT, not human acceptance. The agent has not started a new live library scan.
+
+## Live user acceptance and Phase 33 continuation
+
+At 2026-10-19T21:56:44.610973+00:00, the user reported "scan hat geklappt uat bestanden" and requested Phase 33 continuation. The live UI displayed Abgeschlossen, 8/8 platforms and 33/33 games. Read-only SQL confirmed operation 5f7567eb-acfb-4eea-93e9-9f73ac882d07 completed. No reset or new scan was performed by the agent.
+
+The user then selected Castlevania.Belmonts.Curse-RUNE below Castlevania for a targeted child-folder scan. POST /api/scan-operations returned 409 at 2026-10-19T21:55:01Z, the UI displayed a confirmation/completion error, and no new durable operation was accepted. The successful full scan remains accepted; Phase 33 child-folder behavior is under investigation.
