@@ -127,3 +127,27 @@ async def test_pc_selection_keeps_authoritative_cover_paths(
     assert saved.path_cover_s == paths["path_cover_s"]
     assert saved.path_cover_l == paths["path_cover_l"]
     assert resource_snapshot(rom) == before
+
+
+@pytest.mark.asyncio
+async def test_replacement_collision_preserves_another_writers_private_file(rom):
+    import os
+
+    from handler.filesystem.scan_media_publication import store_resource
+
+    paths = await seed_primary(rom)
+    path = paths["path_cover_l"]
+    final = fs_resource_handler.validate_path(path)
+    private = final.with_name(f".{final.name}.{os.getpid()}.tmp")
+    private.write_bytes(b"another writer owns this private file")
+    async with provider_response():
+        result = await store_resource(
+            fs_resource_handler,
+            "https://fixture.invalid/cover",
+            path,
+            ("image/",),
+            cover_size="big",
+        )
+    assert result is None
+    assert final.read_bytes() == b"prior good bytes"
+    assert private.read_bytes() == b"another writer owns this private file"
