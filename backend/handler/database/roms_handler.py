@@ -511,6 +511,9 @@ class DBRomsHandler(DBBaseHandler):
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Rom:
+        from handler.scan_collection_policy import guard_scan_rom_publication
+
+        guard_scan_rom_publication(session, rom)
         rom = session.merge(rom)
         session.flush()
 
@@ -1064,6 +1067,12 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def locked_scan_media_references(self, rom_id, *, snapshot=False, session=None):
         """Read reference surfaces while holding the catalog parent's write lock."""
+        if rom_id is None:
+            from handler.database.catalog_media_references import (
+                locked_catalog_media_references,
+            )
+
+            return locked_catalog_media_references(session)
         rom = (
             session.execute(
                 select(Rom.__table__).where(Rom.id == rom_id).with_for_update()
@@ -2513,12 +2522,35 @@ class DBRomsHandler(DBBaseHandler):
         return {rom.fs_name: rom for rom in roms}
 
     @begin_session
+    def get_roms_by_filesystem_identity(self, platform_id, identities, *, session=None):
+        from sqlalchemy import tuple_
+
+        rows = (
+            session.scalars(
+                select(Rom)
+                .options(selectinload(Rom.platform))
+                .where(
+                    Rom.platform_id == platform_id,
+                    tuple_(Rom.fs_path, Rom.fs_name).in_(identities),
+                )
+            )
+            .unique()
+            .all()
+        )
+        return {(rom.fs_path, rom.fs_name): rom for rom in rows}
+
+    @begin_session
     def update_rom(
         self,
         id: int,
         data: dict,
         session: Session = None,  # type: ignore
     ) -> Rom:
+        from handler.scan_collection_policy import guard_scan_rom_publication
+
+        current = session.get(Rom, id)
+        if current is not None:
+            guard_scan_rom_publication(session, current, data)
         if "name" in data and "name_sort_key" not in data:
             # Re-derive the key from the new name, but only when the stored key
             # is still the derived value (i.e. not a manual override). Mirrors
@@ -3563,6 +3595,8 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int,
         fs_roms_to_keep: list[str],
         session: Session = None,  # type: ignore
+        *,
+        filesystem_identities: set[tuple[str, str]] | None = None,
     ) -> Sequence[Rom]:
         """Sync `missing_from_fs` for a platform against the keep-list.
 
@@ -3571,14 +3605,18 @@ class DBRomsHandler(DBBaseHandler):
         """
         keep_set = set(fs_roms_to_keep)
         rows = session.execute(
-            select(Rom.id, Rom.fs_name, Rom.missing_from_fs).where(
+            select(Rom.id, Rom.fs_name, Rom.fs_path, Rom.missing_from_fs).where(
                 Rom.platform_id == platform_id
             )
         ).all()
 
         flips: dict[bool, list[int]] = {True: [], False: []}
-        for rom_id, fs_name, was_missing in rows:
-            is_missing = fs_name not in keep_set
+        for rom_id, fs_name, fs_path, was_missing in rows:
+            is_missing = (
+                (fs_path, fs_name) not in filesystem_identities
+                if filesystem_identities is not None
+                else fs_name not in keep_set
+            )
             if is_missing != was_missing:
                 flips[is_missing].append(rom_id)
 

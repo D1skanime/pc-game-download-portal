@@ -105,3 +105,45 @@ def get_validated_promotion(body, commands, *, session=None):
         "mapping_relative_path": mapping.relative_path,
         "binding_digest": mapping_binding(mapping),
     }
+
+
+def guard_scan_rom_publication(session, rom, changes=None):
+    from handler.database.scan_write_fence import (
+        ScanWriteRejected,
+        current_scan_write_context,
+    )
+    from handler.scan_operation_checkpoint import current_checkpoint_command
+    from models.storage import PlatformStorageMapping
+
+    if current_scan_write_context() is None:
+        return
+    command = current_checkpoint_command()
+    data = changes or {}
+    platform_id = data.get("platform_id", rom.platform_id)
+    mapping = (
+        session.get(PlatformStorageMapping, command.mapping_id)
+        if command is not None
+        else session.scalar(
+            select(PlatformStorageMapping).where(
+                PlatformStorageMapping.platform_id == platform_id,
+                PlatformStorageMapping.active.is_(True),
+            )
+        )
+    )
+    if mapping is None:
+        raise ScanWriteRejected("collection_mapping_missing")
+    if platform_id != mapping.platform_id:
+        return
+    try:
+        relative = (
+            (
+                PurePosixPath(data.get("fs_path", rom.fs_path))
+                / data.get("fs_name", rom.fs_name)
+            )
+            .relative_to(PurePosixPath(mapping.relative_path))
+            .as_posix()
+        )
+    except ValueError:
+        return
+    if find_classification(session, mapping, relative) is not None:
+        raise ScanWriteRejected("classified_collection_not_game")

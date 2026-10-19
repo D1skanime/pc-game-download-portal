@@ -1072,6 +1072,16 @@ async def _identify_platform(
         log.error(e)
         return scan_stats
 
+    from handler.scan_collection_discovery import (
+        collection_inventory,
+        filesystem_identity,
+        identify_collection_game,
+    )
+
+    fs_roms, classified_inventory = collection_inventory(
+        platform, fs_roms, filesystem_scope_path
+    )
+
     if len(fs_roms) == 0:
         log.warning(
             f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No roms found, verify that the folder structure is correct"
@@ -1089,19 +1099,26 @@ async def _identify_platform(
     # call below re-syncs and logs, unmarking any entry that got reassociated.
     fs_rom_names = [rom["fs_name"] for rom in fs_roms]
     if filesystem_scope_path is None:
-        from handler.scan_known_paths import present_known_nested_names
+        from handler.scan_known_paths import present_known_nested_roms
 
-        fs_rom_names.extend(
-            present_known_nested_names(
-                get_fs_rom_handler(),
-                platform.fs_slug,
-                db_rom_handler.get_roms_scalar(
-                    platform_ids=[platform.id],
-                    only_fields=[Rom.fs_name, Rom.fs_path],
-                ),
-            )
+        known_nested = present_known_nested_roms(
+            get_fs_rom_handler(),
+            platform.fs_slug,
+            db_rom_handler.get_roms_scalar(
+                platform_ids=[platform.id],
+                only_fields=[Rom.fs_name, Rom.fs_path],
+            ),
         )
-        db_rom_handler.mark_missing_roms(platform.id, fs_rom_names)
+        fs_rom_names.extend(rom.fs_name for rom in known_nested)
+        identities = {
+            filesystem_identity(get_fs_rom_handler(), platform, entry)
+            for entry in fs_roms
+        }
+        identities.update((rom.fs_path, rom.fs_name) for rom in known_nested)
+        missing_options = (
+            {"filesystem_identities": identities} if classified_inventory else {}
+        )
+        db_rom_handler.mark_missing_roms(platform.id, fs_rom_names, **missing_options)
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
@@ -1109,9 +1126,10 @@ async def _identify_platform(
     async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
         """Scan a single ROM with semaphore limiting"""
         async with scan_semaphore:
-            await _identify_rom(
+            await identify_collection_game(
+                fs_rom,
+                _identify_rom,
                 platform=platform,
-                fs_rom=fs_rom,
                 rom=rom,
                 scan_type=scan_type,
                 roms_ids=roms_ids,
@@ -1130,13 +1148,31 @@ async def _identify_platform(
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
 
+        collection_roms = (
+            db_rom_handler.get_roms_by_filesystem_identity(
+                platform.id,
+                {
+                    filesystem_identity(get_fs_rom_handler(), platform, entry)
+                    for entry in fs_roms_batch
+                },
+            )
+            if classified_inventory
+            else {}
+        )
+
         # Separate skipped ROMs from those that need scanning
         skipped_rom_ids: list[int] = []
         restored_roms: list[Rom] = []
         roms_to_scan: list[tuple[FSRom, Rom | None]] = []
 
         for fs_rom in fs_roms_batch:
-            rom = roms_by_fs_name.get(fs_rom["fs_name"])
+            rom = (
+                collection_roms.get(
+                    filesystem_identity(get_fs_rom_handler(), platform, fs_rom)
+                )
+                if classified_inventory
+                else roms_by_fs_name.get(fs_rom["fs_name"])
+            )
             if should_scan_rom(
                 scan_type=scan_type,
                 rom=rom,
@@ -1187,7 +1223,7 @@ async def _identify_platform(
                     raise result
 
     missing_roms = (
-        db_rom_handler.mark_missing_roms(platform.id, fs_rom_names)
+        db_rom_handler.mark_missing_roms(platform.id, fs_rom_names, **missing_options)
         if filesystem_scope_path is None
         else []
     )

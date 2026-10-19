@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from io import BytesIO
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 
 from anyio import Path as AnyioPath
 from PIL import Image, UnidentifiedImageError
@@ -122,6 +122,8 @@ NON_HASHABLE_PLATFORMS = frozenset(
 
 
 class FSRom(TypedDict):
+    scan_relative_path: NotRequired[str]
+    logical_fs_path: NotRequired[str]
     fs_name: str
     flat: bool
     nested: bool

@@ -188,21 +188,6 @@ def record_completed_game(rom):
     command = current_checkpoint_command()
     if command is None:
         return
-    from handler.database.scan_operations_handler import DBScanOperationsHandler
-    from handler.database.scan_write_fence import current_scan_write_context
+    from handler.scan_collection_finalize import finalize_completed_game
 
-    context = current_scan_write_context()
-    if context is None:
-        return
-    repository = DBScanOperationsHandler()
-    current = repository.execution(context.operation_id)
-    checkpoint = dict(current["checkpoint"])
-    checkpoint.update(
-        schema=1,
-        mapping_id=command.mapping_id,
-        revision=command.expected_revision,
-        committed_rom_id=rom.id,
-        cursor=rom.fs_name,
-        resumable=False,
-    )
-    repository.worker_update(context, checkpoint=checkpoint)
+    finalize_completed_game(rom, command)
