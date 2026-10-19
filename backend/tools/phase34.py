@@ -441,6 +441,8 @@ def main():
     sub.add_parser("guard-test")
     for mode in ("backend", "frontend"):
         item = sub.add_parser(mode)
+        if mode == "backend":
+            item.add_argument("--dialect", choices=tuple(SQL_IMAGES), default="mariadb")
         item.add_argument("--smoke", action="store_true")
         item.add_argument("tests", nargs=argparse.REMAINDER)
     schema = sub.add_parser("schema")
