@@ -44,3 +44,58 @@ Independent additive checker input: exactly 1 BLOCKER, 0 warnings, in 34-15 Task
 Resolution in plans: 34-15 fixes the reserved namespace and explicit capability-private-name contract; 34-08 Task 1 exclusively owns one nginx template with enforceable ordered exclusions, and Tasks 1/2 require real bounded HTTP requests to exact existing private paths during streaming and after crash/restart plus committed image/manual controls. Patterns, research, threat registers and validation/evidence gates reflect this ownership. Fifteen plans, 36 tasks, nine waves remain;15 keeps three tasks/fifteen files,08 has three tasks/ten files. Completed01/02/05 unchanged, actual progress 3/15, Phase33 open.
 
 Revision log: 1/1 BLOCKER addressed in planning, resolved pending independent recheck. No PASS claimed. No runtime implementation/tests/reset/deployment, nested agents or STATE changes. Parent orchestrator must obtain the independent recheck before continuing execution.
+
+
+## Independent targeted revision 2 recheck (2026-10-19)
+
+VERIFICATION PASSED. Reviewed revision 8aabca4bf against prior 0d2cbbbbf.
+Zero blockers and zero warnings. This supersedes the pending independent
+recheck for the additive revision; all historical entries remain preserved.
+
+- Canonical preflight passed: Linux, team4s-linux,
+  /home/d1sk/pc-game-download-portal, codex/phase-32-pgdp-naming,
+  origin https://github.com/D1skanime/pc-game-download-portal.git.
+- Read full 34-15 and 34-08 plans, this review, research, pattern and validation
+  artifacts, locked context, project/roadmap instructions, production nginx
+  configuration, webroot/entrypoint symlink wiring, staged capability and manual
+  validation code. Scope was the prior single disclosure blocker and regressions.
+- The private-path contract now matches actual sibling
+  .<final-name>.<32-lowercase-hex>.tmp creation and confines manifests and reserved
+  objects to .scan-media-staging. 34-08 Task 1 exclusively owns the template:
+  exact directory and reserved ^~ prefix denials, plus the first case-sensitive
+  temporary-name regex ahead of other regex locations. Ordinary resource prefix
+  matching, direct-child manuals and committed media remain supported. Inspected
+  library/cache aliases are internal and do not introduce a public resources
+  alias; encoded/normalized URI and query forms are covered by the HTTP contract.
+- Implementation precedes streaming/crash HTTP acceptance in 34-08 Task 1;
+  Task 2 repeats the full contract through the rebuilt production nginx image.
+  Exact existing-file GET/HEAD/Range requests, byte barriers, crash/restart cases,
+  committed image/PDF/Markdown controls and effective-config/image receipts are
+  mandatory. Task 3 rejects missing evidence. Getter filtering and nonexistent
+  path 404s cannot substitute. 34-15 alone does not complete HTTP privacy.
+- Real SQL/capability/filesystem and cross-process fault assertions cover both
+  cancellation orderings and uncertain publication/commit recovery. Prior good,
+  new-attempt, uploaded and non-scan media contracts and read-only Games remain
+  protected; no mock authority or static grep substitutes for those tests.
+- Legacy GSD plan-structure validation passed all 15 plans, 36 tasks.
+  Independent static checks found 36 automated verify blocks, nine waves,
+  no cycles, missing dependencies or unordered shared-file ownership. 34-08
+  transitively depends on all 14 predecessors; the nginx file has one owner.
+  Existing decomposition scope remains intact (15: three tasks/fifteen files;
+  08: three tasks/ten files). No reverse dependency was introduced.
+- D-01 through D-16 remain present in requirements and existing implementing
+  actions/validation mapping; revision diff drops no original decision or
+  relevant source-safety requirement and introduces no deferred feature.
+  The installed legacy checker lacks the decision-coverage verb (unknown
+  command); explicit static mapping/diff review supplies this check instead.
+  Nyquist planning coverage passes, including all six affected task commands;
+  integration latency is bounded by the stated batches and deadlines. Runtime
+  nyquist flags remain unchanged. Dimension 7c: SKIPPED (no responsibility map).
+- Completed 01/02/05 plans and summaries are unchanged. Progress remains 3/15,
+  and Phase 33 acceptance remains open. No STATE or requirement completion edit.
+
+Planning/static review only. No implementation, application test, HTTP request,
+DB reset, deployment, nested agent or runtime acceptance was executed or claimed.
+Only this appended review is authorized for the normal-hook documentation commit.
+
+Structured issues: []
