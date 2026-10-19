@@ -11,6 +11,8 @@ from handler.storage.read_context import MappingReadContext
 
 def canonical_request(body: ScanOperationRequest) -> dict:
     payload = body.model_dump(exclude={"request_key"})
+    if payload.get("collection_promotion") is None:
+        payload.pop("collection_promotion", None)
     for key in ("platforms", "platform_fs_slugs", "roms_ids", "apis"):
         payload[key] = sorted(set(payload[key]))
     return payload
@@ -61,4 +63,13 @@ def normalize_scan_request(body: ScanOperationRequest) -> dict:
         rom = db_rom_handler.get_rom(identity)
         if rom is None or rom.platform_id not in mapped_platforms:
             raise ValueError("rom_outside_scan_scope")
-    return {"commands": [asdict(command) for command in commands], "request": payload}
+    from handler.scan_collection_policy import get_validated_promotion
+
+    promotion = get_validated_promotion(body, commands)
+    normalized = {
+        "commands": [asdict(command) for command in commands],
+        "request": payload,
+    }
+    if promotion is not None:
+        normalized["collection_promotion"] = promotion
+    return normalized

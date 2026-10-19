@@ -32,8 +32,29 @@ class StrictContract(BaseModel):
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 
 
+class CollectionPromotionRequest(StrictContract):
+    parent_rom_id: PositiveId
+    mapping_id: PositiveId
+    expected_revision: PositiveId
+    parent_relative_path: Annotated[
+        str, Field(strict=True, min_length=1, max_length=700)
+    ]
+    selected_child_relative_path: Annotated[
+        str, Field(strict=True, min_length=1, max_length=700)
+    ]
+
+    @field_validator("parent_relative_path", "selected_child_relative_path")
+    @classmethod
+    def safe_path(cls, value):
+        try:
+            return normalize_relative_path(value)
+        except StorageResolutionError:
+            raise ValueError("invalid_collection_path") from None
+
+
 class ScanOperationRequest(StrictContract):
     request_key: RequestKey
+    collection_promotion: CollectionPromotionRequest | None = None
     platforms: list[PositiveId] = Field(default_factory=list, max_length=256)
     platform_fs_slugs: list[Annotated[str, Field(min_length=1, max_length=100)]] = (
         Field(default_factory=list, max_length=256)
