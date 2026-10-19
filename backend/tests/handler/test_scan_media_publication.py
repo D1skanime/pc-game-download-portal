@@ -186,7 +186,8 @@ def test_publication_protocol_process_crash(attempt, rom, admin_user, boundary):
         process.join(5)
         pytest.fail("crash child exceeded deadline")
     assert process.exitcode == 41
-    cancel(attempt, admin_user)
+    stopping = cancel(attempt, admin_user)
+    repository().confirm_stopped(stopping.id, stopping.version, attempt.attempt_id)
     recovery().reconcile_scan_media(fs_resource_handler.storage)
     assert not fs_resource_handler.validate_path(private).exists()
     if boundary == "committed":
@@ -213,7 +214,71 @@ def test_publication_protocol_recovery_skips_live_and_keeps_references(
         recovery().reconcile_scan_media(fs_resource_handler.storage)
         assert fs_resource_handler.validate_path(unused.private_path).exists()
         abandoned.abort()
-    cancel(attempt, admin_user)
+    stopping = cancel(attempt, admin_user)
+    repository().confirm_stopped(stopping.id, stopping.version, attempt.attempt_id)
     recovery().reconcile_scan_media(fs_resource_handler.storage)
     assert read(output.path) == b"complete fixture"
     assert reference(rom) == output.path
+
+
+def test_publication_protocol_unknown_commit_queries_catalog(attempt, rom, admin_user):
+    from sqlalchemy import event
+
+    with bind_scan_write_context(context(attempt)):
+        unit = batch(rom)
+        output = prepare(unit, rom, b"committed despite lost acknowledgement")
+
+        def lost_ack(session):
+            raise RuntimeError("commit acknowledgement lost")
+
+        with pytest.raises(RuntimeError, match="acknowledgement"):
+            with sync_session.begin() as session:
+                event.listen(session, "after_commit", lost_ack, once=True)
+                unit.publish_and_associate(associate(rom, output.path), session=session)
+        unit.abort()
+    stopping = cancel(attempt, admin_user)
+    repository().confirm_stopped(stopping.id, stopping.version, attempt.attempt_id)
+    recovery().reconcile_scan_media(fs_resource_handler.storage)
+    assert reference(rom) == output.path
+    assert read(output.path) == b"committed despite lost acknowledgement"
+
+
+@pytest.mark.parametrize(
+    "processing,missing,referenced",
+    [
+        (False, False, False),
+        (True, False, False),
+        (True, True, False),
+        (True, False, True),
+    ],
+)
+def test_publication_protocol_exact_cleanup_claims(
+    attempt, rom, processing, missing, referenced
+):
+    from models.owned_media_cleanup import OwnedMediaCleanupState
+
+    with bind_scan_write_context(context(attempt)):
+        unit = batch(rom)
+        output = prepare(unit, rom)
+        unit.publish_and_associate(associate(rom, output.path))
+        if not referenced:
+            db_rom_handler.update_rom(rom.id, {"path_cover_l": None})
+        intent = db_rom_handler.create_owned_media_cleanup_intent(
+            rom.id, 0, output.path
+        )
+    if processing:
+        db_rom_handler.claim_owned_media_cleanup_intent(intent.id)
+    if missing:
+        fs_resource_handler.validate_path(output.path).unlink()
+    assert (
+        recovery().reconcile_cleanup_intent(fs_resource_handler.storage, intent.id)
+        is not referenced
+    )
+    with sync_session.begin() as session:
+        saved = session.get(OwnedMediaCleanupIntent, intent.id)
+        assert (saved.state == OwnedMediaCleanupState.COMPLETED) is not referenced
+    assert fs_resource_handler.validate_path(output.path).exists() is referenced
+    assert (
+        recovery().reconcile_cleanup_intent(fs_resource_handler.storage, intent.id)
+        is False
+    )

@@ -1,12 +1,14 @@
-"""Retry durable deletion of parent owned-media objects only."""
+"""Retry exact, reference-safe owned-media and scan receipt cleanup."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from handler.database import db_rom_handler
 from handler.filesystem import storage_composition
-from handler.filesystem.storage_access import OwnedDelete, open_owned_access
-from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
-from logger.logger import log
+from handler.filesystem.scan_media_recovery import (
+    reconcile_cleanup_intent,
+    reconcile_scan_media,
+)
+from handler.filesystem.storage_policy import OwnedStorageKind
 from tasks.tasks import PeriodicTask, TaskType
 
 
@@ -27,29 +29,12 @@ class OwnedMediaCleanupTask(PeriodicTask):
         )
 
     async def run(self) -> None:
-        now = datetime.now(timezone.utc)
-        for intent_id in db_rom_handler.get_due_owned_media_cleanup_intent_ids(now):
-            intent = db_rom_handler.claim_owned_media_cleanup_intent(intent_id)
-            if intent is None:
-                continue
-            try:
-                with open_owned_access(
-                    storage_composition.owned[OwnedStorageKind.RESOURCES],
-                    StorageOperation.DELETE,
-                    intent.owned_path,
-                ) as access:
-                    assert isinstance(access, OwnedDelete)
-                    access.delete()
-            except FileNotFoundError:
-                pass
-            except Exception as exc:
-                delay = retry_delay(intent.attempt_count + 1)
-                db_rom_handler.mark_owned_media_cleanup_failed(
-                    intent.id, type(exc).__name__, now + timedelta(seconds=delay)
-                )
-                log.warning(f"Unable to clean owned media intent {intent.id}: {exc}")
-            else:
-                db_rom_handler.complete_owned_media_cleanup_intent(intent.id)
+        storage = storage_composition.owned[OwnedStorageKind.RESOURCES]
+        reconcile_scan_media(storage)
+        for intent_id in db_rom_handler.get_due_owned_media_cleanup_intent_ids(
+            datetime.now(timezone.utc)
+        ):
+            reconcile_cleanup_intent(storage, intent_id)
 
 
 owned_media_cleanup_task = OwnedMediaCleanupTask()

@@ -508,7 +508,50 @@ class _OwnedStagedPublication:
             raise IndeterminateOwnedPublicationError() from error
 
 
+class PreparedOwnedFile:
+    """Keep the existing staged publication open across local validation."""
+
+    def __init__(self, parent_descriptor: int, final_name: str) -> None:
+        self._parent = os.dup(parent_descriptor)
+        self._closed = False
+        try:
+            self._publication = _OwnedStagedPublication(self._parent, final_name)
+            self.private_basename = self._publication._staging_name
+            self.file = os.fdopen(self._publication.descriptor, "w+b", closefd=False)
+        except BaseException:
+            if hasattr(self, "_publication"):
+                self._publication.abort()
+            os.close(self._parent)
+            raise
+
+    def publish(self) -> None:
+        if self._closed:
+            raise StorageResolutionError("Prepared owned file is closed")
+        try:
+            self.file.flush()
+            self.file.close()
+            self._publication.publish()
+        except BaseException:
+            self._publication.abort()
+            raise
+        finally:
+            self._closed = True
+            os.close(self._parent)
+
+    def abort(self) -> None:
+        if not self._closed:
+            try:
+                self.file.close()
+            finally:
+                self._publication.abort()
+                os.close(self._parent)
+                self._closed = True
+
+
 class OwnedCreate(_OwnedMutationCapability):
+    def prepare_binary_file(self) -> PreparedOwnedFile:
+        return PreparedOwnedFile(self._require_parent(), self._name)
+
     @contextmanager
     def subprocess_file(self) -> Iterator[int]:
         publication = _OwnedStagedPublication(self._require_parent(), self._name)
@@ -617,6 +660,7 @@ class OwnedDelete(_OwnedMutationCapability):
     def delete(self) -> None:
         try:
             os.unlink(self._name, dir_fd=self._require_parent())
+            os.fsync(self._require_parent())
         except OSError as error:
             raise _bounded_open_error(error) from error
 
@@ -625,6 +669,7 @@ class OwnedDirectory(_OwnedMutationCapability):
     def mkdir(self) -> None:
         try:
             os.mkdir(self._name, mode=0o755, dir_fd=self._require_parent())
+            os.fsync(self._require_parent())
         except OSError as error:
             raise _bounded_open_error(error) from error
 

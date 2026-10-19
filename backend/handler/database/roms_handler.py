@@ -1062,6 +1062,55 @@ class DBRomsHandler(DBBaseHandler):
         return AppliedOwnedMedia(rom, media, owned_paths)
 
     @begin_session
+    def locked_scan_media_references(self, rom_id, *, session=None):
+        """Read reference surfaces while holding the catalog parent's write lock."""
+        rom = session.scalar(select(Rom).where(Rom.id == rom_id).with_for_update())
+        if rom is None:
+            return []
+        values = [
+            rom.path_cover_s,
+            rom.path_cover_l,
+            rom.path_manual,
+            rom.path_screenshots,
+            *(getattr(rom, key + "_metadata", None) for key in METADATA_SOURCE_COLUMNS),
+        ]
+        components = list(
+            session.scalars(
+                select(RomComponent.id)
+                .where(RomComponent.rom_id == rom_id)
+                .with_for_update()
+            )
+        )
+        for model, predicate, field in (
+            (RomOwnedMedia, RomOwnedMedia.rom_id == rom_id, "owned_path"),
+            (
+                RomComponentOwnedMedia,
+                RomComponentOwnedMedia.component_id.in_(components),
+                "owned_path",
+            ),
+            (
+                RomComponentLocalMedia,
+                RomComponentLocalMedia.component_id.in_(components),
+                "owned_path",
+            ),
+            (TrackMeta, TrackMeta.rom_id == rom_id, "cover_path"),
+        ):
+            values.extend(
+                session.scalars(
+                    select(getattr(model, field)).where(predicate).with_for_update()
+                )
+            )
+        values.extend(
+            dict(row._mapping)
+            for row in session.execute(
+                select(RomComponentMetadata.__table__)
+                .where(RomComponentMetadata.component_id.in_(components))
+                .with_for_update()
+            )
+        )
+        return values
+
+    @begin_session
     def create_owned_media_cleanup_intent(
         self,
         rom_id: int,
@@ -1139,7 +1188,12 @@ class DBRomsHandler(DBBaseHandler):
                 select(OwnedMediaCleanupIntent.id)
                 .where(
                     and_(
-                        OwnedMediaCleanupIntent.state == OwnedMediaCleanupState.PENDING,
+                        OwnedMediaCleanupIntent.state.in_(
+                            [
+                                OwnedMediaCleanupState.PENDING,
+                                OwnedMediaCleanupState.PROCESSING,
+                            ]
+                        ),
                         or_(
                             OwnedMediaCleanupIntent.next_attempt_at.is_(None),
                             OwnedMediaCleanupIntent.next_attempt_at <= now,
