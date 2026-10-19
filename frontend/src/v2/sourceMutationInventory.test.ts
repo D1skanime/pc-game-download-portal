@@ -26,6 +26,20 @@ const serviceRoot = resolve(process.cwd(), "src/services/api");
 
 const routeAuthorities = [
   {
+    method: "POST",
+    route: /^\/scan-operations$/,
+    operation: "CONTROL_PLANE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
+    method: "POST",
+    route: /^\/scan-operations\/\{[^}]+\}\/(?:cancel|resume|retry-metadata)$/,
+    operation: "CONTROL_PLANE",
+    storageClass: "database",
+    forbidden: false,
+  },
+  {
     method: "DELETE",
     route: /^\/roms\/\{[^}]+\}\/files\/\{[^}]+\}$/,
     operation: "DELETE",
