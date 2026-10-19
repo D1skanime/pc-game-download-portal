@@ -55,6 +55,72 @@ const baseRequest = (
 });
 
 describe("operation compatibility translation", () => {
+  it("retains the original request identity through repeated normalization", () => {
+    const original = baseRequest();
+    const normalized = normalizeOperationRequest(original);
+    expect(normalizeOperationRequest(normalized)).toEqual(normalized);
+    expect(normalized.idempotencyKey).toBe(original.idempotencyKey);
+    expect(normalized.operationId).toBe(original.operationId);
+    expect(normalized.jobId).toBe(original.jobId);
+    expect(original.providerPolicy.providers).toEqual([
+      "igdb",
+      "launchbox",
+      "igdb",
+    ]);
+  });
+
+  it.each(["A-key", "../key", "key:resume", " key", "a".repeat(97)])(
+    "rejects a request key outside the backend identity grammar: %s",
+    (idempotencyKey) => {
+      expect(() =>
+        normalizeOperationRequest(baseRequest({ idempotencyKey })),
+      ).toThrow(OperationTranslationError);
+    },
+  );
+
+  it.each(["operationId", "jobId"] as const)(
+    "bounds local %s independently of confirmed server lineage",
+    (field) => {
+      expect(() =>
+        normalizeOperationRequest(baseRequest({ [field]: "x".repeat(129) })),
+      ).toThrow(OperationTranslationError);
+    },
+  );
+
+  it("preserves all policy fields and mapped revisions during normalization", () => {
+    const request = baseRequest({
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: { win: "Games/Spiel 日本" },
+      },
+      providerPolicy: {
+        providers: ["igdb", "steam"],
+        fallbackProviders: ["playmatch"],
+        allowUnexpectedLocale: true,
+        launchboxRemoteEnabled: false,
+        region: " EU ",
+      },
+      metadataPolicy: {
+        mode: "provider-replace",
+        fields: [{ field: "summary", locale: "de-DE" }],
+      },
+      mediaPolicy: {
+        mode: "missing-only",
+        targets: [{ role: "cover", ownership: "manual" }],
+      },
+    });
+    const result = normalizeOperationRequest(request);
+    expect(result.scope).toEqual(request.scope);
+    expect(result.profiles).toEqual(request.profiles);
+    expect(result.metadataPolicy).toEqual(request.metadataPolicy);
+    expect(result.mediaPolicy).toEqual(request.mediaPolicy);
+    expect(result.providerPolicy).toEqual({
+      ...request.providerPolicy,
+      region: "EU",
+    });
+  });
+
   it("builds a dialog request that preserves the legacy scan payload semantics", () => {
     const request = buildLibraryScanRequest({
       operationId: "refresh-platform-7",
