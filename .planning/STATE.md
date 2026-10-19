@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: executing
-stopped_at: 34-01, 34-02, 34-05 verified; starting 34-03, full-suite REDs tracked
-last_updated: "2026-10-19T08:54:59.678Z"
+status: "Blocked at 34-03 decomposition gate: attempt-owned media publication needs plan extension"
+stopped_at: 3 of 14 complete; 34-03 publication fencing scope decision pending
+last_updated: "2026-10-19T09:00:13.174Z"
 last_activity: 2026-10-18 -- Phase 34 execution started
 progress:
   total_phases: 34
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 Phase: 34 (reliable-fresh-installation-and-scan-lifecycle) - EXECUTING
 Plan: 3 of 14
-Status: Executing 34-03 after setup and durable operation foundation
+Status: Blocked at 34-03 decomposition gate: attempt-owned media publication needs plan extension
 Last activity: 2026-10-18 -- Phase 34 execution started
 
 ## Performance Metrics
@@ -509,9 +509,9 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-19T08:54:59.671Z
-Stopped at: 34-01, 34-02, 34-05 verified; starting 34-03, full-suite REDs tracked
-Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-03-PLAN.md
+Last session: 2026-10-19T09:00:13.167Z
+Stopped at: 3 of 14 complete; 34-03 publication fencing scope decision pending
+Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-03-CHECKPOINT.md
 
 - Phase 25 added: Scan-/Medien-Integration härten
 - Phase 26 added: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege.
