@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Phase 33 resumed; full live scan accepted, targeted Belmont child-folder UAT failed HTTP 409
-last_updated: "2026-10-19T22:08:25.387209+00:00"
-last_activity: 2026-10-18 -- Phase 34 execution started
+stopped_at: Phase 33 corrective implementation verified; Dev autoscan active every 15 minutes; human UAT pending
+last_updated: "2026-10-19T23:09:18.874771+00:00"
+last_activity: 2026-10-19 -- Phase 33 collection correction verified and Dev autoscan enabled
 progress:
   total_phases: 34
   completed_phases: 23
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 33 acceptance and targeted child-folder scan correction after the successful Phase 34 full live scan
+**Current focus:** Human acceptance of the implemented Phase 33 collection-folder flow
 
 ## Current Position
 
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: 8 of 10 accepted; plan 33-06 acceptance resumed and corrective 33-10 added
-Status: Full live scan accepted; targeted Belmont child-folder scan failed HTTP 409 and is being corrected
-Last activity: 2026-10-19 -- User accepted 33-game scan and requested Phase 33 continuation
+Plan: 9 of 10 implemented; corrective 33-10 technically verified, 33-06 human acceptance pending
+Status: Collection correction and final automated browser UAT passed; Dev autoscan active every 15 minutes
+Last activity: 2026-10-19 -- Final 22-check browser UAT passed and authorized Dev scheduler verified
 
 ## Active execution handoff
 
@@ -38,7 +38,13 @@ Final technical validation passed: 1,086 frontend tests, API generation/typechec
 
 pgdp-dev is running on 127.0.0.1:3100 with current canonical backend/frontend bind mounts. Frontend/API HTTP 200 and one current idle RQ worker were verified. The user-opened in-app browser shows the authenticated admin Scan page ready for a quick scan. No new live scan was started by the agent. One existing user and eight mapped platforms were preserved; no further DB/media reset occurred. Games remains read-only. Existing DB/Redis containers are unchanged.
 
-Current: the user accepted the full live scan (8/8 platforms, 33/33 games). Phase 33 is resumed by explicit request. Targeted child-folder scan of Belmonts Curse returned HTTP 409 without accepting a new operation. Correct and verify this case before Phase 33 closure. Latest explicit user requirement: after successful manual deep-child indexing, retire the erroneous parent game and its PGDP-owned media, preserve user data through the existing catalog lifecycle, and persist the parent as a collection folder so normal scans cannot recreate it. Do not automatically classify unrelated folders. Subsequent normal and scheduled autoscans must discover newly added direct child games inside explicitly classified collection folders. Manual and scheduled paths must share the same implementation; no code duplication and existing module line limits remain mandatory. Planning and implementation of this corrective extension are in progress. Root causes reproduced in disposable tests: the dialog submitted a root-relative path where a mapping-relative path is required; the scoped scanner enumerated archive parts inside the selected child instead of indexing the selected child as one game. Corrections and regression checks are in progress. Existing parent catalog records and all source files are preserved. Independent deep code review remains pending. Do not start another phase automatically. Production Portainer acceptance remains open without explicit approved connection configuration. The frozen plan 34-16 evidence remains INCONCLUSIVE.
+Current: the user accepted the earlier full live scan (8/8 platforms, 33/33 games). Corrective plan 33-10 is implemented and technically verified. Explicit child-folder promotion indexes only the selected game, atomically retires the mistaken parent, retains parent user state without reconnecting it to children, and cleans only proven exclusively owned media. Durable classification suppresses parent resurrection and enables new direct child discovery through shared manual/scheduled inventory. Unclassified folders retain their existing interpretation. Games remains read-only. Shared implementations and code-size limits were preserved.
+
+Final automated browser run f4dd7651eda049868d9483e52118cfcb passed all 22 checks on exact final production sources (manifest 3326a6533fc597e42198ddcff6b62a3276203540ba007dbe388fdfcfba9d0b9d). Actual HTTP/RQ scans completed with exact initial/selected/full/scheduled counts 3/1/4/6. Parent retirement, two archive parts, retained state, exclusive cleanup, shared/source preservation, new children, themes, desktop/mobile, mouse/keyboard/touch, and disposable cleanup passed. Physical gamepad acceptance remains blocked because no controller was connected. Frontend typecheck, 1,102 tests, build and maintainability passed. Final lock/import/count/worker tests passed 8 cases on each SQL dialect; retained-state regression plus existing reconnect controls passed 9 on each. Final schema upgrade/downgrade/re-upgrade and constraint/CRUD parity passed on MariaDB, MySQL and PostgreSQL with exact final source hashes. Historical baseline test failures remain recorded; no claim that every legacy backend suite passes. Evidence: Phase 33 33-ACCEPTANCE-RECEIPTS.json and 33-10-SUMMARY.md, with retained per-run receipt directories.
+
+Dev database schema is 0140. Pre-migration backup: /home/d1sk/pgdp-dev-backups/20261019T221341Z-phase33-collection/before-collection-migration.sql. No DB/media reset or Games mutation occurred. The user-authorized 15-minute autoscan is now active and verified: tasks.scheduled.scan_library.scan_library_task.run, cron */15 * * * *, registered job f78f305c-1f01-44f8-b11d-693796279bd5. Only pgdp-dev was recreated; existing DB and Redis container IDs, 33 games, one user, and authentication identity were preserved. Frontend and heartbeat returned HTTP 200; the current RQ worker was idle and the user's in-app Scan tab remained authenticated. Sanitized receipt: evidence/live-autoscan-15m/activation-receipt.json. For future Dev recreation preserve the exact Compose file list in that receipt, including the protected host-local autoscan.compose.yml and auth env file. Never copy the auth env file or SQL dump into the repository.
+
+Next: shared human live UAT of the corrected Castlevania/Belmont flow in the existing browser. Do not mark Phase 33 or plan 33-06 accepted before that confirmation. Independent deep code review remains pending for afterward, as requested. Do not start another phase automatically. Production Portainer acceptance remains open without approved connection configuration; frozen plan 34-16 remains INCONCLUSIVE.
 
 ## Performance Metrics
 
@@ -520,7 +526,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-10-19T21:56:44.610973+00:00
-Stopped at: Phase 33 UAT child-folder scan regression under investigation
+Stopped at: Phase 33 correction verified; Dev autoscan active; human UAT pending
 Resume file: .planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-06-PLAN.md
 
 - Phase 25 added: Scan-/Medien-Integration härten

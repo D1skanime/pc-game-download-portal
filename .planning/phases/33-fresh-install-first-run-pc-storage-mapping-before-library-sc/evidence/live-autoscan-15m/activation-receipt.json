@@ -1,0 +1,65 @@
+{
+  "status": "verified_active",
+  "timestamp": "2026-10-19T23:05:52.891475+00:00",
+  "before": {
+    "pgdp-dev": "6c67bf4ccbfd39d05a4e4becf798dea9c2d6005726b08f1757a7b8b44629dc46",
+    "pgdp-db-dev": "da45c025514e17857a94dfb5e41ee56e9d06a6826975eccaf5c4d4edd3384d2a",
+    "pgdp-valkey-dev": "92277345b3a57b4b9118ab0f4198cc1dd6feb6d64d4c75580dc9e5ce8b7d3acb"
+  },
+  "counts_before": [
+    "0",
+    "33",
+    "1"
+  ],
+  "compose_command": [
+    "docker",
+    "compose",
+    "-p",
+    "pgdp",
+    "-f",
+    "/home/d1sk/pc-game-download-portal/docker-compose.yml",
+    "-f",
+    "/home/d1sk/pc-game-download-portal/docker-compose.override.yml",
+    "-f",
+    "/home/d1sk/pgdp-dev-backups/20261019T195947Z-b1e6bf1d/uat.compose.yml",
+    "-f",
+    "/home/d1sk/pgdp-dev-backups/20261019T221341Z-phase33-collection/autoscan.compose.yml"
+  ],
+  "games_read_only": true,
+  "auth_identity_preserved": true,
+  "after": {
+    "pgdp-dev": "66d1c63a8bc7b74b7534a9fca20706d108b268afb3106bd69a230b5b0fc47d3f",
+    "pgdp-db-dev": "da45c025514e17857a94dfb5e41ee56e9d06a6826975eccaf5c4d4edd3384d2a",
+    "pgdp-valkey-dev": "92277345b3a57b4b9118ab0f4198cc1dd6feb6d64d4c75580dc9e5ce8b7d3acb"
+  },
+  "counts_after": [
+    "33",
+    "1"
+  ],
+  "verification": {
+    "enabled": true,
+    "cron": "*/15 * * * *",
+    "jobs": [
+      {
+        "id": "f78f305c-1f01-44f8-b11d-693796279bd5",
+        "function": "tasks.scheduled.scan_library.scan_library_task.run",
+        "cron": "*/15 * * * *"
+      }
+    ],
+    "workers": [
+      {
+        "name": "8fe4b94d3cc14dbea57646e20b7c64a6",
+        "hostname": "66d1c63a8bc7",
+        "state": "idle"
+      }
+    ],
+    "http": {
+      "/": 200,
+      "/api/heartbeat": 200
+    },
+    "games_read_only": true,
+    "database_redis_unchanged": true,
+    "auth_identity_preserved": true,
+    "verified_at": "2026-10-19T23:06:46.789262+00:00"
+  }
+}
