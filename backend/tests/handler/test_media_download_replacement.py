@@ -14,6 +14,8 @@ from tests.handler.media_download_helpers import (
     resource_snapshot,
     seed_primary,
 )
+from tests.handler.test_scan_media_publication import attempt as attempt
+from tests.handler.test_scan_operations import command as command
 
 from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler
@@ -149,5 +151,38 @@ async def test_replacement_collision_preserves_another_writers_private_file(rom)
             cover_size="big",
         )
     assert result is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["status", "mime", "read"])
+async def test_nonscan_screenshot_failure_returns_committed_generation(
+    attempt, rom, failure
+):
+    from tests.handler.test_scan_write_fence import context
+
+    from handler.database.scan_write_fence import bind_scan_write_context
+    from handler.filesystem.scan_media_publication import ScanMediaBatch
+
+    with bind_scan_write_context(context(attempt)):
+        with ScanMediaBatch(
+            rom.id, rom.platform_id, fs_resource_handler.storage
+        ) as unit:
+            async with provider_response():
+                path = await fs_resource_handler._store_screenshot(
+                    rom, "https://fixture.invalid/screenshot", 0
+                )
+            unit.publish_and_associate(
+                lambda session: db_rom_handler.update_rom(
+                    rom.id, {"path_screenshots": [path]}, session=session
+                )
+            )
+    current = db_rom_handler.get_rom(rom.id)
+    before = resource_snapshot(rom)
+    async with provider_response(failure=failure):
+        paths = await fs_resource_handler.get_rom_screenshots(
+            current, True, ["https://fixture.invalid/screenshot"]
+        )
+    assert paths == [path]
+    assert resource_snapshot(rom) == before
     assert final.read_bytes() == b"prior good bytes"
     assert private.read_bytes() == b"another writer owns this private file"
