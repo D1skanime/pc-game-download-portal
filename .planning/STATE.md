@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: User approved dev app stop; pgdp-dev exited, resume pending recovery fixtures and verification
-last_updated: "2026-10-19T12:46:05.435Z"
+stopped_at: Recovery group 2 verified; catalog group 3 and recovery independent review next; dev app quiescent
+last_updated: "2026-10-19T13:04:14.875Z"
 last_activity: 2026-10-18 -- Phase 34 execution started
 progress:
   total_phases: 34
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 Phase: 34 (reliable-fresh-installation-and-scan-lifecycle) - EXECUTING
 Plan: 5 of 15
-Status: Executing recovery correction group 2; dev app stopped under user authorization
+Status: Executing corrective media review group 3
 Last activity: 2026-10-18 -- Phase 34 execution started
 
 ## Performance Metrics
@@ -509,9 +509,9 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-19T12:46:05.424Z
-Stopped at: User approved dev app stop; pgdp-dev exited, resume pending recovery fixtures and verification
-Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-MEDIA-RECOVERY-SAFETY-CHECKPOINT.md
+Last session: 2026-10-19T13:04:14.868Z
+Stopped at: Recovery group 2 verified; catalog group 3 and recovery independent review next; dev app quiescent
+Resume file: .planning/phases/34-reliable-fresh-installation-and-scan-lifecycle/34-MEDIA-FIX-RECOVERY.md
 
 - Phase 25 added: Scan-/Medien-Integration härten
 - Phase 26 added: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege.
