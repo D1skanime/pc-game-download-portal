@@ -1064,15 +1064,21 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def locked_scan_media_references(self, rom_id, *, session=None):
         """Read reference surfaces while holding the catalog parent's write lock."""
-        rom = session.scalar(select(Rom).where(Rom.id == rom_id).with_for_update())
+        rom = (
+            session.execute(
+                select(Rom.__table__).where(Rom.id == rom_id).with_for_update()
+            )
+            .mappings()
+            .first()
+        )
         if rom is None:
             return []
         values = [
-            rom.path_cover_s,
-            rom.path_cover_l,
-            rom.path_manual,
-            rom.path_screenshots,
-            *(getattr(rom, key + "_metadata", None) for key in METADATA_SOURCE_COLUMNS),
+            rom["path_cover_s"],
+            rom["path_cover_l"],
+            rom["path_manual"],
+            rom["path_screenshots"],
+            *(rom.get(key + "_metadata") for key in METADATA_SOURCE_COLUMNS),
         ]
         components = list(
             session.scalars(
