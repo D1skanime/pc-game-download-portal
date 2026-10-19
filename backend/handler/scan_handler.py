@@ -5,11 +5,17 @@ from collections.abc import Collection
 from typing import Any
 
 import socketio  # type: ignore
+from sqlalchemy.exc import SQLAlchemyError
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
+from handler.database.scan_write_fence import (
+    ScanWriteRejected,
+    current_scan_write_context,
+    require_scan_write_context,
+)
 from handler.filesystem import (
     fs_asset_handler,
     fs_firmware_handler,
@@ -21,6 +27,11 @@ from handler.filesystem import (
     use_fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.scan_media_publication import (
+    ScanMediaBatch,
+    preserve_scan_media_references,
+)
+from handler.filesystem.storage_access import IndeterminateOwnedPublicationError
 from handler.filesystem.storage_policy import StorageOperation
 from handler.metadata import (
     meta_flashpoint_handler,
@@ -195,6 +206,7 @@ async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
     The caller owns RomM database, resource, asset, hash, cache, and scan-state
     outputs. Source access remains confined to the operation-bound capability.
     """
+    require_scan_write_context()
     context = MappingReadContext(command.mapping_id, command.expected_revision)
     with context.open(StorageOperation.SCAN, first_use_operation="scan") as capability:
         entries = capability.scan()
@@ -340,6 +352,13 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
     the track_meta row. No-op for non-soundtrack files or ones without a cover."""
     track_meta = rom_file.track_meta
     if not (rom_file.category == RomFileCategory.SOUNDTRACK and track_meta):
+        return
+
+    if current_scan_write_context() is not None:
+        from utils.audio_tags import publish_scan_soundtrack_cover
+
+        source = rom_file.full_path if track_meta.has_embedded_cover else None
+        publish_scan_soundtrack_cover(rom_file, rom, source)
         return
 
     if not track_meta.has_embedded_cover:
@@ -538,6 +557,7 @@ async def scan_rom(
     socket_manager: socketio.AsyncRedisManager | None = None,
     metadata_only: bool = False,
 ) -> Rom:
+    require_scan_write_context()
     rom_attrs = {
         "id": rom.id,
         "platform_id": platform.id,
@@ -699,18 +719,18 @@ async def scan_rom(
                         extra=LOGGER_MODULE_NAME,
                     )
                     unresolved_count += 1
-            synced_components = db_rom_handler.sync_rom_components(
-                _added_rom.id, pc_components
-            )
+            with ScanMediaBatch(
+                _added_rom.id, _added_rom.platform_id, fs_resource_handler.storage
+            ) as unit:
+                synced_components = unit.publish_and_associate(
+                    lambda session: db_rom_handler.sync_rom_components(
+                        _added_rom.id, pc_components, session=session
+                    )
+                )
             # Keep the pre-rescan parent relation: a complete scan clears metadata
             # before it asks providers again, while this link is deliberately based
             # only on the already cached, exact IGDB relation.
             auto_link_pc_dlc_components(rom, synced_components)
-            for owned_path in synced_components.orphaned_owned_paths:
-                try:
-                    await fs_resource_handler.remove_file(owned_path)
-                except FileNotFoundError:
-                    pass
         except (OSError, ValueError) as exc:
             log.warning(
                 "Failed to reconcile PC components for %s: %s",
@@ -1147,6 +1167,11 @@ async def scan_rom(
 
     resolved: list[Any] = []
     for (_, fallback), result in zip(provider_fetches, fetch_results, strict=True):
+        if isinstance(
+            result,
+            (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError),
+        ):
+            raise result
         if isinstance(result, BaseException):
             if not isinstance(result, Exception):
                 raise result
@@ -1391,7 +1416,9 @@ async def scan_rom(
             f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
             extra=LOGGER_MODULE_NAME,
         )
-        return Rom(**rom_attrs)
+        unidentified = Rom(**rom_attrs)
+        preserve_scan_media_references(unidentified, rom)
+        return unidentified
 
     async def fetch_sgdb_details(playmatch_rom: PlaymatchRomMatch) -> SGDBRom:
         """Fetch SteamGridDB details for the ROM."""
@@ -1472,6 +1499,7 @@ async def scan_rom(
 
     rom_attrs["missing_from_fs"] = False
     scanned_rom = Rom(**rom_attrs)
+    preserve_scan_media_references(scanned_rom, rom)
 
     steam_metadata = steam_updates.get("metadata")
     has_steam_metadata = isinstance(steam_metadata, dict) and bool(steam_metadata)
@@ -1506,7 +1534,9 @@ async def scan_rom(
             if applied is not None:
                 durable_rom = applied
         if has_steam_media and not metadata_only:
-            await reconcile_steam_patch_media(durable_rom, steam_updates)
+            await reconcile_steam_patch_media(
+                durable_rom, steam_updates, force=scan_type == ScanType.COMPLETE
+            )
         if has_steam_metadata:
             refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
             if refreshed_rom is not None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import mimetypes
 import os
 import re
-from typing import Any, TypedDict
+from typing import Any, BinaryIO, TypedDict
 
 import mutagen
 from mutagen.flac import FLAC, Picture
@@ -210,10 +210,14 @@ def _has_embedded_cover(audio: mutagen.FileType) -> bool:
     return False
 
 
-def _open_mutagen(full_path: str) -> mutagen.FileType | None:
+def _open_mutagen(full_path: str | BinaryIO) -> mutagen.FileType | None:
     """Open an audio file via mutagen with a size cap. Returns None on failure."""
     try:
-        stat = os.stat(full_path)
+        stat = (
+            os.stat(full_path)
+            if isinstance(full_path, str)
+            else os.fstat(full_path.fileno())
+        )
     except OSError as exc:
         log.warning(f"[audio_tags] stat failed for {full_path}: {exc}")
         return None
@@ -317,7 +321,7 @@ def soundtrack_cover_dir(platform_id: int, rom_id: int) -> str:
 
 
 def persist_embedded_cover(
-    audio_full_path: str,
+    audio_full_path: str | BinaryIO,
     platform_id: int,
     rom_id: int,
     file_id: int,
@@ -338,6 +342,13 @@ def persist_embedded_cover(
     data, mime = cover
     rel_dir = soundtrack_cover_dir(platform_id, rom_id)
     rel_path = f"{rel_dir}/{file_id}.{_ext_for_mime(mime)}"
+    from handler.database.scan_write_fence import current_scan_write_context
+
+    if current_scan_write_context() is not None:
+        from handler.filesystem import fs_resource_handler
+
+        return fs_resource_handler._stage_content(data, rel_path)
+
     abs_dir = os.path.join(RESOURCES_BASE_PATH, rel_dir)
     abs_path = os.path.join(RESOURCES_BASE_PATH, rel_path)
 
@@ -362,7 +373,13 @@ def remove_persisted_cover(cover_path: str | None) -> bool:
     if not cover_path:
         return True
     from config import RESOURCES_BASE_PATH
+    from handler.database.scan_write_fence import (
+        ScanWriteRejected,
+        current_scan_write_context,
+    )
 
+    if current_scan_write_context() is not None:
+        raise ScanWriteRejected("scan_media_deferred_cleanup_required")
     abs_path = os.path.join(RESOURCES_BASE_PATH, cover_path)
     try:
         os.unlink(abs_path)
@@ -375,7 +392,7 @@ def remove_persisted_cover(cover_path: str | None) -> bool:
     return True
 
 
-def extract_embedded_cover(full_path: str) -> tuple[bytes, str] | None:
+def extract_embedded_cover(full_path: str | BinaryIO) -> tuple[bytes, str] | None:
     """Return (image_bytes, mime_type) for the first embedded picture, or None
     if the file has no embedded cover.
 
@@ -414,3 +431,25 @@ def remove_cover_with_capability(destination: OwnedDelete) -> bool:
     except MissingStorageTargetError:
         return True
     return True
+
+
+def publish_scan_soundtrack_cover(rom_file, rom, audio_path):
+    from handler.database import db_rom_handler
+    from handler.filesystem import fs_resource_handler, get_fs_rom_handler
+    from handler.filesystem.scan_media_publication import ScanMediaBatch
+
+    with ScanMediaBatch(rom.id, rom.platform_id, fs_resource_handler.storage) as unit:
+        path = None
+        if rom_file.track_meta.has_embedded_cover:
+            with get_fs_rom_handler().open_rom_read(audio_path) as access:
+                with access.binary_file() as source:
+                    path = persist_embedded_cover(
+                        source, rom.platform_id, rom.id, rom_file.id
+                    )
+            if path is None:
+                return
+        unit.publish_and_associate(
+            lambda session: db_rom_handler.upsert_track_meta(
+                rom_file.id, rom.id, {"cover_path": path}, session=session
+            )
+        )

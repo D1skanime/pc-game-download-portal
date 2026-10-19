@@ -21,7 +21,12 @@ from handler.filesystem.scan_media_publication import (
     RESERVED,
     validate_manifest,
 )
-from handler.filesystem.storage_access import open_owned_access
+from handler.filesystem.storage_access import (
+    OwnedDelete,
+    OwnedDirectory,
+    OwnedRead,
+    open_owned_access,
+)
 from handler.filesystem.storage_policy import StorageOperation
 from logger.logger import log
 from models.owned_media_cleanup import OwnedMediaCleanupIntent, OwnedMediaCleanupState
@@ -77,6 +82,7 @@ def _contains(values, path, depth=0):
 def _delete(storage, path):
     try:
         with open_owned_access(storage, StorageOperation.DELETE, path) as access:
+            assert isinstance(access, OwnedDelete)
             access.delete()
     except MissingStorageTargetError:
         pass
@@ -87,6 +93,7 @@ def _digest_matches(storage, output):
         with open_owned_access(
             storage, StorageOperation.READ, output["final"]
         ) as access:
+            assert isinstance(access, OwnedRead)
             if output["digest"] is None:
                 raise ValueError("scan_media_unproven_final")
             before = os.fstat(access.fileno())
@@ -110,7 +117,6 @@ def _identity(info):
     return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
 
 
-@begin_session
 def reconcile_manifest(storage, directory, *, session=None):
     receipts = _children(storage, directory)
     names = [
@@ -123,6 +129,7 @@ def reconcile_manifest(storage, directory, *, session=None):
     with open_owned_access(
         storage, StorageOperation.READ, directory + "/" + max(names)
     ) as access:
+        assert isinstance(access, OwnedRead)
         if os.fstat(access.fileno()).st_size > MAX_MANIFEST_BYTES:
             raise ValueError("scan_media_manifest_limit")
         document = validate_manifest(json.loads(access.read()), directory)
@@ -139,6 +146,15 @@ def reconcile_manifest(storage, directory, *, session=None):
         output["final"]: _digest_matches(storage, output)
         for output in document["outputs"]
     }
+    return _reconcile_manifest(
+        storage, directory, receipts, document, identities, session=session
+    )
+
+
+@begin_session
+def _reconcile_manifest(
+    storage, directory, receipts, document, identities, *, session=None
+):
     row = _lock_attempt(session, document["operation"])
     if _live(row, document["attempt"]):
         return False
@@ -149,6 +165,7 @@ def reconcile_manifest(storage, directory, *, session=None):
         final = output["final"]
         if not _contains(references, final) and identities[final] is not None:
             with open_owned_access(storage, StorageOperation.READ, final) as access:
+                assert isinstance(access, OwnedRead)
                 if _identity(os.fstat(access.fileno())) != identities[final]:
                     raise ValueError("scan_media_final_changed")
                 _delete(storage, final)
@@ -167,6 +184,7 @@ def reconcile_manifest(storage, directory, *, session=None):
         else:
             raise ValueError("scan_media_manifest_unknown_child")
     with open_owned_access(storage, StorageOperation.MKDIR, directory) as access:
+        assert isinstance(access, OwnedDirectory)
         access.rmdir()
     return True
 

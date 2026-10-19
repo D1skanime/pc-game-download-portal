@@ -76,6 +76,63 @@ def source_manifest(root):
     ]
 
 
+def prepare_media(games):
+    import struct
+    import zlib
+
+    def chunk(kind, data):
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data))
+        )
+
+    image = (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", 16, 16, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress((b"\0" + bytes([40, 50, 60]) * 16) * 16))
+        + chunk(b"IEND", b"")
+    )
+    directory = games / "PC/soundtracks"
+    directory.mkdir()
+    (directory / "cover.png").write_bytes(image)
+    # STREAMINFO and PICTURE follow RFC 9639 sections 8.2 and 8.8.
+    streaminfo = struct.pack(">HH", 4096, 4096) + bytes(6)
+    streaminfo += ((44100 << 44) | (1 << 41) | (15 << 36)).to_bytes(8, "big") + bytes(
+        16
+    )
+    picture = struct.pack(">II", 3, 9) + b"image/png"
+    picture += struct.pack(">IIIIII", 0, 16, 16, 24, 0, len(image)) + image
+    (directory / "track.flac").write_bytes(
+        b"fLaC"
+        + b"\0\0\0\x22"
+        + streaminfo
+        + b"\x86"
+        + len(picture).to_bytes(3, "big")
+        + picture
+    )
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Count 0 /Kids [] >>",
+    ]
+    pdf = b"%PDF-1.4\n"
+    offsets = []
+    for index, obj in enumerate(objects, 1):
+        offsets.append(len(pdf))
+        pdf += str(index).encode() + b" 0 obj\n" + obj + b"\nendobj\n"
+    xref = len(pdf)
+    pdf += b"xref\n0 3\n0000000000 65535 f \n" + b"".join(
+        f"{offset:010d} 00000 n \n".encode() for offset in offsets
+    )
+    pdf += (
+        b"trailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n"
+        + str(xref).encode()
+        + b"\n%%EOF\n"
+    )
+    (directory / "manual.pdf").write_bytes(pdf)
+
+
 def prepare(root, repo):
     games = root / "Games"
     games.mkdir()
@@ -92,6 +149,7 @@ def prepare(root, repo):
         folder = games / platform
         folder.mkdir()
         (folder / "Phase34-Synthetic.bin").write_bytes(b"phase34 synthetic fixture\n")
+    prepare_media(games)
     snapshot = root / "checkout"
     snapshot.mkdir()
     for folder in ("backend", "frontend"):

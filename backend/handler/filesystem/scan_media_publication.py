@@ -16,7 +16,12 @@ from handler.database.scan_write_fence import (
     checked_scan_write,
     require_scan_write_context,
 )
-from handler.filesystem.storage_access import OwnedCreate, open_owned_access
+from handler.filesystem.storage_access import (
+    OwnedCreate,
+    OwnedDirectory,
+    PreparedOwnedFile,
+    open_owned_access,
+)
 from handler.filesystem.storage_policy import StorageOperation
 from handler.filesystem.storage_resolver import normalize_relative_path
 
@@ -35,6 +40,7 @@ def ensure_directory(storage, relative):
         with open_owned_access(
             storage, StorageOperation.MKDIR, "/".join(parts[:end])
         ) as access:
+            assert isinstance(access, OwnedDirectory)
             try:
                 access.mkdir()
             except StorageResolutionError as error:
@@ -70,7 +76,7 @@ def encode_manifest(document):
 class PreparedScanMedia:
     path: str
     private_path: str
-    capability: object
+    capability: PreparedOwnedFile
     digest: str | None = None
     size: int | None = None
 
@@ -112,6 +118,7 @@ class ScanMediaBatch:
         self.outputs = []
         self.sequence = 0
         self._closed = False
+        self.publication_started = False
         from handler.database import db_rom_handler
 
         self.expected_prior = list(
@@ -166,6 +173,7 @@ class ScanMediaBatch:
             with open_owned_access(
                 self.storage, StorageOperation.CREATE, final
             ) as access:
+                assert isinstance(access, OwnedCreate)
                 prepared = access.prepare_binary_file()
             private = str(path.parent / prepared.private_basename)
             output = PreparedScanMedia(final, private, prepared)
@@ -198,6 +206,7 @@ class ScanMediaBatch:
         if any(output.digest is None for output in self.outputs):
             raise ValueError("scan_media_unfinished")
         with checked_scan_write(session):
+            self.publication_started = True
             for output in self.outputs:
                 output.capability.publish()
             self._closed = True
@@ -291,7 +300,9 @@ def validate_manifest(document, directory):
     return document
 
 
-_ACTIVE_BATCH = ContextVar("scan_media_batch", default=None)
+_ACTIVE_BATCH: ContextVar[ScanMediaBatch | None] = ContextVar(
+    "scan_media_batch", default=None
+)
 
 
 def require_scan_media_batch():
@@ -320,6 +331,14 @@ async def store_resource(handler, url, path, allowed, *, cover_size=None, image=
     )
 
     async def chunks():
+        if url.startswith("file://") and current_scan_write_context() is not None:
+            from handler.filesystem import get_fs_rom_handler
+
+            with get_fs_rom_handler().open_rom_read(url[len("file://") :]) as access:
+                with access.binary_file() as source:
+                    while chunk := source.read(1024 * 1024):
+                        yield chunk
+            return
         if url.startswith(LOCAL_FILE_SCHEMES):
             resolved = _resolve_local_file_uri(url)
             if resolved is None:
@@ -366,6 +385,7 @@ async def store_resource(handler, url, path, allowed, *, cover_size=None, image=
         try:
             async for chunk in chunks():
                 output.file.write(chunk)
+                output.file.flush()
             output.file.flush()
             if image or cover_size:
                 output.file.seek(0)
@@ -421,3 +441,82 @@ async def store_resource(handler, url, path, allowed, *, cover_size=None, image=
     except (ValueError, OSError, httpx.TransportError):
         await handler._discard_partial_file(path)
         return None
+
+
+def preserve_scan_media_references(scanned, previous):
+    from copy import deepcopy
+
+    def retain(value, old):
+        if isinstance(value, dict):
+            result = dict(value)
+            for key in set(result) | set(old if isinstance(old, dict) else {}):
+                prior = old.get(key) if isinstance(old, dict) else None
+                if key.endswith("_path") or key.startswith("badge_path"):
+                    result[key] = prior
+                elif isinstance(result.get(key), (dict, list)):
+                    result[key] = retain(result[key], prior)
+            return result
+        if isinstance(value, list):
+            prior = {
+                item.get("id"): item for item in old or [] if isinstance(item, dict)
+            }
+            return [
+                (
+                    retain(item, prior.get(item.get("id"), {}))
+                    if isinstance(item, dict)
+                    else item
+                )
+                for item in value
+            ]
+        return value
+
+    scanned._pending_scan_media = {}
+    for field in (
+        "ss_metadata",
+        "gamelist_metadata",
+        "launchbox_metadata",
+        "ra_metadata",
+    ):
+        wanted = deepcopy(getattr(scanned, field) or {})
+        scanned._pending_scan_media[field] = wanted
+        prior = getattr(previous, field) or {}
+        held = retain(wanted, prior) if wanted else deepcopy(prior)
+        if field == "ra_metadata" and prior.get("achievements"):
+            held["achievements"] = deepcopy(prior["achievements"])
+        setattr(scanned, field, held)
+    for field in ("path_cover_s", "path_cover_l", "path_manual", "path_screenshots"):
+        setattr(scanned, field, deepcopy(getattr(previous, field)))
+
+
+async def publish_rom_resources(handler, rom, previous, *, complete=False):
+    from handler.database import db_rom_handler
+    from handler.metadata.ss_handler import add_ss_auth_to_url
+
+    with ScanMediaBatch(rom.id, rom.platform_id, handler.storage) as unit:
+        small, large = await handler.get_cover(
+            rom,
+            complete or rom.url_cover != previous.url_cover,
+            add_ss_auth_to_url(rom.url_cover),
+        )
+        manual = await handler.get_manual(
+            rom,
+            complete or rom.url_manual != previous.url_manual,
+            add_ss_auth_to_url(rom.url_manual),
+        )
+        screenshots = await handler.get_rom_screenshots(
+            rom,
+            complete or rom.url_screenshots != previous.url_screenshots,
+            [add_ss_auth_to_url(url) for url in rom.url_screenshots or []],
+        )
+        return unit.publish_and_associate(
+            lambda session: db_rom_handler.update_rom(
+                rom.id,
+                dict(
+                    path_cover_s=small,
+                    path_cover_l=large,
+                    path_manual=manual,
+                    path_screenshots=screenshots,
+                ),
+                session=session,
+            )
+        )

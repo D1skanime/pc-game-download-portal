@@ -6,14 +6,12 @@ from dataclasses import dataclass
 from itertools import batched, chain
 from typing import Any, Final, cast
 
-import pydash
 import socketio  # type: ignore
 from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
-from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
@@ -39,6 +37,10 @@ from handler.database import (
     db_storage_handler,
 )
 from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
+from handler.database.scan_write_fence import (
+    ScanWriteRejected,
+    require_scan_write_context,
+)
 from handler.filesystem import (
     fs_firmware_handler,
     fs_platform_handler,
@@ -51,7 +53,12 @@ from handler.filesystem import (
     use_fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.scan_media_publication import (
+    ScanMediaBatch,
+    publish_rom_resources,
+)
 from handler.filesystem.storage_access import (
+    IndeterminateOwnedPublicationError,
     OwnedReplace,
     ScanCapability,
     open_owned_access,
@@ -107,7 +114,6 @@ from models.rom import (
 )
 from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
 from utils import emoji
-from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
@@ -198,6 +204,8 @@ async def _emit_scanning_rom(socket_manager: Any, rom: Rom) -> None:
                 }
             ),
         )
+    except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
+        raise
     except Exception as exc:
         log.warning(
             "Unable to emit scan progress for ROM %s; continuing scan: %s",
@@ -255,6 +263,9 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
             if steam_saved_component is not None:
                 saved_component = steam_saved_component
 
+    saved_component = db_rom_handler.get_pc_component_by_id(rom.id, saved_component.id)
+    if saved_component is None:
+        return
     existing_media = db_rom_handler.get_pc_component_provider_media_for_reconciliation(
         rom.id, saved_component.id
     )
@@ -266,20 +277,23 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
             continue
         if content:
             content_hashes[existing.id] = hashlib.sha256(content).hexdigest()
-    reconciled = db_rom_handler.reconcile_pc_component_provider_media(
-        rom.id,
-        saved_component.id,
-        saved_component.updated_at,
-        content_hashes,
-    )
+    with ScanMediaBatch(rom.id, rom.platform_id, fs_resource_handler.storage) as unit:
+        reconciled = unit.publish_and_associate(
+            lambda session: db_rom_handler.reconcile_pc_component_provider_media(
+                rom.id,
+                saved_component.id,
+                saved_component.updated_at,
+                content_hashes,
+                session=session,
+            )
+        )
     if reconciled is None:
         return
-    for path in reconciled.unreferenced_owned_paths:
-        try:
-            await fs_resource_handler.remove_file(path)
-        except FileNotFoundError:
-            pass
-    saved_component = reconciled.component
+    saved_component = db_rom_handler.get_pc_component_by_id(
+        rom.id, reconciled.component.id
+    )
+    if saved_component is None:
+        return
 
     for media in candidate.media:
         role = _PC_IGDB_MEDIA_ROLES.get(media.get("kind", ""))
@@ -287,43 +301,51 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
         if role is None or not isinstance(url, str):
             continue
         try:
-            owned_path, mime_type, content_sha256 = (
-                await fs_resource_handler.store_pc_component_provider_image(
-                    rom,
-                    saved_component.id,
-                    candidate.provider,
-                    role,
-                    url,
+            with ScanMediaBatch(
+                rom.id, rom.platform_id, fs_resource_handler.storage
+            ) as unit:
+                owned_path, mime_type, content_sha256 = (
+                    await fs_resource_handler.store_pc_component_provider_image(
+                        rom, saved_component.id, candidate.provider, role, url
+                    )
                 )
-            )
-            provider_media_id = derive_pc_component_provider_media_id(
-                candidate.provider, role, content_sha256
-            )
-        except Exception:
-            log.warning(
-                "Failed to import optional IGDB DLC media for ROM %s component %s",
-                rom.id,
-                saved_component.id,
-                exc_info=True,
-            )
-            continue
+                provider_media_id = derive_pc_component_provider_media_id(
+                    candidate.provider, role, content_sha256
+                )
 
-        imported = db_rom_handler.import_pc_component_provider_media(
-            rom.id,
-            saved_component.id,
-            saved_component.updated_at,
-            role,
-            mime_type,
-            owned_path,
-            candidate.provider,
-            provider_media_id,
-            content_sha256,
-        )
-        if imported is None:
-            try:
-                await fs_resource_handler.remove_file(owned_path)
-            except FileNotFoundError:
-                pass
+                def associate_dlc(
+                    session,
+                    saved_component=saved_component,
+                    role=role,
+                    mime_type=mime_type,
+                    owned_path=owned_path,
+                    provider_media_id=provider_media_id,
+                    content_sha256=content_sha256,
+                ):
+                    imported = db_rom_handler.import_pc_component_provider_media(
+                        rom.id,
+                        saved_component.id,
+                        saved_component.updated_at,
+                        role,
+                        mime_type,
+                        owned_path,
+                        candidate.provider,
+                        provider_media_id,
+                        content_sha256,
+                        session=session,
+                    )
+                    if imported is None:
+                        raise ValueError("DLC media catalog changed")
+                    return imported
+
+                unit.publish_and_associate(associate_dlc)
+        except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
+            raise
+        except (ValueError, OSError):
+            log.warning(
+                "Optional DLC media retained prior reference for component %s",
+                saved_component.id,
+            )
             continue
         saved_component = db_rom_handler.get_pc_component_by_id(
             rom.id, saved_component.id
@@ -454,6 +476,7 @@ async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
 ) -> int:
+    require_scan_write_context()
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return 0
@@ -602,6 +625,7 @@ async def _identify_rom(
     metadata_locale: str | None = None,
     metadata_only: bool = False,
 ) -> None:
+    require_scan_write_context()
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return
@@ -718,36 +742,6 @@ async def _identify_rom(
             }
         )
 
-    # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
-    # stale files (e.g. a cover from the wrong region) can't be reused. The
-    # post-scan download steps below skip downloads when a file already exists or
-    # when the source URL is unchanged, so the on-disk files must be removed here.
-    if not newly_added and scan_type == ScanType.COMPLETE:
-        try:
-            await fs_resource_handler.remove_cover(rom)
-        except FileNotFoundError:
-            pass
-
-        try:
-            await fs_resource_handler.remove_manual(rom)
-        except FileNotFoundError:
-            pass
-
-        try:
-            await fs_resource_handler.remove_directory(
-                f"{rom.fs_resources_path}/screenshots"
-            )
-        except FileNotFoundError:
-            pass
-
-        for media_type in MetadataMediaType:
-            try:
-                await fs_resource_handler.remove_media_resources_path(
-                    platform.id, rom.id, media_type
-                )
-            except FileNotFoundError:
-                pass
-
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
@@ -813,9 +807,14 @@ async def _identify_rom(
         # Reconcile against the existing rows instead of replacing them, so file
         # ids survive a rescan and anything keyed on them (track metadata,
         # persisted soundtrack covers) stays valid.
-        synced = db_rom_handler.sync_rom_files(_added_rom.id, fs_rom["files"])
-        for cover_path in synced.orphaned_cover_paths:
-            remove_persisted_cover(cover_path)
+        with ScanMediaBatch(
+            _added_rom.id, _added_rom.platform_id, fs_resource_handler.storage
+        ) as unit:
+            synced = unit.publish_and_associate(
+                lambda session: db_rom_handler.sync_rom_files(
+                    _added_rom.id, fs_rom["files"], session=session
+                )
+            )
         for saved in synced.files:
             persist_soundtrack_cover(saved, _added_rom)
 
@@ -825,51 +824,22 @@ async def _identify_rom(
     if metadata_only:
         return
 
-    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        entity=_added_rom,
-        overwrite=_added_rom.url_cover != rom.url_cover,
-        url_cover=add_ss_auth_to_url(_added_rom.url_cover),
-    )
-
-    path_manual = await fs_resource_handler.get_manual(
-        rom=_added_rom,
-        overwrite=_added_rom.url_manual != rom.url_manual,
-        url_manual=add_ss_auth_to_url(_added_rom.url_manual),
-    )
-
-    screenshots_changed = pydash.xor(
-        _added_rom.url_screenshots or [], rom.url_screenshots or []
-    )
-    url_screenshots = _added_rom.url_screenshots or []
-    path_screenshots = await fs_resource_handler.get_rom_screenshots(
-        rom=_added_rom,
-        overwrite=bool(screenshots_changed),
-        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
-    )
-
-    _added_rom.path_cover_s = path_cover_s
-    _added_rom.path_cover_l = path_cover_l
-    _added_rom.path_screenshots = path_screenshots
-    _added_rom.path_manual = path_manual
-
-    # Update the scanned rom with the cover and screenshots paths and update database
-    persisted_rom = db_rom_handler.update_rom(
-        _added_rom.id,
-        {
-            "path_cover_s": path_cover_s,
-            "path_cover_l": path_cover_l,
-            "path_screenshots": path_screenshots,
-            "path_manual": path_manual,
-        },
-    )
-    # update_rom may advance updated_at through SQLAlchemy onupdate. Use the
-    # committed version for the optimistic owned-media reconciliation instead
-    # of the detached metadata object from the provider matching step.
-    committed_rom = db_rom_handler.get_rom_simple(_added_rom.id)
-    if committed_rom is None:
-        raise ValueError(f"ROM { _added_rom.id } disappeared after media path update")
-    media_expected_version = committed_rom.updated_at
-
+    try:
+        await publish_rom_resources(
+            fs_resource_handler,
+            _added_rom,
+            rom,
+            complete=scan_type == ScanType.COMPLETE,
+        )
+    except (ValueError, OSError) as error:
+        log.warning(
+            "Scan resource replacement retained prior references (%s)",
+            type(error).__name__,
+        )
+    _added_rom = db_rom_handler.get_rom(_added_rom.id)
+    if _added_rom is None:
+        raise ValueError("Scan catalog target disappeared")
+    media_expected_version = _added_rom.updated_at
     # Keep the legacy resource paths for compatibility, but also reconcile
     # provider images into the canonical owned-media catalog used by the v2
     # media surfaces. Without this bridge a normal scan downloads screenshots
@@ -897,52 +867,78 @@ async def _identify_rom(
                 exc,
             )
 
-    # Handle special media files from Screenscraper
-    if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            media_path = _added_rom.ss_metadata.get(f"{media_type.value}_path")
-            media_url = _added_rom.ss_metadata.get(f"{media_type.value}_url")
-            if media_path and media_url:
-                await fs_resource_handler.store_media_file(
-                    add_ss_auth_to_url(media_url),
-                    media_path,
+    pending = getattr(scanned_rom, "_pending_scan_media", {})
+    for source, field in (
+        (MetadataSource.SS, "ss_metadata"),
+        (MetadataSource.GAMELIST, "gamelist_metadata"),
+        (MetadataSource.LAUNCHBOX, "launchbox_metadata"),
+    ):
+        if source not in metadata_sources:
+            continue
+        desired = pending.get(field, {})
+        for media_type in get_preferred_media_types():
+            key = f"{media_type.value}_path"
+            path, url = desired.get(key), desired.get(f"{media_type.value}_url")
+            if not path or not url:
+                continue
+            try:
+                with ScanMediaBatch(
+                    _added_rom.id, platform.id, fs_resource_handler.storage
+                ) as unit:
+                    generated = await fs_resource_handler.store_media_file(
+                        add_ss_auth_to_url(url), path
+                    )
+
+                    def associate_special(
+                        session, field=field, key=key, generated=generated
+                    ):
+                        current = db_rom_handler.get_rom(_added_rom.id, session=session)
+                        metadata = dict(getattr(current, field) or {})
+                        metadata[key] = generated
+                        return db_rom_handler.update_rom(
+                            current.id, {field: metadata}, session=session
+                        )
+
+                    unit.publish_and_associate(associate_special)
+            except (ValueError, OSError) as error:
+                log.warning(
+                    "Scan special media retained prior reference (%s)",
+                    type(error).__name__,
                 )
 
-    # Handle special media files from ES-DE gamelist.xml
-    if _added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            if _added_rom.gamelist_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.store_media_file(
-                    _added_rom.gamelist_metadata[f"{media_type.value}_url"],
-                    _added_rom.gamelist_metadata[f"{media_type.value}_path"],
-                )
+    if MetadataSource.RA in metadata_sources and "achievements" in pending.get(
+        "ra_metadata", {}
+    ):
+        from copy import deepcopy
 
-    # Handle special media files from LaunchBox
-    if _added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            if _added_rom.launchbox_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.store_media_file(
-                    _added_rom.launchbox_metadata[f"{media_type.value}_url"],
-                    _added_rom.launchbox_metadata[f"{media_type.value}_path"],
-                )
+        try:
+            with ScanMediaBatch(
+                _added_rom.id, platform.id, fs_resource_handler.storage
+            ) as unit:
+                achievements = deepcopy(pending["ra_metadata"]["achievements"])
+                for achievement in achievements:
+                    for suffix in ("", "_lock"):
+                        url, path = achievement.get(
+                            "badge_url" + suffix
+                        ), achievement.get("badge_path" + suffix)
+                        if url and path:
+                            achievement["badge_path" + suffix] = (
+                                await fs_resource_handler.store_ra_badge(url, path)
+                            )
 
-    # Store normal and locked badges
-    if _added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
-        for ach in _added_rom.ra_metadata.get("achievements", []):
-            badge_url_lock = ach.get("badge_url_lock", None)
-            badge_path_lock = ach.get("badge_path_lock", None)
-            if badge_url_lock and badge_path_lock:
-                await fs_resource_handler.store_ra_badge(
-                    badge_url_lock, badge_path_lock
-                )
-            badge_url = ach.get("badge_url", None)
-            badge_path = ach.get("badge_path", None)
-            if badge_url and badge_path:
-                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
+                def associate_badges(session):
+                    current = db_rom_handler.get_rom(_added_rom.id, session=session)
+                    metadata = deepcopy(current.ra_metadata or {})
+                    metadata["achievements"] = achievements
+                    return db_rom_handler.update_rom(
+                        current.id, {"ra_metadata": metadata}, session=session
+                    )
 
+                unit.publish_and_associate(associate_badges)
+        except (ValueError, OSError) as error:
+            log.warning(
+                "Scan badges retained prior references (%s)", type(error).__name__
+            )
     await _emit_scanning_rom(socket_manager, _added_rom)
 
     await process_pc_automation_after_scan(
@@ -1192,6 +1188,7 @@ async def scan_platforms(
         roms_ids (list[int], optional): List of selected roms to be scanned.
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
+    require_scan_write_context()
     with cast(
         ScanCapability,
         open_storage_access(legacy_external_storage, StorageOperation.SCAN, ""),
@@ -1406,6 +1403,8 @@ async def scan_platforms(
         # done, so a failure here must not report it as one.
         try:
             db_collection_handler.refresh_smart_collections()
+        except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
+            raise
         except Exception as e:
             log.error(f"Couldn't refresh smart collections after the scan: {e}")
 
@@ -1475,6 +1474,8 @@ async def scan_platforms(
         await socket_manager.emit("scan:done", scan_stats.to_dict())
     except ScanStoppedException:
         await stop_scan()
+    except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
+        raise
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client

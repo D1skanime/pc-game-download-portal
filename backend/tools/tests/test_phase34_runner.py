@@ -258,7 +258,41 @@ class RunnerTests(unittest.TestCase):
             run_root = root / "run"
             run_root.mkdir()
             games, snapshot = prepare(run_root, repo)
-            self.assertEqual(len(source_manifest(games)), 8)
+            inventory = {item["path"] for item in source_manifest(games)}
+            platforms = {
+                "PC",
+                "Nintendo Switch",
+                "PlayStation 2",
+                "SNES Super Nintendo",
+                "GB GameBoy",
+                "GBA GameBoy Advance",
+                "Nintendo 64",
+                "PSP",
+            }
+            self.assertEqual(
+                inventory,
+                {
+                    *(platform + "/Phase34-Synthetic.bin" for platform in platforms),
+                    "PC/soundtracks/cover.png",
+                    "PC/soundtracks/manual.pdf",
+                    "PC/soundtracks/track.flac",
+                },
+            )
+            image = (games / "PC/soundtracks/cover.png").read_bytes()
+            self.assertTrue(image.startswith(b"\x89PNG\r\n\x1a\n"))
+            self.assertTrue(
+                (games / "PC/soundtracks/manual.pdf").read_bytes().startswith(b"%PDF-")
+            )
+            audio = (games / "PC/soundtracks/track.flac").read_bytes()
+            self.assertTrue(audio.startswith(b"fLaC"))
+            self.assertIn(image, audio)
+            second_root = root / "second"
+            second_root.mkdir()
+            second, _ = prepare(second_root, repo)
+            self.assertEqual(
+                {p["path"]: p["sha256"] for p in source_manifest(games)},
+                {p["path"]: p["sha256"] for p in source_manifest(second)},
+            )
             self.assertTrue((snapshot / "frontend/external").is_symlink())
             before = source_manifest(games)
             next(games.rglob("*.bin")).write_bytes(b"changed")

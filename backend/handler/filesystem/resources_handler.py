@@ -6,11 +6,9 @@ from io import BytesIO
 from pathlib import Path
 
 import httpx
-from anyio import Path as AnyioPath
 from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
 
-from adapters.services.screenscraper import media_download_slot
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     LAUNCHBOX_BASE_PATH,
@@ -49,7 +47,7 @@ def _resolve_local_file_uri(uri: str) -> Path | None:
     under the LaunchBox data root, since LaunchBox metadata produces paths
     relative to `/romm/launchbox`, which is not the same as the library root.
     """
-    from handler.filesystem import fs_rom_handler
+    from handler.filesystem import get_fs_rom_handler
 
     if uri.startswith("launchbox-file://"):
         relative = Path(uri[len("launchbox-file://") :])
@@ -65,7 +63,7 @@ def _resolve_local_file_uri(uri: str) -> Path | None:
 
     if uri.startswith("file://"):
         try:
-            return fs_rom_handler.validate_path(uri[len("file://") :])
+            return get_fs_rom_handler().validate_path(uri[len("file://") :])
         except ValueError:
             return None
 
@@ -304,13 +302,23 @@ class FSResourcesHandler(FSHandler):
         reference = getattr(
             entity, "path_cover_s" if size == CoverSize.SMALL else "path_cover_l", None
         )
-        if isinstance(reference, str) and reference:
+        if (
+            isinstance(reference, str)
+            and reference
+            and Path(reference).parent == Path(entity.fs_resources_path) / "cover"
+            and not Path(reference).name.startswith(".")
+        ):
             candidate = self.validate_path(reference)
             if candidate.is_file() and not candidate.is_symlink():
                 return True
         full_path = self.validate_path(f"{entity.fs_resources_path}/cover")
-        for _ in full_path.glob(f"{size.value}.*"):
-            return True  # At least one file found
+        for candidate in full_path.glob(f"{size.value}.*"):
+            if (
+                ".scan-" not in candidate.name
+                and candidate.is_file()
+                and not candidate.is_symlink()
+            ):
+                return True
         return False
 
     def resize_cover_to_small(self, cover: ImageFile.ImageFile, save_path: str) -> None:
@@ -374,13 +382,23 @@ class FSResourcesHandler(FSHandler):
         reference = getattr(
             entity, "path_cover_s" if size == CoverSize.SMALL else "path_cover_l", None
         )
-        if isinstance(reference, str) and reference:
+        if (
+            isinstance(reference, str)
+            and reference
+            and Path(reference).parent == Path(entity.fs_resources_path) / "cover"
+            and not Path(reference).name.startswith(".")
+        ):
             candidate = self.validate_path(reference)
             if candidate.is_file() and not candidate.is_symlink():
                 return reference
         full_path = self.validate_path(f"{entity.fs_resources_path}/cover")
         for matched_file in full_path.glob(f"{size.value}.*"):
-            return str(matched_file.relative_to(self.base_path))
+            if (
+                ".scan-" not in matched_file.name
+                and matched_file.is_file()
+                and not matched_file.is_symlink()
+            ):
+                return str(matched_file.relative_to(self.base_path))
 
         return None
 
@@ -389,35 +407,18 @@ class FSResourcesHandler(FSHandler):
     ) -> tuple[str | None, str | None]:
         if not entity:
             return None, None
-        if current_scan_write_context() is not None:
-            small, large = entity.path_cover_s, entity.path_cover_l
-            if url_cover:
-                if overwrite or not small:
-                    small = await self._store_cover(entity, url_cover, CoverSize.SMALL)
-                if overwrite or not large:
-                    large = await self._store_cover(entity, url_cover, CoverSize.BIG)
-            return small, large
-
-        # Download covers if URL provided and (overwriting or covers don't exist)
+        small = self._get_cover_path(entity, CoverSize.SMALL)
+        large = self._get_cover_path(entity, CoverSize.BIG)
         if url_cover:
-            if overwrite or not self.cover_exists(entity, CoverSize.SMALL):
-                await self._store_cover(entity, url_cover, CoverSize.SMALL)
-            if overwrite or not self.cover_exists(entity, CoverSize.BIG):
-                await self._store_cover(entity, url_cover, CoverSize.BIG)
-
-        # Return paths for existing covers
-        path_cover_s = (
-            self._get_cover_path(entity, CoverSize.SMALL)
-            if self.cover_exists(entity, CoverSize.SMALL)
-            else None
-        )
-        path_cover_l = (
-            self._get_cover_path(entity, CoverSize.BIG)
-            if self.cover_exists(entity, CoverSize.BIG)
-            else None
-        )
-
-        return path_cover_s, path_cover_l
+            if overwrite or not small:
+                small = (
+                    await self._store_cover(entity, url_cover, CoverSize.SMALL) or small
+                )
+            if overwrite or not large:
+                large = (
+                    await self._store_cover(entity, url_cover, CoverSize.BIG) or large
+                )
+        return small, large
 
     async def remove_cover(self, entity: Rom | Collection | None):
         if not entity:
@@ -492,9 +493,20 @@ class FSResourcesHandler(FSHandler):
             True if screenshots exists in filesystem else False
         """
         full_path = self.validate_path(f"{rom.fs_resources_path}/screenshots")
-        for _ in full_path.glob("*.jpg"):
-            return True
-        return False
+        for reference in rom.path_screenshots or []:
+            candidate = self.validate_path(reference)
+            if (
+                candidate.parent == full_path
+                and candidate.is_file()
+                and not candidate.is_symlink()
+            ):
+                return True
+        return any(
+            candidate.stem.isdecimal()
+            and candidate.is_file()
+            and not candidate.is_symlink()
+            for candidate in full_path.glob("*.jpg")
+        )
 
     def _get_screenshot_path(self, rom: Rom, idx: str):
         """Returns rom cover filesystem path adapted to frontend folder structure
@@ -646,9 +658,7 @@ class FSResourcesHandler(FSHandler):
 
         # Download and store new manual
         path = await self._store_manual(rom, url_manual)
-        if current_scan_write_context() is not None:
-            return path
-        return self._get_manual_path(rom)
+        return path or self._get_manual_path(rom)
 
     async def remove_manual(self, rom: Rom):
         await self.remove_directory(f"{rom.fs_resources_path}/manual")

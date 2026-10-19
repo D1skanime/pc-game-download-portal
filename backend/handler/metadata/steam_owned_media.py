@@ -2,13 +2,21 @@
 
 import logging
 from collections.abc import Mapping, Sequence
+from contextlib import nullcontext
 from typing import Any
 
 from fastapi import status
+from sqlalchemy.exc import SQLAlchemyError
 
 from handler.database import db_rom_handler
 from handler.database.roms_handler import SteamOwnedMediaInventoryItem
+from handler.database.scan_write_fence import (
+    ScanWriteRejected,
+    current_scan_write_context,
+)
 from handler.filesystem import fs_resource_handler
+from handler.filesystem.scan_media_publication import ScanMediaBatch
+from handler.filesystem.storage_access import IndeterminateOwnedPublicationError
 from handler.metadata.rom_media import ProviderMediaCandidate, discover_provider_media
 from models.rom import RomOwnedMediaState
 from utils.context import ctx_httpx_client
@@ -73,7 +81,9 @@ def _reusable_owned_path(
     return path if isinstance(path, str) and path else None
 
 
-async def reconcile_steam_patch_media(rom, patch: Mapping[str, Any]) -> bool:
+async def reconcile_steam_patch_media(
+    rom, patch: Mapping[str, Any], *, force: bool = False
+) -> bool:
     """Persist a successful complete Steam media patch without scan-side mutations.
 
     Missing or invalid media is intentionally a no-op. Only an explicit complete
@@ -93,48 +103,75 @@ async def reconcile_steam_patch_media(rom, patch: Mapping[str, Any]) -> bool:
         return False
 
     written_paths: list[str] = []
+    unit = None
+    association_started = False
     try:
-        active = db_rom_handler.get_steam_owned_media_inventory(rom.id, identities)
-        inventory: list[SteamOwnedMediaInventoryItem] = []
-        for candidate in candidates:
-            mime_type: str | None
-            owned_path = _reusable_owned_path(
-                active.get(candidate.provider_media_id), candidate
-            )
-            if owned_path is None:
-                owned_path, mime_type = await _download_candidate(rom, candidate)
-                written_paths.append(owned_path)
-            else:
-                stored_mime_type = getattr(
-                    active[candidate.provider_media_id], "mime_type", None
-                )
-                if not isinstance(stored_mime_type, str) or not stored_mime_type:
-                    raise ValueError("Stored Steam media has no MIME type")
-                mime_type = stored_mime_type
-            if mime_type is None:
-                raise ValueError("Steam media has no MIME type")
-            inventory.append(
-                SteamOwnedMediaInventoryItem(
-                    candidate.provider_media_id,
-                    candidate.role,
-                    candidate.display_label,
-                    mime_type,
-                    owned_path,
-                )
-            )
-
-        reconciled = db_rom_handler.reconcile_steam_owned_media_inventory(
-            rom.id, rom.updated_at, inventory
+        scope = (
+            ScanMediaBatch(rom.id, rom.platform_id, fs_resource_handler.storage)
+            if current_scan_write_context() is not None
+            else nullcontext()
         )
-        if reconciled is None:
-            raise ValueError("Steam media catalog changed")
-    except Exception:
-        await _remove_uncommitted_paths(written_paths)
-        return False
+        with scope as unit:
+            active = db_rom_handler.get_steam_owned_media_inventory(rom.id, identities)
+            inventory: list[SteamOwnedMediaInventoryItem] = []
+            for candidate in candidates:
+                mime_type: str | None
+                owned_path = (
+                    None
+                    if force
+                    else _reusable_owned_path(
+                        active.get(candidate.provider_media_id), candidate
+                    )
+                )
+                if owned_path is None:
+                    owned_path, mime_type = await _download_candidate(rom, candidate)
+                    written_paths.append(owned_path)
+                else:
+                    mime_type = getattr(
+                        active[candidate.provider_media_id], "mime_type", None
+                    )
+                if not isinstance(mime_type, str) or not mime_type:
+                    raise ValueError("Steam media has no MIME type")
+                inventory.append(
+                    SteamOwnedMediaInventoryItem(
+                        candidate.provider_media_id,
+                        candidate.role,
+                        candidate.display_label,
+                        mime_type,
+                        owned_path,
+                    )
+                )
 
-    for path in reconciled.unreferenced_owned_paths:
-        try:
-            db_rom_handler.create_owned_media_cleanup_intent(rom.id, 0, path)
-        except Exception:
-            log.warning("Unable to queue Steam media cleanup", extra={"path": path})
+            def reconcile(session):
+                nonlocal association_started
+                association_started = True
+                options = {"session": session} if session is not None else {}
+                result = db_rom_handler.reconcile_steam_owned_media_inventory(
+                    rom.id, rom.updated_at, inventory, **options
+                )
+                if result is None:
+                    association_started = False
+                    raise ValueError("Steam media catalog changed")
+                for path in result.unreferenced_owned_paths:
+                    db_rom_handler.create_owned_media_cleanup_intent(
+                        rom.id, 0, path, **options
+                    )
+                return result
+
+            if unit:
+                unit.publish_and_associate(reconcile)
+            else:
+                reconcile(None)
+    except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
+        if current_scan_write_context() is not None:
+            raise
+        if not association_started:
+            await _remove_uncommitted_paths(written_paths)
+        return False
+    except Exception:
+        if unit is None and not association_started:
+            await _remove_uncommitted_paths(written_paths)
+        if unit is not None and unit.publication_started:
+            raise
+        return False
     return True
