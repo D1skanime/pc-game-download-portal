@@ -1,6 +1,10 @@
-import type { ScanOperationSnapshot } from "@/__generated__";
+import type {
+  CollectionPromotionRequest,
+  ScanOperationSnapshot,
+} from "@/__generated__";
 
 export type {
+  CollectionPromotionRequest,
   ScanOperationRequest,
   ScanOperationSnapshot,
   ScanOperationMutationRequest,
@@ -214,6 +218,12 @@ export interface ExecutionPolicy {
   resumable: boolean;
 }
 
+export interface SubfolderScanRequest {
+  platformFsSlug: string;
+  relativePath: string;
+  collectionPromotion: CollectionPromotionRequest;
+}
+
 export interface OperationRequest {
   operationId: string;
   kind: OperationKind;
@@ -234,6 +244,7 @@ export interface OperationRequest {
   scanType?: ScanType;
   metadataOnly?: boolean;
   mediaOnly?: boolean;
+  collectionPromotion?: CollectionPromotionRequest;
   provenance?: Provenance;
 }
 

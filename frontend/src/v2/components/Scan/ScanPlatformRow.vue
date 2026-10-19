@@ -12,6 +12,7 @@ import { ROUTES } from "@/plugins/router";
 import PcSubfolderScanDialog from "@/v2/components/Scan/PcSubfolderScanDialog.vue";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
+import type { SubfolderScanRequest } from "@/v2/data/contracts";
 import {
   getMissingCoverImage,
   getUnmatchedCoverImage,
@@ -33,10 +34,7 @@ const canInspectFolder = computed(
 );
 
 const emit = defineEmits<{
-  (
-    event: "scan-subfolder",
-    value: { platformFsSlug: string; relativePath: string },
-  ): void;
+  (event: "scan-subfolder", value: SubfolderScanRequest): void;
 }>();
 
 // Title shown for the row: the identified ROM name once metadata resolves,
@@ -166,12 +164,7 @@ function coverFor(rom: SimpleRom): string {
       v-if="canInspectFolder"
       v-model="folderDialogOpen"
       :rom="props.rom"
-      @scan="
-        emit('scan-subfolder', {
-          platformFsSlug: props.rom.platform_fs_slug,
-          relativePath: $event,
-        })
-      "
+      @scan="emit('scan-subfolder', $event)"
     />
   </div>
 </template>

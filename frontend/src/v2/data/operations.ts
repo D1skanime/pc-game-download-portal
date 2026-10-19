@@ -1,5 +1,6 @@
 import { normalizeLocale } from "@/v2/composables/useProviderResolution";
 import type {
+  CollectionPromotionRequest,
   LibraryProfile,
   OperationKind,
   OperationRequest,
@@ -21,6 +22,7 @@ export interface LibraryScanRequestInput {
   scanType: ScanType;
   metadataOnly?: boolean;
   mediaOnly?: boolean;
+  collectionPromotion?: CollectionPromotionRequest;
 }
 
 export function buildLibraryScanRequest(
@@ -66,6 +68,9 @@ export function buildLibraryScanRequest(
       resumable: true,
     },
     scanType: input.scanType,
+    ...(input.collectionPromotion
+      ? { collectionPromotion: input.collectionPromotion }
+      : {}),
     ...(input.metadataOnly || input.mediaOnly
       ? {
           metadataOnly: input.metadataOnly === true,
@@ -403,6 +408,9 @@ export function toScanOperationRequest(
   return {
     ...payload,
     request_key: input.idempotencyKey,
+    ...(input.collectionPromotion
+      ? { collection_promotion: input.collectionPromotion }
+      : {}),
     type,
     ...(payload.type === "media"
       ? { metadata_only: false, media_only: true }

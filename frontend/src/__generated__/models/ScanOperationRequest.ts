@@ -2,8 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { CollectionPromotionRequest } from './CollectionPromotionRequest';
 export type ScanOperationRequest = {
     request_key: string;
+    collection_promotion?: (CollectionPromotionRequest | null);
     platforms?: Array<number>;
     platform_fs_slugs?: Array<string>;
     filesystem_scope_paths?: Record<string, string>;

@@ -5,6 +5,7 @@ import Scan from "./Scan.vue";
 
 const api = vi.hoisted(() => ({
   start: vi.fn().mockResolvedValue(undefined),
+  providers: ["igdb"],
   getMappingsReadiness: vi.fn().mockResolvedValue({ ready: true }),
 }));
 vi.mock("pinia", async (importOriginal) => ({
@@ -36,8 +37,8 @@ vi.mock("@/v2/composables/useLibraryOperation", () => ({
 vi.mock("@/v2/composables/useScanProviders", () => ({
   useScanProviders: () => ({
     storedMetadataSources: ref([]),
-    metadataSources: ref([{ value: "igdb" }]),
-    effectiveMetadataSources: ref([{ value: "igdb" }]),
+    metadataSources: ref(api.providers.map((value) => ({ value }))),
+    effectiveMetadataSources: ref(api.providers.map((value) => ({ value }))),
     metadataLocale: ref("en-US"),
     launchboxRemoteEnabled: ref(false),
     isLaunchboxSelected: ref(false),
@@ -74,9 +75,16 @@ vi.mock("@/v2/data/adapters/legacy/stores/scanning", () => ({
 describe("Scan collection selection request", () => {
   beforeEach(() => api.start.mockClear());
 
-  it.each(["media", "update", "hashes", "complete"])(
-    "uses filesystem discovery for explicit child selection while %s is selected",
-    async (mode) => {
+  it.each([
+    { mode: "media", providers: ["igdb"] },
+    { mode: "update", providers: ["igdb"] },
+    { mode: "hashes", providers: ["igdb"] },
+    { mode: "complete", providers: ["igdb"] },
+    { mode: "update", providers: [] },
+  ])(
+    "uses filesystem discovery for explicit child selection while $mode is selected with $providers",
+    async ({ mode, providers }) => {
+      api.providers = providers;
       const wrapper = shallowMount(Scan);
       await flushPromises();
       const typeSelect = wrapper
@@ -88,6 +96,7 @@ describe("Scan collection selection request", () => {
         )!;
       expect(typeSelect).toBeDefined();
       typeSelect.vm.$emit("update:modelValue", mode);
+      await flushPromises();
       const collectionPromotion = {
         parent_rom_id: 41,
         mapping_id: 12,
@@ -115,7 +124,7 @@ describe("Scan collection selection request", () => {
         },
         metadataPolicy: { mode: "missing-only" },
         mediaPolicy: { mode: "missing-only" },
-        providerPolicy: { providers: ["igdb"], launchboxRemoteEnabled: false },
+        providerPolicy: { providers, launchboxRemoteEnabled: false },
       });
       expect(api.start.mock.calls[0][0].metadataOnly).not.toBe(true);
       expect(api.start.mock.calls[0][0].mediaOnly).not.toBe(true);

@@ -4,6 +4,7 @@ import { onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
 import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
+import type { SubfolderScanRequest } from "@/v2/data/contracts";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -12,7 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: "update:modelValue", value: boolean): void;
-  (event: "scan", relativePath: string): void;
+  (event: "scan", selection: SubfolderScanRequest): void;
 }>();
 
 const { t } = useI18n();
@@ -25,6 +26,8 @@ const entries = ref<
 >([]);
 let rootId: number | null = null;
 let mappingPath = "";
+let mapping: Awaited<ReturnType<typeof storageApi.getMapping>>["data"] | null =
+  null;
 
 function joinPath(...parts: string[]): string {
   return parts
@@ -52,9 +55,8 @@ async function openDialog() {
   loading.value = true;
   error.value = false;
   try {
-    const { data: mapping } = await storageApi.getMapping(
-      props.rom.platform_id,
-    );
+    const { data } = await storageApi.getMapping(props.rom.platform_id);
+    mapping = data;
     rootId = mapping.storage_root_id;
     mappingPath = joinPath(mapping.relative_path);
     parentPath.value = joinPath(mapping.relative_path, props.rom.fs_name);
@@ -70,6 +72,7 @@ function close() {
 }
 
 function select(path: string) {
+  if (!mapping) return;
   const parts = path.split("/");
   const prefix = mappingPath ? mappingPath + "/" : "";
   if (
@@ -81,7 +84,18 @@ function select(path: string) {
     error.value = true;
     return;
   }
-  emit("scan", path.slice(prefix.length));
+  const relativePath = path.slice(prefix.length);
+  emit("scan", {
+    platformFsSlug: props.rom.platform_fs_slug,
+    relativePath,
+    collectionPromotion: {
+      parent_rom_id: props.rom.id,
+      mapping_id: mapping.id,
+      expected_revision: mapping.version,
+      parent_relative_path: parentPath.value.slice(prefix.length),
+      selected_child_relative_path: relativePath,
+    },
+  });
   close();
 }
 

@@ -54,6 +54,7 @@ export type { ClientTokenExchangePayload } from './models/ClientTokenExchangePay
 export type { ClientTokenPairSchema } from './models/ClientTokenPairSchema';
 export type { ClientTokenSchema } from './models/ClientTokenSchema';
 export type { CollectionRomsPayload } from './models/CollectionRomsPayload';
+export type { CollectionPromotionRequest } from './models/CollectionPromotionRequest';
 export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { ConversionStats } from './models/ConversionStats';

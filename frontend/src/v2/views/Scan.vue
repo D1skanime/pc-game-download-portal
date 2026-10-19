@@ -27,8 +27,11 @@ import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
 import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
-import type { OperationRequest, OperationScope } from "@/v2/data/contracts";
-import { resolveMediaOnlyScope } from "@/v2/data/operations";
+import type { OperationScope, SubfolderScanRequest } from "@/v2/data/contracts";
+import {
+  buildLibraryScanRequest,
+  resolveMediaOnlyScope,
+} from "@/v2/data/operations";
 
 const { t, locale } = useI18n();
 const scanningStore = storeScanning();
@@ -157,11 +160,6 @@ type ScanType =
   | "hashes"
   | "complete";
 
-interface SubfolderScan {
-  platformFsSlug: string;
-  relativePath: string;
-}
-
 const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
   {
     title: t("scan.new-platforms"),
@@ -201,11 +199,12 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
 ];
 const scanType = ref<ScanType>("quick");
 
+const canDiscover = computed(
+  () => mappingReady.value && !busy.value && canManageScan.value,
+);
 const canStartScan = computed(
   () =>
-    mappingReady.value &&
-    !busy.value &&
-    canManageScan.value &&
+    canDiscover.value &&
     (scanType.value !== "update" || effectiveMetadataSources.value.length > 0),
 );
 
@@ -271,8 +270,8 @@ const progressValue = computed(() =>
     : 0,
 );
 
-function scan(subfolder?: SubfolderScan) {
-  if (!canStartScan.value) return;
+function scan(subfolder?: SubfolderScanRequest) {
+  if (!canDiscover.value || (!subfolder && !canStartScan.value)) return;
   scanningStore.reset();
   scanningPlatforms.value = [];
   userScrolledDown = false;
@@ -289,7 +288,7 @@ function scan(subfolder?: SubfolderScan) {
     (m) => m.value === "playmatch",
   );
   const operationId = "library-scan-" + crypto.randomUUID();
-  const selectedScanType = scanType.value;
+  const selectedScanType = subfolder ? "quick" : scanType.value;
   let scope: OperationScope;
   try {
     scope = subfolder
@@ -315,8 +314,7 @@ function scan(subfolder?: SubfolderScan) {
     snackbar.error(t("scan.media-only-existing-platforms"));
     return;
   }
-  const mediaOnly = selectedScanType === "media";
-  const request: OperationRequest = {
+  const request = buildLibraryScanRequest({
     operationId,
     kind:
       selectedScanType === "media"
@@ -328,65 +326,23 @@ function scan(subfolder?: SubfolderScan) {
     profiles: [],
     uiLocale: locale.value,
     metadataLocale: metadataLocale.value,
-    providerPolicy: {
-      providers,
-      fallbackProviders:
-        playmatchMatcher && isHashMatcherOn(playmatchMatcher)
-          ? ["playmatch"]
-          : [],
-      allowUnexpectedLocale: false,
-      launchboxRemoteEnabled: launchboxRemoteEnabled.value,
-    },
-    metadataPolicy: {
-      mode:
-        selectedScanType === "update"
-          ? "provider-replace"
-          : selectedScanType === "media"
-            ? "none"
-            : "missing-only",
-      fields: [],
-    },
-    mediaPolicy:
-      selectedScanType === "update" || selectedScanType === "media"
-        ? { mode: "none", targets: [] }
-        : { mode: "missing-only", targets: [] },
-    ...(selectedScanType === "update"
-      ? { metadataOnly: true }
-      : selectedScanType === "media"
-        ? {
-            mediaOnly: true,
-          }
-        : {}),
-    capabilities: {
-      discovery: !mediaOnly,
-      creation: !mediaOnly,
-      metadata: !mediaOnly,
-      media: true,
-      fileMutation: false,
-      pcDlc: !mediaOnly,
-      preview: true,
-      retry: true,
-      resume: true,
-    },
-    preview: false,
-    permissions: { scopes: ["tasks:run"] },
-    idempotencyKey: operationId,
-    jobId: operationId,
-    retry: { maxAttempts: 3 },
-    execution: {
-      maxConcurrency: 1,
-      cancelable: true,
-      resumable: true,
-    },
+    providers,
+    playmatchEnabled: Boolean(
+      playmatchMatcher && isHashMatcherOn(playmatchMatcher),
+    ),
+    launchboxRemoteEnabled: launchboxRemoteEnabled.value,
     scanType: selectedScanType,
-  };
+    metadataOnly: selectedScanType === "update",
+    mediaOnly: selectedScanType === "media",
+    collectionPromotion: subfolder?.collectionPromotion,
+  });
 
   void libraryOperation.start(request).then(() => {
     if (actionError.value) snackbar.error(t("scan.recovery-cause-failed"));
   });
 }
 
-function scanSubfolder(subfolder: SubfolderScan) {
+function scanSubfolder(subfolder: SubfolderScanRequest) {
   scan(subfolder);
 }
 

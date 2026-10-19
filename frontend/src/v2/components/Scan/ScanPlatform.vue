@@ -15,6 +15,7 @@ import { useI18n } from "vue-i18n";
 import ScanPlatformRow from "@/v2/components/Scan/ScanPlatformRow.vue";
 import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import type { ScanningPlatform } from "@/v2/data/adapters/legacy/stores/scanning";
+import type { SubfolderScanRequest } from "@/v2/data/contracts";
 
 defineOptions({ inheritAttrs: false });
 
@@ -26,10 +27,7 @@ const props = defineProps<{
 
 defineEmits<{
   (e: "update:open", value: boolean): void;
-  (
-    e: "scan-subfolder",
-    value: { platformFsSlug: string; relativePath: string },
-  ): void;
+  (e: "scan-subfolder", value: SubfolderScanRequest): void;
 }>();
 
 const { t } = useI18n();
