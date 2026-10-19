@@ -36,6 +36,10 @@ if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
 	export ROMM_AUTH_SECRET_KEY
 fi
 
+# Workers must not consume scheduled jobs before a fresh schema exists.
+cd /app/backend
+uv run alembic upgrade head
+
 # Start all services in the background
 echo "Starting backend..."
 cd /app/backend

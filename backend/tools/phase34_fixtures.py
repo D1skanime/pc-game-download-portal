@@ -50,16 +50,25 @@ def restore_generated_owner(run, resources):
         return
     for identity in resources["container"]:
         if run.inspect("container", identity)["Id"] == run.runner:
-            run.exec(
-                [
-                    "chown",
-                    "-R",
-                    "--",
-                    str(os.getuid()) + ":" + str(os.getgid()),
-                    "/app/frontend/src/__generated__",
-                ],
-                check=False,
+            script = (
+                "import os\n"
+                "from pathlib import Path\n"
+                "for root in [Path('/app/frontend/src/__generated__'),Path('/app/frontend/dist')]:\n"
+                " if not root.exists() or root.is_symlink(): continue\n"
+                " for directory,_,files in os.walk(root,followlinks=False):\n"
+                "  os.chown(directory,"
+                + str(os.getuid())
+                + ","
+                + str(os.getgid())
+                + ",follow_symlinks=False)\n"
+                "  for name in files:\n"
+                "   os.chown(Path(directory)/name,"
+                + str(os.getuid())
+                + ","
+                + str(os.getgid())
+                + ",follow_symlinks=False)\n"
             )
+            run.exec(["uv", "run", "python", "-c", script])
             return
 
 
@@ -74,6 +83,25 @@ def source_manifest(root):
         for p in sorted(root.rglob("*"))
         if p.is_file()
     ]
+
+
+def code_manifest(snapshot):
+    """Fingerprint copied code only, never source-library or environment bytes."""
+    files = {}
+    for path in sorted(snapshot.rglob("*")):
+        if path.is_symlink() or not path.is_file():
+            continue
+        relative = path.relative_to(snapshot)
+        if any(
+            part in {"node_modules", "__pycache__", ".pytest_cache", "dist"}
+            for part in relative.parts
+        ):
+            continue
+        if path.name == ".env" or path.name.startswith(".env."):
+            continue
+        files[relative.as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+    encoded = json.dumps(files, sort_keys=True).encode()
+    return {"sha256": hashlib.sha256(encoded).hexdigest(), "files": files}
 
 
 def prepare_media(games):
@@ -152,7 +180,9 @@ def prepare(root, repo):
     prepare_media(games)
     snapshot = root / "checkout"
     snapshot.mkdir()
-    for folder in ("backend", "frontend"):
+    for folder in ("backend", "frontend", "docker"):
+        if folder == "docker" and not (repo / folder).is_dir():
+            continue
         shutil.copytree(
             repo / folder,
             snapshot / folder,
@@ -340,6 +370,17 @@ def expected_red(path, expected_names):
     return {"cases": len(cases), "failures": sorted(failures)}
 
 
+def interpolation_matches(reference, actual):
+    import re
+
+    expected = re.findall(r"\{[^{}]+\}", reference)
+    translated = re.findall(r"\{[^{}]+\}", actual)
+    if "|" in reference or "|" in actual:
+        # Different languages have different plural categories.
+        return set(expected) == set(translated)
+    return sorted(expected) == sorted(translated)
+
+
 def locale_check(scope, locales):
     namespace = "setup" if scope == "setup-locales" else "scan"
     base = Path("/app/frontend/src/locales")
@@ -366,9 +407,7 @@ def locale_check(scope, locales):
         actual = flat(data)
         assert actual.keys() == reference.keys(), "locale key parity: " + locale
         for key, value in actual.items():
-            assert sorted(re.findall(r"\{[^{}]+\}", value)) == sorted(
-                re.findall(r"\{[^{}]+\}", reference[key])
-            ), key
+            assert interpolation_matches(reference[key], value), key
 
         def sorted_keys(obj, code=locale):
             assert list(obj) == sorted(obj), "unsorted locale: " + code
@@ -432,7 +471,16 @@ def quality(run, args, repo):
         namespace = "setup" if args.scope == "setup-locales" else "scan"
         path = locale_probe(run, namespace)
         run.exec(
-            frontend_command([path]),
+            frontend_command(
+                [
+                    path,
+                    (
+                        "src/v2/views/Auth/Setup.test.ts"
+                        if namespace == "setup"
+                        else "src/v2/views/Scan.test.ts"
+                    ),
+                ]
+            ),
             frontend=True,
             extra={"PGDP_TEST_LOCALES": args.locales},
         )

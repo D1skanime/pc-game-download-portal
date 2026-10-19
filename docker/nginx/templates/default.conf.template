@@ -63,6 +63,20 @@ server {
         add_header Cross-Origin-Opener-Policy $coop_header;
     }
 
+    # Private scan receipts and in-progress capability bytes are never public.
+    location = /assets/romm/resources/.scan-media-staging {
+        add_header Cache-Control "no-store" always;
+        return 404;
+    }
+    location ^~ /assets/romm/resources/.scan-media-staging/ {
+        add_header Cache-Control "no-store" always;
+        return 404;
+    }
+    location ~ "^/assets/romm/resources/(?:.*/)?\.[^/]+\.[0-9a-f]{32}\.tmp$" {
+        add_header Cache-Control "no-store" always;
+        return 404;
+    }
+
     # Freeze content-hashed frontend bundles (fingerprinted files under /assets)
     location ~* "^/assets/[^/]+-[A-Za-z0-9_-]{8,}\.(js|mjs|css|map|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|webp|avif|ico|json|wasm)$" {
         add_header Cache-Control "public, max-age=31536000, immutable";

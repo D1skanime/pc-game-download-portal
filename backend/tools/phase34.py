@@ -17,6 +17,7 @@ from phase34_fixtures import (
     SQL_IMAGES,
     backend_command,
     cleanup_snapshot,
+    code_manifest,
     expected_red,
     frontend_command,
     prepare,
@@ -78,6 +79,8 @@ def host_preflight():
 
 
 class Run:
+    image: str = IMAGE
+
     def __init__(self, driver="mariadb"):
         if driver not in SQL_IMAGES:
             raise RuntimeError("unsupported dialect")
@@ -100,15 +103,30 @@ class Run:
 
     def command(self, args, *, timeout=180, check=True, cwd=None):
         self.counter += 1
-        # trunk-ignore(bandit/B603): Tool argv uses generated targets and validated test paths.
-        result = subprocess.run(
-            args,
-            cwd=cwd,
-            env=self.process_env(),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        expired = None
+        try:
+            # trunk-ignore(bandit/B603): Generated target and validated fixed tool argv.
+            result = subprocess.run(
+                args,
+                cwd=cwd,
+                env=self.process_env(),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as error:
+            expired = error
+
+            def decoded(value):
+                return (
+                    value.decode(errors="replace")
+                    if isinstance(value, bytes)
+                    else value or ""
+                )
+
+            result = subprocess.CompletedProcess(
+                args, 124, decoded(error.stdout), decoded(error.stderr)
+            )
         name = str(self.counter).zfill(2)
         # The run token doubles as disposable credentials. Retain no credentials in logs.
         output = redact_output(result.stdout + result.stderr, self.token)
@@ -121,6 +139,9 @@ class Run:
             }
         )
         (self.evidence / "commands.json").write_text(json.dumps(self.records, indent=2))
+        if expired is not None:
+            print("TIMEOUT retained in log " + name, flush=True)
+            raise expired
         if check and result.returncode:
             print(output[-7000:], flush=True)
             raise RuntimeError(
@@ -144,7 +165,7 @@ class Run:
                     "mariadb": "mariadbd",
                     "postgresql": "postgres",
                 }[self.driver],
-                "P34_RUNNER_IMAGE": IMAGE,
+                "P34_RUNNER_IMAGE": getattr(self, "image", IMAGE),
                 "P34_REPO": str(self.root / "checkout"),
                 "P34_CONTROL": str(self.control),
                 "P34_EVIDENCE": str(self.evidence),
@@ -196,7 +217,9 @@ class Run:
         return identities
 
     def start(self):
-        games, _ = prepare(self.root, REPO)
+        games, snapshot = prepare(self.root, REPO)
+        code = code_manifest(snapshot)
+        (self.evidence / "code-before.json").write_text(json.dumps(code, indent=2))
         self.before = source_manifest(games)
         (self.evidence / "source-before.json").write_text(
             json.dumps(self.before, indent=2)
@@ -343,6 +366,7 @@ class Run:
                     "exact_resources": resources,
                     "remaining": remaining,
                     "clean": clean,
+                    "snapshot_removed": False,
                     "source_unchanged": self.before == after,
                 },
                 indent=2,
@@ -352,6 +376,10 @@ class Run:
             raise RuntimeError("cleanup or source immutability gate failed")
         redact_evidence(self.evidence, self.token)
         cleanup_snapshot(self.root, self.project)
+        cleanup_path = self.evidence / "cleanup.json"
+        cleanup = json.loads(cleanup_path.read_text())
+        cleanup["snapshot_removed"] = not (self.root / "checkout").exists()
+        cleanup_path.write_text(json.dumps(cleanup, indent=2))
         print("PASS cleanup and source immutability", flush=True)
 
 
@@ -392,6 +420,7 @@ def safe_test_args(args, frontend=False):
 
 def execute(mode, args):
     run = Run(args.dialect if hasattr(args, "dialect") else "mariadb")
+    succeeded = False
     try:
         run.start()
         if mode == "backend":
@@ -406,7 +435,9 @@ def execute(mode, args):
                 )
                 run.exec(backend_command(["tests/test_phase34_smoke.py", "-q"]))
             else:
-                run.exec(backend_command(args.tests))
+                run.exec(
+                    backend_command(args.tests), timeout=getattr(args, "timeout", 180)
+                )
         elif mode == "frontend":
             run.exec(frontend_command(args.tests), frontend=True)
         elif mode == "schema":
@@ -431,8 +462,16 @@ def execute(mode, args):
             print(json.dumps(proof), flush=True)
         elif mode == "quality":
             quality(run, args, REPO)
+        succeeded = True
     finally:
-        run.close()
+        try:
+            run.close()
+        finally:
+            if (run.evidence / "cleanup.json").exists():
+                from phase34_evidence import retain_run
+
+                gate = "schema:" + run.driver if mode == "schema" else mode
+                retain_run(run, gate, succeeded)
 
 
 def main():
@@ -443,6 +482,7 @@ def main():
         item = sub.add_parser(mode)
         if mode == "backend":
             item.add_argument("--dialect", choices=tuple(SQL_IMAGES), default="mariadb")
+            item.add_argument("--timeout", type=int, default=180)
         item.add_argument("--smoke", action="store_true")
         item.add_argument("tests", nargs=argparse.REMAINDER)
     schema = sub.add_parser("schema")
@@ -466,6 +506,8 @@ def main():
         if args.mode != "backend" or args.tests:
             parser.error("--smoke is an exclusive backend option")
         args.tests = ["--smoke"]
+    if args.mode == "backend" and not 1 <= args.timeout <= 900:
+        parser.error("backend aggregate timeout must be 1..900 seconds")
     host_preflight()
     if args.mode == "guard-test":
         return subprocess.call(  # nosec B603, fixed unittest command
