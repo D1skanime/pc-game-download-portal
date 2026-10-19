@@ -522,11 +522,20 @@ def quality(run, args, repo):
             "backend/tools/phase34_target_guard.py",
             "backend/tools/phase34_fixtures.py",
         ]
-    run.command(
-        ["/home/d1sk/.local/bin/trunk", "check", "--no-fix", *scoped],
-        cwd=repo,
-        timeout=300,
-    )
+    # Small batches avoid analyzer errors on large mixed source lists.
+    for offset in range(0, len(scoped), 4):
+        run.command(
+            [
+                "/home/d1sk/.local/bin/trunk",
+                "check",
+                "--no-fix",
+                "--jobs",
+                "1",
+                *scoped[offset : offset + 4],
+            ],
+            cwd=repo,
+            timeout=300,
+        )
 
 
 if __name__ == "__main__":
