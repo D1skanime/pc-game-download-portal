@@ -2,7 +2,6 @@
 
 import hashlib
 import itertools
-import json
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -19,7 +18,7 @@ from handler.database import db_rom_handler
 from handler.filesystem.scan_media_publication import (
     MAX_MANIFEST_BYTES,
     RESERVED,
-    validate_manifest,
+    parse_manifest,
 )
 from handler.filesystem.storage_access import (
     OwnedDelete,
@@ -132,7 +131,7 @@ def reconcile_manifest(storage, directory, *, session=None):
         assert isinstance(access, OwnedRead)
         if os.fstat(access.fileno()).st_size > MAX_MANIFEST_BYTES:
             raise ValueError("scan_media_manifest_limit")
-        document = validate_manifest(json.loads(access.read()), directory)
+        document = parse_manifest(access.read(), directory)
     if any(
         not re.fullmatch(r"receipt-[0-9]{4}[.]json", entry.name)
         and not re.fullmatch(

@@ -244,35 +244,104 @@ class ScanMediaBatch:
         self._closed = True
 
 
+class ManifestValidationError(ValueError):
+    """Untrusted evidence cannot grant recovery authority."""
+
+
+def parse_manifest(content, directory):
+    if len(content) > MAX_MANIFEST_BYTES:
+        raise ManifestValidationError("scan_media_manifest_limit")
+    depth, quoted, escaped = 0, False, False
+    for char in content:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == 92:
+                escaped = True
+            elif char == 34:
+                quoted = False
+        elif char == 34:
+            quoted = True
+        elif char in (91, 123):
+            depth += 1
+            if depth > 8:
+                raise ManifestValidationError("scan_media_manifest_depth")
+        elif char in (93, 125):
+            depth -= 1
+    try:
+        return validate_manifest(json.loads(content), directory)
+    except (ValueError, TypeError, RecursionError) as error:
+        raise ManifestValidationError("scan_media_manifest_invalid") from error
+
+
 def validate_manifest(document, directory):
-    if not isinstance(document, dict) or document.get("schema") != 1:
-        raise ValueError("scan_media_manifest_invalid")
-    operation, attempt, batch = (
-        document["operation"],
-        document["attempt"],
-        document["batch"],
-    )
+    try:
+        return _validate_manifest(document, directory)
+    except (ValueError, KeyError, TypeError, StorageResolutionError) as error:
+        raise ManifestValidationError("scan_media_manifest_invalid") from error
+
+
+def _validate_manifest(document, directory):
     if (
-        str(UUID(operation)) != operation
+        type(document) is not dict
+        or set(document)
+        != {
+            "schema",
+            "operation",
+            "attempt",
+            "batch",
+            "rom",
+            "platform",
+            "outputs",
+            "expected_prior",
+        }
+        or type(document["schema"]) is not int
+        or document["schema"] != 1
+    ):
+        raise ManifestValidationError("scan_media_manifest_schema")
+    operation, attempt, batch = (
+        document[key] for key in ("operation", "attempt", "batch")
+    )
+    if any(type(value) is not str for value in (operation, attempt, batch)):
+        raise ManifestValidationError("scan_media_manifest_identity")
+    if (
+        len(operation) != 36
+        or len(attempt) != 36
+        or str(UUID(operation)) != operation
         or str(UUID(attempt)) != attempt
         or not re.fullmatch(r"[a-f0-9]{32}", batch)
     ):
-        raise ValueError("scan_media_manifest_identity")
+        raise ManifestValidationError("scan_media_manifest_identity")
     if directory != f"{RESERVED}/{operation}/{attempt}/{batch}":
-        raise ValueError("scan_media_manifest_scope")
+        raise ManifestValidationError("scan_media_manifest_scope")
     rom, platform = document["rom"], document["platform"]
     if type(rom) is not int or rom <= 0 or type(platform) is not int or platform <= 0:
-        raise ValueError("scan_media_manifest_identity")
-    outputs = document["outputs"]
-    if not isinstance(outputs, list) or len(outputs) > MAX_OUTPUTS:
-        raise ValueError("scan_media_manifest_limit")
+        raise ManifestValidationError("scan_media_manifest_identity")
+    prior, outputs = document["expected_prior"], document["outputs"]
+    if type(prior) is not list or any(type(path) is not str for path in prior):
+        raise ManifestValidationError("scan_media_manifest_prior")
+    if type(outputs) is not list or len(outputs) > MAX_OUTPUTS:
+        raise ManifestValidationError("scan_media_manifest_limit")
     seen = set()
     for output in outputs:
-        final = output["final"]
-        if normalize_relative_path(final) != final or not final.startswith(
-            f"roms/{platform}/{rom}/"
+        if type(output) is not dict or set(output) != {
+            "final",
+            "private",
+            "digest",
+            "size",
+        }:
+            raise ManifestValidationError("scan_media_manifest_output")
+        final, private, digest, size = (
+            output[key] for key in ("final", "private", "digest", "size")
+        )
+        if type(final) is not str or (private is not None and type(private) is not str):
+            raise ManifestValidationError("scan_media_manifest_path")
+        if (
+            len(final) > 1024
+            or normalize_relative_path(final) != final
+            or not final.startswith(f"roms/{platform}/{rom}/")
         ):
-            raise ValueError("scan_media_manifest_path")
+            raise ManifestValidationError("scan_media_manifest_path")
         name = PurePosixPath(final).name
         match = _GENERATED.fullmatch(name)
         if (
@@ -281,23 +350,27 @@ def validate_manifest(document, directory):
             or match[2] != batch
             or final in seen
         ):
-            raise ValueError("scan_media_manifest_generation")
+            raise ManifestValidationError("scan_media_manifest_generation")
         seen.add(final)
-        private = output["private"]
         if private is not None and (
-            PurePosixPath(private).parent != PurePosixPath(final).parent
+            len(private) > 1024
+            or PurePosixPath(private).parent != PurePosixPath(final).parent
             or not re.fullmatch(
                 r"[.]" + re.escape(name) + r"[.][a-f0-9]{32}[.]tmp",
                 PurePosixPath(private).name,
             )
         ):
-            raise ValueError("scan_media_manifest_private")
-        if output["digest"] is not None and (
-            not re.fullmatch(r"[a-f0-9]{64}", output["digest"])
-            or type(output["size"]) is not int
-            or output["size"] < 0
+            raise ManifestValidationError("scan_media_manifest_private")
+        if (digest is None and size is not None) or (
+            digest is not None
+            and (
+                type(digest) is not str
+                or not re.fullmatch(r"[a-f0-9]{64}", digest)
+                or type(size) is not int
+                or size < 0
+            )
         ):
-            raise ValueError("scan_media_manifest_digest")
+            raise ManifestValidationError("scan_media_manifest_digest")
     return document
 
 
