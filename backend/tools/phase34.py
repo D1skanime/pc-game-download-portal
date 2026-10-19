@@ -153,7 +153,13 @@ class Run:
         # Compose receives generated values only, with no application env file.
         env = {
             key: os.environ[key]
-            for key in ("PATH", "DOCKER_HOST", "DOCKER_CONTEXT", "XDG_RUNTIME_DIR")
+            for key in (
+                "PATH",
+                "HOME",
+                "DOCKER_HOST",
+                "DOCKER_CONTEXT",
+                "XDG_RUNTIME_DIR",
+            )
             if key in os.environ
         }
         env.update(self.env)
