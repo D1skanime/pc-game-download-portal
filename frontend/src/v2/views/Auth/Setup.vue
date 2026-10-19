@@ -245,6 +245,7 @@ onMounted(async () => {
       </div>
       <footer class="r-v2-setup__footer">
         <RBtn
+          size="large"
           v-if="!isFirstStep"
           variant="text"
           :disabled="submitting"
@@ -254,6 +255,7 @@ onMounted(async () => {
         >
         <span />
         <RBtn
+          size="large"
           variant="flat"
           color="primary"
           :append-icon="isLastStep ? 'mdi-check' : 'mdi-chevron-right'"
