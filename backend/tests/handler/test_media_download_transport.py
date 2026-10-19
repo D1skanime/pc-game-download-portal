@@ -173,7 +173,8 @@ async def test_actual_scanner_optional_transport_keeps_old_and_indexes_next(
         from models.rom import Rom
 
         other = session.scalar(select(Rom).where(Rom.fs_name == "soundtracks"))
-        assert other is not None and len(other.files) == 3
+        assert other is not None
+        assert len(db_rom_handler.get_rom(other.id).files) == 3
 
 
 def configure_dlc(rom, monkeypatch):

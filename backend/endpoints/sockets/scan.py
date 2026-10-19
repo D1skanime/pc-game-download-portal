@@ -7,6 +7,7 @@ from itertools import batched, chain
 from typing import Any, Final, cast
 
 import socketio  # type: ignore
+from httpx import DecodingError, TransportError
 from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -341,7 +342,7 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
                 unit.publish_and_associate(associate_dlc)
         except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
             raise
-        except (ValueError, OSError):
+        except (ValueError, OSError, TransportError, DecodingError):
             log.warning(
                 "Optional DLC media retained prior reference for component %s",
                 saved_component.id,
@@ -831,7 +832,7 @@ async def _identify_rom(
             rom,
             complete=scan_type == ScanType.COMPLETE,
         )
-    except (ValueError, OSError) as error:
+    except (ValueError, OSError, TransportError, DecodingError) as error:
         log.warning(
             "Scan resource replacement retained prior references (%s)",
             type(error).__name__,
@@ -860,7 +861,7 @@ async def _identify_rom(
                     failure.provider_media_id,
                     failure.reason,
                 )
-        except (ValueError, OSError) as exc:
+        except (ValueError, OSError, TransportError, DecodingError) as exc:
             log.warning(
                 "Provider media catalog refresh failed for ROM %s: %s",
                 _added_rom.id,
@@ -900,7 +901,7 @@ async def _identify_rom(
                         )
 
                     unit.publish_and_associate(associate_special)
-            except (ValueError, OSError) as error:
+            except (ValueError, OSError, TransportError, DecodingError) as error:
                 log.warning(
                     "Scan special media retained prior reference (%s)",
                     type(error).__name__,
@@ -935,7 +936,7 @@ async def _identify_rom(
                     )
 
                 unit.publish_and_associate(associate_badges)
-        except (ValueError, OSError) as error:
+        except (ValueError, OSError, TransportError, DecodingError) as error:
             log.warning(
                 "Scan badges retained prior references (%s)", type(error).__name__
             )
