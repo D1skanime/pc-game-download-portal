@@ -7,6 +7,7 @@ const fake = vi.hoisted(() => ({
   restore: vi.fn(),
   status: vi.fn(),
   active: vi.fn(),
+  scanStats: {} as Record<string, number>,
   setScanning: vi.fn(),
   setScanStats: vi.fn(),
   handlers: new Map<string, () => void>(),
@@ -16,6 +17,8 @@ vi.mock("@/stores/auth", () => ({ default: () => fake.auth }));
 vi.mock("@/v2/data/adapters/scanOperations", () => ({ default: fake }));
 vi.mock("@/v2/data/adapters/legacy/stores/scanning", () => ({
   default: () => fake,
+  transportScanStats: (stats: Record<string, number> | undefined) =>
+    stats === undefined ? undefined : { ...stats },
 }));
 vi.mock("@/v2/data/adapters/legacy/services/socket", () => ({
   default: {
@@ -150,5 +153,156 @@ describe("authoritative scan status owner", () => {
     fake.handlers.get("disconnect")?.();
     expect(status.disconnected.value).toBe(true);
     expect(status.snapshot.value?.state).toBe("running");
+  });
+
+  it("preserves all global units and keeps unknown totals absent", async () => {
+    const status = await owner();
+    await flushPromises();
+    status.accept({
+      ...sample(3),
+      scan_stats: {
+        inventory_checked: 105,
+        unresolved_games: 104,
+        provider_requests: 8,
+        metadata_retry_games: 2,
+      },
+    });
+    expect(status.snapshot.value?.scan_stats?.total_roms).toBeUndefined();
+    expect(fake.setScanStats).toHaveBeenLastCalledWith({
+      inventory_checked: 105,
+      unresolved_games: 104,
+      provider_requests: 8,
+      metadata_retry_games: 2,
+    });
+  });
+  function rows(start: number, count: number) {
+    return Array.from({ length: count }, (_, index) => ({
+      id: start + index,
+      target_key: "game-" + (start + index),
+      mapping_id: 2,
+      expected_revision: 3,
+      relative_path: "Collection/" + (start + index),
+      provider: "",
+      outcome: "skipped" as const,
+      attempt_id: "attempt-one",
+      inventory: {
+        rom_id: start + index,
+        inventory_state: "unchanged" as const,
+        existing_game: true,
+        identified_windows: false,
+        is_identifying: false,
+      },
+    }));
+  }
+  it("restores over 100 terminal unknowns, deduplicates pages, and retains loaded rows on reconnect", async () => {
+    fake.restore.mockResolvedValue({
+      ...sample(2, "completed"),
+      items: rows(1, 100),
+      items_offset: 0,
+      items_total: 105,
+      scan_stats: { unresolved_games: 105 },
+    });
+    const status = await owner();
+    await flushPromises();
+    const first = status.snapshot.value?.items?.[0];
+    fake.status.mockResolvedValue({
+      ...sample(2, "completed"),
+      items: rows(100, 6),
+      items_offset: 100,
+      items_total: 105,
+      scan_stats: { unresolved_games: 105 },
+    });
+    await status.loadMore();
+    expect(fake.status).toHaveBeenLastCalledWith("scan-one", 100, 100);
+    expect(status.snapshot.value?.items).toHaveLength(105);
+    expect(status.snapshot.value?.items?.[0]).toEqual(first);
+    expect(status.hasMore.value).toBe(false);
+    fake.status.mockResolvedValue({
+      ...sample(2, "completed"),
+      items: rows(1, 100),
+      items_offset: 0,
+      items_total: 105,
+      scan_stats: { unresolved_games: 105 },
+    });
+    fake.handlers.get("connect")?.();
+    await flushPromises();
+    expect(status.snapshot.value?.items).toHaveLength(105);
+    expect(status.snapshot.value?.scan_stats?.unresolved_games).toBe(105);
+  });
+  it("rejects delayed pages after attempt replacement and same-version attempt changes", async () => {
+    fake.restore.mockResolvedValue({
+      ...sample(2),
+      items: rows(1, 100),
+      items_total: 105,
+    });
+    const status = await owner();
+    await flushPromises();
+    let release!: (value: ScanOperationSnapshot) => void;
+    fake.status.mockImplementation(
+      () =>
+        new Promise((done) => {
+          release = done;
+        }),
+    );
+    const page = status.loadMore();
+    status.accept({
+      ...sample(3),
+      attempt_id: "attempt-new",
+      items: [],
+      items_total: 0,
+    });
+    release({
+      ...sample(2),
+      items: rows(101, 5),
+      items_offset: 100,
+      items_total: 105,
+    });
+    await page;
+    expect(status.snapshot.value?.attempt_id).toBe("attempt-new");
+    expect(status.snapshot.value?.items).toEqual([]);
+    status.accept({ ...sample(3), items: rows(1, 100) });
+    expect(status.snapshot.value?.attempt_id).toBe("attempt-new");
+  });
+  it("isolates delayed page and refresh responses across actors", async () => {
+    fake.restore.mockResolvedValue({
+      ...sample(2),
+      items: rows(1, 100),
+      items_total: 105,
+    });
+    const status = await owner();
+    await flushPromises();
+    let release!: (value: ScanOperationSnapshot) => void;
+    fake.status.mockImplementation(
+      () =>
+        new Promise((done) => {
+          release = done;
+        }),
+    );
+    const page = status.loadMore();
+    fake.restore.mockResolvedValue({
+      ...sample(1, "completed"),
+      id: "actor-two",
+    });
+    fake.auth.user = { id: 2 };
+    await flushPromises();
+    release({
+      ...sample(2),
+      items: rows(101, 5),
+      items_offset: 100,
+      items_total: 105,
+    });
+    await page;
+    expect(status.snapshot.value?.id).toBe("actor-two");
+    expect(status.snapshot.value?.items).toBeUndefined();
+  });
+
+  it("clears optional counters on actor changes and operation replacement", async () => {
+    const status = await owner();
+    await flushPromises();
+    status.accept({ ...sample(2), scan_stats: { inventory_checked: 105 } });
+    fake.auth.user = null;
+    expect(fake.setScanStats).toHaveBeenLastCalledWith({});
+    status.accept({ ...sample(1), id: "new-operation", scan_stats: undefined });
+    expect(fake.setScanStats).toHaveBeenLastCalledWith({});
   });
 });

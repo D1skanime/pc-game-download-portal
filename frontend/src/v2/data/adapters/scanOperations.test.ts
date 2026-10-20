@@ -522,6 +522,30 @@ describe("durable scan reconciliation", () => {
     expect(transport).toHaveBeenCalledTimes(1);
     vi.restoreAllMocks();
   });
+
+  it.each([
+    [-1, 100],
+    [0, 101],
+    [0, 0],
+    [1.5, 100],
+    [0, NaN],
+  ])(
+    "rejects unsafe detail page offset %s limit %s before transport",
+    async (offset, limit) => {
+      await expect(
+        scanOperations.status(snapshot().id, offset, limit),
+      ).rejects.toThrow("invalid_scan_page");
+      expect(transport).not.toHaveBeenCalled();
+    },
+  );
+  it("rejects mismatched operation identity in a detail page", async () => {
+    transport.mockImplementation(async (config) =>
+      response(config, { ...snapshot(), id: "other-operation" }),
+    );
+    await expect(
+      scanOperations.status(snapshot().id, 100, 100),
+    ).rejects.toThrow("scan_response_identity_mismatch");
+  });
 });
 
 describe("confirmed scan control", () => {
