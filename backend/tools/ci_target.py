@@ -65,6 +65,8 @@ def preflight():
     return root
 
 
+OPERATOR_GUIDE = "docs/external-read-only-library-operations.md"
+
 VALIDATOR = ".planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-evidence-validate.py"
 
 
@@ -85,7 +87,7 @@ def prepare_ci_snapshot(root, repo):
     fixtures = snapshot / "tests/fixtures"
     fixtures.mkdir(parents=True, exist_ok=True)
     for name in sorted(tracked):
-        if not name.startswith("tests/fixtures/"):
+        if not (name.startswith("tests/fixtures/") or name == OPERATOR_GUIDE):
             continue
         source = repo / name
         if source.is_symlink() or not source.is_file():
@@ -93,15 +95,6 @@ def prepare_ci_snapshot(root, repo):
         target = snapshot / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-    legacy = snapshot / "backend/romm_test/library"
-    if legacy.is_dir():
-        for source in legacy.rglob("*"):
-            if source.is_symlink():
-                raise RuntimeError("invalid legacy library fixture")
-            if source.is_file():
-                target = games / source.relative_to(legacy)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, target)
     return games, snapshot
 
 
@@ -164,6 +157,14 @@ class CIRun(phase34.Run):
                                     "type": "bind",
                                     "source": str(self.root / "checkout/docker"),
                                     "target": "/app/docker",
+                                    "read_only": True,
+                                },
+                                {
+                                    "type": "bind",
+                                    "source": str(
+                                        self.root / "checkout" / OPERATOR_GUIDE
+                                    ),
+                                    "target": "/app/" + OPERATOR_GUIDE,
                                     "read_only": True,
                                 },
                             ]
@@ -255,7 +256,6 @@ def execute(dialect, gate, shard=None):
                 backend_command(
                     [
                         "-vv",
-                        "--maxfail=10",
                         "--cov",
                         "--cov-report=xml:/phase34/evidence/coverage.xml",
                         "--cov-config=.coveragerc",

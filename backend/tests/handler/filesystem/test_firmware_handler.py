@@ -15,8 +15,12 @@ from utils.hashing import crc32_to_hex
 class TestFSFirmwareHandler:
     """Test suite for FSFirmwareHandler class"""
 
+    @pytest.fixture(autouse=True)
+    def legacy_context(self, legacy_library):
+        return legacy_library
+
     @pytest.fixture
-    def handler(self):
+    def handler(self, legacy_library):
         return FSFirmwareHandler()
 
     @pytest.fixture

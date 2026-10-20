@@ -11,8 +11,12 @@ from handler.filesystem.platforms_handler import FSPlatformsHandler, LibraryStru
 class TestFSPlatformsHandler:
     """Test suite for FSPlatformsHandler class"""
 
+    @pytest.fixture(autouse=True)
+    def legacy_context(self, legacy_library):
+        return legacy_library
+
     @pytest.fixture
-    def handler(self):
+    def handler(self, legacy_library):
         return FSPlatformsHandler()
 
     @pytest.fixture

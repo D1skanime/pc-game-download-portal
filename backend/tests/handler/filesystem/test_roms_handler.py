@@ -59,8 +59,12 @@ def _fixture_tree_digest(root: Path) -> str:
 class TestFSRomsHandler:
     """Test suite for FSRomsHandler class"""
 
+    @pytest.fixture(autouse=True)
+    def legacy_context(self, legacy_library):
+        return legacy_library
+
     @pytest.fixture
-    def handler(self):
+    def handler(self, legacy_library):
         return FSRomsHandler()
 
     @pytest.fixture

@@ -176,7 +176,7 @@ class CITargetTests(unittest.TestCase):
             self.assertFalse((snapshot / "untracked.py").exists())
             self.assertEqual(original.read_text(), "source remains")
 
-    def test_snapshot_keeps_synthetic_and_tracked_legacy_libraries(self):
+    def test_snapshot_keeps_legacy_fixture_separate_from_synthetic_games(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             repo = root / "repo"
@@ -206,9 +206,8 @@ class CITargetTests(unittest.TestCase):
                 ):
                     ci_target.prepare_ci_snapshot(root, repo)
             self.assertEqual(synthetic.read_bytes(), b"synthetic")
-            self.assertEqual(
-                (games / "n64/roms/game.z64").read_bytes(), b"committed legacy fixture"
-            )
+            self.assertFalse((games / "n64").exists())
+            self.assertEqual(legacy.read_bytes(), b"committed legacy fixture")
             self.assertEqual(
                 (snapshot / "tests/fixtures/model/game.bin").read_bytes(),
                 fixture.read_bytes(),
@@ -239,6 +238,9 @@ class CITargetTests(unittest.TestCase):
             docker = config["services"]["runner"]["volumes"][2]
             self.assertEqual(docker["target"], "/app/docker")
             self.assertIs(docker["read_only"], True)
+            guide = config["services"]["runner"]["volumes"][3]
+            self.assertEqual(guide["target"], "/app/" + ci_target.OPERATOR_GUIDE)
+            self.assertIs(guide["read_only"], True)
 
     def test_start_failure_still_cleans_and_records_failure(self):
         with tempfile.TemporaryDirectory() as directory:
