@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -236,3 +237,62 @@ def test_invalid_observations_and_state_fail_closed():
         RetryState(identity(), no_match_streak=-1)
     with pytest.raises(ValueError):
         select_retries([], budget=6)
+
+
+def test_query_change_does_not_unlock_same_provider_configuration():
+    blocked = due(config_blocked=True)
+    assert (
+        assess(blocked, identity=identity(query="other")).reason
+        == "configuration_blocked"
+    )
+    assert assess(
+        blocked, identity=identity(query="other"), explicit_accepted=True
+    ).eligible
+
+
+def test_record_projection_matches_shared_persisted_identity_and_clocks():
+    key = identity()
+    row = SimpleNamespace(
+        **key.fields(),
+        identity_digest=key.key,
+        next_eligible_at=NOW,
+        last_invoked_at=NOW,
+        last_request_at=NOW,
+        no_match_streak=2,
+        transient_streak=0,
+        outcome="no_match",
+        config_blocked=False,
+    )
+    state = RetryState.from_record(key, row)
+    assert state.persistence()["request_at"] == NOW
+    assert state.persistence()["query"] == "game"
+    row.game_relative_path = "Other/Game"
+    with pytest.raises(ValueError, match="identity_collision"):
+        RetryState.from_record(key, row)
+
+
+def test_stale_request_observations_rejected_without_changing_previous():
+    previous = due(last_invoked_at=NOW, last_request_at=NOW)
+    with pytest.raises(ValueError, match="stale_inventory"):
+        observe_outcome(
+            identity(),
+            previous,
+            outcome="no_match",
+            invoked_at=NOW - timedelta(hours=1),
+            request_at=NOW - timedelta(hours=1),
+            clock=CLOCK,
+        )
+    assert previous.last_request_at == NOW
+
+
+def test_disabled_and_unselected_candidates_do_not_consume_fair_budget():
+    key = identity()
+    disabled = RetryCandidate(key, assess(due(), configured=False))
+    candidates = [disabled]
+    for i in range(6):
+        key = identity(f"Collection{i}/Game")
+        candidates.append(RetryCandidate(key, assess(due(key), identity=key)))
+    selected = select_retries(candidates)
+    assert sum(item.assessment.eligible for item in selected) == 5
+    assert sum(item.assessment.reason == "budget_deferred" for item in selected) == 1
+    assert selected == select_retries(reversed(candidates))
