@@ -1,8 +1,14 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { ScanningPlatform } from "@/stores/scanning";
+import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
+import type { ScanOperationItemResult } from "@/v2/data/contracts";
 import ScanPlatform from "./ScanPlatform.vue";
+import ScanPlatformRow from "./ScanPlatformRow.vue";
 
+vi.mock("@/v2/composables/useWebpSupport", () => ({
+  useWebpSupport: () => ({ toWebp: (url: string) => url }),
+}));
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
@@ -62,5 +68,91 @@ describe("ScanPlatform", () => {
     const wrapper = mountPlatform({ new_firmware_count: 2 });
 
     expect(wrapper.text()).toContain("scan.no-new-roms");
+  });
+});
+
+const result: ScanOperationItemResult = {
+  id: 90,
+  mapping_id: 2,
+  expected_revision: 1,
+  relative_path: "Collection/Unknown",
+  target_key: "unknown",
+  provider: "steam",
+  attempt_id: "attempt",
+  outcome: "completed",
+  inventory: {
+    rom_id: 9,
+    inventory_state: "unchanged",
+    identified_windows: false,
+    existing_game: true,
+    retry_state: "budget_deferred",
+  },
+  provider_execution: { state: "no_request", invoked: false, requests: 0 },
+};
+function row(item: ScanOperationItemResult) {
+  return mount(ScanPlatformRow, {
+    props: {
+      rom: {
+        id: 9,
+        name: "Unknown",
+        fs_name: "Unknown",
+        platform_fs_slug: "win",
+        fs_extension: "zip",
+        is_identifying: true,
+        is_unidentified: true,
+      } as SimpleRom,
+      item,
+    },
+    global: {
+      stubs: {
+        RouterLink: { template: "<a><slot /></a>" },
+        RImg: true,
+        RBtn: true,
+        RTag: { props: ["text"], template: "<span>{{ text }}</span>" },
+        PcSubfolderScanDialog: true,
+      },
+    },
+  });
+}
+describe("durable row status", () => {
+  it.each(["no_request", "cached", "no_match", "failed"] as const)(
+    "does not animate terminal %s despite legacy identifying state",
+    (state) => {
+      const wrapper = row({
+        ...result,
+        provider_execution: { state, invoked: false, requests: 0 },
+      });
+      expect(wrapper.text()).toContain("scan.not-identified");
+      expect(wrapper.find(".r-v2-scan-platform__identifying").exists()).toBe(
+        false,
+      );
+      expect(wrapper.find(".r-v2-scan-platform__badge-pop").exists()).toBe(
+        false,
+      );
+    },
+  );
+  it("animates only observed provider requests and keeps Steam identity authoritative", async () => {
+    const wrapper = row({
+      ...result,
+      provider_execution: {
+        state: "requested",
+        invoked: true,
+        requests: 1,
+        is_identifying: true,
+      },
+    });
+    expect(wrapper.find(".r-v2-scan-platform__identifying").exists()).toBe(
+      true,
+    );
+    await wrapper.setProps({
+      item: {
+        ...result,
+        inventory: { ...result.inventory!, identified_windows: true },
+      },
+    });
+    expect(wrapper.text()).not.toContain("scan.not-identified");
+    expect(wrapper.find(".r-v2-scan-platform__identifying").exists()).toBe(
+      false,
+    );
   });
 });
