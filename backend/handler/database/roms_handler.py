@@ -2604,7 +2604,7 @@ class DBRomsHandler(DBBaseHandler):
         rom = session.scalar(
             select(Rom)
             .where(Rom.id == rom_id, Rom.updated_at == expected_updated_at)
-            .with_for_update()
+            .with_for_update(of=Rom)
         )
         if rom is None:
             return None
@@ -2644,7 +2644,7 @@ class DBRomsHandler(DBBaseHandler):
                 ),
                 RomComponent.updated_at == expected_updated_at,
             )
-            .with_for_update()
+            .with_for_update(of=RomComponent)
         )
         if component is None:
             return None

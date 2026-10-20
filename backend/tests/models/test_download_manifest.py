@@ -59,7 +59,7 @@ def _component_with_member(rom):
 
 def test_manifest_persists_owner_scoped_path_free_immutable_selection(admin_user, rom):
     component, source_member = _component_with_member(rom)
-    expires_at = datetime.now(UTC) + timedelta(hours=1)
+    expires_at = (datetime.now(UTC) + timedelta(hours=1)).replace(microsecond=0)
     manifest = DownloadManifest(
         user_id=admin_user.id, rom_id=rom.id, expires_at=expires_at
     )
@@ -89,7 +89,7 @@ def test_manifest_persists_owner_scoped_path_free_immutable_selection(admin_user
         assert saved is not None
         assert saved.user_id == admin_user.id
         assert saved.status is DownloadManifestStatus.VALID
-        assert saved.expires_at.replace(tzinfo=UTC) == expires_at.replace(microsecond=0)
+        assert saved.expires_at.replace(tzinfo=UTC) == expires_at
         assert len(saved.components) == 1
         member = saved.components[0].members[0]
         assert member.destination == "Cyberpunk 2077/game.iso"
