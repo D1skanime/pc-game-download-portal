@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import os
 import shutil
+import stat
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -61,6 +62,12 @@ class TestFSRomsHandler:
     @pytest.fixture
     def handler(self):
         return FSRomsHandler()
+
+    @pytest.fixture
+    def isolated_handler(self, handler: FSRomsHandler, tmp_path: Path):
+        root = tmp_path / "library"
+        shutil.copytree(handler.base_path, root)
+        return FSRomsHandler(_create_external_descriptor(1, root, mapping_id=1))
 
     @pytest.fixture
     def config(self):
@@ -414,8 +421,11 @@ class TestFSRomsHandler:
         assert rom_file.last_modified is not None
         assert rom_file.category is None  # No category matching for this path
 
-    def test_build_rom_file_with_category(self, rom_multi: Rom, handler: FSRomsHandler):
+    def test_build_rom_file_with_category(
+        self, rom_multi: Rom, isolated_handler: FSRomsHandler
+    ):
         """Test _build_rom_file with category detection"""
+        handler = isolated_handler
         # Test with DLC category
         rom_path = Path(rom_multi.fs_path, "dlc")
         file_name = "test_dlc.n64"
@@ -569,9 +579,10 @@ class TestFSRomsHandler:
 
     @pytest.mark.asyncio
     async def test_get_rom_files_multi_rom_multi_dot_exclusion(
-        self, handler: FSRomsHandler, rom_multi
+        self, isolated_handler: FSRomsHandler, rom_multi
     ):
         """Multi-dot filenames in a multi-part dir are excluded by simple or compound ext rules."""
+        handler = isolated_handler
         multi_dot_file = (
             handler.base_path / "n64/roms/Super Mario 64 (J) (Rev A)/game.n64.hash.txt"
         )
@@ -647,8 +658,11 @@ class TestFSRomsHandler:
         with pytest.raises(RomAlreadyExistsException):
             await handler.rename_fs_rom(old_name, new_name, fs_path)
 
-    async def test_rename_fs_rom_successful_rename(self, handler: FSRomsHandler):
+    async def test_rename_fs_rom_successful_rename(
+        self, isolated_handler: FSRomsHandler
+    ):
         """External ROM storage rejects rename before changing the source."""
+        handler = isolated_handler
         test_file = handler.base_path / "n64/roms/test_rename.n64"
         test_file.write_text("Test ROM content")
         try:
@@ -796,8 +810,9 @@ class TestFSRomsHandler:
             structure = handler.get_roms_fs_structure(fs_slug)
             assert structure == f"roms/{fs_slug}"
 
-    def test_actual_file_hash_calculation(self, handler: FSRomsHandler):
+    def test_actual_file_hash_calculation(self, isolated_handler: FSRomsHandler):
         """Test hash calculation with actual files"""
+        handler = isolated_handler
         # Create a test file with known content for hash verification
         test_content = b"Test ROM content for hashing"
         test_file = handler.base_path / "n64/roms/hash_test.n64"
@@ -1748,7 +1763,7 @@ class TestPcComponentManifests:
             "Cyberpunk2077": [
                 ("base", RomComponentKind.BASE, 28),
                 ("dlc", RomComponentKind.DLC, 2),
-                ("extra", RomComponentKind.EXTRA, 4),
+                ("extra", RomComponentKind.EXTRA, 5),
                 ("redmod", RomComponentKind.UNRESOLVED, 1),
             ],
             "KingdomComeDeliverance": [
@@ -1790,6 +1805,11 @@ class TestPcComponentManifests:
             "base/setup_cyberpunk_2077_2.31a_(64bit)_(85116).exe",
             "base/setup_cyberpunk_2077_2.31a_(64bit)_(85116)-1.bin",
             "base/setup_cyberpunk_2077_2.31a_(64bit)_(85116)-27.bin",
+        }
+        assert "extra/pc-local-media-fixture.png" in {
+            member.relative_path
+            for component in scanned_components["Cyberpunk2077"]
+            for member in component.manifest_members
         }
         source_digest_after = await asyncio.to_thread(_fixture_tree_digest, source_root)
         assert source_digest_after == source_digest_before
@@ -2189,8 +2209,10 @@ class TestVerifiedDownloadManifestMember:
         self, tmp_path: Path
     ):
         handler, rom, persisted, path = self._handler_and_persisted_member(tmp_path)
-        path.unlink()
-        path.write_bytes(b"verified-stream")
+        replacement = path.with_name("replacement.bin")
+        replacement.write_bytes(b"verified-stream")
+        assert replacement.stat().st_ino != path.stat().st_ino
+        os.replace(replacement, path)
 
         result = await handler.open_verified_download_manifest_member(rom, persisted)
 
@@ -2202,18 +2224,26 @@ class TestVerifiedDownloadManifestMember:
     async def test_verified_download_manifest_member_keeps_large_totals_exact(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, size_bytes: int
     ):
-        handler, rom, persisted, _path = self._handler_and_persisted_member(tmp_path)
+        handler, rom, persisted, path = self._handler_and_persisted_member(tmp_path)
         sha256 = "a" * 64
         persisted.size_bytes = size_bytes
         persisted.sha256 = sha256
         persisted.snapshot = f'"{hashlib.sha256(b"romm-manifest-v1\0" + persisted.public_id.encode() + b"\0" + persisted.destination.encode() + b"\0" + str(size_bytes).encode() + b"\0" + sha256.encode()).hexdigest()}"'
-        metadata = SimpleNamespace(
-            st_mode=0o100644,
-            st_size=size_bytes,
-            st_mtime_ns=123,
-            st_dev=45,
-            st_ino=67,
-        )
+        metadata = path.stat()
+        real_fstat = os.fstat
+
+        def large_file_metadata(fd):
+            actual = real_fstat(fd)
+            if not stat.S_ISREG(actual.st_mode):
+                return actual
+            values = {
+                name: getattr(actual, name)
+                for name in dir(actual)
+                if name.startswith("st_")
+            }
+            values["st_size"] = size_bytes
+            return SimpleNamespace(**values)
+
         persisted.mtime_ns = metadata.st_mtime_ns
         persisted.device = metadata.st_dev
         persisted.inode = metadata.st_ino
@@ -2223,7 +2253,7 @@ class TestVerifiedDownloadManifestMember:
             lambda _path: pytest.fail("stream opening must not hash the source"),
         )
         monkeypatch.setattr(
-            "handler.filesystem.roms_handler.os.fstat", lambda _fd: metadata
+            "handler.filesystem.roms_handler.os.fstat", large_file_metadata
         )
 
         result = await handler.open_verified_download_manifest_member(rom, persisted)

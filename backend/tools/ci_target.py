@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import platform
+import shutil
 import subprocess  # nosec B404, fixed read-only Git commands
 from pathlib import Path
 
@@ -70,18 +71,37 @@ VALIDATOR = ".planning/phases/33-fresh-install-first-run-pc-storage-mapping-befo
 def prepare_ci_snapshot(root, repo):
     games, snapshot = prepare_snapshot(root, repo)
     # trunk-ignore(bandit/B603): Fixed read-only Git index enumeration.
-    tracked = set(
-        subprocess.check_output(  # nosec B603,B607
-            ["git", "ls-files", "--cached", "-z"],
-            cwd=repo,
-            text=True,
-        ).split("\0")
+    tracked_output = subprocess.check_output(  # nosec B603,B607
+        ["git", "ls-files", "--cached", "-z"],
+        cwd=repo,
+        text=True,
     )
+    tracked = set(tracked_output.split("\0"))
     for path in snapshot.rglob("*"):
         if (path.is_file() or path.is_symlink()) and path.relative_to(
             snapshot
         ).as_posix() not in tracked:
             path.unlink()
+    fixtures = snapshot / "tests/fixtures"
+    fixtures.mkdir(parents=True, exist_ok=True)
+    for name in sorted(tracked):
+        if not name.startswith("tests/fixtures/"):
+            continue
+        source = repo / name
+        if source.is_symlink() or not source.is_file():
+            raise RuntimeError("invalid tracked test fixture")
+        target = snapshot / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    legacy = snapshot / "backend/romm_test/library"
+    if legacy.is_dir():
+        for source in legacy.rglob("*"):
+            if source.is_symlink():
+                raise RuntimeError("invalid legacy library fixture")
+            if source.is_file():
+                target = games / source.relative_to(legacy)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
     return games, snapshot
 
 
@@ -93,6 +113,18 @@ class CIRun(phase34.Run):
             super().start()
         finally:
             phase34.prepare = original
+        self.exec(
+            [
+                "uv",
+                "run",
+                "python",
+                "-c",
+                "from pathlib import Path; import shutil; "
+                "target=Path('/phase34/owned/config/config.yml'); "
+                "target.parent.mkdir(parents=True, exist_ok=True); "
+                "shutil.copyfile('/app/backend/romm_test/config/config.yml', target)",
+            ]
+        )
 
     def __init__(self, dialect):
         super().__init__(dialect)
@@ -119,7 +151,21 @@ class CIRun(phase34.Run):
                                     "source": str(support),
                                     "target": "/app/" + VALIDATOR,
                                     "read_only": True,
-                                }
+                                },
+                                {
+                                    "type": "bind",
+                                    "source": str(
+                                        self.root / "checkout/tests/fixtures"
+                                    ),
+                                    "target": "/app/tests/fixtures",
+                                    "read_only": True,
+                                },
+                                {
+                                    "type": "bind",
+                                    "source": str(self.root / "checkout/docker"),
+                                    "target": "/app/docker",
+                                    "read_only": True,
+                                },
                             ]
                         }
                     }

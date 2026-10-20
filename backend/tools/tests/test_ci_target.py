@@ -176,6 +176,48 @@ class CITargetTests(unittest.TestCase):
             self.assertFalse((snapshot / "untracked.py").exists())
             self.assertEqual(original.read_text(), "source remains")
 
+    def test_snapshot_keeps_synthetic_and_tracked_legacy_libraries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = root / "repo"
+            fixture = repo / "tests/fixtures/model/game.bin"
+            fixture.parent.mkdir(parents=True)
+            fixture.write_bytes(b"committed PC fixture")
+            (fixture.parent / "untracked.bin").write_bytes(b"private")
+            games = root / "Games"
+            (games / "SNES Super Nintendo").mkdir(parents=True)
+            synthetic = games / "SNES Super Nintendo/synthetic.bin"
+            synthetic.write_bytes(b"synthetic")
+            snapshot = root / "checkout"
+            legacy = snapshot / "backend/romm_test/library/n64/roms/game.z64"
+            legacy.parent.mkdir(parents=True)
+            legacy.write_bytes(b"committed legacy fixture")
+            tracked = "\0".join(
+                [
+                    "backend/romm_test/library/n64/roms/game.z64",
+                    "tests/fixtures/model/game.bin",
+                ]
+            )
+            with patch.object(
+                ci_target, "prepare_snapshot", return_value=(games, snapshot)
+            ):
+                with patch.object(
+                    ci_target.subprocess, "check_output", return_value=tracked
+                ):
+                    ci_target.prepare_ci_snapshot(root, repo)
+            self.assertEqual(synthetic.read_bytes(), b"synthetic")
+            self.assertEqual(
+                (games / "n64/roms/game.z64").read_bytes(), b"committed legacy fixture"
+            )
+            self.assertEqual(
+                (snapshot / "tests/fixtures/model/game.bin").read_bytes(),
+                fixture.read_bytes(),
+            )
+            self.assertFalse((snapshot / "tests/fixtures/model/untracked.bin").exists())
+            self.assertEqual(
+                (fixture.parent / "untracked.bin").read_bytes(), b"private"
+            )
+
     def test_validator_support_is_exact_and_read_only(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(
@@ -191,6 +233,12 @@ class CITargetTests(unittest.TestCase):
                 (ci_target.phase34.REPO / ci_target.VALIDATOR).read_bytes(),
             )
             self.assertTrue((run.evidence / "test-support.json").is_file())
+            fixtures = config["services"]["runner"]["volumes"][1]
+            self.assertEqual(fixtures["target"], "/app/tests/fixtures")
+            self.assertIs(fixtures["read_only"], True)
+            docker = config["services"]["runner"]["volumes"][2]
+            self.assertEqual(docker["target"], "/app/docker")
+            self.assertIs(docker["read_only"], True)
 
     def test_start_failure_still_cleans_and_records_failure(self):
         with tempfile.TemporaryDirectory() as directory:
