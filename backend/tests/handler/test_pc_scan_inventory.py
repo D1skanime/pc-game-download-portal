@@ -161,6 +161,8 @@ def test_scan_cancellation_closes_iterator_and_capability(descriptor):
 
 
 def test_scan_detects_directory_race(descriptor, game_tree):
+    import os
+
     calls = 0
 
     def mutate():
@@ -168,6 +170,11 @@ def test_scan_detects_directory_race(descriptor, game_tree):
         calls += 1
         if calls == 2:
             (game_tree / "raced.bin").touch()
+            metadata = game_tree.stat()
+            os.utime(
+                game_tree,
+                ns=(metadata.st_atime_ns, metadata.st_mtime_ns + 1_000_000_000),
+            )
 
     with scan_capability(descriptor) as capability:
         result = capability.scan_bounded(20, check=mutate)
