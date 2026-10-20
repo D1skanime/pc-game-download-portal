@@ -542,11 +542,13 @@ class PcMetadataMatchHandler:
         lookup_results = await asyncio.gather(
             *(lookup for _, _, lookup in lookups), return_exceptions=True
         )
-        for (provider_name, _, _), result in zip(lookups, lookup_results):
+        for (provider_name, _, _), result in zip(lookups, lookup_results, strict=False):
             if isinstance(result, Exception):
                 results[provider_name] = PcMetadataProviderResult(
                     provider_name, False, [], "unavailable"
                 )
+            elif isinstance(result, BaseException):
+                raise result
             else:
                 results[provider_name] = result
         return {

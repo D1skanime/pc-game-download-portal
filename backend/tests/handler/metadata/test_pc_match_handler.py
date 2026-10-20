@@ -676,3 +676,14 @@ async def test_related_steam_detail_fanout_keeps_valid_dlc_and_rejects_unrelated
     candidates = await handler._steam_candidates_from_related(rom, related)
 
     assert [candidate.provider_ids["steam_id"] for candidate in candidates] == [1]
+
+
+@pytest.mark.asyncio
+async def test_collect_candidates_propagates_provider_cancellation():
+    steam = Mock(is_enabled=Mock(return_value=True))
+    steam.get_matched_roms_by_name = AsyncMock(side_effect=asyncio.CancelledError)
+    handler = PcMetadataMatchHandler(providers={"steam": steam})
+    rom = Mock(fs_name_no_ext="Example", platform_slug="win")
+
+    with pytest.raises(asyncio.CancelledError):
+        await handler.collect_candidates(rom)

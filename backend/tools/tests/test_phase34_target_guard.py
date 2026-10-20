@@ -207,7 +207,11 @@ class TargetGuardTests(unittest.TestCase):
             "alembic": mutation,
         }
         exec(
-            compile(ast.Module(body=functions, type_ignores=[]), "<fixtures>", "exec"),
+            compile(
+                ast.Module(body=list[ast.stmt](functions), type_ignores=[]),
+                "<fixtures>",
+                "exec",
+            ),
             namespace,
         )
         for name in names:

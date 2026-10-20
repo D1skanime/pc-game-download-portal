@@ -3,13 +3,13 @@
 import os
 
 import pytest
-from tests.endpoints.test_scan_operations import mapped  # noqa: F401
+from tests.endpoints.test_scan_operations import mapped as mapped
 
 from endpoints.responses.scan_operations import ScanOperationRequest
 from handler.database.base_handler import sync_session
 from handler.scan_operation_commands import normalize_scan_request
 from models.rom import Rom
-from models.storage import PlatformStorageMapping, StorageRoot
+from models.storage import StorageRoot
 
 
 @pytest.fixture

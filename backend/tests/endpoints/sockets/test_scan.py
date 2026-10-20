@@ -32,6 +32,7 @@ from handler.filesystem.roms_handler import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.pc_match_handler import PcMetadataCandidate
+from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
 from handler.scan_handler import MetadataSource, ScanType
 from models.firmware import Firmware
 from models.platform import Platform
@@ -514,7 +515,13 @@ class TestScanTotals:
 
 @pytest.mark.asyncio
 async def test_mapping_scan_uses_mapping_scope_without_global_platform_listing(mocker):
-    command = SimpleNamespace(mapping_id=7, scan_type=ScanType.QUICK.value)
+    command = MappedScanCommand(
+        mapping_id=7,
+        expected_revision=1,
+        trigger=ScanTrigger.MANUAL,
+        scope=ScanScope.PLATFORM,
+        scan_type=ScanType.QUICK.value,
+    )
     mapping = SimpleNamespace(platform_id=11, platform=SimpleNamespace(fs_slug="win"))
     mocker.patch.object(
         scan_module.db_storage_handler, "get_mapping", return_value=mapping

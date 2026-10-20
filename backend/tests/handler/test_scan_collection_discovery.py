@@ -1,11 +1,10 @@
 """All mapping scan consumers use the same explicit collection inventory."""
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from tests.endpoints.test_scan_operations import mapped  # noqa: F401
-from tests.handler.test_scan_collection_policy import promotion_body  # noqa: F401
+from tests.endpoints.test_scan_operations import mapped as mapped
+from tests.handler.test_scan_collection_policy import promotion_body as promotion_body
 
 from endpoints.responses.scan_operations import ScanOperationRequest
 from endpoints.sockets import scan

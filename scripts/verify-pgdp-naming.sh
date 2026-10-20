@@ -21,7 +21,8 @@ for required_file in "${repo_root}/examples/portainer-stack.yml" "${repo_root}/e
 	}
 done
 test ! -e "${repo_root}/frontend/src/RomM.vue"
-! find "${repo_root}/frontend/assets/logos" -maxdepth 1 -type f -iname 'romm_logo*' -print -quit | grep -q .
+legacy_logo="$(find "${repo_root}/frontend/assets/logos" -maxdepth 1 -type f -iname 'romm_logo*' -print -quit)"
+test -z "${legacy_logo}"
 grep -Fq 'PGDP' "${repo_root}/examples/portainer-stack.yml"
 grep -Fq 'PGDP_' "${repo_root}/examples/portainer.env.example"
 grep -Fq 'PGDP' "${repo_root}/frontend/index.html"
@@ -36,15 +37,16 @@ is_retained_occurrence() {
 	*'/romm'* | *'ROMM_'* | *'romm_session'* | *'romm_csrftoken'* | *'romm-api-cache'*)
 		return 0
 		;;
-	*'romm-chunk-reload-at'* | *'rommapp/romm'* | *'romm.app'* | *'docs.romm.app'* | *'RomM Switch Library'*)
+	*'romm-chunk-reload-at'* | *'romm.app'* | *'RomM Switch Library'*)
 		return 0
 		;;
+	*) return 1 ;;
 	esac
-	return 1
 }
 unclassified=0
 while IFS= read -r match; do
 	[[ -z ${match} ]] && continue
+	# shellcheck disable=SC2310 # Pure predicate with explicit return statuses.
 	if ! is_retained_occurrence "${match}"; then
 		echo "unclassified RomM occurrence in controlled surface: ${match}" >&2
 		unclassified=1

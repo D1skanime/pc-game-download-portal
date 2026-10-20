@@ -71,6 +71,7 @@ for pattern in '(^|/)Games(/|$)' '(^|/)Docker/Media(/|$)'; do
 	fi
 done
 grep -Fq 'grep "_FILE$"' "${entrypoint}"
+# shellcheck disable=SC2016 # Match the literal entrypoint variable names.
 grep -Fq 'Both ${var_name_no_suffix} and ${var_name}' "${entrypoint}"
 grep -Fq 'exec "$@"' "${entrypoint}"
 echo "PGDP Portainer render, parity, mount, secret, and hygiene contract passed"

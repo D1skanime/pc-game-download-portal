@@ -7,9 +7,8 @@ from threading import Event
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
-from tests.handler.test_scan_operations import (  # noqa: F401
-    command,
+from tests.handler.test_scan_operations import command as command  # noqa: F401
+from tests.handler.test_scan_operations import (
     repository,
     running,
 )

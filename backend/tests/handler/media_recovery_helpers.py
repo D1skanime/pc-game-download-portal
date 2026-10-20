@@ -4,13 +4,14 @@ import json
 import time
 from uuid import uuid4
 
-import pytest
+from tests.handler.test_media_recovery_validation import orphan as orphan
 from tests.handler.test_media_recovery_validation import (
-    orphan,
-    replace_receipt,
-    stop,
+    replace_receipt as replace_receipt,
 )
-from tests.handler.test_scan_media_publication import attempt, command, read
+from tests.handler.test_media_recovery_validation import stop as stop
+from tests.handler.test_scan_media_publication import attempt as attempt
+from tests.handler.test_scan_media_publication import command as command
+from tests.handler.test_scan_media_publication import read as read
 
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.scan_media_publication import RESERVED, ensure_directory

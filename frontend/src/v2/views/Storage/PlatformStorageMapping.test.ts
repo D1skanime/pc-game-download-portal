@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { computed, defineComponent } from "vue";
+import { computed } from "vue";
 import PlatformStorageMapping from "./PlatformStorageMapping.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -65,20 +65,20 @@ vi.mock("@/services/api/storage", () => ({
 }));
 
 vi.mock("@v2/lib", () => ({
-  RAlert: defineComponent({
+  RAlert: {
     template: "<div><slot /><slot name='title' /><slot name='append' /></div>",
-  }),
-  RBtn: defineComponent({
+  },
+  RBtn: {
     emits: ["click"],
     template: "<button @click=\"$emit('click')\"><slot /></button>",
-  }),
-  RCard: defineComponent({ template: "<section><slot /></section>" }),
-  RDivider: defineComponent({ template: "<hr />" }),
-  REmptyState: defineComponent({ template: "<div><slot /></div>" }),
-  RList: defineComponent({ template: "<div><slot /></div>" }),
-  RListItem: defineComponent({ template: "<div><slot /></div>" }),
-  RSkeletonBlock: defineComponent({ template: "<div />" }),
-  RSteps: defineComponent({ template: "<div><slot /></div>" }),
+  },
+  RCard: { template: "<section><slot /></section>" },
+  RDivider: { template: "<hr />" },
+  REmptyState: { template: "<div><slot /></div>" },
+  RList: { template: "<div><slot /></div>" },
+  RListItem: { template: "<div><slot /></div>" },
+  RSkeletonBlock: { template: "<div />" },
+  RSteps: { template: "<div><slot /></div>" },
 }));
 
 describe("PlatformStorageMapping", () => {

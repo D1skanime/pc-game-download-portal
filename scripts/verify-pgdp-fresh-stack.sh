@@ -17,7 +17,6 @@ summary_file="${repo_root}/.planning/phases/32-pgdp-namensumstellung-fresh-insta
 app_container="${project}-app"
 db_container="${project}-db"
 selected_port=''
-proof_result='failed'
 cleanup_result='not-run'
 db_health='not-observed'
 heartbeat='not-observed'
@@ -25,10 +24,13 @@ image_digest='not-observed'
 empty_volumes='not-observed'
 log_scan='not-observed'
 
+# shellcheck disable=SC2329 # Called by the EXIT trap through cleanup.
 write_summary() {
 	local status="$1"
 	local cleanup_state="$2"
-	mkdir -p "$(dirname -- "${summary_file}")"
+	local summary_directory
+	summary_directory="$(dirname -- "${summary_file}")"
+	mkdir -p "${summary_directory}"
 	{
 		echo '# Phase 32 Plan 03: Fresh PGDP Stack Proof'
 		echo
@@ -74,6 +76,7 @@ write_summary() {
 	} >"${summary_file}"
 }
 
+# shellcheck disable=SC2329 # Registered as the EXIT trap.
 cleanup() {
 	local exit_status="$1"
 	local compose_status=0
@@ -84,11 +87,16 @@ cleanup() {
 			down --volumes --remove-orphans >"${cleanup_log}" 2>&1
 		compose_status="$?"
 	fi
+	local project_containers project_volumes app_containers db_containers
+	project_containers="$(docker ps -aq --filter "label=com.docker.compose.project=${project}")" || compose_status=1
+	project_volumes="$(docker volume ls -q --filter "label=com.docker.compose.project=${project}")" || compose_status=1
+	app_containers="$(docker ps -aq --filter "name=^${app_container}$")" || compose_status=1
+	db_containers="$(docker ps -aq --filter "name=^${db_container}$")" || compose_status=1
 	if [[ ${compose_status} -eq 0 ]] &&
-		[[ -z "$(docker ps -aq --filter "label=com.docker.compose.project=${project}")" ]] &&
-		[[ -z "$(docker volume ls -q --filter "label=com.docker.compose.project=${project}")" ]] &&
-		[[ -z "$(docker ps -aq --filter "name=^${app_container}$")" ]] &&
-		[[ -z "$(docker ps -aq --filter "name=^${db_container}$")" ]]; then
+		[[ -z ${project_containers} ]] &&
+		[[ -z ${project_volumes} ]] &&
+		[[ -z ${app_containers} ]] &&
+		[[ -z ${db_containers} ]]; then
 		cleanup_result='passed, only generated project resources were removed'
 	else
 		cleanup_result='FAILED, generated resources remain or Compose cleanup failed'
@@ -115,7 +123,8 @@ for command_name in docker git curl grep find awk; do
 	}
 done
 test -n "${source_branch}"
-test -z "$(git -C "${repo_root}" status --short)"
+observed_output="$(git -C "${repo_root}" status --short)"
+test -z "${observed_output}"
 
 for candidate_port in 18080 18081 18082 18083 18084 18085 18086 18087 18088 18089; do
 	if ! (echo >/dev/tcp/127.0.0.1/"${candidate_port}") 2>/dev/null; then
@@ -129,7 +138,8 @@ test -n "${selected_port}" || {
 }
 
 git clone --no-local --branch "${source_branch}" "${repo_root}" "${clone_root}" >/dev/null
-test "$(git -C "${clone_root}" rev-parse HEAD)" = "${source_revision}"
+clone_revision="$(git -C "${clone_root}" rev-parse HEAD)"
+test "${clone_revision}" = "${source_revision}"
 
 library_path="${work_root}/library"
 assets_path="${work_root}/assets"
@@ -164,10 +174,14 @@ PGDP_IGDB_CLIENT_SECRET=
 PGDP_HASHEOUS_API_ENABLED=false
 EOF
 
-test -z "$(docker ps -aq --filter "label=com.docker.compose.project=${project}")"
-test -z "$(docker volume ls -q --filter "label=com.docker.compose.project=${project}")"
-test -z "$(docker ps -aq --filter "name=^${app_container}$")"
-test -z "$(docker ps -aq --filter "name=^${db_container}$")"
+observed_output="$(docker ps -aq --filter "label=com.docker.compose.project=${project}")"
+test -z "${observed_output}"
+observed_output="$(docker volume ls -q --filter "label=com.docker.compose.project=${project}")"
+test -z "${observed_output}"
+observed_output="$(docker ps -aq --filter "name=^${app_container}$")"
+test -z "${observed_output}"
+observed_output="$(docker ps -aq --filter "name=^${db_container}$")"
+test -z "${observed_output}"
 
 bash "${clone_root}/scripts/verify-pgdp-naming.sh"
 bash "${clone_root}/scripts/verify-portainer-stack.sh"
@@ -179,8 +193,16 @@ grep -Fq 'target: /romm/library' "${rendered_file}"
 grep -Fq 'read_only: true' "${rendered_file}"
 grep -Fq 'DB_HOST: pgdp-db' "${rendered_file}"
 grep -Fq 'MARIADB_DATABASE: pgdp_proof' "${rendered_file}"
-! grep -Fq '/home/d1sk/romm' "${rendered_file}"
-! grep -E 'romm_(mysql|resources|redis)_data|romm-db-dev|Team4s|Docker/Media' "${rendered_file}"
+if grep -Fq '/home/d1sk/romm' "${rendered_file}"; then
+	exit 1
+else
+	test "$?" -eq 1
+fi
+if grep -E 'romm_(mysql|resources|redis)_data|romm-db-dev|Team4s|Docker/Media' "${rendered_file}"; then
+	exit 1
+else
+	test "$?" -eq 1
+fi
 
 docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" build
@@ -191,7 +213,8 @@ docker compose --project-name "${project}" --project-directory "${clone_root}/ex
 
 for volume_name in "${project}_pgdp_mysql_data" "${project}_pgdp_resources" "${project}_pgdp_redis_data"; do
 	docker volume inspect "${volume_name}" >/dev/null
-	test "$(docker volume inspect "${volume_name}" --format '{{index .Labels "com.docker.compose.project"}}')" = "${project}"
+	volume_project="$(docker volume inspect "${volume_name}" --format '{{index .Labels "com.docker.compose.project"}}')"
+	test "${volume_project}" = "${project}"
 	docker run --rm -v "${volume_name}:/data:ro" alpine:3.23 sh -ec 'test -z "$(find /data -mindepth 1 -maxdepth 1 -print -quit)"'
 done
 empty_volumes='passed, all generated volumes labeled for the disposable project and empty before start'
@@ -199,14 +222,14 @@ empty_volumes='passed, all generated volumes labeled for the disposable project 
 docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" start
 
-for attempt in $(seq 1 60); do
+for ((attempt = 0; attempt < 60; attempt++)); do
 	db_health="$(docker inspect "${db_container}" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' 2>/dev/null || true)"
 	[[ ${db_health} == healthy ]] && break
 	sleep 5
 done
 test "${db_health}" = healthy
 
-for attempt in $(seq 1 60); do
+for ((attempt = 0; attempt < 60; attempt++)); do
 	if curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:${selected_port}/api/heartbeat" >"${work_root}/heartbeat.json"; then
 		heartbeat='passed'
 		break
@@ -224,10 +247,21 @@ docker inspect "${app_container}" --format '{{range .Config.Env}}{{println .}}{{
 
 docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" logs --no-color >"${logs_file}"
-! grep -Fq "${db_password}" "${logs_file}"
-! grep -Fq "${db_root_password}" "${logs_file}"
-! grep -Fq "${auth_secret}" "${logs_file}"
+if grep -Fq "${db_password}" "${logs_file}"; then
+	exit 1
+else
+	test "$?" -eq 1
+fi
+if grep -Fq "${db_root_password}" "${logs_file}"; then
+	exit 1
+else
+	test "$?" -eq 1
+fi
+if grep -Fq "${auth_secret}" "${logs_file}"; then
+	exit 1
+else
+	test "$?" -eq 1
+fi
 log_scan='passed, synthetic database and auth secrets absent from Compose logs'
 
-proof_result='passed'
 exit 0

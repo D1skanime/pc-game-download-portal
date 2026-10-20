@@ -4,11 +4,13 @@ import json
 
 import pytest
 from sqlalchemy import select
+from tests.handler.test_scan_media_publication import attempt as attempt
 from tests.handler.test_scan_media_publication import (
-    attempt,
     batch,
     cancel,
-    command,
+)
+from tests.handler.test_scan_media_publication import command as command
+from tests.handler.test_scan_media_publication import (
     prepare,
     read,
     recovery,

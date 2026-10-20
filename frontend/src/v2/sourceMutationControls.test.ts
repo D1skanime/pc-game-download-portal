@@ -305,8 +305,8 @@ describe("maximum-grant source mutation controls", () => {
     expect(files.service).toContain("getOwnedMedia");
     expect(files.service).toContain("refreshOwnedMedia");
     expect(files.service).toContain("/roms/${romId}/media/refresh");
-    expect(files.media).not.toMatch(/\/soundtracks(?:\/|`|'|\")/);
-    expect(files.screenshots).not.toMatch(/\/soundtracks(?:\/|`|'|\")/);
+    expect(files.media).not.toMatch(/\/soundtracks(?:\/|`|'|")/);
+    expect(files.screenshots).not.toMatch(/\/soundtracks(?:\/|`|'|")/);
     expect(files.media).toContain(":aria-controls=");
     expect(files.media).toContain('id="media-panel-screenshots"');
     expect(files.artwork).toContain("owned_media");
