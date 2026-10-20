@@ -1013,7 +1013,12 @@ async def _identify_rom(
     from handler.scan_pc_automation_observation import observe_pc_automation
 
     await observe_pc_automation(
-        process_pc_automation_after_scan, platform, scanned_rom, _added_rom, newly_added
+        process_pc_automation_after_scan,
+        platform,
+        scanned_rom,
+        _added_rom,
+        newly_added,
+        selected=MetadataSource.STEAM in metadata_sources,
     )
     from handler.scan_operation_checkpoint import record_completed_game
 

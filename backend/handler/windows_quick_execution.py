@@ -41,6 +41,7 @@ class WindowsQuickContext:
     components: Any = None
     after: InventoryEvidence | None = None
     assessment: InventoryAssessment | None = None
+    automation_observation: dict | None = None
 
 
 def current_windows_quick():

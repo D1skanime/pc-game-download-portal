@@ -158,3 +158,58 @@ def test_disposable_external_identity_change_preserves_orm_immutability(bound_ga
             session.get(Rom, binding.rom_id).incarnation_token
             == binding.rom_incarnation
         )
+
+
+@pytest.mark.asyncio
+async def test_post_scan_observation_rehydrates_files_after_automation(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    from handler import scan_metadata_result, scan_provider_execution
+    from handler.database import db_rom_handler
+    from handler.scan_pc_automation_observation import observe_pc_automation
+
+    class Unloaded:
+        id = 1
+        fs_name = "Synthetic"
+
+        @property
+        def files(self):
+            raise RuntimeError("expired relationship")
+
+    current = SimpleNamespace(id=1, fs_name="Synthetic", steam_id=42, files=[])
+    monkeypatch.setattr(db_rom_handler, "get_rom", lambda _: current)
+    recorded = Mock()
+    monkeypatch.setattr(scan_metadata_result, "record_provider_result", recorded)
+
+    async def execute(_provider, work, _path, *, selected):
+        return await work
+
+    monkeypatch.setattr(scan_provider_execution, "execute_provider", execute)
+    await observe_pc_automation(AsyncMock(), None, None, Unloaded(), False)
+    recorded.assert_called_once_with("steam", "Synthetic", rom=current, files=[])
+
+
+@pytest.mark.asyncio
+async def test_post_scan_unselected_provider_does_not_publish_item(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    from handler import scan_metadata_result, scan_provider_execution
+    from handler.database import db_rom_handler
+    from handler.scan_pc_automation_observation import observe_pc_automation
+
+    current = SimpleNamespace(id=1, fs_name="Synthetic", steam_id=None)
+    monkeypatch.setattr(db_rom_handler, "get_rom", lambda _: current)
+    recorded = Mock()
+    monkeypatch.setattr(scan_metadata_result, "record_provider_result", recorded)
+
+    async def execute(_provider, work, _path, *, selected):
+        assert selected is False
+        return await work
+
+    monkeypatch.setattr(scan_provider_execution, "execute_provider", execute)
+    automation = AsyncMock()
+    await observe_pc_automation(automation, None, None, current, False, selected=False)
+    automation.assert_awaited_once()
+    recorded.assert_not_called()

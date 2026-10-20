@@ -455,3 +455,67 @@ def test_full_binding_digest_collision_rejected(
     snapshot = DBScanOperationsHandler().get_by_id(inventory_attempt.id, admin_user.id)
     assert snapshot.scan_stats["inventory_checked"] == 1
     assert snapshot.items[0].inventory.inventory_state == "unchanged"
+
+
+@pytest.mark.asyncio
+async def test_unselected_automatic_http_is_inventory_owned_and_replay_safe(
+    bound_game, inventory_attempt, admin_user, monkeypatch
+):
+    import threading
+    from http.server import ThreadingHTTPServer
+    from types import SimpleNamespace
+
+    from tools.phase35_incremental_worker import Provider
+
+    from adapters.services.steam import SteamService
+    from handler.database import db_rom_handler
+    from handler.scan_inventory_status import record_inventory_status
+    from handler.scan_pc_automation_observation import observe_pc_automation
+    from handler.windows_quick_execution import bind_windows_quick
+    from utils.context import initialize_context
+
+    binding, _ = bound_game
+    current = SimpleNamespace(id=binding.rom_id, fs_name="Synthetic", steam_id=None)
+    monkeypatch.setattr(db_rom_handler, "get_rom", lambda _: current)
+    quick = SimpleNamespace(binding=binding, automation_observation=None)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Provider)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    service = SteamService(base_url=f"http://127.0.0.1:{server.server_port}/api")
+
+    async def automation(*_args):
+        assert await service.search_apps("Synthetic") == []
+
+    try:
+        async with initialize_context():
+            with write_context(inventory_attempt), bind_windows_quick(quick):
+                await observe_pc_automation(
+                    automation, None, current, current, False, selected=False
+                )
+                assert quick.automation_observation["requests"] == 2
+                facts = dict(
+                    inventory_state="unchanged",
+                    identified_windows=False,
+                    existing_game=True,
+                )
+                record_inventory_status(
+                    binding, provider_observation=quick.automation_observation, **facts
+                )
+                record_inventory_status(binding, **facts)
+        repo = DBScanOperationsHandler()
+        snapshot = repo.get_by_id(inventory_attempt.id, admin_user.id)
+        assert len(snapshot.items) == 1
+        assert snapshot.items[0].provider == ""
+        assert snapshot.items[0].provider_execution.requests == 2
+        assert snapshot.scan_stats["provider_requests"] == 2
+        assert snapshot.scan_stats["metadata_retry_games"] == 1
+        terminal = repo.transition(
+            snapshot.id, snapshot.version, snapshot.attempt_id, "completed"
+        )
+        restored = repo.get_by_id(terminal.id, admin_user.id)
+        assert restored.scan_stats["provider_requests"] == 2
+        assert restored.items[0].provider_execution.requests == 2
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)

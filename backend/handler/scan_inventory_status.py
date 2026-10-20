@@ -66,7 +66,7 @@ def provider_facts(observation):
 
 def inventory_counts(session, operation):
     """SQL aggregates remain global without loading an unbounded result list."""
-    from sqlalchemy import case, func, select
+    from sqlalchemy import case, func, or_, select
     from sqlalchemy.orm import aliased
 
     from models.scan_operation import ScanOperationItem
@@ -95,7 +95,7 @@ def inventory_counts(session, operation):
             func.sum(observation["requests"].as_integer()),
             func.sum(case((observation["cached"].as_boolean().is_(True), 1), else_=0)),
             func.count(observation["requests"].as_integer()),
-        ).where(*current, item.provider != "")
+        ).where(*current)
     ).one()
     if not any(result[:4]) and not observed:
         return {}
@@ -123,7 +123,7 @@ def inventory_counts(session, operation):
             game.operation_id == operation.id,
             game.attempt_id == operation.attempt_id,
             game.provider == "",
-            item.provider != "",
+            or_(item.provider != "", item.id == game.id),
             game.checkpoint["inventory_status"]["existing_game"].as_boolean().is_(True),
             observation["invoked"].as_boolean().is_(True),
         )
@@ -169,7 +169,9 @@ def record_inventory_status(binding, **facts):
 
 
 @begin_session
-def _record_inventory_status(binding, *, session=None, **facts):
+def _record_inventory_status(
+    binding, *, session=None, provider_observation=None, **facts
+):
     from sqlalchemy import select
 
     from endpoints.responses.scan_operations import ScanInventoryFacts
@@ -178,6 +180,7 @@ def _record_inventory_status(binding, *, session=None, **facts):
     from handler.database.scan_write_fence import checked_scan_write
     from models.scan_operation import ScanOperationItem
 
+    provider_facts(provider_observation)
     validated = ScanInventoryFacts(rom_id=binding.rom_id, **facts)
     status = validated.model_dump(mode="json")
     with checked_scan_write(session) as operation:
@@ -193,6 +196,11 @@ def _record_inventory_status(binding, *, session=None, **facts):
         evidence = {"inventory_binding": binding.fields()}
         if item is not None and item.source_evidence != evidence:
             raise ValueError("inventory_identity_collision")
+        checkpoint = {"rom_id": binding.rom_id, "inventory_status": status}
+        if provider_observation is None and item is not None:
+            provider_observation = item.checkpoint.get("provider_observation")
+        if provider_observation is not None:
+            checkpoint["provider_observation"] = provider_observation
         values = dict(
             target_key=key,
             mapping_id=binding.mapping_id,
@@ -201,7 +209,7 @@ def _record_inventory_status(binding, *, session=None, **facts):
             provider="",
             outcome="skipped",
             attempt_id=operation.attempt_id,
-            checkpoint={"rom_id": binding.rom_id, "inventory_status": status},
+            checkpoint=checkpoint,
             source_evidence=evidence,
         )
         if item is None:
@@ -296,6 +304,7 @@ async def emit_inventory_status(manager, quick, rom, *, existing_game):
         inventory_reason=assessment.reason or None,
         identified_windows=identified,
         existing_game=existing_game,
+        provider_observation=getattr(quick, "automation_observation", None),
         **retry_facts(quick.binding, identified),
     )
     from handler.database import db_rom_handler
