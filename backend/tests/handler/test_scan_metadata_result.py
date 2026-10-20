@@ -196,3 +196,70 @@ def test_same_game_name_in_other_mapping_does_not_inherit_provider_warning(monke
         and item["outcome"] == "completed"
         and item["cause_code"] is None
     )
+
+
+@pytest.mark.asyncio
+async def test_execution_distinguishes_guards_cache_match_fault_and_concurrency(
+    monkeypatch,
+):
+    import asyncio
+
+    from handler.scan_provider_execution import (
+        bind_provider_results,
+        gather_provider_results,
+    )
+    from utils.scan_provider_observation import (
+        mark_provider_cached,
+        mark_provider_invoked,
+        observe_httpcore_trace,
+    )
+
+    async def fetch(mode):
+        if mode == "noop":
+            return {"igdb_id": None}
+        mark_provider_invoked()
+        await asyncio.sleep(0)
+        if mode == "cache":
+            mark_provider_cached()
+            return {"igdb_id": 7}
+        if mode == "fault":
+            await observe_httpcore_trace("http11.send_request_headers.started", {})
+            raise TimeoutError()
+        if mode == "nomatch":
+            await observe_httpcore_trace("http11.send_request_headers.started", {})
+            return {"igdb_id": None}
+        return {"igdb_id": 9}
+
+    providers = ("disabled", "unsupported", "cached", "failed", "igdb", "matched")
+    modes = ("noop", "noop", "cache", "fault", "nomatch", "match")
+    with bind_provider_results() as observations:
+        resolved = await gather_provider_results(
+            providers,
+            tuple((fetch(mode), {}) for mode in modes),
+            "game",
+            {"unsupported", "cached", "failed", "igdb", "matched"},
+        )
+    assert len(resolved) == 6 and resolved[3] == {}
+    assert [
+        (item.selected, item.invoked, item.cached, item.requests, item.outcome)
+        for item in observations
+    ] == [
+        (False, False, False, 0, "not_invoked"),
+        (True, False, False, 0, "not_invoked"),
+        (True, True, True, 0, "matched"),
+        (True, True, False, 1, "failed"),
+        (True, True, False, 1, "no_match"),
+        (True, True, False, 0, "matched"),
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error", [ValueError("bug"), ScanWriteRejected("stale")])
+async def test_execution_keeps_unexpected_and_authority_failures_fatal(error):
+    from handler.scan_provider_execution import gather_provider_results
+
+    async def failure():
+        raise error
+
+    with pytest.raises(type(error)):
+        await gather_provider_results(("igdb",), ((failure(), {}),), "game", {"igdb"})
