@@ -1,5 +1,6 @@
 """Mapped Windows quick execution preserves complete inventory boundaries."""
 
+from importlib import import_module
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -96,3 +97,80 @@ async def test_incomplete_never_loads_baseline(monkeypatch):
     )
     assert result.decision == QuickScanDecision.INCOMPLETE
     load.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["component", "files", "after", "changed"])
+async def test_refresh_failure_preserves_unreconciled_context(failure):
+    from handler.filesystem.pc_scan_inventory import InventoryIncomplete
+
+    execution = import_module("handler.windows_quick_execution")
+    WindowsQuickContext = execution.WindowsQuickContext
+    prepare_quick_refresh = execution.prepare_quick_refresh
+
+    before = InventoryEvidence("c" * 64, 2, True)
+    after = InventoryEvidence("d" * 64, 2, True) if failure == "changed" else before
+    handler = SimpleNamespace(
+        get_pc_components=AsyncMock(return_value=[]),
+        get_rom_files=AsyncMock(return_value=Mock()),
+        get_pc_inventory=AsyncMock(return_value=after),
+    )
+    if failure == "component":
+        handler.get_pc_components.side_effect = OSError("synthetic")
+    elif failure == "files":
+        handler.get_rom_files.side_effect = OSError("synthetic")
+    elif failure == "after":
+        handler.get_pc_inventory.return_value = InventoryEvidence(
+            "", 1, False, "unreadable"
+        )
+    quick = WindowsQuickContext(binding(), before, QuickScanDecision.REFRESH)
+    with pytest.raises(InventoryIncomplete):
+        await prepare_quick_refresh(quick, handler, Mock(), calculate_hashes=False)
+    assert not quick.files_reconciled
+    assert not quick.components_reconciled
+
+
+@pytest.mark.asyncio
+async def test_refresh_prepares_from_same_complete_evidence():
+    execution = import_module("handler.windows_quick_execution")
+    WindowsQuickContext = execution.WindowsQuickContext
+    prepare_quick_refresh = execution.prepare_quick_refresh
+
+    before = InventoryEvidence("c" * 64, 2, True)
+    handler = SimpleNamespace(
+        get_pc_components=AsyncMock(return_value=["component"]),
+        get_rom_files=AsyncMock(return_value="files"),
+        get_pc_inventory=AsyncMock(return_value=before),
+    )
+    quick = WindowsQuickContext(binding(), before, QuickScanDecision.REFRESH)
+    candidate = Mock()
+    await prepare_quick_refresh(quick, handler, candidate, calculate_hashes=False)
+    handler.get_pc_components.assert_awaited_once_with(candidate, inventory=before)
+    handler.get_rom_files.assert_awaited_once_with(candidate, calculate_hashes=False)
+    assert quick.components == ["component"]
+    assert quick.files == "files"
+    assert not quick.files_reconciled
+    assert not quick.components_reconciled
+
+
+def test_reconciliation_checks_evidence_before_any_database_write(monkeypatch):
+    from handler.filesystem.pc_scan_inventory import InventoryIncomplete
+
+    execution = import_module("handler.windows_quick_execution")
+
+    quick = execution.WindowsQuickContext(
+        binding(), InventoryEvidence("c" * 64, 2, True), QuickScanDecision.REFRESH
+    )
+    quick.components = []
+    quick.files = SimpleNamespace(rom_files=[])
+    monkeypatch.setattr(
+        execution,
+        "recheck_quick_inventory",
+        Mock(side_effect=InventoryIncomplete("unstable_file")),
+    )
+    repository = Mock()
+    monkeypatch.setattr(execution, "db_rom_handler", repository)
+    with pytest.raises(InventoryIncomplete):
+        execution.reconcile_quick_files(quick, Mock(), Mock(), object())
+    repository.sync_rom_files.assert_not_called()
+    repository.sync_rom_components.assert_not_called()
