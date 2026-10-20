@@ -337,7 +337,21 @@ def test_revoked_writes_rejected(bound_game, inventory_attempt, change):
             elif change == "path":
                 session.get(Rom, binding.rom_id).fs_name = "Moved"
             else:
-                session.get(Rom, binding.rom_id).incarnation_token = "f" * 32
+                previous = session.get(Rom, binding.rom_id)
+                replacement = Rom(
+                    id=previous.id,
+                    platform_id=previous.platform_id,
+                    name=previous.name,
+                    slug=previous.slug,
+                    fs_path=previous.fs_path,
+                    fs_name=previous.fs_name,
+                    incarnation_token="f" * 32,
+                )
+                session.execute(
+                    Rom.__table__.delete().where(Rom.__table__.c.id == binding.rom_id)
+                )
+                session.expunge(previous)
+                session.add(replacement)
     with pytest.raises(ScanWriteRejected):
         with bind_scan_write_context(bound):
             save(binding)
@@ -345,8 +359,9 @@ def test_revoked_writes_rejected(bound_game, inventory_attempt, change):
 
 
 @pytest.mark.parametrize("phase", ["flush", "commit"])
+@pytest.mark.parametrize("target", ["revision", "mapping_path", "root", "rom_path"])
 def test_binding_rechecked_at_transaction_boundary(
-    bound_game, inventory_attempt, phase
+    bound_game, inventory_attempt, phase, target
 ):
     from tests.handler.test_scan_write_fence import context
 
@@ -360,10 +375,25 @@ def test_binding_rechecked_at_transaction_boundary(
         with sync_session.begin() as session:
             with bind_scan_write_context(context(inventory_attempt)):
                 assert save(binding, session=session)
+            from models.storage import StorageRoot
+
+            model, identity, values = {
+                "revision": (
+                    PlatformStorageMapping,
+                    binding.mapping_id,
+                    {"version": 2},
+                ),
+                "mapping_path": (
+                    PlatformStorageMapping,
+                    binding.mapping_id,
+                    {"relative_path": "Moved"},
+                ),
+                "root": (StorageRoot, binding.storage_root_id, {"active": False}),
+                "rom_path": (Rom, binding.rom_id, {"fs_name": "Moved"}),
+            }[target]
+            assert isinstance(values, dict)
             session.execute(
-                PlatformStorageMapping.__table__.update()
-                .where(PlatformStorageMapping.id == binding.mapping_id)
-                .values(version=2)
+                model.__table__.update().where(model.id == identity).values(**values)
             )
             if phase == "flush":
                 session.get(Rom, binding.rom_id).name = "uncommitted"
