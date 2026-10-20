@@ -109,3 +109,128 @@ class ProbeSafetyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BrowserReceiptGuards(unittest.TestCase):
+    def test_missing_browser_receipt_rejected(self):
+        from phase35_browser_receipts import validate_browser
+
+        with self.assertRaises(RuntimeError):
+            validate_browser({})
+
+    def test_unsafe_browser_target_rejected(self):
+        from phase35_browser import browser_config
+
+        with self.assertRaises(RuntimeError):
+            browser_config("http://127.0.0.1:3100")
+
+
+class BrowserReceiptTampering(unittest.TestCase):
+    def browser(self):
+        from phase35_browser_receipts import REQUIRED
+
+        return {
+            "passed": True,
+            "checks": dict.fromkeys(REQUIRED, True),
+            "screenshots": [
+                {"case": str(width) + "-" + theme}
+                for width in (320, 600, 960, 1280, 1920, 3840)
+                for theme in ("dark", "light")
+            ],
+            "variants": ["de_DE", "zh_CN", "zoom200", "reduced-motion"],
+        }
+
+    def test_complete_browser_matrix_passes(self):
+        from phase35_browser_receipts import validate_browser
+
+        validate_browser(self.browser())
+
+    def test_each_missing_or_failed_scenario_rejected(self):
+        from phase35_browser_receipts import REQUIRED, validate_browser
+
+        for key in REQUIRED:
+            for value in (False, None):
+                receipt = self.browser()
+                receipt["checks"][key] = value
+                with self.subTest(key=key, value=value), self.assertRaises(
+                    RuntimeError
+                ):
+                    validate_browser(receipt)
+
+    def test_each_missing_responsive_theme_rejected(self):
+        from phase35_browser_receipts import validate_browser
+
+        for index in range(12):
+            receipt = self.browser()
+            receipt["screenshots"].pop(index)
+            with self.subTest(index=index), self.assertRaises(RuntimeError):
+                validate_browser(receipt)
+
+    def test_missing_locale_or_accessibility_variant_rejected(self):
+        from phase35_browser_receipts import validate_browser
+
+        for index in range(4):
+            receipt = self.browser()
+            receipt["variants"].pop(index)
+            with self.subTest(index=index), self.assertRaises(RuntimeError):
+                validate_browser(receipt)
+
+    def test_empty_source_manifest_rejected(self):
+        from phase35_browser_receipts import current_sources
+
+        with self.assertRaises(RuntimeError):
+            current_sources({"files": {}})
+
+    def test_partial_source_manifest_rejected(self):
+        from phase35_browser_receipts import current_sources
+
+        with self.assertRaises(RuntimeError):
+            current_sources({"files": {"backend/../CLAUDE.md": "0" * 64}})
+
+
+class RetainedBrowserEvidenceTampering(unittest.TestCase):
+    def test_changed_artifact_hash_is_rejected_before_reading_claims(self):
+        import tempfile
+        from unittest.mock import patch
+
+        from phase35_browser_receipts import verify_retained
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "commands.json").write_text("tampered")
+            entry = {"evidence": directory, "files": {"commands.json": "0" * 64}}
+            with patch(
+                "phase34_evidence.run_directory", return_value=root
+            ), self.assertRaisesRegex(RuntimeError, "tampered"):
+                verify_retained(entry)
+
+    def test_incomplete_quality_command_set_is_rejected(self):
+        import json
+        import tempfile
+
+        from phase35_browser_receipts import validate_result
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "phase35-browser-result.json").write_text(
+                json.dumps(
+                    {
+                        "passed": True,
+                        "kind": "quality",
+                        "checks": [{"command": ["npm", "run", "test"], "exit": 0}],
+                    }
+                )
+            )
+            (root / "commands.json").write_text(json.dumps([{"exit": 0}]))
+            (root / "cleanup.json").write_text(
+                json.dumps(
+                    {
+                        "clean": True,
+                        "snapshot_removed": True,
+                        "source_unchanged": True,
+                        "remaining": {"container": [], "network": [], "volume": []},
+                    }
+                )
+            )
+            with self.assertRaisesRegex(RuntimeError, "quality"):
+                validate_result(root, exact=False)
