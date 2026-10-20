@@ -451,3 +451,43 @@ def test_retry_clocks_and_normalized_collision_checked_identity(
         session.scalar(select(models()[1])).normalized_query = "collision"
     with pytest.raises(ValueError, match="collision"):
         repository().load_retry_states(binding)
+
+
+@pytest.mark.parametrize("reconciled", [True, False])
+def test_game_completion_adopts_only_reconciled_baseline(
+    bound_game, inventory_attempt, monkeypatch, reconciled
+):
+    from types import SimpleNamespace
+
+    from tests.handler.test_scan_write_fence import context
+
+    from handler import windows_quick_execution as execution
+    from handler.database.scan_write_fence import bind_scan_write_context
+    from handler.scan_collection_finalize import _complete
+    from handler.scan_inventory_contracts import QuickScanDecision
+    from handler.windows_quick_execution import WindowsQuickContext, bind_windows_quick
+
+    binding, _ = bound_game
+    quick = WindowsQuickContext(
+        binding,
+        evidence(),
+        QuickScanDecision.REFRESH,
+        files_reconciled=reconciled,
+        components_reconciled=reconciled,
+        after=evidence(),
+    )
+    monkeypatch.setattr(execution, "recheck_quick_inventory", lambda *args: None)
+    with bind_scan_write_context(context(inventory_attempt)), bind_windows_quick(quick):
+        with sync_session.begin() as session:
+            rom = session.get(Rom, binding.rom_id)
+            _complete(
+                session,
+                rom,
+                SimpleNamespace(
+                    mapping_id=binding.mapping_id,
+                    expected_revision=binding.mapping_revision,
+                ),
+                None,
+                None,
+            )
+    assert (repository().load_baseline(binding, evidence()) is not None) == reconciled
