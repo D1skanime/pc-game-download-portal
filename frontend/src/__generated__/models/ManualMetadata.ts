@@ -14,3 +14,4 @@ export type ManualMetadata = {
     youtube_video_id?: (string | null);
     descriptions?: (Record<string, string> | null);
 };
+

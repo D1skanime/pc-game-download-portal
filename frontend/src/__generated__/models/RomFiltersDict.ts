@@ -13,6 +13,8 @@ export type RomFiltersDict = {
     regions: Array<string>;
     languages: Array<string>;
     tags: Array<string>;
+    genre_ids: Array<string>;
+    theme_ids: Array<string>;
     platforms: Array<number>;
 };
 

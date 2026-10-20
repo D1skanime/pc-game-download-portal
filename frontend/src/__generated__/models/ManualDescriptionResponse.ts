@@ -7,3 +7,4 @@ export type ManualDescriptionResponse = {
     description: (string | null);
     expected_version: string;
 };
+

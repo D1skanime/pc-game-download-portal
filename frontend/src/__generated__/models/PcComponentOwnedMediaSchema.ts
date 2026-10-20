@@ -2,9 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { PcComponentOwnedMediaPlacementSchema } from './PcComponentOwnedMediaPlacementSchema';
 import type { RomComponentOwnedMediaOrigin } from './RomComponentOwnedMediaOrigin';
 import type { RomComponentOwnedMediaRole } from './RomComponentOwnedMediaRole';
-import type { PcComponentOwnedMediaPlacementSchema } from './PcComponentOwnedMediaPlacementSchema';
 export type PcComponentOwnedMediaSchema = {
     id: number;
     role: RomComponentOwnedMediaRole;

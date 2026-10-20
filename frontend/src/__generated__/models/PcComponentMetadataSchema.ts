@@ -28,3 +28,4 @@ export type PcComponentMetadataSchema = {
     company_roles?: Array<MetadataCompanyRoleSchema>;
     pc_release_date: (number | null);
 };
+

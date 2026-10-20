@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { IGDBAgeRating } from './IGDBAgeRating';
+import type { IGDBMetadataCompanyRole } from './IGDBMetadataCompanyRole';
+import type { IGDBMetadataFacet } from './IGDBMetadataFacet';
 import type { IGDBMetadataMultiplayerMode } from './IGDBMetadataMultiplayerMode';
 import type { IGDBMetadataPlatform } from './IGDBMetadataPlatform';
 import type { IGDBRelatedGame } from './IGDBRelatedGame';
@@ -12,6 +14,8 @@ export type RomIGDBMetadata = {
     first_release_date?: (number | null);
     youtube_video_id?: (string | null);
     genres?: Array<string>;
+    genre_ids?: Array<string>;
+    genre_options?: Array<IGDBMetadataFacet>;
     franchises?: Array<string>;
     alternative_names?: Array<string>;
     collections?: Array<string>;
@@ -19,6 +23,9 @@ export type RomIGDBMetadata = {
     main_developer?: (string | null);
     publishers?: Array<string>;
     themes?: Array<string>;
+    theme_ids?: Array<string>;
+    theme_options?: Array<IGDBMetadataFacet>;
+    company_roles?: Array<IGDBMetadataCompanyRole>;
     pc_release_date?: (number | null);
     game_modes?: Array<string>;
     age_ratings?: Array<IGDBAgeRating>;

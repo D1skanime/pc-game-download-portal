@@ -7,3 +7,4 @@ export type MetadataCompanyRoleSchema = {
     name: string;
     roles?: Array<string>;
 };
+
