@@ -55,13 +55,20 @@ from utils.provider_diagnostics import ProviderUnavailable
 
 
 @pytest.fixture(autouse=True)
-def claimed_scan_calls(admin_user, monkeypatch):
-    original = scan_rom
+def claimed_scan_calls(admin_user, monkeypatch, request):
+    original = request.module.scan_rom
+    persist_rom = db_rom_handler.add_rom
 
     async def claimed_scan_rom(*args, **kwargs):
         platform = kwargs["platform"]
-        if kwargs["rom"].id is None:
-            kwargs["rom"] = db_rom_handler.add_rom(kwargs["rom"])
+        with sync_session.begin() as session:
+            if session.get(Platform, platform.id) is None:
+                session.merge(platform)
+            missing_rom = (
+                kwargs["rom"].id is None or session.get(Rom, kwargs["rom"].id) is None
+            )
+        if missing_rom:
+            kwargs["rom"] = persist_rom(kwargs["rom"])
         with sync_session.begin() as session:
             root = StorageRoot(
                 name="Scan fixture", container_path="/phase34/owned/library"
@@ -93,7 +100,7 @@ def claimed_scan_calls(admin_user, monkeypatch):
         ):
             return await original(*args, **kwargs)
 
-    monkeypatch.setitem(globals(), "scan_rom", claimed_scan_rom)
+    monkeypatch.setattr(request.module, "scan_rom", claimed_scan_rom)
 
 
 @pytest.mark.vcr

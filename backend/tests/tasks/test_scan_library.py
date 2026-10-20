@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -53,15 +53,16 @@ class TestScanLibraryTask:
             "tasks.scheduled.scan_library.mapping_scan_commands",
             return_value=commands,
         )
-        scan_result = MagicMock()
-        scan_result.to_dict.return_value = {}
+        actor = MagicMock()
+        mocker.patch("tasks.scan_operation_dispatch.system_actor", return_value=actor)
+        accepted = MagicMock(id="durable-operation", state="accepted")
         mock_execute = mocker.patch(
-            "tasks.scheduled.scan_library.execute_mapping_scans",
-            new=AsyncMock(return_value=scan_result),
+            "tasks.scan_operation_dispatch.accept_commands",
+            return_value=accepted,
         )
         mock_log = mocker.patch("tasks.scheduled.scan_library.log")
 
-        await task.run()
+        result = await task.run()
 
         mock_log.info.assert_any_call("Scheduled library scan started...")
         mock_commands.assert_called_once_with(
@@ -70,17 +71,16 @@ class TestScanLibraryTask:
             scope=ScanScope.LIBRARY,
             scan_type=ScanType.QUICK,
         )
-        mock_execute.assert_awaited_once_with(
+        mock_execute.assert_called_once_with(
+            actor,
             commands,
-            metadata_sources=[MetadataSource.RA, MetadataSource.LAUNCHBOX],
+            {"apis": [MetadataSource.RA, MetadataSource.LAUNCHBOX], "type": "quick"},
         )
-        mock_log.info.assert_any_call("Scheduled library scan done")
+        assert result == {"operation_id": accepted.id, "state": accepted.state}
 
     async def test_run_disabled(self, task, mocker):
         mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", False)
-        mock_execute = mocker.patch(
-            "tasks.scheduled.scan_library.execute_mapping_scans"
-        )
+        mock_execute = mocker.patch("tasks.scan_operation_dispatch.accept_commands")
         mock_log = mocker.patch("tasks.scheduled.scan_library.log")
         task.unschedule = MagicMock()
 
@@ -128,12 +128,12 @@ class TestScanLibraryTask:
             "tasks.scheduled.scan_library.mapping_scan_commands", return_value=[]
         )
         execute = mocker.patch(
-            "tasks.scheduled.scan_library.execute_mapping_scans", new=AsyncMock()
+            "tasks.scan_operation_dispatch.accept_commands", new=MagicMock()
         )
 
         await task.run()
 
-        execute.assert_not_awaited()
+        execute.assert_not_called()
 
     def test_task_instance(self):
         assert isinstance(scan_library_task, ScanLibraryTask)
@@ -153,8 +153,8 @@ class TestScanLibraryTask:
             return_value=[MagicMock()],
         )
         execute = mocker.patch(
-            "tasks.scheduled.scan_library.execute_mapping_scans",
-            new=AsyncMock(return_value=MagicMock(to_dict=MagicMock(return_value={}))),
+            "tasks.scan_operation_dispatch.accept_commands",
+            return_value=MagicMock(id="durable-operation", state="accepted"),
         )
         for handler in (
             "meta_hasheous_handler",
@@ -179,11 +179,18 @@ class TestScanLibraryTask:
                 return_value=False,
             )
 
+        actor = MagicMock()
+        mocker.patch("tasks.scan_operation_dispatch.system_actor", return_value=actor)
         import asyncio
 
         asyncio.run(task.run())
 
-        assert execute.await_args.kwargs["metadata_sources"] == [MetadataSource.STEAM]
+        execute.assert_called_once()
+        assert execute.call_args.args[0] is actor
+        assert execute.call_args.args[2] == {
+            "apis": [MetadataSource.STEAM],
+            "type": "quick",
+        }
 
     def test_development_interval_uses_exact_rq_interval_schedule(self, mocker):
         scheduler = mocker.patch("tasks.tasks.tasks_scheduler")

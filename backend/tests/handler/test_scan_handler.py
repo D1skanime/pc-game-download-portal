@@ -3,6 +3,7 @@ from typing import cast
 from unittest.mock import ANY, AsyncMock, Mock, patch
 
 import pytest
+from tests.handler.test_fastapi import claimed_scan_calls as claimed_scan_calls
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.scan_handler import (
@@ -90,7 +91,8 @@ async def _scan_igdb_name_fallback(
     )
     with (
         patch(
-            "handler.scan_handler.db_rom_handler.add_rom", side_effect=lambda item: item
+            "handler.scan_handler.db_rom_handler.add_rom",
+            side_effect=lambda item, *, session=None: item,
         ),
         patch(
             "handler.scan_handler.meta_playmatch_handler.is_enabled", return_value=False
@@ -305,12 +307,20 @@ async def _scan_steam_patch(
     persist_candidate_metadata = Mock(return_value=None)
     with (
         patch(
-            "handler.scan_handler.db_rom_handler.add_rom", side_effect=lambda item: item
+            "handler.scan_handler.db_rom_handler.add_rom",
+            side_effect=lambda item, *, session=None: item,
         ),
         patch(
             "handler.scan_handler.meta_playmatch_handler.is_enabled", return_value=False
         ),
         patch("handler.scan_handler.resolve_steam_pc_enrichment", resolver),
+        patch(
+            "handler.scan_handler.meta_igdb_handler.get_rom", AsyncMock(return_value={})
+        ),
+        patch(
+            "handler.scan_handler.meta_igdb_handler.get_rom_by_id",
+            AsyncMock(return_value={}),
+        ),
         patch("handler.scan_handler.reconcile_steam_patch_media", reconcile),
         patch("handler.scan_handler.db_rom_handler.get_rom", return_value=hydrated_rom),
         patch(
@@ -385,7 +395,9 @@ async def test_admin_pc_scans_use_the_shared_steam_patch(
     assert request.platform_slug == platform_slug
     assert request.fs_name == "The Witcher.exe"
     assert result.name == "The Witcher"
-    reconcile.assert_awaited_once_with(result, resolver.return_value)
+    reconcile.assert_awaited_once_with(
+        result, resolver.return_value, force=scan_type == ScanType.COMPLETE
+    )
 
 
 @pytest.mark.asyncio
@@ -472,14 +484,20 @@ async def test_steam_media_reconciliation_uses_the_persisted_rom_timestamp():
             newly_added=False,
         )
 
-    reconcile.assert_awaited_once_with(refreshed, resolver.return_value)
+    reconcile.assert_awaited_once_with(refreshed, resolver.return_value, force=True)
 
 
 @pytest.mark.asyncio
-async def test_metadata_only_keeps_text_metadata_but_skips_artwork_side_effects(mocker):
+async def test_metadata_only_fetches_selected_provider_metadata_without_artwork_writes(
+    mocker,
+):
     sgdb_lookup = mocker.patch(
         "handler.scan_handler.meta_sgdb_handler.get_details_by_names",
         new_callable=AsyncMock,
+        return_value={
+            "sgdb_id": 999,
+            "url_cover": "https://fixture.invalid/unused-cover.png",
+        },
     )
     resolver, reconcile, result, _, _ = await _scan_steam_patch(
         scan_type=ScanType.COMPLETE,
@@ -497,7 +515,9 @@ async def test_metadata_only_keeps_text_metadata_but_skips_artwork_side_effects(
     assert result.summary == "Updated text metadata"
     resolver.assert_awaited_once()
     reconcile.assert_not_awaited()
-    sgdb_lookup.assert_not_awaited()
+    sgdb_lookup.assert_awaited_once()
+    assert result.sgdb_id == 999
+    assert result.url_cover != "https://fixture.invalid/unused-cover.png"
 
 
 @pytest.mark.asyncio

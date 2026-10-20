@@ -123,9 +123,13 @@ async def test_cyberpunk_parent_dlc_fixture_builds_one_immutable_dlc_component(
     components = await handler.get_pc_components(rom)
 
     assert [(component.relative_path, component.kind) for component in components] == [
-        ("dlc/Phantom Liberty", RomComponentKind.DLC)
+        ("base", RomComponentKind.BASE),
+        ("dlc/Phantom Liberty", RomComponentKind.DLC),
     ]
     assert [member.relative_path for member in components[0].manifest_members] == [
+        "Cyberpunk 2077.iso"
+    ]
+    assert [member.relative_path for member in components[1].manifest_members] == [
         "dlc/Phantom Liberty/Phantom Liberty.zip"
     ]
     assert _source_evidence(source_root) == before
@@ -156,7 +160,7 @@ async def test_uat_interval_automation_keeps_mapped_source_evidence_immutable(
         fs_name_no_ext="Safe Main Title",
         updated_at=timestamp,
         manual_metadata={},
-        steam_id=42,
+        steam_id=None,
     )
     safe_dlc = SimpleNamespace(
         id=2,
@@ -191,6 +195,7 @@ async def test_uat_interval_automation_keeps_mapped_source_evidence_immutable(
     async def apply_parent(rom: object, candidate: dict[str, object]) -> bool:
         owned_applies.append(("parent", candidate["steam_id"]))
         assert rom is safe_parent
+        safe_parent.steam_id = candidate["steam_id"]
         return True
 
     async def apply_component(
