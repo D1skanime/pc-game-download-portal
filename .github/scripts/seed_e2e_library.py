@@ -1,49 +1,64 @@
-"""Scan the library at ROMM_BASE_PATH with no metadata providers.
-
-The e2e suite needs at least one ROM to open a details page against. This runs
-the same `scan_platforms` the scan socket enqueues, but with an empty
-`metadata_sources` list so it never reaches out to IGDB/MobyGames/etc -- keeping
-it hermetic and fast enough for CI.
-
-    ROMM_BASE_PATH=/path/with/library uv run python .github/scripts/seed_e2e_library.py
-
-Exits non-zero if the scan produced no ROMs, so CI fails on a missing or empty
-library fixture instead of later, as a confusing Playwright timeout.
-"""
+"""Seed the CI library through canonical mapped scan operations."""
 
 from __future__ import annotations
 
-import asyncio
 import os
 import sys
 
-# Add /backend to the path so these can import `handler.*` / `models.*`.
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 )
 
-from endpoints.sockets.scan import scan_platforms  # noqa: E402
+from rq import Worker  # noqa: E402
+
+from endpoints.sockets.scan import mapping_scan_commands  # noqa: E402
+from handler.database import db_user_handler  # noqa: E402
+from handler.database.scan_operations_handler import (  # noqa: E402
+    DBScanOperationsHandler,
+)
+from handler.redis_handler import high_prio_queue, redis_client  # noqa: E402
+from handler.scan_command import ScanScope, ScanTrigger  # noqa: E402
 from handler.scan_handler import ScanType  # noqa: E402
+from handler.setup_folder_handler import setup_folder_handler  # noqa: E402
+from handler.setup_recovery import setup_recovery_handler  # noqa: E402
+from tasks.scan_operation_dispatch import accept_commands  # noqa: E402
 
 
-async def _scan() -> int:
-    stats = await scan_platforms(
-        platform_ids=[],
-        metadata_sources=[],
+def _scan() -> int:
+    actor = db_user_handler.get_user_by_username("e2e_admin")
+    if actor is None:
+        raise RuntimeError("Seed the E2E fixture users before the library")
+    discovered = setup_folder_handler.discover_response()
+    assignments = []
+    for folder in discovered["folders"]:
+        slug = folder["suggested_platform"]
+        if not slug:
+            raise RuntimeError("Unknown E2E fixture platform: " + folder["name"])
+        assignments.append({"folder_name": folder["name"], "platform_slug": slug})
+    setup_recovery_handler.assign(
+        assignments,
+        {"actor_user_id": actor.id, "actor_display_name": actor.username},
+    )
+    commands = mapping_scan_commands(
+        [],
+        trigger=ScanTrigger.MANUAL,
+        scope=ScanScope.LIBRARY,
         scan_type=ScanType.QUICK,
     )
-    print(
-        f"scanned platforms={stats.scanned_platforms} roms={stats.scanned_roms} "
-        f"(new platforms={stats.new_platforms}, new roms={stats.new_roms})"
+    if not commands:
+        raise RuntimeError("No healthy read-only E2E fixture mappings")
+    repository = DBScanOperationsHandler()
+    accepted = accept_commands(actor.id, commands, {"apis": [], "type": "quick"})
+    Worker([high_prio_queue], connection=redis_client).work(
+        burst=True, with_scheduler=False, max_jobs=1
     )
-    if stats.scanned_roms == 0:
-        print(
-            "No ROMs scanned -- is ROMM_BASE_PATH pointing at a library fixture?",
-            file=sys.stderr,
-        )
-        return 1
+    result = repository.execution(accepted.id)
+    stats = result["scan_stats"]
+    print("E2E mapped scan", result["state"], stats)
+    if result["state"] != "completed" or stats.get("scanned_roms", 0) == 0:
+        raise RuntimeError("E2E fixture scan did not complete with games")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(_scan()))
+    sys.exit(_scan())

@@ -96,7 +96,12 @@ jobs:
       - name: Stage the library fixture
         run: |
           mkdir -p "$RUNNER_TEMP/romm/resources" "$RUNNER_TEMP/romm/assets"
-          cp -R backend/romm_test/library "$RUNNER_TEMP/romm/library"
+          mkdir -p "$RUNNER_TEMP/romm/library"
+          for platform in backend/romm_test/library/*; do
+            [ -d "$platform/roms" ] || continue
+            cp -R "$platform/roms" "$RUNNER_TEMP/romm/library/$(basename "$platform")"
+          done
+          chmod -R a-w "$RUNNER_TEMP/romm/library"
           echo "ROMM_BASE_PATH=$RUNNER_TEMP/romm" >> "$GITHUB_ENV"
           echo "DB_PORT=${{ job.services.mariadb.ports['3306'] }}" >> "$GITHUB_ENV"
           echo "REDIS_PORT=${{ job.services.valkey.ports['6379'] }}" >> "$GITHUB_ENV"
@@ -106,12 +111,12 @@ jobs:
         run: uv run alembic upgrade head
         working-directory: backend
 
-      - name: Seed the library
-        run: uv run python .github/scripts/seed_e2e_library.py
-
-      # Seed user and clear the setup wizard
+      # Canonical scan acceptance requires an existing administrator.
       - name: Seed the e2e fixture users
         run: uv run python .github/scripts/seed_e2e_users.py
+
+      - name: Seed the library
+        run: uv run python .github/scripts/seed_e2e_library.py
 
       - name: Start the backend
         run: |
