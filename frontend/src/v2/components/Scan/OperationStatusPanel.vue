@@ -2,6 +2,7 @@
 import { RAlert, RBtn, RCheckbox, RProgressLinear } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import InventoryStatusSummary from "@/v2/components/Scan/InventoryStatusSummary.vue";
 import type { ScanOperationSnapshot } from "@/v2/data/contracts";
 
 interface Props {
@@ -13,9 +14,12 @@ interface Props {
   actionError: string | null;
   status: string;
   canManage: boolean;
+  hasMore?: boolean;
+  loadingMore?: boolean;
 }
 const props = defineProps<Props>();
 const emit = defineEmits<{
+  loadMore: [];
   stop: [];
   resume: [];
   retryStatus: [];
@@ -92,7 +96,7 @@ function select(id: number, value: boolean | null) {
 
 <template>
   <section
-    class="d-flex flex-column ga-3 pa-4"
+    class="d-flex flex-column ga-4 pa-4"
     aria-live="polite"
     aria-atomic="false"
     data-testid="operation-status"
@@ -111,6 +115,14 @@ function select(id: number, value: boolean | null) {
         t("scan.recovery-progress", { current: stats.scanned_roms ?? 0, total })
       }}
     </p>
+    <InventoryStatusSummary
+      v-if="snapshot"
+      :stats="snapshot.scan_stats"
+      :items="snapshot.items ?? []"
+      :has-more="hasMore"
+      :loading-more="loadingMore"
+      @load-more="emit('loadMore')"
+    />
     <RAlert v-if="cause" type="warning" role="alert">
       <p>{{ t("scan.recovery-cause-" + cause) }}</p>
       <p>{{ t("scan.recovery-action-" + cause) }}</p>

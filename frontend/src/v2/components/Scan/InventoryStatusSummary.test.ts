@@ -36,6 +36,7 @@ function render(stats = {}, items = [item]) {
       stubs: {
         RBtn: {
           props: ["loading"],
+          emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },
         RTag: { props: ["text"], template: "<span>{{ text }}</span>" },
