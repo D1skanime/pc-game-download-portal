@@ -14,7 +14,7 @@
   "connection-in-progress": "Conexão em andamento...",
   "connection-successful": "Conexão bem-sucedida",
   "disabled-by-admin": "Desativado pelo administrador",
-  "empty-hint": "Escolha as plataformas e um tipo de verificação e selecione Verificar para ver o progresso.",
+  "empty-hint": "Escolha as plataformas e um tipo de escaneamento e selecione Escanear para ver o progresso.",
   "empty-hint-scanning": "As plataformas aparecerão conforme forem descobertas pelo verificador.",
   "firmware-found": "Firmware encontrado: {n} arquivo | Firmware encontrado: {n} arquivos",
   "firmware-scanned-n": "Firmware: {n} escaneado",
