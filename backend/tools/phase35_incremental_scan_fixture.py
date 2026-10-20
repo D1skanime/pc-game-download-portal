@@ -55,7 +55,14 @@ def prepare(root, repo):
 
 def edit(root, action):
     owned_root(root)
-    if action not in {"add", "change", "delete", "new-game", "new-child"}:
+    if action not in {
+        "add",
+        "change",
+        "delete",
+        "new-game",
+        "new-child",
+        "alternate-root",
+    }:
         raise RuntimeError("unknown fixture edit")
     fixture = root / "fixture/Games"
     game = fixture / "pc/Known.Game"
@@ -70,6 +77,10 @@ def edit(root, action):
         content.write_bytes(b"synthetic DLC changed")
     elif action == "delete":
         content.unlink()
+    elif action == "alternate-root":
+        alternate = fixture / "alternate/pc/Known.Game/Base"
+        alternate.mkdir(parents=True)
+        (alternate / "game.bin").write_bytes(b"different synthetic root bytes")
     else:
         relative = "New.Game" if action == "new-game" else "Castlevania/New.Child"
         folder = fixture / "pc" / relative / "Base"

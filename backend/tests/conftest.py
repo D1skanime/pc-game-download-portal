@@ -50,6 +50,7 @@ from models.download_transfer import (
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
+from models.scan_collection import ScanCollectionFolder
 from models.scan_operation import ScanExecutionSlot, ScanOperation, ScanOperationItem
 from models.storage import (
     LegacyDetectionResult,
@@ -129,6 +130,7 @@ def clear_database():
             raise RuntimeError("missing seeded scan execution slot")
         slot.active_operation_id, slot.version = None, 0
         s.flush()
+        s.query(ScanCollectionFolder).delete(synchronize_session=False)
         s.query(ScanOperationItem).delete(synchronize_session=False)
         s.query(ScanOperation).delete(synchronize_session=False)
         s.query(PlaySession).delete(synchronize_session="evaluate")

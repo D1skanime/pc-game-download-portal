@@ -45,6 +45,9 @@ class SteamService:
         for attempt in range(STEAM_MAX_REQUEST_ATTEMPTS):
             await _rate_limiter.acquire()
             try:
+                from utils.scan_provider_observation import mark_provider_invoked
+
+                mark_provider_invoked()
                 response = await session.get(
                     url,
                     headers={"user-agent": f"RomM/{get_version()}"},

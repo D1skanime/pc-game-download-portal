@@ -55,6 +55,28 @@ class ProbeSafetyTests(unittest.TestCase):
             self.assertEqual(game.stat().st_mtime_ns, before)
             self.assertTrue((game / "DLC/Expansion/content.bin").is_file())
 
+    def test_alternate_root_is_an_explicit_post_setup_fixture_edit(self):
+        with tempfile.TemporaryDirectory(
+            prefix="pgdp34-" + "a" * 32 + "-"
+        ) as directory:
+            root = Path(directory)
+            games = root / "Games"
+            games.mkdir()
+            with patch.object(
+                self.fixture,
+                "original_prepare",
+                return_value=(games, root / "checkout"),
+            ):
+                self.fixture.prepare(root, root / "repo")
+            self.assertEqual(
+                {path.name for path in games.iterdir()}, {"pc", "My Games"}
+            )
+            before = self.fixture.manifest(games)
+            after = self.fixture.edit(root, "alternate-root")
+            self.assertNotEqual(before, after)
+            alternate = games / "alternate/pc/Known.Game/Base/game.bin"
+            self.assertEqual(alternate.read_bytes(), b"different synthetic root bytes")
+
     def test_unknown_edit_is_rejected(self):
         with tempfile.TemporaryDirectory(
             prefix="pgdp34-" + "a" * 32 + "-"

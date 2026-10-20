@@ -1010,8 +1010,10 @@ async def _identify_rom(
             )
     await _emit_scanning_rom(socket_manager, _added_rom)
 
-    await process_pc_automation_after_scan(
-        platform, scanned_rom, _added_rom, newly_added
+    from handler.scan_pc_automation_observation import observe_pc_automation
+
+    await observe_pc_automation(
+        process_pc_automation_after_scan, platform, scanned_rom, _added_rom, newly_added
     )
     from handler.scan_operation_checkpoint import record_completed_game
 

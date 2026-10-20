@@ -166,7 +166,8 @@ async def inspect_discovered_game(
         .relative_to(PurePosixPath(mapping.relative_path))
         .as_posix()
     )
-    handler = FSRomsHandler.for_mapping(mapping, fs_rom.get("scan_relative_path"))
+    fs_rom["scan_relative_path"] = relative
+    handler = FSRomsHandler.for_mapping(mapping, relative)
     candidate = (
         rom
         if rom is not None

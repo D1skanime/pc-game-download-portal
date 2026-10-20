@@ -298,7 +298,14 @@ async def emit_inventory_status(manager, quick, rom, *, existing_game):
         existing_game=existing_game,
         **retry_facts(quick.binding, identified),
     )
-    payload = SimpleRomSchema.from_orm_with_factory(rom).model_dump(
+    from handler.database import db_rom_handler
+
+    hydrated = db_rom_handler.get_rom(rom.id)
+    if hydrated is None or hydrated.incarnation_token != rom.incarnation_token:
+        from handler.database.scan_write_fence import ScanWriteRejected
+
+        raise ScanWriteRejected("inventory_rom_changed")
+    payload = SimpleRomSchema.from_orm_with_factory(hydrated).model_dump(
         exclude={
             "created_at",
             "updated_at",
