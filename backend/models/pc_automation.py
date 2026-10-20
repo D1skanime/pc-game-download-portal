@@ -1,7 +1,8 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Enum, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.dialects.mysql import TIMESTAMP as MYSQL_TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import BaseModel
@@ -67,7 +68,10 @@ class PcAutomationQueue(BaseModel):
         ForeignKey("rom_components.id", ondelete="CASCADE"), nullable=True
     )
     target_incarnation: Mapped[str] = mapped_column(String(length=64), nullable=False)
-    target_updated_at: Mapped[datetime] = mapped_column(nullable=False)
+    target_updated_at: Mapped[datetime] = mapped_column(
+        DateTime().with_variant(MYSQL_TIMESTAMP(fsp=6), "mysql", "mariadb"),
+        nullable=False,
+    )
     normalized_query: Mapped[str] = mapped_column(String(length=350), nullable=False)
     candidate_fingerprint: Mapped[str] = mapped_column(
         String(length=255), nullable=False

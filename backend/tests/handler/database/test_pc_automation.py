@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from tests.conftest import session
@@ -321,3 +321,33 @@ def test_retry_requeue_and_pending_pagination_are_bounded(rom):
     page, total = handler.list_pending(limit=1, offset=0)
     assert total == 1
     assert [item.id for item in page] == [queued.item.id]
+
+
+def test_parent_queue_preserves_fractional_version_and_rejects_real_update(rom):
+    instant = datetime(2026, 1, 2, 12, 30, 45, 123456, tzinfo=timezone.utc)
+    with session.begin() as db:
+        db.get(type(rom), rom.id).updated_at = instant
+    handler = _handler()
+    target = handler.get_parent_target(rom.id)
+    assert target is not None and target.updated_at.microsecond == 123456
+    queued = handler.upsert_pending(
+        target_kind=PcAutomationTargetKind.PARENT,
+        rom_id=rom.id,
+        component_id=None,
+        expected_target_updated_at=target.updated_at,
+        normalized_query="fractional version",
+        candidate_fingerprint="steam:100",
+    )
+    assert queued.item is not None
+    assert queued.item.target_updated_at == target.updated_at
+    skipped = handler.mark_skipped(queued.item.id, queued.item.updated_at)
+    assert skipped.outcome == PcAutomationOutcome.SKIPPED
+    assert skipped.item is not None
+
+    with session.begin() as db:
+        db.get(type(rom), rom.id).updated_at = target.updated_at + timedelta(
+            microseconds=1
+        )
+    stale = handler.mark_skipped(skipped.item.id, skipped.item.updated_at)
+    assert stale.outcome == PcAutomationOutcome.STALE_TARGET
+    assert stale.item is None
