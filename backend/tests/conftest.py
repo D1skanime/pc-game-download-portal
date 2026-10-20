@@ -36,6 +36,7 @@ from models.catalog_lifecycle import OwnedCleanupIntent, RetainedCatalogIdentity
 from models.client_token import ClientToken
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from models.download_archive_set import DownloadArchiveSet, DownloadArchiveSetMember
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -128,6 +129,8 @@ def clear_database():
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
+        s.query(DownloadArchiveSetMember).delete(synchronize_session=False)
+        s.query(DownloadArchiveSet).delete(synchronize_session=False)
         s.query(RomFile).delete(synchronize_session="evaluate")
         s.query(OwnedCleanupIntent).delete(synchronize_session="evaluate")
         s.query(RetainedCatalogIdentity).delete(synchronize_session="evaluate")
