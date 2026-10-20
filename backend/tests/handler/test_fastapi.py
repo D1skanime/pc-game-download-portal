@@ -1,13 +1,18 @@
-from unittest.mock import AsyncMock, Mock, patch
+from typing import Any
+from unittest.mock import ANY, AsyncMock, Mock, patch
 
 import pytest
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+from tests.handler.test_scan_operations import repository, running
+from tests.handler.test_scan_write_fence import context
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.database.roms_handler import SyncedRomComponents
+from handler.database.scan_write_fence import bind_scan_write_context
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_hasheous_handler,
@@ -33,6 +38,8 @@ from handler.scan_handler import (
     scan_platform,
     scan_rom,
 )
+from handler.scan_operation_checkpoint import bind_checkpoint_command
+from handler.scan_operation_recovery import decode_command
 from models.platform import Platform
 from models.rom import (
     Rom,
@@ -42,7 +49,51 @@ from models.rom import (
     RomComponentManifestMember,
     RomFile,
 )
+from models.storage import PlatformStorageMapping, StorageRoot
 from utils.context import initialize_context
+from utils.provider_diagnostics import ProviderUnavailable
+
+
+@pytest.fixture(autouse=True)
+def claimed_scan_calls(admin_user, monkeypatch):
+    original = scan_rom
+
+    async def claimed_scan_rom(*args, **kwargs):
+        platform = kwargs["platform"]
+        if kwargs["rom"].id is None:
+            kwargs["rom"] = db_rom_handler.add_rom(kwargs["rom"])
+        with sync_session.begin() as session:
+            root = StorageRoot(
+                name="Scan fixture", container_path="/phase34/owned/library"
+            )
+            session.add(root)
+            session.flush()
+            mapping = PlatformStorageMapping(
+                platform_id=platform.id, storage_root_id=root.id, relative_path="PC"
+            )
+            session.add(mapping)
+            session.flush()
+            command: dict[str, Any] = {
+                "commands": [
+                    {
+                        "mapping_id": mapping.id,
+                        "expected_revision": mapping.version,
+                        "trigger": "manual",
+                        "scope": "platform",
+                        "scan_type": kwargs["scan_type"].value,
+                        "options": [],
+                    }
+                ],
+                "policies": {"apis": kwargs["metadata_sources"]},
+            }
+        attempt = running(repository(), admin_user, command)
+        with (
+            bind_scan_write_context(context(attempt)),
+            bind_checkpoint_command(decode_command(command["commands"][0])),
+        ):
+            return await original(*args, **kwargs)
+
+    monkeypatch.setitem(globals(), "scan_rom", claimed_scan_rom)
 
 
 @pytest.mark.vcr
@@ -436,7 +487,7 @@ async def test_scan_rom_logs_unresolved_pc_component_layout():
 
 
 async def test_nested_pc_component_reconciliation_failure_still_emits_parent_rom():
-    """A component-side failure must not hide an already persisted PC parent."""
+    """Unexpected reconciliation errors propagate after the persisted parent event."""
     platform = db_platform_handler.add_platform(
         Platform(name="Windows", slug="win", fs_slug="win")
     )
@@ -461,6 +512,7 @@ async def test_nested_pc_component_reconciliation_failure_still_emits_parent_rom
             side_effect=RuntimeError("component reconciliation failed"),
         ),
         patch("handler.scan_handler.log.exception") as log_exception,
+        pytest.raises(RuntimeError, match="component reconciliation failed"),
     ):
         async with initialize_context():
             await scan_rom(
@@ -487,7 +539,7 @@ async def test_nested_pc_component_reconciliation_failure_still_emits_parent_rom
     assert event == "scan:scanning_rom"
     assert payload["fs_name"] == "Example Game"
     assert db_rom_handler.get_roms_by_fs_name(platform.id, {"Example Game"})
-    log_exception.assert_called_once()
+    log_exception.assert_not_called()
 
 
 async def test_quick_rescan_reconciles_existing_nested_windows_components():
@@ -568,7 +620,8 @@ async def test_quick_rescan_reconciles_existing_nested_windows_components():
     assert get_pc_components.await_args is not None
     durable_rom = get_pc_components.await_args.args[0]
     assert durable_rom.id == existing.id
-    sync_rom_components.assert_called_once_with(existing.id, components)
+    sync_rom_components.assert_called_once_with(existing.id, components, session=ANY)
+    assert isinstance(sync_rom_components.call_args.kwargs["session"], Session)
     assert sync_rom_components.call_args is not None
     assert [
         (
@@ -646,8 +699,7 @@ async def test_quick_rescan_only_reconciles_nested_windows_components(
 async def test_scan_rom_complete_clears_unselected_metadata(
     mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
 ):
-    """COMPLETE rescan with newly_added=False must clear id and *_metadata
-    fields for sources that are no longer in metadata_sources."""
+    """A complete scan stages clearing unselected metadata before publication."""
     hasheous_result = HasheousRom(
         hasheous_id=999,
         igdb_id=None,
@@ -707,11 +759,12 @@ async def test_scan_rom_complete_clears_unselected_metadata(
             newly_added=False,
         )
 
-    # IGDB and RA were unselected — their id and metadata must be cleared.
+    # Media-bearing JSON stays published until the staged replacement commits.
     assert result.igdb_id is None
     assert result.igdb_metadata == {}
     assert result.ra_id is None
-    assert result.ra_metadata == {}
+    assert result._pending_scan_media["ra_metadata"] == {}
+    assert result.ra_metadata == {"name": "stale RA metadata"}
     # Hasheous is still selected and should remain populated.
     assert result.hasheous_id == 999
 
@@ -1388,8 +1441,8 @@ def _ss_quota_fs_rom(fs_name: str) -> FSRom:
 async def test_scan_rom_provider_error_does_not_discard_others(
     mock_ss_lookup, mock_moby_get_rom, mock_playmatch_enabled
 ):
-    """An unexpected error from one provider must not wipe the others' results."""
-    mock_moby_get_rom.side_effect = ValueError("boom")
+    """A typed provider outage must not wipe the other providers' results."""
+    mock_moby_get_rom.side_effect = ProviderUnavailable("provider unavailable")
     mock_ss_lookup.return_value = (SSRom(ss_id=321, name="Match"), False)
 
     platform = _ss_quota_platform()
