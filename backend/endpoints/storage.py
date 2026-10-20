@@ -108,18 +108,13 @@ from models.storage import (
 )
 from tasks.manual.detect_legacy_storage import detect_legacy_storage_task
 from tasks.manual.preview_mapping import preview_mapping_task
+from utils.platform_identity import (
+    legacy_platform_slug_for_filesystem_slug as _legacy_platform_slug_for_filesystem_slug,
+)
 from utils.platforms import get_filesystem_platforms
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/storage", tags=["storage"])
-
-
-def _legacy_platform_slug_for_filesystem_slug(
-    filesystem_slug: str, known_platform_slugs: set[str]
-) -> str:
-    if filesystem_slug == "pc" and "pc" not in known_platform_slugs:
-        return "win" if "win" in known_platform_slugs else filesystem_slug
-    return filesystem_slug
 
 
 @dataclass(frozen=True, slots=True)
@@ -764,8 +759,21 @@ async def bootstrap_legacy_storage(
     assert_admin(request)
     try:
         config = cm.get_config()
-        relative_root = config.ROMS_FOLDER_NAME
+        # PGDP mounts the operator-selected Games directory directly at the
+        # library root. Do not append the legacy ROMS_FOLDER_NAME again.
+        relative_root = ""
         filesystem_slugs = await fs_platform_handler.get_platforms()
+        if not filesystem_slugs:
+            filesystem_slugs = await fs_platform_handler.list_directories(path="")
+        pc_fs_slug = next(
+            (
+                slug
+                for slug in filesystem_slugs
+                if slug == "pc" or slug.lower().startswith("pc-")
+            ),
+            "pc",
+        )
+        pc_relative_path = pc_fs_slug
         missing_platforms = {
             item.fs_slug: item for item in await get_filesystem_platforms()
         }
@@ -781,7 +789,7 @@ async def bootstrap_legacy_storage(
                 db_platform_handler.get_platform_by_slug("win")
                 or db_platform_handler.get_platform_by_fs_slug("win")
                 or db_platform_handler.get_platform_by_fs_slug("pc")
-                if fs_slug == "pc"
+                if fs_slug == pc_fs_slug
                 else db_platform_handler.get_platform_by_fs_slug(fs_slug)
             )
             mapped_slug = None
@@ -814,14 +822,14 @@ async def bootstrap_legacy_storage(
                         "firmware_count",
                     }
                 )
-                if fs_slug == "pc":
+                if fs_slug == pc_fs_slug:
                     platform_data["fs_slug"] = "win"
                 platform = db_platform_handler.add_platform(Platform(**platform_data))
                 created_platform_count += 1
             else:
                 existing_platform_count += 1
 
-            if fs_slug == "pc":
+            if fs_slug == pc_fs_slug:
                 pc_platform = platform
 
         if pc_platform is None:
@@ -839,9 +847,15 @@ async def bootstrap_legacy_storage(
             if pc_platform is None:
                 pc_platform = db_platform_handler.get_platform_by_slug("win")
         if pc_platform is None:
-            raise MissingStorageRootError(0)
+            # A fresh PC-game install may have no platform folder yet.
+            # Bootstrap the canonical Windows platform so setup can continue
+            # to the storage-mapping step without requiring a writable library.
+            pc_platform = db_platform_handler.add_platform(
+                Platform(name="Windows", slug="win", fs_slug="win")
+            )
+            created_platform_count += 1
 
-        pc_path = Path(LIBRARY_BASE_PATH) / relative_root / "pc"
+        root_path = Path(LIBRARY_BASE_PATH) / relative_root
         old_mapping = None
         try:
             old_mapping = db_storage_handler.get_active_mapping(pc_platform.id)
@@ -850,17 +864,18 @@ async def bootstrap_legacy_storage(
 
         roots = db_storage_handler.get_roots()
         root = next(
-            (item for item in roots if item.container_path == str(pc_path)), None
+            (item for item in roots if item.container_path == str(root_path)), None
         )
         if root is None:
-            root = db_storage_handler.register_root("PC Windows library", str(pc_path))
+            root = db_storage_handler.register_root(
+                "PC Windows library", str(root_path)
+            )
 
         if old_mapping is not None:
-            mapped_path = (
-                Path(old_mapping.storage_root.container_path)
-                / old_mapping.relative_path
-            )
-            if mapped_path == pc_path:
+            if (
+                old_mapping.storage_root_id == root.id
+                and old_mapping.relative_path == pc_relative_path
+            ):
                 root = old_mapping.storage_root
                 mapping = old_mapping
                 return LegacyStorageBootstrapSchema(
@@ -880,14 +895,17 @@ async def bootstrap_legacy_storage(
             mapping = db_storage_handler.create_mapping(
                 pc_platform.id,
                 root.id,
-                "",
+                pc_relative_path,
                 **_actor(request),
             )
-        elif old_mapping.storage_root_id != root.id or old_mapping.relative_path != "":
+        elif (
+            old_mapping.storage_root_id != root.id
+            or old_mapping.relative_path != pc_relative_path
+        ):
             mapping = db_storage_handler.update_mapping(
                 old_mapping.id,
                 root.id,
-                "",
+                pc_relative_path,
                 expected_version=old_mapping.version,
                 **_actor(request),
             )

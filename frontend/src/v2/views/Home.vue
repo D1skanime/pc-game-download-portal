@@ -7,7 +7,7 @@
 // as cells. When the input modality flips to `"pad"` (gamepad detected
 // or pressed) we autofocus the first cell so the synthetic keys
 // dispatched by `useGamepad` have somewhere to go.
-import { RChip, RIcon, RSkeletonBlock } from "@v2/lib";
+import { RBtn, RChip, RIcon, RSkeletonBlock } from "@v2/lib";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
@@ -24,6 +24,7 @@ import {
   type SetupLibraryInfo,
   type SimpleRom,
 } from "@/v2/data/adapters/home";
+import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 const { t } = useI18n();
@@ -61,6 +62,9 @@ const {
 
 const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
+const mappingReadiness = ref<"loading" | "ready" | "blocked" | "error">(
+  "blocked",
+);
 
 const gridRoot = ref<HTMLElement | null>(null);
 useGridNav(gridRoot);
@@ -141,10 +145,32 @@ async function loadLibraryInfo() {
   }
 }
 
+const mappingReady = computed(() => mappingReadiness.value === "ready");
+const mappingRoute = { name: ROUTES.LIBRARY_MANAGEMENT };
+
+async function loadMappingReadiness() {
+  if (mappingReadiness.value === "loading") return;
+  mappingReadiness.value = "loading";
+  try {
+    if (platformsStore.allPlatforms.length === 0) {
+      await platformsStore.fetchPlatforms();
+    }
+    const readiness = await storageApi.getMappingsReadiness(
+      platformsStore.allPlatforms.map((platform) => platform.id),
+    );
+    mappingReadiness.value = readiness.ready ? "ready" : "blocked";
+  } catch {
+    mappingReadiness.value = "error";
+  }
+}
+
 watch(
   isEmpty,
   (empty) => {
-    if (empty) void loadLibraryInfo();
+    if (empty) {
+      void loadLibraryInfo();
+      void loadMappingReadiness();
+    }
   },
   { immediate: true },
 );
@@ -225,7 +251,7 @@ function collectionCovers(c: {
         </div>
       </div>
 
-      <div class="r-v2-home-empty__choices">
+      <div v-if="mappingReady" class="r-v2-home-empty__choices">
         <router-link
           :to="{ name: ROUTES.SCAN }"
           class="r-v2-home-empty__choice"
@@ -245,6 +271,30 @@ function collectionCovers(c: {
           </span>
         </router-link>
       </div>
+
+      <section v-else class="r-v2-home-empty__mapping">
+        <RIcon icon="mdi-folder-key-outline" size="48" />
+        <h3 class="r-v2-home-empty__choice-title">
+          {{ t("storage.administration") }}
+        </h3>
+        <p class="r-v2-home-empty__choice-desc">
+          {{ t("storage.reconcile-legacy") }}
+        </p>
+        <div class="r-v2-home-empty__mapping-actions">
+          <router-link :to="mappingRoute" class="r-v2-home-empty__choice-cta">
+            {{ t("settings.add-folder-mapping") }}
+            <RIcon icon="mdi-arrow-right" size="16" />
+          </router-link>
+          <RBtn
+            v-if="mappingReadiness === 'error'"
+            variant="outlined"
+            size="small"
+            @click="loadMappingReadiness"
+          >
+            {{ t("common.retry", "Retry") }}
+          </RBtn>
+        </div>
+      </section>
     </section>
 
     <template v-else>
@@ -511,6 +561,27 @@ function collectionCovers(c: {
   justify-content: center;
   gap: var(--r-space-2);
   margin-top: var(--r-space-2);
+}
+
+.r-v2-home-empty__mapping {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--r-space-3);
+  width: 100%;
+  max-width: 560px;
+  padding: var(--r-space-6);
+  text-align: center;
+  color: var(--r-color-fg-secondary);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-lg);
+}
+
+.r-v2-home-empty__mapping-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-4);
 }
 
 .r-v2-home-empty__choices {

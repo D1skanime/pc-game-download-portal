@@ -421,7 +421,7 @@ class DBPcAutomationHandler(DBBaseHandler):
         if target_kind == PcAutomationTargetKind.PARENT and component_id is None:
             statement = select(Rom).where(Rom.id == rom_id)
             if for_update:
-                statement = statement.with_for_update()
+                statement = statement.with_for_update(of=Rom)
             parent = session.scalar(statement)
             return _TargetSnapshot(parent, parent) if parent is not None else None
         if target_kind != PcAutomationTargetKind.COMPONENT or component_id is None:

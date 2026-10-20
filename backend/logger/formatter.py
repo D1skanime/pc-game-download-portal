@@ -22,13 +22,13 @@ LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "romm": {
+        "pgdp": {
             "()": "logger.formatter.Formatter",
         }
     },
     "handlers": {
         "default": {
-            "formatter": "romm",
+            "formatter": "pgdp",
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
         }
@@ -137,9 +137,9 @@ class Formatter(logging.Formatter):
         level = "%(levelname)s"
         dots = f"{RESET}:"
         module_label = resolve_module_name(record).lower()
-        identifier = f"\t  {BLUE}[RomM]{LIGHTMAGENTA}[{module_label}]"
-        identifier_warning = f"  {BLUE}[RomM]{LIGHTMAGENTA}[{module_label}]"
-        identifier_critical = f" {BLUE}[RomM]{LIGHTMAGENTA}[{module_label}]"
+        identifier = f"\t  {BLUE}[PGDP]{LIGHTMAGENTA}[{module_label}]"
+        identifier_warning = f"  {BLUE}[PGDP]{LIGHTMAGENTA}[{module_label}]"
+        identifier_critical = f" {BLUE}[PGDP]{LIGHTMAGENTA}[{module_label}]"
         msg = f"{RESET_ALL}%(message)s"
 
         message = pformat(record.msg) if hasattr(record, "pprint") else "%(message)s"

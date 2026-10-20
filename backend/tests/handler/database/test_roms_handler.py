@@ -110,6 +110,7 @@ def test_component_steam_metadata_uses_its_authoritative_column(rom):
     with session.begin() as db:
         db.add(component)
         db.flush()
+        db.refresh(component)
 
     saved = db_rom_handler.apply_pc_component_metadata_candidate(
         rom.id,

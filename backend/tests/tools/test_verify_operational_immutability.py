@@ -182,12 +182,12 @@ def _write_browser_artifacts(module, artifacts_root: Path) -> None:
         )
 
 
-def test_validation_rows_reference_exact_plan_tasks():
+def test_archived_validation_fixture_references_exact_plan_tasks():
     validation = (
         REPO_ROOT
-        / ".planning"
-        / "phases"
-        / "09-operational-immutability-proof"
+        / "tests"
+        / "fixtures"
+        / "operational-immutability"
         / "09-VALIDATION.md"
     ).read_text(encoding="utf-8")
     assert "TBD" not in validation
@@ -780,3 +780,31 @@ def test_execute_workflows_runs_stack_browser_and_log_collection(
     assert sorted(aggregate["browser_workflow_slugs"]) == sorted(
         module.BROWSER_WORKFLOW_SLUGS
     )
+
+
+@pytest.mark.parametrize(
+    "slug", ["scan-hash", "stream-play", "single-download", "multi-download"]
+)
+def test_nginx_witness_workflows_include_complete_probe_evidence(monkeypatch, slug):
+    module = _load_module()
+    requests = []
+
+    def probe(url):
+        requests.append(url)
+        return {
+            "status": 200 if url.endswith("/api/heartbeat") else 404,
+            "headers": {"Content-Type": "application/json"},
+        }
+
+    monkeypatch.setattr(module, "_http_probe", probe)
+    evidence = module._workflow_http_probes(slug, base_url="http://contract.invalid")
+    assert evidence["authorized_status"] == 200
+    assert evidence["direct_library_status"] == 404
+    assert evidence["direct_cache_status"] == 404
+    assert evidence["request_url"] == "http://contract.invalid/api/heartbeat"
+    assert evidence["response_headers"] == {"Content-Type": "application/json"}
+    assert requests == [
+        "http://contract.invalid/api/heartbeat",
+        f"http://contract.invalid/library/{slug}.bin",
+        f"http://contract.invalid/cache/{slug}.zip",
+    ]

@@ -1,9 +1,11 @@
 import { normalizeLocale } from "@/v2/composables/useProviderResolution";
 import type {
+  CollectionPromotionRequest,
   LibraryProfile,
   OperationKind,
   OperationRequest,
   OperationScope,
+  ScanOperationRequest,
   ScanType,
 } from "./contracts";
 
@@ -20,6 +22,7 @@ export interface LibraryScanRequestInput {
   scanType: ScanType;
   metadataOnly?: boolean;
   mediaOnly?: boolean;
+  collectionPromotion?: CollectionPromotionRequest;
 }
 
 export function buildLibraryScanRequest(
@@ -65,6 +68,9 @@ export function buildLibraryScanRequest(
       resumable: true,
     },
     scanType: input.scanType,
+    ...(input.collectionPromotion
+      ? { collectionPromotion: input.collectionPromotion }
+      : {}),
     ...(input.metadataOnly || input.mediaOnly
       ? {
           metadataOnly: input.metadataOnly === true,
@@ -91,6 +97,7 @@ export interface LegacyScanOptions {
   type: ScanType;
   roms_ids: number[];
   platform_fs_slugs: string[];
+  filesystem_scope_paths?: Record<string, string>;
   apis: string[];
   launchbox_remote_enabled: boolean;
   playmatch_enabled: boolean;
@@ -260,6 +267,21 @@ export function normalizeOperationRequest(
       "Operation, idempotency, and job identifiers are required.",
     );
   }
+  if (!/^[a-z0-9][a-z0-9_-]{0,95}$/.test(request.idempotencyKey)) {
+    throw new OperationTranslationError("Invalid scan request key.");
+  }
+  if (
+    [request.operationId, request.jobId].some(
+      (identity) =>
+        identity.length > 128 ||
+        [...identity].some((character) => {
+          const code = character.charCodeAt(0);
+          return code < 32 || code === 127;
+        }),
+    )
+  ) {
+    throw new OperationTranslationError("Invalid local operation identity.");
+  }
   const maxConcurrency = Math.max(
     1,
     Math.min(16, Math.floor(request.execution.maxConcurrency)),
@@ -290,7 +312,10 @@ export function normalizeOperationRequest(
 
 function scopeOptions(
   request: OperationRequest,
-): Pick<LegacyScanOptions, "platforms" | "roms_ids" | "platform_fs_slugs"> {
+): Pick<
+  LegacyScanOptions,
+  "platforms" | "roms_ids" | "platform_fs_slugs" | "filesystem_scope_paths"
+> {
   switch (request.scope.kind) {
     case "library":
       return {
@@ -315,11 +340,16 @@ function scopeOptions(
         platforms: profilePlatformIds(request),
         roms_ids: [],
         platform_fs_slugs: uniqueStrings(request.scope.platformFsSlugs),
+        ...(request.scope.relativePaths
+          ? { filesystem_scope_paths: request.scope.relativePaths }
+          : {}),
       };
     case "component":
       throw new OperationTranslationError(
         "Component operations require the PC/DLC matcher API and cannot use the scan socket.",
       );
+    default:
+      return assertNever(request.scope);
   }
 }
 
@@ -358,6 +388,32 @@ export function toLegacyScanOptions(
           metadata_only: request.metadataOnly === true,
           media_only: request.mediaOnly === true,
         }
+      : {}),
+  };
+}
+
+export function toScanOperationRequest(
+  input: OperationRequest,
+): ScanOperationRequest {
+  if (input.preview) {
+    throw new OperationTranslationError("Preview cannot submit scan work.");
+  }
+  const payload = toLegacyScanOptions(input);
+  const type =
+    payload.type === "full"
+      ? "complete"
+      : payload.type === "media"
+        ? "update"
+        : payload.type;
+  return {
+    ...payload,
+    request_key: input.idempotencyKey,
+    ...(input.collectionPromotion
+      ? { collection_promotion: input.collectionPromotion }
+      : {}),
+    type,
+    ...(payload.type === "media"
+      ? { metadata_only: false, media_only: true }
       : {}),
   };
 }

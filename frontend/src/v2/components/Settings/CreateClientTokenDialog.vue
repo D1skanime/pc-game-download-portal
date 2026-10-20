@@ -350,7 +350,7 @@ function renderQR(code: string) {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       const logo = new Image();
-      logo.src = "/assets/logos/romm_logo_xbox_one_circle.svg";
+      logo.src = "/assets/logos/pgdp_logo_xbox_one_circle.svg";
       logo.onload = () => {
         const logoSize = canvas.width * 0.24;
         const cx = canvas.width / 2;

@@ -11,53 +11,74 @@ import {
   RSwitch,
   RTooltip,
 } from "@v2/lib";
-import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
+import OperationStatusPanel from "@/v2/components/Scan/OperationStatusPanel.vue";
 import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
+import { useCan } from "@/v2/composables/useCan";
 import { useLibraryOperation } from "@/v2/composables/useLibraryOperation";
+import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
-import storeHeartbeat, {
-  type MetadataOption,
-} from "@/v2/data/adapters/legacy/stores/heartbeat";
 import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
-import type { OperationRequest, OperationScope } from "@/v2/data/contracts";
-import { resolveMediaOnlyScope } from "@/v2/data/operations";
-
-const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
-const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
-  "scan.launchboxRemoteEnabled";
-const LOCAL_STORAGE_HASHEOUS_ENABLED_KEY = "scan.hasheousEnabled";
-const LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY = "scan.playmatchEnabled";
-const LOCAL_STORAGE_METADATA_LOCALE_KEY = "scan.metadataLocale";
-
-// Hash-matcher providers — proxies that match files by hash and feed
-// IDs into the primary catalogs (IGDB, RetroAchievements). Kept out of
-// the main provider select so users don't read them as standalone
-// sources.
-const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
+import type { OperationScope, SubfolderScanRequest } from "@/v2/data/contracts";
+import {
+  buildLibraryScanRequest,
+  resolveMediaOnlyScope,
+} from "@/v2/data/operations";
 
 const { t, locale } = useI18n();
 const scanningStore = storeScanning();
 const libraryOperation = useLibraryOperation();
+const {
+  snapshot,
+  checking,
+  uncertain,
+  disconnected,
+  reconciling,
+  actionError,
+  status,
+  busy,
+} = libraryOperation;
+const canManageScan = useCan("library.scan");
 const snackbar = useSnackbar();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
 const { scannablePlatforms } = storeToRefs(platformsStore);
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
-const heartbeat = storeHeartbeat();
 const platformsToScan = ref<string[]>([]);
+const mappingReadiness = ref<"loading" | "ready" | "blocked" | "error">(
+  "loading",
+);
+const mappingReady = computed(() => mappingReadiness.value === "ready");
+const mappingRoute = { name: ROUTES.LIBRARY_MANAGEMENT };
 
-// Never-scanned folders are fetched on demand.
+async function loadMappingReadiness() {
+  mappingReadiness.value = "loading";
+  try {
+    if (platformsStore.allPlatforms.length === 0) {
+      await platformsStore.fetchPlatforms();
+    }
+    const readiness = await storageApi.getMappingsReadiness(
+      platformsStore.allPlatforms.map((platform) => platform.id),
+    );
+    mappingReadiness.value = readiness.ready ? "ready" : "blocked";
+  } catch {
+    mappingReadiness.value = "error";
+  }
+}
+
+// Never-scanned folders are fetched only after the server confirms the
+// canonical PC mapping is active and healthy.
 onMounted(() => {
-  platformsStore.fetchFilesystemPlatforms();
+  void loadMappingReadiness();
 });
 // IDs of platforms whose ScanPlatform panel is currently open.
 const openPlatforms = ref<Set<number>>(new Set());
@@ -82,188 +103,21 @@ const calculateHashes = computed(
   () => !config.value.SKIP_HASH_CALCULATION || false,
 );
 
-// Catalog options — main metadata sources. Hash matchers (hasheous,
-// playmatch) are filtered out and rendered as switch pills. IGDB's
-// heartbeat label flips to "IGDB + Playmatch" when Playmatch is
-// admin-enabled — strip the suffix since Playmatch has its own tile.
-const metadataOptions = computed(() =>
-  heartbeat
-    .getMetadataOptionsByPriority()
-    .filter(
-      (option) =>
-        !(HASH_MATCHER_KEYS as readonly string[]).includes(option.value),
-    )
-    .map((option) => {
-      const requiresHashes = option.value === "ra";
-      const hashingDisabled = !calculateHashes.value;
-      let disabled = option.disabled;
-      if (hashingDisabled && requiresHashes) {
-        disabled = t("scan.requires-hashes", { source: option.name });
-      }
-      const name = option.value === "igdb" ? "IGDB" : option.name;
-      return { ...option, name, disabled };
-    }),
-);
-
-interface HashMatcher {
-  value: "hasheous" | "playmatch";
-  name: string;
-  logo: string;
-  /** Reason the switch is forced off, surfaced in the hover tooltip.
-   *  null when the switch is interactable. */
-  blockedReason: string | null;
-  switchEnabled: boolean;
-}
-
-const hashMatchers = computed<HashMatcher[]>(() => {
-  const sources = heartbeat.value.METADATA_SOURCES;
-  const igdbSelected = effectiveMetadataSources.value.some(
-    (s) => s.value === "igdb",
-  );
-  const noHashes = !calculateHashes.value;
-
-  const hasheousAdmin = Boolean(sources?.HASHEOUS_API_ENABLED);
-  const playmatchAdmin = Boolean(sources?.PLAYMATCH_API_ENABLED);
-
-  return [
-    {
-      value: "hasheous",
-      name: "Hasheous",
-      logo: "/assets/scrappers/hasheous.png",
-      blockedReason: !hasheousAdmin
-        ? t("scan.disabled-by-admin")
-        : noHashes
-          ? t("scan.requires-hashes", { source: "Hasheous" })
-          : null,
-      switchEnabled: hasheousAdmin && !noHashes,
-    },
-    {
-      value: "playmatch",
-      name: "Playmatch",
-      logo: "/assets/scrappers/playmatch.png",
-      // Playmatch is hash-based — same gate as Hasheous — plus the
-      // backend requires IGDB in `apis` for its server-side join, so
-      // we surface that as a secondary gate.
-      blockedReason: !playmatchAdmin
-        ? t("scan.disabled-by-admin")
-        : noHashes
-          ? t("scan.requires-hashes", { source: "Playmatch" })
-          : !igdbSelected
-            ? t("scan.playmatch-requires-igdb")
-            : null,
-      switchEnabled: playmatchAdmin && !noHashes && igdbSelected,
-    },
-  ];
-});
-
-const storedMetadataSources = useLocalStorage(
-  LOCAL_STORAGE_METADATA_SOURCES_KEY,
-  [] as string[],
-);
-const launchboxRemoteEnabled = useLocalStorage(
-  LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY,
-  true,
-);
-const hasheousEnabled = useLocalStorage(
-  LOCAL_STORAGE_HASHEOUS_ENABLED_KEY,
-  true,
-);
-const playmatchEnabled = useLocalStorage(
-  LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY,
-  true,
-);
-const metadataLocale = useLocalStorage(
-  LOCAL_STORAGE_METADATA_LOCALE_KEY,
-  locale.value,
-);
-
-const metadataSources = ref<MetadataOption[]>(
-  metadataOptions.value.filter(
-    (m) => storedMetadataSources.value.includes(m.value) && !m.disabled,
-  ) || heartbeat.getEnabledMetadataOptions(),
-);
-
-const isLaunchboxSelected = computed(() =>
-  effectiveMetadataSources.value.some((s) => s.value === "launchbox"),
-);
-
-watch(metadataOptions, (newOptions) => {
-  metadataSources.value = metadataSources.value.filter((s) =>
-    newOptions.some((opt) => opt.value === s.value && !opt.disabled),
-  );
-});
-
-function setHashMatcher(value: HashMatcher["value"], next: boolean) {
-  if (value === "hasheous") hasheousEnabled.value = next;
-  else playmatchEnabled.value = next;
-}
-
-function isHashMatcherOn(matcher: HashMatcher): boolean {
-  if (!matcher.switchEnabled) return false;
-  return matcher.value === "hasheous"
-    ? hasheousEnabled.value
-    : playmatchEnabled.value;
-}
-
-// Provider categorisation — mirrors the split used by the setup
-// wizard's metadata step. General catalogs ship a full game record
-// (title, artwork, descriptions); specific sources add a single
-// domain dimension (achievements, completion times, custom art).
-// Each group renders its own RSelect; both share `metadataSources`
-// as the model. RSelect's `show-all-option` is subset-safe — toggling
-// All in one group doesn't touch the other.
-const GENERAL_PROVIDER_KEYS = new Set([
-  "igdb",
-  "steam",
-  "ss",
-  "moby",
-  "launchbox",
-  "flashpoint",
-  "gamelist",
-  "libretro",
-]);
-const SPECIFIC_PROVIDER_KEYS = new Set(["ra", "sgdb", "hltb"]);
-
-const generalProviders = computed<MetadataOption[]>(() =>
-  metadataOptions.value.filter((o) => GENERAL_PROVIDER_KEYS.has(o.value)),
-);
-const specificProviders = computed<MetadataOption[]>(() =>
-  metadataOptions.value.filter((o) => SPECIFIC_PROVIDER_KEYS.has(o.value)),
-);
-
-// Each group's RSelect uses empty-model-as-"All", but the scan backend
-// reads an empty `apis` list as "no sources", not "all". So when a group
-// is in All-mode we materialise its full enabled provider list — both to
-// drive the UI gates (IGDB present? any source picked?) and to build the
-// `apis` payload the backend actually understands.
-const enabledGeneralProviders = computed(() =>
-  generalProviders.value.filter((o) => !o.disabled),
-);
-const enabledSpecificProviders = computed(() =>
-  specificProviders.value.filter((o) => !o.disabled),
-);
-
-function hasGroupSelection(keys: Set<string>): boolean {
-  return metadataSources.value.some((s) => keys.has(s.value));
-}
-
-// All-mode mirrors of each RSelect. Initialised the same way the
-// primitive does (no own selection ⇒ All) and kept in sync afterwards
-// via each select's `@update:all-selected`.
-const generalAllSelected = ref(!hasGroupSelection(GENERAL_PROVIDER_KEYS));
-const specificAllSelected = ref(!hasGroupSelection(SPECIFIC_PROVIDER_KEYS));
-
-// Concrete providers the scan will actually use: each group contributes
-// its explicit selection, or every enabled provider when in All-mode.
-const effectiveMetadataSources = computed<MetadataOption[]>(() => {
-  const general = generalAllSelected.value
-    ? enabledGeneralProviders.value
-    : metadataSources.value.filter((s) => GENERAL_PROVIDER_KEYS.has(s.value));
-  const specific = specificAllSelected.value
-    ? enabledSpecificProviders.value
-    : metadataSources.value.filter((s) => SPECIFIC_PROVIDER_KEYS.has(s.value));
-  return [...general, ...specific];
-});
+const {
+  storedMetadataSources,
+  launchboxRemoteEnabled,
+  metadataLocale,
+  metadataSources,
+  isLaunchboxSelected,
+  hashMatchers,
+  setHashMatcher,
+  isHashMatcherOn,
+  generalProviders,
+  specificProviders,
+  generalAllSelected,
+  specificAllSelected,
+  effectiveMetadataSources,
+} = useScanProviders(calculateHashes);
 
 // Auto-expand a platform's panel the moment it starts reporting roms. The
 // panel body only lists ROMs, so firmware alone leaves nothing to show. We
@@ -345,10 +199,13 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
 ];
 const scanType = ref<ScanType>("quick");
 
+const canDiscover = computed(
+  () => mappingReady.value && !busy.value && canManageScan.value,
+);
 const canStartScan = computed(
   () =>
-    !scanning.value &&
-    (effectiveMetadataSources.value.length > 0 || scanType.value === "media"),
+    canDiscover.value &&
+    (scanType.value !== "update" || effectiveMetadataSources.value.length > 0),
 );
 
 // Live status header — pulled in from the (now retired) floating
@@ -390,11 +247,12 @@ const liveStats = computed(() => {
 });
 
 const hasResults = computed(
-  () => scanning.value || scanningPlatforms.value.length > 0,
+  () =>
+    scanningPlatforms.value.length > 0 || (scanStats.value.total_roms ?? 0) > 0,
 );
 
 const liveStatusLabel = computed(() => {
-  if (scanning.value) return t("scan.scanning");
+  if (snapshot.value) return t("scan.recovery-" + status.value);
   if (scanningPlatforms.value.length > 0) return t("scan.scan-complete");
   return t("scan.live-progress");
 });
@@ -412,7 +270,8 @@ const progressValue = computed(() =>
     : 0,
 );
 
-function scan() {
+function scan(subfolder?: SubfolderScanRequest) {
+  if (!canDiscover.value || (!subfolder && !canStartScan.value)) return;
   scanningStore.reset();
   scanningPlatforms.value = [];
   userScrolledDown = false;
@@ -428,12 +287,19 @@ function scan() {
   const playmatchMatcher = hashMatchers.value.find(
     (m) => m.value === "playmatch",
   );
-  const operationId = "library-scan-" + Date.now();
-  const selectedScanType = scanType.value;
+  const operationId = "library-scan-" + crypto.randomUUID();
+  const selectedScanType = subfolder ? "quick" : scanType.value;
   let scope: OperationScope;
   try {
-    scope =
-      selectedScanType === "media"
+    scope = subfolder
+      ? {
+          kind: "filesystem",
+          platformFsSlugs: [subfolder.platformFsSlug],
+          relativePaths: {
+            [subfolder.platformFsSlug]: subfolder.relativePath,
+          },
+        }
+      : selectedScanType === "media"
         ? resolveMediaOnlyScope(
             platformsToScan.value,
             sortedPlatforms.value.map((platform) => ({
@@ -448,8 +314,7 @@ function scan() {
     snackbar.error(t("scan.media-only-existing-platforms"));
     return;
   }
-  const mediaOnly = selectedScanType === "media";
-  const request: OperationRequest = {
+  const request = buildLibraryScanRequest({
     operationId,
     kind:
       selectedScanType === "media"
@@ -461,60 +326,24 @@ function scan() {
     profiles: [],
     uiLocale: locale.value,
     metadataLocale: metadataLocale.value,
-    providerPolicy: {
-      providers,
-      fallbackProviders:
-        playmatchMatcher && isHashMatcherOn(playmatchMatcher)
-          ? ["playmatch"]
-          : [],
-      allowUnexpectedLocale: false,
-      launchboxRemoteEnabled: launchboxRemoteEnabled.value,
-    },
-    metadataPolicy: {
-      mode:
-        selectedScanType === "update"
-          ? "provider-replace"
-          : selectedScanType === "media"
-            ? "none"
-            : "missing-only",
-      fields: [],
-    },
-    mediaPolicy:
-      selectedScanType === "update" || selectedScanType === "media"
-        ? { mode: "none", targets: [] }
-        : { mode: "missing-only", targets: [] },
-    ...(selectedScanType === "update"
-      ? { metadataOnly: true }
-      : selectedScanType === "media"
-        ? {
-            mediaOnly: true,
-          }
-        : {}),
-    capabilities: {
-      discovery: !mediaOnly,
-      creation: !mediaOnly,
-      metadata: !mediaOnly,
-      media: true,
-      fileMutation: false,
-      pcDlc: !mediaOnly,
-      preview: true,
-      retry: true,
-      resume: true,
-    },
-    preview: false,
-    permissions: { scopes: ["tasks:run"] },
-    idempotencyKey: operationId,
-    jobId: operationId,
-    retry: { maxAttempts: 3 },
-    execution: {
-      maxConcurrency: 1,
-      cancelable: true,
-      resumable: true,
-    },
+    providers,
+    playmatchEnabled: Boolean(
+      playmatchMatcher && isHashMatcherOn(playmatchMatcher),
+    ),
+    launchboxRemoteEnabled: launchboxRemoteEnabled.value,
     scanType: selectedScanType,
-  };
+    metadataOnly: selectedScanType === "update",
+    mediaOnly: selectedScanType === "media",
+    collectionPromotion: subfolder?.collectionPromotion,
+  });
 
-  void libraryOperation.start(request);
+  void libraryOperation.start(request).then(() => {
+    if (actionError.value) snackbar.error(t("scan.recovery-cause-failed"));
+  });
+}
+
+function scanSubfolder(subfolder: SubfolderScanRequest) {
+  scan(subfolder);
 }
 
 function stopScan() {
@@ -525,8 +354,60 @@ function stopScan() {
 <template>
   <div class="r-v2-scan">
     <ScanInfoDialog v-model="infoDialogOpen" />
+    <OperationStatusPanel
+      class="r-v2-scan__operation"
+      v-if="snapshot || checking || uncertain || actionError || disconnected"
+      :snapshot="snapshot"
+      :checking="checking"
+      :uncertain="uncertain"
+      :disconnected="disconnected"
+      :reconciling="reconciling"
+      :action-error="actionError"
+      :status="status"
+      :can-manage="canManageScan"
+      @stop="libraryOperation.cancel()"
+      @resume="libraryOperation.resume()"
+      @retry-status="libraryOperation.retryStatus()"
+      @retry="libraryOperation.retry($event)"
+    />
 
     <section
+      v-if="!mappingReady"
+      class="r-v2-scan-card r-v2-scan-card--mapping"
+    >
+      <RIcon icon="mdi-folder-key-outline" size="48" />
+      <h2>
+        {{ t("storage.administration") }}
+      </h2>
+      <p>
+        {{
+          t(
+            "storage.reconcile-legacy",
+            "An active, reachable, read-only PC mapping is required before a library scan can start.",
+          )
+        }}
+      </p>
+      <div class="r-v2-scan-card__mapping-actions">
+        <RBtn
+          variant="flat"
+          color="primary"
+          :to="mappingRoute"
+          prepend-icon="mdi-folder-cog-outline"
+        >
+          {{ t("settings.add-folder-mapping") }}
+        </RBtn>
+        <RBtn
+          v-if="mappingReadiness === 'error'"
+          variant="outlined"
+          @click="loadMappingReadiness"
+        >
+          {{ t("common.retry", "Retry") }}
+        </RBtn>
+      </div>
+    </section>
+
+    <section
+      v-else
       class="r-v2-scan-card"
       :class="{ 'r-v2-scan-card--locked': scanning }"
       :aria-label="t('scan.title')"
@@ -822,7 +703,9 @@ function stopScan() {
       <footer class="r-v2-scan-card__section r-v2-scan-card__cta">
         <div class="r-v2-scan-card__hints">
           <RAlert
-            v-if="effectiveMetadataSources.length === 0"
+            v-if="
+              effectiveMetadataSources.length === 0 && scanType === 'update'
+            "
             type="warning"
             density="compact"
             :icon="false"
@@ -861,11 +744,11 @@ function stopScan() {
           variant="flat"
           color="primary"
           prepend-icon="mdi-magnify-scan"
-          :loading="scanning"
+          :loading="checking"
           :disabled="!canStartScan"
-          @click="scan"
+          @click="scan()"
         >
-          {{ scanning ? t("scan.scanning") : t("scan.scan") }}
+          {{ checking ? t("scan.recovery-checking") : t("scan.scan") }}
         </RBtn>
 
         <RBtn
@@ -884,7 +767,7 @@ function stopScan() {
          a vertical stack of expansion panels with a transition group
          so each card animates in. Owns its own scroll so logs never
          push the controls off-screen. -->
-    <section class="r-v2-scan-live" aria-live="polite">
+    <section v-if="mappingReady" class="r-v2-scan-live" aria-live="polite">
       <header class="r-v2-scan-live__head">
         <div class="r-v2-scan-live__status">
           <span v-if="scanning" class="r-v2-scan-live__pulse" />
@@ -1027,6 +910,7 @@ function stopScan() {
             :open="openPlatforms.has(platform.id)"
             class="r-v2-scan-live__panel"
             @update:open="(v) => setOpen(platform.id, v)"
+            @scan-subfolder="scanSubfolder"
           />
         </TransitionGroup>
       </div>
@@ -1043,6 +927,12 @@ function stopScan() {
   grid-template-columns: minmax(360px, 1fr) minmax(0, 1.6fr);
   gap: 18px;
   align-items: stretch;
+}
+
+.r-v2-scan__operation {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* === Config card (left column) ================================

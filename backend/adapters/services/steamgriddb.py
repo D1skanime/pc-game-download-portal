@@ -24,6 +24,7 @@ from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.provider_diagnostics import report_provider_fault
 
 
 async def auth_middleware(
@@ -63,6 +64,7 @@ class SteamGridDBService:
             res.raise_for_status()
             return await res.json()
         except aiohttp.client_exceptions.ClientResponseError as exc:
+            report_provider_fault(exc)
             log.warning(f"Request failed with status {exc.status} for URL: {url}")
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
                 log.warning("Invalid API key or unauthorized access.")
@@ -71,6 +73,7 @@ class SteamGridDBService:
             log.error(exc)
             return {}
         except json.decoder.JSONDecodeError as exc:
+            report_provider_fault(exc)
             log.error(
                 "Failed to decode JSON response from SteamGridDB: %s",
                 str(exc),

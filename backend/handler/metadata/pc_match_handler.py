@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -23,6 +24,7 @@ COMPACT_TITLE_BOUNDARY = re.compile(
 )
 GENERIC_DLC_COMPONENT_NAMES = frozenset({"dlc", "dlcs", "expansion", "expansions"})
 STEAM_DLC_MIN_SIMILARITY = 0.9
+PC_MATCH_PROVIDER_TIMEOUT_SECONDS = 5.0
 INSTALLER_PREFIX = re.compile(r"^(?:setup|install|installer)[_. -]+", re.IGNORECASE)
 PARENTHESIZED_SUFFIX = re.compile(r"\([^)]*\)")
 VERSION_SUFFIX = re.compile(
@@ -109,24 +111,36 @@ class PcMetadataMatchHandler:
         get_by_id = getattr(steam, "get_rom_by_id", None) if steam else None
         if steam is None or not steam.is_enabled() or get_by_id is None:
             return []
-        candidates: list[PcMetadataCandidate] = []
-        for related in related_candidates:
-            steam_id = self._positive_int(related.provider_ids.get("steam_id"))
-            if steam_id is None:
-                continue
-            try:
-                details = await get_by_id(steam_id, rom.platform_slug)
-            except Exception:
-                continue
-            if not isinstance(details, dict) or details.get("steam_id") != steam_id:
-                continue
-            if not self._is_valid_steam_dlc_details(
-                details.get("steam_metadata"),
-                self._positive_int(getattr(rom, "steam_id", None)),
-            ):
-                continue
-            candidates.append(self._candidate("steam", details))
-        return candidates
+        results = await asyncio.gather(
+            *(
+                self._steam_candidate_from_related(rom, steam, related)
+                for related in related_candidates
+            )
+        )
+        return [candidate for candidate in results if candidate is not None]
+
+    async def _steam_candidate_from_related(
+        self, rom: Rom, steam: PcMetadataProvider, related: PcMetadataCandidate
+    ) -> PcMetadataCandidate | None:
+        steam_id = self._positive_int(related.provider_ids.get("steam_id"))
+        get_by_id = getattr(steam, "get_rom_by_id", None)
+        if steam_id is None or get_by_id is None:
+            return None
+        try:
+            details = await asyncio.wait_for(
+                get_by_id(steam_id, rom.platform_slug),
+                timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            return None
+        if not isinstance(details, dict) or details.get("steam_id") != steam_id:
+            return None
+        if not self._is_valid_steam_dlc_details(
+            details.get("steam_metadata"),
+            self._positive_int(getattr(rom, "steam_id", None)),
+        ):
+            return None
+        return self._candidate("steam", details)
 
     def _filter_dlc_component_candidates(
         self,
@@ -262,7 +276,10 @@ class PcMetadataMatchHandler:
             ):
                 continue
             try:
-                details = await get_by_id(steam_id, rom.platform_slug)
+                details = await asyncio.wait_for(
+                    get_by_id(steam_id, rom.platform_slug),
+                    timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+                )
             except Exception:
                 return None
             if not isinstance(details, dict) or details.get("steam_id") != steam_id:
@@ -302,7 +319,10 @@ class PcMetadataMatchHandler:
             ):
                 continue
             try:
-                details = await get_by_id(steam_id, rom.platform_slug)
+                details = await asyncio.wait_for(
+                    get_by_id(steam_id, rom.platform_slug),
+                    timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+                )
             except Exception:
                 return None
             if isinstance(details, dict) and details.get("steam_id") == steam_id:
@@ -326,29 +346,41 @@ class PcMetadataMatchHandler:
             return None
 
         title = self._component_search_title(rom, component)
-        validated: list[dict[str, Any]] = []
-        for app_id in dlc_ids:
-            steam_id = self._positive_int(app_id)
-            if steam_id is None:
-                continue
-            try:
-                details = await get_by_id(steam_id)
-            except Exception:
-                return None
-            if not isinstance(details, dict) or details.get("steam_id") != steam_id:
-                continue
-            name = details.get("name")
-            if not isinstance(name, str) or (
-                SequenceMatcher(None, title.casefold(), name.casefold()).ratio()
-                < STEAM_DLC_MIN_SIMILARITY
-            ):
-                continue
-            if self._is_valid_steam_dlc_details(
-                details.get("steam_metadata"), parent_id
-            ):
-                validated.append(details)
-
+        detail_results = await asyncio.gather(
+            *(
+                self._parent_listed_steam_detail(get_by_id, app_id, title, parent_id)
+                for app_id in dlc_ids
+            )
+        )
+        validated = [details for details in detail_results if details is not None]
         return validated[0] if len(validated) == 1 else None
+
+    async def _parent_listed_steam_detail(
+        self, get_by_id: Any, app_id: object, title: str, parent_id: int
+    ) -> dict[str, Any] | None:
+        steam_id = self._positive_int(app_id)
+        if steam_id is None:
+            return None
+        try:
+            details = await asyncio.wait_for(
+                get_by_id(steam_id),
+                timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            return None
+        if not isinstance(details, dict) or details.get("steam_id") != steam_id:
+            return None
+        name = details.get("name")
+        if not isinstance(name, str) or (
+            SequenceMatcher(None, title.casefold(), name.casefold()).ratio()
+            < STEAM_DLC_MIN_SIMILARITY
+        ):
+            return None
+        if not self._is_valid_steam_dlc_details(
+            details.get("steam_metadata"), parent_id
+        ):
+            return None
+        return details
 
     @staticmethod
     def _positive_int(value: object) -> int | None:
@@ -442,32 +474,42 @@ class PcMetadataMatchHandler:
         if get_by_id is None:
             return candidates
 
-        enriched: list[PcMetadataCandidate] = []
-        for candidate in candidates:
-            igdb_id = candidate.provider_ids["igdb_id"]
-            try:
-                details = await get_by_id(rom, igdb_id)
-            except Exception:
-                details = None
-            if details:
-                details = dict(details)
-                fallback_cover = next(
-                    (
-                        media["url"]
-                        for media in candidate.media
-                        if media.get("kind") == "cover" and media.get("url")
-                    ),
-                    None,
-                )
-                if fallback_cover and not details.get("url_cover"):
-                    details["url_cover"] = fallback_cover
-                steam_id = self._positive_int(candidate.provider_ids.get("steam_id"))
-                if steam_id is not None:
-                    details["steam_id"] = steam_id
-                enriched.append(self._candidate("igdb", details))
-            else:
-                enriched.append(candidate)
-        return enriched
+        enriched = await asyncio.gather(
+            *(
+                self._enrich_related_igdb_candidate(rom, get_by_id, candidate)
+                for candidate in candidates
+            )
+        )
+        return list(enriched)
+
+    async def _enrich_related_igdb_candidate(
+        self, rom: Rom, get_by_id: Any, candidate: PcMetadataCandidate
+    ) -> PcMetadataCandidate:
+        igdb_id = candidate.provider_ids["igdb_id"]
+        try:
+            details = await asyncio.wait_for(
+                get_by_id(rom, igdb_id),
+                timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            details = None
+        if not details:
+            return candidate
+        details = dict(details)
+        fallback_cover = next(
+            (
+                media["url"]
+                for media in candidate.media
+                if media.get("kind") == "cover" and media.get("url")
+            ),
+            None,
+        )
+        if fallback_cover and not details.get("url_cover"):
+            details["url_cover"] = fallback_cover
+        steam_id = self._positive_int(candidate.provider_ids.get("steam_id"))
+        if steam_id is not None:
+            details["steam_id"] = steam_id
+        return self._candidate("igdb", details)
 
     async def _collect_for_title(
         self,
@@ -476,6 +518,7 @@ class PcMetadataMatchHandler:
         overrides: dict[str, PcMetadataProviderResult] | None = None,
     ) -> dict[str, PcMetadataProviderResult]:
         results: dict[str, PcMetadataProviderResult] = {}
+        lookups: list[tuple[str, PcMetadataProvider, Any]] = []
         for provider_name, provider in self.providers.items():
             if overrides and provider_name in overrides:
                 results[provider_name] = overrides[provider_name]
@@ -486,22 +529,59 @@ class PcMetadataMatchHandler:
                 )
                 continue
 
-            try:
-                provider_results = await self._lookup(
-                    provider_name, provider, rom, title
+            lookups.append(
+                (
+                    provider_name,
+                    provider,
+                    self._lookup_result_with_timeout(
+                        provider_name, provider, rom, title
+                    ),
                 )
-            except Exception:
+            )
+
+        lookup_results = await asyncio.gather(
+            *(lookup for _, _, lookup in lookups), return_exceptions=True
+        )
+        for (provider_name, _, _), result in zip(lookups, lookup_results, strict=False):
+            if isinstance(result, Exception):
                 results[provider_name] = PcMetadataProviderResult(
                     provider_name, False, [], "unavailable"
                 )
-                continue
+            elif isinstance(result, BaseException):
+                raise result
+            else:
+                results[provider_name] = result
+        return {
+            provider_name: results[provider_name] for provider_name in self.providers
+        }
 
-            results[provider_name] = PcMetadataProviderResult(
-                provider_name,
-                True,
-                [self._candidate(provider_name, item) for item in provider_results],
+    async def _lookup_result_with_timeout(
+        self,
+        provider_name: str,
+        provider: PcMetadataProvider,
+        rom: Rom,
+        title: str,
+    ) -> PcMetadataProviderResult:
+        try:
+            return await asyncio.wait_for(
+                self._lookup_result(provider_name, provider, rom, title),
+                timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
             )
-        return results
+        except asyncio.TimeoutError:
+            return PcMetadataProviderResult(provider_name, False, [], "timeout")
+
+    async def _lookup_result(
+        self, provider_name: str, provider: PcMetadataProvider, rom: Rom, title: str
+    ) -> PcMetadataProviderResult:
+        try:
+            provider_results = await self._lookup(provider_name, provider, rom, title)
+        except Exception:
+            return PcMetadataProviderResult(provider_name, False, [], "unavailable")
+        return PcMetadataProviderResult(
+            provider_name,
+            True,
+            [self._candidate(provider_name, item) for item in provider_results],
+        )
 
     async def _lookup(
         self, provider_name: str, provider: PcMetadataProvider, rom: Rom, title: str

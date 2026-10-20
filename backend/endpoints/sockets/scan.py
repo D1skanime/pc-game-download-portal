@@ -6,16 +6,14 @@ from dataclasses import dataclass
 from itertools import batched, chain
 from typing import Any, Final, cast
 
-import pydash
 import socketio  # type: ignore
+from httpx import DecodingError, TransportError
 from rq import Worker, get_current_job
 from rq.job import Job, JobStatus
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
-from config.config_manager import MetadataMediaType
+from config import REDIS_URL, SCAN_WORKERS
 from config.config_manager import config_manager as cm
-from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
 from endpoints.sockets.activity import get_authenticated_user
@@ -39,22 +37,32 @@ from handler.database import (
     db_storage_handler,
 )
 from handler.database.catalog_lifecycle_handler import CatalogLifecycleHandler
+from handler.database.scan_write_fence import (
+    ScanWriteRejected,
+    require_scan_write_context,
+)
 from handler.filesystem import (
     fs_firmware_handler,
     fs_platform_handler,
     fs_resource_handler,
     fs_rom_handler,
+    get_fs_rom_handler,
     legacy_external_storage,
     open_storage_access,
-    storage_composition,
+    use_fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.filesystem.storage_access import (
-    OwnedReplace,
-    ScanCapability,
-    open_owned_access,
+from handler.filesystem.scan_media_inventory import ScanMediaInventory
+from handler.filesystem.scan_media_publication import (
+    ScanMediaBatch,
+    merge_scan_rom,
+    publish_rom_resources,
 )
-from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
+from handler.filesystem.storage_access import (
+    IndeterminateOwnedPublicationError,
+    ScanCapability,
+)
+from handler.filesystem.storage_policy import StorageOperation
 from handler.filesystem.storage_resolver import get_storage_root_health_snapshot
 from handler.metadata import (
     meta_gamelist_handler,
@@ -105,10 +113,7 @@ from models.rom import (
 )
 from tasks.tasks import SCAN_LIBRARY_TASK_FUNC, tasks_scheduler, update_job_meta
 from utils import emoji
-from utils.audio_tags import remove_persisted_cover
 from utils.context import initialize_context
-from utils.gamelist_exporter import GamelistExporter
-from utils.pegasus_exporter import PegasusExporter
 from utils.platform_slugs import canonicalize_filesystem_slug
 
 STOP_SCAN_FLAG: Final = "scan:stop"
@@ -196,6 +201,8 @@ async def _emit_scanning_rom(socket_manager: Any, rom: Rom) -> None:
                 }
             ),
         )
+    except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
+        raise
     except Exception as exc:
         log.warning(
             "Unable to emit scan progress for ROM %s; continuing scan: %s",
@@ -253,6 +260,9 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
             if steam_saved_component is not None:
                 saved_component = steam_saved_component
 
+    saved_component = db_rom_handler.get_pc_component_by_id(rom.id, saved_component.id)
+    if saved_component is None:
+        return
     existing_media = db_rom_handler.get_pc_component_provider_media_for_reconciliation(
         rom.id, saved_component.id
     )
@@ -264,20 +274,23 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
             continue
         if content:
             content_hashes[existing.id] = hashlib.sha256(content).hexdigest()
-    reconciled = db_rom_handler.reconcile_pc_component_provider_media(
-        rom.id,
-        saved_component.id,
-        saved_component.updated_at,
-        content_hashes,
-    )
+    with ScanMediaBatch(rom.id, rom.platform_id, fs_resource_handler.storage) as unit:
+        reconciled = unit.publish_and_associate(
+            lambda session: db_rom_handler.reconcile_pc_component_provider_media(
+                rom.id,
+                saved_component.id,
+                saved_component.updated_at,
+                content_hashes,
+                session=session,
+            )
+        )
     if reconciled is None:
         return
-    for path in reconciled.unreferenced_owned_paths:
-        try:
-            await fs_resource_handler.remove_file(path)
-        except FileNotFoundError:
-            pass
-    saved_component = reconciled.component
+    saved_component = db_rom_handler.get_pc_component_by_id(
+        rom.id, reconciled.component.id
+    )
+    if saved_component is None:
+        return
 
     for media in candidate.media:
         role = _PC_IGDB_MEDIA_ROLES.get(media.get("kind", ""))
@@ -285,43 +298,51 @@ async def _enrich_pc_dlc_from_igdb(rom: Rom, component: RomComponent) -> None:
         if role is None or not isinstance(url, str):
             continue
         try:
-            owned_path, mime_type, content_sha256 = (
-                await fs_resource_handler.store_pc_component_provider_image(
-                    rom,
-                    saved_component.id,
-                    candidate.provider,
-                    role,
-                    url,
+            with ScanMediaBatch(
+                rom.id, rom.platform_id, fs_resource_handler.storage
+            ) as unit:
+                owned_path, mime_type, content_sha256 = (
+                    await fs_resource_handler.store_pc_component_provider_image(
+                        rom, saved_component.id, candidate.provider, role, url
+                    )
                 )
-            )
-            provider_media_id = derive_pc_component_provider_media_id(
-                candidate.provider, role, content_sha256
-            )
-        except Exception:
-            log.warning(
-                "Failed to import optional IGDB DLC media for ROM %s component %s",
-                rom.id,
-                saved_component.id,
-                exc_info=True,
-            )
-            continue
+                provider_media_id = derive_pc_component_provider_media_id(
+                    candidate.provider, role, content_sha256
+                )
 
-        imported = db_rom_handler.import_pc_component_provider_media(
-            rom.id,
-            saved_component.id,
-            saved_component.updated_at,
-            role,
-            mime_type,
-            owned_path,
-            candidate.provider,
-            provider_media_id,
-            content_sha256,
-        )
-        if imported is None:
-            try:
-                await fs_resource_handler.remove_file(owned_path)
-            except FileNotFoundError:
-                pass
+                def associate_dlc(
+                    session,
+                    saved_component=saved_component,
+                    role=role,
+                    mime_type=mime_type,
+                    owned_path=owned_path,
+                    provider_media_id=provider_media_id,
+                    content_sha256=content_sha256,
+                ):
+                    imported = db_rom_handler.import_pc_component_provider_media(
+                        rom.id,
+                        saved_component.id,
+                        saved_component.updated_at,
+                        role,
+                        mime_type,
+                        owned_path,
+                        candidate.provider,
+                        provider_media_id,
+                        content_sha256,
+                        session=session,
+                    )
+                    if imported is None:
+                        raise ValueError("DLC media catalog changed")
+                    return imported
+
+                unit.publish_and_associate(associate_dlc)
+        except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
+            raise
+        except (ValueError, OSError, TransportError, DecodingError):
+            log.warning(
+                "Optional DLC media retained prior reference for component %s",
+                saved_component.id,
+            )
             continue
         saved_component = db_rom_handler.get_pc_component_by_id(
             rom.id, saved_component.id
@@ -346,7 +367,16 @@ def _scan_job_func_names() -> frozenset[str]:
     rescan enqueues its own task and calls scan_platforms in process. Both have
     to be recognised or an in-flight scan goes unseen.
     """
-    return frozenset((_scan_platforms_func_name(), SCAN_LIBRARY_TASK_FUNC))
+    return frozenset(
+        (
+            _scan_platforms_func_name(),
+            SCAN_LIBRARY_TASK_FUNC,
+            "endpoints.sockets.scan.execute_mapping_scan",
+            "endpoints.sockets.scan.execute_mapping_scans",
+            "endpoints.sockets.scan.execute_mixed_scans",
+            "handler.scan_operation_worker.run_scan_operation",
+        )
+    )
 
 
 def _get_running_scan_job() -> Job | None:
@@ -380,11 +410,10 @@ def _get_queued_scan_jobs() -> list[Job]:
     # The scheduler registry also holds the standing cron entry for the
     # scheduled rescan, which is a schedule rather than a pending scan, so only
     # delayed scan_platforms jobs count as queued here.
-    scan_platforms_func_name = _scan_platforms_func_name()
     for job in tasks_scheduler.get_jobs():
         if (
             isinstance(job, Job)
-            and get_job_func_name(job) == scan_platforms_func_name
+            and get_job_func_name(job) in (func_names - {SCAN_LIBRARY_TASK_FUNC})
             and job.get_status() in (JobStatus.SCHEDULED, JobStatus.QUEUED)
         ):
             jobs[job.id] = job
@@ -415,6 +444,9 @@ class ScanStats:
                 if hasattr(self, key):
                     setattr(self, key, value)
 
+            from handler.scan_operation_worker import persist_scan_stats
+
+            persist_scan_stats(self.to_dict())
             update_job_meta({"scan_stats": self.to_dict()})
             await socket_manager.emit("scan:update_stats", self.to_dict())
 
@@ -425,6 +457,9 @@ class ScanStats:
                     current_value = getattr(self, key)
                     setattr(self, key, current_value + value)
 
+            from handler.scan_operation_worker import persist_scan_stats
+
+            persist_scan_stats(self.to_dict())
             update_job_meta({"scan_stats": self.to_dict()})
             await socket_manager.emit("scan:update_stats", self.to_dict())
 
@@ -445,13 +480,20 @@ class ScanStats:
 
 def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
-    return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    from handler.scan_operation_worker import AttemptSocketManager, active_scan_worker
+
+    manager = socketio.AsyncRedisManager(REDIS_URL, write_only=True)
+    return AttemptSocketManager(manager) if active_scan_worker() else manager
 
 
 async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
 ) -> int:
+    require_scan_write_context()
+    from handler.scan_operation_worker import check_worker_boundary
+
+    check_worker_boundary()
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return 0
@@ -600,13 +642,17 @@ async def _identify_rom(
     metadata_locale: str | None = None,
     metadata_only: bool = False,
 ) -> None:
+    require_scan_write_context()
+    from handler.scan_operation_worker import check_worker_boundary
+
+    check_worker_boundary()
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return
 
     # Update properties that don't require metadata
-    parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+    parsed_tags = get_fs_rom_handler().parse_tags(fs_rom["fs_name"])
+    roms_path = get_fs_rom_handler().get_logical_roms_fs_structure(platform.fs_slug)
 
     rom_attrs = {
         "fs_name": fs_rom["fs_name"],
@@ -617,7 +663,7 @@ async def _identify_rom(
         "languages": parsed_tags.languages,
         "tags": parsed_tags.other_tags,
         "platform_id": platform.id,
-        "name": fs_rom_handler.get_file_name_with_no_tags(fs_rom["fs_name"]),
+        "name": get_fs_rom_handler().get_file_name_with_no_tags(fs_rom["fs_name"]),
         "url_cover": "",
         "url_manual": "",
         "url_screenshots": [],
@@ -634,7 +680,7 @@ async def _identify_rom(
         # the files and check whether they belong to an existing entry that went
         # missing (a renamed or moved ROM), so its collections, notes, and
         # uploaded assets carry over instead of being orphaned on a duplicate.
-        parsed_rom_files = await fs_rom_handler.get_rom_files(
+        parsed_rom_files = await get_fs_rom_handler().get_rom_files(
             Rom(
                 **rom_attrs,
                 platform=platform,
@@ -692,18 +738,21 @@ async def _identify_rom(
 
     # Build rom files object before scanning. A reassociated ROM always rebuilds
     # its files so the stale paths from the old filename are replaced.
-    should_update_files = reassociated or _should_get_rom_files(
-        scan_type=scan_type,
-        rom=rom,
-        newly_added=newly_added,
-        roms_ids=roms_ids,
+    should_update_files = not metadata_only and (
+        reassociated
+        or _should_get_rom_files(
+            scan_type=scan_type,
+            rom=rom,
+            newly_added=newly_added,
+            roms_ids=roms_ids,
+        )
     )
     if should_update_files and not files_built:
         # Get hash calculation setting from config
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
-        parsed_rom_files = await fs_rom_handler.get_rom_files(
+        parsed_rom_files = await get_fs_rom_handler().get_rom_files(
             rom, calculate_hashes=calculate_hashes
         )
         fs_rom.update(
@@ -715,36 +764,6 @@ async def _identify_rom(
                 "ra_hash": parsed_rom_files.ra_hash,
             }
         )
-
-    # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
-    # stale files (e.g. a cover from the wrong region) can't be reused. The
-    # post-scan download steps below skip downloads when a file already exists or
-    # when the source URL is unchanged, so the on-disk files must be removed here.
-    if not newly_added and scan_type == ScanType.COMPLETE:
-        try:
-            await fs_resource_handler.remove_cover(rom)
-        except FileNotFoundError:
-            pass
-
-        try:
-            await fs_resource_handler.remove_manual(rom)
-        except FileNotFoundError:
-            pass
-
-        try:
-            await fs_resource_handler.remove_directory(
-                f"{rom.fs_resources_path}/screenshots"
-            )
-        except FileNotFoundError:
-            pass
-
-        for media_type in MetadataMediaType:
-            try:
-                await fs_resource_handler.remove_media_resources_path(
-                    platform.id, rom.id, media_type
-                )
-            except FileNotFoundError:
-                pass
 
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
@@ -768,7 +787,7 @@ async def _identify_rom(
         identified_roms=1 if scanned_rom.is_identified else 0,
     )
 
-    _added_rom = db_rom_handler.add_rom(scanned_rom)
+    _added_rom = merge_scan_rom(scanned_rom)
 
     if (
         not metadata_only
@@ -811,63 +830,40 @@ async def _identify_rom(
         # Reconcile against the existing rows instead of replacing them, so file
         # ids survive a rescan and anything keyed on them (track metadata,
         # persisted soundtrack covers) stays valid.
-        synced = db_rom_handler.sync_rom_files(_added_rom.id, fs_rom["files"])
-        for cover_path in synced.orphaned_cover_paths:
-            remove_persisted_cover(cover_path)
+        with ScanMediaBatch(
+            _added_rom.id, _added_rom.platform_id, fs_resource_handler.storage
+        ) as unit:
+            synced = unit.publish_and_associate(
+                lambda session: db_rom_handler.sync_rom_files(
+                    _added_rom.id, fs_rom["files"], session=session
+                )
+            )
         for saved in synced.files:
             persist_soundtrack_cover(saved, _added_rom)
 
     # Short circuit if the scan type is hashes
-    if scan_type == ScanType.HASHES:
+    if scan_type == ScanType.HASHES or metadata_only:
+        from handler.scan_operation_checkpoint import record_completed_game
+
+        record_completed_game(_added_rom)
         return
-    if metadata_only:
-        return
 
-    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        entity=_added_rom,
-        overwrite=_added_rom.url_cover != rom.url_cover,
-        url_cover=add_ss_auth_to_url(_added_rom.url_cover),
-    )
-
-    path_manual = await fs_resource_handler.get_manual(
-        rom=_added_rom,
-        overwrite=_added_rom.url_manual != rom.url_manual,
-        url_manual=add_ss_auth_to_url(_added_rom.url_manual),
-    )
-
-    screenshots_changed = pydash.xor(
-        _added_rom.url_screenshots or [], rom.url_screenshots or []
-    )
-    url_screenshots = _added_rom.url_screenshots or []
-    path_screenshots = await fs_resource_handler.get_rom_screenshots(
-        rom=_added_rom,
-        overwrite=bool(screenshots_changed),
-        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
-    )
-
-    _added_rom.path_cover_s = path_cover_s
-    _added_rom.path_cover_l = path_cover_l
-    _added_rom.path_screenshots = path_screenshots
-    _added_rom.path_manual = path_manual
-
-    # Update the scanned rom with the cover and screenshots paths and update database
-    persisted_rom = db_rom_handler.update_rom(
-        _added_rom.id,
-        {
-            "path_cover_s": path_cover_s,
-            "path_cover_l": path_cover_l,
-            "path_screenshots": path_screenshots,
-            "path_manual": path_manual,
-        },
-    )
-    # update_rom may advance updated_at through SQLAlchemy onupdate. Use the
-    # committed version for the optimistic owned-media reconciliation instead
-    # of the detached metadata object from the provider matching step.
-    committed_rom = db_rom_handler.get_rom_simple(_added_rom.id)
-    if committed_rom is None:
-        raise ValueError(f"ROM { _added_rom.id } disappeared after media path update")
-    media_expected_version = committed_rom.updated_at
-
+    try:
+        await publish_rom_resources(
+            fs_resource_handler,
+            _added_rom,
+            rom,
+            complete=scan_type == ScanType.COMPLETE,
+        )
+    except (ValueError, OSError, TransportError, DecodingError) as error:
+        log.warning(
+            "Scan resource replacement retained prior references (%s)",
+            type(error).__name__,
+        )
+    _added_rom = db_rom_handler.get_rom(_added_rom.id)
+    if _added_rom is None:
+        raise ValueError("Scan catalog target disappeared")
+    media_expected_version = _added_rom.updated_at
     # Keep the legacy resource paths for compatibility, but also reconcile
     # provider images into the canonical owned-media catalog used by the v2
     # media surfaces. Without this bridge a normal scan downloads screenshots
@@ -888,64 +884,101 @@ async def _identify_rom(
                     failure.provider_media_id,
                     failure.reason,
                 )
-        except (ValueError, OSError) as exc:
+        except (ValueError, OSError, TransportError, DecodingError) as exc:
             log.warning(
                 "Provider media catalog refresh failed for ROM %s: %s",
                 _added_rom.id,
                 exc,
             )
 
-    # Handle special media files from Screenscraper
-    if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            media_path = _added_rom.ss_metadata.get(f"{media_type.value}_path")
-            media_url = _added_rom.ss_metadata.get(f"{media_type.value}_url")
-            if media_path and media_url:
-                await fs_resource_handler.store_media_file(
-                    add_ss_auth_to_url(media_url),
-                    media_path,
+    pending = getattr(scanned_rom, "_pending_scan_media", {})
+    for source, field in (
+        (MetadataSource.SS, "ss_metadata"),
+        (MetadataSource.GAMELIST, "gamelist_metadata"),
+        (MetadataSource.LAUNCHBOX, "launchbox_metadata"),
+    ):
+        if source not in metadata_sources:
+            continue
+        desired = pending.get(field, {})
+        for media_type in get_preferred_media_types():
+            key = f"{media_type.value}_path"
+            path, url = desired.get(key), desired.get(f"{media_type.value}_url")
+            if not path or not url:
+                continue
+            try:
+                with ScanMediaBatch(
+                    _added_rom.id, platform.id, fs_resource_handler.storage
+                ) as unit:
+                    generated = await fs_resource_handler.store_media_file(
+                        add_ss_auth_to_url(url), path
+                    )
+
+                    def associate_special(
+                        session, field=field, key=key, generated=generated
+                    ):
+                        current = db_rom_handler.get_rom(_added_rom.id, session=session)
+                        metadata = dict(getattr(current, field) or {})
+                        metadata[key] = generated
+                        return db_rom_handler.update_rom(
+                            current.id, {field: metadata}, session=session
+                        )
+
+                    unit.publish_and_associate(associate_special)
+            except (ValueError, OSError, TransportError, DecodingError) as error:
+                log.warning(
+                    "Scan special media retained prior reference (%s)",
+                    type(error).__name__,
                 )
 
-    # Handle special media files from ES-DE gamelist.xml
-    if _added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            if _added_rom.gamelist_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.store_media_file(
-                    _added_rom.gamelist_metadata[f"{media_type.value}_url"],
-                    _added_rom.gamelist_metadata[f"{media_type.value}_path"],
-                )
+    if MetadataSource.RA in metadata_sources and "achievements" in pending.get(
+        "ra_metadata", {}
+    ):
+        from copy import deepcopy
 
-    # Handle special media files from LaunchBox
-    if _added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            if _added_rom.launchbox_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.store_media_file(
-                    _added_rom.launchbox_metadata[f"{media_type.value}_url"],
-                    _added_rom.launchbox_metadata[f"{media_type.value}_path"],
-                )
+        try:
+            achievements = deepcopy(pending["ra_metadata"]["achievements"])
+            output_limit = sum(
+                bool(item.get("badge_url" + suffix) and item.get("badge_path" + suffix))
+                for item in achievements
+                for suffix in ("", "_lock")
+            )
+            with ScanMediaInventory(
+                _added_rom.id,
+                platform.id,
+                fs_resource_handler.storage,
+                output_limit=output_limit,
+            ) as unit:
+                for achievement in achievements:
+                    for suffix in ("", "_lock"):
+                        url, path = achievement.get(
+                            "badge_url" + suffix
+                        ), achievement.get("badge_path" + suffix)
+                        if url and path:
+                            achievement["badge_path" + suffix] = (
+                                await fs_resource_handler.store_ra_badge(url, path)
+                            )
 
-    # Store normal and locked badges
-    if _added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
-        for ach in _added_rom.ra_metadata.get("achievements", []):
-            badge_url_lock = ach.get("badge_url_lock", None)
-            badge_path_lock = ach.get("badge_path_lock", None)
-            if badge_url_lock and badge_path_lock:
-                await fs_resource_handler.store_ra_badge(
-                    badge_url_lock, badge_path_lock
-                )
-            badge_url = ach.get("badge_url", None)
-            badge_path = ach.get("badge_path", None)
-            if badge_url and badge_path:
-                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
+                def associate_badges(session):
+                    current = db_rom_handler.get_rom(_added_rom.id, session=session)
+                    metadata = deepcopy(current.ra_metadata or {})
+                    metadata["achievements"] = achievements
+                    return db_rom_handler.update_rom(
+                        current.id, {"ra_metadata": metadata}, session=session
+                    )
 
+                unit.publish_and_associate(associate_badges)
+        except (ValueError, OSError, TransportError, DecodingError) as error:
+            log.warning(
+                "Scan badges retained prior references (%s)", type(error).__name__
+            )
     await _emit_scanning_rom(socket_manager, _added_rom)
 
     await process_pc_automation_after_scan(
         platform, scanned_rom, _added_rom, newly_added
     )
+    from handler.scan_operation_checkpoint import record_completed_game
+
+    record_completed_game(_added_rom)
 
 
 async def _identify_platform(
@@ -960,6 +993,7 @@ async def _identify_platform(
     scan_stats: ScanStats,
     metadata_locale: str | None = None,
     metadata_only: bool = False,
+    filesystem_scope_path: str | None = None,
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -1033,10 +1067,20 @@ async def _identify_platform(
     )
 
     try:
-        fs_roms = await fs_rom_handler.get_roms(platform)
+        fs_roms = await get_fs_rom_handler().get_roms(platform)
     except RomsNotFoundException as e:
         log.error(e)
         return scan_stats
+
+    from handler.scan_collection_discovery import (
+        collection_inventory,
+        filesystem_identity,
+        identify_collection_game,
+    )
+
+    fs_roms, classified_inventory = collection_inventory(
+        platform, fs_roms, filesystem_scope_path
+    )
 
     if len(fs_roms) == 0:
         log.warning(
@@ -1053,7 +1097,25 @@ async def _identify_platform(
     # moved ROM (a new file with no fs_name match) can be reassociated by hash
     # with its now-missing entry instead of spawning a duplicate. The end-of-scan
     # call below re-syncs and logs, unmarking any entry that got reassociated.
-    db_rom_handler.mark_missing_roms(platform.id, [rom["fs_name"] for rom in fs_roms])
+    fs_rom_names = [rom["fs_name"] for rom in fs_roms]
+    if filesystem_scope_path is None:
+        from handler.scan_known_paths import present_known_nested_roms
+
+        known_nested = present_known_nested_roms(
+            get_fs_rom_handler(),
+            platform.fs_slug,
+            db_rom_handler.get_rom_filesystem_paths(platform.id),
+        )
+        fs_rom_names.extend(rom.fs_name for rom in known_nested)
+        identities = {
+            filesystem_identity(get_fs_rom_handler(), platform, entry)
+            for entry in fs_roms
+        }
+        identities.update((rom.fs_path, rom.fs_name) for rom in known_nested)
+        missing_options = (
+            {"filesystem_identities": identities} if classified_inventory else {}
+        )
+        db_rom_handler.mark_missing_roms(platform.id, fs_rom_names, **missing_options)
 
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
@@ -1061,9 +1123,10 @@ async def _identify_platform(
     async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
         """Scan a single ROM with semaphore limiting"""
         async with scan_semaphore:
-            await _identify_rom(
+            await identify_collection_game(
+                fs_rom,
+                _identify_rom,
                 platform=platform,
-                fs_rom=fs_rom,
                 rom=rom,
                 scan_type=scan_type,
                 roms_ids=roms_ids,
@@ -1082,13 +1145,31 @@ async def _identify_platform(
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
 
+        collection_roms = (
+            db_rom_handler.get_roms_by_filesystem_identity(
+                platform.id,
+                {
+                    filesystem_identity(get_fs_rom_handler(), platform, entry)
+                    for entry in fs_roms_batch
+                },
+            )
+            if classified_inventory
+            else {}
+        )
+
         # Separate skipped ROMs from those that need scanning
         skipped_rom_ids: list[int] = []
         restored_roms: list[Rom] = []
         roms_to_scan: list[tuple[FSRom, Rom | None]] = []
 
         for fs_rom in fs_roms_batch:
-            rom = roms_by_fs_name.get(fs_rom["fs_name"])
+            rom = (
+                collection_roms.get(
+                    filesystem_identity(get_fs_rom_handler(), platform, fs_rom)
+                )
+                if classified_inventory
+                else roms_by_fs_name.get(fs_rom["fs_name"])
+            )
             if should_scan_rom(
                 scan_type=scan_type,
                 rom=rom,
@@ -1132,12 +1213,16 @@ async def _identify_platform(
 
         if scan_tasks:
             batched_results = await asyncio.gather(*scan_tasks, return_exceptions=True)
-            for result, (fs_rom, _) in zip(batched_results, roms_to_scan, strict=False):
-                if isinstance(result, Exception):
-                    log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
+            for result, (_fs_rom, _) in zip(
+                batched_results, roms_to_scan, strict=False
+            ):
+                if isinstance(result, BaseException):
+                    raise result
 
-    missing_roms = db_rom_handler.mark_missing_roms(
-        platform.id, [rom["fs_name"] for rom in fs_roms]
+    missing_roms = (
+        db_rom_handler.mark_missing_roms(platform.id, fs_rom_names, **missing_options)
+        if filesystem_scope_path is None
+        else []
     )
     if len(missing_roms) > 0:
         log.warning(f"{hl('Missing')} roms from filesystem:")
@@ -1167,9 +1252,11 @@ async def scan_platforms(
     launchbox_remote_enabled: bool = True,
     playmatch_enabled: bool = True,
     platform_fs_slugs: list[str] | None = None,
+    filesystem_platform_scope: list[str] | None = None,
     metadata_locale: str | None = None,
     metadata_only: bool = False,
     media_only: bool = False,
+    filesystem_scope_path: str | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -1180,6 +1267,10 @@ async def scan_platforms(
         roms_ids (list[int], optional): List of selected roms to be scanned.
         platform_fs_slugs (list[str], optional): Folders to scan with no database row.
     """
+    require_scan_write_context()
+    from handler.scan_operation_worker import check_worker_boundary
+
+    check_worker_boundary()
     with cast(
         ScanCapability,
         open_storage_access(legacy_external_storage, StorageOperation.SCAN, ""),
@@ -1264,12 +1355,15 @@ async def scan_platforms(
     if MetadataSource.SS in metadata_sources:
         await begin_ss_scan()
 
-    try:
-        fs_platforms: list[str] = await fs_platform_handler.get_platforms()
-    except FolderStructureNotMatchException as e:
-        log.error(e)
-        await socket_manager.emit("scan:done_ko", e.message)
-        return scan_stats
+    if filesystem_platform_scope is not None:
+        fs_platforms = filesystem_platform_scope
+    else:
+        try:
+            fs_platforms = await fs_platform_handler.get_platforms()
+        except FolderStructureNotMatchException as e:
+            log.error(e)
+            await socket_manager.emit("scan:done_ko", e.message)
+            return scan_stats
 
     # Clear the gamelist cache to ensure we're using fresh gamelist.xml data
     meta_gamelist_handler.clear_cache()
@@ -1323,8 +1417,10 @@ async def scan_platforms(
     total_roms = 0
     for platform_slug in platforms_to_scan:
         try:
-            total_roms += await fs_rom_handler.count_roms(
-                Platform(fs_slug=platform_slug)
+            from handler.scan_collection_discovery import count_scan_inventory
+
+            total_roms += await count_scan_inventory(
+                Platform(fs_slug=platform_slug), filesystem_scope_path
             )
         except RomsNotFoundException as e:
             log.error(e)
@@ -1364,9 +1460,15 @@ async def scan_platforms(
                 metadata_only=metadata_only,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
+                filesystem_scope_path=filesystem_scope_path,
             )
 
-        missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
+        missed_platforms = db_platform_handler.mark_missing_platforms(
+            fs_platforms,
+            platform_ids=(
+                platform_ids if filesystem_platform_scope is not None else None
+            ),
+        )
         if len(missed_platforms) > 0:
             log.warning(f"{hl('Missing')} platforms from filesystem:")
             for p in missed_platforms:
@@ -1385,6 +1487,8 @@ async def scan_platforms(
         # done, so a failure here must not report it as one.
         try:
             db_collection_handler.refresh_smart_collections()
+        except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
+            raise
         except Exception as e:
             log.error(f"Couldn't refresh smart collections after the scan: {e}")
 
@@ -1395,65 +1499,23 @@ async def scan_platforms(
         db_platforms = db_platform_handler.get_platforms()
         db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
-        if config.GAMELIST_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting gamelist.xml for all platforms...")
-            gamelist_exporter = GamelistExporter(local_export=True)
-            for platform_slug in platform_list:
-                platform = db_platforms_by_slug.get(platform_slug)
-                if platform:
-                    with cast(
-                        OwnedReplace,
-                        open_owned_access(
-                            storage_composition.owned[OwnedStorageKind.RESOURCES],
-                            StorageOperation.OVERWRITE,
-                            f"gamelist_{platform.id}.xml",
-                        ),
-                    ) as destination:
-                        export_success = (
-                            await gamelist_exporter.export_platform_to_file(
-                                platform.id, request=None, destination=destination
-                            )
-                        )
-                    if export_success:
-                        log.info(
-                            f"Auto-exported gamelist.xml for platform {platform.name} after scan"
-                        )
-                    else:
-                        log.warning(
-                            f"Failed to auto-export gamelist.xml for platform {platform.name} after scan"
-                        )
-            log.info("Gamelist.xml auto-export completed.")
+        if config.GAMELIST_AUTO_EXPORT_ON_SCAN or config.PEGASUS_AUTO_EXPORT_ON_SCAN:
+            from handler.filesystem.scan_output_publication import export_scan_platform
 
-        if config.PEGASUS_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting metadata.pegasus.txt for all platforms...")
-            pegasus_exporter = PegasusExporter(local_export=True)
             for platform_slug in platform_list:
                 platform = db_platforms_by_slug.get(platform_slug)
-                if platform:
-                    with cast(
-                        OwnedReplace,
-                        open_owned_access(
-                            storage_composition.owned[OwnedStorageKind.RESOURCES],
-                            StorageOperation.OVERWRITE,
-                            f"metadata_pegasus_{platform.id}.txt",
-                        ),
-                    ) as destination:
-                        export_success = await pegasus_exporter.export_platform_to_file(
-                            platform.id, request=None, destination=destination
-                        )
-                    if export_success:
-                        log.info(
-                            f"Auto-exported metadata.pegasus.txt for platform {platform.name} after scan"
-                        )
-                    else:
-                        log.warning(
-                            f"Failed to auto-export metadata.pegasus.txt for platform {platform.name} after scan"
-                        )
-            log.info("Pegasus metadata auto-export completed.")
+                if platform is not None:
+                    export_scan_platform(
+                        platform.id,
+                        gamelist=config.GAMELIST_AUTO_EXPORT_ON_SCAN,
+                        pegasus=config.PEGASUS_AUTO_EXPORT_ON_SCAN,
+                    )
 
         await socket_manager.emit("scan:done", scan_stats.to_dict())
     except ScanStoppedException:
         await stop_scan()
+    except (ScanWriteRejected, IndeterminateOwnedPublicationError, SQLAlchemyError):
+        raise
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client
@@ -1478,21 +1540,26 @@ async def execute_mapping_scan(
 ) -> ScanStats:
     """Run a scan from immutable mapping identity, never a caller-supplied path."""
     mapping = db_storage_handler.get_mapping(command.mapping_id)
+    scope_path = dict(command.options).get("relative_path")
 
     async def _scan_batch(
         _command: MappedScanCommand, _entries: list[str], _context: object
     ) -> ScanStats:
-        return await scan_platforms(
-            platform_ids=[mapping.platform_id],
-            metadata_sources=metadata_sources,
-            scan_type=ScanType(command.scan_type),
-            roms_ids=roms_ids,
-            launchbox_remote_enabled=launchbox_remote_enabled,
-            playmatch_enabled=playmatch_enabled,
-            metadata_locale=metadata_locale,
-            metadata_only=metadata_only,
-            media_only=media_only,
-        )
+        scoped_handler = fs_rom_handler.for_mapping(mapping, scope_path)
+        with use_fs_rom_handler(scoped_handler):
+            return await scan_platforms(
+                platform_ids=[mapping.platform_id],
+                metadata_sources=metadata_sources,
+                scan_type=ScanType(command.scan_type),
+                roms_ids=roms_ids,
+                launchbox_remote_enabled=launchbox_remote_enabled,
+                playmatch_enabled=playmatch_enabled,
+                metadata_locale=metadata_locale,
+                metadata_only=metadata_only,
+                media_only=media_only,
+                filesystem_platform_scope=[mapping.platform.fs_slug],
+                filesystem_scope_path=scope_path,
+            )
 
     return await execute_mapped_scan(
         cast(HandlerMappedScanCommand, command),
@@ -1507,6 +1574,7 @@ def mapping_scan_commands(
     scope: ScanScope,
     scan_type: ScanType,
     platform_fs_slugs: list[str] | None = None,
+    filesystem_scope_paths: dict[str, str] | None = None,
 ) -> list[MappedScanCommand]:
     """Freeze the active mapping revision for each selected platform."""
     platforms = db_platform_handler.get_platforms()
@@ -1533,6 +1601,10 @@ def mapping_scan_commands(
                 continue
         except (MissingPlatformStorageMappingError, StorageResolutionError):
             continue
+        options: tuple[tuple[str, str], ...] = ()
+        scope_path = (filesystem_scope_paths or {}).get(platform.fs_slug)
+        if scope_path:
+            options = (("relative_path", scope_path),)
         commands.append(
             MappedScanCommand(
                 mapping_id=mapping.id,
@@ -1540,6 +1612,7 @@ def mapping_scan_commands(
                 trigger=trigger,
                 scope=scope,
                 scan_type=scan_type.value,
+                options=options,
             )
         )
     return commands
@@ -1687,103 +1760,33 @@ async def scan_handler(sid: str, options: dict[str, Any]):
     if await reject_unauthorized_scan(sid):
         return
 
-    # Without this, every request enqueues another full scan behind the running
-    # one, and a client that lost the progress socket has no way to tell.
-    if not DEV_MODE and (_get_running_scan_job() or _get_queued_scan_jobs()):
-        log.info(f"{emoji.EMOJI_STOP_SIGN} Scan already in progress, ignoring request")
-        await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "A scan is already in progress",
-            to=sid,
-        )
-        return
+    from uuid import uuid4
 
-    log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
-
-    platform_ids = options.get("platforms", [])
-    platform_fs_slugs = options.get("platform_fs_slugs", [])
-    if not isinstance(platform_fs_slugs, list):
-        platform_fs_slugs = []
-    scan_type = ScanType[options.get("type", "quick").upper()]
-    roms_ids = options.get("roms_ids", [])
-    metadata_sources = options.get("apis", [])
-    launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
-    playmatch_enabled = bool(options.get("playmatch_enabled", True))
-    requested_metadata_locale = options.get("metadata_locale")
-    metadata_locale = (
-        requested_metadata_locale.strip()
-        if isinstance(requested_metadata_locale, str)
-        and requested_metadata_locale.strip()
-        else None
+    from endpoints.responses.scan_operations import ScanOperationRequest
+    from handler.database.scan_operations_handler import (
+        DBScanOperationsHandler,
+        OperationConflict,
     )
-    metadata_only = bool(options.get("metadata_only", False))
-    media_only = bool(options.get("media_only", False))
-    if metadata_only and media_only:
-        await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "metadata_only and media_only cannot be combined",
-            to=sid,
-        )
+    from handler.scan_operation_commands import normalize_scan_request
+    from tasks.scan_operation_dispatch import dispatch_operation
+
+    user = await get_authenticated_user(sid)
+    if user is None:
         return
     try:
-        commands = mapping_scan_commands(
-            platform_ids,
-            trigger=ScanTrigger.MANUAL,
-            scope=ScanScope.ROM if roms_ids else ScanScope.PLATFORM,
-            scan_type=scan_type,
-            platform_fs_slugs=platform_fs_slugs,
+        body = ScanOperationRequest.model_validate(
+            options
+            | {"request_key": options.get("request_key") or "socket-" + str(uuid4())}
         )
-    except MissingPlatformStorageMappingError:
+        command = normalize_scan_request(body)
+        accepted = DBScanOperationsHandler().accept(user.id, body.request_key, command)
+        dispatch_operation(accepted.id)
+        return accepted.model_dump(mode="json")
+    except (ValueError, OperationConflict, StorageResolutionError):
         await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "No active storage mapping was found for the selected platform.",
-            to=sid,
+            "scan:done_ko", "scan_request_rejected", to=sid
         )
-        return
-
-    if not commands:
-        await socket_handler.socket_server.emit(
-            "scan:done_ko",
-            "No active storage mapping was found for the requested platform selection.",
-            to=sid,
-        )
-        return
-
-    if DEV_MODE:
-        return await execute_mixed_scans(
-            commands,
-            platform_ids=platform_ids,
-            platform_fs_slugs=platform_fs_slugs,
-            metadata_sources=metadata_sources,
-            scan_type=scan_type,
-            roms_ids=roms_ids,
-            launchbox_remote_enabled=launchbox_remote_enabled,
-            playmatch_enabled=playmatch_enabled,
-            metadata_locale=metadata_locale,
-            metadata_only=metadata_only,
-            media_only=media_only,
-        )
-
-    return high_prio_queue.enqueue(
-        execute_mixed_scans,
-        commands=commands,
-        platform_ids=platform_ids,
-        platform_fs_slugs=platform_fs_slugs,
-        metadata_sources=metadata_sources,
-        scan_type=scan_type,
-        roms_ids=roms_ids,
-        launchbox_remote_enabled=launchbox_remote_enabled,
-        playmatch_enabled=playmatch_enabled,
-        metadata_locale=metadata_locale,
-        metadata_only=metadata_only,
-        media_only=media_only,
-        job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
-        result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": f"{scan_type.value.capitalize()} Scan",
-            "task_type": TaskType.SCAN,
-        },
-    )
+        return {"error": "scan_request_rejected"}
 
 
 @socket_handler.socket_server.on("scan:stop")  # type: ignore
@@ -1793,26 +1796,41 @@ async def stop_scan_handler(sid: str):
     if await reject_unauthorized_scan(sid):
         return
 
-    log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")
+    from uuid import uuid4
 
-    # Queued scans have not started, so cancelling them is enough. They have to
-    # go too: stopping only the running scan would hand the worker the next one.
-    queued_jobs = _get_queued_scan_jobs()
-    for job in queued_jobs:
-        job.cancel()
+    from handler.database.scan_operations_handler import DBScanOperationsHandler
+    from models.user import Role
 
-    # A running scan cannot be interrupted from here, it polls the stop flag
-    # between platforms and ROMs and unwinds itself.
-    running_job = _get_running_scan_job()
-    if running_job is not None:
-        running_job.cancel()
-        redis_client.set(STOP_SCAN_FLAG, 1)
-
-    if running_job is None and not queued_jobs:
-        log.info(f"{emoji.EMOJI_STOP_BUTTON} No running scan to stop")
-        return
-
-    log.info(
-        f"{emoji.EMOJI_STOP_BUTTON} Stopping scan "
-        f"({int(running_job is not None)} running, {len(queued_jobs)} queued)"
+    user = await get_authenticated_user(sid)
+    repository = DBScanOperationsHandler()
+    active = (
+        repository.find_active(user.id, admin=user.role == Role.ADMIN)
+        if user is not None
+        else None
     )
+    if active is None:
+        durable_callable = "handler.scan_operation_worker.run_scan_operation"
+        queued = [
+            job
+            for job in _get_queued_scan_jobs()
+            if get_job_func_name(job) != durable_callable
+        ]
+        running = _get_running_scan_job()
+        if running is not None and get_job_func_name(running) == durable_callable:
+            running = None
+        for job in queued:
+            job.cancel()
+        if running is not None:
+            running.cancel()
+            redis_client.set(STOP_SCAN_FLAG, 1)
+        return None
+    if user is None:
+        return
+    stopped = repository.request_cancel(
+        active.id,
+        user.id,
+        active.version,
+        "socket-" + str(uuid4()),
+        admin=user.role == Role.ADMIN,
+    )
+    return stopped.model_dump(mode="json")

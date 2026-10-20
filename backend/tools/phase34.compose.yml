@@ -1,0 +1,67 @@
+services:
+  sql:
+    image: ${P34_SQL_IMAGE}
+    command: ${P34_SQL_COMMAND}
+    labels:
+      org.pgdp.phase34.run: ${PHASE34_RUN_TOKEN}
+    environment:
+      MARIADB_ROOT_PASSWORD: ${PHASE34_RUN_TOKEN}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWD}
+      MYSQL_ROOT_PASSWORD: ${PHASE34_RUN_TOKEN}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWD}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWD}
+    networks:
+      isolated:
+        aliases: ["${DB_HOST}"]
+    tmpfs: [/var/lib/mysql, /var/lib/postgresql/data]
+  redis:
+    image: redis:7-alpine
+    command:
+      [
+        redis-server,
+        --save,
+        "",
+        --appendonly,
+        "no",
+        --requirepass,
+        "${REDIS_PASSWORD}",
+      ]
+    labels:
+      org.pgdp.phase34.run: ${PHASE34_RUN_TOKEN}
+    networks:
+      isolated:
+        aliases: ["${REDIS_HOST}"]
+  runner:
+    image: ${P34_RUNNER_IMAGE}
+    entrypoint: [sleep, infinity]
+    labels:
+      org.pgdp.phase34.run: ${PHASE34_RUN_TOKEN}
+    networks: [isolated]
+    volumes:
+      - ${P34_REPO}/backend:/app/backend:ro
+      - ${P34_REPO}/frontend:/app/frontend
+      - ${P34_REPO}/pyproject.toml:/app/pyproject.toml:ro
+      - ${P34_REPO}/uv.lock:/app/uv.lock:ro
+      - ${P34_CONTROL}:/phase34/control:ro
+      - ${P34_EVIDENCE}:/phase34/evidence
+      - ${P34_GAMES}:/phase34/owned/library:ro
+      - owned:/phase34/owned
+      - node_modules:/app/frontend/node_modules
+networks:
+  isolated:
+    internal: true
+    labels:
+      org.pgdp.phase34.run: ${PHASE34_RUN_TOKEN}
+volumes:
+  owned:
+    labels:
+      org.pgdp.phase34.run: ${PHASE34_RUN_TOKEN}
+  node_modules:
+    labels:
+      org.pgdp.phase34.run: ${PHASE34_RUN_TOKEN}

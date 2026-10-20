@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import type {
   StorageDirectoryPageSchema,
   StorageMappingCreateSchema,
@@ -26,6 +27,17 @@ export type StorageMappingTestRequest = StorageMappingCreateSchema & {
   mapping_id?: number;
 };
 
+export interface StorageMappingReadiness {
+  ready: boolean;
+  mapping: StorageMappingSchema | null;
+  root: StorageRootSchema | null;
+}
+
+export interface StorageMappingsReadiness {
+  ready: boolean;
+  mappings: StorageMappingReadiness[];
+}
+
 function getRoots() {
   return api.get<StorageRootSchema[]>("/storage/roots");
 }
@@ -38,6 +50,70 @@ function getMapping(platformId: number) {
   return api.get<StorageMappingSchema>(
     `/storage/mappings/platforms/${platformId}`,
   );
+}
+
+function resolveMappingReadiness(
+  mapping: StorageMappingSchema,
+  roots: StorageRootSchema[],
+): StorageMappingReadiness {
+  const root =
+    roots.find((candidate) => candidate.id === mapping.storage_root_id) ?? null;
+  const ready = Boolean(
+    mapping.active &&
+    root?.active &&
+    root.health.reachable &&
+    root.health.readable &&
+    root.health.non_writable === true,
+  );
+
+  return { ready, mapping, root };
+}
+
+async function getMappingReadiness(
+  platformId: number,
+): Promise<StorageMappingReadiness> {
+  let mapping: StorageMappingSchema;
+  try {
+    mapping = (await getMapping(platformId)).data;
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 404) {
+      return { ready: false, mapping: null, root: null };
+    }
+    throw error;
+  }
+
+  return resolveMappingReadiness(mapping, (await getRoots()).data);
+}
+
+async function getMappingsReadiness(
+  platformIds: readonly number[],
+): Promise<StorageMappingsReadiness> {
+  const roots = (await getRoots()).data;
+  const mappings = await Promise.all(
+    [...new Set(platformIds)].map(async (platformId) => {
+      try {
+        return resolveMappingReadiness(
+          (await getMapping(platformId)).data,
+          roots,
+        );
+      } catch (error) {
+        if (isAxiosError(error) && error.response?.status === 404) {
+          return null;
+        }
+        throw error;
+      }
+    }),
+  );
+  const savedMappings = mappings.filter(
+    (readiness): readiness is StorageMappingReadiness => readiness !== null,
+  );
+
+  return {
+    ready:
+      savedMappings.length > 0 &&
+      savedMappings.every((readiness) => readiness.ready),
+    mappings: savedMappings,
+  };
 }
 
 function browseRoot(rootId: number, parent = "", cursor?: string | null) {
@@ -101,6 +177,8 @@ export default {
   getRoots,
   bootstrapLegacy,
   getMapping,
+  getMappingReadiness,
+  getMappingsReadiness,
   browseRoot,
   testMapping,
   createMapping,

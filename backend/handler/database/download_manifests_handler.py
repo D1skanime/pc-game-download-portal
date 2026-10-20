@@ -97,7 +97,9 @@ class DBDownloadManifestsHandler(DBBaseHandler):
         if archive_set_id is not None and component_ids is not None:
             raise ValueError("manifest policy selection cannot include components")
 
-        rom = session.scalar(select(Rom).where(Rom.id == rom_id).with_for_update())
+        rom = session.scalar(
+            select(Rom).where(Rom.id == rom_id).with_for_update(of=Rom)
+        )
         if rom is None:
             raise ValueError("manifest ROM is unavailable")
 
@@ -110,7 +112,7 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                         DownloadArchiveSetMember.archive_set_id == archive_set_id,
                     )
                     .order_by(DownloadArchiveSetMember.position)
-                    .with_for_update()
+                    .with_for_update(of=DownloadArchiveSetMember)
                 )
             )
             if not policy_members:
@@ -121,7 +123,7 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                     DownloadArchiveSet.id == archive_set_id,
                     DownloadArchiveSet.rom_id == rom_id,
                 )
-                .with_for_update()
+                .with_for_update(of=DownloadArchiveSet)
             )
             if policy_rom_id is None:
                 raise ValueError("manifest archive set is unavailable")
@@ -154,7 +156,7 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                         RomComponent.id.in_(selected_component_ids),
                         RomComponent.kind.in_(ELIGIBLE_COMPONENT_KINDS),
                     )
-                    .with_for_update()
+                    .with_for_update(of=RomComponent)
                 )
             )
             components_by_id = {component.id: component for component in components}
@@ -170,7 +172,7 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                         RomComponentManifestMember.id.in_(source_ids),
                         RomComponentManifestMember.missing_from_fs.is_(False),
                     )
-                    .with_for_update()
+                    .with_for_update(of=RomComponentManifestMember)
                 )
             )
             members_by_id = {member.id: member for member in member_rows}
@@ -196,7 +198,7 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                     RomComponent.kind.in_(ELIGIBLE_COMPONENT_KINDS),
                 )
                 .order_by(RomComponent.id)
-                .with_for_update()
+                .with_for_update(of=RomComponent)
             )
             if component_ids is not None:
                 statement = statement.where(RomComponent.id.in_(component_ids))
@@ -216,7 +218,7 @@ class DBDownloadManifestsHandler(DBBaseHandler):
                         RomComponentManifestMember.missing_from_fs.is_(False),
                     )
                     .order_by(RomComponentManifestMember.id)
-                    .with_for_update()
+                    .with_for_update(of=RomComponentManifestMember)
                 )
             )
             if selected_member_ids is not None:

@@ -38,7 +38,7 @@ from utils import get_version
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,
-    release=f"romm@{get_version()}",
+    release=f"pgdp@{get_version()}",
 )
 
 Change = tuple[str, str]

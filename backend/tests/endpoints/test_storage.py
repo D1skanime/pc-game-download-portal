@@ -254,6 +254,7 @@ def test_storage_openapi_excludes_sensitive_fields(client):
         "/api/storage/roots": {"get"},
         "/api/storage/roots/{storage_root_id}": {"get"},
         "/api/storage/roots/{storage_root_id}/browse": {"get"},
+        "/api/storage/legacy/bootstrap": {"post"},
         "/api/storage/mappings/platforms/{platform_id}": {"get"},
         "/api/storage/mappings/platforms/{platform_id}/preview": {"get"},
         "/api/storage/mappings/test": {"post"},
@@ -300,6 +301,15 @@ def test_storage_openapi_excludes_sensitive_fields(client):
             "SQL SELECT",
         )
     )
+
+
+def test_bootstrap_is_the_only_legacy_storage_mutation_route(client):
+    schema = client.get("/openapi.json").json()
+    assert set(schema["paths"]["/api/storage/legacy/bootstrap"]) == {"post"}
+    assert set(schema["paths"]["/api/storage/roots"]) == {"get"}
+    assert set(schema["paths"]["/api/storage/mappings/platforms/{platform_id}"]) == {
+        "get"
+    }
 
 
 @pytest.mark.parametrize(

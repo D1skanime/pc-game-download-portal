@@ -86,3 +86,36 @@ def test_handler_rejects_duplicate_foreign_and_mismatched_members(admin_user, ro
         handler.create(rom.id, "bad", [payload, payload])
     with pytest.raises(ValueError):
         handler.create(rom.id, "bad", [{**payload, "component_id": 999999}])
+
+
+def test_handler_replaces_existing_identities_in_new_positions(admin_user, rom):
+    first, second = _component(rom.id, "first"), _component(rom.id, "second")
+    with session.begin() as db:
+        db.add_all([first, second])
+    handler = DBDownloadArchiveSetsHandler()
+    members = [
+        {
+            "component_id": component.id,
+            "manifest_member_id": component.manifest_members[0].id,
+            "required": True,
+        }
+        for component in (first, second)
+    ]
+    created = handler.create(rom.id, "whole-game", members)
+    replacement = [{**member, "required": False} for member in reversed(members)]
+    handler.replace(rom.id, created.id, "reordered", replacement)
+
+    [persisted] = handler.list_for_rom(rom.id)
+    assert persisted.name == "reordered"
+    assert [
+        (
+            member.component_id,
+            member.manifest_member_id,
+            member.position,
+            member.required,
+        )
+        for member in persisted.members
+    ] == [
+        (member["component_id"], member["manifest_member_id"], position, False)
+        for position, member in enumerate(replacement)
+    ]

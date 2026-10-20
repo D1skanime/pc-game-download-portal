@@ -5,12 +5,14 @@
 // <ul> (small platforms) and inside an RVirtualScroller slot (large
 // platforms, hundreds+ of ROMs streaming in during an initial scan).
 // Provider chip logic and cover-fallback selection live here.
-import { RImg, RTag } from "@v2/lib";
+import { RBtn, RImg, RTag } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
+import PcSubfolderScanDialog from "@/v2/components/Scan/PcSubfolderScanDialog.vue";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
+import type { SubfolderScanRequest } from "@/v2/data/contracts";
 import {
   getMissingCoverImage,
   getUnmatchedCoverImage,
@@ -25,6 +27,15 @@ const props = defineProps<{
 
 const { t } = useI18n();
 const { toWebp } = useWebpSupport();
+const folderDialogOpen = ref(false);
+
+const canInspectFolder = computed(
+  () => props.rom.platform_fs_slug === "win" && props.rom.fs_extension === "",
+);
+
+const emit = defineEmits<{
+  (event: "scan-subfolder", value: SubfolderScanRequest): void;
+}>();
 
 // Title shown for the row: the identified ROM name once metadata resolves,
 // otherwise the raw filename while it's still being identified.
@@ -76,70 +87,86 @@ function coverFor(rom: SimpleRom): string {
 </script>
 
 <template>
-  <router-link
-    :to="{ name: ROUTES.ROM, params: { rom: props.rom.id } }"
-    class="r-v2-scan-platform__rom"
-  >
-    <RImg
-      :src="coverFor(props.rom)"
-      :alt="displayName"
-      :width="36"
-      :height="48"
-      contain
-      class="r-v2-scan-platform__cover"
-      :class="{ 'r-v2-scan-platform__cover--reveal': coverPop }"
-      @load="onCoverLoad"
-    />
-    <div class="r-v2-scan-platform__rom-text">
-      <div
-        class="r-v2-scan-platform__rom-name"
-        :class="{ 'r-v2-scan-platform__rom-name--reveal': revealing }"
-      >
-        {{ displayName }}
-      </div>
-      <div class="r-v2-scan-platform__rom-file">
-        {{ props.rom.fs_name }}
-      </div>
-    </div>
-    <div class="r-v2-scan-platform__rom-meta">
-      <template v-if="props.rom.is_identifying">
-        <RTag
-          tone="warning"
-          size="x-small"
-          prepend-icon="mdi-magnify"
-          :text="t('scan.identifying', 'Identifying…')"
-          class="r-v2-scan-platform__identifying"
-        />
-      </template>
-      <template v-else>
-        <RTag
-          v-if="props.rom.is_unidentified"
-          tone="danger"
-          size="x-small"
-          prepend-icon="mdi-close"
-          :text="t('scan.not-identified')"
-          class="r-v2-scan-platform__badge-pop"
-        />
-        <span
-          v-for="(provider, i) in activeProviders(props.rom)"
-          :key="provider.key"
-          class="r-v2-scan-platform__provider"
-          :title="provider.title"
-          :style="{
-            ...(provider.bg ? { background: provider.bg } : {}),
-            animationDelay: `${i * 70}ms`,
-          }"
+  <div class="r-v2-scan-platform__rom">
+    <router-link
+      :to="{ name: ROUTES.ROM, params: { rom: props.rom.id } }"
+      class="r-v2-scan-platform__rom-link"
+    >
+      <RImg
+        :src="coverFor(props.rom)"
+        :alt="displayName"
+        :width="36"
+        :height="48"
+        contain
+        class="r-v2-scan-platform__cover"
+        :class="{ 'r-v2-scan-platform__cover--reveal': coverPop }"
+        @load="onCoverLoad"
+      />
+      <div class="r-v2-scan-platform__rom-text">
+        <div
+          class="r-v2-scan-platform__rom-name"
+          :class="{ 'r-v2-scan-platform__rom-name--reveal': revealing }"
         >
-          <img
-            :src="`/assets/scrappers/${provider.logo}`"
-            :alt="provider.title"
-            width="16"
-            height="16"
+          {{ displayName }}
+        </div>
+        <div class="r-v2-scan-platform__rom-file">
+          {{ props.rom.fs_name }}
+        </div>
+      </div>
+      <div class="r-v2-scan-platform__rom-meta">
+        <template v-if="props.rom.is_identifying">
+          <RTag
+            tone="warning"
+            size="x-small"
+            prepend-icon="mdi-magnify"
+            :text="t('scan.identifying', 'Identifying…')"
+            class="r-v2-scan-platform__identifying"
           />
-        </span>
-      </template>
-    </div>
-  </router-link>
+        </template>
+        <template v-else>
+          <RTag
+            v-if="props.rom.is_unidentified"
+            tone="danger"
+            size="x-small"
+            prepend-icon="mdi-close"
+            :text="t('scan.not-identified')"
+            class="r-v2-scan-platform__badge-pop"
+          />
+          <span
+            v-for="(provider, i) in activeProviders(props.rom)"
+            :key="provider.key"
+            class="r-v2-scan-platform__provider"
+            :title="provider.title"
+            :style="{
+              ...(provider.bg ? { background: provider.bg } : {}),
+              animationDelay: `${i * 70}ms`,
+            }"
+          >
+            <img
+              :src="`/assets/scrappers/${provider.logo}`"
+              :alt="provider.title"
+              width="16"
+              height="16"
+            />
+          </span>
+        </template>
+      </div>
+    </router-link>
+    <RBtn
+      v-if="canInspectFolder"
+      icon="mdi-folder-search-outline"
+      variant="text"
+      size="small"
+      :aria-label="t('scan.scan')"
+      @click="folderDialogOpen = true"
+    />
+    <PcSubfolderScanDialog
+      v-if="canInspectFolder"
+      v-model="folderDialogOpen"
+      :rom="props.rom"
+      @scan="emit('scan-subfolder', $event)"
+    />
+  </div>
 </template>
 
 <style scoped>
@@ -167,6 +194,15 @@ function coverFor(rom: SimpleRom): string {
      row mounts, so this plays once per row — not on every insert.) */
   animation: scan-row-in 440ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+.r-v2-scan-platform__rom-link {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
 @keyframes scan-row-in {
   0% {
     opacity: 0;
@@ -181,7 +217,7 @@ function coverFor(rom: SimpleRom): string {
   }
 }
 .r-v2-scan-platform__rom:hover,
-.r-v2-scan-platform__rom:focus-visible {
+.r-v2-scan-platform__rom:focus-within {
   background: var(--r-color-surface-hover);
   outline: none;
 }

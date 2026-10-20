@@ -4,8 +4,8 @@ import type {
   ManualMetadata,
   SteamMetadataSchema,
 } from "@/__generated__";
-import romApi from "@/services/api/rom";
 import { normalizeLocale } from "@/v2/composables/useProviderResolution";
+import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 
 export interface DescriptionResolutionInput {
   manualMetadata: ManualMetadata | null | undefined;
@@ -13,7 +13,7 @@ export interface DescriptionResolutionInput {
   ssMetadata?: {
     text_variants?: Record<
       string,
-      { summary?: string | null } | undefined
+      { source_language?: string | null; summary?: string | null } | undefined
     > | null;
   } | null;
   legacySummary: string | null | undefined;
@@ -109,7 +109,7 @@ function normalizedSummary(value: unknown): string | null {
 type ProviderMetadata = {
   text_variants?: Record<
     string,
-    { summary?: string | null } | undefined
+    { source_language?: string | null; summary?: string | null } | undefined
   > | null;
 };
 

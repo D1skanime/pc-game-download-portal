@@ -272,6 +272,7 @@
     "empty": "没有需要审核的 PC 自动化项目。",
     "load-failed": "无法加载 PC 自动化队列。",
     "load-more": "加载更多",
+    "main-game": "主游戏",
     "outstanding": "{count} 个项目等待审核",
     "progress": "PC 自动化审核进度",
     "request-failed": "PC 自动化请求失败。",
@@ -280,6 +281,8 @@
     "selected": "已选择 {count} 个",
     "skip": "跳过 {title}",
     "skipped": "项目已跳过",
+    "source-name": "源名称",
+    "source-path": "源路径",
     "title": "PC 自动化审核",
     "unnamed-candidate": "未命名候选项"
   },

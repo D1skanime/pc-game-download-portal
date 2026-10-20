@@ -272,6 +272,7 @@
     "empty": "Nincs felülvizsgálatot igénylő PC-automatizálási elem.",
     "load-failed": "Nem sikerült betölteni a PC-automatizálási várólistát.",
     "load-more": "Továbbiak betöltése",
+    "main-game": "Fő játék",
     "outstanding": "{count} elem vár felülvizsgálatra",
     "progress": "PC-automatizálási felülvizsgálat folyamata",
     "request-failed": "A PC-automatizálási kérés sikertelen volt.",
@@ -280,6 +281,8 @@
     "selected": "{count} kijelölve",
     "skip": "{title} kihagyása",
     "skipped": "Elem kihagyva",
+    "source-name": "Forrás neve",
+    "source-path": "Forrás útvonala",
     "title": "PC-automatizálás felülvizsgálata",
     "unnamed-candidate": "Névtelen jelölt"
   },

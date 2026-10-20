@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { computed, defineComponent } from "vue";
+import { computed } from "vue";
 import PlatformStorageMapping from "./PlatformStorageMapping.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -65,20 +65,20 @@ vi.mock("@/services/api/storage", () => ({
 }));
 
 vi.mock("@v2/lib", () => ({
-  RAlert: defineComponent({
+  RAlert: {
     template: "<div><slot /><slot name='title' /><slot name='append' /></div>",
-  }),
-  RBtn: defineComponent({
+  },
+  RBtn: {
     emits: ["click"],
     template: "<button @click=\"$emit('click')\"><slot /></button>",
-  }),
-  RCard: defineComponent({ template: "<section><slot /></section>" }),
-  RDivider: defineComponent({ template: "<hr />" }),
-  REmptyState: defineComponent({ template: "<div><slot /></div>" }),
-  RList: defineComponent({ template: "<div><slot /></div>" }),
-  RListItem: defineComponent({ template: "<div><slot /></div>" }),
-  RSkeletonBlock: defineComponent({ template: "<div />" }),
-  RSteps: defineComponent({ template: "<div><slot /></div>" }),
+  },
+  RCard: { template: "<section><slot /></section>" },
+  RDivider: { template: "<hr />" },
+  REmptyState: { template: "<div><slot /></div>" },
+  RList: { template: "<div><slot /></div>" },
+  RListItem: { template: "<div><slot /></div>" },
+  RSkeletonBlock: { template: "<div />" },
+  RSteps: { template: "<div><slot /></div>" },
 }));
 
 describe("PlatformStorageMapping", () => {
@@ -119,5 +119,54 @@ describe("PlatformStorageMapping", () => {
     expect(wrapper.text()).toContain("No storage folder mapped");
     expect(wrapper.text()).toContain("Map storage");
     expect(wrapper.text()).not.toContain("Something went wrong");
+  });
+
+  it("shows the pending preview state after refresh even when the old preview is stale", async () => {
+    vi.useFakeTimers();
+    mocks.getMapping.mockResolvedValue({
+      data: {
+        id: 1,
+        platform_id: 1,
+        storage_root_id: 7,
+        relative_path: "pc",
+        version: 2,
+      },
+    });
+    mocks.getPreview.mockResolvedValue({
+      data: {
+        state: "complete",
+        stale: true,
+        observed_files: 1,
+        observed_directories: 1,
+      },
+    });
+    mocks.refreshPreview.mockResolvedValue({
+      data: {
+        state: "pending",
+        stale: true,
+        observed_files: 1,
+        observed_directories: 1,
+      },
+    });
+
+    try {
+      const wrapper = mount(PlatformStorageMapping);
+      await flushPromises();
+
+      const refreshButton = wrapper
+        .findAll("button")
+        .find((button) => button.text().includes("Refresh preview"));
+      expect(refreshButton).toBeDefined();
+      await refreshButton!.trigger("click");
+      await flushPromises();
+
+      expect(mocks.refreshPreview).toHaveBeenCalledWith(1);
+      expect(wrapper.text()).toContain(
+        "Preview started. The mapping remains active.",
+      );
+      wrapper.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

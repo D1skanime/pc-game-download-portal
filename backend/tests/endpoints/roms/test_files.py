@@ -313,9 +313,12 @@ def test_content_disposition_rejects_controls_without_raw_detail(
     admin_user: User,
     platform: Platform,
     file_name: str,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     rom = _make_rom(admin_user, platform)
-    file = _add_db_file(rom, file_name, RomFileCategory.GAME)
+    file = _add_db_file(rom, "header-validation.bin", RomFileCategory.GAME)
+    file.file_name = file_name
+    monkeypatch.setattr(db_rom_handler, "get_rom_file_by_id", lambda _id: file)
 
     response = client.head(
         f"/api/roms/{file.id}/files/content/client-name.bin",

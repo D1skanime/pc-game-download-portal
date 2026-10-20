@@ -10,12 +10,23 @@ from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
 import endpoints.roms.manual as manual_endpoint
-from config import LAUNCHBOX_BASE_PATH, LIBRARY_BASE_PATH, RESOURCES_BASE_PATH
+from config import RESOURCES_BASE_PATH
 from endpoints.storage_policy import authorize_api_storage_operation
 from handler.database import db_primary_manual_handler, db_rom_handler
-from handler.filesystem import legacy_external_storage, storage_composition
+from handler.filesystem import (
+    FSRomsHandler,
+    legacy_external_storage,
+)
+from handler.filesystem import resources_handler as resources_module
+from handler.filesystem import (
+    storage_composition,
+)
 from handler.filesystem.resources_handler import FSResourcesHandler
-from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
+from handler.filesystem.storage_policy import (
+    OwnedStorageKind,
+    StorageOperation,
+    _create_external_descriptor,
+)
 from models.rom import Rom
 
 
@@ -436,21 +447,20 @@ def test_redownload_first_upload_race_has_one_winner_and_no_orphan(
     )
 
 
-@pytest.mark.parametrize(
-    ("scheme", "base_path"),
-    [
-        pytest.param("file", Path(LIBRARY_BASE_PATH), id="file"),
-        pytest.param("launchbox-file", Path(LAUNCHBOX_BASE_PATH), id="launchbox-file"),
-    ],
-)
+@pytest.mark.parametrize("scheme", ["file", "launchbox-file"])
 def test_local_uri_redownload_uses_staged_cas_and_preserves_source(
     client: TestClient,
     access_token: str,
     rom: Rom,
     monkeypatch: pytest.MonkeyPatch,
     scheme: str,
-    base_path: Path,
+    tmp_path: Path,
 ):
+    base_path = tmp_path / scheme
+    base_path.mkdir()
+    handler = FSRomsHandler(_create_external_descriptor(0, base_path))
+    monkeypatch.setattr("handler.filesystem.get_fs_rom_handler", lambda: handler)
+    monkeypatch.setattr(resources_module, "LAUNCHBOX_BASE_PATH", str(base_path))
     source = base_path / f"manual-source-{rom.id}.pdf"
     source.parent.mkdir(parents=True, exist_ok=True)
     source.write_bytes(b"read-only-source")

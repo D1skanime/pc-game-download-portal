@@ -11,6 +11,7 @@ from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
 from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
+from utils.provider_diagnostics import report_provider_fault
 
 from .base_handler import MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
@@ -137,6 +138,7 @@ class FlashpointHandler(MetadataHandler):
             res.raise_for_status()
             return res.json()
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+            report_provider_fault(exc)
             log.warning(
                 "Connection error: can't connect to Flashpoint API", exc_info=True
             )
@@ -145,6 +147,7 @@ class FlashpointHandler(MetadataHandler):
                 detail="Can't connect to Flashpoint API, check your internet connection",
             ) from exc
         except json.JSONDecodeError as exc:
+            report_provider_fault(exc)
             log.error("Error decoding JSON response from Flashpoint API: %s", exc)
             return {}
 
@@ -155,6 +158,7 @@ class FlashpointHandler(MetadataHandler):
         try:
             response = await self._request(self.platforms_url, {})
         except Exception as e:
+            report_provider_fault(e)
             log.error("Error checking Flashpoint API: %s", e)
             return False
 
@@ -210,6 +214,7 @@ class FlashpointHandler(MetadataHandler):
             ]
 
         except Exception as exc:
+            report_provider_fault(exc)
             log.error("Error searching Flashpoint API: %s", exc)
             return []
 
@@ -405,6 +410,7 @@ class FlashpointHandler(MetadataHandler):
             )
 
         except Exception as exc:
+            report_provider_fault(exc)
             log.error("Error getting ROM by ID from Flashpoint API: %s", exc)
             return FlashpointRom(flashpoint_id=None)
 

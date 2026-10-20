@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import BigInteger, inspect
 from tests.conftest import session
@@ -54,7 +56,11 @@ def test_transfer_snapshot_is_path_free_and_owner_cascades(admin_user, rom):
         size_bytes=2**32 + 3,
         sha256="a" * 64,
     )
-    manifest = DownloadManifest(user_id=admin_user.id, rom_id=rom.id)
+    manifest = DownloadManifest(
+        user_id=admin_user.id,
+        rom_id=rom.id,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
     selected_component = DownloadManifestComponent(
         manifest=manifest, component=component
     )

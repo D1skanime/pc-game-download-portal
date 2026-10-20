@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from io import BytesIO
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 
 from anyio import Path as AnyioPath
 from PIL import Image, UnidentifiedImageError
@@ -68,7 +68,12 @@ from .base_handler import (
     REGIONS_NAME_KEYS,
     ExternalFSHandler,
 )
-from .storage_policy import ExternalStorageDescriptor, StorageOperation
+from .storage_policy import (
+    ExternalStorageDescriptor,
+    StorageOperation,
+    _create_external_descriptor,
+)
+from .storage_resolver import resolve_directory
 
 if TYPE_CHECKING:
     from handler.storage.read_context import MappingReadContext
@@ -117,6 +122,8 @@ NON_HASHABLE_PLATFORMS = frozenset(
 
 
 class FSRom(TypedDict):
+    scan_relative_path: NotRequired[str]
+    logical_fs_path: NotRequired[str]
     fs_name: str
     flat: bool
     nested: bool
@@ -334,6 +341,23 @@ class FSRomsHandler(ExternalFSHandler):
 
             storage = legacy_external_storage
         super().__init__(base_path=Path(storage._root_path), storage=storage)
+        self._logical_root = ""
+        self._selected_rom_name: str | None = None
+
+    @classmethod
+    def for_mapping(cls, mapping, relative_path: str | None = None) -> "FSRomsHandler":
+        mapping_path = mapping.relative_path.strip("/")
+        selected_path = (relative_path or "").strip("/")
+        parent, _, selected_name = selected_path.rpartition("/")
+        logical_root = "/".join(part for part in (mapping_path, parent) if part)
+        mapped_root = resolve_directory(mapping.storage_root, logical_root)
+        descriptor = _create_external_descriptor(
+            mapping.storage_root_id, mapped_root, mapping_id=mapping.id
+        )
+        handler = cls(descriptor)
+        handler._logical_root = logical_root
+        handler._selected_rom_name = selected_name or None
+        return handler
 
     def open_rom_read(self, relative_path: str):
         return self.open_access(StorageOperation.READ, relative_path)
@@ -546,7 +570,11 @@ class FSRomsHandler(ExternalFSHandler):
         All filesystem work goes through the external read capabilities. This
         method neither creates nor mutates source-library entries.
         """
-        rom_path = f"{rom.fs_path}/{rom.fs_name}"
+        rom_path = (
+            rom.fs_name
+            if self._logical_root and rom.fs_path == self._logical_root
+            else f"{rom.fs_path}/{rom.fs_name}"
+        )
         components: list[RomComponent] = []
 
         async def build_component(
@@ -642,7 +670,10 @@ class FSRomsHandler(ExternalFSHandler):
             if kind == RomComponentKind.DLC and nested_directories:
                 if await self.list_files(component_path):
                     await add_component(
-                        component_path, component_name, kind, recursive=False
+                        component_path,
+                        component_name,
+                        RomComponentKind.UNRESOLVED,
+                        recursive=False,
                     )
                 for nested_name in nested_directories:
                     await add_component(
@@ -712,6 +743,8 @@ class FSRomsHandler(ExternalFSHandler):
         return _make_file_hash(crc_c, md5_h, sha1_h)
 
     def get_roms_fs_structure(self, fs_slug: str) -> str:
+        if self._logical_root:
+            return ""
         cnfg = cm.get_config()
         resolved_slug = resolve_filesystem_slug(
             fs_slug,
@@ -721,6 +754,9 @@ class FSRomsHandler(ExternalFSHandler):
             ).exists(),
         )
         return self._build_roms_fs_structure(resolved_slug, cnfg)
+
+    def get_logical_roms_fs_structure(self, fs_slug: str) -> str:
+        return self._logical_root or self.get_roms_fs_structure(fs_slug)
 
     @staticmethod
     def _build_roms_fs_structure(fs_slug: str, cnfg) -> str:
@@ -879,7 +915,9 @@ class FSRomsHandler(ExternalFSHandler):
         rel_roms_path = self.get_roms_fs_structure(
             rom.platform.fs_slug
         )  # Relative path to roms
-        abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to roms
+        abs_fs_path = (
+            self.base_path if not rel_roms_path else self.validate_path(rel_roms_path)
+        )
         rom_files: list[RomFile] = []
 
         # Skip hashing games for platforms that don't have a hash database or when hashes are disabled
@@ -1278,6 +1316,14 @@ class FSRomsHandler(ExternalFSHandler):
             fs_multi_roms = await self.list_directories(path=rel_roms_path)
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
+
+        if self._selected_rom_name is not None:
+            fs_single_roms = [
+                name for name in fs_single_roms if name == self._selected_rom_name
+            ]
+            fs_multi_roms = [
+                name for name in fs_multi_roms if name == self._selected_rom_name
+            ]
 
         fs_roms: list[dict] = [
             {"fs_name": rom, "flat": True, "nested": False}

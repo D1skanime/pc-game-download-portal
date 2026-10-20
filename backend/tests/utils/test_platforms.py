@@ -1,5 +1,6 @@
 from handler.database import db_platform_handler
 from models.platform import Platform
+from utils.platform_slugs import canonicalize_filesystem_slug
 from utils.platforms import get_supported_platforms
 
 
@@ -38,3 +39,7 @@ def test_supported_platform_keeps_tgdb_id_from_tgdb():
 
     # TGDB maps the 3DO platform to ID 25.
     assert threedo.tgdb_id == 25
+
+
+def test_canonicalize_filesystem_slug_unifies_pc_and_win():
+    assert canonicalize_filesystem_slug("pc") == canonicalize_filesystem_slug("win")

@@ -29,7 +29,7 @@ from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
 from endpoints.storage_policy import authorize_api_storage_operation
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from exceptions.storage_exceptions import StoragePolicyDenied
+from exceptions.storage_exceptions import MissingStorageTargetError, StoragePolicyDenied
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler, legacy_external_storage
@@ -60,6 +60,13 @@ from utils.router import APIRouter
 router = APIRouter(
     tags=["system"],
 )
+
+
+async def _legacy_filesystem_platforms() -> list[str]:
+    config = cm.get_config()
+    if not (config.has_structure_path_a or config.has_structure_path_b):
+        return []
+    return await fs_platform_handler.get_platforms()
 
 
 @router.get("/heartbeat")
@@ -118,7 +125,7 @@ async def heartbeat() -> HeartbeatResponse:
             "LIBRETRO_API_ENABLED": libretro_enabled,
         },
         "FILESYSTEM": {
-            "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
+            "FS_PLATFORMS": await _legacy_filesystem_platforms(),
         },
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
@@ -206,10 +213,15 @@ async def get_setup_library_info(request: Request):
     """
 
     assert fs_platform_handler.storage is legacy_external_storage
-    with fs_platform_handler.open_access(
-        StorageOperation.LIST, fs_platform_handler.get_platforms_directory()
-    ) as access:
-        access.list()
+    try:
+        with fs_platform_handler.open_access(
+            StorageOperation.LIST, fs_platform_handler.get_platforms_directory()
+        ) as access:
+            access.list()
+    except MissingStorageTargetError:
+        # A fresh install may have an empty read-only library mount. Treat the
+        # missing default directory as an empty library and let setup continue.
+        pass
 
     # Check authentication - only allow public access if no admin users
     # If admin users exist, this would need authentication (but won't be called during setup)
@@ -229,16 +241,27 @@ async def get_setup_library_info(request: Request):
 
     detected_structure = fs_platform_handler.detect_library_structure()
 
-    # Get existing platforms from filesystem
-    try:
-        existing_platform_slugs = await fs_platform_handler.get_platforms()
-    except Exception:
-        log.warning("Error retrieving existing platforms", exc_info=True)
-        existing_platform_slugs = []
+    # PGDP uses the mapped library root directly. Only legacy structures need
+    # the legacy platform discovery helper, which bootstraps a missing roms
+    # directory as a side effect.
+    if detected_structure is None:
+        try:
+            existing_platform_slugs = await fs_platform_handler.list_directories(
+                path=""
+            )
+        except Exception:
+            log.warning("Error retrieving flat library platforms", exc_info=True)
+            existing_platform_slugs = []
+    else:
+        try:
+            existing_platform_slugs = await fs_platform_handler.get_platforms()
+        except Exception:
+            log.warning("Error retrieving existing platforms", exc_info=True)
+            existing_platform_slugs = []
 
     # Build existing platforms with rom counts
     existing_platforms = []
-    if detected_structure and existing_platform_slugs:
+    if existing_platform_slugs:
         cnfg = cm.get_config()
         for fs_slug in existing_platform_slugs:
             rom_count = 0

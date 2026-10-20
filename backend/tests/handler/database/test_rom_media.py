@@ -1,4 +1,5 @@
 import importlib.util
+from datetime import timezone
 from pathlib import Path
 
 import pytest
@@ -217,11 +218,13 @@ def test_model_keeps_candidate_and_placements_independent(rom):
         owned_path="roms/1/media/provider/screenshot-1.webp",
     )
     overview = RomOwnedMediaPlacement(
+        rom_id=rom.id,
         media=candidate,
         surface=RomOwnedMediaSurface.OVERVIEW,
         position=0,
     )
     background = RomOwnedMediaPlacement(
+        rom_id=rom.id,
         media=candidate,
         surface=RomOwnedMediaSurface.BACKGROUND,
         position=0,
@@ -595,7 +598,9 @@ def test_d07_steam_inventory_is_idempotent_and_keeps_shared_path(rom):
     )
     assert second is not None
     assert second.unreferenced_owned_paths == []
-    assert second.rom.updated_at == first.rom.updated_at
+    assert second.rom.updated_at.replace(
+        tzinfo=timezone.utc
+    ) == first.rom.updated_at.replace(tzinfo=timezone.utc)
 
     with session() as db:
         assert (
@@ -625,13 +630,37 @@ def test_complete_reorder_rejects_incomplete_membership(rom):
         "roms/1/media/upload/second.webp",
     )
     assert second is not None
-    placed = db_rom_handler.replace_owned_media_placements(
+    first_placed = db_rom_handler.set_owned_media_placement(
         rom.id,
+        first.media.id,
         second.rom.updated_at,
         RomOwnedMediaSurface.BACKGROUND,
-        [first.media.id, second.media.id],
+        selected=True,
+    )
+    assert first_placed is not None
+    second_placed = db_rom_handler.set_owned_media_placement(
+        rom.id,
+        second.media.id,
+        first_placed.updated_at,
+        RomOwnedMediaSurface.BACKGROUND,
+        selected=True,
+    )
+    assert second_placed is not None
+    placed = db_rom_handler.replace_owned_media_placements(
+        rom.id,
+        second_placed.updated_at,
+        RomOwnedMediaSurface.BACKGROUND,
+        [second.media.id, first.media.id],
     )
     assert placed is not None
+    reordered = db_rom_handler.get_rom(rom.id)
+    assert reordered is not None
+    assert [
+        item.media_id
+        for item in sorted(
+            reordered.owned_media_placements, key=lambda item: item.position
+        )
+    ] == [second.media.id, first.media.id]
     assert (
         db_rom_handler.replace_owned_media_placements(
             rom.id,
@@ -697,8 +726,11 @@ def test_owned_media_role_is_immutable_after_persistence(rom):
         db.add(candidate)
         db.flush()
 
-    with pytest.raises(ValueError, match="immutable"):
-        candidate.role = RomOwnedMediaRole.SOUNDTRACK
+    with session.begin() as db:
+        persisted = db.get(RomOwnedMedia, candidate.id)
+        with pytest.raises(ValueError, match="immutable"):
+            persisted.role = RomOwnedMediaRole.SOUNDTRACK
+        assert persisted.role == RomOwnedMediaRole.ARTWORK
 
 
 def test_display_label_is_a_bounded_sanitized_basename():
@@ -851,7 +883,11 @@ def test_owned_media_schema_serializes_role_and_safe_display_label(rom):
     )
     assert media is not None
 
-    schema = RomOwnedMediaSchema.model_validate(media.media)
+    catalog = db_rom_handler.get_owned_media_catalog(rom.id)
+    persisted = next(
+        candidate for candidate in catalog if candidate.id == media.media.id
+    )
+    schema = RomOwnedMediaSchema.model_validate(persisted)
 
     assert schema.role == RomOwnedMediaRole.SOUNDTRACK
     assert schema.display_label == "operator-track.flac"

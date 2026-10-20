@@ -22,4 +22,4 @@ async def test_task_runs_handler_once_and_logs_aggregate(monkeypatch):
     cleanup = Mock(return_value={"staled": 1, "deleted": 2})
     monkeypatch.setattr(task, "cleanup", cleanup)
     await task.run()
-    cleanup.assert_awaited_once_with()
+    cleanup.assert_called_once_with()

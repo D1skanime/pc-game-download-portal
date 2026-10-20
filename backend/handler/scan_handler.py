@@ -10,15 +10,26 @@ from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
+from handler.database.scan_write_fence import (
+    current_scan_write_context,
+    require_scan_write_context,
+)
 from handler.filesystem import (
     fs_asset_handler,
     fs_firmware_handler,
     fs_resource_handler,
     fs_rom_handler,
+    get_fs_rom_handler,
     legacy_external_storage,
     open_storage_access,
+    use_fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
+from handler.filesystem.scan_media_publication import (
+    ScanMediaBatch,
+    merge_scan_rom,
+    preserve_current_scan_media,
+)
 from handler.filesystem.storage_policy import StorageOperation
 from handler.metadata import (
     meta_flashpoint_handler,
@@ -171,7 +182,7 @@ async def process_pc_automation_after_scan(
     newly_added: bool,
 ) -> None:
     """Queue PC automation only from the final durable scan target."""
-    if platform.slug != UPS.WIN or (not newly_added and scanned_rom.steam_id):
+    if platform.slug != UPS.WIN:
         return
 
     refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
@@ -193,13 +204,17 @@ async def execute_mapped_scan(command: MappedScanCommand, scan_batch):
     The caller owns RomM database, resource, asset, hash, cache, and scan-state
     outputs. Source access remains confined to the operation-bound capability.
     """
+    require_scan_write_context()
     context = MappingReadContext(command.mapping_id, command.expected_revision)
     with context.open(StorageOperation.SCAN, first_use_operation="scan") as capability:
         entries = capability.scan()
         context.boundary()
-        result = scan_batch(command, entries, context)
-        if asyncio.iscoroutine(result):
-            result = await result
+        mapping = context.validate()
+        mapped_handler = fs_rom_handler.for_mapping(mapping)
+        with use_fs_rom_handler(mapped_handler):
+            result = scan_batch(command, entries, context)
+            if asyncio.iscoroutine(result):
+                result = await result
     context.before_owned_write()
     context.before_response_commit()
     return result
@@ -224,7 +239,7 @@ class MetadataSource(enum.StrEnum):
 
 
 def _windows_igdb_lookup_name(fs_name: str) -> str:
-    name = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+    name = get_fs_rom_handler().get_file_name_with_no_tags(fs_name)
     return COMPACT_TITLE_BOUNDARY.sub(" ", name) if " " not in name else name
 
 
@@ -337,6 +352,13 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
     if not (rom_file.category == RomFileCategory.SOUNDTRACK and track_meta):
         return
 
+    if current_scan_write_context() is not None:
+        from utils.audio_tags import publish_scan_soundtrack_cover
+
+        source = rom_file.full_path if track_meta.has_embedded_cover else None
+        publish_scan_soundtrack_cover(rom_file, rom, source)
+        return
+
     if not track_meta.has_embedded_cover:
         # The cover was stripped from the file since the last scan. Keep the
         # path when the unlink fails, so the next scan retries it rather than
@@ -345,7 +367,7 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
             db_rom_handler.upsert_track_meta(rom_file.id, rom.id, {"cover_path": None})
         return
 
-    abs_audio_path = fs_rom_handler.validate_path(rom_file.full_path)
+    abs_audio_path = get_fs_rom_handler().validate_path(rom_file.full_path)
     cover_path = persist_embedded_cover(
         audio_full_path=str(abs_audio_path),
         platform_id=rom.platform_id,
@@ -533,6 +555,7 @@ async def scan_rom(
     socket_manager: socketio.AsyncRedisManager | None = None,
     metadata_only: bool = False,
 ) -> Rom:
+    require_scan_write_context()
     rom_attrs = {
         "id": rom.id,
         "platform_id": platform.id,
@@ -580,6 +603,7 @@ async def scan_rom(
                 "igdb_id": rom.igdb_id,
                 "moby_id": rom.moby_id,
                 "ss_id": rom.ss_id,
+                "steam_id": rom.steam_id,
                 "sgdb_id": rom.sgdb_id,
                 "ra_id": rom.ra_id,
                 "launchbox_id": rom.launchbox_id,
@@ -592,6 +616,8 @@ async def scan_rom(
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
                 "ss_metadata": rom.ss_metadata,
+                "steam_metadata": rom.steam_metadata,
+                "manual_metadata": rom.manual_metadata,
                 "ra_metadata": rom.ra_metadata,
                 "launchbox_metadata": rom.launchbox_metadata,
                 "hasheous_metadata": rom.hasheous_metadata,
@@ -610,7 +636,10 @@ async def scan_rom(
         if (
             meta_playmatch_handler.is_enabled()
             and MetadataSource.PLAYMATCH in metadata_sources
-            and any(PLAYMATCH_SUPPORTED_SOURCES.intersection(metadata_sources))
+            and (
+                metadata_only
+                or any(PLAYMATCH_SUPPORTED_SOURCES.intersection(metadata_sources))
+            )
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
@@ -682,7 +711,7 @@ async def scan_rom(
 
     if not metadata_only and platform.slug == UPS.WIN and fs_rom["nested"]:
         try:
-            pc_components = await fs_rom_handler.get_pc_components(_added_rom)
+            pc_components = await get_fs_rom_handler().get_pc_components(_added_rom)
             unresolved_count = 0
             for component in pc_components:
                 if (
@@ -694,18 +723,21 @@ async def scan_rom(
                         extra=LOGGER_MODULE_NAME,
                     )
                     unresolved_count += 1
-            synced_components = db_rom_handler.sync_rom_components(
-                _added_rom.id, pc_components
-            )
+            with ScanMediaBatch(
+                _added_rom.id, _added_rom.platform_id, fs_resource_handler.storage
+            ) as unit:
+                synced_components = unit.publish_and_associate(
+                    lambda session: db_rom_handler.sync_rom_components(
+                        _added_rom.id, pc_components, session=session
+                    )
+                )
             # Keep the pre-rescan parent relation: a complete scan clears metadata
             # before it asks providers again, while this link is deliberately based
             # only on the already cached, exact IGDB relation.
             auto_link_pc_dlc_components(rom, synced_components)
-            for owned_path in synced_components.orphaned_owned_paths:
-                try:
-                    await fs_resource_handler.remove_file(owned_path)
-                except FileNotFoundError:
-                    pass
+            rom = db_rom_handler.get_rom(rom.id)
+            if rom is None:
+                raise ValueError("scan_media_catalog_missing")
         except (OSError, ValueError) as exc:
             log.warning(
                 "Failed to reconcile PC components for %s: %s",
@@ -714,14 +746,52 @@ async def scan_rom(
                 extra=LOGGER_MODULE_NAME,
             )
 
-    # Run hash fetches concurrently
+    from handler.scan_metadata_result import (
+        record_provider_result,
+        resolve_provider_fetch,
+    )
+
+    playmatch_fallback = PlaymatchRomMatch(
+        igdb_id=None,
+        moby_id=None,
+        ss_id=None,
+        launchbox_id=None,
+        sgdb_id=None,
+        ra_id=None,
+        hasheous_id=None,
+        tgdb_id=None,
+        flashpoint_id=None,
+        hltb_id=None,
+        libretro_id=None,
+        gamelist_id=None,
+    )
     (
         playmatch_hash_match,
         (hasheous_hash_match, hasheous_lookup_conclusive),
     ) = await asyncio.gather(
-        fetch_playmatch_hash_match(),
-        fetch_hasheous_hash_match(),
+        resolve_provider_fetch(
+            MetadataSource.PLAYMATCH,
+            fetch_playmatch_hash_match(),
+            fs_rom["fs_name"],
+            playmatch_fallback,
+        ),
+        resolve_provider_fetch(
+            MetadataSource.HASHEOUS,
+            fetch_hasheous_hash_match(),
+            fs_rom["fs_name"],
+            (
+                HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+                False,
+            ),
+        ),
     )
+    if MetadataSource.PLAYMATCH in metadata_sources:
+        record_provider_result(
+            MetadataSource.PLAYMATCH,
+            fs_rom["fs_name"],
+            rom=rom,
+            files=get_match_files(),
+        )
 
     async def fetch_igdb_rom(
         playmatch_rom: PlaymatchRomMatch, hasheous_rom: HasheousRom
@@ -943,6 +1013,11 @@ async def scan_rom(
                     rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
                 )
             except ScreenScraperRateLimitError:
+                from handler.scan_metadata_result import record_auxiliary_warning
+
+                record_auxiliary_warning(
+                    "ss", fs_rom["fs_name"], "metadata_rate_limited"
+                )
                 note_rate_limited_rom(rom_attrs["fs_name"])
                 return SSRom(ss_id=None)
 
@@ -1136,22 +1211,52 @@ async def scan_rom(
         (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
         (fetch_steam_updates(), {}),
     )
+    from handler.scan_metadata_result import (
+        observe_provider_fetch,
+        record_provider_result,
+    )
+
+    providers = (
+        MetadataSource.IGDB,
+        MetadataSource.MOBY,
+        MetadataSource.SS,
+        MetadataSource.RA,
+        MetadataSource.LAUNCHBOX,
+        MetadataSource.HASHEOUS,
+        MetadataSource.FLASHPOINT,
+        MetadataSource.HLTB,
+        MetadataSource.GAMELIST,
+        MetadataSource.LIBRETRO,
+        MetadataSource.STEAM,
+    )
     fetch_results = await asyncio.gather(
-        *(coro for coro, _ in provider_fetches), return_exceptions=True
+        *(
+            observe_provider_fetch(provider, coro, fs_rom["fs_name"])
+            for provider, (coro, _) in zip(providers, provider_fetches, strict=True)
+        ),
+        return_exceptions=True,
     )
 
     resolved: list[Any] = []
-    for (_, fallback), result in zip(provider_fetches, fetch_results, strict=True):
+    for provider, (_, fallback), result in zip(
+        providers, provider_fetches, fetch_results, strict=True
+    ):
         if isinstance(result, BaseException):
             if not isinstance(result, Exception):
                 raise result
-            provider = fallback.__class__.__name__
-            log.error(
-                f"Error fetching {hl(provider)} metadata for {hl(rom_attrs['fs_name'])}: {result}",
-                extra=LOGGER_MODULE_NAME,
+            record_provider_result(
+                provider,
+                fs_rom["fs_name"],
+                error=result,
+                rom=rom,
+                files=get_match_files(),
             )
             resolved.append(fallback)
         else:
+            if provider in metadata_sources:
+                record_provider_result(
+                    provider, fs_rom["fs_name"], rom=rom, files=get_match_files()
+                )
             resolved.append(result)
 
     (
@@ -1238,7 +1343,7 @@ async def scan_rom(
 
     # For COMPLETE rescans, explicitly clear metadata IDs and metadata for unselected sources
     # This ensures that when a source is no longer selected, its data is removed from the ROM
-    if not newly_added and scan_type == ScanType.COMPLETE:
+    if not newly_added and scan_type == ScanType.COMPLETE and not metadata_only:
         for source, fields in metadata_handlers.items():
             if source not in metadata_sources:
                 rom_attrs[fields["id_field"]] = None
@@ -1311,7 +1416,7 @@ async def scan_rom(
         # A ROM's name defaults to a filename-derived placeholder when first
         # created. Treat that placeholder as "no name" so a freshly matched provider
         # name replaces it (while preserving user-edited names).
-        fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
+        fs_name_no_tags = get_fs_rom_handler().get_file_name_with_no_tags(
             rom_attrs["fs_name"]
         )
         # Both the existing name and the seeded rom_attrs name can hold the
@@ -1363,7 +1468,7 @@ async def scan_rom(
         and not rom_attrs.get("url_cover")
         and not rom_attrs.get("path_cover_s")
     ):
-        pico8_url = fs_rom_handler.get_pico8_cover_url(
+        pico8_url = get_fs_rom_handler().get_pico8_cover_url(
             platform.slug, rom_attrs["fs_name"], rom_attrs["fs_path"]
         )
         if pico8_url:
@@ -1386,7 +1491,9 @@ async def scan_rom(
             f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
             extra=LOGGER_MODULE_NAME,
         )
-        return Rom(**rom_attrs)
+        unidentified = Rom(**rom_attrs)
+        preserve_current_scan_media(unidentified)
+        return unidentified
 
     async def fetch_sgdb_details(playmatch_rom: PlaymatchRomMatch) -> SGDBRom:
         """Fetch SteamGridDB details for the ROM."""
@@ -1407,7 +1514,7 @@ async def scan_rom(
                 )
                 return await meta_sgdb_handler.get_rom_by_id(playmatch_rom["sgdb_id"])
 
-            file_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(
+            file_name_no_tags = get_fs_rom_handler().get_file_name_with_no_tags(
                 str(rom_attrs["fs_name"])
             )
             game_names = [
@@ -1426,9 +1533,18 @@ async def scan_rom(
 
     sgdb_hander_rom = (
         SGDBRom(sgdb_id=None)
-        if metadata_only
-        else await fetch_sgdb_details(playmatch_hash_match)
+        if metadata_only and MetadataSource.SGDB not in metadata_sources
+        else await resolve_provider_fetch(
+            MetadataSource.SGDB,
+            fetch_sgdb_details(playmatch_hash_match),
+            fs_rom["fs_name"],
+            SGDBRom(sgdb_id=None),
+        )
     )
+    if MetadataSource.SGDB in metadata_sources:
+        record_provider_result(
+            MetadataSource.SGDB, fs_rom["fs_name"], rom=rom, files=get_match_files()
+        )
     if sgdb_hander_rom.get("sgdb_id"):
         rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
 
@@ -1441,7 +1557,7 @@ async def scan_rom(
             and scan_type in (ScanType.UNMATCHED, ScanType.UPDATE)
             and rom.path_cover_s
         )
-        if sgdb_cover and not manual_cover_preserved:
+        if sgdb_cover and not manual_cover_preserved and not metadata_only:
             cover_sources = [
                 name
                 for name, fields in metadata_handlers.items()
@@ -1467,6 +1583,7 @@ async def scan_rom(
 
     rom_attrs["missing_from_fs"] = False
     scanned_rom = Rom(**rom_attrs)
+    preserve_current_scan_media(scanned_rom)
 
     steam_metadata = steam_updates.get("metadata")
     has_steam_metadata = isinstance(steam_metadata, dict) and bool(steam_metadata)
@@ -1477,7 +1594,7 @@ async def scan_rom(
     # D-04/D-06/D-07: Structured Steam data and provider candidates are applied
     # only after the ROM has a durable identity. Media never uses legacy URLs.
     if has_steam_patch:
-        durable_rom = db_rom_handler.add_rom(scanned_rom)
+        durable_rom = merge_scan_rom(scanned_rom)
         # MariaDB rounds the optimistic-lock timestamp at persistence. Reload it
         # before the owned-media transaction so its compare-and-swap can succeed.
         refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
@@ -1501,7 +1618,9 @@ async def scan_rom(
             if applied is not None:
                 durable_rom = applied
         if has_steam_media and not metadata_only:
-            await reconcile_steam_patch_media(durable_rom, steam_updates)
+            await reconcile_steam_patch_media(
+                durable_rom, steam_updates, force=scan_type == ScanType.COMPLETE
+            )
         if has_steam_metadata:
             refreshed_rom = db_rom_handler.get_rom(durable_rom.id)
             if refreshed_rom is not None:
@@ -1521,7 +1640,7 @@ async def scan_rom(
     ):
         # The mapped scan already created this durable catalog target. Never pass
         # a filesystem path to automation, only the persisted ROM and components.
-        durable_rom = db_rom_handler.add_rom(scanned_rom)
+        durable_rom = merge_scan_rom(scanned_rom)
     return scanned_rom
 
 

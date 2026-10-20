@@ -272,6 +272,7 @@
     "empty": "Żadne elementy automatyzacji PC nie wymagają sprawdzenia.",
     "load-failed": "Nie udało się wczytać kolejki automatyzacji PC.",
     "load-more": "Wczytaj więcej",
+    "main-game": "Gra główna",
     "outstanding": "{count} element oczekuje na sprawdzenie | {count} elementy oczekują na sprawdzenie | {count} elementów oczekuje na sprawdzenie",
     "progress": "Postęp sprawdzania automatyzacji PC",
     "request-failed": "Żądanie automatyzacji PC nie powiodło się.",
@@ -280,6 +281,8 @@
     "selected": "Wybrano: {count}",
     "skip": "Pomiń {title}",
     "skipped": "Element pominięty",
+    "source-name": "Nazwa źródła",
+    "source-path": "Ścieżka źródła",
     "title": "Sprawdzanie automatyzacji PC",
     "unnamed-candidate": "Kandydat bez nazwy"
   },

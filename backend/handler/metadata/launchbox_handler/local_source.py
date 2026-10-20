@@ -3,6 +3,11 @@ from pathlib import Path, PureWindowsPath
 from defusedxml import ElementTree as ET
 
 from logger.logger import log
+from utils.provider_diagnostics import (
+    MalformedProviderResponse,
+    ProviderUnavailable,
+    report_provider_fault,
+)
 
 from .platforms import get_platform
 from .types import LAUNCHBOX_PLATFORMS_DIR
@@ -51,6 +56,11 @@ class LocalSource:
                         if title:
                             indexed_val.setdefault(f"title:{title}", entry)
             except (ET.ParseError, FileNotFoundError, PermissionError) as e:
+                report_provider_fault(
+                    MalformedProviderResponse()
+                    if isinstance(e, ET.ParseError)
+                    else ProviderUnavailable()
+                )
                 log.warning(f"Failed to parse local LaunchBox XML {xml_path}: {e}")
                 self._cache[platform_slug] = {}
                 self._mtime[platform_slug] = current_mtime

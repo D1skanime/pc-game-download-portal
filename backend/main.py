@@ -54,8 +54,10 @@ from endpoints.platform import router as platform_router
 from endpoints.play_sessions import router as play_sessions_router
 from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
+from endpoints.scan_operations import router as scan_operations_router
 from endpoints.screenshots import router as screenshots_router
 from endpoints.search import router as search_router
+from endpoints.setup import router as setup_router
 from endpoints.states import router as states_router
 from endpoints.stats import router as stats_router
 from endpoints.storage import router as storage_router
@@ -107,11 +109,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,
-    release="romm@" + get_version(),
+    release="pgdp@" + get_version(),
 )
 
 app = FastAPI(
-    title="RomM API",
+    title="PGDP API",
     version=get_version(),
     lifespan=lifespan,
     docs_url="/api/docs",
@@ -123,6 +125,10 @@ app = FastAPI(
 async def download_manifest_validation_error(
     request: Request, _error: RequestValidationError
 ):
+    if request.url.path.startswith("/api/scan-operations"):
+        return JSONResponse(
+            status_code=422, content={"detail": "invalid_scan_operation_request"}
+        )
     if request.url.path.startswith("/api/roms/") and request.url.path.endswith(
         "/download-manifests"
     ):
@@ -130,7 +136,11 @@ async def download_manifest_validation_error(
             status_code=422,
             content={"detail": "Invalid download manifest request"},
         )
-    return JSONResponse(status_code=422, content={"detail": _error.errors()})
+    details = [
+        {"type": error["type"], "loc": error["loc"], "msg": error["msg"]}
+        for error in _error.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": details})
 
 
 app.add_middleware(
@@ -188,6 +198,7 @@ app.add_middleware(
 app.middleware("http")(set_context_middleware)
 
 app.include_router(heartbeat_router, prefix="/api")
+app.include_router(setup_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(activity_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
@@ -206,6 +217,7 @@ app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
+app.include_router(scan_operations_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")
 app.include_router(configs_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")

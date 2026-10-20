@@ -11,6 +11,7 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from utils import get_version
 from utils.context import create_httpx_client, ctx_httpx_client
+from utils.provider_diagnostics import report_provider_fault
 
 from .base_handler import BaseRom, MetadataHandler
 
@@ -208,6 +209,7 @@ class HLTBHandler(MetadataHandler):
                 self.search_url = response.text.strip()
                 self.search_init_url = f"{self.search_url}/init"
         except Exception as e:
+            report_provider_fault(e)
             log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
 
     def _fetch_security_token(self):
@@ -234,6 +236,7 @@ class HLTBHandler(MetadataHandler):
                 self.hp_key = data.get("hpKey", None)
                 self.hp_val = data.get("hpVal", None)
         except Exception as e:
+            report_provider_fault(e)
             log.warning("Unexpected error fetching HLTB security token: %s", e)
 
     async def heartbeat(self) -> bool:
@@ -245,6 +248,7 @@ class HLTBHandler(MetadataHandler):
             response = await httpx_client.get(self.stats_endpoint)
             response.raise_for_status()
         except Exception as e:
+            report_provider_fault(e)
             log.error("Error checking HLTB API: %s", e)
             return False
 
@@ -260,6 +264,9 @@ class HLTBHandler(MetadataHandler):
         :raises HTTPException: If the request fails or the service is unavailable.
         """
         if not self.security_token or not self.hp_key or not self.hp_val:
+            from utils.provider_diagnostics import ProviderUnavailable
+
+            report_provider_fault(ProviderUnavailable())
             return {}
 
         httpx_client = ctx_httpx_client.get()
@@ -291,6 +298,7 @@ class HLTBHandler(MetadataHandler):
             res.raise_for_status()
             return res.json()
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+            report_provider_fault(exc)
             log.warning(
                 "Connection error: can't connect to HowLongToBeat API", exc_info=True
             )
@@ -299,6 +307,7 @@ class HLTBHandler(MetadataHandler):
                 detail="Can't connect to HowLongToBeat API, check your internet connection",
             ) from exc
         except json.JSONDecodeError as exc:
+            report_provider_fault(exc)
             log.error("Error decoding JSON response from HowLongToBeat API: %s", exc)
             return {}
 
@@ -396,6 +405,7 @@ class HLTBHandler(MetadataHandler):
             return games
 
         except Exception as exc:
+            report_provider_fault(exc)
             log.error("Error searching HowLongToBeat API: %s", exc)
             return []
 
@@ -571,6 +581,7 @@ class HLTBHandler(MetadataHandler):
             return price_response
 
         except Exception as exc:
+            report_provider_fault(exc)
             log.error("Error fetching price data from HowLongToBeat API: %s", exc)
             return None
 

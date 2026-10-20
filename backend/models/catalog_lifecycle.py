@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     ForeignKey,
     Index,
@@ -82,6 +83,8 @@ class RetainedCatalogIdentity(BaseModel):
     detached_at: Mapped[datetime] = mapped_column(default=utc_now)
     reconnected_at: Mapped[datetime | None] = mapped_column(default=None)
 
+    retained_audit: Mapped[dict | None] = mapped_column(JSON, default=None)
+
     active_rom: Mapped[Rom | None] = relationship(
         lazy="raise", foreign_keys=[active_rom_id]
     )
@@ -127,6 +130,8 @@ class OwnedCleanupIntent(BaseModel):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    exact_manifest: Mapped[dict | None] = mapped_column(JSON, default=None)
+    exact_progress: Mapped[dict | None] = mapped_column(JSON, default=None)
     retained_catalog_id: Mapped[int] = mapped_column(
         ForeignKey("retained_catalog_identities.id", ondelete="RESTRICT")
     )

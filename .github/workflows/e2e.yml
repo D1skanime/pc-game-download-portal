@@ -31,9 +31,9 @@ jobs:
         ports:
           - 3306
         env:
-          MYSQL_USER: romm_e2e
+          MYSQL_USER: pgdp_e2e
           MYSQL_PASSWORD: passwd
-          MYSQL_DATABASE: romm_e2e
+          MYSQL_DATABASE: pgdp_e2e
           MYSQL_ROOT_PASSWORD: passwd
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
       valkey:
@@ -46,15 +46,13 @@ jobs:
     env:
       DEV_PORT: 5000
       DB_HOST: 127.0.0.1
-      DB_NAME: romm_e2e
-      DB_USER: romm_e2e
+      DB_NAME: pgdp_e2e
+      DB_USER: pgdp_e2e
       DB_PASSWD: passwd
       ROMM_DB_DRIVER: mariadb
       REDIS_HOST: 127.0.0.1
       # Throwaway signing key for an ephemeral runner
       ROMM_AUTH_SECRET_KEY: "e2e0000000000000000000000000000000000000000000000000000000000000"
-      # Fixture-user password, shared by the seeder and the specs
-      E2E_PASSWORD: e2e-Passw0rd!
 
     steps:
       - name: Checkout repository
@@ -95,27 +93,48 @@ jobs:
       # than scanning it in place.
       - name: Stage the library fixture
         run: |
-          mkdir -p "$RUNNER_TEMP/romm/resources" "$RUNNER_TEMP/romm/assets"
-          cp -R backend/romm_test/library "$RUNNER_TEMP/romm/library"
+          mkdir -p "$RUNNER_TEMP/romm/resources" "$RUNNER_TEMP/romm/assets" "$RUNNER_TEMP/phase34-evidence"
+          echo "PHASE34_EVIDENCE_DIR=$RUNNER_TEMP/phase34-evidence" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/romm/library"
+          for platform in backend/romm_test/library/*; do
+            [ -d "$platform/roms" ] || continue
+            cp -R "$platform/roms" "$RUNNER_TEMP/romm/library/$(basename "$platform")"
+          done
+          chmod -R a-w "$RUNNER_TEMP/romm/library"
           echo "ROMM_BASE_PATH=$RUNNER_TEMP/romm" >> "$GITHUB_ENV"
           echo "DB_PORT=${{ job.services.mariadb.ports['3306'] }}" >> "$GITHUB_ENV"
           echo "REDIS_PORT=${{ job.services.valkey.ports['6379'] }}" >> "$GITHUB_ENV"
+
+      - name: Generate isolated fixture credentials
+        run: |
+          python3 - <<'PY'
+          import os
+          import secrets
+          password = secrets.token_urlsafe(32)
+          print("::add-mask::" + password)
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              output.write("E2E_PASSWORD=" + password + "\n")
+              output.write("PHASE34_TEST_PASSWORD=" + password + "\n")
+              output.write("PHASE34_TEST_USERNAME=e2e_admin\n")
+              output.write("PHASE34_BASE_URL=http://127.0.0.1:3000\n")
+          PY
 
       # A migration failure is its own red step rather than a confusing server-start failure.
       - name: Apply migrations
         run: uv run alembic upgrade head
         working-directory: backend
 
-      - name: Seed the library
-        run: uv run python .github/scripts/seed_e2e_library.py
-
-      # Seed user and clear the setup wizard
+      # Canonical scan acceptance requires an existing administrator.
       - name: Seed the e2e fixture users
         run: uv run python .github/scripts/seed_e2e_users.py
 
+      - name: Seed the library
+        run: uv run python .github/scripts/seed_e2e_library.py
+
       - name: Start the backend
         run: |
-          uv run main.py > "$RUNNER_TEMP/backend.log" 2>&1 &
+          ../.venv/bin/python main.py > "$RUNNER_TEMP/backend.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/backend.pid"
           echo "Waiting for the API to answer..."
           for i in $(seq 1 60); do
             if curl -sf "http://127.0.0.1:${DEV_PORT}/api/heartbeat" > /dev/null; then
@@ -128,6 +147,24 @@ jobs:
           tail -100 "$RUNNER_TEMP/backend.log"
           exit 1
         working-directory: backend
+
+      - name: Start the scan worker
+        working-directory: backend
+        run: |
+          ../.venv/bin/python -c 'from rq import Worker; from handler.redis_handler import redis_client, high_prio_queue, default_queue, low_prio_queue; Worker([high_prio_queue, default_queue, low_prio_queue], connection=redis_client).work()' > "$RUNNER_TEMP/worker.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/worker.pid"
+          ../.venv/bin/python - <<'PY'
+          import socket
+          import time
+          from rq import Worker
+          from handler.redis_handler import redis_client
+          for attempt in range(30):
+              if any(worker.hostname == socket.gethostname() and worker.get_state() in {"idle", "busy"} for worker in Worker.all(connection=redis_client)):
+                  break
+              time.sleep(1)
+          else:
+              raise RuntimeError("E2E scan worker did not become ready")
+          PY
 
       # Starts the Vite dev server and waits for port 3000.
       - name: Run Playwright tests
@@ -142,8 +179,21 @@ jobs:
           path: |
             frontend/playwright-report/
             frontend/test-results/
+            ${{ runner.temp }}/phase34-evidence/
           retention-days: 7
+
+      - name: Stop isolated application processes
+        if: always()
+        run: |
+          for service in worker backend; do
+            pid_file="$RUNNER_TEMP/$service.pid"
+            if [ -f "$pid_file" ]; then
+              kill -TERM "$(cat "$pid_file")" 2>/dev/null || true
+            fi
+          done
 
       - name: Dump backend log
         if: failure()
-        run: tail -200 "$RUNNER_TEMP/backend.log" || true
+        run: |
+          tail -200 "$RUNNER_TEMP/backend.log" || true
+          tail -100 "$RUNNER_TEMP/worker.log" || true

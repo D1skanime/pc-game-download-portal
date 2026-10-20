@@ -44,6 +44,7 @@ from sqlalchemy.sql.selectable import Select
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
+from decorators.owned_io import serialized_owned_write
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.manual_description import set_manual_description
 from handler.redis_handler import sync_cache
@@ -511,6 +512,9 @@ class DBRomsHandler(DBBaseHandler):
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Rom:
+        from handler.scan_collection_policy import guard_scan_rom_publication
+
+        guard_scan_rom_publication(session, rom)
         rom = session.merge(rom)
         session.flush()
 
@@ -542,7 +546,7 @@ class DBRomsHandler(DBBaseHandler):
                 selectinload(Rom.owned_background_audio),
             )
             .where(and_(*predicates))
-            .with_for_update()
+            .with_for_update(of=Rom)
         )
 
     @staticmethod
@@ -556,7 +560,7 @@ class DBRomsHandler(DBBaseHandler):
                 selectinload(Rom.local_background_audio),
             )
             .where(Rom.id == rom_id, Rom.updated_at == expected_updated_at)
-            .with_for_update()
+            .with_for_update(of=Rom)
         )
 
     @begin_session
@@ -1062,6 +1066,69 @@ class DBRomsHandler(DBBaseHandler):
         return AppliedOwnedMedia(rom, media, owned_paths)
 
     @begin_session
+    def locked_scan_media_references(self, rom_id, *, snapshot=False, session=None):
+        """Read reference surfaces while holding the catalog parent's write lock."""
+        if rom_id is None:
+            from handler.database.catalog_media_references import (
+                locked_catalog_media_references,
+            )
+
+            return locked_catalog_media_references(session)
+        rom = (
+            session.execute(
+                select(Rom.__table__).where(Rom.id == rom_id).with_for_update()
+            )
+            .mappings()
+            .first()
+        )
+        if rom is None:
+            return None if snapshot else []
+        if snapshot:
+            return dict(rom)
+        values = [
+            rom["path_cover_s"],
+            rom["path_cover_l"],
+            rom["path_manual"],
+            rom["path_screenshots"],
+            *(rom.get(key + "_metadata") for key in METADATA_SOURCE_COLUMNS),
+        ]
+        components = list(
+            session.scalars(
+                select(RomComponent.id)
+                .where(RomComponent.rom_id == rom_id)
+                .with_for_update()
+            )
+        )
+        for model, predicate, field in (
+            (RomOwnedMedia, RomOwnedMedia.rom_id == rom_id, "owned_path"),
+            (
+                RomComponentOwnedMedia,
+                RomComponentOwnedMedia.component_id.in_(components),
+                "owned_path",
+            ),
+            (
+                RomComponentLocalMedia,
+                RomComponentLocalMedia.component_id.in_(components),
+                "owned_path",
+            ),
+            (TrackMeta, TrackMeta.rom_id == rom_id, "cover_path"),
+        ):
+            values.extend(
+                session.scalars(
+                    select(getattr(model, field)).where(predicate).with_for_update()
+                )
+            )
+        values.extend(
+            dict(row._mapping)
+            for row in session.execute(
+                select(RomComponentMetadata.__table__)
+                .where(RomComponentMetadata.component_id.in_(components))
+                .with_for_update()
+            )
+        )
+        return values
+
+    @begin_session
     def create_owned_media_cleanup_intent(
         self,
         rom_id: int,
@@ -1139,7 +1206,12 @@ class DBRomsHandler(DBBaseHandler):
                 select(OwnedMediaCleanupIntent.id)
                 .where(
                     and_(
-                        OwnedMediaCleanupIntent.state == OwnedMediaCleanupState.PENDING,
+                        OwnedMediaCleanupIntent.state.in_(
+                            [
+                                OwnedMediaCleanupState.PENDING,
+                                OwnedMediaCleanupState.PROCESSING,
+                            ]
+                        ),
                         or_(
                             OwnedMediaCleanupIntent.next_attempt_at.is_(None),
                             OwnedMediaCleanupIntent.next_attempt_at <= now,
@@ -2224,6 +2296,16 @@ class DBRomsHandler(DBBaseHandler):
         return query.order_by(*order_clauses), order_attr_column  # type: ignore
 
     @begin_session
+    def get_rom_filesystem_paths(
+        self, platform_id: int, *, session: Session = None  # type: ignore
+    ):
+        """Project known source identities without generic catalog filters."""
+        return session.execute(
+            select(Rom.fs_name, Rom.fs_path).where(Rom.platform_id == platform_id)
+        ).all()
+
+    @serialized_owned_write
+    @begin_session
     def get_roms_scalar(
         self,
         *,
@@ -2236,6 +2318,7 @@ class DBRomsHandler(DBBaseHandler):
             order_dir=kwargs.get("order_dir", "asc"),
             search_term=kwargs.get("search_term", None),
             user_id=kwargs.get("user_id", None),
+            session=session,
         )
 
         if only_fields:
@@ -2289,6 +2372,7 @@ class DBRomsHandler(DBBaseHandler):
             include_files=kwargs.get("include_files", False),
             hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
             hidden_rom_ids=kwargs.get("hidden_rom_ids", None),
+            session=session,
         )
         return session.scalars(roms).all()
 
@@ -2451,12 +2535,35 @@ class DBRomsHandler(DBBaseHandler):
         return {rom.fs_name: rom for rom in roms}
 
     @begin_session
+    def get_roms_by_filesystem_identity(self, platform_id, identities, *, session=None):
+        from sqlalchemy import tuple_
+
+        rows = (
+            session.scalars(
+                select(Rom)
+                .options(selectinload(Rom.platform))
+                .where(
+                    Rom.platform_id == platform_id,
+                    tuple_(Rom.fs_path, Rom.fs_name).in_(identities),
+                )
+            )
+            .unique()
+            .all()
+        )
+        return {(rom.fs_path, rom.fs_name): rom for rom in rows}
+
+    @begin_session
     def update_rom(
         self,
         id: int,
         data: dict,
         session: Session = None,  # type: ignore
     ) -> Rom:
+        from handler.scan_collection_policy import guard_scan_rom_publication
+
+        current = session.get(Rom, id)
+        if current is not None:
+            guard_scan_rom_publication(session, current, data)
         if "name" in data and "name_sort_key" not in data:
             # Re-derive the key from the new name, but only when the stored key
             # is still the derived value (i.e. not a manual override). Mirrors
@@ -2497,7 +2604,7 @@ class DBRomsHandler(DBBaseHandler):
         rom = session.scalar(
             select(Rom)
             .where(Rom.id == rom_id, Rom.updated_at == expected_updated_at)
-            .with_for_update()
+            .with_for_update(of=Rom)
         )
         if rom is None:
             return None
@@ -2537,7 +2644,7 @@ class DBRomsHandler(DBBaseHandler):
                 ),
                 RomComponent.updated_at == expected_updated_at,
             )
-            .with_for_update()
+            .with_for_update(of=RomComponent)
         )
         if component is None:
             return None
@@ -3501,6 +3608,8 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int,
         fs_roms_to_keep: list[str],
         session: Session = None,  # type: ignore
+        *,
+        filesystem_identities: set[tuple[str, str]] | None = None,
     ) -> Sequence[Rom]:
         """Sync `missing_from_fs` for a platform against the keep-list.
 
@@ -3509,14 +3618,18 @@ class DBRomsHandler(DBBaseHandler):
         """
         keep_set = set(fs_roms_to_keep)
         rows = session.execute(
-            select(Rom.id, Rom.fs_name, Rom.missing_from_fs).where(
+            select(Rom.id, Rom.fs_name, Rom.fs_path, Rom.missing_from_fs).where(
                 Rom.platform_id == platform_id
             )
         ).all()
 
         flips: dict[bool, list[int]] = {True: [], False: []}
-        for rom_id, fs_name, was_missing in rows:
-            is_missing = fs_name not in keep_set
+        for rom_id, fs_name, fs_path, was_missing in rows:
+            is_missing = (
+                (fs_path, fs_name) not in filesystem_identities
+                if filesystem_identities is not None
+                else fs_name not in keep_set
+            )
             if is_missing != was_missing:
                 flips[is_missing].append(rom_id)
 

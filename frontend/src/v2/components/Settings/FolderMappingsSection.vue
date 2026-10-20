@@ -24,14 +24,15 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import FolderMappingPlatformCell from "@/v2/components/Settings/FolderMappingPlatformCell.vue";
 import FolderMappingTypeCell from "@/v2/components/Settings/FolderMappingTypeCell.vue";
+import { loadPgdPFolderMappings } from "@/v2/components/Settings/pgdpFolderMappings";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import configApi from "@/v2/data/adapters/legacy/services/api/config";
 import platformApi from "@/v2/data/adapters/legacy/services/api/platform";
 import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
-import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 import type { Platform } from "@/v2/data/adapters/legacy/stores/platforms";
+import "./FolderMappingsSection.css";
 
 defineOptions({ inheritAttrs: false });
 
@@ -39,7 +40,6 @@ const { t } = useI18n();
 const authStore = storeAuth();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
-const heartbeat = storeHeartbeat();
 const snackbar = useSnackbar();
 
 const supportedPlatforms = ref<Platform[]>([]);
@@ -67,59 +67,8 @@ const TYPE_ORDER: Record<NonNullable<RowType> | "none", number> = {
   none: 3,
 };
 
-const mappings = computed<Row[]>(() => {
-  const rows: Row[] = [];
-  const folders = heartbeat.value?.FILESYSTEM?.FS_PLATFORMS || [];
-  const bindings = config.value.PLATFORMS_BINDING || {};
-  const versions = config.value.PLATFORMS_VERSIONS || {};
-  const autoSlug: Record<string, string | undefined> = {};
-
-  for (const p of supportedPlatforms.value) autoSlug[p.slug] = p.slug;
-
-  for (const folder of folders) {
-    if (bindings[folder]) {
-      const slug = bindings[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
-      rows.push({
-        fsSlug: folder,
-        slug,
-        displayName: platform?.display_name || platform?.name || slug,
-        type: "alias",
-      });
-      continue;
-    }
-    if (versions[folder]) {
-      const slug = versions[folder];
-      const platform = supportedPlatforms.value.find((p) => p.slug === slug);
-      rows.push({
-        fsSlug: folder,
-        slug,
-        displayName: platform?.display_name || platform?.name || slug,
-        type: "variant",
-      });
-      continue;
-    }
-    const auto = autoSlug[folder];
-    if (auto) {
-      const platform = supportedPlatforms.value.find((p) => p.slug === auto);
-      rows.push({
-        fsSlug: folder,
-        slug: auto,
-        displayName: platform?.display_name || platform?.name || auto,
-        type: "auto",
-      });
-    } else {
-      rows.push({
-        fsSlug: folder,
-        slug: undefined,
-        displayName: undefined,
-        type: null,
-      });
-    }
-  }
-
-  return rows;
-});
+const pgdpMappings = ref<Row[]>([]);
+const mappings = computed<Row[]>(() => pgdpMappings.value);
 
 const sortedMappings = computed(() => {
   const list = [...mappings.value];
@@ -306,11 +255,10 @@ const initialLoading = ref(false);
 onMounted(async () => {
   initialLoading.value = true;
   loading.value = true;
-  // Refresh FS_PLATFORMS from heartbeat when this page mounts
-  heartbeat.fetchHeartbeat().catch(() => {});
   try {
     const { data } = await platformApi.getSupportedPlatforms();
     supportedPlatforms.value = data || [];
+    pgdpMappings.value = await loadPgdPFolderMappings(supportedPlatforms.value);
     // Populate the in-memory icon cache so every PlatformIcon
     // rendered by the table rows + Platform picker reads blob URLs
     // instead of refetching. Fires in idle time, non-blocking.
@@ -457,130 +405,3 @@ onMounted(async () => {
     </RDialog>
   </div>
 </template>
-
-<style scoped>
-.r-v2-mappings {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.r-v2-mappings__toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.r-v2-mappings__search {
-  flex: 1;
-}
-
-/* Help affordance inside the "Type" column header — a small, muted
-   icon that tints to fg on hover. Negative inline-end margin keeps it
-   visually attached to the label without enlarging the header gap. */
-.r-v2-mappings__help-icon {
-  color: var(--r-color-fg-faint) !important;
-  width: 22px !important;
-  height: 22px !important;
-  min-width: 0 !important;
-  margin-left: 2px !important;
-}
-.r-v2-mappings__help-icon:hover {
-  color: var(--r-color-fg) !important;
-  background: var(--r-color-surface-hover) !important;
-}
-
-.r-v2-mappings__folder {
-  font-weight: var(--r-font-weight-medium);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Group each selector's content (platform icon + name / type pill) with its
-   chevron right after it, instead of the value stretching and flinging the
-   chevron away — removes the big gap in the desktop table. */
-.r-v2-mappings :deep(.r-v2-fmpc .r-select__value),
-.r-v2-mappings :deep(.r-v2-fmtc .r-select__value) {
-  flex: 0 1 auto;
-}
-
-/* Mobile card-stack — the selectors fill the value column as full-width tap
-   targets but pack their content against the right edge, so Platform, Type,
-   the folder name and the delete action all line up on the right. */
-html[data-bp~="xs"] .r-v2-mappings :deep(.r-table--mobile-stack .r-v2-fmpc),
-html[data-bp~="xs"] .r-v2-mappings :deep(.r-table--mobile-stack .r-v2-fmtc) {
-  width: 100%;
-  /* A flex child defaults to `min-width: auto`, refusing to shrink below a
-     long platform name and overflowing the card. Allow it to shrink so the
-     name ellipsizes; the chevron (flex-shrink: 0) stays put. */
-  min-width: 0;
-}
-html[data-bp~="xs"]
-  .r-v2-mappings
-  :deep(.r-table--mobile-stack .r-v2-fmpc .r-select__field),
-html[data-bp~="xs"]
-  .r-v2-mappings
-  :deep(.r-table--mobile-stack .r-v2-fmtc .r-select__field) {
-  justify-content: flex-end;
-}
-/* Drop the chevron's trailing padding so it sits at the same right edge as
-   the folder name text and the delete button. */
-html[data-bp~="xs"]
-  .r-v2-mappings
-  :deep(.r-table--mobile-stack .r-v2-fmpc .r-select__adornment--append),
-html[data-bp~="xs"]
-  .r-v2-mappings
-  :deep(.r-table--mobile-stack .r-v2-fmtc .r-select__adornment--append) {
-  padding-inline-end: 0;
-}
-
-/* Delete row action — danger-tinted icon RBtn. */
-.r-v2-mappings__delete-btn {
-  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent) !important;
-}
-.r-v2-mappings__delete-btn:hover {
-  color: var(--r-color-danger) !important;
-  background: color-mix(
-    in srgb,
-    var(--r-color-danger) 12%,
-    transparent
-  ) !important;
-}
-
-/* Help dialog — alias / variant explanation. Two stacked sections
-   with a footer note about mutual exclusion. */
-.r-v2-mappings__help-title {
-  font-weight: var(--r-font-weight-semibold);
-}
-.r-v2-mappings__help-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.r-v2-mappings__help-row-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--r-color-brand-primary);
-}
-.r-v2-mappings__help-row p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--r-color-fg-secondary);
-}
-.r-v2-mappings__help-foot {
-  margin: 4px 0 0;
-  padding: 10px 12px;
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
-  color: var(--r-color-fg-secondary);
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-</style>

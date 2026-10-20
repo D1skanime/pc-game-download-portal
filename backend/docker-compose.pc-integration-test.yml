@@ -1,6 +1,6 @@
 services:
   app:
-    image: romm-romm-dev:latest
+    image: pgdp-dev:latest
     working_dir: /app
     depends_on:
       database:
@@ -14,9 +14,9 @@ services:
       ROMM_AUTH_SECRET_KEY: "${ROMM_AUTH_SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
       DB_HOST: database
       DB_PORT: "3306"
-      DB_NAME: romm
-      DB_USER: romm
-      DB_PASSWD: romm
+      DB_NAME: pgdp
+      DB_USER: pgdp
+      DB_PASSWD: pgdp
       REDIS_HOST: queue
       REDIS_PORT: "6379"
       ROMM_BASE_PATH: /romm
@@ -66,7 +66,7 @@ services:
         source: ${PHASE10_ARTIFACTS:?set PHASE10_ARTIFACTS}
         target: /phase10-artifacts
   scheduler:
-    image: romm-romm-dev:latest
+    image: pgdp-dev:latest
     working_dir: /app/backend
     depends_on:
       database:
@@ -80,9 +80,9 @@ services:
       ROMM_AUTH_SECRET_KEY: "${ROMM_AUTH_SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
       DB_HOST: database
       DB_PORT: "3306"
-      DB_NAME: romm
-      DB_USER: romm
-      DB_PASSWD: romm
+      DB_NAME: pgdp
+      DB_USER: pgdp
+      DB_PASSWD: pgdp
       REDIS_HOST: queue
       REDIS_PORT: "6379"
       ROMM_BASE_PATH: /romm
@@ -120,7 +120,7 @@ services:
       - phase10-resources:/romm/resources
       - phase10-tmp:/romm/tmp
   worker:
-    image: romm-romm-dev:latest
+    image: pgdp-dev:latest
     working_dir: /app/backend
     depends_on:
       database:
@@ -134,9 +134,9 @@ services:
       ROMM_AUTH_SECRET_KEY: "${ROMM_AUTH_SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
       DB_HOST: database
       DB_PORT: "3306"
-      DB_NAME: romm
-      DB_USER: romm
-      DB_PASSWD: romm
+      DB_NAME: pgdp
+      DB_USER: pgdp
+      DB_PASSWD: pgdp
       REDIS_HOST: queue
       REDIS_PORT: "6379"
       ROMM_BASE_PATH: /romm
@@ -196,9 +196,9 @@ services:
       romm.phase.slug: pc-integration-model
     environment:
       MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: romm
-      MARIADB_USER: romm
-      MARIADB_PASSWORD: romm
+      MARIADB_DATABASE: pgdp
+      MARIADB_USER: pgdp
+      MARIADB_PASSWORD: pgdp
     healthcheck:
       test:
         ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot --silent"]

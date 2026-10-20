@@ -11,7 +11,7 @@ import {
   RSteps,
 } from "@v2/lib";
 import axios from "axios";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -81,15 +81,15 @@ const breadcrumbs = computed(() =>
 const previewLabel = computed(() => {
   if (!preview.value)
     return t("storage.preview-missing", "No preview has been started.");
+  if (preview.value.state === "pending")
+    return t(
+      "storage.preview-pending",
+      "Preview started. The mapping remains active.",
+    );
   if (preview.value.stale)
     return t(
       "storage.preview-stale",
       "Preview is stale. Start a current preview.",
-    );
-  if (preview.value.state === "pending")
-    return t(
-      "storage.preview-pending",
-      "Preview is queued. Mapping remains active.",
     );
   const observed =
     preview.value.observed_files + preview.value.observed_directories;
@@ -124,6 +124,24 @@ function isMissingMappingError(error: unknown) {
   );
 }
 
+let previewPollTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearPreviewPoll() {
+  if (previewPollTimer !== null) {
+    clearTimeout(previewPollTimer);
+    previewPollTimer = null;
+  }
+}
+
+function schedulePreviewPoll(mappingId: number) {
+  clearPreviewPoll();
+  previewPollTimer = setTimeout(async () => {
+    previewPollTimer = null;
+    if (!mapping.value || mapping.value.id !== mappingId) return;
+    await loadPreview(mappingId);
+  }, 1000);
+}
+
 async function ensurePlatforms() {
   if (platformsStore.allPlatforms.length === 0)
     await platformsStore.fetchPlatforms();
@@ -132,6 +150,11 @@ async function ensurePlatforms() {
 async function loadPreview(mappingId: number) {
   try {
     preview.value = (await storageApi.getPreview(mappingId)).data;
+    if (preview.value.state === "pending") {
+      schedulePreviewPoll(mappingId);
+    } else {
+      clearPreviewPoll();
+    }
   } catch (error) {
     if (!axios.isAxiosError(error) || error.response?.status !== 404) {
       snackbar.error(
@@ -145,6 +168,7 @@ async function loadPreview(mappingId: number) {
 }
 
 async function loadMapping() {
+  clearPreviewPoll();
   mapping.value = null;
   preview.value = null;
   try {
@@ -301,6 +325,8 @@ async function refreshPreview() {
   try {
     stalePreview.value = preview.value;
     preview.value = (await storageApi.refreshPreview(mapping.value.id)).data;
+    if (preview.value.state === "pending")
+      schedulePreviewPoll(mapping.value.id);
   } catch (error) {
     snackbar.error(
       safeMessage(
@@ -375,6 +401,7 @@ function goBack() {
 }
 
 watch(platformId, () => void reload());
+onBeforeUnmount(clearPreviewPoll);
 onMounted(() => void reload());
 </script>
 
@@ -493,7 +520,7 @@ onMounted(() => void reload());
         <RDivider class="r-storage__divider" />
         <div class="r-storage__preview">
           <p class="r-storage__label">{{ t("storage.preview", "Preview") }}</p>
-          <p>{{ previewLabel }}</p>
+          <p aria-live="polite">{{ previewLabel }}</p>
           <p
             v-if="preview?.state === 'pending' && stalePreview"
             class="r-storage__muted"

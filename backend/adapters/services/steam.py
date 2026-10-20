@@ -16,6 +16,7 @@ from adapters.services.steam_types import (
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.provider_diagnostics import report_provider_fault
 from utils.rate_limiter import RateLimiter
 
 STEAM_MAX_REQUESTS_PER_SECOND: Final[float] = 0.6
@@ -51,7 +52,12 @@ class SteamService:
                 )
                 response.raise_for_status()
                 payload = await response.json()
-                return payload if isinstance(payload, dict) else {}
+                if not isinstance(payload, dict):
+                    report_provider_fault(
+                        json.JSONDecodeError("Invalid provider response shape", "", 0)
+                    )
+                    return {}
+                return payload
             except TimeoutError:
                 continue
             except aiohttp.ClientResponseError as exc:
@@ -61,11 +67,22 @@ class SteamService:
                 ):
                     await asyncio.sleep(STEAM_RATE_LIMIT_BACKOFF_SECONDS)
                     continue
+                if (
+                    not isinstance(exc, aiohttp.ClientResponseError)
+                    or exc.status != http.HTTPStatus.NOT_FOUND
+                ):
+                    report_provider_fault(exc)
                 log.warning("Steam request failed: %s", exc)
                 return {}
             except (aiohttp.ClientError, json.JSONDecodeError, ValueError) as exc:
+                if (
+                    not isinstance(exc, aiohttp.ClientResponseError)
+                    or exc.status != http.HTTPStatus.NOT_FOUND
+                ):
+                    report_provider_fault(exc)
                 log.warning("Steam request failed: %s", exc)
                 return {}
+        report_provider_fault(TimeoutError())
         return {}
 
     @staticmethod

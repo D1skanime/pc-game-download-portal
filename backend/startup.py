@@ -148,6 +148,14 @@ async def main() -> None:
     async with initialize_context():
         log.info("Running startup tasks")
 
+        from tasks.scan_operation_dispatch import (
+            reconcile_scan_operations,
+            scan_operation_reconciliation_task,
+        )
+
+        scan_operation_reconciliation_task.init()
+        await reconcile_scan_operations()
+
         # Initialize scheduled tasks
         cleanup_netplay_task.init()
         cleanup_download_transfer_sessions_task.init()
@@ -218,7 +226,7 @@ async def main() -> None:
 if __name__ == "__main__":
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        release=f"romm@{get_version()}",
+        release=f"pgdp@{get_version()}",
     )
 
     asyncio.run(main())

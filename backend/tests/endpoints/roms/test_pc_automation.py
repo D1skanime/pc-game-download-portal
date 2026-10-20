@@ -70,6 +70,9 @@ def test_queue_list_returns_bounded_evidence_and_count(
                 "target_kind": "parent",
                 "normalized_query": "Cyberpunk 2077",
                 "target_title": "test_rom",
+                "source_name": "test_rom.zip",
+                "source_path": "test_platform_slug/roms/test_rom.zip",
+                "main_game_label": "test_rom",
                 "candidate_fingerprint": "steam:1091500:stale_target",
                 "candidate_title": "Cyberpunk 2077",
                 "candidate_cover_url": "https://cdn.example/cover.jpg",
@@ -128,6 +131,74 @@ def test_queue_schema_prefers_component_metadata_name_then_relative_path(mocker)
     assert schema.target_title == "Cyberpunk 2077: Phantom Liberty"
     component.component_metadata.name = None
     assert pc_automation_endpoint._schema(item).target_title == "dlc/Phantom Liberty"
+
+
+def test_queue_schema_exposes_parent_source_details(mocker):
+    item = _item(7)
+    mocker.patch.object(
+        pc_automation_endpoint.db_rom_handler,
+        "get_rom",
+        return_value=SimpleNamespace(
+            fs_path="pc/roms",
+            fs_name="Game Folder",
+            name="Player-facing Game",
+            components=[],
+        ),
+    )
+
+    schema = pc_automation_endpoint._schema(item)
+
+    assert schema.source_name == "Game Folder"
+    assert schema.source_path == "pc/roms/Game Folder"
+    assert schema.main_game_label == "Player-facing Game"
+
+
+def test_queue_schema_exposes_nested_component_source_and_main_game_fallback(mocker):
+    item = _item(7)
+    item.component_id = 23
+    item.target_kind = PcAutomationTargetKind.COMPONENT
+    component = SimpleNamespace(
+        id=23,
+        kind=RomComponentKind.DLC,
+        relative_path="DLC/Phantom Liberty/installer.exe",
+        component_metadata=None,
+    )
+    mocker.patch.object(
+        pc_automation_endpoint.db_rom_handler,
+        "get_rom",
+        return_value=SimpleNamespace(
+            fs_path="pc/roms",
+            fs_name="Game Folder",
+            name=None,
+            components=[component],
+        ),
+    )
+
+    schema = pc_automation_endpoint._schema(item)
+
+    assert schema.source_name == "DLC/Phantom Liberty/installer.exe"
+    assert schema.source_path == "pc/roms/Game Folder/DLC/Phantom Liberty/installer.exe"
+    assert schema.main_game_label == "Game Folder"
+
+
+def test_queue_schema_never_returns_absolute_or_container_source_paths(mocker):
+    item = _item(7)
+    mocker.patch.object(
+        pc_automation_endpoint.db_rom_handler,
+        "get_rom",
+        return_value=SimpleNamespace(
+            fs_path="/app/library/Games-Main/pc/roms",
+            fs_name="Game Folder",
+            name="Player-facing Game",
+            components=[],
+        ),
+    )
+
+    schema = pc_automation_endpoint._schema(item)
+
+    assert not schema.source_path.startswith(("/", "C:/", "D:/"))
+    assert "/app/" not in schema.source_path
+    assert schema.source_path == "Game Folder"
 
 
 def test_queue_list_exposes_the_normalized_query_for_unmatched_titles(

@@ -76,7 +76,7 @@ async def test_main_seeds_an_arcade_mapping_for_the_browser_proof(
     monkeypatch.setattr(
         module.fs_platform_handler, "get_platforms", AsyncMock(return_value=["arcade"])
     )
-    lookups = iter([None, platform])
+    lookups = iter([None, platform, None])
     monkeypatch.setattr(
         module.db_platform_handler, "get_platform_by_fs_slug", lambda _: next(lookups)
     )

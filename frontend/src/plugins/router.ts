@@ -12,6 +12,7 @@ import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
+import { resolveSetupRoute } from "@/v2/composables/useSetupRouteGuard";
 import { v2Layouts, v2RouteComponents } from "@/v2/router/routes";
 
 export const ROUTES = {
@@ -568,10 +569,14 @@ router.beforeEach(async (to, _from, next) => {
       return next();
     }
 
-    // Handle setup wizard
-    if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
-      return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
-    }
+    const setupRedirect = await resolveSetupRoute({
+      route: currentRoute,
+      fullPath: to.fullPath,
+      connected: heartbeat.connected,
+      showWizard: heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD,
+      user: user.value,
+    });
+    if (setupRedirect) return next(setupRedirect);
 
     // Handle authentication — unauth'd users visiting a non-exempt route
     // land on /login. Without this branch, they fall through to the
@@ -584,16 +589,6 @@ router.beforeEach(async (to, _from, next) => {
           next: to.query.next ?? to.fullPath,
         },
       });
-    }
-
-    // SHOW_SETUP_WIZARD is false here, so setup is already done — nobody
-    // belongs on /setup anymore. `/setup` is auth-exempt (so the block above
-    // won't bounce an unauthenticated visitor), so redirect both cases:
-    // authenticated users go home, everyone else to login. Without covering
-    // the unauth case, a stale link / manual nav to /setup would strand the
-    // user on the wizard, whose API then 403s once an admin exists.
-    if (currentRoute === ROUTES.SETUP) {
-      return next({ name: user.value ? ROUTES.HOME : ROUTES.LOGIN });
     }
 
     // Check permissions

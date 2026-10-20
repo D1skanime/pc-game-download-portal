@@ -7,6 +7,7 @@ import {
   operationItemIds,
   resolveMediaOnlyScope,
   toLegacyScanOptions,
+  toScanOperationRequest,
 } from "./operations";
 
 const baseRequest = (
@@ -55,6 +56,184 @@ const baseRequest = (
 });
 
 describe("operation compatibility translation", () => {
+  it("preserves explicit collection promotion through the typed request builder", () => {
+    const collectionPromotion = {
+      parent_rom_id: 41,
+      mapping_id: 12,
+      expected_revision: 3,
+      parent_relative_path: "Castlevania",
+      selected_child_relative_path: "Castlevania/Belmonts.Curse",
+    };
+    const request = buildLibraryScanRequest({
+      operationId: "collection-selection",
+      kind: "discovery",
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: {
+          win: collectionPromotion.selected_child_relative_path,
+        },
+      },
+      profiles: [],
+      uiLocale: "de-DE",
+      metadataLocale: "en-US",
+      providers: [],
+      playmatchEnabled: false,
+      launchboxRemoteEnabled: false,
+      scanType: "quick",
+      collectionPromotion,
+    });
+    expect(normalizeOperationRequest(request).collectionPromotion).toEqual(
+      collectionPromotion,
+    );
+    expect(toScanOperationRequest(request)).toMatchObject({
+      collection_promotion: collectionPromotion,
+      filesystem_scope_paths: { win: "Castlevania/Belmonts.Curse" },
+    });
+    expect(toLegacyScanOptions(request)).not.toHaveProperty(
+      "collection_promotion",
+    );
+  });
+
+  it("does not infer collection promotion from generic filesystem scope", () => {
+    const request = baseRequest({
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: { win: "Castlevania/Belmonts.Curse" },
+      },
+    });
+    expect(toScanOperationRequest(request)).not.toHaveProperty(
+      "collection_promotion",
+    );
+  });
+
+  it("serializes the backend request without replacing the reconciliation key", () => {
+    const input = baseRequest({
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: { win: "Games/Spiel 日本" },
+      },
+      scanType: "full",
+    });
+    const payload = toScanOperationRequest(input);
+    expect(payload).toEqual({
+      ...toLegacyScanOptions(input),
+      type: "complete",
+      request_key: "idem-1",
+    });
+    expect(toScanOperationRequest(normalizeOperationRequest(input))).toEqual(
+      payload,
+    );
+    expect(payload.filesystem_scope_paths).toEqual({ win: "Games/Spiel 日本" });
+    expect(payload.apis).toEqual(["igdb", "launchbox", "playmatch"]);
+    expect(payload).not.toHaveProperty("operationId");
+    expect(payload).not.toHaveProperty("jobId");
+  });
+
+  it("adapts media and metadata intent to the generated backend contract", () => {
+    expect(
+      toScanOperationRequest(baseRequest({ scanType: "media" })),
+    ).toMatchObject({
+      type: "update",
+      metadata_only: false,
+      media_only: true,
+    });
+    expect(
+      toScanOperationRequest(
+        baseRequest({
+          metadataOnly: true,
+          mediaPolicy: { mode: "none", targets: [] },
+        }),
+      ),
+    ).toMatchObject({
+      metadata_only: true,
+      media_only: false,
+    });
+    expect(
+      toScanOperationRequest(
+        baseRequest({
+          mediaOnly: true,
+          metadataPolicy: { mode: "none", fields: [] },
+        }),
+      ),
+    ).toMatchObject({
+      type: "update",
+      metadata_only: false,
+      media_only: true,
+    });
+    expect(() =>
+      toScanOperationRequest(baseRequest({ preview: true })),
+    ).toThrow("Preview");
+  });
+
+  it("retains the original request identity through repeated normalization", () => {
+    const original = baseRequest();
+    const normalized = normalizeOperationRequest(original);
+    expect(normalizeOperationRequest(normalized)).toEqual(normalized);
+    expect(normalized.idempotencyKey).toBe(original.idempotencyKey);
+    expect(normalized.operationId).toBe(original.operationId);
+    expect(normalized.jobId).toBe(original.jobId);
+    expect(original.providerPolicy.providers).toEqual([
+      "igdb",
+      "launchbox",
+      "igdb",
+    ]);
+  });
+
+  it.each(["A-key", "../key", "key:resume", " key", "a".repeat(97)])(
+    "rejects a request key outside the backend identity grammar: %s",
+    (idempotencyKey) => {
+      expect(() =>
+        normalizeOperationRequest(baseRequest({ idempotencyKey })),
+      ).toThrow(OperationTranslationError);
+    },
+  );
+
+  it.each(["operationId", "jobId"] as const)(
+    "bounds local %s independently of confirmed server lineage",
+    (field) => {
+      expect(() =>
+        normalizeOperationRequest(baseRequest({ [field]: "x".repeat(129) })),
+      ).toThrow(OperationTranslationError);
+    },
+  );
+
+  it("preserves all policy fields and mapped revisions during normalization", () => {
+    const request = baseRequest({
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: { win: "Games/Spiel 日本" },
+      },
+      providerPolicy: {
+        providers: ["igdb", "steam"],
+        fallbackProviders: ["playmatch"],
+        allowUnexpectedLocale: true,
+        launchboxRemoteEnabled: false,
+        region: " EU ",
+      },
+      metadataPolicy: {
+        mode: "provider-replace",
+        fields: [{ field: "summary", locale: "de-DE" }],
+      },
+      mediaPolicy: {
+        mode: "missing-only",
+        targets: [{ role: "cover", ownership: "manual" }],
+      },
+    });
+    const result = normalizeOperationRequest(request);
+    expect(result.scope).toEqual(request.scope);
+    expect(result.profiles).toEqual(request.profiles);
+    expect(result.metadataPolicy).toEqual(request.metadataPolicy);
+    expect(result.mediaPolicy).toEqual(request.mediaPolicy);
+    expect(result.providerPolicy).toEqual({
+      ...request.providerPolicy,
+      region: "EU",
+    });
+  });
+
   it("builds a dialog request that preserves the legacy scan payload semantics", () => {
     const request = buildLibraryScanRequest({
       operationId: "refresh-platform-7",
@@ -91,6 +270,23 @@ describe("operation compatibility translation", () => {
       apis: ["igdb", "launchbox", "playmatch"],
       launchbox_remote_enabled: true,
       playmatch_enabled: true,
+    });
+  });
+
+  it("preserves a selected filesystem subfolder for a scoped scan", () => {
+    const request = baseRequest({
+      scope: {
+        kind: "filesystem",
+        platformFsSlugs: ["win"],
+        relativePaths: { win: "Tales of War/The Witcher 3" },
+      },
+    });
+
+    expect(toLegacyScanOptions(request)).toMatchObject({
+      platforms: [7],
+      roms_ids: [],
+      platform_fs_slugs: ["win"],
+      filesystem_scope_paths: { win: "Tales of War/The Witcher 3" },
     });
   });
 

@@ -12,9 +12,14 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from tests.handler import test_scan_operations as scan_fixtures
+from tests.handler.test_scan_write_fence import context
 
 from endpoints import roms as roms_endpoint
 from handler.database.base_handler import sync_session
+from handler.database.scan_write_fence import bind_scan_write_context
+from handler.scan_operation_checkpoint import bind_checkpoint_command
+from handler.scan_operation_recovery import decode_command
 from models.assets import Save, Screenshot, State
 from models.catalog_lifecycle import (
     OwnedCleanupIntent,
@@ -24,6 +29,8 @@ from models.catalog_lifecycle import (
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile, RomNote
 from models.user import User
+
+scan_command = scan_fixtures.command
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -457,11 +464,16 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     read_only: bool,
+    scan_command,
 ) -> None:
     from endpoints.sockets import scan as scan_module
     from handler.filesystem.roms_handler import FSRom, ParsedRomFiles, ParsedTags
     from handler.scan_handler import ScanType
 
+    attempt = scan_fixtures.running(
+        scan_fixtures.repository(), admin_user, scan_command
+    )
+    checkpoint = decode_command(scan_command["commands"][0])
     dependencies = _seed_dependencies(rom, admin_user)
     old_rom_id = rom.id
     platform = rom.platform
@@ -541,8 +553,16 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
 
     async def scan_without_external_metadata(**kwargs):
         scanned = kwargs["rom"]
-        scanned.crc_hash, scanned.md5_hash, scanned.sha1_hash = hashes
-        return scanned
+        return Rom(
+            id=scanned.id,
+            platform_id=scanned.platform_id,
+            fs_name=scanned.fs_name,
+            fs_path=scanned.fs_path,
+            name=scanned.name,
+            crc_hash=hashes[0],
+            md5_hash=hashes[1],
+            sha1_hash=hashes[2],
+        )
 
     monkeypatch.setattr(
         scan_module, "scan_rom", AsyncMock(side_effect=scan_without_external_metadata)
@@ -574,7 +594,11 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
         fail_once_then_reconnect,
     )
 
-    with pytest.raises(RuntimeError, match="injected post-insert reconnect failure"):
+    with (
+        bind_scan_write_context(context(attempt)),
+        bind_checkpoint_command(checkpoint),
+        pytest.raises(RuntimeError, match="injected post-insert reconnect failure"),
+    ):
         await scan_module._identify_rom(
             platform=platform,
             fs_rom=fs_rom,
@@ -614,18 +638,22 @@ async def test_remove_then_production_scan_reconnects_retained_user_value(
                 retained.id,
             )
 
-    await scan_module._identify_rom(
-        platform=platform,
-        fs_rom=fs_rom,
-        rom=persisted,
-        scan_type=ScanType.HASHES,
-        roms_ids=[],
-        metadata_sources=[],
-        launchbox_remote_enabled=False,
-        playmatch_enabled=False,
-        socket_manager=AsyncMock(),
-        scan_stats=AsyncMock(),
-    )
+    with (
+        bind_scan_write_context(context(attempt)),
+        bind_checkpoint_command(checkpoint),
+    ):
+        await scan_module._identify_rom(
+            platform=platform,
+            fs_rom=fs_rom,
+            rom=persisted,
+            scan_type=ScanType.HASHES,
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            playmatch_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+        )
 
     with sync_session() as session:
         reconnected = session.scalar(

@@ -305,8 +305,8 @@ describe("maximum-grant source mutation controls", () => {
     expect(files.service).toContain("getOwnedMedia");
     expect(files.service).toContain("refreshOwnedMedia");
     expect(files.service).toContain("/roms/${romId}/media/refresh");
-    expect(files.media).not.toMatch(/\/soundtracks(?:\/|`|'|\")/);
-    expect(files.screenshots).not.toMatch(/\/soundtracks(?:\/|`|'|\")/);
+    expect(files.media).not.toMatch(/\/soundtracks(?:\/|`|'|")/);
+    expect(files.screenshots).not.toMatch(/\/soundtracks(?:\/|`|'|")/);
     expect(files.media).toContain(":aria-controls=");
     expect(files.media).toContain('id="media-panel-screenshots"');
     expect(files.artwork).toContain("owned_media");
@@ -430,45 +430,26 @@ describe("external source mutation authority inventory", () => {
     expect(wrapper.text()).not.toContain("common.upload-roms");
   });
 
-  it("renders detected setup state without platform creation selection", () => {
+  it("renders setup folder assignments without creation controls", () => {
     const wrapper = shallowMount(SetupStepPlatforms, {
       props: {
-        libraryInfo: {
-          detected_structure: "struct_a",
-          existing_platforms: [{ fs_slug: "pc", rom_count: 2 }],
-          supported_platforms: [
+        discovery: {
+          root_label: "Games",
+          folders: [
             {
-              id: 1,
-              slug: "pc",
-              fs_slug: "pc",
               name: "PC",
-              display_name: "PC",
-              rom_count: 2,
-              igdb_slug: null,
-              moby_slug: null,
-              hltb_slug: null,
-              libretro_slug: null,
-              created_at: "",
-              updated_at: "",
-              fs_size_bytes: 0,
-              is_unidentified: false,
-              is_identified: true,
-              missing_from_fs: false,
-              firmware_count: 0,
+              relative_path: "PC",
+              association: "known",
+              suggested_platform: "pc",
             },
           ],
+          platform_options: [{ slug: "pc", display_name: "PC" }],
         },
-      },
-      global: {
-        stubs: {
-          RCheckbox: {
-            template: '<input data-platform-create type="checkbox" />',
-          },
-        },
+        draft: { PC: "pc" },
+        disabled: false,
+        submitting: false,
       },
     });
-
-    expect(wrapper.find("[data-platform-create]").exists()).toBe(false);
     expect(wrapper.text()).not.toContain("setup.select-platforms");
   });
 

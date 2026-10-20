@@ -272,6 +272,7 @@
     "empty": "Niciun element de automatizare PC nu necesită revizuire.",
     "load-failed": "Nu s-a putut încărca coada de automatizare PC.",
     "load-more": "Încarcă mai multe",
+    "main-game": "Joc principal",
     "outstanding": "{count} element în așteptarea revizuirii | {count} elemente în așteptarea revizuirii",
     "progress": "Progresul revizuirii automatizării PC",
     "request-failed": "Solicitarea de automatizare PC a eșuat.",
@@ -280,6 +281,8 @@
     "selected": "{count} selectate",
     "skip": "Ignoră {title}",
     "skipped": "Element ignorat",
+    "source-name": "Nume sursă",
+    "source-path": "Cale sursă",
     "title": "Revizuirea automatizării PC",
     "unnamed-candidate": "Candidat fără nume"
   },

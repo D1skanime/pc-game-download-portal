@@ -7,7 +7,7 @@ from anyio import Path as AnyioPath
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from exceptions.storage_exceptions import MissingStorageTargetError
+from exceptions.storage_exceptions import MissingStorageTargetError, StoragePolicyDenied
 from logger.logger import log
 from utils.platform_slugs import resolve_filesystem_slug
 
@@ -132,7 +132,7 @@ class FSPlatformsHandler(ExternalFSHandler):
             )
             try:
                 self.create_library_structure()
-            except OSError:
+            except (OSError, StoragePolicyDenied):
                 log.error("Failed to create default library structure", exc_info=True)
             return []
 

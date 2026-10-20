@@ -1,6 +1,6 @@
 import type { OperationRequest } from "../../contracts";
 import { toLegacyScanOptions, type LegacyScanOptions } from "../../operations";
-import socket from "./services/socket";
+import scanOperations from "../scanOperations";
 
 export function toLegacyScanPayload(
   request: OperationRequest,
@@ -8,12 +8,11 @@ export function toLegacyScanPayload(
   return toLegacyScanOptions(request);
 }
 
-export function startLegacyScan(request: OperationRequest): LegacyScanOptions {
-  const payload = toLegacyScanPayload(request);
-  socket.emit("scan", payload);
-  return payload;
+export function startLegacyScan(request: OperationRequest) {
+  return scanOperations.submit(request);
 }
 
-export function stopLegacyScan(): void {
-  socket.emit("scan:stop");
+export async function stopLegacyScan() {
+  const snapshot = await scanOperations.restore();
+  return snapshot ? scanOperations.cancel(snapshot) : null;
 }

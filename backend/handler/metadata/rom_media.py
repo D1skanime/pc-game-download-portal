@@ -4,6 +4,7 @@ This module deliberately consumes persisted provider media only.  It never
 starts a scan and it never grants filesystem authority.
 """
 
+from contextlib import nullcontext
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import PurePosixPath
@@ -12,7 +13,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from fastapi import status
 
 from handler.database import db_rom_handler
+from handler.database.scan_write_fence import current_scan_write_context
 from handler.filesystem import fs_resource_handler
+from handler.filesystem.scan_media_publication import ScanMediaBatch
 from models.rom import RomOwnedMediaRole, derive_owned_media_display_label
 from utils.context import ctx_httpx_client
 
@@ -111,7 +114,7 @@ async def _download_provider_image(
 async def refresh_provider_owned_media(
     rom, expected_version, provider: str, *, restore_suppressed: bool = False
 ):
-    """Refresh one ROM using the caller-selected provider authority."""
+    """Refresh selected provider images within their publication transaction."""
     if not isinstance(provider, str) or not provider:
         raise ValueError("Provider is required")
     source = {
@@ -120,29 +123,49 @@ async def refresh_provider_owned_media(
     }
     failures: list[ProviderMediaFailure] = []
     for candidate in discover_provider_media(provider, source):
-        path: str | None = None
+        path = None
+        unit = None
         try:
-            path, mime_type = await _download_provider_image(rom, candidate)
-            reconcile_kwargs = (
-                {"restore_suppressed": True} if restore_suppressed else {}
+            scope = (
+                ScanMediaBatch(rom.id, rom.platform_id, fs_resource_handler.storage)
+                if current_scan_write_context() is not None
+                else nullcontext()
             )
-            applied = db_rom_handler.reconcile_provider_owned_media(
-                rom.id,
-                expected_version,
-                candidate.provider,
-                candidate.provider_media_id,
-                candidate.role,
-                candidate.display_label,
-                mime_type,
-                path,
-                **reconcile_kwargs,
-            )
-            if applied is None:
-                raise ValueError("Media catalog changed")
-            expected_version = applied.rom.updated_at
-            rom = applied.rom
+            with scope as unit:
+                path, mime_type = await _download_provider_image(rom, candidate)
+
+                def reconcile(
+                    session,
+                    rom=rom,
+                    expected_version=expected_version,
+                    candidate=candidate,
+                    mime_type=mime_type,
+                    path=path,
+                ):
+                    kwargs = {"restore_suppressed": True} if restore_suppressed else {}
+                    kwargs.update({"session": session} if session is not None else {})
+                    applied = db_rom_handler.reconcile_provider_owned_media(
+                        rom.id,
+                        expected_version,
+                        candidate.provider,
+                        candidate.provider_media_id,
+                        candidate.role,
+                        candidate.display_label,
+                        mime_type,
+                        path,
+                        **kwargs,
+                    )
+                    if applied is None:
+                        raise ValueError("Media catalog changed")
+                    return applied
+
+                applied = (
+                    unit.publish_and_associate(reconcile) if unit else reconcile(None)
+                )
+                expected_version = applied.rom.updated_at
+                rom = applied.rom
         except (ValueError, OSError) as exc:
-            if path is not None:
+            if path is not None and unit is None:
                 await fs_resource_handler.remove_file(path)
             failures.append(
                 ProviderMediaFailure(

@@ -39,6 +39,8 @@ from models.user import User
 # read the shared cache entry rather than recomputing over the library.
 SENTINEL_FILTER_VALUES: dict[str, Any] = {
     "genres": ["Sentinel Genre"],
+    "genre_ids": [],
+    "theme_ids": [],
     "franchises": [],
     "collections": [],
     "companies": [],

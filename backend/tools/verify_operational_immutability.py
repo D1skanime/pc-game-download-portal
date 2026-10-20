@@ -949,7 +949,7 @@ def _http_probe(url: str) -> dict[str, Any]:
 
 
 def _workflow_http_probes(slug: str, *, base_url: str) -> dict[str, Any]:
-    if slug not in {"stream-play", "single-download", "multi-download"}:
+    if slug not in {spec.slug for spec in WORKFLOW_SPECS if spec.needs_nginx_witness}:
         return {
             "authorized_status": None,
             "direct_library_status": None,

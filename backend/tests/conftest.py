@@ -1,3 +1,9 @@
+# ruff: noqa: E402
+# Target validation must precede dependency and application imports.
+from tools.phase34_target_guard import validate_target
+
+validate_target()
+
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -6,11 +12,14 @@ import alembic.config
 import pytest
 from hypothesis import settings
 from joserfc import jwt
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
+
+validate_target(resolved_url=ConfigManager.get_db_engine())
+
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import (
@@ -27,9 +36,21 @@ from models.catalog_lifecycle import OwnedCleanupIntent, RetainedCatalogIdentity
 from models.client_token import ClientToken
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from models.download_archive_set import DownloadArchiveSet, DownloadArchiveSetMember
+from models.download_manifest import (
+    DownloadManifest,
+    DownloadManifestComponent,
+    DownloadManifestMember,
+)
+from models.download_transfer import (
+    DownloadTransferEvent,
+    DownloadTransferItem,
+    DownloadTransferSession,
+)
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
+from models.scan_operation import ScanExecutionSlot, ScanOperation, ScanOperationItem
 from models.storage import (
     LegacyDetectionResult,
     LegacyMigration,
@@ -39,6 +60,7 @@ from models.storage import (
 from models.sync_session import SyncSession
 from models.user import Role, User
 
+validate_target(resolved_url=ConfigManager.get_db_engine())
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -55,6 +77,7 @@ def _ensure_database_exists() -> None:
     created on demand here, just before migrations run.
     """
     url = ConfigManager.get_db_engine()
+    validate_target(resolved_url=url)
     db_name = url.database
     if not db_name:
         return
@@ -90,13 +113,24 @@ def _ensure_database_exists() -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
+    validate_target(resolved_url=ConfigManager.get_db_engine())
     _ensure_database_exists()
     alembic.config.main(argv=["upgrade", "head"])
 
 
 @pytest.fixture(autouse=True)
 def clear_database():
+    validate_target(resolved_url=engine.url)
     with session.begin() as s:
+        slot = s.scalar(
+            select(ScanExecutionSlot).where(ScanExecutionSlot.id == 1).with_for_update()
+        )
+        if slot is None:
+            raise RuntimeError("missing seeded scan execution slot")
+        slot.active_operation_id, slot.version = None, 0
+        s.flush()
+        s.query(ScanOperationItem).delete(synchronize_session=False)
+        s.query(ScanOperation).delete(synchronize_session=False)
         s.query(PlaySession).delete(synchronize_session="evaluate")
         s.query(ClientToken).delete(synchronize_session="evaluate")
         s.query(SyncSession).delete(synchronize_session="evaluate")
@@ -105,6 +139,14 @@ def clear_database():
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
+        s.query(DownloadTransferEvent).delete(synchronize_session=False)
+        s.query(DownloadTransferItem).delete(synchronize_session=False)
+        s.query(DownloadTransferSession).delete(synchronize_session=False)
+        s.query(DownloadManifestMember).delete(synchronize_session=False)
+        s.query(DownloadManifestComponent).delete(synchronize_session=False)
+        s.query(DownloadManifest).delete(synchronize_session=False)
+        s.query(DownloadArchiveSetMember).delete(synchronize_session=False)
+        s.query(DownloadArchiveSet).delete(synchronize_session=False)
         s.query(RomFile).delete(synchronize_session="evaluate")
         s.query(OwnedCleanupIntent).delete(synchronize_session="evaluate")
         s.query(RetainedCatalogIdentity).delete(synchronize_session="evaluate")

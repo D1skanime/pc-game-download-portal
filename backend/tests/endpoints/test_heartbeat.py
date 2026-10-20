@@ -1,9 +1,11 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import status
 
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from exceptions.storage_exceptions import MissingStorageTargetError
 from handler.scan_handler import MetadataSource
 from utils import get_version
 
@@ -52,6 +54,23 @@ def test_heartbeat(client):
     assert isinstance(oidc["ENABLED"], bool)
     assert isinstance(oidc["PROVIDER"], str)
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_skips_legacy_filesystem_discovery_for_flat_pgdp_root():
+    from endpoints.heartbeat import _legacy_filesystem_platforms
+
+    config = SimpleNamespace(has_structure_path_a=False, has_structure_path_b=False)
+    with (
+        patch("endpoints.heartbeat.cm.get_config", return_value=config),
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.get_platforms",
+            new_callable=AsyncMock,
+        ) as get_platforms,
+    ):
+        assert await _legacy_filesystem_platforms() == []
+
+    get_platforms.assert_not_awaited()
 
 
 @pytest.mark.parametrize("authorization_header", ["Bearer ", "Foo", "a b c"])
@@ -215,6 +234,31 @@ def test_get_setup_library_info_structure_b_detected(client, admin_user, access_
                 assert data["existing_platforms"][0]["rom_count"] == 3
 
 
+def test_get_setup_library_info_missing_read_only_target_starts_empty(
+    client, admin_user, access_token
+):
+    """Fresh read-only installs expose an empty setup library instead of HTTP 500."""
+    with (
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.open_access",
+            side_effect=MissingStorageTargetError(),
+        ),
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.detect_library_structure",
+            return_value=None,
+        ),
+    ):
+        response = client.get(
+            "/api/setup/library",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["detected_structure"] is None
+    assert data["existing_platforms"] == []
+
+
 def test_get_setup_library_info_no_structure_detected(client, admin_user, access_token):
     """Test get_setup_library_info when no structure is detected"""
     with patch(
@@ -223,7 +267,7 @@ def test_get_setup_library_info_no_structure_detected(client, admin_user, access
         mock_detect.return_value = None
 
         with patch(
-            "endpoints.heartbeat.fs_platform_handler.get_platforms"
+            "endpoints.heartbeat.fs_platform_handler.list_directories"
         ) as mock_get_platforms:
             mock_get_platforms.return_value = []
 

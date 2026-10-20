@@ -272,6 +272,7 @@
     "empty": "Nenhum item de automação de PC precisa de revisão.",
     "load-failed": "Não foi possível carregar a fila de automação de PC.",
     "load-more": "Carregar mais",
+    "main-game": "Jogo principal",
     "outstanding": "{count} item aguardando revisão | {count} itens aguardando revisão",
     "progress": "Progresso da revisão da automação de PC",
     "request-failed": "A solicitação de automação de PC falhou.",
@@ -280,6 +281,8 @@
     "selected": "{count} selecionados",
     "skip": "Ignorar {title}",
     "skipped": "Item ignorado",
+    "source-name": "Nome da origem",
+    "source-path": "Caminho da origem",
     "title": "Revisão da automação de PC",
     "unnamed-candidate": "Candidato sem nome"
   },

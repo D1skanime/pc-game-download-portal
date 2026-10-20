@@ -122,6 +122,7 @@ class CatalogLifecycleHandler:
         retained: RetainedCatalogIdentity,
         actor_user_id: int,
         screenshots: list[Screenshot],
+        exact_cleanup_manifest: dict | None = None,
     ) -> int:
         intents = [
             OwnedCleanupIntent(
@@ -130,8 +131,18 @@ class CatalogLifecycleHandler:
                 relative_path=rom.fs_resources_path,
                 deduplication_key=f"catalog:{retained.id}:resource",
                 actor_user_id=actor_user_id,
+                exact_manifest=exact_cleanup_manifest,
+                exact_progress=(
+                    {"cursor": 0, "retained": []}
+                    if exact_cleanup_manifest is not None
+                    else None
+                ),
             )
         ]
+        if exact_cleanup_manifest is not None:
+            session.add_all(intents)
+            session.flush()
+            return len(intents)
         intents.extend(
             OwnedCleanupIntent(
                 retained_catalog_id=retained.id,
@@ -154,6 +165,8 @@ class CatalogLifecycleHandler:
         rom_id: int,
         *,
         actor_user_id: int,
+        exact_cleanup_manifest: dict | None = None,
+        retained_audit: dict | None = None,
         session: Session = None,  # type: ignore[assignment]
     ) -> CatalogRemovalOutcome | None:
         rom = session.scalar(
@@ -167,10 +180,12 @@ class CatalogLifecycleHandler:
                 select(Screenshot)
                 .where(Screenshot.rom_id == rom_id)
                 .order_by(Screenshot.id)
-                .with_for_update()
+                .with_for_update(of=Screenshot)
             ).all()
         )
         retained = self._get_or_create_retained_identity(session, rom, actor_user_id)
+        if retained_audit is not None:
+            retained.retained_audit = retained_audit
 
         retained_saves = session.execute(
             update(Save)
@@ -188,7 +203,7 @@ class CatalogLifecycleHandler:
             .values(rom_id=None, retained_catalog_id=retained.id)
         ).rowcount
         cleanup_pending = self._add_cleanup_intents(
-            session, rom, retained, actor_user_id, screenshots
+            session, rom, retained, actor_user_id, screenshots, exact_cleanup_manifest
         )
 
         self._before_catalog_delete(session=session, rom=rom, retained=retained)
@@ -220,6 +235,7 @@ class CatalogLifecycleHandler:
         self,
         *,
         limit: int,
+        collection_only: bool = False,
         session: Session = None,  # type: ignore[assignment]
     ) -> list[ClaimedCleanupIntent]:
         now = utc_now()
@@ -237,6 +253,11 @@ class CatalogLifecycleHandler:
                         (OwnedCleanupIntent.state == OwnedCleanupState.PROCESSING)
                         & (OwnedCleanupIntent.next_attempt_at <= now),
                     )
+                )
+                .where(
+                    OwnedCleanupIntent.exact_manifest["schema"].as_integer() == 1
+                    if collection_only
+                    else True
                 )
                 .order_by(OwnedCleanupIntent.id)
                 .limit(limit)
@@ -353,6 +374,10 @@ class CatalogLifecycleHandler:
         if target is None:
             return None
 
+        from handler.scan_collection_policy import guard_scan_rom_publication
+
+        guard_scan_rom_publication(session, target)
+
         # Lock every candidate in a stable order. The locking read sees a
         # concurrent winner's committed active_rom_id before evaluating it.
         candidates = list(
@@ -363,7 +388,13 @@ class CatalogLifecycleHandler:
                 .with_for_update()
             ).all()
         )
-        detached = [row for row in candidates if row.active_rom_id is None]
+        from handler.scan_collection_policy import retained_identity_can_reconnect
+
+        detached = [
+            row
+            for row in candidates
+            if row.active_rom_id is None and retained_identity_can_reconnect(row)
+        ]
 
         selected: RetainedCatalogIdentity | None = None
         if logical_path is not None:

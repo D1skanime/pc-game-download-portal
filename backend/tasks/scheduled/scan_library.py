@@ -5,7 +5,6 @@ from config import (
 )
 from endpoints.sockets.scan import (
     ScanStats,
-    execute_mixed_scans,
     mapping_scan_commands,
 )
 from handler.metadata import (
@@ -73,9 +72,6 @@ class ScanLibraryTask(PeriodicTask):
         }
 
         metadata_sources = [source for source, flag in source_mapping.items() if flag]
-        if not metadata_sources:
-            log.warning("No metadata sources enabled, unscheduling library scan")
-            return scan_stats.to_dict()
 
         log.info("Scheduled library scan started...")
         commands = mapping_scan_commands(
@@ -84,15 +80,28 @@ class ScanLibraryTask(PeriodicTask):
             scope=ScanScope.LIBRARY,
             scan_type=ScanType.QUICK,
         )
-        scan_stats = await execute_mixed_scans(
-            commands,
-            platform_ids=[],
-            platform_fs_slugs=[],
-            metadata_sources=metadata_sources,
-        )
-        log.info("Scheduled library scan done")
+        if not commands:
+            log.info(
+                "No healthy mapped storage assignments, skipping scheduled library scan"
+            )
+            return scan_stats.to_dict()
+        from handler.database.scan_operations_handler import OperationConflict
+        from tasks.scan_operation_dispatch import accept_commands, system_actor
 
-        return scan_stats.to_dict()
+        actor = system_actor()
+        if actor is None:
+            log.warning("Scheduled scan requires an existing administrator")
+            return scan_stats.to_dict()
+        try:
+            accepted = accept_commands(
+                actor, commands, {"apis": metadata_sources, "type": "quick"}
+            )
+        except OperationConflict:
+            log.info(
+                "Scheduled scan deferred while an operation owns the execution slot"
+            )
+            return scan_stats.to_dict()
+        return {"operation_id": accepted.id, "state": accepted.state}
 
 
 scan_library_task = ScanLibraryTask()

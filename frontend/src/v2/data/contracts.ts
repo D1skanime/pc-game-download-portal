@@ -1,3 +1,17 @@
+import type {
+  CollectionPromotionRequest,
+  ScanOperationSnapshot,
+} from "@/__generated__";
+
+export type {
+  CollectionPromotionRequest,
+  ScanOperationRequest,
+  ScanOperationSnapshot,
+  ScanOperationMutationRequest,
+  ScanOperationItemResult,
+  SetupRecoverySnapshot,
+} from "@/__generated__";
+
 export interface DataError {
   message: string;
   status?: number;
@@ -110,7 +124,11 @@ export type OperationScope =
       componentId: number;
       componentKind: Exclude<ItemKind, "game" | "firmware">;
     }
-  | { kind: "filesystem"; platformFsSlugs: string[] };
+  | {
+      kind: "filesystem";
+      platformFsSlugs: string[];
+      relativePaths?: Record<string, string>;
+    };
 
 export interface LibraryProfile {
   rootId: string;
@@ -200,6 +218,12 @@ export interface ExecutionPolicy {
   resumable: boolean;
 }
 
+export interface SubfolderScanRequest {
+  platformFsSlug: string;
+  relativePath: string;
+  collectionPromotion: CollectionPromotionRequest;
+}
+
 export interface OperationRequest {
   operationId: string;
   kind: OperationKind;
@@ -220,10 +244,12 @@ export interface OperationRequest {
   scanType?: ScanType;
   metadataOnly?: boolean;
   mediaOnly?: boolean;
+  collectionPromotion?: CollectionPromotionRequest;
   provenance?: Provenance;
 }
 
 export type OperationStatus =
+  | ScanOperationSnapshot["state"]
   | "queued"
   | "running"
   | "stopping"
@@ -273,6 +299,8 @@ export interface OperationDiagnostic {
 }
 
 export interface OperationResult {
+  /** Server lineage is separate from local presentation and request identity. */
+  confirmed?: ScanOperationSnapshot;
   operationId: string;
   jobId: string;
   status: OperationStatus;

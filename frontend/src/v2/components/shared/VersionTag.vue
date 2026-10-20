@@ -18,7 +18,8 @@ withDefaults(
 const heartbeatStore = storeHeartbeat();
 const version = computed(() => heartbeatStore.value.SYSTEM.VERSION);
 const releaseHref = computed(
-  () => `https://github.com/rommapp/romm/releases/tag/${version.value}`,
+  () =>
+    `https://github.com/D1skanime/pc-game-download-portal/releases/tag/${version.value}`,
 );
 </script>
 

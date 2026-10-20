@@ -15,10 +15,14 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if is_postgresql(op.get_bind()):
+        op.execute("DROP VIEW roms_metadata")
     op.execute(_metadata_view_sql(is_postgresql(op.get_bind())))
 
 
 def downgrade() -> None:
+    if is_postgresql(op.get_bind()):
+        op.execute("DROP VIEW roms_metadata")
     op.execute(_metadata_view_sql(is_postgresql(op.get_bind()), include_phase_29=False))
 
 

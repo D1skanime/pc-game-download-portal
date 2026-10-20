@@ -22,15 +22,62 @@ def clear_database() -> None:
     """Override shared cleanup hooks for this db-free suite."""
 
 
-def _run_harness(tmp_path: Path, *args: str) -> Path:
+def _run_harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *args: str) -> Path:
+    """Exercise real artifact contracts through explicit test transport stubs."""
+    module = _load_module()
     artifacts = tmp_path / "artifacts"
-    subprocess.run(
-        ["python3", str(SCRIPT), *args, "--artifacts", str(artifacts)],
-        cwd=REPO_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    commands = []
+    requests = []
+
+    def command_transport(command, **kwargs):
+        commands.append(command)
+        if command[:2] == ["npx", "playwright"]:
+            for slug in module.BROWSER_WORKFLOW_SLUGS:
+                module._write_json(
+                    artifacts / "workflows" / slug / "browser.json",
+                    {
+                        "schema_version": module.BROWSER_SCHEMA_VERSION,
+                        "workflow": slug,
+                        "status": "passed",
+                        "test_transport_stub": True,
+                    },
+                )
+        output = (
+            "127.0.0.1:39009\n" if "port" in command else "contract transport stub\n"
+        )
+        return subprocess.CompletedProcess(command, 0, output, "")
+
+    class Response:
+        headers = {"Content-Type": "application/json", "X-Contract-Transport": "stub"}
+
+        def __init__(self, url):
+            self.status = 404 if "/library/" in url or "/cache/" in url else 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+    def http_transport(url, **kwargs):
+        requests.append(url)
+        return Response(url)
+
+    with monkeypatch.context() as transport:
+        transport.setattr(module, "_run_command", command_transport)
+        transport.setattr(module.urllib_request, "urlopen", http_transport)
+        transport.setattr(
+            sys, "argv", [str(SCRIPT), *args, "--artifacts", str(artifacts)]
+        )
+        assert module.main() == 0
+    assert any("up" in command for command in commands)
+    assert any("down" in command for command in commands)
+    assert any("logs" in command for command in commands)
+    assert any("/api/heartbeat" in url for url in requests)
+    if "--requirement" in args:
+        assert any(command[:2] == ["npx", "playwright"] for command in commands)
+        assert any("/library/" in url for url in requests)
+        assert any("/cache/" in url for url in requests)
     return artifacts
 
 
@@ -49,8 +96,10 @@ def _load_module():
     return module
 
 
-def test_restart_persistence_writes_run_level_and_workflow_artifacts(tmp_path: Path):
-    artifacts = _run_harness(tmp_path, "--workflow", "restart-persistence")
+def test_restart_persistence_contract_writes_run_level_and_workflow_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    artifacts = _run_harness(tmp_path, monkeypatch, "--workflow", "restart-persistence")
 
     assert (artifacts / "run.json").is_file()
     assert (artifacts / "aggregate.json").is_file()
@@ -69,10 +118,11 @@ def test_restart_persistence_writes_run_level_and_workflow_artifacts(tmp_path: P
     )
 
 
-def test_requirement_run_keeps_separate_workflow_evidence_and_delivery_witnesses(
+def test_requirement_contract_keeps_separate_workflow_evidence_and_delivery_witnesses(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
-    artifacts = _run_harness(tmp_path, "--requirement", "TEST-06")
+    artifacts = _run_harness(tmp_path, monkeypatch, "--requirement", "TEST-06")
 
     workflow_names = {
         path.name for path in (artifacts / "workflows").iterdir() if path.is_dir()

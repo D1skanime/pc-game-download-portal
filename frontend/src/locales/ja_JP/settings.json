@@ -272,6 +272,7 @@
     "empty": "確認が必要な PC 自動化項目はありません。",
     "load-failed": "PC 自動化キューを読み込めませんでした。",
     "load-more": "さらに読み込む",
+    "main-game": "メインゲーム",
     "outstanding": "{count} 件が確認待ちです",
     "progress": "PC 自動化の確認進捗",
     "request-failed": "PC 自動化リクエストに失敗しました。",
@@ -280,6 +281,8 @@
     "selected": "{count} 件を選択中",
     "skip": "{title} をスキップ",
     "skipped": "項目をスキップしました",
+    "source-name": "ソース名",
+    "source-path": "ソースパス",
     "title": "PC 自動化の確認",
     "unnamed-candidate": "名前のない候補"
   },

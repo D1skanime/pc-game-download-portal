@@ -63,7 +63,7 @@ test.describe("Media tab write affordances (read-only user)", () => {
     });
   }
 
-  test("Screenshots: the shared ROM section is hidden but the per-user one stays writable", async ({
+  test("Screenshots: provider artwork stays readable and user screenshots stay writable", async ({
     page,
   }) => {
     await seedUiState(page, "dark");
@@ -72,9 +72,14 @@ test.describe("Media tab write affordances (read-only user)", () => {
     await openSubtab(page, "Screenshots");
 
     const panel = visiblePanel(page);
-    // Shared section writes to the ROM: gone for a read-only user with nothing
-    // to show.
-    await expect(panel.getByText("ROM screenshots")).toHaveCount(0);
+    const artwork = panel.getByRole("region", {
+      name: "Screenshots",
+      exact: true,
+    });
+    await expect(artwork).toBeVisible();
+    await expect(
+      artwork.getByRole("button", { name: "Upload", exact: true }),
+    ).toHaveCount(0);
     // Per-user section writes user assets: must survive, dropzone included.
     // Hiding this would be the regression in the opposite direction.
     await expect(panel.getByText("My screenshots")).toBeVisible();
@@ -103,13 +108,18 @@ test.describe("Media tab write affordances (admin)", () => {
     });
   }
 
-  test("Screenshots: sees the shared ROM section", async ({ page }) => {
+  test("Screenshots: sees the provider artwork section", async ({ page }) => {
     await seedUiState(page, "dark");
     await gotoFirstRom(page);
     await openTab(page, "Media");
     await openSubtab(page, "Screenshots");
 
-    await expect(visiblePanel(page).getByText("ROM screenshots")).toBeVisible();
+    await expect(
+      visiblePanel(page).getByRole("region", {
+        name: "Screenshots",
+        exact: true,
+      }),
+    ).toBeVisible();
   });
 });
 
@@ -131,14 +141,17 @@ test.describe("Files tab write affordances", () => {
   test.describe("admin", () => {
     test.use({ storageState: STORAGE_STATE.admin });
 
-    test("gets the upload button", async ({ page }) => {
+    test("keeps source files read-only for administrators", async ({
+      page,
+    }) => {
       await seedUiState(page, "dark");
       await gotoFirstRom(page);
       await openTab(page, "Files");
 
+      await expect(page.locator(".r-v2-files")).toBeVisible();
       await expect(
         page.getByRole("button", { name: "Upload", exact: true }),
-      ).toBeVisible();
+      ).toHaveCount(0);
     });
   });
 });

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const bootModules = import.meta.glob([
-  "../../RomM.vue",
+  "../../PGDP.vue",
   "../../plugins/router.ts",
   "../../stores/auth.ts",
   "../../stores/config.ts",
@@ -47,7 +47,7 @@ describe("v2-only boot graph", () => {
   });
 
   it("boots one default v2 router view without compatibility fallbacks", () => {
-    const root = readFileSync(resolve(process.cwd(), "src/RomM.vue"), "utf8");
+    const root = readFileSync(resolve(process.cwd(), "src/PGDP.vue"), "utf8");
     const router = readFileSync(
       resolve(process.cwd(), "src/plugins/router.ts"),
       "utf8",
