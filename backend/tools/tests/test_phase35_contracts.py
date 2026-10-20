@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -66,3 +67,12 @@ class ContractGuards(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 helper.copy_generated(source, target, baseline)
             self.assertEqual((target / "index.ts").read_text(), "original")
+
+    def test_failed_startup_always_closes_owned_run(self):
+        helper = self.helper()
+        run = Mock()
+        run.start.side_effect = RuntimeError("startup failed")
+        with patch.object(helper, "Run", return_value=run):
+            with self.assertRaisesRegex(RuntimeError, "startup failed"):
+                helper.generate("mariadb")
+        run.close.assert_called_once_with()
