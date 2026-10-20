@@ -1117,27 +1117,36 @@ async def _identify_platform(
         )
         db_rom_handler.mark_missing_roms(platform.id, fs_rom_names, **missing_options)
 
+    from handler.scan_inventory_contracts import QuickScanDecision
+    from handler.windows_quick_execution import (
+        WindowsQuickContext,
+        bind_windows_quick,
+        inspect_discovered_game,
+    )
+
+    quick_contexts: dict[int, WindowsQuickContext] = {}
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
 
     async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
         """Scan a single ROM with semaphore limiting"""
         async with scan_semaphore:
-            await identify_collection_game(
-                fs_rom,
-                _identify_rom,
-                platform=platform,
-                rom=rom,
-                scan_type=scan_type,
-                roms_ids=roms_ids,
-                metadata_sources=metadata_sources,
-                launchbox_remote_enabled=launchbox_remote_enabled,
-                playmatch_enabled=playmatch_enabled,
-                metadata_locale=metadata_locale,
-                metadata_only=metadata_only,
-                socket_manager=socket_manager,
-                scan_stats=scan_stats,
-            )
+            with bind_windows_quick(quick_contexts.get(id(fs_rom))):
+                await identify_collection_game(
+                    fs_rom,
+                    _identify_rom,
+                    platform=platform,
+                    rom=rom,
+                    scan_type=scan_type,
+                    roms_ids=roms_ids,
+                    metadata_sources=metadata_sources,
+                    launchbox_remote_enabled=launchbox_remote_enabled,
+                    playmatch_enabled=playmatch_enabled,
+                    metadata_locale=metadata_locale,
+                    metadata_only=metadata_only,
+                    socket_manager=socket_manager,
+                    scan_stats=scan_stats,
+                )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
         roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
@@ -1170,7 +1179,30 @@ async def _identify_platform(
                 if classified_inventory
                 else roms_by_fs_name.get(fs_rom["fs_name"])
             )
-            if should_scan_rom(
+            quick = await inspect_discovered_game(
+                platform,
+                fs_rom,
+                rom,
+                scan_type=scan_type.value,
+                rom_ids=roms_ids,
+                metadata_only=metadata_only,
+            )
+            if quick is not None:
+                quick_contexts[id(fs_rom)] = quick
+                if quick.decision == QuickScanDecision.INCOMPLETE:
+                    from handler.filesystem.pc_scan_inventory import InventoryIncomplete
+
+                    raise InventoryIncomplete(
+                        quick.before.reason or "incomplete_evidence"
+                    )
+                if quick.decision in {
+                    QuickScanDecision.REUSE,
+                    QuickScanDecision.METADATA_ONLY,
+                }:
+                    assert rom is not None
+                    skipped_rom_ids.append(rom.id)
+                    continue
+            if quick is not None or should_scan_rom(
                 scan_type=scan_type,
                 rom=rom,
                 roms_ids=roms_ids,

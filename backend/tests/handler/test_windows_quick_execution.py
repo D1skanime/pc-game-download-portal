@@ -33,7 +33,9 @@ async def test_complete_inventory_advice(monkeypatch, identified, baseline, expe
     monkeypatch.setattr(
         execution, "load_baseline", lambda *args: evidence if baseline else None
     )
-    rom = SimpleNamespace(platform_slug="win", is_identified=identified, steam_id=None)
+    rom = SimpleNamespace(
+        id=3, platform_slug="win", is_identified=identified, steam_id=None
+    )
     result = await inspect_windows_quick(
         handler,
         rom,
