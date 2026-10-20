@@ -90,6 +90,7 @@ from models.rom import Rom, RomComponent, RomComponentKind, RomFile, RomFileCate
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
+from utils.scan_provider_observation import mark_provider_invoked
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -647,6 +648,7 @@ async def scan_rom(
                 or scan_type == ScanType.UNMATCHED
             )
         ):
+            mark_provider_invoked(meta_playmatch_handler.is_enabled())
             return await meta_playmatch_handler.lookup_rom(get_match_files())
 
         return PlaymatchRomMatch(
@@ -680,6 +682,7 @@ async def scan_rom(
                 )
             )
         ):
+            mark_provider_invoked(meta_hasheous_handler.is_enabled())
             return await meta_hasheous_handler.lookup_rom(
                 platform.slug, get_match_files()
             )
@@ -774,6 +777,7 @@ async def scan_rom(
             fetch_playmatch_hash_match(),
             fs_rom["fs_name"],
             playmatch_fallback,
+            selected=MetadataSource.PLAYMATCH in metadata_sources,
         ),
         resolve_provider_fetch(
             MetadataSource.HASHEOUS,
@@ -783,6 +787,7 @@ async def scan_rom(
                 HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
                 False,
             ),
+            selected=MetadataSource.HASHEOUS in metadata_sources,
         ),
     )
     if MetadataSource.PLAYMATCH in metadata_sources:
@@ -818,6 +823,7 @@ async def scan_rom(
             )
         ):
             # Use Hasheous match to get the IGDB ID
+            mark_provider_invoked(meta_igdb_handler.is_enabled())
             h_igdb_id = hasheous_rom.get("igdb_id")
             if h_igdb_id:
                 log.debug(
@@ -866,6 +872,7 @@ async def scan_rom(
                 and (not rom.gamelist_id or not rom.gamelist_metadata)
             )
         ):
+            mark_provider_invoked(meta_gamelist_handler.is_enabled())
             return await meta_gamelist_handler.get_rom(
                 rom_attrs["fs_name"], platform, rom
             )
@@ -887,6 +894,7 @@ async def scan_rom(
                 )
             )
         ):
+            mark_provider_invoked(meta_flashpoint_handler.is_enabled())
             if (scan_type == ScanType.UPDATE and rom.flashpoint_id) or (
                 scan_type == ScanType.UNMATCHED
                 and rom.flashpoint_id
@@ -911,6 +919,7 @@ async def scan_rom(
                 or (scan_type == ScanType.UNMATCHED and not rom.libretro_id)
             )
         ):
+            mark_provider_invoked(meta_libretro_handler.is_enabled())
             return await meta_libretro_handler.get_rom(
                 rom_attrs["fs_name"], platform.slug
             )
@@ -931,6 +940,7 @@ async def scan_rom(
                 )
             )
         ):
+            mark_provider_invoked(meta_hltb_handler.is_enabled())
             return await meta_hltb_handler.get_rom(rom_attrs["fs_name"], platform.slug)
 
         return HLTBRom(hltb_id=None)
@@ -950,6 +960,7 @@ async def scan_rom(
                 )
             )
         ):
+            mark_provider_invoked(meta_moby_handler.is_enabled())
             if scan_type == ScanType.UPDATE and rom.moby_id:
                 return await meta_moby_handler.get_rom_by_id(rom.moby_id)
 
@@ -985,6 +996,7 @@ async def scan_rom(
             # One refusal means the per-minute budget is already spent, so give
             # up on this ROM rather than spending another retried request (and
             # its backoff) on the fallback lookups.
+            mark_provider_invoked(meta_ss_handler.is_enabled())
             try:
                 # Use the ID to refetch metadata
                 if scan_type == ScanType.UPDATE and rom.ss_id:
@@ -1036,6 +1048,7 @@ async def scan_rom(
                 and rom.platform_slug in LAUNCHBOX_PLATFORM_LIST
             )
         ):
+            mark_provider_invoked(meta_launchbox_handler.is_enabled())
             if (
                 scan_type == ScanType.UPDATE
                 and rom.launchbox_id
@@ -1104,6 +1117,7 @@ async def scan_rom(
             )
         ):
             # Use Hasheous match to get the RA ID
+            mark_provider_invoked(meta_ra_handler.is_enabled())
             h_ra_id = hasheous_rom.get("ra_id")
             if h_ra_id:
                 log.debug(
@@ -1140,6 +1154,7 @@ async def scan_rom(
                 )
             )
         ):
+            mark_provider_invoked(meta_hasheous_handler.is_enabled())
             (
                 igdb_game,
                 ra_game,
@@ -1176,6 +1191,7 @@ async def scan_rom(
             )
         ):
             return {}
+        mark_provider_invoked(meta_steam_handler.is_enabled())
         return await resolve_steam_pc_enrichment(
             SteamPcEnrichmentRequest(
                 scan_context=scan_type.value,
@@ -1211,10 +1227,7 @@ async def scan_rom(
         (fetch_libretro_rom(), LibretroRom(libretro_id=None)),
         (fetch_steam_updates(), {}),
     )
-    from handler.scan_metadata_result import (
-        observe_provider_fetch,
-        record_provider_result,
-    )
+    from handler.scan_provider_execution import gather_provider_results
 
     providers = (
         MetadataSource.IGDB,
@@ -1229,35 +1242,14 @@ async def scan_rom(
         MetadataSource.LIBRETRO,
         MetadataSource.STEAM,
     )
-    fetch_results = await asyncio.gather(
-        *(
-            observe_provider_fetch(provider, coro, fs_rom["fs_name"])
-            for provider, (coro, _) in zip(providers, provider_fetches, strict=True)
-        ),
-        return_exceptions=True,
+    resolved = await gather_provider_results(
+        providers,
+        provider_fetches,
+        fs_rom["fs_name"],
+        metadata_sources,
+        rom=rom,
+        files=get_match_files(),
     )
-
-    resolved: list[Any] = []
-    for provider, (_, fallback), result in zip(
-        providers, provider_fetches, fetch_results, strict=True
-    ):
-        if isinstance(result, BaseException):
-            if not isinstance(result, Exception):
-                raise result
-            record_provider_result(
-                provider,
-                fs_rom["fs_name"],
-                error=result,
-                rom=rom,
-                files=get_match_files(),
-            )
-            resolved.append(fallback)
-        else:
-            if provider in metadata_sources:
-                record_provider_result(
-                    provider, fs_rom["fs_name"], rom=rom, files=get_match_files()
-                )
-            resolved.append(result)
 
     (
         igdb_handler_rom,
@@ -1503,6 +1495,7 @@ async def scan_rom(
             or (scan_type == ScanType.UPDATE and rom.sgdb_id)
             or (scan_type == ScanType.UNMATCHED and not rom.sgdb_id)
         ):
+            mark_provider_invoked(meta_sgdb_handler.is_enabled())
             if scan_type == ScanType.UPDATE and rom.sgdb_id:
                 return await meta_sgdb_handler.get_rom_by_id(rom.sgdb_id)
 
@@ -1539,6 +1532,7 @@ async def scan_rom(
             fetch_sgdb_details(playmatch_hash_match),
             fs_rom["fs_name"],
             SGDBRom(sgdb_id=None),
+            selected=MetadataSource.SGDB in metadata_sources,
         )
     )
     if MetadataSource.SGDB in metadata_sources:

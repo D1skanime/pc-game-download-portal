@@ -47,9 +47,9 @@ def bind_provider_observation(
         _CURRENT.reset(token)
 
 
-def mark_provider_invoked():
+def mark_provider_invoked(enabled=True):
     observation = _CURRENT.get()
-    if observation is not None:
+    if observation is not None and enabled:
         observation.eligible = True
         observation.invoked = True
         if observation.invoked_at is None:

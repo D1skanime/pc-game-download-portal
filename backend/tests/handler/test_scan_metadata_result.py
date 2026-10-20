@@ -263,3 +263,108 @@ async def test_execution_keeps_unexpected_and_authority_failures_fatal(error):
 
     with pytest.raises(type(error)):
         await gather_provider_results(("igdb",), ((failure(), {}),), "game", {"igdb"})
+
+
+@pytest.mark.asyncio
+async def test_observation_uses_existing_checked_sql_write_and_rejects_cancel(
+    admin_user, command
+):
+    from tests.handler.test_scan_operations import running
+
+    from handler.database.scan_operations_handler import DBScanOperationsHandler
+    from handler.database.scan_write_fence import (
+        ScanWriteContext,
+        bind_scan_write_context,
+    )
+    from handler.scan_metadata_result import (
+        bind_metadata_results,
+        observe_provider_fetch,
+        record_provider_result,
+    )
+    from handler.scan_operation_checkpoint import bind_checkpoint_command
+    from handler.scan_operation_recovery import decode_command
+    from utils.scan_provider_observation import (
+        mark_provider_invoked,
+        observe_httpcore_trace,
+    )
+
+    repository = DBScanOperationsHandler()
+    attempt = running(repository, admin_user, command)
+    context = ScanWriteContext(attempt.id, attempt.attempt_id, "worker")
+
+    async def fetch():
+        mark_provider_invoked()
+        await observe_httpcore_trace("http11.send_request_headers.started", {})
+        return {"igdb_id": None}
+
+    with bind_scan_write_context(context), bind_checkpoint_command(
+        decode_command(command["commands"][0])
+    ), bind_metadata_results() as results:
+        await observe_provider_fetch("igdb", fetch(), "Game.bin")
+        record_provider_result("igdb", "Game.bin")
+        observed = next(
+            item["observation"] for item in results if "observation" in item
+        )
+        assert observed["requests"] == 1 and observed["outcome"] == "no_match"
+        saved = repository.get_by_id(attempt.id, admin_user.id)
+        assert (
+            saved.items[0].outcome == "completed" and saved.items[0].cause_code is None
+        )
+        from sqlalchemy import select
+
+        from handler.database.base_handler import sync_session
+        from models.scan_operation import ScanOperationItem
+
+        with sync_session.begin() as session:
+            durable = session.scalar(
+                select(ScanOperationItem).where(
+                    ScanOperationItem.operation_id == attempt.id
+                )
+            )
+            assert durable.checkpoint["provider_observation"] == observed
+        repository.request_cancel(
+            attempt.id, admin_user.id, saved.version, "cancel-observation"
+        )
+        with pytest.raises(ScanWriteRejected):
+            record_provider_result("igdb", "Rejected.bin")
+    assert len(repository.get_by_id(attempt.id, admin_user.id).items) == 1
+
+
+def test_actual_gamelist_cache_hit_and_disabled_invocation():
+    from pathlib import Path
+
+    from handler.metadata.gamelist_handler import GamelistHandler
+    from models.platform import Platform
+    from utils.scan_provider_observation import (
+        bind_provider_observation,
+        mark_provider_invoked,
+    )
+
+    handler = GamelistHandler()
+    cached = {"Game.bin": {"gamelist_id": "Game"}}
+    handler._gamelist_cache[7] = cached
+    with bind_provider_observation("gamelist", "Game.bin") as observation:
+        mark_provider_invoked(enabled=False)
+        assert not observation.invoked and not observation.eligible
+        mark_provider_invoked(enabled=True)
+        assert (
+            handler._parse_gamelist_xml(Path("/never-read"), Platform(id=7)) is cached
+        )
+    assert observation.invoked and observation.cached and observation.requests == 0
+
+
+@pytest.mark.asyncio
+async def test_auxiliary_rate_limit_warning_is_failed_observation():
+    from handler.scan_metadata_result import record_auxiliary_warning
+    from handler.scan_provider_execution import bind_provider_results, execute_provider
+    from utils.scan_provider_observation import mark_provider_invoked
+
+    async def rate_limited():
+        mark_provider_invoked()
+        record_auxiliary_warning("ss", "Game.bin", "metadata_rate_limited")
+        return {"ss_id": None}
+
+    with bind_provider_results() as observations:
+        await execute_provider("ss", rate_limited(), "Game.bin")
+    assert observations[0].outcome == "failed"
+    assert observations[0].requests == 0

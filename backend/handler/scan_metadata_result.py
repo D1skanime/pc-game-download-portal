@@ -96,9 +96,10 @@ def record_provider_result(
     if cause is None and results is not None:
         cause = next(
             (
-                item["cause_code"]
+                item.get("cause_code")
                 for item in results
-                if item.get("auxiliary_path") == relative_path
+                if item.get("cause_code") is not None
+                and item.get("auxiliary_path") == relative_path
                 and item.get("provider") == str(provider)
                 and command is not None
                 and item.get("mapping_id") == command.mapping_id
@@ -126,19 +127,98 @@ def record_provider_result(
     from handler.scan_operation_checkpoint import game_file_evidence
 
     evidence = game_file_evidence(command, rom, files) if rom is not None else {}
+    observations = next(
+        (
+            entry["observation"]
+            for entry in reversed(results)
+            if entry.get("auxiliary_path") == relative_path
+            and entry.get("provider") == str(provider)
+            and entry.get("mapping_id") == command.mapping_id
+            and entry.get("expected_revision") == command.expected_revision
+            and "observation" in entry
+        ),
+        None,
+    )
+    checkpoint = {"rom_id": rom.id} if rom is not None else {}
+    if observations is not None:
+        checkpoint["provider_observation"] = observations
     repository.record_worker_item(
         context,
         item,
-        checkpoint={"rom_id": rom.id} if rom is not None else {},
+        checkpoint=checkpoint,
         source_evidence=evidence,
     )
     results.append(item)
     del results[:-512]
 
 
+def record_provider_observation(provider, relative_path, observation):
+    results = _RESULTS.get()
+    command = current_checkpoint_command()
+    if results is None or command is None:
+        return
+    key = {
+        "auxiliary_path": relative_path,
+        "provider": str(provider),
+        "mapping_id": command.mapping_id,
+        "expected_revision": command.expected_revision,
+    }
+    previous = next(
+        (
+            item
+            for item in results
+            if all(item.get(k) == v for k, v in key.items()) and "observation" in item
+        ),
+        None,
+    )
+    payload = {
+        name: getattr(observation, name)
+        for name in (
+            "selected",
+            "eligible",
+            "invoked",
+            "cached",
+            "requests",
+            "outcome",
+            "retry_after_seconds",
+        )
+    }
+    for name in ("invoked_at", "request_at"):
+        value = getattr(observation, name)
+        payload[name] = value.isoformat() if value else None
+    if previous is not None:
+        old = previous["observation"]
+        payload["requests"] += old["requests"]
+        for name in ("selected", "eligible", "invoked", "cached"):
+            payload[name] = payload[name] or old[name]
+        if payload["outcome"] == "not_invoked" or old["outcome"] == "failed":
+            payload["outcome"] = old["outcome"]
+        payload["invoked_at"] = old["invoked_at"] or payload["invoked_at"]
+        payload["request_at"] = payload["request_at"] or old["request_at"]
+        durations = [
+            value
+            for value in (payload["retry_after_seconds"], old["retry_after_seconds"])
+            if value is not None
+        ]
+        payload["retry_after_seconds"] = max(durations) if durations else None
+        previous["observation"] = payload
+    else:
+        results.append(key | {"observation": payload, "outcome": "completed"})
+        del results[:-512]
+
+
 def record_auxiliary_warning(provider, relative_path, cause):
     if cause is None:
         return
+    from utils.scan_provider_observation import current_provider_observation
+
+    observation = current_provider_observation()
+    if (
+        observation is not None
+        and observation.provider == str(provider)
+        and observation.game == relative_path
+    ):
+        observation.outcome = "failed"
     results = _RESULTS.get()
     command = current_checkpoint_command()
     mapping_id = command.mapping_id if command else None
@@ -166,23 +246,19 @@ def record_auxiliary_warning(provider, relative_path, cause):
         del results[:-512]
 
 
-async def observe_provider_fetch(provider, coroutine, relative_path):
-    if _RESULTS.get() is None:
-        return await coroutine
-    from utils.provider_diagnostics import bind_provider_diagnostics
+async def observe_provider_fetch(provider, coroutine, relative_path, *, selected=True):
+    from handler.scan_provider_execution import execute_provider
 
-    def report(error):
-        cause = classify_provider_failure(error)
-        if cause is not None:
-            record_auxiliary_warning(provider, relative_path, cause)
-
-    with bind_provider_diagnostics(report):
-        return await coroutine
+    return await execute_provider(provider, coroutine, relative_path, selected=selected)
 
 
-async def resolve_provider_fetch(provider, coroutine, relative_path, fallback):
+async def resolve_provider_fetch(
+    provider, coroutine, relative_path, fallback, *, selected=True
+):
     try:
-        return await observe_provider_fetch(provider, coroutine, relative_path)
+        return await observe_provider_fetch(
+            provider, coroutine, relative_path, selected=selected
+        )
     except Exception as error:
         cause = classify_provider_failure(error)
         if cause is not None:
