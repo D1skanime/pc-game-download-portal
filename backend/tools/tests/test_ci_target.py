@@ -57,7 +57,7 @@ class CITargetTests(unittest.TestCase):
         if failure:
             run.exec.side_effect = RuntimeError("native command failed")
         with patch.object(ci_target, "preflight"):
-            with patch.object(ci_target.phase34, "Run", return_value=run):
+            with patch.object(ci_target, "CIRun", return_value=run):
                 if failure:
                     with self.assertRaisesRegex(RuntimeError, "native command"):
                         ci_target.execute("mariadb", gate)
@@ -89,13 +89,29 @@ class CITargetTests(unittest.TestCase):
             command.kwargs["extra"]["COVERAGE_FILE"], "/phase34/owned/.coverage"
         )
 
+    def test_validator_support_is_exact_and_read_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(
+                ci_target.phase34.tempfile, "mkdtemp", return_value=directory
+            ):
+                run = ci_target.CIRun("mariadb")
+            config = json.loads(run.override.read_text())
+            mount = config["services"]["runner"]["volumes"][0]
+            self.assertIs(mount["read_only"], True)
+            self.assertEqual(mount["target"], "/app/" + ci_target.VALIDATOR)
+            self.assertEqual(
+                Path(mount["source"]).read_bytes(),
+                (ci_target.phase34.REPO / ci_target.VALIDATOR).read_bytes(),
+            )
+            self.assertTrue((run.evidence / "test-support.json").is_file())
+
     def test_start_failure_still_cleans_and_records_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             run = MagicMock()
             run.evidence = Path(directory)
             run.start.side_effect = RuntimeError("target refused")
             with patch.object(ci_target, "preflight"):
-                with patch.object(ci_target.phase34, "Run", return_value=run):
+                with patch.object(ci_target, "CIRun", return_value=run):
                     with self.assertRaisesRegex(RuntimeError, "target refused"):
                         ci_target.execute("postgresql", "pytest")
             run.close.assert_called_once()

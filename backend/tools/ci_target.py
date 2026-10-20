@@ -2,6 +2,7 @@
 """Run CI gates through canonical validation's disposable target authority."""
 
 import argparse
+import hashlib
 import json
 import os
 import platform
@@ -56,9 +57,65 @@ def preflight():
     return root
 
 
+VALIDATOR = ".planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-evidence-validate.py"
+
+
+class CIRun(phase34.Run):
+    def __init__(self, dialect):
+        super().__init__(dialect)
+        source = phase34.REPO / VALIDATOR
+        if source.is_symlink() or not source.is_file():
+            raise RuntimeError("missing tracked Phase 33 test validator")
+        content = source.read_bytes()
+        support = self.evidence / "phase33-test-validator.py"
+        support.write_bytes(content)
+        (self.evidence / "test-support.json").write_text(
+            json.dumps(
+                {"path": VALIDATOR, "sha256": hashlib.sha256(content).hexdigest()}
+            )
+        )
+        self.override = self.control / "ci.compose.json"
+        self.override.write_text(
+            json.dumps(
+                {
+                    "services": {
+                        "runner": {
+                            "volumes": [
+                                {
+                                    "type": "bind",
+                                    "source": str(support),
+                                    "target": "/app/" + VALIDATOR,
+                                    "read_only": True,
+                                }
+                            ]
+                        }
+                    }
+                }
+            )
+        )
+
+    def compose(self, *args, **kwargs):
+        return self.command(
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                "/dev/null",
+                "-p",
+                self.project,
+                "-f",
+                str(phase34.COMPOSE),
+                "-f",
+                str(self.override),
+                *args,
+            ],
+            **kwargs
+        )
+
+
 def execute(dialect, gate):
     preflight()
-    run = phase34.Run(dialect)
+    run = CIRun(dialect)
     run.image = "pgdp-ci:latest"
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
