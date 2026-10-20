@@ -53,8 +53,6 @@ jobs:
       REDIS_HOST: 127.0.0.1
       # Throwaway signing key for an ephemeral runner
       ROMM_AUTH_SECRET_KEY: "e2e0000000000000000000000000000000000000000000000000000000000000"
-      # Fixture-user password, shared by the seeder and the specs
-      E2E_PASSWORD: e2e-Passw0rd!
 
     steps:
       - name: Checkout repository
@@ -105,6 +103,20 @@ jobs:
           echo "ROMM_BASE_PATH=$RUNNER_TEMP/romm" >> "$GITHUB_ENV"
           echo "DB_PORT=${{ job.services.mariadb.ports['3306'] }}" >> "$GITHUB_ENV"
           echo "REDIS_PORT=${{ job.services.valkey.ports['6379'] }}" >> "$GITHUB_ENV"
+
+      - name: Generate isolated fixture credentials
+        run: |
+          python3 - <<'PY'
+          import os
+          import secrets
+          password = secrets.token_urlsafe(32)
+          print("::add-mask::" + password)
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              output.write("E2E_PASSWORD=" + password + "\n")
+              output.write("PHASE34_TEST_PASSWORD=" + password + "\n")
+              output.write("PHASE34_TEST_USERNAME=e2e_admin\n")
+              output.write("PHASE34_BASE_URL=http://127.0.0.1:3000\n")
+          PY
 
       # A migration failure is its own red step rather than a confusing server-start failure.
       - name: Apply migrations
