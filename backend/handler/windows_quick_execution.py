@@ -123,7 +123,12 @@ async def inspect_windows_quick(
             files_reconciled=False,
             components_reconciled=False,
         )
-    return WindowsQuickContext(binding, evidence, decision)
+    context = WindowsQuickContext(binding, evidence, decision)
+    if decision == QuickScanDecision.METADATA_ONLY:
+        from handler.scan_retry_execution import consider_unknown_retry
+
+        consider_unknown_retry(context, rom)
+    return context
 
 
 async def inspect_discovered_game(
@@ -133,8 +138,8 @@ async def inspect_discovered_game(
     if (
         command is None
         or platform.slug != "win"
-        or scan_type != "quick"
-        or rom_ids
+        or scan_type not in {"quick", "complete", "update"}
+        or (rom_ids and (rom is None or rom.id not in rom_ids))
         or metadata_only
         or not fs_rom["nested"]
     ):
@@ -161,6 +166,18 @@ async def inspect_discovered_game(
             platform_id=platform.id,
         )
     )
+    if scan_type != "quick" or rom_ids:
+        evidence = await handler.get_pc_inventory(candidate)
+        binding = inventory_binding(candidate, relative) if candidate.id else None
+        return WindowsQuickContext(
+            binding,
+            evidence,
+            (
+                QuickScanDecision.REFRESH
+                if evidence.complete
+                else QuickScanDecision.INCOMPLETE
+            ),
+        )
     return await inspect_windows_quick(
         handler,
         candidate,

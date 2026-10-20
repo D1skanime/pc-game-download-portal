@@ -148,6 +148,9 @@ def record_provider_result(
         checkpoint=checkpoint,
         source_evidence=evidence,
     )
+    from handler.scan_retry_execution import observe_retry_result
+
+    observe_retry_result(provider, rom, observations, cause)
     results.append(item)
     del results[:-512]
 

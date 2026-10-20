@@ -114,6 +114,7 @@ async def run_scan_operation(operation_id):
         execute_mapping_scan,
     )
     from handler.scan_handler import ScanType
+    from handler.scan_retry_execution import RetryCoordinator, bind_retry_coordinator
 
     repository = DBScanOperationsHandler()
     current = repository.execution(operation_id)
@@ -136,10 +137,13 @@ async def run_scan_operation(operation_id):
     result = None
     failure: BaseException | None = None
     baseline_tasks = asyncio.all_tasks()
+    retry_coordinator = RetryCoordinator(current["command"].get("request", {}))
     try:
         with bind_scan_write_context(context), bind_worker_runtime(
             context
-        ), bind_metadata_results() as outcomes:
+        ), bind_metadata_results() as outcomes, bind_retry_coordinator(
+            retry_coordinator
+        ):
             heartbeat = threading.Thread(
                 target=_heartbeat,
                 args=(repository, context, stop, heartbeat_failures),
@@ -170,6 +174,12 @@ async def run_scan_operation(operation_id):
                 for data, retry_item in batches:
                     check_worker_boundary()
                     command = decode_command(data)
+                    if retry_item is None:
+                        from handler.scan_retry_execution import (
+                            invalidate_refresh_baselines,
+                        )
+
+                        invalidate_refresh_baselines(command, policy)
                     if retry_item is not None:
                         from dataclasses import replace
 
@@ -203,6 +213,9 @@ async def run_scan_operation(operation_id):
                         )
                     for field, value in stats.to_dict().items():
                         setattr(combined, field, getattr(combined, field) + value)
+                check_worker_boundary()
+                if not retry_ids:
+                    await retry_coordinator.run(execute_mapping_scan)
                 check_worker_boundary()
                 counts = repository.result_counts(operation_id)
                 final_stats = combined.to_dict()
