@@ -1,8 +1,10 @@
-import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { mount, shallowMount, flushPromises } from "@vue/test-utils";
+import { createPinia } from "pinia";
+import { describe, expect, it, vi } from "vitest";
 import { createI18n } from "vue-i18n";
 import OperationStatusPanel from "@/v2/components/Scan/OperationStatusPanel.vue";
 import type { ScanOperationSnapshot } from "@/v2/data/contracts";
+import ScanView from "@/v2/views/Scan.vue";
 
 const namespaces = import.meta.glob<Record<string, string>>(
   "../../locales/*/scan.json",
@@ -199,5 +201,108 @@ describe("Scan persistent recovery controls", () => {
       .trigger("click");
     expect(panel.emitted("retry")).toEqual([[["7"]]]);
     panel.unmount();
+  });
+});
+
+const controls = vi.hoisted(() => ({
+  start: vi.fn(),
+  cancel: vi.fn(),
+  retryStatus: vi.fn(),
+  loadMore: vi.fn(),
+}));
+vi.mock("@/v2/composables/useCan", async () => {
+  const { ref } = await import("vue");
+  return { useCan: () => ref(false) };
+});
+vi.mock("@/v2/composables/useLibraryOperation", async () => {
+  const { ref } = await import("vue");
+  return {
+    useLibraryOperation: () => ({
+      ...controls,
+      snapshot: ref({ ...snapshot("completed"), items: [] }),
+      checking: ref(false),
+      uncertain: ref(false),
+      disconnected: ref(false),
+      reconciling: ref(false),
+      actionError: ref(null),
+      status: ref("completed"),
+      busy: ref(false),
+      hasMore: ref(true),
+      loadingMore: ref(false),
+    }),
+  };
+});
+vi.mock("@/v2/composables/useScanProviders", async () => {
+  const { ref } = await import("vue");
+  return {
+    useScanProviders: () =>
+      Object.fromEntries(
+        [
+          "storedMetadataSources",
+          "metadataSources",
+          "hashMatchers",
+          "generalProviders",
+          "specificProviders",
+          "effectiveMetadataSources",
+        ].map((key) => [key, ref([])]),
+      ),
+  };
+});
+vi.mock("@/v2/data/adapters/legacy/stores/scanning", async () => {
+  const { defineStore } = await import("pinia");
+  return {
+    default: defineStore("test-scanning", {
+      state: () => ({ scanning: false, scanningPlatforms: [], scanStats: {} }),
+      actions: { reset: vi.fn() },
+    }),
+  };
+});
+vi.mock("@/v2/data/adapters/legacy/stores/platforms", async () => {
+  const { defineStore } = await import("pinia");
+  return {
+    default: defineStore("test-platforms", {
+      state: () => ({ allPlatforms: [], scannablePlatforms: [] }),
+      actions: { fetchPlatforms: vi.fn() },
+    }),
+  };
+});
+vi.mock("@/v2/data/adapters/legacy/stores/config", async () => {
+  const { defineStore } = await import("pinia");
+  return {
+    default: defineStore("test-config", {
+      state: () => ({ config: { SKIP_HASH_CALCULATION: true } }),
+    }),
+  };
+});
+vi.mock("@/v2/data/adapters/legacy/services/api/storage", () => ({
+  default: { getMappingsReadiness: vi.fn().mockResolvedValue({ ready: true }) },
+}));
+describe("Scan view existing-owner integration", () => {
+  it("restores status without submitting and forwards paging and permissions", async () => {
+    const wrapper = shallowMount(ScanView, {
+      global: {
+        plugins: [
+          createPinia(),
+          createI18n({
+            legacy: false,
+            locale: "en_US",
+            messages: {
+              en_US: { scan: namespaces["../../locales/en_US/scan.json"] },
+            },
+          }),
+        ],
+      },
+    });
+    await flushPromises();
+    const panel = wrapper.findComponent(OperationStatusPanel);
+    expect(controls.start).not.toHaveBeenCalled();
+    expect(panel.props("canManage")).toBe(false);
+    expect(panel.props("hasMore")).toBe(true);
+    panel.vm.$emit("loadMore");
+    expect(controls.loadMore).toHaveBeenCalledOnce();
+    panel.vm.$emit("retryStatus");
+    expect(controls.retryStatus).toHaveBeenCalledOnce();
+    expect(controls.start).not.toHaveBeenCalled();
+    wrapper.unmount();
   });
 });
