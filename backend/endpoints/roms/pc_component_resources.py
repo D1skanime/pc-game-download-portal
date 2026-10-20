@@ -29,7 +29,11 @@ from handler.database import db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler, storage_composition
 from handler.filesystem.storage_access import OwnedRead, open_owned_access
 from handler.filesystem.storage_policy import OwnedStorageKind, StorageOperation
-from models.rom import RomComponentOwnedMediaOrigin, RomComponentOwnedMediaRole
+from models.rom import (
+    RomComponentKind,
+    RomComponentOwnedMediaOrigin,
+    RomComponentOwnedMediaRole,
+)
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -48,7 +52,7 @@ def _dlc_component(request: Request, rom_id: int, component_id: int):
         raise RomNotFoundInDatabaseException(rom_id)
     assert_rom_visible(request, rom)
     component = db_rom_handler.get_pc_component_by_id(rom_id, component_id)
-    if component is None:
+    if component is None or component.kind != RomComponentKind.DLC:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return rom, component
 
