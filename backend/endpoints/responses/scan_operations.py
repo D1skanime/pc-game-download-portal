@@ -96,6 +96,36 @@ class ScanOperationMutationRequest(StrictContract):
     item_ids: list[PositiveId] = Field(default_factory=list, max_length=100)
 
 
+class ScanInventoryFacts(StrictContract):
+    rom_id: PositiveId
+    inventory_state: Literal["unchanged", "changed", "refresh_required", "incomplete"]
+    inventory_reason: SafeCode | None = None
+    identified_windows: bool | None = Field(default=None, strict=True)
+    existing_game: bool = Field(strict=True)
+    retry_eligible: bool | None = Field(default=None, strict=True)
+    retry_state: Literal[
+        "not_scheduled",
+        "cooldown",
+        "due",
+        "budget_deferred",
+        "configuration_blocked",
+        "baseline_required",
+        "not_selected",
+        "explicit",
+        "initial",
+    ] = "not_scheduled"
+    next_eligible_at: datetime | None = None
+    is_identifying: Literal[False] = False
+
+
+class ScanProviderFacts(StrictContract):
+    state: Literal["no_request", "cached", "matched", "no_match", "failed", "requested"]
+    invoked: bool = Field(strict=True)
+    requests: int = Field(strict=True, ge=0, le=2147483647)
+    cached: bool | None = Field(default=None, strict=True)
+    is_identifying: Literal[False] = False
+
+
 class ScanOperationItemResult(StrictContract):
     id: int
     target_key: RequestKey
@@ -106,6 +136,16 @@ class ScanOperationItemResult(StrictContract):
     outcome: Literal["indexed", "completed", "warning", "failed", "skipped"]
     cause_code: SafeCode | None = None
     attempt_id: str
+    inventory: ScanInventoryFacts | None = None
+    provider_execution: ScanProviderFacts | None = None
+
+    @field_validator("relative_path")
+    @classmethod
+    def safe_relative_path(cls, value):
+        try:
+            return normalize_relative_path(value)
+        except StorageResolutionError:
+            raise ValueError("invalid_item_path") from None
 
 
 class ScanOperationSnapshot(StrictContract):

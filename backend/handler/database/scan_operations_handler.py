@@ -337,6 +337,9 @@ class DBScanOperationsHandler(ScanOperationLifecycle, DBBaseHandler):
         row = _row(session, identity)
         if row.state != "running" or not _alive(row.lease_expires_at):
             raise OperationConflict("stale_attempt")
+        from handler.scan_inventory_status import provider_facts
+
+        provider_facts((checkpoint or {}).get("provider_observation"))
         validated = ScanOperationItemResult(id=1, attempt_id=attempt_id, **item)
         path = normalize_relative_path(validated.relative_path)
         matches = [
@@ -377,7 +380,9 @@ class DBScanOperationsHandler(ScanOperationLifecycle, DBBaseHandler):
                 ScanOperationItem.provider == validated.provider,
             )
         )
-        values = validated.model_dump(exclude={"id"}) | {
+        values = validated.model_dump(
+            exclude={"id", "inventory", "provider_execution"}
+        ) | {
             "checkpoint": checkpoint or {},
             "source_evidence": source_evidence or {},
         }

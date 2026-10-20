@@ -1,5 +1,23 @@
 """Exact inventory game units and observed provider dispatch units."""
 
+import pytest
+from tests.handler.test_scan_inventory_state import bound_game as bound_game
+from tests.handler.test_scan_inventory_state import (
+    inventory_attempt as inventory_attempt,
+)
+from tests.handler.test_scan_operations import command as command
+
+from handler.database.base_handler import sync_session
+from handler.database.scan_operations_handler import DBScanOperationsHandler
+from handler.database.scan_write_fence import (
+    ScanWriteContext,
+    ScanWriteRejected,
+    bind_scan_write_context,
+)
+from models.rom import Rom
+from models.scan_operation import ScanOperationItem
+from models.storage import PlatformStorageMapping
+
 
 def test_exact_units_and_replay():
     from handler.scan_inventory_status import aggregate_inventory
@@ -80,25 +98,6 @@ def test_eligibility_wrapper_and_unavailable_observations_are_not_requests():
     assert result["metadata_retry_games"] == 0
     assert result["provider_requests"] == 0
     assert "metadata_cache_hits" not in result
-
-
-import pytest
-from tests.handler.test_scan_inventory_state import bound_game as bound_game
-from tests.handler.test_scan_inventory_state import (
-    inventory_attempt as inventory_attempt,
-)
-from tests.handler.test_scan_operations import command as command
-
-from handler.database.base_handler import sync_session
-from handler.database.scan_operations_handler import DBScanOperationsHandler
-from handler.database.scan_write_fence import (
-    ScanWriteContext,
-    ScanWriteRejected,
-    bind_scan_write_context,
-)
-from models.rom import Rom
-from models.scan_operation import ScanOperationItem
-from models.storage import PlatformStorageMapping
 
 
 def write_context(attempt):
@@ -189,6 +188,10 @@ def test_status_rejects_revoked_identity(
     from handler.scan_inventory_status import record_inventory_status
 
     binding, _ = bound_game
+    if mutation == "incarnation":
+        from dataclasses import replace
+
+        binding = replace(binding, rom_incarnation="f" * 32)
     if mutation == "cancel":
         DBScanOperationsHandler().request_cancel(
             inventory_attempt.id,
@@ -196,7 +199,7 @@ def test_status_rejects_revoked_identity(
             inventory_attempt.version,
             "cancel-status",
         )
-    else:
+    elif mutation != "incarnation":
         from models.scan_operation import ScanOperation
 
         with sync_session.begin() as session:
