@@ -15,7 +15,10 @@ import { useI18n } from "vue-i18n";
 import ScanPlatformRow from "@/v2/components/Scan/ScanPlatformRow.vue";
 import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
 import type { ScanningPlatform } from "@/v2/data/adapters/legacy/stores/scanning";
-import type { SubfolderScanRequest } from "@/v2/data/contracts";
+import type {
+  ScanOperationItemResult,
+  SubfolderScanRequest,
+} from "@/v2/data/contracts";
 
 defineOptions({ inheritAttrs: false });
 
@@ -23,6 +26,7 @@ const props = defineProps<{
   platform: ScanningPlatform;
   /** Controlled open state — v-model:open from Scan.vue. */
   open?: boolean;
+  items?: ScanOperationItemResult[];
 }>();
 
 defineEmits<{
@@ -114,6 +118,11 @@ function getItemKey(item: unknown) {
       <template #default="{ item }">
         <ScanPlatformRow
           :rom="item as SimpleRom"
+          :item="
+            items?.find(
+              (result) => result.inventory?.rom_id === (item as SimpleRom).id,
+            )
+          "
           @scan-subfolder="$emit('scan-subfolder', $event)"
         />
       </template>

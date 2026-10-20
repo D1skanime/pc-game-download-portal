@@ -10,9 +10,13 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import PcSubfolderScanDialog from "@/v2/components/Scan/PcSubfolderScanDialog.vue";
+import { useScanInventoryStatus } from "@/v2/composables/useScanInventoryStatus";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import type { SimpleRom } from "@/v2/data/adapters/legacy/stores/roms";
-import type { SubfolderScanRequest } from "@/v2/data/contracts";
+import type {
+  ScanOperationItemResult,
+  SubfolderScanRequest,
+} from "@/v2/data/contracts";
 import {
   getMissingCoverImage,
   getUnmatchedCoverImage,
@@ -23,9 +27,38 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
   rom: SimpleRom;
+  item?: ScanOperationItemResult;
 }>();
 
 const { t } = useI18n();
+const facts = computed(() =>
+  props.item ? useScanInventoryStatus(props.item).value : undefined,
+);
+const identifying = computed(
+  () => facts.value?.isIdentifying ?? props.rom.is_identifying,
+);
+const unidentified = computed(() =>
+  props.rom.platform_fs_slug === "win" && facts.value?.unresolved !== undefined
+    ? facts.value.unresolved
+    : props.rom.is_unidentified,
+);
+const compactStatus = computed(() => {
+  const inventory = facts.value?.inventory?.inventory_state;
+  return inventory
+    ? t(
+        "scan.inventory-" +
+          (
+            {
+              unchanged: "unchanged",
+              changed: "changed",
+              refresh_required: "refresh-required",
+              incomplete: "incomplete",
+            } as const
+          )[inventory],
+      )
+    : undefined;
+});
+
 const { toWebp } = useWebpSupport();
 const folderDialogOpen = ref(false);
 
@@ -87,7 +120,10 @@ function coverFor(rom: SimpleRom): string {
 </script>
 
 <template>
-  <div class="r-v2-scan-platform__rom">
+  <div
+    class="r-v2-scan-platform__rom"
+    :class="{ 'r-v2-scan-platform__rom--restored': !!item }"
+  >
     <router-link
       :to="{ name: ROUTES.ROM, params: { rom: props.rom.id } }"
       class="r-v2-scan-platform__rom-link"
@@ -99,13 +135,15 @@ function coverFor(rom: SimpleRom): string {
         :height="48"
         contain
         class="r-v2-scan-platform__cover"
-        :class="{ 'r-v2-scan-platform__cover--reveal': coverPop }"
+        :class="{ 'r-v2-scan-platform__cover--reveal': coverPop && !item }"
         @load="onCoverLoad"
       />
       <div class="r-v2-scan-platform__rom-text">
         <div
           class="r-v2-scan-platform__rom-name"
-          :class="{ 'r-v2-scan-platform__rom-name--reveal': revealing }"
+          :class="{
+            'r-v2-scan-platform__rom-name--reveal': revealing && !item,
+          }"
         >
           {{ displayName }}
         </div>
@@ -114,23 +152,29 @@ function coverFor(rom: SimpleRom): string {
         </div>
       </div>
       <div class="r-v2-scan-platform__rom-meta">
-        <template v-if="props.rom.is_identifying">
+        <template v-if="identifying">
           <RTag
             tone="warning"
             size="x-small"
             prepend-icon="mdi-magnify"
-            :text="t('scan.identifying', 'Identifying…')"
+            :text="t('scan.identifying')"
             class="r-v2-scan-platform__identifying"
           />
         </template>
         <template v-else>
           <RTag
-            v-if="props.rom.is_unidentified"
+            v-if="unidentified"
             tone="danger"
             size="x-small"
             prepend-icon="mdi-close"
             :text="t('scan.not-identified')"
-            class="r-v2-scan-platform__badge-pop"
+            :class="{ 'r-v2-scan-platform__badge-pop': !item }"
+          />
+          <RTag
+            v-if="compactStatus"
+            size="x-small"
+            :text="compactStatus"
+            class="r-v2-scan-platform__compact-status"
           />
           <span
             v-for="(provider, i) in activeProviders(props.rom)"
@@ -308,7 +352,19 @@ function coverFor(rom: SimpleRom): string {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+}
+.r-v2-scan-platform__compact-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r-v2-scan-platform__rom--restored,
+.r-v2-scan-platform__rom--restored .r-v2-scan-platform__provider {
+  animation: none;
 }
 .r-v2-scan-platform__provider {
   display: inline-flex;
