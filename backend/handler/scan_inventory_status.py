@@ -86,7 +86,7 @@ def inventory_counts(session, operation):
             *buckets,
             func.sum(
                 case((facts["identified_windows"].as_boolean().is_(False), 1), else_=0)
-            )
+            ),
         ).where(*current, item.provider == "")
     ).one()
     observation = item.checkpoint["provider_observation"]
@@ -220,3 +220,114 @@ def _record_inventory_status(binding, *, session=None, **facts):
             },
         )
         return item_facts(item)
+
+
+def retry_facts(binding, identified):
+    from handler.database.scan_inventory_state import _digest
+    from handler.scan_metadata_retry_policy import assess_retry
+    from handler.scan_retry_execution import (
+        baseline_completed_at,
+        current_retry_coordinator,
+    )
+
+    coordinator = current_retry_coordinator()
+    if coordinator is None or identified:
+        return {}
+    if _digest(binding.fields()) in coordinator.attention_games:
+        return {"retry_state": "configuration_blocked", "retry_eligible": False}
+    candidates = coordinator.selection or coordinator.candidates
+    assessments = []
+    for candidate in candidates:
+        identity = candidate.identity
+        if identity.binding != binding:
+            continue
+        state = coordinator.states.get(identity.key)
+        assessment = candidate.assessment
+        if state is not None and assessment.reason != "budget_deferred":
+            assessment = assess_retry(
+                identity,
+                state,
+                baseline_adopted_at=baseline_completed_at(binding),
+                clock=coordinator.clock,
+            )
+        assessments.append(assessment)
+    if not assessments:
+        return {}
+    chosen = min(
+        assessments,
+        key=lambda item: (
+            not item.eligible,
+            item.reason == "configuration_blocked",
+            item.due_at.isoformat() if item.due_at else "",
+        ),
+    )
+    return {
+        "retry_eligible": chosen.eligible,
+        "retry_state": chosen.reason,
+        "next_eligible_at": chosen.due_at,
+    }
+
+
+async def emit_inventory_status(manager, quick, rom, *, existing_game):
+    from endpoints.responses.rom import SimpleRomSchema
+    from handler.database.scan_write_fence import current_scan_write_context
+    from handler.scan_inventory_contracts import InventoryAssessment, QuickScanDecision
+    from handler.windows_quick_policy import is_identified_windows
+
+    if (
+        current_scan_write_context() is None
+        or quick is None
+        or getattr(quick, "binding", None) is None
+    ):
+        return
+    assessment = quick.assessment
+    if assessment is None:
+        state = {
+            QuickScanDecision.REUSE: "unchanged",
+            QuickScanDecision.METADATA_ONLY: "unchanged",
+            QuickScanDecision.REFRESH: "refresh_required",
+            QuickScanDecision.INCOMPLETE: "incomplete",
+        }[quick.decision]
+        assessment = InventoryAssessment(state, quick.before.reason)  # type: ignore[arg-type]
+    identified = is_identified_windows(rom)
+    item = record_inventory_status(
+        quick.binding,
+        inventory_state=assessment.state,
+        inventory_reason=assessment.reason or None,
+        identified_windows=identified,
+        existing_game=existing_game,
+        **retry_facts(quick.binding, identified),
+    )
+    payload = SimpleRomSchema.from_orm_with_factory(rom).model_dump(
+        exclude={
+            "created_at",
+            "updated_at",
+            "rom_user",
+            "last_modified",
+            "files",
+            "sibling_roms",
+        }
+    )
+    payload.update(
+        is_identifying=False,
+        is_unidentified=not identified,
+        inventory=item.inventory.model_dump(mode="json"),
+    )
+    await manager.emit("scan:scanning_rom", payload)
+
+
+async def emit_retry_status(coordinator, *, game=None):
+    from endpoints.sockets.scan import _get_socket_manager
+    from handler.database import db_rom_handler
+    from handler.scan_operation_worker import active_scan_worker
+
+    if not active_scan_worker():
+        return
+    for identity, work in coordinator.work.items():
+        if game is not None and identity != game:
+            continue
+        rom = db_rom_handler.get_rom(work.rom_id)
+        if rom is not None:
+            await emit_inventory_status(
+                _get_socket_manager(), work.quick, rom, existing_game=True
+            )

@@ -159,7 +159,10 @@ class RetryCoordinator:
         )
 
     async def run(self, dispatch):
+        from handler.scan_inventory_status import emit_retry_status
+
         self.selection = select_retries(self.candidates)
+        await emit_retry_status(self)
         selected: dict[str, list[str]] = {}
         for item in self.selection:
             if item.assessment.eligible:
@@ -213,6 +216,7 @@ class RetryCoordinator:
                     ),
                     playmatch_enabled=self.policy.get("playmatch_enabled", True),
                 )
+            await emit_retry_status(self, game=game)
 
     def observe(self, provider, rom, observation, cause):
         if (
@@ -293,6 +297,10 @@ class RetryCoordinator:
         )
         record_retry_outcome(identity.binding, **state.persistence())
         self.states[identity.key] = state
+
+
+def current_retry_coordinator():
+    return _CURRENT.get()
 
 
 def consider_unknown_retry(quick, rom):

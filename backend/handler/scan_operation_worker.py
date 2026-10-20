@@ -25,6 +25,18 @@ from handler.scan_operation_recovery import decode_command
 from utils.context import initialize_context
 
 _RUNTIME = ContextVar("scan_operation_runtime", default=None)
+_STATS_BASE: ContextVar[tuple[dict, bool, bool] | None] = ContextVar(
+    "scan_stats_base", default=None
+)
+
+
+@contextmanager
+def bind_scan_stats_base(base, *, total_known=True, retry=False):
+    token = _STATS_BASE.set((base, total_known, retry))
+    try:
+        yield
+    finally:
+        _STATS_BASE.reset(token)
 
 
 @contextmanager
@@ -60,7 +72,18 @@ def check_worker_boundary():
 def persist_scan_stats(stats):
     context = current_scan_write_context()
     if context is not None and active_scan_worker():
-        DBScanOperationsHandler().worker_update(context, stats=stats)
+        scoped = _STATS_BASE.get()
+        if scoped is not None:
+            base, total_known, retry = scoped
+            stats = (
+                dict(base)
+                if retry
+                else {key: value + base.get(key, 0) for key, value in stats.items()}
+            )
+            if not total_known:
+                stats.pop("total_roms", None)
+        return DBScanOperationsHandler().worker_update(context, stats=stats).scan_stats
+    return stats
 
 
 class AttemptSocketManager:
@@ -69,6 +92,18 @@ class AttemptSocketManager:
 
     async def emit(self, event, data=None, *args, **kwargs):
         check_worker_boundary()
+        if event == "scan:scanning_rom" and isinstance(data, dict):
+            from utils.scan_provider_observation import current_provider_observation
+
+            observed = current_provider_observation()
+            data = data | {
+                "is_identifying": bool(
+                    data.get("is_identifying")
+                    and observed is not None
+                    and observed.invoked
+                    and observed.requests > 0
+                )
+            }
         if event in {"scan:done", "scan:done_ko"}:
             return
         return await self.manager.emit(event, data, *args, **kwargs)
@@ -171,7 +206,7 @@ async def run_scan_operation(operation_id):
                         for item in retry_items
                         if item["mapping_id"] == data["mapping_id"]
                     ]
-                for data, retry_item in batches:
+                for batch_index, (data, retry_item) in enumerate(batches):
                     check_worker_boundary()
                     command = decode_command(data)
                     if retry_item is None:
@@ -189,7 +224,11 @@ async def run_scan_operation(operation_id):
 
                         validate_game_evidence(command, retry_item["source_evidence"])
                         command = replace(command, scan_type=ScanType.COMPLETE.value)
-                    with bind_checkpoint_command(command):
+                    with bind_scan_stats_base(
+                        combined.to_dict(),
+                        total_known=batch_index == len(batches) - 1,
+                        retry=bool(retry_ids),
+                    ), bind_checkpoint_command(command):
                         stats = await execute_mapping_scan(
                             command,
                             metadata_sources=(
@@ -215,7 +254,8 @@ async def run_scan_operation(operation_id):
                         setattr(combined, field, getattr(combined, field) + value)
                 check_worker_boundary()
                 if not retry_ids:
-                    await retry_coordinator.run(execute_mapping_scan)
+                    with bind_scan_stats_base(combined.to_dict(), retry=True):
+                        await retry_coordinator.run(execute_mapping_scan)
                 check_worker_boundary()
                 counts = repository.result_counts(operation_id)
                 final_stats = combined.to_dict()
@@ -224,7 +264,7 @@ async def run_scan_operation(operation_id):
                         "metadata_retry_scanned_roms": combined.scanned_roms
                     }
                 final_stats |= counts
-                persist_scan_stats(final_stats)
+                final_stats = persist_scan_stats(final_stats)
                 has_warnings = (
                     counts["metadata_warning_items"]
                     or counts["metadata_failed_items"]

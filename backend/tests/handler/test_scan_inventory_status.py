@@ -341,6 +341,7 @@ async def test_terminal_event_matches_reloaded_inventory(
     manager = SimpleNamespace(emit=AsyncMock())
     with sync_session.begin() as session:
         game = session.get(Rom, binding.rom_id)
+        game.platform.slug = "win"
         game.steam_id = 42 if identified else None
         for name in (
             "igdb_id",
@@ -424,3 +425,33 @@ def test_progress_preserves_completed_mapping_units(
         assert result["unresolved_games"] == 1
     restored = DBScanOperationsHandler().get_by_id(inventory_attempt.id, admin_user.id)
     assert restored.scan_stats == result
+
+
+def test_full_binding_digest_collision_rejected(
+    bound_game, inventory_attempt, admin_user, monkeypatch
+):
+    from dataclasses import replace
+
+    from handler.scan_inventory_status import record_inventory_status
+
+    binding, _ = bound_game
+    monkeypatch.setattr(
+        "handler.database.scan_inventory_state._digest", lambda values: "a" * 64
+    )
+    with write_context(inventory_attempt):
+        record_inventory_status(
+            binding,
+            inventory_state="unchanged",
+            identified_windows=False,
+            existing_game=True,
+        )
+        with pytest.raises(ValueError, match="inventory_identity_collision"):
+            record_inventory_status(
+                replace(binding, policy_fingerprint="d" * 64),
+                inventory_state="changed",
+                identified_windows=False,
+                existing_game=True,
+            )
+    snapshot = DBScanOperationsHandler().get_by_id(inventory_attempt.id, admin_user.id)
+    assert snapshot.scan_stats["inventory_checked"] == 1
+    assert snapshot.items[0].inventory.inventory_state == "unchanged"

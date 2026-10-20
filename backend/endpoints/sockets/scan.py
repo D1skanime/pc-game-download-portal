@@ -446,9 +446,9 @@ class ScanStats:
 
             from handler.scan_operation_worker import persist_scan_stats
 
-            persist_scan_stats(self.to_dict())
-            update_job_meta({"scan_stats": self.to_dict()})
-            await socket_manager.emit("scan:update_stats", self.to_dict())
+            payload = persist_scan_stats(self.to_dict())
+            update_job_meta({"scan_stats": payload})
+            await socket_manager.emit("scan:update_stats", payload)
 
     async def increment(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
         async with self._lock:
@@ -459,9 +459,9 @@ class ScanStats:
 
             from handler.scan_operation_worker import persist_scan_stats
 
-            persist_scan_stats(self.to_dict())
-            update_job_meta({"scan_stats": self.to_dict()})
-            await socket_manager.emit("scan:update_stats", self.to_dict())
+            payload = persist_scan_stats(self.to_dict())
+            update_job_meta({"scan_stats": payload})
+            await socket_manager.emit("scan:update_stats", payload)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1155,6 +1155,7 @@ async def _identify_platform(
         db_rom_handler.mark_missing_roms(platform.id, fs_rom_names, **missing_options)
 
     from handler.scan_inventory_contracts import QuickScanDecision
+    from handler.scan_inventory_status import emit_inventory_status
     from handler.windows_quick_execution import (
         WindowsQuickContext,
         bind_windows_quick,
@@ -1184,6 +1185,16 @@ async def _identify_platform(
                     socket_manager=socket_manager,
                     scan_stats=scan_stats,
                 )
+                quick = quick_contexts.get(id(fs_rom))
+                if quick is not None and quick.binding is not None:
+                    completed = db_rom_handler.get_rom(quick.binding.rom_id)
+                    if completed is not None:
+                        await emit_inventory_status(
+                            socket_manager,
+                            quick,
+                            completed,
+                            existing_game=rom is not None,
+                        )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
         roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
@@ -1226,6 +1237,10 @@ async def _identify_platform(
             )
             if quick is not None:
                 quick_contexts[id(fs_rom)] = quick
+                if rom is not None:
+                    await emit_inventory_status(
+                        socket_manager, quick, rom, existing_game=True
+                    )
                 if quick.decision == QuickScanDecision.INCOMPLETE:
                     from handler.filesystem.pc_scan_inventory import InventoryIncomplete
 

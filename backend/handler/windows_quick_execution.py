@@ -17,7 +17,11 @@ from handler.database.scan_inventory_state import InventoryBinding, load_baselin
 from handler.filesystem import get_fs_rom_handler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.scan_collection_policy import digest_path
-from handler.scan_inventory_contracts import InventoryEvidence, QuickScanDecision
+from handler.scan_inventory_contracts import (
+    InventoryAssessment,
+    InventoryEvidence,
+    QuickScanDecision,
+)
 from handler.scan_operation_checkpoint import current_checkpoint_command
 from handler.storage.read_context import MappingReadContext
 from handler.windows_quick_policy import decide_windows_quick, is_identified_windows
@@ -36,6 +40,7 @@ class WindowsQuickContext:
     files: Any = None
     components: Any = None
     after: InventoryEvidence | None = None
+    assessment: InventoryAssessment | None = None
 
 
 def current_windows_quick():
@@ -123,7 +128,12 @@ async def inspect_windows_quick(
             files_reconciled=False,
             components_reconciled=False,
         )
-    context = WindowsQuickContext(binding, evidence, decision)
+    context = WindowsQuickContext(
+        binding,
+        evidence,
+        decision,
+        assessment=InventoryAssessment.compare(evidence, baseline),
+    )
     if decision == QuickScanDecision.METADATA_ONLY:
         from handler.scan_retry_execution import consider_unknown_retry
 
