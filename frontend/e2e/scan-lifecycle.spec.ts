@@ -10,6 +10,13 @@ test("lost acceptance restores the same durable operation on reload without dupl
   page,
 }) => {
   await ensureSetup(page);
+  const setup = await (await page.request.get("/api/setup/status")).json();
+  const expectedPlatforms = new Set<string>(
+    setup.saved_assignments.map(
+      (assignment: { platform_slug: string }) => assignment.platform_slug,
+    ),
+  );
+  expect(expectedPlatforms.size).toBeGreaterThan(0);
   await page.goto("/scan");
   await clearMetadataProviders(page);
   const start = page.locator(".r-v2-scan-card__start");
@@ -68,10 +75,14 @@ test("lost acceptance restores the same durable operation on reload without dupl
     .toBe("completed");
   const platformResponse = await page.request.get("/api/platforms");
   expect(platformResponse.ok()).toBe(true);
-  const platforms: { id: number; rom_count: number }[] =
+  const platforms: { id: number; slug: string; rom_count: number }[] =
     await platformResponse.json();
-  expect(platforms).toHaveLength(8);
-  expect(new Set(platforms.map((platform) => platform.id)).size).toBe(8);
+  expect(new Set(platforms.map((platform) => platform.slug))).toEqual(
+    expectedPlatforms,
+  );
+  expect(new Set(platforms.map((platform) => platform.id)).size).toBe(
+    expectedPlatforms.size,
+  );
   for (const platform of platforms)
     expect(
       platform.rom_count,
@@ -80,7 +91,9 @@ test("lost acceptance restores the same durable operation on reload without dupl
   const romResponse = await page.request.get("/api/roms?limit=100");
   expect(romResponse.ok()).toBe(true);
   const roms: { items: { platform_id: number }[] } = await romResponse.json();
-  expect(new Set(roms.items.map((rom) => rom.platform_id)).size).toBe(8);
+  expect(new Set(roms.items.map((rom) => rom.platform_id))).toEqual(
+    new Set(platforms.map((platform) => platform.id)),
+  );
   expect(submissions).toBe(1);
   await screenshot(page, "scan-restored");
 });

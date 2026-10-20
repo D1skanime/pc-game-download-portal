@@ -93,7 +93,8 @@ jobs:
       # than scanning it in place.
       - name: Stage the library fixture
         run: |
-          mkdir -p "$RUNNER_TEMP/romm/resources" "$RUNNER_TEMP/romm/assets"
+          mkdir -p "$RUNNER_TEMP/romm/resources" "$RUNNER_TEMP/romm/assets" "$RUNNER_TEMP/phase34-evidence"
+          echo "PHASE34_EVIDENCE_DIR=$RUNNER_TEMP/phase34-evidence" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/romm/library"
           for platform in backend/romm_test/library/*; do
             [ -d "$platform/roms" ] || continue
@@ -146,6 +147,23 @@ jobs:
           exit 1
         working-directory: backend
 
+      - name: Start the scan worker
+        working-directory: backend
+        run: |
+          uv run python -c 'from rq import Worker; from handler.redis_handler import redis_client, high_prio_queue, default_queue, low_prio_queue; Worker([high_prio_queue, default_queue, low_prio_queue], connection=redis_client).work()' > "$RUNNER_TEMP/worker.log" 2>&1 &
+          uv run python - <<'PY'
+          import socket
+          import time
+          from rq import Worker
+          from handler.redis_handler import redis_client
+          for attempt in range(30):
+              if any(worker.hostname == socket.gethostname() and worker.get_state() in {"idle", "busy"} for worker in Worker.all(connection=redis_client)):
+                  break
+              time.sleep(1)
+          else:
+              raise RuntimeError("E2E scan worker did not become ready")
+          PY
+
       # Starts the Vite dev server and waits for port 3000.
       - name: Run Playwright tests
         run: npm run test:e2e
@@ -159,8 +177,11 @@ jobs:
           path: |
             frontend/playwright-report/
             frontend/test-results/
+            ${{ runner.temp }}/phase34-evidence/
           retention-days: 7
 
       - name: Dump backend log
         if: failure()
-        run: tail -200 "$RUNNER_TEMP/backend.log" || true
+        run: |
+          tail -200 "$RUNNER_TEMP/backend.log" || true
+          tail -100 "$RUNNER_TEMP/worker.log" || true

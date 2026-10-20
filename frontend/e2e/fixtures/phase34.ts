@@ -102,7 +102,11 @@ export async function screenshot(page: Page, name: string) {
   // Password controls are absent from all retained successful screenshots.
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
   await page.screenshot({
-    path: "/phase34/evidence/" + name + ".png",
+    path:
+      (process.env.PHASE34_EVIDENCE_DIR || "/phase34/evidence") +
+      "/" +
+      name +
+      ".png",
     fullPage: true,
   });
 }

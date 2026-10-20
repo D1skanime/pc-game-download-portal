@@ -148,9 +148,7 @@ test.describe("Files tab write affordances", () => {
       await gotoFirstRom(page);
       await openTab(page, "Files");
 
-      await expect(
-        page.getByRole("tab", { name: "Files", exact: true }),
-      ).toHaveAttribute("aria-selected", "true");
+      await expect(page.locator(".r-v2-files")).toBeVisible();
       await expect(
         page.getByRole("button", { name: "Upload", exact: true }),
       ).toHaveCount(0);
