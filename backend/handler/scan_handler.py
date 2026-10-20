@@ -573,8 +573,11 @@ async def scan_rom(
         "fs_size_bytes": rom.fs_size_bytes,
     }
 
-    # Check if files have been parsed and hashed
-    if len(fs_rom["files"]) > 0:
+    from handler.windows_quick_execution import current_windows_quick
+
+    quick = current_windows_quick()
+    # Empty complete inventories must clear the previous total size.
+    if len(fs_rom["files"]) > 0 or quick is not None:
         filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
         rom_attrs.update(
             {
@@ -712,7 +715,12 @@ async def scan_rom(
             },
         )
 
-    if not metadata_only and platform.slug == UPS.WIN and fs_rom["nested"]:
+    if (
+        not metadata_only
+        and quick is None
+        and platform.slug == UPS.WIN
+        and fs_rom["nested"]
+    ):
         try:
             pc_components = await get_fs_rom_handler().get_pc_components(_added_rom)
             unresolved_count = 0

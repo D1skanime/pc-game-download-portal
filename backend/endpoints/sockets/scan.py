@@ -671,6 +671,20 @@ async def _identify_rom(
 
     calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
 
+    from handler.windows_quick_execution import (
+        current_windows_quick,
+        inventory_binding,
+        prepare_quick_refresh,
+        reconcile_quick_files,
+    )
+
+    quick = current_windows_quick()
+    if quick is not None:
+        candidate = rom if rom is not None else Rom(**rom_attrs, platform=platform)
+        await prepare_quick_refresh(
+            quick, get_fs_rom_handler(), candidate, calculate_hashes=calculate_hashes
+        )
+
     newly_added: bool = rom is None
     reassociated: bool = False
     files_built: bool = False
@@ -680,12 +694,13 @@ async def _identify_rom(
         # the files and check whether they belong to an existing entry that went
         # missing (a renamed or moved ROM), so its collections, notes, and
         # uploaded assets carry over instead of being orphaned on a duplicate.
-        parsed_rom_files = await get_fs_rom_handler().get_rom_files(
-            Rom(
-                **rom_attrs,
-                platform=platform,
-            ),
-            calculate_hashes=calculate_hashes,
+        parsed_rom_files = (
+            quick.files
+            if quick is not None
+            else await get_fs_rom_handler().get_rom_files(
+                Rom(**rom_attrs, platform=platform),
+                calculate_hashes=calculate_hashes,
+            )
         )
         fs_rom.update(
             {
@@ -739,7 +754,8 @@ async def _identify_rom(
     # Build rom files object before scanning. A reassociated ROM always rebuilds
     # its files so the stale paths from the old filename are replaced.
     should_update_files = not metadata_only and (
-        reassociated
+        quick is not None
+        or reassociated
         or _should_get_rom_files(
             scan_type=scan_type,
             rom=rom,
@@ -752,8 +768,12 @@ async def _identify_rom(
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
 
-        parsed_rom_files = await get_fs_rom_handler().get_rom_files(
-            rom, calculate_hashes=calculate_hashes
+        parsed_rom_files = (
+            quick.files
+            if quick is not None
+            else await get_fs_rom_handler().get_rom_files(
+                rom, calculate_hashes=calculate_hashes
+            )
         )
         fs_rom.update(
             {
@@ -789,6 +809,50 @@ async def _identify_rom(
 
     _added_rom = merge_scan_rom(scanned_rom)
 
+    catalog_lifecycle_handler.reconnect_retained_identity(
+        rom_id=_added_rom.id,
+        platform_id=platform.id,
+        logical_path=f"{roms_path}/{fs_rom['fs_name']}",
+        crc_hash=fs_rom["crc_hash"],
+        md5_hash=fs_rom["md5_hash"],
+        sha1_hash=fs_rom["sha1_hash"],
+    )
+
+    if _added_rom.is_identified:
+        await _emit_scanning_rom(socket_manager, _added_rom)
+
+    if quick is not None and quick.binding is None:
+        quick.binding = inventory_binding(
+            _added_rom, fs_rom.get("scan_relative_path", _added_rom.fs_name)
+        )
+
+    if should_update_files:
+        # Reconcile against the existing rows instead of replacing them, so file
+        # ids survive a rescan and anything keyed on them (track metadata,
+        # persisted soundtrack covers) stays valid.
+        with ScanMediaBatch(
+            _added_rom.id, _added_rom.platform_id, fs_resource_handler.storage
+        ) as unit:
+            if quick is not None:
+                synced, synced_components = unit.publish_and_associate(
+                    lambda session: reconcile_quick_files(
+                        quick, get_fs_rom_handler(), _added_rom, session
+                    )
+                )
+                quick.files_reconciled = True
+                quick.components_reconciled = True
+                from handler.scan_handler import auto_link_pc_dlc_components
+
+                auto_link_pc_dlc_components(rom, synced_components)
+            else:
+                synced = unit.publish_and_associate(
+                    lambda session: db_rom_handler.sync_rom_files(
+                        _added_rom.id, fs_rom["files"], session=session
+                    )
+                )
+        for saved in synced.files:
+            persist_soundtrack_cover(saved, _added_rom)
+
     if (
         not metadata_only
         and platform.slug == UPS.WIN
@@ -813,33 +877,6 @@ async def _identify_rom(
         if scan_target is not None:
             for component in scan_target.components:
                 await _enrich_pc_dlc_from_igdb(scan_target, component)
-
-    catalog_lifecycle_handler.reconnect_retained_identity(
-        rom_id=_added_rom.id,
-        platform_id=platform.id,
-        logical_path=f"{roms_path}/{fs_rom['fs_name']}",
-        crc_hash=fs_rom["crc_hash"],
-        md5_hash=fs_rom["md5_hash"],
-        sha1_hash=fs_rom["sha1_hash"],
-    )
-
-    if _added_rom.is_identified:
-        await _emit_scanning_rom(socket_manager, _added_rom)
-
-    if should_update_files:
-        # Reconcile against the existing rows instead of replacing them, so file
-        # ids survive a rescan and anything keyed on them (track metadata,
-        # persisted soundtrack covers) stays valid.
-        with ScanMediaBatch(
-            _added_rom.id, _added_rom.platform_id, fs_resource_handler.storage
-        ) as unit:
-            synced = unit.publish_and_associate(
-                lambda session: db_rom_handler.sync_rom_files(
-                    _added_rom.id, fs_rom["files"], session=session
-                )
-            )
-        for saved in synced.files:
-            persist_soundtrack_cover(saved, _added_rom)
 
     # Short circuit if the scan type is hashes
     if scan_type == ScanType.HASHES or metadata_only:
@@ -1250,6 +1287,7 @@ async def _identify_platform(
             ):
                 if isinstance(result, BaseException):
                     raise result
+        quick_contexts.clear()
 
     missing_roms = (
         db_rom_handler.mark_missing_roms(platform.id, fs_rom_names, **missing_options)

@@ -4,12 +4,15 @@ Inventory is advisory. Mapping reads, checked writes and media publication retai
 their existing authority; completion and retry persistence belong to finalization.
 """
 
+import json
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import PurePosixPath
+from typing import Any
 
 from config.config_manager import config_manager as cm
+from handler.database import db_rom_handler
 from handler.database.scan_inventory_state import InventoryBinding, load_baseline
 from handler.filesystem import get_fs_rom_handler
 from handler.filesystem.roms_handler import FSRomsHandler
@@ -30,6 +33,9 @@ class WindowsQuickContext:
     decision: QuickScanDecision
     files_reconciled: bool = False
     components_reconciled: bool = False
+    files: Any = None
+    components: Any = None
+    after: InventoryEvidence | None = None
 
 
 def current_windows_quick():
@@ -52,9 +58,20 @@ def inventory_binding(rom, relative_path):
     mapping = MappingReadContext(
         command.mapping_id, command.expected_revision
     ).validate()
+    config = cm.get_config()
     fingerprint = digest_path(
-        "windows-quick:inventory=1:classifier=1:encoding=json-ascii:"
-        + str(bool(cm.get_config().SKIP_HASH_CALCULATION))
+        json.dumps(
+            [
+                "windows-quick",
+                1,
+                1,
+                "json-ascii",
+                bool(config.SKIP_HASH_CALCULATION),
+                sorted(config.EXCLUDED_MULTI_PARTS_FILES),
+                sorted(config.EXCLUDED_MULTI_PARTS_EXT),
+            ],
+            separators=(",", ":"),
+        )
     )
     return InventoryBinding.from_mapping(mapping, rom, relative_path, fingerprint)
 
@@ -143,3 +160,63 @@ async def inspect_discovered_game(
         relative_path=relative,
         collection_expanded=True,
     )
+
+
+async def prepare_quick_refresh(context, handler, rom, *, calculate_hashes):
+    from handler.filesystem.pc_scan_inventory import InventoryIncomplete
+    from handler.scan_inventory_contracts import InventoryAssessment
+
+    if not context.before.complete:
+        raise InventoryIncomplete(context.before.reason or "incomplete_evidence")
+    try:
+        components = await handler.get_pc_components(rom, inventory=context.before)
+        files = await handler.get_rom_files(rom, calculate_hashes=calculate_hashes)
+        after = await handler.get_pc_inventory(rom)
+    except (OSError, ValueError) as error:
+        raise InventoryIncomplete("refresh_unreadable") from error
+    if InventoryAssessment.compare(after, context.before).state != "unchanged":
+        raise InventoryIncomplete(after.reason or "unstable_inventory")
+    context.components = components
+    context.files = files
+    context.after = after
+
+
+def recheck_quick_inventory(context, handler, rom, session):
+    from handler.database.scan_inventory_state import _enlist
+    from handler.database.scan_write_fence import checked_scan_write
+    from handler.filesystem.pc_scan_inventory import (
+        InventoryIncomplete,
+        collect_pc_inventory,
+    )
+    from handler.scan_inventory_contracts import InventoryAssessment
+
+    if context.binding is None:
+        raise InventoryIncomplete("refresh_binding_missing")
+
+    def boundary():
+        with checked_scan_write(session) as operation:
+            _enlist(session, context.binding, operation)
+
+    # Hold the existing mapping fence through commit without a nested session.
+    after = collect_pc_inventory(
+        handler.open_access, handler._pc_game_path(rom), check=boundary
+    )
+    if InventoryAssessment.compare(after, context.before).state != "unchanged":
+        raise InventoryIncomplete(after.reason or "unstable_inventory")
+    context.after = after
+
+
+def reconcile_quick_files(context, handler, rom, session):
+    from handler.filesystem.pc_scan_inventory import InventoryIncomplete
+
+    recheck_quick_inventory(context, handler, rom, session)
+    if context.files is None or context.components is None:
+        raise InventoryIncomplete("refresh_not_prepared")
+    files = db_rom_handler.sync_rom_files(
+        rom.id, context.files.rom_files, session=session
+    )
+    components = db_rom_handler.sync_rom_components(
+        rom.id, context.components, session=session
+    )
+    recheck_quick_inventory(context, handler, rom, session)
+    return files, components
