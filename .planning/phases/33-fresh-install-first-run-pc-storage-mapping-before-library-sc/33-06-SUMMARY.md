@@ -3,7 +3,7 @@ phase: 33-fresh-install-first-run-pc-storage-mapping-before-library-sc
 plan: 06
 subsystem: testing
 tags: [uat, setup, storage, collections, browser]
-status: awaiting-human-verification
+status: human-accepted-with-limitations
 requires:
   - phase: 33-10
     provides: Explicit collection promotion and safe owned-media retirement
@@ -30,7 +30,7 @@ key-decisions:
 metrics:
   duration: resumed acceptance across corrective implementation
   completed-date: 2026-10-19
-  tasks-completed: 1
+  tasks-completed: 2
   tasks-total: 2
 ---
 
@@ -39,8 +39,9 @@ metrics:
 **Guarded Linux browser execution proves fresh mapping readiness, explicit
 child promotion, safe media cleanup and normal/scheduled collection discovery.**
 
-Task 1 is technically verified. Task 2, the mandatory human browser checkpoint,
-remains pending. This summary does not close Phase 33 or approve a later phase.
+Task 1 is technically verified. Task 2 received user acceptance of the exercised
+live scope on 2026-10-20, with limitations recorded below. This does not approve
+a later phase or mark the pending deep code review as complete.
 
 ## Task commits
 
@@ -163,3 +164,16 @@ and policy checks and does not add a second mapping step.
 - In-memory Python compilation passed for both changed files.
 
 Full Phase 33 browser UAT remains pending and is not marked complete here.
+
+## Human live UAT acceptance, 2026-10-20
+
+The user confirmed in the shared chat: "gut uat so weit bestanden".
+The currently exercised live flow is accepted. This follows the collection-folder,
+scan and download checks; the absent Tales of Berseria base download was explained
+by an empty source directory and was not a scanner defect.
+
+Recorded at 2026-10-20T10:17:09.659237+02:00. This is acceptance of the tested scope, not evidence that
+every platform, theme or hardware input was manually retested. Physical gamepad
+verification remains blocked. Independent deep code review remains pending.
+The discussed optimization of repeated Windows quick-scan processing is not
+implemented or accepted by this confirmation. No following phase is started.

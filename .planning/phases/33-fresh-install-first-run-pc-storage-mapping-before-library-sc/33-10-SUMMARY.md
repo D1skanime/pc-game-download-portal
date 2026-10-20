@@ -65,4 +65,4 @@ Schema 0140 was applied with a protected pre-migration SQL backup. No DB/media r
 
 ## Remaining acceptance
 
-Plan 33-10 implementation and technical verification are complete. Plan 33-06 human acceptance of this corrected live flow remains pending; the earlier full-scan approval does not automatically approve the new correction. Physical gamepad UAT and the requested later independent deep review remain open. No subsequent phase was started.
+Plan 33-10 implementation and technical verification are complete. The user accepted the exercised corrected live flow on 2026-10-20, saying "gut uat so weit bestanden". See 33-UAT.md for scope and limitations. Physical gamepad UAT and the requested later independent deep review remain open. No subsequent phase was started.

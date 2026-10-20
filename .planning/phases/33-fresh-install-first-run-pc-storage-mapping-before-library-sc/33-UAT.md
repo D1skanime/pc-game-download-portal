@@ -1,7 +1,7 @@
 ---
 phase: 33-fresh-install-first-run-pc-storage-mapping-before-library-sc
 plan: 06
-status: pending-human-verify
+status: passed-with-limitations
 ---
 
 # Phase 33 mandatory final UAT
@@ -136,6 +136,19 @@ commands. Each full source manifest is identical to the final browser manifest
 Cleanup and source immutability passed on every dialect. These refreshes
 supersede historical receipts that predated the final audit/cleanup columns.
 
-Plan 33-06 task 1 is technically verified. Task 2 remains the mandatory human
-browser checkpoint. The earlier live full scan approval does not approve the
-new collection-retirement behavior automatically. No following phase starts.
+Plan 33-06 task 1 is technically verified. Task 2 acceptance of the exercised
+live scope was subsequently supplied by the user below. Earlier pending
+checkpoint statements describe the historical state. No following phase starts.
+
+## Human live UAT acceptance, 2026-10-20
+
+The user confirmed in the shared chat: "gut uat so weit bestanden".
+The currently exercised live flow is accepted. This follows the collection-folder,
+scan and download checks; the absent Tales of Berseria base download was explained
+by an empty source directory and was not a scanner defect.
+
+Recorded at 2026-10-20T10:17:09.659237+02:00. This is acceptance of the tested scope, not evidence that
+every platform, theme or hardware input was manually retested. Physical gamepad
+verification remains blocked. Independent deep code review remains pending.
+The discussed optimization of repeated Windows quick-scan processing is not
+implemented or accepted by this confirmation. No following phase is started.

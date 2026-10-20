@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Phase 33 corrective implementation verified; Dev autoscan active every 15 minutes; human UAT pending
-last_updated: "2026-10-19T23:09:18.874771+00:00"
+stopped_at: Phase 33 tested live UAT accepted; independent deep review and physical gamepad remain open
+last_updated: "2026-10-20T10:17:09.659237+02:00"
 last_activity: 2026-10-19 -- Phase 33 collection correction verified and Dev autoscan enabled
 progress:
   total_phases: 34
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Human acceptance of the implemented Phase 33 collection-folder flow
+**Current focus:** Tested live UAT accepted; pending independent deep review
 
 ## Current Position
 
 Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: 9 of 10 implemented; corrective 33-10 technically verified, 33-06 human acceptance pending
-Status: Collection correction and final automated browser UAT passed; Dev autoscan active every 15 minutes
+Plan: 10 of 10 executed; 33-06 tested live scope accepted with recorded limitations
+Status: User accepted tested live UAT on 2026-10-20; Dev autoscan active every 15 minutes
 Last activity: 2026-10-19 -- Final 22-check browser UAT passed and authorized Dev scheduler verified
 
 ## Active execution handoff
@@ -44,7 +44,7 @@ Final automated browser run f4dd7651eda049868d9483e52118cfcb passed all 22 check
 
 Dev database schema is 0140. Pre-migration backup: /home/d1sk/pgdp-dev-backups/20261019T221341Z-phase33-collection/before-collection-migration.sql. No DB/media reset or Games mutation occurred. The user-authorized 15-minute autoscan is now active and verified: tasks.scheduled.scan_library.scan_library_task.run, cron */15 * * * *, registered job f78f305c-1f01-44f8-b11d-693796279bd5. Only pgdp-dev was recreated; existing DB and Redis container IDs, 33 games, one user, and authentication identity were preserved. Frontend and heartbeat returned HTTP 200; the current RQ worker was idle and the user's in-app Scan tab remained authenticated. Sanitized receipt: evidence/live-autoscan-15m/activation-receipt.json. For future Dev recreation preserve the exact Compose file list in that receipt, including the protected host-local autoscan.compose.yml and auth env file. Never copy the auth env file or SQL dump into the repository.
 
-Next: shared human live UAT of the corrected Castlevania/Belmont flow in the existing browser. Do not mark Phase 33 or plan 33-06 accepted before that confirmation. Independent deep code review remains pending for afterward, as requested. Do not start another phase automatically. Production Portainer acceptance remains open without approved connection configuration; frozen plan 34-16 remains INCONCLUSIVE.
+The user confirmed the tested live UAT scope on 2026-10-20: "gut uat so weit bestanden". Plan 33-06 human checkpoint is accepted within that scope. Physical gamepad remains untested; independent deep code review remains pending, as requested. Repeated processing of unchanged Windows games was discussed but no optimization was implemented. Do not start another phase automatically. Production Portainer acceptance remains open without approved connection configuration; frozen plan 34-16 remains INCONCLUSIVE.
 
 ## Performance Metrics
 
@@ -526,7 +526,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-10-19T21:56:44.610973+00:00
-Stopped at: Phase 33 correction verified; Dev autoscan active; human UAT pending
+Stopped at: Phase 33 tested live UAT accepted; deep review and gamepad remain open
 Resume file: .planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-06-PLAN.md
 
 - Phase 25 added: Scan-/Medien-Integration härten
