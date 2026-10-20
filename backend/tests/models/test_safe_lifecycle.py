@@ -38,11 +38,13 @@ def test_retained_catalog_identity_is_bounded_and_reconnectable():
         "detached_by_user_id",
         "detached_at",
         "reconnected_at",
+        "retained_audit",
         "created_at",
         "updated_at",
     }
     assert columns.logical_path.type.length == 700
     assert columns.file_name.type.length == 450
+    assert columns.retained_audit.nullable is True
     assert columns.active_rom_id.nullable is True
     assert _foreign_key(columns.platform_id).ondelete == "RESTRICT"
     assert _foreign_key(columns.active_rom_id).ondelete == "SET NULL"

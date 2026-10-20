@@ -45,6 +45,7 @@ def test_mark_missing_platforms_limits_reconciliation_and_canonicalizes_pc(platf
             name="PC game",
             slug="pc-game",
             fs_name="pc.zip",
+            fs_path="pc/roms",
         )
     )
     other_rom = db_rom_handler.add_rom(
@@ -53,6 +54,7 @@ def test_mark_missing_platforms_limits_reconciliation_and_canonicalizes_pc(platf
             name="Other game",
             slug="other-game",
             fs_name="other.zip",
+            fs_path="other/roms",
         )
     )
 

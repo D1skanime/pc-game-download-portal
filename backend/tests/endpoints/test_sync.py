@@ -579,13 +579,22 @@ class TestNegotiateAdvanced:
     ):
         """Upload through the real add_save so _apply_datetime_tag runs; scan_save is mocked to echo the server-computed (tagged) file_name, never a hand-authored one."""
 
-        def make_scanned(*, file_name, user, platform_fs_slug, rom_id, emulator):
+        def make_scanned(
+            *,
+            file_name,
+            user,
+            platform_fs_slug,
+            rom_id,
+            emulator,
+            resource_path=None,
+            storage_handler=None,
+        ):
             return Save(
                 file_name=file_name,
                 file_name_no_tags=file_name.split(" [")[0],
                 file_name_no_ext=os.path.splitext(file_name)[0],
                 file_extension="zip",
-                file_path=f"{platform_fs_slug}/saves/{emulator or ''}",
+                file_path=resource_path or f"{platform_fs_slug}/saves/{emulator or ''}",
                 file_size_bytes=100,
                 content_hash=content_hash,
             )

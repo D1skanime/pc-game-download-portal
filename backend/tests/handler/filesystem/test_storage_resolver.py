@@ -366,14 +366,13 @@ def test_resolution_requires_existing_active_non_writable_root(tmp_path: Path) -
             resolve_storage_root(_root(tmp_path))
 
 
-def test_internal_root_resolution_is_the_only_empty_path_contract(
+def test_empty_mapping_directory_resolves_to_the_protected_root(
     tmp_path: Path,
 ) -> None:
     root = _root(tmp_path)
     with patch("handler.filesystem.storage_resolver.os.access", _permission_observer):
         assert resolve_storage_root(root) == tmp_path.resolve()
-        with pytest.raises(InvalidRelativePathError):
-            resolve_directory(root, "")
+        assert resolve_directory(root, "") == tmp_path.resolve()
 
 
 def test_target_must_exist_be_a_readable_directory(tmp_path: Path) -> None:

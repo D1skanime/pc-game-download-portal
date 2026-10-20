@@ -111,7 +111,7 @@ async def test_full_scan_checks_known_child_without_discovering_unknown_children
     db = mocker.patch.object(scan, "db_rom_handler")
     db.get_missing_rom_ids.return_value = set()
     db.get_roms_by_fs_name.return_value = {}
-    db.get_roms_scalar.return_value = [
+    db.get_rom_filesystem_paths.return_value = [
         SimpleNamespace(fs_name="Belmonts.Curse", fs_path="pc-Games/Castlevania"),
         SimpleNamespace(fs_name="Gone.Child", fs_path="pc-Games/Castlevania"),
         SimpleNamespace(fs_name="Escape", fs_path="other-mapping/Castlevania"),
