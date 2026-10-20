@@ -188,6 +188,9 @@ def test_final_merge_preserves_current_references_with_stale_session(attempt, ro
             unit.publish_and_associate(lambda session: None)
     scanned = Rom(
         id=rom.id,
+        platform_id=rom.platform_id,
+        fs_path=rom.fs_path,
+        fs_name=rom.fs_name,
         ss_metadata={
             "video_url": "https://fixture.invalid/new",
             "video_path": f"{rom.fs_resources_path}/video/new.mp4",
@@ -235,6 +238,9 @@ def test_final_merge_preserves_fresh_provider_json_after_retired_bytes_removed(
     pending = f"{rom.fs_resources_path}/video/pending.mp4"
     scanned = Rom(
         id=rom.id,
+        platform_id=rom.platform_id,
+        fs_path=rom.fs_path,
+        fs_name=rom.fs_name,
         ss_metadata={
             "video_path": pending,
             "video_url": "https://fixture.invalid/pending",

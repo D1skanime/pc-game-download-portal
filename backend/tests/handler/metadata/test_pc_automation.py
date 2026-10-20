@@ -219,15 +219,25 @@ async def test_component_apply_retains_existing_steam_text_variants(mocker):
 
 
 @pytest.mark.asyncio
-async def test_provider_failure_queues_one_retryable_item_without_overwriting_protected_data():
-    rom = _rom(manual_metadata={"name": "Manual"}, name="Manual")
+@pytest.mark.parametrize("protected", [False, True])
+async def test_provider_failure_queues_one_retryable_item_without_overwriting_protected_data(
+    protected,
+):
+    rom = _rom(manual_metadata={"name": "Manual"} if protected else {}, name="Manual")
     matcher = Mock(fetch_unique_steam_match=AsyncMock(side_effect=TimeoutError()))
     queue = Mock(upsert_pending=Mock())
     handler = PcAutomationHandler(match_handler=matcher, queue_handler=queue)
 
     result = await handler.process_parent(rom)
 
-    assert result.decision is AutomationDecision.RETRYABLE_FAILURE
-    assert result.reason == "provider_failure"
+    if protected:
+        assert result.decision is AutomationDecision.PENDING
+        assert result.reason == "protected_target"
+        matcher.fetch_unique_steam_match.assert_not_awaited()
+        assert rom.manual_metadata == {"name": "Manual"}
+    else:
+        assert result.decision is AutomationDecision.RETRYABLE_FAILURE
+        assert result.reason == "provider_failure"
+        matcher.fetch_unique_steam_match.assert_awaited_once()
     queue.upsert_pending.assert_called_once()
     assert rom.name == "Manual"

@@ -238,9 +238,15 @@ def test_get_setup_library_info_missing_read_only_target_starts_empty(
     client, admin_user, access_token
 ):
     """Fresh read-only installs expose an empty setup library instead of HTTP 500."""
-    with patch(
-        "endpoints.heartbeat.fs_platform_handler.open_access",
-        side_effect=MissingStorageTargetError(),
+    with (
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.open_access",
+            side_effect=MissingStorageTargetError(),
+        ),
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.detect_library_structure",
+            return_value=None,
+        ),
     ):
         response = client.get(
             "/api/setup/library",
@@ -261,7 +267,7 @@ def test_get_setup_library_info_no_structure_detected(client, admin_user, access
         mock_detect.return_value = None
 
         with patch(
-            "endpoints.heartbeat.fs_platform_handler.get_platforms"
+            "endpoints.heartbeat.fs_platform_handler.list_directories"
         ) as mock_get_platforms:
             mock_get_platforms.return_value = []
 
