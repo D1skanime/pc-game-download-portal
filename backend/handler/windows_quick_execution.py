@@ -113,6 +113,16 @@ async def inspect_windows_quick(
         collection_expanded=collection_expanded,
     )
     assert decision is not None
+    if decision == QuickScanDecision.REFRESH:
+        from handler.database.scan_inventory_state import save_completed_baseline
+
+        save_completed_baseline(
+            binding,
+            evidence,
+            evidence,
+            files_reconciled=False,
+            components_reconciled=False,
+        )
     return WindowsQuickContext(binding, evidence, decision)
 
 
@@ -220,3 +230,24 @@ def reconcile_quick_files(context, handler, rom, session):
     )
     recheck_quick_inventory(context, handler, rom, session)
     return files, components
+
+
+def complete_quick_baseline(rom, session):
+    """Adopt only reconciled refresh evidence inside the existing completion fence."""
+    from handler.database.scan_inventory_state import save_completed_baseline
+
+    context = current_windows_quick()
+    if context is None or context.decision != QuickScanDecision.REFRESH:
+        return False
+    if context.binding is None:
+        return False
+    if context.files_reconciled and context.components_reconciled:
+        recheck_quick_inventory(context, get_fs_rom_handler(), rom, session)
+    return save_completed_baseline(
+        context.binding,
+        context.before,
+        context.after,
+        files_reconciled=context.files_reconciled,
+        components_reconciled=context.components_reconciled,
+        session=session,
+    )

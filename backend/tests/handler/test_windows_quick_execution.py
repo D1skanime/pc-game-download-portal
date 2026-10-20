@@ -30,6 +30,9 @@ async def test_complete_inventory_advice(monkeypatch, identified, baseline, expe
     evidence = InventoryEvidence("c" * 64, 1, True)
     handler = SimpleNamespace(get_pc_inventory=AsyncMock(return_value=evidence))
     current = binding()
+    monkeypatch.setattr(
+        "handler.database.scan_inventory_state.save_completed_baseline", Mock()
+    )
     monkeypatch.setattr(execution, "inventory_binding", lambda *args: current)
     monkeypatch.setattr(
         execution, "load_baseline", lambda *args: evidence if baseline else None

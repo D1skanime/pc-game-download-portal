@@ -491,3 +491,43 @@ def test_game_completion_adopts_only_reconciled_baseline(
                 None,
             )
     assert (repository().load_baseline(binding, evidence()) is not None) == reconciled
+
+
+def test_completion_baseline_rollback(bound_game, inventory_attempt, monkeypatch):
+    from types import SimpleNamespace
+
+    from tests.handler.test_scan_write_fence import context
+
+    from handler import windows_quick_execution as execution
+    from handler.database.scan_write_fence import bind_scan_write_context
+    from handler.scan_collection_finalize import _complete
+    from handler.scan_inventory_contracts import QuickScanDecision
+    from handler.windows_quick_execution import WindowsQuickContext, bind_windows_quick
+
+    binding, _ = bound_game
+    quick = WindowsQuickContext(
+        binding,
+        evidence(),
+        QuickScanDecision.REFRESH,
+        files_reconciled=True,
+        components_reconciled=True,
+        after=evidence(),
+    )
+    monkeypatch.setattr(execution, "recheck_quick_inventory", lambda *args: None)
+    with pytest.raises(RuntimeError, match="crash"):
+        with bind_scan_write_context(context(inventory_attempt)), bind_windows_quick(
+            quick
+        ):
+            with sync_session.begin() as session:
+                _complete(
+                    session,
+                    session.get(Rom, binding.rom_id),
+                    SimpleNamespace(
+                        mapping_id=binding.mapping_id,
+                        expected_revision=binding.mapping_revision,
+                    ),
+                    None,
+                    None,
+                )
+                raise RuntimeError("crash")
+    assert repository().load_baseline(binding, evidence()) is None

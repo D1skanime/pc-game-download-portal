@@ -172,6 +172,9 @@ def _complete(session, rom, command, intent, cleanup):
         DBScanOperationsHandler().worker_update(
             current_scan_write_context(), checkpoint=checkpoint, session=session
         )
+        from handler.windows_quick_execution import complete_quick_baseline
+
+        complete_quick_baseline(child, session)
         session.flush()
         return child
 
