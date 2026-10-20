@@ -11,6 +11,15 @@ class StorageResolutionError(Exception):
         return self.message
 
 
+class OwnedWriterBusyError(StorageResolutionError):
+    """A cooperating writer still holds the bounded mutation reservation."""
+
+    code = "owned_writer_busy"
+
+    def __init__(self):
+        super().__init__("Owned writer is busy")
+
+
 class DescriptorHashError(StorageResolutionError):
     code = "descriptor_hash_error"
 

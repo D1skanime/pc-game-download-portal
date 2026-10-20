@@ -1,6 +1,7 @@
 """Read-only setup reconciliation using persisted mappings and the shared resolver."""
 
 from dataclasses import asdict
+from time import sleep
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from endpoints.responses.setup import (
 )
 from exceptions.storage_exceptions import (
     MissingPlatformStorageMappingError,
+    OwnedWriterBusyError,
     StorageResolutionError,
 )
 from handler.database import db_storage_handler, db_user_handler
@@ -148,8 +150,20 @@ class SetupRecoveryHandler:
             next_action=action,
         )
 
-    @begin_session
     def assign(
+        self, assignments: list[dict[str, str]], actor: dict, *, session: Session = None
+    ) -> dict:  # type: ignore
+        for attempt in range(3):
+            try:
+                return self._assign(assignments, actor, session=session)
+            except OwnedWriterBusyError:
+                if session is not None or attempt == 2:
+                    raise
+                sleep(0.01)
+        raise AssertionError("unreachable setup retry")
+
+    @begin_session
+    def _assign(
         self, assignments: list[dict[str, str]], actor: dict, *, session: Session = None
     ) -> dict:  # type: ignore
         # Serialize setup retries, including first root registration, across admins.

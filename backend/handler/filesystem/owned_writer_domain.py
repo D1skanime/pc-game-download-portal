@@ -9,7 +9,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-from exceptions.storage_exceptions import StorageResolutionError
+from exceptions.storage_exceptions import OwnedWriterBusyError, StorageResolutionError
 
 _LOCAL = threading.local()
 _GATE = threading.RLock()
@@ -43,9 +43,9 @@ def _actor():
 def owned_writer_domain():
     actor = _actor()
     if getattr(_LOCAL, "depth", 0) and _LOCAL.actor != actor:
-        raise StorageResolutionError("Owned writer is busy")
+        raise OwnedWriterBusyError()
     if not _GATE.acquire(timeout=2):
-        raise StorageResolutionError("Owned writer is busy")
+        raise OwnedWriterBusyError()
     try:
         depth = getattr(_LOCAL, "depth", 0)
         if depth == 0:
@@ -58,9 +58,7 @@ def owned_writer_domain():
                         break
                     except BlockingIOError:
                         if time.monotonic() >= deadline:
-                            raise StorageResolutionError(
-                                "Owned writer is busy"
-                            ) from None
+                            raise OwnedWriterBusyError() from None
                         time.sleep(0.005)
             except BaseException:
                 os.close(descriptor)

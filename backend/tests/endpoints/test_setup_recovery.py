@@ -1,7 +1,7 @@
 """Real HTTP recovery with production authentication, CSRF and disposable SQL."""
 
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
+from threading import Barrier, Event
 
 import pytest
 from fastapi import FastAPI
@@ -354,4 +354,120 @@ def test_mid_batch_failure_rolls_back_and_retry_completes(
     assert snapshot["saved_assignments"] == []
     assert save(recovery_client, ASSIGNMENTS, csrf).json()["recovery"]["setup_complete"]
     assert len(db_user_handler.get_admin_users()) == 1
+    assert_no_scan()
+
+
+def test_authenticated_read_survives_owned_writer_contention(
+    recovery_client, admin_user, access_token
+):
+    from handler.filesystem.owned_writer_domain import owned_writer_domain
+
+    held, release = Event(), Event()
+
+    def writer():
+        with owned_writer_domain():
+            held.set()
+            assert release.wait(timeout=10)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(writer)
+        assert held.wait(timeout=5)
+        try:
+            response = recovery_client.get(
+                "/api/users/me", headers={"Authorization": "Bearer " + access_token}
+            )
+        finally:
+            release.set()
+        future.result(timeout=5)
+    assert response.status_code == 200, response.text
+    assert response.json()["username"] == admin_user.username
+
+
+def test_concurrent_different_assignments_do_not_rewrite_the_winner(
+    recovery_client, admin_user, access_token
+):
+    db_storage_handler.register_root("Games", LIBRARY_BASE_PATH)
+    changed = [
+        row | {"platform_slug": "linux"} if row["folder_name"] == "PC" else row
+        for row in ASSIGNMENTS
+    ]
+    with sync_session.begin() as session:
+        prior_audits = session.query(StorageMappingAudit).count()
+    barrier = Barrier(2)
+
+    def attempt(assignments):
+        barrier.wait(timeout=10)
+        return save(
+            recovery_client, assignments, {"Authorization": "Bearer " + access_token}
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(attempt, rows) for rows in (ASSIGNMENTS, changed)]
+        responses = [future.result(timeout=25) for future in futures]
+    assert sorted(response.status_code for response in responses) == [200, 409], [
+        response.text for response in responses
+    ]
+    winner = next(response for response in responses if response.status_code == 200)
+    with sync_session.begin() as session:
+        assert session.query(PlatformStorageMapping).count() == 8
+        assert session.query(StorageMappingAudit).count() == prior_audits + 8
+        assert {row.id for row in session.scalars(select(PlatformStorageMapping))} == {
+            row["mapping_id"] for row in winner.json()["mappings"]
+        }
+    assert_no_scan()
+
+
+@pytest.mark.parametrize("storage_error", [True, False])
+def test_presence_failure_other_than_contention_is_not_suppressed(
+    recovery_client, admin_user, access_token, monkeypatch, storage_error
+):
+    from exceptions.storage_exceptions import StorageResolutionError
+
+    error = (
+        StorageResolutionError("invalid reservation")
+        if storage_error
+        else RuntimeError("database failure")
+    )
+
+    def fail(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(db_user_handler, "update_user", fail)
+    response = recovery_client.get(
+        "/api/users/me", headers={"Authorization": "Bearer " + access_token}
+    )
+    assert response.status_code == 500
+
+
+def test_setup_contention_is_bounded_and_does_not_mutate_mappings(
+    recovery_client, admin_user, access_token
+):
+    from handler.filesystem.owned_writer_domain import owned_writer_domain
+
+    db_storage_handler.register_root("Games", LIBRARY_BASE_PATH)
+    with sync_session.begin() as session:
+        prior_audits = session.query(StorageMappingAudit).count()
+    held, release = Event(), Event()
+
+    def writer():
+        with owned_writer_domain():
+            held.set()
+            assert release.wait(timeout=20)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(writer)
+        assert held.wait(timeout=5)
+        try:
+            response = save(
+                recovery_client,
+                ASSIGNMENTS,
+                {"Authorization": "Bearer " + access_token},
+            )
+        finally:
+            release.set()
+        future.result(timeout=5)
+    assert response.status_code == 409, response.text
+    with sync_session.begin() as session:
+        assert session.query(PlatformStorageMapping).count() == 0
+        assert session.query(StorageMappingAudit).count() == prior_audits
     assert_no_scan()
