@@ -318,7 +318,16 @@ def test_unchanged_observations_are_advisory(descriptor, game_tree, monkeypatch)
     ) as source:
         assert isinstance(source, HashCapability)
         after = source.hash()
-    assert digest_inventory(observed.observations) == observed.digest
+    frozen = {entry.relative_path: entry for entry in observed.observations}
+    monkeypatch.setattr(
+        "handler.filesystem.pc_scan_inventory._entry",
+        lambda path, metadata: frozen[path],
+    )
+    assert (
+        inventory(descriptor).digest
+        == digest_inventory(observed.observations)
+        == observed.digest
+    )
     assert before != after
 
 
@@ -362,3 +371,83 @@ async def test_incomplete_inventory_cannot_produce_prunable_components(
         await FSRomsHandler(descriptor).get_pc_components(
             Rom(fs_path="", fs_name="Game")
         )
+
+
+def test_huge_scan_consumes_only_one_overflow_sentinel(
+    descriptor, game_tree, monkeypatch
+):
+    import os
+
+    for number in range(300):
+        (game_tree / f"{number}.bin").touch()
+    real_scandir = os.scandir
+    yielded = 0
+
+    class Counted:
+        def __init__(self, fd):
+            self.source = real_scandir(fd)
+
+        def __enter__(self):
+            self.source.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.source.__exit__(*args)
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            nonlocal yielded
+            result = next(self.source)
+            yielded += 1
+            return result
+
+    monkeypatch.setattr(os, "scandir", Counted)
+    with scan_capability(descriptor) as capability:
+        result = capability.scan_bounded(3)
+    assert not result.complete and yielded == 4
+
+
+def test_flat_inventory_checks_authority_within_128_entries(descriptor, game_tree):
+    from handler.database.scan_write_fence import ScanWriteRejected
+    from handler.filesystem.pc_scan_inventory import collect_pc_inventory
+    from handler.filesystem.storage_access import open_storage_access
+
+    for number in range(300):
+        (game_tree / f"{number}.bin").touch()
+    checks = 0
+
+    def revoke():
+        nonlocal checks
+        checks += 1
+        if checks == 3:
+            raise ScanWriteRejected("scan_attempt_revoked")
+
+    with pytest.raises(ScanWriteRejected):
+        collect_pc_inventory(
+            lambda op, path: open_storage_access(descriptor, op, path),
+            "Game",
+            check=revoke,
+        )
+    assert checks == 3
+
+
+@pytest.mark.asyncio
+async def test_async_inventory_runs_off_event_loop(descriptor):
+    import threading
+
+    from handler.filesystem.pc_scan_inventory import async_collect_pc_inventory
+    from handler.filesystem.storage_access import open_storage_access
+
+    main_thread = threading.get_ident()
+    observed_threads = []
+
+    def check():
+        observed_threads.append(threading.get_ident())
+
+    result = await async_collect_pc_inventory(
+        lambda op, path: open_storage_access(descriptor, op, path), "Game", check=check
+    )
+    assert result.complete
+    assert observed_threads and main_thread not in observed_threads
