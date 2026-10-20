@@ -436,6 +436,10 @@ def test_runtime_authority_seams_are_closed_and_composition_only() -> None:
     assert _authority_seams(BACKEND) == {
         (*AUTHORITY_PROVIDER, "descriptor_factory"),
         ("handler.storage.read_context", "open", "descriptor_factory"),
+        ("handler.filesystem.roms_handler", "for_mapping", "descriptor_factory"),
+        ("handler.setup_folder_handler", "discover", "raw_storage_root"),
+        ("handler.setup_folder_handler", "assign", "raw_storage_root"),
+        ("handler.setup_folder_handler", "_reconcile", "raw_storage_root"),
         (
             "tasks.manual.detect_legacy_storage",
             "run",

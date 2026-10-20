@@ -126,7 +126,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             )
             .order_by(DownloadTransferSession.id)
             .limit(limit)
-            .with_for_update()
+            .with_for_update(of=DownloadTransferSession)
         ).all()
         staled = 0
         for transfer in active_sessions:
@@ -178,7 +178,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferSession.id,
             )
             .limit(limit)
-            .with_for_update()
+            .with_for_update(of=DownloadTransferSession)
         ).all()
         for transfer in terminal_sessions:
             session.delete(transfer)
@@ -200,7 +200,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
             .where(
                 DownloadManifest.id == manifest_id, DownloadManifest.user_id == user_id
             )
-            .with_for_update()
+            .with_for_update(of=DownloadManifest)
         )
         if manifest is None:
             raise ValueError("manifest not found")
@@ -216,7 +216,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                     DownloadTransferSession.id == previous_session_id,
                     DownloadTransferSession.user_id == user_id,
                 )
-                .with_for_update()
+                .with_for_update(of=DownloadTransferSession)
             )
             if (
                 previous_attempt is None
@@ -286,7 +286,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferSession.user_id == user_id,
                 DownloadTransferSession.manifest_id == manifest_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferSession)
         )
         if transfer is None or transfer.status in _TERMINAL_SESSIONS:
             return None
@@ -297,7 +297,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferItem.session_id == transfer_id,
                 DownloadTransferItem.manifest_member_id == manifest_member_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferItem)
         )
         if item is None or item.status in _TERMINAL_ITEMS:
             return None
@@ -345,7 +345,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferSession.id == transfer_id,
                 DownloadTransferSession.user_id == user_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferSession)
         )
         if transfer is None:
             return False
@@ -368,7 +368,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferSession.id == transfer_id,
                 DownloadTransferSession.user_id == user_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferSession)
         )
         if transfer is None:
             return False
@@ -380,7 +380,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferItem.id == item_id,
                 DownloadTransferItem.session_id == transfer_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferItem)
         )
         if item is None:
             return False
@@ -405,7 +405,9 @@ class DBDownloadTransfersHandler(DBBaseHandler):
         )
         if rom_id is not None:
             stmt = stmt.where(DownloadTransferSession.rom_id == rom_id)
-        transfers = session.scalars(stmt.with_for_update()).all()
+        transfers = session.scalars(
+            stmt.with_for_update(of=DownloadTransferSession)
+        ).all()
         for transfer in transfers:
             transfer.dismissed_at = datetime.now(UTC)
         return len(transfers)
@@ -423,7 +425,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferSession.id == transfer_id,
                 DownloadTransferSession.user_id == user_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferSession)
         )
         if transfer is None:
             return False
@@ -472,7 +474,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferSession.id == transfer_id,
                 DownloadTransferSession.user_id == user_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferSession)
         )
         if transfer is None or transfer.status in _TERMINAL_SESSIONS:
             raise ValueError("session is closed or unavailable")
@@ -482,7 +484,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferItem.id == item_id,
                 DownloadTransferItem.session_id == transfer_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferItem)
         )
         if item is None:
             raise ValueError("item not found")
@@ -600,7 +602,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferSession.id == transfer_id,
                 DownloadTransferSession.user_id == user_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferSession)
         )
         item = session.scalar(
             select(DownloadTransferItem)
@@ -608,7 +610,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferItem.id == item_id,
                 DownloadTransferItem.session_id == transfer_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferItem)
         )
         if transfer is None or item is None or transfer.status in _TERMINAL_SESSIONS:
             raise ValueError("session is closed or unavailable")
@@ -664,7 +666,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferSession.id == transfer_id,
                 DownloadTransferSession.user_id == user_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferSession)
         )
         item = session.scalar(
             select(DownloadTransferItem)
@@ -672,7 +674,7 @@ class DBDownloadTransfersHandler(DBBaseHandler):
                 DownloadTransferItem.id == item_id,
                 DownloadTransferItem.session_id == transfer_id,
             )
-            .with_for_update()
+            .with_for_update(of=DownloadTransferItem)
         )
         if transfer is None or item is None or transfer.status in _TERMINAL_SESSIONS:
             raise ValueError("session is closed or unavailable")

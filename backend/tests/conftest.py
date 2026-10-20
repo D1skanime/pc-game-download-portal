@@ -37,6 +37,16 @@ from models.client_token import ClientToken
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.download_archive_set import DownloadArchiveSet, DownloadArchiveSetMember
+from models.download_manifest import (
+    DownloadManifest,
+    DownloadManifestComponent,
+    DownloadManifestMember,
+)
+from models.download_transfer import (
+    DownloadTransferEvent,
+    DownloadTransferItem,
+    DownloadTransferSession,
+)
 from models.platform import Platform
 from models.play_session import PlaySession
 from models.rom import Rom, RomFile
@@ -129,6 +139,12 @@ def clear_database():
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")
+        s.query(DownloadTransferEvent).delete(synchronize_session=False)
+        s.query(DownloadTransferItem).delete(synchronize_session=False)
+        s.query(DownloadTransferSession).delete(synchronize_session=False)
+        s.query(DownloadManifestMember).delete(synchronize_session=False)
+        s.query(DownloadManifestComponent).delete(synchronize_session=False)
+        s.query(DownloadManifest).delete(synchronize_session=False)
         s.query(DownloadArchiveSetMember).delete(synchronize_session=False)
         s.query(DownloadArchiveSet).delete(synchronize_session=False)
         s.query(RomFile).delete(synchronize_session="evaluate")
