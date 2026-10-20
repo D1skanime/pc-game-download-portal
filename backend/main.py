@@ -136,7 +136,11 @@ async def download_manifest_validation_error(
             status_code=422,
             content={"detail": "Invalid download manifest request"},
         )
-    return JSONResponse(status_code=422, content={"detail": _error.errors()})
+    details = [
+        {"type": error["type"], "loc": error["loc"], "msg": error["msg"]}
+        for error in _error.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": details})
 
 
 app.add_middleware(
