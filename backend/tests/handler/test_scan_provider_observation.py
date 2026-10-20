@@ -129,3 +129,55 @@ async def test_aiohttp_redirect_and_repeated_dispatch():
         assert observation.retry_after_seconds == 30
     finally:
         await runner.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_httpx_real_transport_redirect_failure_and_ssrf(monkeypatch):
+    from aiohttp import web
+
+    from utils.context import create_httpx_async_client
+
+    calls = 0
+
+    async def endpoint(request):
+        nonlocal calls
+        calls += 1
+        if request.path == "/redirect":
+            raise web.HTTPFound("/ok")
+        return web.Response(headers={"Retry-After": "45"})
+
+    app = web.Application()
+    app.router.add_get("/{path}", endpoint)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]
+    from utils.ssrf import validate_url_for_http_request
+
+    monkeypatch.setattr(
+        "utils.context.validate_url_for_http_request",
+        lambda url: validate_url_for_http_request(
+            url, allowlist=frozenset({("localhost", port)})
+        ),
+    )
+    try:
+        async with create_httpx_async_client() as client:
+            # Only this disposable fake provider origin is trusted by the test.
+            client._transport._pool._network_backend._allowlist = frozenset(
+                {("localhost", port)}
+            )
+            with bind_provider_observation("igdb", "game") as observation:
+                await client.get(
+                    f"http://localhost:{port}/redirect", follow_redirects=True
+                )
+            assert observation.requests == calls == 2
+            assert observation.retry_after_seconds == 45
+        async with create_httpx_async_client() as client:
+            with bind_provider_observation("igdb", "rejected") as rejected:
+                with pytest.raises(httpx.ConnectError):
+                    await client.get(f"http://localhost:{port}/ok")
+            assert rejected.requests == 0
+            assert calls == 2
+    finally:
+        await runner.cleanup()

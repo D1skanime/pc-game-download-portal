@@ -8,6 +8,14 @@ import httpx
 from fastapi import Request, Response
 
 from config import has_proxy_env
+from utils.scan_provider_observation import (
+    install_httpx_trace,
+    install_httpx_trace_async,
+    observe_aiohttp_headers,
+    observe_aiohttp_response,
+    observe_httpx_response,
+    observe_httpx_response_async,
+)
 from utils.ssrf import (
     install_async_ssrf_protection,
     install_sync_ssrf_protection,
@@ -29,13 +37,20 @@ async def _validate_request_url_async(request: httpx.Request) -> None:
 
 
 def create_aiohttp_session() -> aiohttp.ClientSession:
-    return aiohttp.ClientSession(trust_env=has_proxy_env())
+    trace = aiohttp.TraceConfig()
+    trace.on_request_headers_sent.append(observe_aiohttp_headers)
+    trace.on_request_end.append(observe_aiohttp_response)
+    trace.on_request_redirect.append(observe_aiohttp_response)
+    return aiohttp.ClientSession(trust_env=has_proxy_env(), trace_configs=[trace])
 
 
 def create_httpx_async_client() -> httpx.AsyncClient:
     client = httpx.AsyncClient(
         trust_env=has_proxy_env(),
-        event_hooks={"request": [_validate_request_url_async]},
+        event_hooks={
+            "request": [_validate_request_url_async, install_httpx_trace_async],
+            "response": [observe_httpx_response_async],
+        },
     )
     install_async_ssrf_protection(client)
     return client
@@ -44,7 +59,10 @@ def create_httpx_async_client() -> httpx.AsyncClient:
 def create_httpx_client() -> httpx.Client:
     client = httpx.Client(
         trust_env=has_proxy_env(),
-        event_hooks={"request": [_validate_request_url_sync]},
+        event_hooks={
+            "request": [_validate_request_url_sync, install_httpx_trace],
+            "response": [observe_httpx_response],
+        },
     )
     install_sync_ssrf_protection(client)
     return client
