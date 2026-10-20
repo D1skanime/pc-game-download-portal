@@ -440,9 +440,15 @@ def test_atomic_migrate_commits_mapping_catalog_audit_and_rollback_metadata(
     with sync_session() as session:
         mapping = session.get(PlatformStorageMapping, outcome.mapping_id)
         migration = session.get(LegacyMigration, outcome.migration_id)
-        roms = list(session.scalars(select(Rom).where(Rom.id.in_(rom_ids))))
+        roms = list(
+            session.scalars(select(Rom).where(Rom.id.in_(rom_ids)).order_by(Rom.id))
+        )
         files = list(
-            session.scalars(select(RomFile).where(RomFile.rom_id.in_(rom_ids)))
+            session.scalars(
+                select(RomFile)
+                .where(RomFile.rom_id.in_(rom_ids))
+                .order_by(RomFile.rom_id, RomFile.id)
+            )
         )
         audits = session.scalar(
             select(func.count(StorageMappingAudit.id)).where(
