@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RAlert, RBtn, RCheckbox, RProgressLinear } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUpdate, onUpdated, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import InventoryStatusSummary from "@/v2/components/Scan/InventoryStatusSummary.vue";
 import type { ScanOperationSnapshot } from "@/v2/data/contracts";
@@ -27,6 +27,34 @@ const emit = defineEmits<{
 }>();
 const { t } = useI18n();
 const selected = ref<number[]>([]);
+const panel = ref<HTMLElement | null>(null);
+const statusHeading = ref<HTMLElement | null>(null);
+let focusedControl: HTMLElement | null = null;
+onBeforeUpdate(() => {
+  const active = document.activeElement;
+  if (active instanceof HTMLButtonElement && panel.value?.contains(active)) {
+    focusedControl = active;
+  } else if (
+    active !== document.body ||
+    !(focusedControl instanceof HTMLButtonElement && focusedControl.disabled)
+  ) {
+    focusedControl = null;
+  }
+});
+onUpdated(() => {
+  if (
+    focusedControl &&
+    !focusedControl.isConnected &&
+    (!document.activeElement || document.activeElement === document.body)
+  ) {
+    statusHeading.value?.focus({ preventScroll: true });
+    focusedControl = null;
+  } else if (!(
+    focusedControl instanceof HTMLButtonElement && focusedControl.disabled
+  )) {
+    focusedControl = null;
+  }
+});
 watch(
   () => props.snapshot?.attempt_id,
   () => {
@@ -96,12 +124,15 @@ function select(id: number, value: boolean | null) {
 
 <template>
   <section
-    class="d-flex flex-column ga-4 pa-4"
+    ref="panel"
+    class="r-v2-operation-status d-flex flex-column ga-4 pa-4"
     aria-live="polite"
     aria-atomic="false"
     data-testid="operation-status"
   >
-    <h2 role="status">{{ t("scan.recovery-" + label) }}</h2>
+    <h2 ref="statusHeading" role="status" tabindex="-1">
+      {{ t("scan.recovery-" + label) }}
+    </h2>
     <p v-if="disconnected">{{ t("scan.recovery-disconnected") }}</p>
     <p v-else-if="reconciling">{{ t("scan.recovery-reconciling") }}</p>
     <RProgressLinear
@@ -181,3 +212,10 @@ function select(id: number, value: boolean | null) {
     </fieldset>
   </section>
 </template>
+
+<style scoped>
+.r-v2-operation-status :deep(.r-btn) {
+  min-width: 44px;
+  min-height: 44px;
+}
+</style>
