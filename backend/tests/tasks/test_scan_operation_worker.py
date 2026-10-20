@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from tests.handler.test_scan_operations import command as command
 
 from handler import scan_operation_worker as worker
 from handler.database.scan_operations_handler import utc_now
@@ -11,8 +12,6 @@ from handler.database.scan_write_fence import (
     ScanWriteRejected,
     bind_scan_write_context,
 )
-
-pytest_plugins = ["tests.handler.test_scan_operations"]
 
 
 def state(**changes):
