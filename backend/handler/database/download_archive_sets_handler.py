@@ -100,7 +100,9 @@ class DBDownloadArchiveSetsHandler(DBBaseHandler):
     ) -> DownloadArchiveSet:
         if not name or len(name) > 450 or not name.strip():
             raise ValueError("archive set name is invalid")
-        rom = session.scalar(select(Rom).where(Rom.id == rom_id).with_for_update())
+        rom = session.scalar(
+            select(Rom).where(Rom.id == rom_id).with_for_update(of=Rom)
+        )
         if rom is None:
             raise ValueError("archive set ROM is unavailable")
         if session.scalar(
@@ -143,8 +145,12 @@ class DBDownloadArchiveSetsHandler(DBBaseHandler):
         )
         if duplicate:
             raise ValueError("archive set name already exists")
+        replacement = self._validate_members(session, rom_id, members)
+        archive_set.members.clear()
+        # Member identities and positions are unique within the set.
+        session.flush()
         archive_set.name = name
-        archive_set.members = self._validate_members(session, rom_id, members)
+        archive_set.members = replacement
         session.flush()
         return archive_set
 
