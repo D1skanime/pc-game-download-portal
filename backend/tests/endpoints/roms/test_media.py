@@ -73,6 +73,7 @@ def test_replace_local_background_audio_requires_same_rom_soundtrack(
             file_name="track.mp3",
             file_path=f"{rom.fs_path}/OST",
             category=RomFileCategory.SOUNDTRACK,
+            last_modified=1700000000.0,
         )
     )
 

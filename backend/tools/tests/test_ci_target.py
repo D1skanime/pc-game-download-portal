@@ -99,6 +99,28 @@ class CITargetTests(unittest.TestCase):
             command.kwargs["extra"]["COVERAGE_FILE"], "/phase34/owned/.coverage"
         )
 
+    def test_snapshot_prunes_only_untracked_copies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            original = source / "untracked.py"
+            original.write_text("source remains")
+            snapshot = root / "checkout"
+            snapshot.mkdir()
+            (snapshot / "tracked.py").write_text("tracked")
+            (snapshot / "untracked.py").write_text("copied")
+            with patch.object(
+                ci_target, "prepare_snapshot", return_value=(root / "Games", snapshot)
+            ):
+                with patch.object(
+                    ci_target.subprocess, "check_output", return_value="tracked.py\0"
+                ):
+                    ci_target.prepare_ci_snapshot(root, source)
+            self.assertTrue((snapshot / "tracked.py").is_file())
+            self.assertFalse((snapshot / "untracked.py").exists())
+            self.assertEqual(original.read_text(), "source remains")
+
     def test_validator_support_is_exact_and_read_only(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(

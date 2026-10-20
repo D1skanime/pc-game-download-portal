@@ -10,7 +10,9 @@ import subprocess  # nosec B404, fixed read-only Git commands
 from pathlib import Path
 
 import phase34
-from phase34_fixtures import backend_command, schema_commands
+from phase34_fixtures import backend_command
+from phase34_fixtures import prepare as prepare_snapshot
+from phase34_fixtures import schema_commands
 
 ORIGIN = "https://github.com/D1skanime/pc-game-download-portal.git"
 
@@ -63,7 +65,33 @@ def preflight():
 VALIDATOR = ".planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-evidence-validate.py"
 
 
+def prepare_ci_snapshot(root, repo):
+    games, snapshot = prepare_snapshot(root, repo)
+    # trunk-ignore(bandit/B603): Fixed read-only Git index enumeration.
+    tracked = set(
+        subprocess.check_output(  # nosec B603,B607
+            ["git", "ls-files", "--cached", "-z"],
+            cwd=repo,
+            text=True,
+        ).split("\0")
+    )
+    for path in snapshot.rglob("*"):
+        if (path.is_file() or path.is_symlink()) and path.relative_to(
+            snapshot
+        ).as_posix() not in tracked:
+            path.unlink()
+    return games, snapshot
+
+
 class CIRun(phase34.Run):
+    def start(self):
+        original = phase34.prepare
+        phase34.prepare = prepare_ci_snapshot
+        try:
+            super().start()
+        finally:
+            phase34.prepare = original
+
     def __init__(self, dialect):
         super().__init__(dialect)
         source = phase34.REPO / VALIDATOR

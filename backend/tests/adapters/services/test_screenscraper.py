@@ -90,7 +90,7 @@ class TestAuthMiddleware:
             "devid": "dev_id",
             "devpassword": "dev_pass",
             "output": "json",
-            "softname": "romm",
+            "softname": "pgdp",
             "ssid": "test_user",
             "sspassword": "test_pass",
         }
@@ -121,7 +121,7 @@ class TestAuthMiddleware:
             "devid": "",
             "devpassword": "",
             "output": "json",
-            "softname": "romm",
+            "softname": "pgdp",
             "ssid": "",
             "sspassword": "",
         }
