@@ -73,4 +73,47 @@ describe("InventoryStatusSummary", () => {
     await panel.get("button").trigger("click");
     expect(panel.emitted("loadMore")).toHaveLength(1);
   });
+  it.each(["cached", "no_match", "failed"] as const)(
+    "keeps %s observations distinct from retry eligibility",
+    (state) => {
+      const panel = render({}, [
+        {
+          ...item,
+          provider_execution: {
+            state,
+            invoked: true,
+            requests: state === "cached" ? 0 : 2,
+          },
+          inventory: { ...item.inventory!, retry_state: "budget_deferred" },
+        },
+      ]);
+      expect(panel.text()).toContain(
+        "scan.provider-" +
+          (
+            {
+              cached: "cached",
+              no_match: "no-match",
+              failed: "failed",
+            } as const
+          )[state],
+      );
+      expect(panel.text()).toContain("scan.metadata-retry-deferred");
+      expect(panel.text()).not.toContain("scan.provider-requesting");
+    },
+  );
+  it("omits missing inventory and invalid server times without fabricating values", () => {
+    const panel = render({}, [
+      {
+        ...item,
+        inventory: { ...item.inventory!, next_eligible_at: "invalid" },
+        provider_execution: undefined,
+      },
+    ]);
+    expect(panel.text()).not.toContain("scan.metadata-retry-available-after");
+    expect(panel.text()).not.toContain("scan.provider-requests-count");
+    const absent = render({}, [
+      { ...item, inventory: undefined, provider_execution: undefined },
+    ]);
+    expect(absent.find("li").exists()).toBe(false);
+  });
 });

@@ -156,3 +156,22 @@ describe("durable row status", () => {
     );
   });
 });
+
+describe("platform virtualization contract", () => {
+  it("keeps 65px rows and ROM-id keys for same-basename collection children", () => {
+    const wrapper = mountPlatform({
+      roms: [
+        { id: 10, fs_name: "Game" },
+        { id: 11, fs_name: "Game" },
+      ] as SimpleRom[],
+    });
+    const scroller = wrapper.findComponent({ name: "RVirtualScroller" });
+    const height = scroller.props("getItemHeight") as () => number;
+    const key = scroller.props("getItemKey") as (rom: unknown) => number;
+    expect(height()).toBe(65);
+    expect(scroller.props("height")).toBe(130);
+    expect(key({ id: 10 })).toBe(10);
+    expect(key({ id: 11 })).toBe(11);
+    wrapper.unmount();
+  });
+});

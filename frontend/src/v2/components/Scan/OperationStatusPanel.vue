@@ -55,7 +55,7 @@ const label = computed(() =>
 const stats = computed(() => props.snapshot?.scan_stats ?? {});
 const total = computed(() => stats.value.total_roms ?? 0);
 const progress = computed(() =>
-  total.value > 0
+  total.value > 0 && stats.value.scanned_roms !== undefined
     ? Math.min(100, (100 * (stats.value.scanned_roms ?? 0)) / total.value)
     : undefined,
 );
@@ -110,7 +110,7 @@ function select(id: number, value: boolean | null) {
       :model-value="progress ?? 0"
       :aria-label="t('scan.recovery-running')"
     />
-    <p v-if="total > 0">
+    <p v-if="total > 0 && stats.scanned_roms !== undefined">
       {{
         t("scan.recovery-progress", { current: stats.scanned_roms ?? 0, total })
       }}
