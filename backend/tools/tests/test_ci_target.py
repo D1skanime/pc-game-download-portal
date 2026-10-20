@@ -59,20 +59,24 @@ class CITargetTests(unittest.TestCase):
             ):
                 self.assertEqual(ci_target.preflight(), Path(root))
 
-    def run_gate(self, gate, failure=False):
+    def run_gate(self, gate, failure=False, shard=None):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         run = MagicMock()
         run.evidence = Path(temporary.name)
         if failure:
             run.exec.side_effect = RuntimeError("native command failed")
-        with patch.object(ci_target, "preflight"):
+        with patch.object(ci_target, "preflight"), patch.object(
+            ci_target,
+            "tracked_test_files",
+            return_value=[f"tests/test_case_{index}.py" for index in range(16)],
+        ):
             with patch.object(ci_target, "CIRun", return_value=run):
                 if failure:
                     with self.assertRaisesRegex(RuntimeError, "native command"):
-                        ci_target.execute("mariadb", gate)
+                        ci_target.execute("mariadb", gate, shard)
                 else:
-                    ci_target.execute("mariadb", gate)
+                    ci_target.execute("mariadb", gate, shard)
         run.start.assert_called_once()
         run.close.assert_called_once()
         result = json.loads((run.evidence / "ci-result.json").read_text())
@@ -98,6 +102,57 @@ class CITargetTests(unittest.TestCase):
         self.assertEqual(
             command.kwargs["extra"]["COVERAGE_FILE"], "/phase34/owned/.coverage"
         )
+
+    def test_pytest_executes_only_the_selected_complete_files(self):
+        run = self.run_gate("pytest", shard=2)
+        command = run.exec.call_args.args[0]
+        self.assertEqual(command[-2:], ["tests/test_case_1.py", "tests/test_case_9.py"])
+        self.assertNotIn(".", command)
+        receipt = json.loads((run.evidence / "shard-files.json").read_text())
+        self.assertEqual(receipt["shard"], 2)
+        self.assertEqual(len(receipt["all_files"]), 16)
+
+    def test_eight_shards_cover_every_file_once(self):
+        files = sorted(
+            [f"tests/test_case_{index}.py" for index in range(101)]
+            + ["tools/tests/test_guard.py"]
+        )
+        shards = [ci_target.shard_files(files, index) for index in range(1, 9)]
+        flattened = [name for shard in shards for name in shard]
+        self.assertCountEqual(flattened, files)
+        self.assertEqual(len(flattened), len(set(flattened)))
+        self.assertTrue(all(shards))
+
+    def test_invalid_shard_is_refused(self):
+        for shard in (0, 9):
+            with self.assertRaisesRegex(RuntimeError, "invalid CI shard"):
+                ci_target.shard_files(["tests/test_guard.py"], shard)
+
+    def test_tracked_discovery_uses_declared_pytest_patterns(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "backend").mkdir()
+            (root / "backend/pytest.ini").write_text(
+                "[pytest]\npython_files = test_*.py special_*.py\n"
+            )
+            names = "\0".join(
+                [
+                    "backend/tests/test_one.py",
+                    "backend/tools/tests/test_guard.py",
+                    "backend/tests/helpers.py",
+                    "backend/tests/special_boundary.py",
+                    "backend/tests/legacy_test.py",
+                ]
+            )
+            with patch.object(ci_target.subprocess, "check_output", return_value=names):
+                self.assertEqual(
+                    ci_target.tracked_test_files(root),
+                    [
+                        "tests/special_boundary.py",
+                        "tests/test_one.py",
+                        "tools/tests/test_guard.py",
+                    ],
+                )
 
     def test_snapshot_prunes_only_untracked_copies(self):
         with tempfile.TemporaryDirectory() as directory:

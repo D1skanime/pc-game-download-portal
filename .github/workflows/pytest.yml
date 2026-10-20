@@ -24,8 +24,10 @@ jobs:
     timeout-minutes: 55
     strategy:
       fail-fast: false
+      max-parallel: 8
       matrix:
         db: [mariadb, postgresql]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - name: Checkout repository
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
@@ -38,12 +40,12 @@ jobs:
 
       - name: Run complete Python suite on a verified disposable target
         id: target
-        run: python3 backend/tools/ci_target.py --dialect ${{ matrix.db }} pytest
+        run: python3 backend/tools/ci_target.py --dialect ${{ matrix.db }} --shard ${{ matrix.shard }} pytest
 
       - name: Retain target, test, and cleanup receipts
         if: always() && steps.target.outputs.evidence != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: pytest-${{ matrix.db }}-evidence
+          name: pytest-${{ matrix.db }}-shard-${{ matrix.shard }}-evidence
           path: ${{ steps.target.outputs.evidence }}
           retention-days: 14

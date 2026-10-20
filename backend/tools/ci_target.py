@@ -2,6 +2,8 @@
 """Run CI gates through canonical validation's disposable target authority."""
 
 import argparse
+import configparser
+import fnmatch
 import hashlib
 import json
 import os
@@ -144,10 +146,54 @@ class CIRun(phase34.Run):
         )
 
 
-def execute(dialect, gate):
-    preflight()
+SHARDS = 8
+
+
+def tracked_test_files(repo):
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(repo / "backend/pytest.ini")
+    patterns = config.get(
+        "pytest", "python_files", fallback="test_*.py *_test.py"
+    ).split()
+    # trunk-ignore(bandit/B603): Fixed read-only Git test-file enumeration.
+    tracked = subprocess.check_output(  # nosec B603,B607
+        ["git", "ls-files", "--cached", "-z", "backend"],
+        cwd=repo,
+        text=True,
+    ).split("\0")
+    return sorted(
+        name.removeprefix("backend/")
+        for name in tracked
+        if name.startswith("backend/")
+        and any(fnmatch.fnmatchcase(Path(name).name, pattern) for pattern in patterns)
+    )
+
+
+def shard_files(files, shard):
+    if not 1 <= shard <= SHARDS:
+        raise RuntimeError("invalid CI shard")
+    return files[shard - 1 :: SHARDS]
+
+
+def execute(dialect, gate, shard=None):
+    repo = preflight()
+    files = tracked_test_files(repo) if shard is not None else []
+    selected = shard_files(files, shard) if shard is not None else ["."]
+    if not selected:
+        raise RuntimeError("empty CI test shard")
     run = CIRun(dialect)
     run.image = "pgdp-ci:latest"
+    (run.evidence / "shard-files.json").write_text(
+        json.dumps(
+            {
+                "shard": shard,
+                "shards": SHARDS if shard is not None else 1,
+                "all_files": files,
+                "selected_files": selected,
+            },
+            indent=2,
+        )
+    )
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with Path(output).open("a") as stream:
@@ -167,7 +213,7 @@ def execute(dialect, gate):
                         "--cov",
                         "--cov-report=xml:/phase34/evidence/coverage.xml",
                         "--cov-config=.coveragerc",
-                        ".",
+                        *selected,
                     ]
                 ),
                 timeout=2400,
@@ -191,9 +237,12 @@ def execute(dialect, gate):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dialect", choices=tuple(phase34.SQL_IMAGES), required=True)
+    parser.add_argument("--shard", type=int, choices=range(1, SHARDS + 1))
     parser.add_argument("gate", choices=("pytest", "schema"))
     args = parser.parse_args()
-    execute(args.dialect, args.gate)
+    if args.shard is not None and args.gate != "pytest":
+        parser.error("--shard is available only for pytest")
+    execute(args.dialect, args.gate, args.shard)
 
 
 if __name__ == "__main__":
