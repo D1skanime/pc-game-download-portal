@@ -911,3 +911,23 @@ The 34-16 experiment does not close CR05 or release 03 by SUMMARY existence. Pro
 **Cross-cutting constraints:**
 
 - PGDP terminology, accessibility labels and interpolation semantics remain consistent.
+
+### Phase 35: Incremental Windows quick scans and unidentified game status
+
+**Goal:** Reuse unchanged identified Windows games during quick scans while reliably discovering new games, collection children and changed DLC/update content. Unidentified games remain visible with truthful retry status.
+**Requirements**: Phase-local D-01 through D-11 in 35-CONTEXT.md; global requirement mapping is finalized during planning.
+**Depends on:** The implemented Phase 33/34 scan and collection lifecycle merged through PR #1. Historical independent review, physical gamepad and production Portainer acceptance remain separate open items.
+**Status:** Context captured; ready for planning.
+**Plans:** 0 plans
+
+**Success Criteria** (what must be TRUE):
+
+1. Unchanged identified Windows games avoid repeated expensive component hashing, enrichment and media publication during manual and scheduled quick scans.
+2. New games, new direct collection children and new or changed nested DLC/update content are found even when the parent directory timestamp is unchanged.
+3. Unidentified games remain visible, and status distinguishes inventory reuse, unresolved identification and actual provider retry.
+4. One shared implementation preserves mapping revisions, worker ownership, cancellation, source immutability and publication safety; existing scan modes and other platforms keep their semantics.
+5. Regression and end-to-end evidence covers unchanged, changed, new and unidentified cases through manual and 15-minute scheduled entry points.
+
+Plans:
+
+- [ ] TBD (run /gsd:plan-phase 35 to break down)

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: executing
-stopped_at: Phase 33 tested live UAT accepted; independent deep review and physical gamepad remain open
-last_updated: "2026-10-20T10:17:09.659237+02:00"
-last_activity: 2026-10-19 -- Phase 33 collection correction verified and Dev autoscan enabled
+status: planning
+stopped_at: Phase 35 context captured after PR 1 merged to main; ready for planning
+last_updated: "2026-10-20T10:08:34.902053+00:00"
+last_activity: 2026-10-20 -- Shipping CI passed, PR 1 merged and Phase 35 context captured
 progress:
-  total_phases: 34
+  total_phases: 35
   completed_phases: 23
-  total_plans: 257
-  completed_plans: 224
-  percent: 68
+  total_plans: 260
+  completed_plans: 225
+  percent: 66
 ---
 
 # Project State
@@ -21,16 +21,26 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Tested live UAT accepted; pending independent deep review
+**Current focus:** Plan Phase 35 incremental Windows quick scans and unidentified game status
 
 ## Current Position
 
-Phase: 33 (fresh-install-first-run-pc-storage-mapping-before-library-sc) - EXECUTING
-Plan: 10 of 10 executed; 33-06 tested live scope accepted with recorded limitations
-Status: User accepted tested live UAT on 2026-10-20; Dev autoscan active every 15 minutes
-Last activity: 2026-10-19 -- Final 22-check browser UAT passed and authorized Dev scheduler verified
+Phase: 35 (incremental-windows-quick-scans-and-unidentified-game-status) - READY FOR PLANNING
+Plan: 0 of 0; implementation has not started
+Status: Ready for planning
+Last activity: 2026-10-20 -- PR #1 merged after all 28 shipping checks passed; Phase 35 context captured
 
-## Active execution handoff
+## Shipping and Phase 35 handoff
+
+PR #1 is merged to main at e758a06fd519d4bea7397d1ed86b8ba157802268. Its tree equals tested source 970fd4c455c8ddb55c5d8c692fed4fa18099d085. All 28 CI checks passed, including 16 complete isolated MariaDB/PostgreSQL suite jobs, three-dialect schema cycles, frontend tests/typecheck/build, Trunk and browser CI (29 passed, six fixture-dependent skips). Shipping corrections include precise queue target timestamps, PostgreSQL primary-table row locks, bounded setup contention handling and aligned legacy fixtures.
+
+The canonical checkout advanced through main before creating codex/phase-35-incremental-windows-scans. Existing local Compose edits, Media and prototype/test files were preserved; protected file hashes still match. Games remains read-only. Dev API returned HTTP 200. No Dev reset, schema deployment, service restart or production deployment occurred during shipping; Dev remains on its previously recorded schema 0140.
+
+Read .planning/phases/35-incremental-windows-quick-scans-and-unidentified-game-status/35-CONTEXT.md before planning. Preserve discovery of new collection children and DLC/update content while skipping expensive work for unchanged identified Windows games. Unidentified games remain visible with truthful retry state. Use one implementation for manual and scheduled scans and continue the code-size policy. The 15-minute Dev autoscan setting remains unchanged.
+
+Phase 35 was explicitly requested after shipping. No Phase 35 code or execution plans have been created. Physical gamepad testing, previous independent deep review and production Portainer acceptance remain open; frozen 34-16 is still INCONCLUSIVE.
+
+## Previous implementation handoff (Phases 32-34)
 
 The complete Phase 34 code implementation is committed. Read 34-IMPLEMENTATION.md and 34-ACCEPTANCE.md before resuming. Do not restart implementation merely because phase acceptance summaries are pending.
 
@@ -525,9 +535,9 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-19T21:56:44.610973+00:00
-Stopped at: Phase 33 tested live UAT accepted; deep review and gamepad remain open
-Resume file: .planning/phases/33-fresh-install-first-run-pc-storage-mapping-before-library-sc/33-06-PLAN.md
+Last session: 2026-10-20T10:10:54.243649+00:00
+Stopped at: Phase 35 context captured after PR 1 merged to main; ready for planning
+Resume file: .planning/phases/35-incremental-windows-quick-scans-and-unidentified-game-status/35-CONTEXT.md
 
 - Phase 25 added: Scan-/Medien-Integration härten
 - Phase 26 added: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege.
