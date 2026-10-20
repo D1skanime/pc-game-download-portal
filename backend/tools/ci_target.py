@@ -49,6 +49,9 @@ def preflight():
         actual = subprocess.check_output(
             ["git", *args], text=True
         ).strip()  # nosec B603,B607
+        if args[0] == "remote":
+            actual = actual.removesuffix(".git")
+            expected = expected.removesuffix(".git")
         if actual != expected:
             raise RuntimeError("CI repository identity mismatch")
     if not (root / "backend/tools/phase34_target_guard.py").is_file():

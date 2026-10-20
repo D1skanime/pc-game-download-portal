@@ -49,6 +49,16 @@ class CITargetTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "identity mismatch"):
                     ci_target.preflight()
 
+    def test_checkout_origin_without_git_suffix_is_accepted(self):
+        root = str(Path(ci_target.__file__).resolve().parents[2])
+        with patch.dict(ci_target.os.environ, self.workspace, clear=True):
+            with patch.object(
+                ci_target.subprocess,
+                "check_output",
+                side_effect=[root, ci_target.ORIGIN.removesuffix(".git")],
+            ):
+                self.assertEqual(ci_target.preflight(), Path(root))
+
     def run_gate(self, gate, failure=False):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

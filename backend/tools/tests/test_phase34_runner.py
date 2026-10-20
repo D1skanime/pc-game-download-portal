@@ -44,7 +44,17 @@ class RunnerTests(unittest.TestCase):
         ):
             with self.subTest(key=key), patch.dict(
                 os.environ, {key: "live"}, clear=True
-            ), patch.object(runner.subprocess, "run") as process:
+            ), patch.object(
+                runner, "REPO", Path("/home/d1sk/pc-game-download-portal")
+            ), patch.object(
+                runner.Path,
+                "cwd",
+                return_value=Path("/home/d1sk/pc-game-download-portal"),
+            ), patch.object(
+                runner.platform, "system", return_value="Linux"
+            ), patch.object(
+                runner.subprocess, "run"
+            ) as process:
                 with self.assertRaisesRegex(RuntimeError, "inherited target"):
                     runner.host_preflight()
                 process.assert_not_called()
