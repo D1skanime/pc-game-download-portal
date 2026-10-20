@@ -318,3 +318,109 @@ def test_sql_observations_count_dispatches_not_completed_wrappers(
     assert snapshot.scan_stats["metadata_retry_games"] == 1
     assert snapshot.items[1].provider_execution.requests == 3
     assert snapshot.items[1].provider_execution.state == "no_match"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("identified", [True, False])
+async def test_terminal_event_matches_reloaded_inventory(
+    bound_game, inventory_attempt, admin_user, identified
+):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from handler.scan_inventory_contracts import InventoryEvidence, QuickScanDecision
+    from handler.scan_inventory_status import emit_inventory_status
+    from handler.windows_quick_execution import WindowsQuickContext
+
+    binding, _ = bound_game
+    quick = WindowsQuickContext(
+        binding,
+        InventoryEvidence("a" * 64, 1, True),
+        QuickScanDecision.REUSE if identified else QuickScanDecision.METADATA_ONLY,
+    )
+    manager = SimpleNamespace(emit=AsyncMock())
+    with sync_session.begin() as session:
+        game = session.get(Rom, binding.rom_id)
+        game.steam_id = 42 if identified else None
+        for name in (
+            "igdb_id",
+            "moby_id",
+            "ss_id",
+            "ra_id",
+            "launchbox_id",
+            "hasheous_id",
+            "flashpoint_id",
+            "hltb_id",
+            "gamelist_id",
+            "libretro_id",
+        ):
+            setattr(game, name, None)
+    from handler.database import db_rom_handler
+
+    game = db_rom_handler.get_rom(binding.rom_id)
+    with write_context(inventory_attempt):
+        await emit_inventory_status(manager, quick, game, existing_game=True)
+    snapshot = DBScanOperationsHandler().get_by_id(inventory_attempt.id, admin_user.id)
+    event, payload = manager.emit.await_args.args
+    assert event == "scan:scanning_rom"
+    assert payload["id"] == game.id
+    assert payload["inventory"] == snapshot.items[0].inventory.model_dump(mode="json")
+    assert payload["is_identifying"] is False
+    assert payload["inventory"]["identified_windows"] is identified
+    before = manager.emit.await_count
+    DBScanOperationsHandler().request_cancel(
+        snapshot.id, admin_user.id, snapshot.version, "cancel-event"
+    )
+    with write_context(inventory_attempt), pytest.raises(ScanWriteRejected):
+        await emit_inventory_status(manager, quick, game, existing_game=True)
+    assert manager.emit.await_count == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("requests,expected", [(0, False), (1, True)])
+async def test_worker_socket_identifying_requires_actual_work(
+    monkeypatch, requests, expected
+):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from handler import scan_operation_worker as worker
+    from utils.scan_provider_observation import bind_provider_observation
+
+    monkeypatch.setattr(worker, "check_worker_boundary", lambda: None)
+    manager = SimpleNamespace(emit=AsyncMock())
+    wrapped = worker.AttemptSocketManager(manager)
+    await wrapped.emit("scan:scanning_rom", {"id": 1, "is_identifying": True})
+    assert manager.emit.await_args.args[1]["is_identifying"] is False
+    with bind_provider_observation("igdb", "Game") as observation:
+        observation.invoked = True
+        observation.requests = requests
+        await wrapped.emit("scan:scanning_rom", {"id": 1, "is_identifying": True})
+    assert manager.emit.await_args.args[1]["is_identifying"] is expected
+
+
+def test_progress_preserves_completed_mapping_units(
+    bound_game, inventory_attempt, admin_user
+):
+    from handler import scan_operation_worker as worker
+    from handler.scan_inventory_status import record_inventory_status
+
+    binding, _ = bound_game
+    context = ScanWriteContext(
+        inventory_attempt.id, inventory_attempt.attempt_id, "worker"
+    )
+    with write_context(inventory_attempt), worker.bind_worker_runtime(context):
+        record_inventory_status(
+            binding,
+            inventory_state="unchanged",
+            identified_windows=False,
+            existing_game=True,
+        )
+        with worker.bind_scan_stats_base(
+            {"scanned_roms": 4, "total_roms": 4}, total_known=False
+        ):
+            result = worker.persist_scan_stats({"scanned_roms": 2, "total_roms": 3})
+        assert result["scanned_roms"] == 6 and "total_roms" not in result
+        assert result["unresolved_games"] == 1
+    restored = DBScanOperationsHandler().get_by_id(inventory_attempt.id, admin_user.id)
+    assert restored.scan_stats == result
