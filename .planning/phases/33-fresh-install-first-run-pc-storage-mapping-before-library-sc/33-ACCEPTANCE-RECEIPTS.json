@@ -1,7 +1,7 @@
 {
   "version": 1,
   "final_browser": "evidence/pgdp34-f4dd7651eda049868d9483e52118cfcb",
-  "human_browser_checkpoint": "PENDING",
+  "human_browser_checkpoint": "PASSED_TESTED_SCOPE_WITH_LIMITATIONS",
   "physical_gamepad": "BLOCKED: navigator.getGamepads() returned zero connected devices",
   "historical_failure_index": {
     "path": "evidence/historical-acceptance-receipts.json",
@@ -222,5 +222,10 @@
       6,
       6
     ]
+  },
+  "human_acceptance": {
+    "date": "2026-10-20",
+    "statement": "gut uat so weit bestanden",
+    "scope": "Exercised live UAT; physical gamepad and independent deep review remain open"
   }
 }
