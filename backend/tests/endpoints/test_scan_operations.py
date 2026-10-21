@@ -455,7 +455,7 @@ def test_subfolder_and_provider_policies_are_frozen_and_replayable(
         stored = session.get(ScanOperation, identity).command
         assert (
             stored["request"]["metadata_only"]
-            and stored["request"]["metadata_locale"] == "de_DE"
+            and stored["request"]["metadata_locale"] == "de"
         )
         assert stored["request"]["apis"] == ["igdb", "steam"]
         assert stored["commands"][0]["options"] == [["relative_path", "PC"]]

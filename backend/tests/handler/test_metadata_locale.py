@@ -27,6 +27,22 @@ def preference(monkeypatch):
     return config
 
 
+@pytest.fixture
+def committed_preference(tmp_path, monkeypatch):
+    prior = copy.deepcopy(cm.__dict__)
+    path = tmp_path / "config.yml"
+    path.write_text("scan:\n  priority:\n    language: [en]\n")
+    monkeypatch.setattr(cm, "config_file", str(path))
+    monkeypatch.setattr(cm, "_config_file_writable", True)
+    cm.get_config()
+    try:
+        assert cm.update_scan_language(["fr"], ["en"]) == ["fr", "en"]
+        yield path
+    finally:
+        cm.__dict__.clear()
+        cm.__dict__.update(prior)
+
+
 def request(command, policy):
     return {
         "commands": copy.deepcopy(command["commands"]),
@@ -137,6 +153,8 @@ def test_legacy_snapshot_is_version_fenced_and_survives_resume(
     resumed = repository.request_resume(
         stopped.id, admin_user.id, stopped.version, "resume-locale"
     )
+    repository.recovery_ready(resumed.id, resumed.version)
+    resumed = repository.get_by_id(resumed.id, admin_user.id)
     again = queued(repository, resumed)
     repository.claim_attempt(again.id, again.version, "replacement")
     assert (
@@ -148,7 +166,7 @@ def test_legacy_snapshot_is_version_fenced_and_survives_resume(
 
 @pytest.mark.asyncio
 async def test_actual_scheduled_acceptance_uses_global_not_actor_profile(
-    admin_user, command, preference, monkeypatch
+    admin_user, command, committed_preference, monkeypatch
 ):
     from models.user import User
     from tasks.scheduled import scan_library
@@ -169,7 +187,7 @@ async def test_actual_scheduled_acceptance_uses_global_not_actor_profile(
     state = repository.execution(result["operation_id"])
     assert state["actor_id"] == admin_user.id
     assert state["command"]["request"]["metadata_locale"] == "fr"
-    preference.SCAN_LANGUAGE_PRIORITY = ["de"]
+    assert cm.update_scan_language(["de"], ["fr", "en"]) == ["de", "en", "fr"]
     assert (
         repository.execution(result["operation_id"])["command"]["request"][
             "metadata_locale"

@@ -17,6 +17,10 @@ from endpoints.responses.scan_operations import (
 from handler.database.base_handler import DBBaseHandler
 from handler.database.scan_operation_lifecycle import ScanOperationLifecycle
 from handler.filesystem.storage_resolver import normalize_relative_path
+from handler.metadata.metadata_locale import (
+    capture_metadata_locale,
+    ensure_metadata_locale,
+)
 from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
 from handler.scan_operation_projection import operation_snapshot
 from handler.scan_operation_state import TERMINAL
@@ -151,7 +155,7 @@ class DBScanOperationsHandler(ScanOperationLifecycle, DBBaseHandler):
             actor_id=actor,
             request_key=request_key,
             payload_digest=calculated,
-            command=normalized_commands,
+            command=capture_metadata_locale(normalized_commands),
             rq_job_id="scan-" + identity,
             dispatch_due=utc_now(),
         )
@@ -262,6 +266,7 @@ class DBScanOperationsHandler(ScanOperationLifecycle, DBBaseHandler):
             row,
             version,
             state="running",
+            command=ensure_metadata_locale(row.command),
             attempt_id=row.attempt_id or str(uuid4()),
             lease_owner=owner,
             lease_expires_at=utc_now() + timedelta(seconds=seconds),

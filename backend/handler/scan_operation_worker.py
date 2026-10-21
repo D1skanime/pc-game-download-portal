@@ -172,7 +172,8 @@ async def run_scan_operation(operation_id):
     result = None
     failure: BaseException | None = None
     baseline_tasks = asyncio.all_tasks()
-    retry_coordinator = RetryCoordinator(current["command"].get("request", {}))
+    policy = current["command"]["request"]
+    retry_coordinator = RetryCoordinator(policy)
     try:
         with bind_scan_write_context(context), bind_worker_runtime(
             context
@@ -187,7 +188,6 @@ async def run_scan_operation(operation_id):
             heartbeat.start()
             async with initialize_context():
                 combined = ScanStats()
-                policy = current["command"].get("request", {})
                 retry_ids = [
                     int(value)
                     for value in current["checkpoint"]
@@ -248,7 +248,7 @@ async def run_scan_operation(operation_id):
                                 "launchbox_remote_enabled", True
                             ),
                             playmatch_enabled=policy.get("playmatch_enabled", True),
-                            metadata_locale=policy.get("metadata_locale"),
+                            metadata_locale=policy["metadata_locale"],
                         )
                     for field, value in stats.to_dict().items():
                         setattr(combined, field, getattr(combined, field) + value)
