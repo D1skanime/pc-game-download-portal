@@ -974,3 +974,70 @@ Plans:
 **Cross-cutting constraints:**
 
 - All scan status labels use actual translations and preserve interpolation
+
+
+### Phase 36: Localized provider descriptions without legacy summary
+
+**Goal:** Display and persist language-correct provider descriptions without legacy summary fallback; fill missing Steam languages despite existing identity through bounded shared metadata-only execution while protecting manual text and Phase35 quick-scan performance.
+**Requirements:** DESC-01, DESC-02, DESC-03, DESC-04, DESC-05, DESC-06, DESC-07, DESC-08.
+**Depends on:** Phase35, merged to main through PR2 at b0d3f6ad61fdb5a502349fa449e5458e77de25d4 and accepted in live UAT.
+**Status:** Planned and independently verified on 2026-10-21. Research and UI contract approved; requirements8/8 and decisions8/8 covered; zero plan blockers/warnings. Execution not started.
+**Plans:** 12 plans, 25 tasks, 9 waves
+
+**Success Criteria:**
+1. No v2 description surface displays the obsolete unlocalized summary as a description fallback or silently stores it under a locale.
+2. German/English provider text and any explicit fallback preserve their language and source; manual text remains protected.
+3. A newly identified game and a game with an existing Steam identity but missing variants can acquire configured languages using the same bounded provider/merge owners, without repeating expensive inventory/media work for unchanged games.
+4. Isolated regression and connected UI/worker evidence reproduce the Elden Ring failure and prove repair, empty/failure/backoff behavior, manual protection, concurrency and request accounting.
+5. Existing data, auth, Games/media and15-minute schedule remain intact; no automatic deployment or historical acceptance closure.
+
+Plans:
+
+**Wave 1**
+
+- [ ] 36-01-PLAN.md - Establish conservative pure completeness/slot contracts and non-destructive field-wise provider merge. No DDL.
+
+**Wave 2** *(blocked on prior dependency waves)*
+
+- [ ] 36-11-PLAN.md - Expose canonical bounded text-only Steam retrieval and additive typed provenance through existing enrichment/schema owners.
+
+**Wave 3** *(blocked on prior dependency waves)*
+
+- [ ] 36-02-PLAN.md - Extend the existing operation-wide retry owner with description-purpose selection, durable cooldown and a narrow checked text patch. Preserve the unidentified retry policy.
+Purpose: Deliver the approved description-language correction through existing owners.
+Output: Tested behavior and explicit task verification receipts.
+- [ ] 36-04-PLAN.md - Add a provenance-bearing typed resolution seam and generate backend contracts while preserving existing callers until their atomic migration.
+
+**Wave 4** *(blocked on prior dependency waves)*
+
+- [ ] 36-03-PLAN.md - Wire warm identified QUICK reuse and newly persisted IGDB-derived Steam IDs into the same bounded coordinator, for manual and scheduled operations.
+Purpose: Deliver the approved description-language correction through existing owners.
+Output: Tested behavior and explicit task verification receipts.
+- [ ] 36-08-PLAN.md - Translate approved source/fallback and Cancel editing wording for en_US, en_GB, bg_BG, cs_CZ, de_DE, es_ES.
+- [ ] 36-09-PLAN.md - Translate approved source/fallback and Cancel editing wording for fr_FR, hu_HU, it_IT, ja_JP, ko_KR, pl_PL.
+
+**Wave 5** *(blocked on prior dependency waves)*
+
+- [ ] 36-10-PLAN.md - Translate approved source/fallback and Cancel editing wording for pt_BR, ro_RO, ru_RU, tr_TR, zh_CN, zh_TW.
+
+**Wave 6** *(blocked on prior dependency waves)*
+
+- [ ] 36-05-PLAN.md - Wire game and component overview surfaces to typed locale/source results after all18locale parity, keeping empty edit access and existing controls.
+
+**Wave 7** *(blocked on prior dependency waves)*
+
+- [ ] 36-12-PLAN.md - Protect exact-locale editor draft ownership and atomically finish caller migration by removing the transitional string/legacy seam.
+
+**Wave 8** *(blocked on prior dependency waves)*
+
+- [ ] 36-06-PLAN.md - Prove real description repair through authenticated HTTP/RQ and scheduled execution, plus revoked authority, in token-owned disposable MariaDB and PostgreSQL fixtures.
+Purpose: Deliver the approved description-language correction through existing owners.
+Output: Tested behavior and explicit task verification receipts.
+
+**Wave 9** *(blocked on prior dependency waves)*
+
+- [ ] 36-07-PLAN.md - Complete actual connected browser acceptance and frozen-source SQL/frontend/security/receipt validation. Produce reviewable evidence without automatic deployment.
+Purpose: Deliver the approved description-language correction through existing owners.
+Output: Tested behavior and explicit task verification receipts.
+
+**Cross-cutting constraints:** Preserve manual localized text and actual language/source provenance; use existing bounded metadata-only lifecycle and shared operation budget/fences; preserve warm-scan savings; all18locales and isolated dual-SQL/worker/browser proof; no live changes or deployment from this plan-only request.
