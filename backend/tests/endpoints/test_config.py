@@ -1,5 +1,10 @@
+import copy
+from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from unittest.mock import patch
 
+import pytest
+import yaml
 from fastapi import status
 
 from config.config_manager import (
@@ -8,6 +13,8 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_FILES,
 )
 from config.config_manager import config_manager as cm
+from exceptions.config_exceptions import ConfigNotWritableException
+from handler.auth import oauth_handler
 
 
 def test_config(client):
@@ -187,17 +194,6 @@ def test_update_scan_settings_normalizes_codes(client, access_token: str):
     assert kwargs["language_priority"] == ["en"]
 
 
-# Each test owns a disposable YAML file, never the application config.
-import copy
-from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
-
-import pytest
-import yaml
-
-from handler.auth import oauth_handler
-
-
 @pytest.fixture
 def language_config(tmp_path, monkeypatch):
     prior = copy.deepcopy(cm.__dict__)
@@ -271,11 +267,11 @@ def test_full_scan_persistence_failure_keeps_authority(
         monkeypatch.setattr(
             "os.replace", lambda *a: (_ for _ in ()).throw(PermissionError("replace"))
         )
-    payload = _scan_payload()
+    payload = _scan_payload(language_priority=["de"])
     overrides = {
         key: payload.pop(key + "_priority") for key in ("cover", "screenshot", "manual")
     }
-    with pytest.raises(Exception):
+    with pytest.raises(ConfigNotWritableException):
         cm.update_scan_settings(**payload, artwork_overrides=overrides)
     assert language_config.read_bytes() == before
     assert cm.config is original_config
@@ -306,3 +302,101 @@ def test_language_cas_serializes_contenders(client, access_token, language_confi
         == winner
     )
     assert cm.config.SCAN_LANGUAGE_PRIORITY == winner
+
+
+@pytest.mark.parametrize("failure", ["readonly", "serialization", "replace"])
+def test_language_route_reports_failed_commit(
+    client, access_token, language_config, monkeypatch, failure
+):
+    before = language_config.read_bytes()
+    old = cm.config
+    if failure == "readonly":
+        language_config.chmod(0o444)
+    elif failure == "serialization":
+        monkeypatch.setattr(
+            yaml,
+            "dump",
+            lambda *a, **kw: (_ for _ in ()).throw(yaml.YAMLError("serialize")),
+        )
+    else:
+        monkeypatch.setattr(
+            "os.replace", lambda *a: (_ for _ in ()).throw(PermissionError("replace"))
+        )
+    response = client.put(
+        "/api/config/scan/language",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"language_priority": ["de"], "expected_language_priority": ["en", "fr"]},
+    )
+    assert response.status_code == 500
+    assert language_config.read_bytes() == before
+    assert cm.config is old
+    assert cm.config.SCAN_LANGUAGE_PRIORITY == ["en", "fr"]
+
+
+def test_full_scan_and_language_share_serialized_reload(language_config, monkeypatch):
+    from threading import Event
+
+    from config import scan_language
+
+    entered, release = Event(), Event()
+    persist = scan_language._persist
+
+    def paused(path, raw):
+        if raw["scan"]["priority"]["region"] == ["jp"] and raw["scan"]["priority"][
+            "language"
+        ] == ["en", "fr"]:
+            entered.set()
+            assert release.wait(5)
+        persist(path, raw)
+
+    monkeypatch.setattr(scan_language, "_persist", paused)
+    payload = _scan_payload(region_priority=["jp"])
+    overrides = {
+        key: payload.pop(key + "_priority") for key in ("cover", "screenshot", "manual")
+    }
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        full = pool.submit(
+            cm.update_scan_settings, **payload, artwork_overrides=overrides
+        )
+        assert entered.wait(5)
+        narrow = pool.submit(cm.update_scan_language, ["fr-CA"], ["en", "fr"])
+        release.set()
+        full.result(timeout=5)
+        assert narrow.result(timeout=5) == ["fr", "en"]
+    saved = yaml.safe_load(language_config.read_text())
+    assert saved["scan"]["priority"]["region"] == ["jp"]
+    assert saved["scan"]["priority"]["language"] == ["fr", "en"]
+    assert saved["custom"] == {"keep": 7}
+
+
+@pytest.mark.parametrize(
+    "selected,expected",
+    [([], ["en", "fr"]), (["french"], ["fr", "en"]), (["xx-invalid"], ["en", "fr"])],
+)
+def test_language_normalization_defaults(language_config, selected, expected):
+    assert cm.update_scan_language(selected, ["en", "fr"]) == expected
+
+
+def test_language_mutation_obeys_config_path_flock(language_config):
+    import fcntl
+    from concurrent.futures import TimeoutError
+    from threading import Event
+
+    started = Event()
+
+    def mutate():
+        started.set()
+        return cm.update_scan_language(["de"], ["en", "fr"])
+
+    with language_config.with_name("config.yml.lock").open("a") as external_lock:
+        fcntl.flock(external_lock, fcntl.LOCK_EX)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending = pool.submit(mutate)
+            try:
+                assert started.wait(5)
+                with pytest.raises(TimeoutError):
+                    pending.result(timeout=0.1)
+                assert cm.config.SCAN_LANGUAGE_PRIORITY == ["en", "fr"]
+            finally:
+                fcntl.flock(external_lock, fcntl.LOCK_UN)
+            assert pending.result(timeout=5) == ["de", "en", "fr"]

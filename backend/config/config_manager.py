@@ -1059,24 +1059,28 @@ class ConfigManager:
         `artwork_overrides` is keyed by the user-facing config key
         (cover/screenshot/manual); a None value clears that override.
         """
-        self.config.SCAN_METADATA_PRIORITY = metadata_priority
-        self.config.SCAN_ARTWORK_PRIORITY = artwork_priority
+        from config.scan_language import update_scan_settings
 
-        overrides: dict[str, list[str]] = {}
-        for key, field in ARTWORK_PRIORITY_KEYS.items():
-            value = artwork_overrides.get(key)
-            if value is not None:
-                overrides[field] = value
-        self.config.SCAN_ARTWORK_PRIORITY_OVERRIDES = overrides
+        update_scan_settings(
+            self,
+            metadata_priority=metadata_priority,
+            artwork_priority=artwork_priority,
+            artwork_overrides=artwork_overrides,
+            region_priority=region_priority,
+            language_priority=language_priority,
+            media=media,
+            gamelist_export=gamelist_export,
+            gamelist_thumbnail=gamelist_thumbnail,
+            gamelist_image=gamelist_image,
+            pegasus_export=pegasus_export,
+        )
 
-        self.config.SCAN_REGION_PRIORITY = region_priority
-        self.config.SCAN_LANGUAGE_PRIORITY = language_priority
-        self.config.SCAN_MEDIA = media
-        self.config.GAMELIST_AUTO_EXPORT_ON_SCAN = gamelist_export
-        self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
-        self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
-        self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
-        self._update_config_file()
+    def update_scan_language(
+        self, language_priority: list[str], expected_language_priority: list[str]
+    ) -> list[str]:
+        from config.scan_language import update_language
+
+        return update_language(self, language_priority, expected_language_priority)
 
 
 config_manager = ConfigManager()

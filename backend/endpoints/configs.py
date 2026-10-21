@@ -11,6 +11,7 @@ from config.config_manager import (
     MetadataMediaType,
 )
 from config.config_manager import config_manager as cm
+from config.scan_language import ScanLanguageConflict
 from decorators.auth import protected_route
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
@@ -276,3 +277,27 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+
+
+class ScanLanguagePayload(BaseModel):
+    language_priority: list[str]
+    expected_language_priority: list[str]
+
+
+class ScanLanguageResponse(BaseModel):
+    language_priority: list[str]
+
+
+@protected_route(router.put, "/scan/language", [Scope.PLATFORMS_WRITE])
+async def update_scan_language(
+    request: Request, payload: ScanLanguagePayload
+) -> ScanLanguageResponse:
+    try:
+        committed = cm.update_scan_language(
+            payload.language_priority, payload.expected_language_priority
+        )
+    except ScanLanguageConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ConfigNotWritableException as exc:
+        raise HTTPException(status_code=500, detail=exc.message) from exc
+    return ScanLanguageResponse(language_priority=committed)
