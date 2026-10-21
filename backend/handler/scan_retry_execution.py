@@ -74,7 +74,9 @@ class RetryWork:
 
 class RetryCoordinator:
     def __init__(self, policy, *, clock=lambda: datetime.now(timezone.utc)):
-        self.policy = policy
+        from handler.scan_description_retry import snapshot_policy
+
+        self.policy = snapshot_policy(policy)
         self.clock = clock
         self.candidates = []
         self.work = {}
@@ -82,6 +84,15 @@ class RetryCoordinator:
         self.identities = {}
         self.selection: tuple[RetryCandidate, ...] = ()
         self.attention_games = set()
+        self.description_targets = {}
+
+    def sources(self):
+        return configured_sources(self.policy)
+
+    def consider_descriptions(self, quick, rom, command, *, targets=None):
+        from handler.scan_description_retry import collect_descriptions
+
+        collect_descriptions(self, quick, rom, command, targets=targets)
 
     def identity(self, binding, provider, query):
         locale = self.policy.get("metadata_locale") or "en-US"
@@ -133,7 +144,7 @@ class RetryCoordinator:
             self.identities[(rom.id, provider)] = identity
             self.work[identity.game_key] = RetryWork(quick, rom.id, command)
 
-    async def revalidate(self, work):
+    async def revalidate(self, work, *, purpose="unknown"):
         from handler.filesystem.roms_handler import FSRomsHandler
         from handler.storage.read_context import MappingReadContext
         from handler.windows_quick_policy import is_identified_windows
@@ -144,7 +155,7 @@ class RetryCoordinator:
         if (
             rom is None
             or rom.incarnation_token != binding.rom_incarnation
-            or is_identified_windows(rom)
+            or (purpose == "unknown" and is_identified_windows(rom))
         ):
             return False
         mapping = MappingReadContext(
@@ -165,7 +176,7 @@ class RetryCoordinator:
         await emit_retry_status(self)
         selected: dict[str, list[str]] = {}
         for item in self.selection:
-            if item.assessment.eligible:
+            if item.assessment.eligible and item.identity.purpose == "unknown":
                 selected.setdefault(item.identity.game_key, []).append(
                     item.identity.provider
                 )

@@ -1,5 +1,6 @@
 """Conservative retry advice; provider dispatch and fenced writes remain external."""
 
+import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
@@ -47,6 +48,17 @@ class RetryIdentity:
     @property
     def key(self) -> str:
         return _digest(self.fields())
+
+    @property
+    def purpose(self) -> str:
+        return (
+            "description"
+            if re.fullmatch(
+                r"descriptions:v1:[1-9][0-9]*:(parent|component:[1-9][0-9]*)",
+                self.query,
+            )
+            else "unknown"
+        )
 
     @property
     def game_key(self) -> str:
@@ -146,6 +158,8 @@ def assess_retry(
         state = None
     due = state.next_eligible_at if state is not None else None
     if due is None:
+        if identity.purpose == "description":
+            return RetryAssessment(True, "due", now)
         if baseline_adopted_at is None:
             return RetryAssessment(False, "baseline_required")
         due = _utc(baseline_adopted_at) + timedelta(hours=24)
