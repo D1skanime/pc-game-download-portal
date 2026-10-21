@@ -107,3 +107,24 @@ def test_exact_base_english_selection():
     assert select_summary(variants, "it") == "English"
     assert select_summary(variants) == "English"
     assert select_summary({"fr": variants["fr"]}, "de") == ""
+
+
+def test_normalized_slots_are_not_decoded_twice():
+    variants = accepted_synopsis([{"langue": "en", "text": "&amp;lt;literal&amp;gt;"}])
+    assert select_summary(variants) == "&lt;literal&gt;"
+    assert (
+        merge_ss_metadata({}, {"text_variants": variants})["text_variants"] == variants
+    )
+
+
+def test_merge_rejects_total_overflow_without_erasing_old_slots():
+    old = {
+        "text_variants": accepted_synopsis(
+            [
+                {"langue": "en", "text": "a" * 32000},
+                {"langue": "de", "text": "b" * 32000},
+            ]
+        )
+    }
+    incoming = {"text_variants": {"fr": {"source_language": "fr", "summary": "French"}}}
+    assert merge_ss_metadata(old, incoming) == old

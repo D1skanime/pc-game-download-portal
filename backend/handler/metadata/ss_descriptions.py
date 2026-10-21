@@ -3,6 +3,7 @@
 import html
 from collections.abc import Mapping
 from copy import deepcopy
+from itertools import islice
 from typing import TypedDict
 
 from config.scan_language import normalize_language
@@ -27,19 +28,21 @@ def _locale(value: object) -> str | None:
         return None
 
 
-def accepted_synopsis(value: object) -> dict[str, SSDescriptionVariant]:
+def _accepted_entries(
+    value: object, *, decode: bool
+) -> dict[str, SSDescriptionVariant]:
     if not isinstance(value, list):
         return {}
     variants: dict[str, SSDescriptionVariant] = {}
     total = 0
-    for entry in value:
+    for entry in islice(value, 256):
         if not isinstance(entry, Mapping):
             continue
         locale = _locale(entry.get("langue"))
         raw = entry.get("text")
         if locale is None or not isinstance(raw, str) or len(raw) > MAX_SUMMARY:
             continue
-        text = html.unescape(raw).strip()
+        text = (html.unescape(raw) if decode else raw).strip()
         if not text or len(text) > MAX_SUMMARY:
             continue
         previous = len(variants[locale]["summary"]) if locale in variants else 0
@@ -52,18 +55,22 @@ def accepted_synopsis(value: object) -> dict[str, SSDescriptionVariant]:
     return variants
 
 
+def accepted_synopsis(value: object) -> dict[str, SSDescriptionVariant]:
+    return _accepted_entries(value, decode=True)
+
+
 def accepted_text_variants(value: object) -> dict[str, SSDescriptionVariant]:
     if not isinstance(value, Mapping):
         return {}
     entries = []
-    for locale, entry in value.items():
+    for locale, entry in islice(value.items(), 256):
         if not isinstance(entry, Mapping):
             continue
         normalized = _locale(locale)
         if normalized is None or _locale(entry.get("source_language")) != normalized:
             continue
         entries.append({"langue": normalized, "text": entry.get("summary")})
-    return accepted_synopsis(entries)
+    return _accepted_entries(entries, decode=False)
 
 
 def merge_ss_metadata(current: object, incoming: object) -> dict:
@@ -93,3 +100,17 @@ def select_summary(variants: object, metadata_locale: object = None) -> str:
         if entry := accepted.get(locale):
             return entry["summary"]
     return ""
+
+
+def valid_ss_id(value: object) -> int | None:
+    if type(value) is int and value > 0:
+        return value
+    if (
+        isinstance(value, str)
+        and len(value) <= 12
+        and value.isascii()
+        and value.isdigit()
+        and int(value) > 0
+    ):
+        return int(value)
+    return None

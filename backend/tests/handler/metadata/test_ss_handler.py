@@ -682,7 +682,7 @@ class TestBuildSSGame:
         )
 
         with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
-            result = build_ss_game(self._make_rom(), game)
+            result = build_ss_game(self._make_rom(), game, metadata_locale="de")
 
         assert result["summary"] == "Ein Spiel."
 
@@ -1885,3 +1885,89 @@ class TestCapturedDescriptions:
                 MagicMock(), 42, descriptions_only=True
             )
         fetch.assert_not_awaited()
+
+
+class TestScreenScraperWireDescriptions:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("timed_out,attempts", [(False, 1), (True, 2)])
+    async def test_actual_transport_attempts(self, timed_out, attempts):
+        import aiohttp
+
+        import adapters.services.screenscraper as service_module
+
+        handler = SSHandler()
+        rom = MagicMock(
+            ss_id=42, ss_metadata={}, manual_metadata={"descriptions": {"en": "Manual"}}
+        )
+        response = MagicMock()
+        response.text = AsyncMock(return_value="{}")
+        response.json = AsyncMock(
+            return_value={"response": {"jeu": TestCapturedDescriptions.game()}}
+        )
+        session = AsyncMock()
+        session.get.return_value = response
+        if timed_out:
+            session.get.side_effect = aiohttp.ServerTimeoutError()
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                service_module,
+                "ctx_aiohttp_session",
+                MagicMock(get=MagicMock(return_value=session)),
+            ),
+            patch.object(service_module._rate_limiter, "acquire", AsyncMock()),
+            patch.object(service_module._state, "daily_quota_exhausted", False),
+            patch.object(service_module, "report_provider_fault"),
+            patch.object(
+                ss_handler,
+                "extract_media_from_ss_game",
+                side_effect=AssertionError("media"),
+            ),
+        ):
+            result = await handler.get_rom_by_id(
+                rom, 42, metadata_locale="fr", descriptions_only=True
+            )
+        assert session.get.await_count == attempts
+        for call in session.get.await_args_list:
+            assert parse_qs(urlparse(call.args[0]).query) == {"gameid": ["42"]}
+            assert call.kwargs["middlewares"] == (service_module.auth_middleware,)
+        if timed_out:
+            assert result == {}
+        else:
+            assert (
+                result["ss_metadata"]["text_variants"]["fr"]["summary"]
+                == "French & more"
+            )
+            assert result["ss_metadata"]["text_variants"]["en"]["summary"] == "English"
+        assert rom.manual_metadata["descriptions"]["en"] == "Manual"
+
+    @pytest.mark.asyncio
+    async def test_text_only_name_and_hash_entrypoints_use_known_id_without_search(
+        self,
+    ):
+        handler = SSHandler()
+        rom = MagicMock(ss_id=42)
+        with (
+            patch.object(
+                handler,
+                "get_rom_by_id",
+                AsyncMock(return_value={"ss_metadata": {"text_variants": {}}}),
+            ) as fetch,
+            patch.object(
+                handler, "_search_rom", AsyncMock(side_effect=AssertionError("search"))
+            ),
+        ):
+            await handler.get_rom(
+                rom, "ignored", 3, metadata_locale="fr", descriptions_only=True
+            )
+            await handler.lookup_rom(
+                rom,
+                3,
+                MagicMock(__iter__=MagicMock(side_effect=AssertionError("files"))),
+                metadata_locale="fr",
+                descriptions_only=True,
+            )
+        assert fetch.await_count == 2
+        for call in fetch.await_args_list:
+            assert call.args == (rom, 42)
+            assert call.kwargs == {"metadata_locale": "fr", "descriptions_only": True}
