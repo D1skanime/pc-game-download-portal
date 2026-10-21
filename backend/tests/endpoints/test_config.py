@@ -185,3 +185,124 @@ def test_update_scan_settings_normalizes_codes(client, access_token: str):
     _, kwargs = update_scan_settings.call_args
     assert kwargs["region_priority"] == ["us", "eu"]
     assert kwargs["language_priority"] == ["en"]
+
+
+# Each test owns a disposable YAML file, never the application config.
+import copy
+from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
+
+import pytest
+import yaml
+
+from handler.auth import oauth_handler
+
+
+@pytest.fixture
+def language_config(tmp_path, monkeypatch):
+    prior = copy.deepcopy(cm.__dict__)
+    path = tmp_path / "config.yml"
+    original = {
+        "scan": {
+            "priority": {"language": ["en", "fr"], "region": ["eu"]},
+            "media": ["box2d"],
+        },
+        "custom": {"keep": 7},
+    }
+    path.write_text(yaml.safe_dump(original))
+    monkeypatch.setattr(cm, "config_file", str(path))
+    monkeypatch.setattr(cm, "_config_file_writable", True)
+    cm.get_config()
+    yield path
+    cm.__dict__.clear()
+    cm.__dict__.update(prior)
+
+
+def test_language_route_cas_preserves_unrelated(client, access_token, language_config):
+    headers = {"Authorization": f"Bearer {access_token}"}
+    body = {"language_priority": ["de-CH"], "expected_language_priority": ["en", "fr"]}
+    response = client.put("/api/config/scan/language", headers=headers, json=body)
+    assert response.status_code == 200
+    assert response.json() == {"language_priority": ["de", "en", "fr"]}
+    saved = yaml.safe_load(language_config.read_text())
+    assert saved["custom"] == {"keep": 7}
+    assert saved["scan"]["priority"]["region"] == ["eu"]
+    assert saved["scan"]["media"] == ["box2d"]
+    before = language_config.read_bytes()
+    stale = client.put("/api/config/scan/language", headers=headers, json=body)
+    assert stale.status_code == 409
+    assert language_config.read_bytes() == before
+
+
+def test_language_route_denies_personal_scope(client, admin_user, language_config):
+    token = oauth_handler.create_access_token(
+        data={"sub": admin_user.username, "iss": "romm:oauth", "scopes": "me.write"},
+        expires_delta=timedelta(minutes=1),
+    )
+    body = {"language_priority": ["fr"], "expected_language_priority": ["en", "fr"]}
+    before = language_config.read_bytes()
+    assert client.put("/api/config/scan/language", json=body).status_code == 401
+    assert (
+        client.put(
+            "/api/config/scan/language",
+            json=body,
+            headers={"Authorization": f"Bearer {token}"},
+        ).status_code
+        == 403
+    )
+    assert language_config.read_bytes() == before
+
+
+@pytest.mark.parametrize("failure", ["readonly", "serialization", "replace"])
+def test_full_scan_persistence_failure_keeps_authority(
+    language_config, monkeypatch, failure
+):
+    before = language_config.read_bytes()
+    original_config = cm.config
+    if failure == "readonly":
+        monkeypatch.setattr(cm, "_config_file_writable", False)
+    elif failure == "serialization":
+        monkeypatch.setattr(
+            yaml,
+            "dump",
+            lambda *a, **kw: (_ for _ in ()).throw(yaml.YAMLError("serialize")),
+        )
+    else:
+        monkeypatch.setattr(
+            "os.replace", lambda *a: (_ for _ in ()).throw(PermissionError("replace"))
+        )
+    payload = _scan_payload()
+    overrides = {
+        key: payload.pop(key + "_priority") for key in ("cover", "screenshot", "manual")
+    }
+    with pytest.raises(Exception):
+        cm.update_scan_settings(**payload, artwork_overrides=overrides)
+    assert language_config.read_bytes() == before
+    assert cm.config is original_config
+    assert cm.config.SCAN_LANGUAGE_PRIORITY == ["en", "fr"]
+
+
+def test_language_cas_serializes_contenders(client, access_token, language_config):
+    def change(locale):
+        return client.put(
+            "/api/config/scan/language",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={
+                "language_priority": [locale],
+                "expected_language_priority": ["en", "fr"],
+            },
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(change, ["de", "fr"]))
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    winner = next(
+        response.json()["language_priority"]
+        for response in responses
+        if response.status_code == 200
+    )
+    assert (
+        yaml.safe_load(language_config.read_text())["scan"]["priority"]["language"]
+        == winner
+    )
+    assert cm.config.SCAN_LANGUAGE_PRIORITY == winner
