@@ -41,7 +41,13 @@ export default defineConfig({
     },
     {
       name: "chromium",
-      testIgnore: /.*\.setup\.ts/,
+      // Phase 35 specs require the token-bound dev server and fixture runner.
+      // backend/tools/phase35_browser.py owns their dedicated configuration.
+      testIgnore: [
+        /.*\.setup\.ts/,
+        /phase35-incremental-scan\.spec\.ts/,
+        /phase35-presentation-smoke\.spec\.ts/,
+      ],
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
     },

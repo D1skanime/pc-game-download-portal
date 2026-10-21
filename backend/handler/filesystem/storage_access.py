@@ -214,9 +214,63 @@ class ReadCapability(_DescriptorCapability):
         return b"".join(chunks)
 
 
+@dataclass(frozen=True, slots=True)
+class ScannedEntry:
+    name: str
+    metadata: os.stat_result
+
+
+@dataclass(frozen=True, slots=True)
+class BoundedScan:
+    entries: tuple[ScannedEntry, ...]
+    complete: bool
+    reason: str = ""
+
+
+def directory_signature(metadata: os.stat_result) -> tuple[int, ...]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
+
+
 class ScanCapability(_DescriptorCapability):
     def scan(self) -> tuple[str, ...]:
         return tuple(sorted(os.listdir(self._require_descriptor())))
+
+    def scan_bounded(self, max_entries: int, *, check=lambda: None) -> BoundedScan:
+        """Bound retained entries before allocation; never open entry bodies."""
+        if type(max_entries) is not int or max_entries < 0:
+            raise ValueError("max_entries must be a nonnegative integer")
+        descriptor = self._require_descriptor()
+        entries: list[ScannedEntry] = []
+        try:
+            before = directory_signature(os.fstat(descriptor))
+            check()
+            with os.scandir(descriptor) as iterator:
+                for entry in iterator:
+                    check()
+                    if len(entries) == max_entries:
+                        return BoundedScan(tuple(entries), False, "entry_limit")
+                    metadata = os.stat(
+                        entry.name, dir_fd=descriptor, follow_symlinks=False
+                    )
+                    if not (
+                        stat_module.S_ISDIR(metadata.st_mode)
+                        or stat_module.S_ISREG(metadata.st_mode)
+                    ):
+                        return BoundedScan(tuple(entries), False, "unsupported_entry")
+                    entries.append(ScannedEntry(entry.name, metadata))
+            check()
+            if before != directory_signature(os.fstat(descriptor)):
+                return BoundedScan(tuple(entries), False, "unstable_directory")
+        except OSError:
+            return BoundedScan(tuple(entries), False, "unreadable")
+        return BoundedScan(tuple(sorted(entries, key=lambda entry: entry.name)), True)
 
 
 class HashCapability(_DescriptorCapability):

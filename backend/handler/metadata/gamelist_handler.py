@@ -361,6 +361,9 @@ class GamelistHandler(MetadataHandler):
         # Check if we already have cached data for this platform
         cache_key = platform.id
         if cache_key in self._gamelist_cache:
+            from utils.scan_provider_observation import mark_provider_cached
+
+            mark_provider_cached()
             log.debug(f"Using cached gamelist data for platform {platform.id}")
             return self._gamelist_cache[cache_key]
 

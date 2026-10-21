@@ -28,13 +28,13 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.scan_inventory_contracts import InventoryEvidence
 from logger.logger import log
 from models.download_manifest import DownloadManifestMember
 from models.platform import Platform
 from models.rom import (
     Rom,
     RomComponent,
-    RomComponentKind,
     RomComponentManifestMember,
     RomFile,
     RomFileCategory,
@@ -68,6 +68,13 @@ from .base_handler import (
     REGIONS_NAME_KEYS,
     ExternalFSHandler,
 )
+from .pc_scan_inventory import (
+    InventoryIncomplete,
+    async_collect_pc_inventory,
+    classify_components,
+)
+from .pc_scan_inventory import parse_pc_component_layout as parse_pc_component_layout
+from .storage_access import directory_signature
 from .storage_policy import (
     ExternalStorageDescriptor,
     StorageOperation,
@@ -164,32 +171,6 @@ ARCHIVE_READERS = {
     ".7z": read_7z_archive_files,
     ".rar": read_rar_archive_files,
 }
-
-PC_COMPONENT_LAYOUTS = {
-    "base": RomComponentKind.BASE,
-    "update": RomComponentKind.UPDATE,
-    "dlc": RomComponentKind.DLC,
-    "expansion": RomComponentKind.DLC,
-    "expansions": RomComponentKind.DLC,
-    "hotfix": RomComponentKind.HOTFIX,
-    "language-pack": RomComponentKind.LANGUAGE_PACK,
-    "extra": RomComponentKind.EXTRA,
-}
-
-
-def parse_pc_component_layout(relative_path: str) -> RomComponentKind:
-    """Classify only exact, configured PC component directory names.
-
-    Layout inference is intentionally constrained to the top-level component
-    directory. Unknown and nested paths remain unresolved instead of granting
-    meaning to weak directory names.
-    """
-    path = PurePosixPath(relative_path)
-    if path.is_absolute() or ".." in path.parts or not relative_path:
-        raise ValueError("PC component path must be a non-empty relative path")
-    if len(path.parts) != 1 or path.parts[0] in {".", ""}:
-        return RomComponentKind.UNRESOLVED
-    return PC_COMPONENT_LAYOUTS.get(path.parts[0].lower(), RomComponentKind.UNRESOLVED)
 
 
 def _make_file_hash(
@@ -343,6 +324,9 @@ class FSRomsHandler(ExternalFSHandler):
         super().__init__(base_path=Path(storage._root_path), storage=storage)
         self._logical_root = ""
         self._selected_rom_name: str | None = None
+        self._inventory_mapping_id: int | None = None
+        self._inventory_revision = 0
+        self._inventory_prefix = ""
 
     @classmethod
     def for_mapping(cls, mapping, relative_path: str | None = None) -> "FSRomsHandler":
@@ -355,6 +339,9 @@ class FSRomsHandler(ExternalFSHandler):
             mapping.storage_root_id, mapped_root, mapping_id=mapping.id
         )
         handler = cls(descriptor)
+        handler._inventory_mapping_id = mapping.id
+        handler._inventory_revision = getattr(mapping, "version", 0)
+        handler._inventory_prefix = parent
         handler._logical_root = logical_root
         handler._selected_rom_name = selected_name or None
         return handler
@@ -564,128 +551,88 @@ class FSRomsHandler(ExternalFSHandler):
             return "SOURCE_CHANGED"
         return "UNCHANGED_BY_LIGHT_CHECK"
 
-    async def get_pc_components(self, rom: Rom) -> list[RomComponent]:
-        """Build immutable component manifests for one directory-backed PC ROM.
+    def _pc_game_path(self, rom: Rom) -> str:
+        if self._logical_root and rom.fs_path == self._logical_root:
+            return rom.fs_name
+        return "/".join(part for part in (rom.fs_path, rom.fs_name) if part)
 
-        All filesystem work goes through the external read capabilities. This
-        method neither creates nor mutates source-library entries.
-        """
-        rom_path = (
-            rom.fs_name
-            if self._logical_root and rom.fs_path == self._logical_root
-            else f"{rom.fs_path}/{rom.fs_name}"
+    def _pc_inventory_access(self, operation: StorageOperation, relative_path: str):
+        if self._inventory_mapping_id is not None:
+            from handler.storage.read_context import MappingReadContext
+
+            context = MappingReadContext(
+                self._inventory_mapping_id, self._inventory_revision
+            )
+            relative_path = "/".join(
+                part for part in (self._inventory_prefix, relative_path) if part
+            )
+            return context.open(operation, relative_path)
+        return self.open_access(operation, relative_path)
+
+    async def get_pc_inventory(self, rom: Rom) -> InventoryEvidence:
+        return await async_collect_pc_inventory(
+            self._pc_inventory_access, self._pc_game_path(rom)
         )
-        components: list[RomComponent] = []
 
-        async def build_component(
-            component_path: str,
-            relative_path: str,
-            kind: RomComponentKind,
-            *,
-            recursive: bool,
-        ) -> RomComponent | None:
-            manifest_members: list[RomComponentManifestMember] = []
-            pending_directories = [component_path] if recursive else []
+    async def get_pc_components(
+        self, rom: Rom, inventory: InventoryEvidence | None = None
+    ) -> list[RomComponent]:
+        """Build manifests only from a complete shared inventory."""
+        evidence = (
+            inventory if inventory is not None else await self.get_pc_inventory(rom)
+        )
+        groups = classify_components(evidence)
+        rom_path = self._pc_game_path(rom)
 
-            while pending_directories:
-                directory = pending_directories.pop()
-                for directory_name in reversed(
-                    sorted(await self.list_directories(directory))
-                ):
-                    pending_directories.append(f"{directory}/{directory_name}")
-                for file_name in sorted(await self.list_files(directory)):
-                    file_path = f"{directory}/{file_name}"
-                    manifest_path = file_path.removeprefix(f"{rom_path}/")
-                    with self.open_rom_hash(file_path) as source:
+        def build():
+            from handler.scan_operation_worker import check_worker_boundary
+
+            components: list[RomComponent] = []
+            for group in groups:
+                members: list[RomComponentManifestMember] = []
+                for entry in group.members:
+                    check_worker_boundary()
+                    file_path = f"{rom_path}/{entry.relative_path}"
+                    with self._pc_inventory_access(
+                        StorageOperation.HASH, file_path
+                    ) as source:
+                        before = os.fstat(source.fileno())
+                        if (
+                            before.st_size,
+                            before.st_mtime_ns,
+                            before.st_ctime_ns,
+                            before.st_dev,
+                            before.st_ino,
+                        ) != (
+                            entry.size,
+                            entry.mtime_ns,
+                            entry.ctime_ns,
+                            entry.device,
+                            entry.inode,
+                        ):
+                            raise InventoryIncomplete("unstable_file")
                         sha256 = source.hash("sha256")
-                    manifest_members.append(
+                        if directory_signature(before) != directory_signature(
+                            os.fstat(source.fileno())
+                        ):
+                            raise InventoryIncomplete("unstable_file")
+                    members.append(
                         RomComponentManifestMember(
-                            relative_path=manifest_path,
-                            size_bytes=await self.get_file_size(file_path),
+                            relative_path=entry.relative_path,
+                            size_bytes=entry.size,
                             sha256=sha256,
                         )
                     )
-
-            if not recursive:
-                for file_name in sorted(await self.list_files(component_path)):
-                    file_path = f"{component_path}/{file_name}"
-                    manifest_path = file_path.removeprefix(f"{rom_path}/")
-                    with self.open_rom_hash(file_path) as source:
-                        sha256 = source.hash("sha256")
-                    manifest_members.append(
-                        RomComponentManifestMember(
-                            relative_path=manifest_path,
-                            size_bytes=await self.get_file_size(file_path),
-                            sha256=sha256,
-                        )
+                components.append(
+                    RomComponent(
+                        relative_path=group.relative_path,
+                        kind=group.kind,
+                        manifest_members=members,
                     )
-
-            if not manifest_members:
-                return None
-
-            return RomComponent(
-                relative_path=relative_path,
-                kind=kind,
-                manifest_members=manifest_members,
-            )
-
-        async def add_component(
-            component_path: str,
-            relative_path: str,
-            kind: RomComponentKind,
-            *,
-            recursive: bool,
-        ) -> None:
-            try:
-                component = await build_component(
-                    component_path, relative_path, kind, recursive=recursive
                 )
-            except (OSError, ValueError) as exc:
-                log.warning(
-                    "Skipping unreadable PC component %s: %s",
-                    relative_path,
-                    exc,
-                    extra=LOGGER_MODULE_NAME,
-                )
-                return
-            if component is not None:
-                components.append(component)
+            return components
 
-        if await self.list_files(rom_path):
-            await add_component(
-                rom_path, "base", RomComponentKind.BASE, recursive=False
-            )
-
-        for component_name in sorted(await self.list_directories(rom_path)):
-            # OST/soundtrack directories are source-backed RomFiles, not PC
-            # components. They remain downloadable and can be uploaded by the
-            # user through the existing Owned soundtrack flow.
-            if category_matches(
-                RomFileCategory.SOUNDTRACK.value, [component_name.lower()]
-            ):
-                continue
-            kind = parse_pc_component_layout(component_name)
-            component_path = f"{rom_path}/{component_name}"
-            nested_directories = sorted(await self.list_directories(component_path))
-            if kind == RomComponentKind.DLC and nested_directories:
-                if await self.list_files(component_path):
-                    await add_component(
-                        component_path,
-                        component_name,
-                        RomComponentKind.UNRESOLVED,
-                        recursive=False,
-                    )
-                for nested_name in nested_directories:
-                    await add_component(
-                        f"{component_path}/{nested_name}",
-                        f"{component_name}/{nested_name}",
-                        kind,
-                        recursive=True,
-                    )
-                continue
-            await add_component(component_path, component_name, kind, recursive=True)
-
-        return sorted(components, key=lambda component: component.relative_path)
+        return await asyncio.to_thread(build)
 
     @staticmethod
     def open_mapped_scan(context: "MappingReadContext", relative_path: str = ""):

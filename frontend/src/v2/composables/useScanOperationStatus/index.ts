@@ -9,11 +9,21 @@ import {
 } from "vue";
 import socket from "@/v2/data/adapters/legacy/services/socket";
 import useAuthStore from "@/v2/data/adapters/legacy/stores/auth";
-import storeScanning from "@/v2/data/adapters/legacy/stores/scanning";
+import storeScanning, {
+  transportScanStats,
+} from "@/v2/data/adapters/legacy/stores/scanning";
 import scanOperations from "@/v2/data/adapters/scanOperations";
 import type { ScanOperationSnapshot } from "@/v2/data/contracts";
 
 const snapshot = ref<ScanOperationSnapshot | null>(null);
+const nextOffset = ref(0);
+const loadingMore = ref(false);
+const hasMore = computed(
+  () =>
+    snapshot.value?.items_total !== undefined &&
+    nextOffset.value < snapshot.value.items_total,
+);
+let pageFlight: Promise<ScanOperationSnapshot | null | undefined> | undefined;
 const disconnected = ref(false);
 const reconciling = ref(false);
 const errorCode = ref<string | null>(null);
@@ -49,26 +59,110 @@ function accept(next: ScanOperationSnapshot) {
     )
       return current;
   }
-  snapshot.value = next;
+  const sameAttempt =
+    current?.id === next.id && current.attempt_id === next.attempt_id;
+  if (!sameAttempt) nextOffset.value = 0;
+  const incoming = (next.items ?? []).filter(
+    (item) => item.attempt_id === next.attempt_id,
+  );
+  const items = new Map<string, (typeof incoming)[number]>();
+  for (const item of [
+    ...(sameAttempt ? (current?.items ?? []) : []),
+    ...incoming,
+  ]) {
+    const key = JSON.stringify([
+      item.mapping_id,
+      item.expected_revision,
+      item.relative_path,
+      item.target_key,
+      item.inventory?.rom_id,
+      item.provider,
+    ]);
+    items.set(key, item);
+  }
+  if (next.items !== undefined) {
+    nextOffset.value = Math.max(
+      nextOffset.value,
+      (next.items_offset ?? 0) + next.items.length,
+    );
+  }
+  snapshot.value = {
+    ...next,
+    items:
+      next.items === undefined && !sameAttempt
+        ? undefined
+        : [...items.values()],
+  };
   const store = storeScanning();
   store.setScanning(activeStates.has(next.state));
-  if (next.scan_stats) {
-    const stats = next.scan_stats;
-    store.setScanStats({
-      total_platforms: stats.total_platforms ?? 0,
-      total_roms: stats.total_roms ?? 0,
-      scanned_platforms: stats.scanned_platforms ?? 0,
-      new_platforms: stats.new_platforms ?? 0,
-      identified_platforms: stats.identified_platforms ?? 0,
-      scanned_roms: stats.scanned_roms ?? 0,
-      new_roms: stats.new_roms ?? 0,
-      identified_roms: stats.identified_roms ?? 0,
-      scanned_firmware: stats.scanned_firmware ?? 0,
-      new_firmware: stats.new_firmware ?? 0,
-    });
-  }
+  projectStats(next.scan_stats);
   errorCode.value = null;
-  return next;
+  return snapshot.value;
+}
+
+function projectStats(stats?: ScanOperationSnapshot["scan_stats"]) {
+  const store = storeScanning();
+  const projection = store.scanStats;
+  for (const key of Object.keys(projection))
+    Reflect.deleteProperty(projection, key);
+  Object.assign(projection, transportScanStats(stats));
+  store.setScanStats(projection);
+}
+
+function resetDetails() {
+  nextOffset.value = 0;
+  pageFlight = undefined;
+  loadingMore.value = false;
+  projectStats();
+}
+
+async function loadMore() {
+  const current = snapshot.value;
+  if (!owners || !current || !hasMore.value) return snapshot.value;
+  if (pageFlight) return pageFlight;
+  const generation = epoch;
+  const offset = nextOffset.value;
+  loadingMore.value = true;
+  const task = (async () => {
+    try {
+      const next = await scanOperations.status(current.id, offset, 100);
+      const latest = snapshot.value;
+      if (
+        generation !== epoch ||
+        !owners ||
+        latest?.id !== current.id ||
+        latest.attempt_id !== current.attempt_id ||
+        latest.version !== current.version ||
+        latest.updated_at !== current.updated_at ||
+        next.id !== current.id ||
+        next.attempt_id !== current.attempt_id ||
+        next.version !== current.version ||
+        next.items_offset !== offset
+      )
+        return latest;
+      return accept(next);
+    } catch (error) {
+      if (generation === epoch) {
+        if (
+          axios.isAxiosError(error) &&
+          [401, 403].includes(error.response?.status ?? 0)
+        ) {
+          snapshot.value = null;
+          resetDetails();
+          storeScanning().setScanning(false);
+          errorCode.value = "permission-denied";
+        } else errorCode.value = "status-unavailable";
+      }
+      return snapshot.value;
+    } finally {
+      if (generation === epoch) {
+        pageFlight = undefined;
+        loadingMore.value = false;
+      }
+    }
+  })();
+  pageFlight = task;
+  return task;
 }
 
 function schedule() {
@@ -109,6 +203,7 @@ async function refresh(): Promise<ScanOperationSnapshot | null> {
       if (next) accept(next);
       else {
         snapshot.value = null;
+        resetDetails();
         storeScanning().setScanning(false);
       }
       disconnected.value = false;
@@ -122,6 +217,7 @@ async function refresh(): Promise<ScanOperationSnapshot | null> {
         [401, 403].includes(error.response?.status ?? 0)
       ) {
         snapshot.value = null;
+        resetDetails();
         storeScanning().setScanning(false);
         errorCode.value = "permission-denied";
       } else {
@@ -168,9 +264,11 @@ function install() {
       () => auth.user?.id,
       () => {
         epoch += 1;
+        refreshAgain = false;
         clearTimer();
         flight = undefined;
         snapshot.value = null;
+        resetDetails();
         errorCode.value = null;
         reconciling.value = false;
         storeScanning().setScanning(false);
@@ -190,6 +288,7 @@ function install() {
     clearTimer();
     reconciling.value = false;
     snapshot.value = null;
+    resetDetails();
     errorCode.value = null;
     disconnected.value = false;
   };
@@ -209,6 +308,9 @@ export function useScanOperationStatus() {
   if (getCurrentScope()) onScopeDispose(dispose);
   return {
     snapshot,
+    hasMore,
+    loadingMore,
+    loadMore,
     disconnected,
     reconciling,
     errorCode,

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { RAlert, RBtn, RCheckbox, RProgressLinear } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUpdate, onUpdated, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import InventoryStatusSummary from "@/v2/components/Scan/InventoryStatusSummary.vue";
 import type { ScanOperationSnapshot } from "@/v2/data/contracts";
 
 interface Props {
@@ -13,9 +14,12 @@ interface Props {
   actionError: string | null;
   status: string;
   canManage: boolean;
+  hasMore?: boolean;
+  loadingMore?: boolean;
 }
 const props = defineProps<Props>();
 const emit = defineEmits<{
+  loadMore: [];
   stop: [];
   resume: [];
   retryStatus: [];
@@ -23,6 +27,34 @@ const emit = defineEmits<{
 }>();
 const { t } = useI18n();
 const selected = ref<number[]>([]);
+const panel = ref<HTMLElement | null>(null);
+const statusHeading = ref<HTMLElement | null>(null);
+let focusedControl: HTMLElement | null = null;
+onBeforeUpdate(() => {
+  const active = document.activeElement;
+  if (active instanceof HTMLButtonElement && panel.value?.contains(active)) {
+    focusedControl = active;
+  } else if (
+    active !== document.body ||
+    !(focusedControl instanceof HTMLButtonElement && focusedControl.disabled)
+  ) {
+    focusedControl = null;
+  }
+});
+onUpdated(() => {
+  if (
+    focusedControl &&
+    !focusedControl.isConnected &&
+    (!document.activeElement || document.activeElement === document.body)
+  ) {
+    statusHeading.value?.focus({ preventScroll: true });
+    focusedControl = null;
+  } else if (!(
+    focusedControl instanceof HTMLButtonElement && focusedControl.disabled
+  )) {
+    focusedControl = null;
+  }
+});
 watch(
   () => props.snapshot?.attempt_id,
   () => {
@@ -51,7 +83,7 @@ const label = computed(() =>
 const stats = computed(() => props.snapshot?.scan_stats ?? {});
 const total = computed(() => stats.value.total_roms ?? 0);
 const progress = computed(() =>
-  total.value > 0
+  total.value > 0 && stats.value.scanned_roms !== undefined
     ? Math.min(100, (100 * (stats.value.scanned_roms ?? 0)) / total.value)
     : undefined,
 );
@@ -92,12 +124,15 @@ function select(id: number, value: boolean | null) {
 
 <template>
   <section
-    class="d-flex flex-column ga-3 pa-4"
+    ref="panel"
+    class="r-v2-operation-status d-flex flex-column ga-4 pa-4"
     aria-live="polite"
     aria-atomic="false"
     data-testid="operation-status"
   >
-    <h2 role="status">{{ t("scan.recovery-" + label) }}</h2>
+    <h2 ref="statusHeading" role="status" tabindex="-1">
+      {{ t("scan.recovery-" + label) }}
+    </h2>
     <p v-if="disconnected">{{ t("scan.recovery-disconnected") }}</p>
     <p v-else-if="reconciling">{{ t("scan.recovery-reconciling") }}</p>
     <RProgressLinear
@@ -106,11 +141,19 @@ function select(id: number, value: boolean | null) {
       :model-value="progress ?? 0"
       :aria-label="t('scan.recovery-running')"
     />
-    <p v-if="total > 0">
+    <p v-if="total > 0 && stats.scanned_roms !== undefined">
       {{
         t("scan.recovery-progress", { current: stats.scanned_roms ?? 0, total })
       }}
     </p>
+    <InventoryStatusSummary
+      v-if="snapshot"
+      :stats="snapshot.scan_stats"
+      :items="snapshot.items ?? []"
+      :has-more="hasMore"
+      :loading-more="loadingMore"
+      @load-more="emit('loadMore')"
+    />
     <RAlert v-if="cause" type="warning" role="alert">
       <p>{{ t("scan.recovery-cause-" + cause) }}</p>
       <p>{{ t("scan.recovery-action-" + cause) }}</p>
@@ -169,3 +212,10 @@ function select(id: number, value: boolean | null) {
     </fieldset>
   </section>
 </template>
+
+<style scoped>
+.r-v2-operation-status :deep(.r-btn) {
+  min-width: 44px;
+  min-height: 44px;
+}
+</style>

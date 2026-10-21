@@ -9,6 +9,9 @@ export type {
   ScanOperationSnapshot,
   ScanOperationMutationRequest,
   ScanOperationItemResult,
+  ScanInventoryFacts,
+  ScanProviderFacts,
+  ScanStats,
   SetupRecoverySnapshot,
 } from "@/__generated__";
 
@@ -314,3 +317,7 @@ export interface OperationResult {
     mediaMode: MediaPolicyMode;
   };
 }
+
+export type ScanStatsTransport = NonNullable<
+  ScanOperationSnapshot["scan_stats"]
+>;

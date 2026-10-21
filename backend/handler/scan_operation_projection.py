@@ -5,7 +5,6 @@ from datetime import timezone
 from sqlalchemy import func, select
 
 from endpoints.responses.scan_operations import (
-    ScanOperationItemResult,
     ScanOperationSnapshot,
 )
 from models.scan_operation import ScanOperationItem
@@ -14,19 +13,23 @@ from models.scan_operation import ScanOperationItem
 def operation_snapshot(session, row, *, offset=0, limit=100):
     if not 0 <= offset <= 1000000 or not 1 <= limit <= 100:
         raise ValueError("invalid_item_page")
+    from handler.scan_inventory_status import inventory_counts, item_facts
+
+    current = (
+        ScanOperationItem.operation_id == row.id,
+        ScanOperationItem.attempt_id == row.attempt_id,
+    )
     items = list(
         session.scalars(
             select(ScanOperationItem)
-            .where(ScanOperationItem.operation_id == row.id)
+            .where(*current)
             .order_by(ScanOperationItem.id)
             .offset(offset)
             .limit(limit)
         )
     )
     total = session.scalar(
-        select(func.count())
-        .select_from(ScanOperationItem)
-        .where(ScanOperationItem.operation_id == row.id)
+        select(func.count()).select_from(ScanOperationItem).where(*current)
     )
     return ScanOperationSnapshot(
         id=row.id,
@@ -35,13 +38,29 @@ def operation_snapshot(session, row, *, offset=0, limit=100):
         attempt_id=row.attempt_id,
         version=row.version,
         state=row.state,
-        scan_stats=row.scan_stats,
+        scan_stats={
+            key: value
+            for key, value in row.scan_stats.items()
+            if key
+            not in {
+                "inventory_checked",
+                "inventory_unchanged",
+                "inventory_changed",
+                "inventory_refresh_required",
+                "inventory_incomplete",
+                "unresolved_games",
+                "metadata_retry_games",
+                "provider_requests",
+                "metadata_cache_hits",
+            }
+        }
+        | inventory_counts(session, row),
         cause_code=row.cause_code,
         next_action=row.next_action,
         intentional_cancel=row.intentional_cancel,
         dispatch_pending=row.dispatch_due is not None,
         checkpoint=row.checkpoint,
-        items=[ScanOperationItemResult.model_validate(item) for item in items],
+        items=[item_facts(item) for item in items],
         items_offset=offset,
         items_total=total,
         created_at=row.created_at.replace(tzinfo=timezone.utc),

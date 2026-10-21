@@ -668,7 +668,7 @@ Plans:
 **Requirements**: QA-01, QA-02, QA-03, QA-04, QA-05, QA-06, QA-07, QA-08
 **Depends on:** Phase 23
 **Cross-cutting constraints:** Preserve direct-v2 boot and all supported routes. Do not restore v1. Do not modify external libraries or use NAS, Team4s, real library data, or production credentials. Keep API contracts backend-owned, regenerate generated types after schema changes, preserve manual/provider ownership rules, and keep source-mutation controls fail-closed.
-**Plans:** 13/14 plans executed
+**Plans:** 14/14 plans executed
 
 **Wave 1**
 
@@ -911,3 +911,66 @@ The 34-16 experiment does not close CR05 or release 03 by SUMMARY existence. Pro
 **Cross-cutting constraints:**
 
 - PGDP terminology, accessibility labels and interpolation semantics remain consistent.
+
+### Phase 35: Incremental Windows quick scans and unidentified game status
+
+**Goal:** Reuse unchanged identified Windows games during quick scans while reliably discovering new games, collection children and changed DLC/update content. Unidentified games remain visible with truthful retry status.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, SCAN-01, SCAN-02, SCAN-06, PCSAFE-01, PCTEST-01, UI-06, QA-04, QA-05, QA-06, QA-07. Phase-local decisions are delivery requirements; global IDs are regression/support mappings and do not change historical completion status.
+**Depends on:** The implemented Phase 33/34 scan and collection lifecycle merged through PR #1. Historical independent review, physical gamepad and production Portainer acceptance remain separate open items.
+**Status:** Complete, 14/14 plans implemented; live UAT explicitly accepted by the user on 2026-10-21. Independent verification confirms 24/24 functional truths. The legacy summary/localized-description defect is captured for a separate follow-up phase. Historical gates and global requirement acceptance remain unchanged.
+**Plans:** 14/14 plans executed
+
+**Success Criteria** (what must be TRUE):
+
+1. Unchanged identified Windows games avoid repeated expensive component hashing, enrichment and media publication during manual and scheduled quick scans.
+2. New games, new direct collection children and new or changed nested DLC/update content are found even when the parent directory timestamp is unchanged.
+3. Unidentified games remain visible, and status distinguishes inventory reuse, unresolved identification and actual provider retry.
+4. One shared implementation preserves mapping revisions, worker ownership, cancellation, source immutability and publication safety; existing scan modes and other platforms keep their semantics.
+5. Regression and end-to-end evidence covers unchanged, changed, new and unidentified cases through manual and 15-minute scheduled entry points.
+
+Plans:
+
+**Wave 1**
+
+- [x] 35-01-PLAN.md - Shared bounded PC inventory and contracts
+- [x] 35-02-PLAN.md - Portable durable baseline and retry storage
+- [x] 35-03-PLAN.md - Windows identity, scope and bounded retry policy
+- [x] 35-04-PLAN.md - Actual provider request and logical execution observations
+- [x] 35-09-PLAN.md - Incremental-scan copy in the first nine locales
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 35-05-PLAN.md - Shared quick-scan reuse and safe changed-file reconciliation
+- [x] 35-13-PLAN.md - Remaining nine locales and mandatory combined parity gate
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 35-06-PLAN.md - Fenced baseline completion and bounded metadata-only retries
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 35-07-PLAN.md - Durable orthogonal inventory, identity and retry status
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 35-08-PLAN.md - Isolated generated contracts and typed status transport
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 35-14-PLAN.md - Monotonic frontend status projection and bounded pages
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [x] 35-10-PLAN.md - Accessible v2 status summary and persistent unresolved rows
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [x] 35-11-PLAN.md - Actual isolated manual and scheduled worker proof
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [x] 35-12-PLAN.md - Isolated browser, security and final exact-source verification
+
+**Cross-cutting constraints:**
+
+- All scan status labels use actual translations and preserve interpolation

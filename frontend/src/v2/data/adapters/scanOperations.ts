@@ -193,6 +193,14 @@ async function byRequest(key: string) {
 
 async function status(id: string, offset = 0, limit = 100) {
   const context = session();
+  if (
+    !Number.isSafeInteger(offset) ||
+    offset < 0 ||
+    !Number.isSafeInteger(limit) ||
+    limit < 1 ||
+    limit > 100
+  )
+    throw new OperationTranslationError("invalid_scan_page");
   const { data } = await api.get<ScanOperationSnapshot>(
     `/scan-operations/${encodeURIComponent(id)}`,
     {

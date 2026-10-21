@@ -7,3 +7,4 @@ export type MetadataFacetOptionSchema = {
     label: string;
     source: string;
 };
+

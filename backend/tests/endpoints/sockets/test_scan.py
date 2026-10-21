@@ -1535,7 +1535,24 @@ class TestIdentifyRomReassociation:
 
 
 class TestIdentifyPlatformQuickPcComponents:
-    async def test_dispatches_only_existing_nested_windows_roms(self, mocker):
+    @pytest.mark.parametrize("quick_decision", [None, "reuse", "metadata_only"])
+    async def test_dispatches_only_existing_nested_windows_roms(
+        self, mocker, quick_decision
+    ):
+        from handler import windows_quick_execution
+        from handler.scan_inventory_contracts import QuickScanDecision
+
+        async def inspect(platform, entry, rom, **kwargs):
+            if (
+                quick_decision is None
+                or not entry["nested"]
+                or rom.platform_slug != "win"
+            ):
+                return None
+            return SimpleNamespace(decision=QuickScanDecision(quick_decision))
+
+        mocker.patch.object(windows_quick_execution, "inspect_discovered_game", inspect)
+
         mocker.patch.object(
             scan_module, "redis_client", Mock(get=Mock(return_value=None))
         )
@@ -1620,6 +1637,9 @@ class TestIdentifyPlatformQuickPcComponents:
             scan_stats=AsyncMock(),
         )
 
+        if quick_decision is not None:
+            identify.assert_not_awaited()
+            return
         identify.assert_awaited_once_with(
             platform=platform,
             fs_rom=nested_windows,

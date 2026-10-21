@@ -6,7 +6,6 @@ import {
   RAvatar,
   RBtn,
   RIcon,
-  RProgressLinear,
   RSelect,
   RSwitch,
   RTooltip,
@@ -17,6 +16,7 @@ import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import OperationStatusPanel from "@/v2/components/Scan/OperationStatusPanel.vue";
 import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
+import ScanLiveHeader from "@/v2/components/Scan/ScanLiveHeader.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useCan } from "@/v2/composables/useCan";
@@ -45,6 +45,8 @@ const {
   actionError,
   status,
   busy,
+  hasMore,
+  loadingMore,
 } = libraryOperation;
 const canManageScan = useCan("library.scan");
 const snackbar = useSnackbar();
@@ -128,10 +130,16 @@ const platformsWithRomsKey = computed(() =>
     .map((p) => `${p.id}:${p.roms.length > 0 ? 1 : 0}`)
     .join(","),
 );
+const knownPlatforms = new Set<number>();
 watch(platformsWithRomsKey, () => {
-  openPlatforms.value = new Set(
-    scanningPlatforms.value.filter((p) => p.roms.length > 0).map((p) => p.id),
-  );
+  const next = new Set(openPlatforms.value);
+  for (const platform of scanningPlatforms.value) {
+    if (platform.roms.length > 0) {
+      if (!knownPlatforms.has(platform.id)) next.add(platform.id);
+      knownPlatforms.add(platform.id);
+    }
+  }
+  openPlatforms.value = next;
 });
 
 // Auto-scroll the live log as new platforms arrive, unless the user
@@ -208,67 +216,11 @@ const canStartScan = computed(
     (scanType.value !== "update" || effectiveMetadataSources.value.length > 0),
 );
 
-// Live status header — pulled in from the (now retired) floating
-// ScanStatsBar. Counters live in the scanning store; `total` lags
-// `scanned` during platform discovery, so we clamp to avoid showing
-// a >100% bar or counters that visually go backwards.
-const liveStats = computed(() => {
-  const platformsScanned = scanStats.value.scanned_platforms ?? 0;
-  const platformsTotal = scanStats.value.total_platforms ?? 0;
-  const platformsNew = scanStats.value.new_platforms ?? 0;
-  const platformsIdentified = Math.min(
-    scanStats.value.identified_platforms ?? 0,
-    platformsScanned,
-  );
-  const romsScanned = scanStats.value.scanned_roms ?? 0;
-  const romsTotal = scanStats.value.total_roms ?? 0;
-  const romsNew = scanStats.value.new_roms ?? 0;
-  const romsIdentified = Math.min(
-    scanStats.value.identified_roms ?? 0,
-    romsScanned,
-  );
-  const firmwareScanned = scanStats.value.scanned_firmware ?? 0;
-  const firmwareNew = scanStats.value.new_firmware ?? 0;
-  return {
-    platforms: {
-      scanned: platformsScanned,
-      total: platformsTotal,
-      new: platformsNew,
-      identified: platformsIdentified,
-    },
-    roms: {
-      scanned: romsScanned,
-      total: romsTotal,
-      new: romsNew,
-      identified: romsIdentified,
-    },
-    firmware: { scanned: firmwareScanned, new: firmwareNew },
-  };
-});
-
-const hasResults = computed(
-  () =>
-    scanningPlatforms.value.length > 0 || (scanStats.value.total_roms ?? 0) > 0,
-);
-
 const liveStatusLabel = computed(() => {
   if (snapshot.value) return t("scan.recovery-" + status.value);
   if (scanningPlatforms.value.length > 0) return t("scan.scan-complete");
   return t("scan.live-progress");
 });
-
-// Progress bar — determinate once totals are known, indeterminate
-// during initial platform discovery. Clamps to 100% so the bar never
-// goes past full.
-const progressTotal = computed(() =>
-  Math.max(liveStats.value.roms.total, liveStats.value.roms.scanned),
-);
-const hasProgressTotal = computed(() => progressTotal.value > 0);
-const progressValue = computed(() =>
-  hasProgressTotal.value
-    ? Math.min(100, (liveStats.value.roms.scanned / progressTotal.value) * 100)
-    : 0,
-);
 
 function scan(subfolder?: SubfolderScanRequest) {
   if (!canDiscover.value || (!subfolder && !canStartScan.value)) return;
@@ -364,7 +316,10 @@ function stopScan() {
       :reconciling="reconciling"
       :action-error="actionError"
       :status="status"
+      :has-more="hasMore"
+      :loading-more="loadingMore"
       :can-manage="canManageScan"
+      @load-more="libraryOperation.loadMore()"
       @stop="libraryOperation.cancel()"
       @resume="libraryOperation.resume()"
       @retry-status="libraryOperation.retryStatus()"
@@ -695,6 +650,12 @@ function stopScan() {
               </li>
             </template>
           </RSelect>
+          <p v-if="scanType === 'quick'" class="text-body-2">
+            {{ t("scan.quick-scan-help") }}
+          </p>
+          <p v-if="scanType === 'quick'" class="text-body-2">
+            {{ t("scan.inventory-advisory") }}
+          </p>
         </section>
       </div>
 
@@ -767,120 +728,14 @@ function stopScan() {
          a vertical stack of expansion panels with a transition group
          so each card animates in. Owns its own scroll so logs never
          push the controls off-screen. -->
-    <section v-if="mappingReady" class="r-v2-scan-live" aria-live="polite">
-      <header class="r-v2-scan-live__head">
-        <div class="r-v2-scan-live__status">
-          <span v-if="scanning" class="r-v2-scan-live__pulse" />
-          <span class="r-v2-scan-live__status-label">
-            {{ liveStatusLabel }}
-          </span>
-        </div>
-
-        <div v-if="hasResults" class="r-v2-scan-live__counters">
-          <RTooltip
-            :text="
-              t('scan.platforms-scanned-with-details', {
-                n_scanned_platforms: liveStats.platforms.scanned,
-                n_total_platforms: liveStats.platforms.total,
-                n_new_platforms: liveStats.platforms.new,
-                n_identified_platforms: liveStats.platforms.identified,
-              })
-            "
-            location="bottom"
-          >
-            <template #activator="{ props: tipProps }">
-              <span v-bind="tipProps" class="r-v2-scan-live__chip">
-                <RIcon icon="mdi-controller" size="14" />
-                <span class="r-v2-scan-live__chip-num">
-                  {{ liveStats.platforms.scanned }}
-                </span>
-                <span
-                  v-if="liveStats.platforms.total"
-                  class="r-v2-scan-live__chip-den"
-                >
-                  /{{ liveStats.platforms.total }}
-                </span>
-              </span>
-            </template>
-          </RTooltip>
-
-          <RTooltip
-            :text="
-              t('scan.roms-scanned-with-details', {
-                n_scanned_roms: liveStats.roms.scanned,
-                n_total_roms: liveStats.roms.total,
-                n_new_roms: liveStats.roms.new,
-                n_identified_roms: liveStats.roms.identified,
-              })
-            "
-            location="bottom"
-          >
-            <template #activator="{ props: tipProps }">
-              <span v-bind="tipProps" class="r-v2-scan-live__chip">
-                <RIcon icon="mdi-disc" size="14" />
-                <span class="r-v2-scan-live__chip-num">
-                  {{ liveStats.roms.scanned }}
-                </span>
-                <span
-                  v-if="liveStats.roms.total"
-                  class="r-v2-scan-live__chip-den"
-                >
-                  /{{ liveStats.roms.total }}
-                </span>
-              </span>
-            </template>
-          </RTooltip>
-
-          <RTooltip
-            v-if="liveStats.firmware.scanned > 0"
-            :text="
-              t('scan.firmware-scanned-with-details', {
-                n_scanned_firmware: liveStats.firmware.scanned,
-                n_new_firmware: liveStats.firmware.new,
-              })
-            "
-            location="bottom"
-          >
-            <template #activator="{ props: tipProps }">
-              <span
-                v-bind="tipProps"
-                class="r-v2-scan-live__chip r-v2-scan-live__chip--alt"
-              >
-                <RIcon icon="mdi-memory" size="14" />
-                <span class="r-v2-scan-live__chip-num">
-                  {{ liveStats.firmware.scanned }}
-                </span>
-              </span>
-            </template>
-          </RTooltip>
-        </div>
-
-        <div v-if="scanning" class="r-v2-scan-live__actions">
-          <RTooltip :text="t('scan.abort-scan')" location="bottom">
-            <template #activator="{ props: tipProps }">
-              <RBtn
-                v-bind="tipProps"
-                icon="mdi-stop-circle-outline"
-                variant="text"
-                color="danger"
-                size="small"
-                :aria-label="t('scan.abort-scan')"
-                @click="stopScan"
-              />
-            </template>
-          </RTooltip>
-        </div>
-
-        <RProgressLinear
-          v-if="scanning"
-          class="r-v2-scan-live__progress"
-          :indeterminate="!hasProgressTotal"
-          :model-value="progressValue"
-          :height="2"
-          color="primary"
-          :rounded="false"
-        />
-      </header>
+    <section v-if="mappingReady" class="r-v2-scan-live">
+      <ScanLiveHeader
+        :label="liveStatusLabel"
+        :stats="snapshot?.scan_stats ?? scanStats"
+        :scanning="scanning"
+        :can-manage="canManageScan"
+        @stop="stopScan"
+      />
 
       <div ref="scan-log" class="r-v2-scan-live__log" @scroll="onScroll">
         <div
@@ -890,6 +745,7 @@ function stopScan() {
           <div class="r-v2-scan-live__empty-orb">
             <RIcon icon="mdi-radar" size="56" />
           </div>
+          <h2 v-if="!scanning">{{ t("scan.recovery-idle") }}</h2>
           <p class="r-v2-scan-live__empty-hint">
             {{
               scanning ? t("scan.empty-hint-scanning") : t("scan.empty-hint")
@@ -907,6 +763,7 @@ function stopScan() {
             v-for="platform in scanningPlatforms"
             :key="platform.id"
             :platform="platform"
+            :items="snapshot?.items ?? []"
             :open="openPlatforms.has(platform.id)"
             class="r-v2-scan-live__panel"
             @update:open="(v) => setOpen(platform.id, v)"
