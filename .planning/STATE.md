@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: planning
-stopped_at: Phase 35 context captured after PR 1 merged to main; ready for planning
-last_updated: "2026-10-20T10:08:34.902053+00:00"
-last_activity: 2026-10-20 -- Shipping CI passed, PR 1 merged and Phase 35 context captured
+status: ready
+stopped_at: Phase 35 live UAT accepted; localized descriptions captured for follow-up
+last_updated: "2026-10-21T09:59:31.422397+00:00"
+last_activity: 2026-10-21
 progress:
   total_phases: 35
-  completed_phases: 23
-  total_plans: 260
-  completed_plans: 225
-  percent: 66
+  completed_phases: 24
+  total_plans: 270
+  completed_plans: 239
+  percent: 69
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Plan Phase 35 incremental Windows quick scans and unidentified game status
+**Current focus:** Phase 35 live UAT accepted on 2026-10-21; localized-description follow-up captured
 
 ## Current Position
 
-Phase: 35 (incremental-windows-quick-scans-and-unidentified-game-status) - READY FOR PLANNING
-Plan: 0 of 0; implementation has not started
-Status: Ready for planning
-Last activity: 2026-10-20 -- PR #1 merged after all 28 shipping checks passed; Phase 35 context captured
+Phase: 35 (incremental-windows-quick-scans-and-unidentified-game-status) - ACCEPTED
+Plan: 14 of 14 complete; no implementation plan pending
+Status: Phase35 live UAT passed by explicit user acceptance; separate description follow-up pending planning
+Last activity: 2026-10-21
 
 ## Shipping and Phase 35 handoff
 
@@ -38,7 +38,7 @@ The canonical checkout advanced through main before creating codex/phase-35-incr
 
 Read .planning/phases/35-incremental-windows-quick-scans-and-unidentified-game-status/35-CONTEXT.md before planning. Preserve discovery of new collection children and DLC/update content while skipping expensive work for unchanged identified Windows games. Unidentified games remain visible with truthful retry state. Use one implementation for manual and scheduled scans and continue the code-size policy. The 15-minute Dev autoscan setting remains unchanged.
 
-Phase 35 was explicitly requested after shipping. No Phase 35 code or execution plans have been created. Physical gamepad testing, previous independent deep review and production Portainer acceptance remain open; frozen 34-16 is still INCONCLUSIVE.
+Phase 35 was explicitly requested after shipping. Its 14 plans (32 tasks, nine waves) and UI contract are independently verified with zero blockers/warnings; all 21 requirement IDs and all 11 context decisions are covered. Phase 35 Plans 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 13 and 14 are implemented and scoped verification passed; later plans remain pending. Plans 09 and 13 complete all eighteen locale translations. Recursive key/interpolation parity and repository-wide locale sorting pass before UI integration. Read 35-VALIDATION.md and the Phase 35 plan files for execution; preserve the existing dirty work and data. Physical gamepad testing, previous independent deep review and production Portainer acceptance remain open; frozen 34-16 is still INCONCLUSIVE.
 
 ## Previous implementation handoff (Phases 32-34)
 
@@ -195,6 +195,18 @@ _Updated after each plan completion_
 | Phase 26 P02 | 50min | 7 tasks | 28 files |
 | Phase 26 P03 | 35min | 2 tasks | 2 files |
 | Phase 33 P08 | 15m | 2 tasks | 6 files |
+| Phase 35 P01 | 17min | 3 tasks | 5 files |
+| Phase 35 P02 | 15min | 2 tasks | 5 files |
+| Phase 35 P03 | 10min | 2 tasks | 4 files |
+| Phase 35 P04 | 18min | 2 tasks | 8 files |
+| Phase 35 P09 | 6min | 2 tasks | 9 files |
+| Phase 35 P05 | 20min | 2 tasks | 6 files |
+| Phase 35 P13 | 15min | 2 tasks | 9 files |
+| Phase 35 P06 | 17min | 2 tasks | 8 files |
+| Phase 35 P07 | 21min | 3 tasks | 9 files |
+| Phase 35 P08 | 12min | 2 tasks | 29 files |
+| Phase 35 P14 | 9min | 2 tasks | 6 files |
+| Phase 35 P10 | 14min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -215,8 +227,12 @@ _Updated after each plan completion_
 
 ### Decisions
 
+- [Phase 35 P13]: Preserve language-specific plural branch counts; verify recursive placeholder sets and each branch. Use invariant counter sentences without new runtime plural rules.
+
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
+- [Phase 35 Plan 02]: Durable inventory is advisory; current mapping/ROM identity and the shared scan transaction fence remain mandatory. Incomplete refresh invalidates reuse without pruning catalog/media.
 
 - [Phase 1]: External roots are permanently `external_read_only`; path resolution and policy precede all consumers.
 - [Phase 4]: Team4s is a read-only design-principles reference only and is never modified or copied.
@@ -450,6 +466,13 @@ Recent decisions affecting current work:
 - [Phase 26]: Preserve unrelated dirty changes and commit only the Plan 26-03 UAT and closeout artifacts.
 - [Phase 33]: Aggregate GET-only readiness over persisted platform mappings and require every returned mapping to be healthy — Home and Scan share the server-backed predicate without browser paths or mutation calls.
 - [Phase 33]: Keep Home and Scan mutation-free and free of hard-coded platform routes — Persisted server identity and health remain the source of truth.
+- [Phase 35 P04]: Separate HTTP dispatch units from logical invocation and explicit cache hits; preserve provider predicates and persist safe bounded observations only through existing checked worker results.
+- [Phase 35]: Use one mapped Windows quick context and reconcile ordinary files and component manifests in the existing fenced media transaction; Plan 06 owns baseline and retry completion.
+- [Phase 35]: Collect warm unknown retries across all mapping discovery before one five-game selection; adopt baselines only in existing fenced game completion.
+- [Phase 35]: Keep bounded inventory facts in existing item checkpoints and current-attempt global counters in SQL; reuse existing binding and retry owners.
+- [Phase 35]: Generate only in token-bound disposable Run and preserve optional server stats through the existing adapter.
+- [Phase 35]: Keep pure inventory presentation and existing monotonic owner with bounded full-identity pages and exact optional global counters.
+- [Phase 35]: Plan 10 renders supplied global counters and server eligibility through existing status authority; paging uses direct facade pass-through.
 
 ### Blockers/Concerns
 
@@ -473,6 +496,7 @@ Recent decisions affecting current work:
 
 - GSD state handlers could not parse the legacy STATE.md position/progress format; equivalent STATE and ROADMAP updates were applied manually after the SDK roadmap update.
 - Requirement PGDP-33-01 is not present in REQUIREMENTS.md; no requirement checkbox was changed.
+- Phase 35 Plan 11 previous blockers are resolved: final four connected CLIs, all 28 authority barriers and 166 focused tests per SQL dialect pass. Historical failed receipts remain retained in 35-11-CHECKPOINT.md; 35-11-SUMMARY.md records final evidence.
 
 ### Quick Tasks Completed
 
@@ -535,9 +559,9 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-20T10:10:54.243649+00:00
-Stopped at: Phase 35 context captured after PR 1 merged to main; ready for planning
-Resume file: .planning/phases/35-incremental-windows-quick-scans-and-unidentified-game-status/35-CONTEXT.md
+Last session: 2026-10-20T21:26:49.727Z
+Stopped at: Completed 35-11; Plan 12 pending
+Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
 - Phase 26 added: UI-UX Abschluss und manuelle, mehrsprachige Metadatenpflege.
@@ -549,3 +573,21 @@ Resume file: .planning/phases/35-incremental-windows-quick-scans-and-unidentifie
 ## Quick Task 20261017-pc-automation-card-layout
 
 | 20261017-pc-automation-card-layout | Clarify PC automation review cards | 2026-10-17 | e8187fed5 | [20261017-pc-automation-card-layout](./quick/20261017-pc-automation-card-layout/) |
+
+- [Phase 35 P03]: Keep retry policy advisory, reuse the existing complete binding/identity owner, and gather every mapping before applying one five-game operation budget.
+
+- [Phase 35 P11]: Reuse actual HTTP/RQ and scheduler owners with token-bound disposable barriers; preserve production incarnation immutability.
+
+| Phase 35 P11 | resumed | 2 tasks | 16 files |
+
+## Phase 35 final implementation handoff
+
+All 14 plans and 32 tasks are implemented and committed through a8ea6a16d. Independent verification found 24/24 functional truths verified, all 21 IDs and 11 decisions covered, and zero implementation blockers. Final affected backend suites pass 520 tests per SQL dialect; frontend passes 1139 tests, generation/typecheck/build and all 18 locales. Actual isolated browser and worker/authority receipts pass on both SQL dialects. See 35-VERIFICATION.md, 35-HUMAN-UAT.md and 35-12-final-receipts.json in the Phase 35 directory. One human screenshot/copy review remains pending; phase completion and global requirement closure are not claimed. Physical hardware, historical deep review, frozen 34-16 and Portainer gates remain open. No deployment or live migration occurred; protected dirty files retain their original hashes.
+
+## Phase 35 user-authorized Dev deployment (2026-10-21)
+
+User explicitly requested deployment for live UAT. Recreated only pgdp-dev using its exact four existing Compose files and existing image. Startup upgraded schema 0140 through 0141 to 0142. Frontend, heartbeat and the served Phase35 inventory status component returned HTTP200. All34 games, one user, eight platforms, storage root and authentication identity/preferences are preserved; only normal user activity timestamps changed. SQL backup and before/after receipts: /home/d1sk/pgdp-dev-backups/20261021T080009Z-phase35-deploy. Database/Redis and Team4s container identities are unchanged; Games remains mounted read-only; 15-minute autoscan configuration is preserved and its existing job resumed. No reset or source changes. Human visual/copy UAT and historical gates remain open. Sanitized receipt: Phase35 evidence/live-deployment/deployment-receipt.json.
+
+## Phase 35 human acceptance (2026-10-21)
+
+User explicitly accepted Phase35 live UAT. All14 plans implemented,24/24 technical truths verified, and the one phase human UAT item is passed. No global requirement checkbox or historical gate is closed by this update. Description-language defect confirmed separately and captured in Phase35/35-FOLLOW-UP-DESCRIPTIONS.md; next-phase planning has not started.
