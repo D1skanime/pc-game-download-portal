@@ -32,7 +32,7 @@ def handler():
 
 async def test_missing_german_summary_falls_back_on_the_same_app_id(handler):
     """A locale fallback cannot resolve a different Steam application."""
-    result = await handler.get_rom_by_id(1091500, "win")
+    result = await handler.get_rom_by_id(1091500, "win", metadata_locale="de")
 
     assert result["steam_id"] == 1091500
     assert result["summary"] == "An open-world RPG."
@@ -166,7 +166,7 @@ async def test_fallback_fills_empty_release_and_header_fields_for_the_same_app_i
         ]
     )
 
-    result = await handler.get_rom_by_id(1091500)
+    result = await handler.get_rom_by_id(1091500, metadata_locale="de")
 
     assert result["url_cover"] == "https://cdn.example/header.jpg"
     assert result["steam_metadata"]["release_date"] == {
@@ -196,7 +196,7 @@ async def test_store_details_keep_localized_genres_categories_and_dlc_ids(handle
         }
     )
 
-    result = await handler.get_rom_by_id(1091500)
+    result = await handler.get_rom_by_id(1091500, metadata_locale="de")
 
     assert result["steam_metadata"] == {
         "language": "german",
@@ -262,7 +262,7 @@ async def test_compact_pc_filename_is_split_before_steam_search(handler):
 
     assert result["steam_id"] == 1903340
     handler.steam_service.search_apps.assert_awaited_once_with(
-        "clair obscur expedition 33", country="CH", language="german"
+        "clair obscur expedition 33", country="US", language="english"
     )
 
 
@@ -307,10 +307,14 @@ async def test_invalid_store_type_and_disabled_provider_return_no_match(handler)
         return_value={"type": "bundle", "steam_appid": 1091500}
     )
 
-    assert await handler.get_rom_by_id(1091500) == {"steam_id": None}
+    assert await handler.get_rom_by_id(1091500, metadata_locale="de") == {
+        "steam_id": None
+    }
 
     with patch("handler.metadata.steam_handler.STEAM_API_ENABLED", False):
-        assert await handler.get_rom_by_id(1091500) == {"steam_id": None}
+        assert await handler.get_rom_by_id(1091500, metadata_locale="de") == {
+            "steam_id": None
+        }
 
 
 async def test_default_languages_retain_german_and_english_text_variants(handler):
@@ -331,7 +335,7 @@ async def test_default_languages_retain_german_and_english_text_variants(handler
         ]
     )
 
-    result = await handler.get_rom_by_id(1091500)
+    result = await handler.get_rom_by_id(1091500, metadata_locale="de")
 
     assert result["name"] == "Cyberpunk 2077"
     assert result["summary"] == "Ein Open-World-Rollenspiel."
@@ -382,7 +386,7 @@ async def test_configured_supported_language_adds_one_same_app_text_variant(hand
         ("german", "french", "english"),
         create=True,
     ):
-        result = await handler.get_rom_by_id(1091500)
+        result = await handler.get_rom_by_id(1091500, metadata_locale="de")
 
     assert result["steam_metadata"]["text_variants"]["fr"] == {
         "source_language": "french",
@@ -429,7 +433,7 @@ async def test_invalid_localized_responses_do_not_discard_valid_text_variants(ha
         ("german", "english", "french", "spanish"),
         create=True,
     ):
-        result = await handler.get_rom_by_id(1091500)
+        result = await handler.get_rom_by_id(1091500, metadata_locale="de")
 
     assert result["name"] == " Cyberpunk 2077 "
     assert result["summary"] == " Ein Open-World-Rollenspiel. "
@@ -565,3 +569,80 @@ async def test_text_only_rejects_wrong_app_and_preserves_partial_slots(handler):
     )
     assert set(result["steam_metadata"]["text_variants"]) == {"en"}
     handler.steam_service.get_library_capsule_url.assert_not_awaited()
+
+
+async def test_text_only_uses_real_adapter_urls_and_counts_each_attempt(handler):
+    from urllib.parse import parse_qs, urlsplit
+
+    from adapters.services.steam import SteamService
+
+    observed = []
+
+    async def response(url, **kwargs):
+        parsed = urlsplit(url)
+        assert parsed.path == "/api/appdetails"
+        query = parse_qs(parsed.query)
+        observed.append(query)
+        language = query["l"][0]
+        payload = {
+            "1091500": {
+                "success": True,
+                "data": {
+                    "steam_appid": 1091500,
+                    "type": "game",
+                    "short_description": {
+                        "french": "Texte francais",
+                        "english": "English text",
+                    }[language],
+                },
+            }
+        }
+        result = MagicMock()
+        result.json = AsyncMock(return_value=payload)
+        return result
+
+    session = MagicMock(get=AsyncMock(side_effect=response))
+    handler.steam_service = SteamService(base_url="http://127.0.0.1:12345/api")
+    with (
+        patch("adapters.services.steam.ctx_aiohttp_session") as context,
+        patch("adapters.services.steam._rate_limiter.acquire", AsyncMock()),
+        patch("utils.scan_provider_observation.mark_provider_invoked") as invoked,
+    ):
+        context.get.return_value = session
+        result = await handler.get_rom_by_id(
+            1091500,
+            metadata_locale="fr",
+            descriptions_only=True,
+            text_languages=(),
+        )
+    assert observed == [
+        {"appids": ["1091500"], "cc": ["US"], "l": ["french"]},
+        {"appids": ["1091500"], "cc": ["US"], "l": ["english"]},
+    ]
+    assert invoked.call_count == 2
+    assert (
+        result["steam_metadata"]["text_variants"]["fr"]["summary"] == "Texte francais"
+    )
+
+
+async def test_text_only_timeout_reports_fault_without_artwork(handler):
+    from adapters.services.steam import SteamService
+    from utils.provider_diagnostics import bind_provider_diagnostics
+
+    faults: list[Exception] = []
+    handler.steam_service = SteamService(base_url="http://127.0.0.1:12345/api")
+    with (
+        patch("adapters.services.steam.ctx_aiohttp_session") as context,
+        patch("adapters.services.steam._rate_limiter.acquire", AsyncMock()),
+        patch("utils.scan_provider_observation.mark_provider_invoked") as invoked,
+        bind_provider_diagnostics(faults.append),
+    ):
+        context.get.return_value = MagicMock(get=AsyncMock(side_effect=TimeoutError()))
+        result = await handler.get_rom_by_id(
+            1091500,
+            descriptions_only=True,
+            text_languages=(),
+        )
+    assert result["steam_metadata"]["text_variants"] == {}
+    assert invoked.call_count == 3
+    assert len(faults) == 1 and isinstance(faults[0], TimeoutError)
