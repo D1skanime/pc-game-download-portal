@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Literal, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
@@ -395,6 +395,8 @@ class PcComponentManifestMemberSchema(BaseModel):
 
 class SteamTextVariantSchema(BaseModel):
     source_language: str
+    requested_language: str | None = None
+    language_evidence: Literal["provider_slot"] | None = None
     name: str | None = None
     summary: str | None = None
 

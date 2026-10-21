@@ -4,6 +4,8 @@
 /* eslint-disable */
 export type SteamTextVariantSchema = {
     source_language: string;
+    requested_language?: (string | null);
+    language_evidence?: (string | null);
     name?: (string | null);
     summary?: (string | null);
 };

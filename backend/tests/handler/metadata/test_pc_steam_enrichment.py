@@ -270,6 +270,7 @@ async def test_text_only_request_preserves_protected_fields_and_merges_slots():
     "values",
     [
         {"current": {}},
+        {"current": {"steam_id": 42}, "explicit_steam_id": 1091500},
         {"metadata_sources": ["igdb"]},
         {
             "current": {

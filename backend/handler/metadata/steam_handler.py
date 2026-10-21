@@ -154,10 +154,15 @@ class SteamHandler(MetadataHandler):
         configured = (
             STEAM_API_TEXT_LANGUAGES if text_languages is None else text_languages
         )
+        preferred_languages = (
+            (metadata_locale or "en",)
+            if not descriptions_only or text_languages is None
+            else ()
+        )
         text_languages = tuple(
             dict.fromkeys(
                 self._requested_language(value)
-                for value in (metadata_locale or "en", *islice(configured, 64), "en")
+                for value in (*preferred_languages, *islice(configured, 64), "en")
                 if normalize_language(value) is not None
             )
         )
@@ -171,9 +176,6 @@ class SteamHandler(MetadataHandler):
                 localized_details[language] = validated_details
         if descriptions_only:
             variants = self._text_variants(localized_details)
-            for variant in variants.values():
-                variant["requested_language"] = variant["source_language"]
-                variant["language_evidence"] = "provider_slot"
             return SteamRom(
                 steam_id=steam_id, steam_metadata={"text_variants": variants}
             )
@@ -238,7 +240,7 @@ class SteamHandler(MetadataHandler):
         details: SteamAppDetails | None, steam_id: int
     ) -> SteamAppDetails | None:
         if (
-            not details
+            not isinstance(details, dict)
             or details.get("type") not in {"game", "dlc"}
             or not isinstance(details.get("steam_appid"), int)
             or isinstance(details["steam_appid"], bool)
@@ -254,7 +256,11 @@ class SteamHandler(MetadataHandler):
         variants: dict[str, SteamTextVariant] = {}
         for language, details in localized_details.items():
             base_tag = STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG[language]
-            variant: SteamTextVariant = {"source_language": language}
+            variant: SteamTextVariant = {
+                "source_language": language,
+                "requested_language": language,
+                "language_evidence": "provider_slot",
+            }
             if isinstance(details.get("name"), str) and details["name"].strip():
                 variant["name"] = details["name"].strip()
             if (

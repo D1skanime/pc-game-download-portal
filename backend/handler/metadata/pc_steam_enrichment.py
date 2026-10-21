@@ -6,7 +6,13 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from config import STEAM_API_TEXT_LANGUAGES
 from handler.metadata import meta_steam_handler
+from handler.metadata.description_completeness import assess_description_completeness
+from handler.metadata.steam_descriptions import (
+    accepted_text_variants,
+    valid_steam_provenance,
+)
 from handler.metadata.steam_handler import STEAM_PLATFORMS
 from handler.metadata.steam_merge import normalize_steam
 
@@ -40,8 +46,37 @@ async def resolve_steam_pc_enrichment(
     if steam_id is None:
         steam_id = _positive_int(request.current.get("steam_id"))
 
+    missing_languages: tuple[str, ...] = ()
+    if request.descriptions_only:
+        if steam_id is None or (
+            request.current.get("steam_id") is not None
+            and request.current.get("steam_id") != steam_id
+        ):
+            return {}
+        configured = (
+            STEAM_API_TEXT_LANGUAGES
+            if request.text_languages is None
+            else request.text_languages
+        )
+        completeness = assess_description_completeness(
+            request.current,
+            configured,
+            request.metadata_locale,
+        )
+        if completeness.complete:
+            return {}
+        missing_languages = completeness.missing_locales
+
     try:
-        if steam_id is not None:
+        if request.descriptions_only and steam_id is not None:
+            result = await meta_steam_handler.get_rom_by_id(
+                steam_id,
+                request.platform_slug,
+                metadata_locale=request.metadata_locale,
+                descriptions_only=True,
+                text_languages=missing_languages,
+            )
+        elif steam_id is not None:
             if request.metadata_locale is None:
                 result = await meta_steam_handler.get_rom_by_id(
                     steam_id, request.platform_slug
@@ -73,6 +108,30 @@ async def resolve_steam_pc_enrichment(
     resolved_id = _positive_int(result.get("steam_id"))
     if resolved_id is None or (steam_id is not None and resolved_id != steam_id):
         return {}
+    if request.descriptions_only:
+        incoming = result.get("steam_metadata")
+        if not isinstance(incoming, Mapping) or not valid_steam_provenance(
+            incoming, resolved_id
+        ):
+            return {}
+        variants = accepted_text_variants(
+            incoming.get("text_variants"), app_id=resolved_id
+        )
+        if not variants:
+            return {}
+        normalized = normalize_steam(
+            {"steam_id": resolved_id, "steam_metadata": {"text_variants": variants}},
+            request.current,
+        )["steam_metadata"]
+        existing = request.current.get("steam_metadata")
+        return {
+            "steam_metadata": {
+                **(dict(existing) if isinstance(existing, Mapping) else {}),
+                "app_id": resolved_id,
+                "source": "storefront",
+                "text_variants": normalized["text_variants"],
+            }
+        }
     return normalize_steam(result, request.current)
 
 

@@ -81,16 +81,22 @@ async def test_requested_ui_locale_selects_mapped_steam_language_and_keeps_varia
     assert result["steam_metadata"]["text_variants"] == {
         "fr": {
             "source_language": "french",
+            "requested_language": "french",
+            "language_evidence": "provider_slot",
             "name": "Cyberpunk 2077",
             "summary": "Un jeu de rôle.",
         },
         "de": {
             "source_language": "german",
+            "requested_language": "german",
+            "language_evidence": "provider_slot",
             "name": "Cyberpunk 2077",
             "summary": "Ein Rollenspiel.",
         },
         "en": {
             "source_language": "english",
+            "requested_language": "english",
+            "language_evidence": "provider_slot",
             "name": "Cyberpunk 2077",
             "summary": "An RPG.",
         },
@@ -133,11 +139,15 @@ async def test_missing_requested_locale_records_selected_provider_language(handl
     assert result["steam_metadata"]["text_variants"] == {
         "de": {
             "source_language": "german",
+            "requested_language": "german",
+            "language_evidence": "provider_slot",
             "name": "Cyberpunk 2077",
             "summary": "Ein Rollenspiel.",
         },
         "en": {
             "source_language": "english",
+            "requested_language": "english",
+            "language_evidence": "provider_slot",
             "name": "Cyberpunk 2077",
             "summary": "An RPG.",
         },
@@ -202,8 +212,18 @@ async def test_store_details_keep_localized_genres_categories_and_dlc_ids(handle
         "language": "german",
         "fallback_language": "english",
         "text_variants": {
-            "de": {"source_language": "german", "name": "Cyberpunk 2077"},
-            "en": {"source_language": "english", "name": "Cyberpunk 2077"},
+            "de": {
+                "source_language": "german",
+                "requested_language": "german",
+                "language_evidence": "provider_slot",
+                "name": "Cyberpunk 2077",
+            },
+            "en": {
+                "source_language": "english",
+                "requested_language": "english",
+                "language_evidence": "provider_slot",
+                "name": "Cyberpunk 2077",
+            },
         },
         "type": "game",
         "genres": ["Rollenspiel"],
@@ -342,11 +362,15 @@ async def test_default_languages_retain_german_and_english_text_variants(handler
     assert result["steam_metadata"]["text_variants"] == {
         "de": {
             "source_language": "german",
+            "requested_language": "german",
+            "language_evidence": "provider_slot",
             "name": "Cyberpunk 2077",
             "summary": "Ein Open-World-Rollenspiel.",
         },
         "en": {
             "source_language": "english",
+            "requested_language": "english",
+            "language_evidence": "provider_slot",
             "name": "Cyberpunk 2077",
             "summary": "An open-world RPG.",
         },
@@ -390,6 +414,8 @@ async def test_configured_supported_language_adds_one_same_app_text_variant(hand
 
     assert result["steam_metadata"]["text_variants"]["fr"] == {
         "source_language": "french",
+        "requested_language": "french",
+        "language_evidence": "provider_slot",
         "name": "Cyberpunk 2077",
         "summary": "Un jeu de rôle en monde ouvert.",
     }
@@ -440,6 +466,8 @@ async def test_invalid_localized_responses_do_not_discard_valid_text_variants(ha
     assert result["steam_metadata"]["text_variants"] == {
         "de": {
             "source_language": "german",
+            "requested_language": "german",
+            "language_evidence": "provider_slot",
             "name": "Cyberpunk 2077",
             "summary": "Ein Open-World-Rollenspiel.",
         }
@@ -512,7 +540,7 @@ async def test_text_only_collects_bounded_requested_and_english_without_artwork(
         "win",
         metadata_locale="fr_FR",
         descriptions_only=True,
-        text_languages=("de", "en", "unsupported") * 100,
+        text_languages=("fr", "de", "en", "unsupported") * 100,
     )
     assert set(result) == {"steam_id", "steam_metadata"}
     assert set(result["steam_metadata"]) == {"text_variants"}
@@ -534,7 +562,6 @@ async def test_text_only_english_default_and_ambiguous_slot_are_honest(handler):
     result = await handler.get_rom_by_id(
         1091500,
         descriptions_only=True,
-        text_languages=("de",),
     )
     assert (
         handler.steam_service.get_app_details.await_args_list[0].kwargs["language"]
@@ -565,7 +592,7 @@ async def test_text_only_rejects_wrong_app_and_preserves_partial_slots(handler):
         1091500,
         metadata_locale="fr",
         descriptions_only=True,
-        text_languages=(),
+        text_languages=("fr",),
     )
     assert set(result["steam_metadata"]["text_variants"]) == {"en"}
     handler.steam_service.get_library_capsule_url.assert_not_awaited()
@@ -613,7 +640,7 @@ async def test_text_only_uses_real_adapter_urls_and_counts_each_attempt(handler)
             1091500,
             metadata_locale="fr",
             descriptions_only=True,
-            text_languages=(),
+            text_languages=("fr",),
         )
     assert observed == [
         {"appids": ["1091500"], "cc": ["US"], "l": ["french"]},
