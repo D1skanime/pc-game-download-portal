@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: ready
-stopped_at: Phase36 planned and verified; ready to execute12plans
-last_updated: "2026-10-21T11:30:17.625977+00:00"
+stopped_at: Phase36 updated after fresh research;17plans verified and ready to execute
+last_updated: "2026-10-21T12:21:12.073511+00:00"
 last_activity: 2026-10-21
 progress:
   total_phases: 36
   completed_phases: 24
-  total_plans: 282
+  total_plans: 287
   completed_plans: 239
   percent: 69
 ---
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase36 localized provider descriptions without legacy summary;12plans/25tasks/9waves approved, execution not started
+**Current focus:** Phase36 updated and verified;Steam/ScreenScraper preferred-language fetching, storage and manual matching;17plans/35tasks/9waves, execution not started
 
 ## Current Position
 
 Phase: 36 (localized-provider-descriptions-without-legacy-summary) - READY TO EXECUTE
-Plan: 0 of12 complete; first36-01 (Wave1)
-Status: Phase36 planned; independent checker passed with zero blockers/warnings
+Plan: 0 of17 complete; start assigned Wave1 plans
+Status: Revised17plans independently approved withzero blockers/warnings;11/11requirements anddecisions covered
 Last activity: 2026-10-21
 
 ## Shipping and Phase 35 handoff
@@ -595,3 +595,7 @@ User explicitly accepted Phase35 live UAT. All14 plans implemented,24/24 technic
 ## Phase35 main merge and Phase36 planning (2026-10-21)
 
 PR2 merged to main atb0d3f6ad61fdb5a502349fa449e5458e77de25d4 after28successfulCIchecks. CI integration corrections are test-onlyda8162861. Localcheckout fast-forwarded to exactmain tree while preservingdirtyCompose/media/prototypework; branchidentityunchanged perplan-phaseinvariant. Phase36 approvedscope+research,UIcontract,patternmap and12executableplans/25tasks/9waves are complete. Independentchecker passed revision1 withzeroblockers/warnings; all8DESCrequirements and8decisions covered, SDKgatepassedwithoutskip. SeePhase36/36-PLAN-CHECK.md and36-VALIDATION.md. Execution hasnotstarted. No runtime/deployment/sourcechange duringplanning. Ignoredphaseartifacts retainedlocally; noforce-add.
+
+## Phase36 provider/language/manual-matching planning update (2026-10-21)
+
+User requestedfreshresearch andconfirmedadministrativeUIlanguagealsogovernsAutoscan, withpreferredGerman/FrenchandEnglishfallback. Researchidentifiedseparatecurrentsourcesandmissingmanual/SSpropagation. RevisedUIcontractapproved and17plans/35tasks/9waves independentlypassedzero blockers/warnings; all11DESCrequirements andD01..11covered. Newplans13..17coverSSprovider,globallanguageauthority/immutablecapture,authorizedUI/configsync,backendmanualmatchingandfrontendmatchingcapture. RequestedproviderDE/FRprecedesmanualEnglishwithoutchangingstoredmanualtext. See36-PLAN-CHECK.md. Earlier12-planapprovalissupersededwhereaffected. Noimplementation/testexecution/runtime/deploymentchanges;source/media/dirtyComposepreserved.
