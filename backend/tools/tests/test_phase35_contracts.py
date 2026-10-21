@@ -72,7 +72,23 @@ class ContractGuards(unittest.TestCase):
         helper = self.helper()
         run = Mock()
         run.start.side_effect = RuntimeError("startup failed")
-        with patch.object(helper, "Run", return_value=run):
+        with (
+            patch.object(helper, "host_preflight"),
+            patch.object(helper, "generated_manifest", return_value={}),
+            patch.object(helper, "Run", return_value=run),
+        ):
             with self.assertRaisesRegex(RuntimeError, "startup failed"):
                 helper.generate("mariadb")
         run.close.assert_called_once_with()
+
+    def test_preflight_failure_does_not_create_runtime(self):
+        helper = self.helper()
+        with (
+            patch.object(
+                helper, "host_preflight", side_effect=RuntimeError("unsafe host")
+            ),
+            patch.object(helper, "Run") as runtime,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "unsafe host"):
+                helper.generate("mariadb")
+        runtime.assert_not_called()
