@@ -30,11 +30,21 @@ class RetryIdentity:
     query: str
     locale: str
     config_fingerprint: str
+    purpose: str = "unknown"
 
     def __post_init__(self):
         fields = self.fields()
         object.__setattr__(self, "query", fields["normalized_query"])
         object.__setattr__(self, "locale", fields["locale"])
+        if self.purpose not in {"unknown", "description"} or (
+            self.purpose == "description"
+            and re.fullmatch(
+                r"descriptions:v1:[1-9][0-9]*:(parent|component:[1-9][0-9]*)",
+                self.query,
+            )
+            is None
+        ):
+            raise ValueError("invalid_inventory_retry_purpose")
 
     def fields(self) -> dict[str, Any]:
         return _retry_fields(
@@ -48,17 +58,6 @@ class RetryIdentity:
     @property
     def key(self) -> str:
         return _digest(self.fields())
-
-    @property
-    def purpose(self) -> str:
-        return (
-            "description"
-            if re.fullmatch(
-                r"descriptions:v1:[1-9][0-9]*:(parent|component:[1-9][0-9]*)",
-                self.query,
-            )
-            else "unknown"
-        )
 
     @property
     def game_key(self) -> str:

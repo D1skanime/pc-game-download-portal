@@ -161,6 +161,12 @@ class RetryCoordinator:
         mapping = MappingReadContext(
             binding.mapping_id, binding.mapping_revision
         ).validate()
+        if purpose == "description":
+            from handler.metadata.steam_handler import STEAM_PLATFORMS
+            from handler.scan_description_retry import description_binding_current
+
+            if rom.platform_slug not in STEAM_PLATFORMS:
+                return description_binding_current(binding)
         handler = FSRomsHandler.for_mapping(mapping, binding.game_relative_path)
         current = await handler.get_pc_inventory(rom)
         baseline = load_baseline(binding, current)
@@ -174,6 +180,11 @@ class RetryCoordinator:
 
         self.selection = select_retries(self.candidates)
         await emit_retry_status(self)
+        descriptions = [
+            item
+            for item in self.selection
+            if item.assessment.eligible and item.identity.purpose == "description"
+        ]
         selected: dict[str, list[str]] = {}
         for item in self.selection:
             if item.assessment.eligible and item.identity.purpose == "unknown":
@@ -228,6 +239,14 @@ class RetryCoordinator:
                     playmatch_enabled=self.policy.get("playmatch_enabled", True),
                 )
             await emit_retry_status(self, game=game)
+
+        from handler.scan_description_retry import dispatch_description
+
+        for item in descriptions:
+            work = self.work[item.identity.game_key]
+            if await self.revalidate(work, purpose="description"):
+                await dispatch_description(self, work, item.identity)
+                await emit_retry_status(self, game=item.identity.game_key)
 
     def observe(self, provider, rom, observation, cause):
         if (

@@ -3,6 +3,7 @@
 from dataclasses import replace
 from datetime import datetime
 
+import pytest
 from tests.handler.test_windows_quick_execution import binding
 
 from handler.scan_metadata_retry_policy import (
@@ -21,6 +22,7 @@ def identity(index=0, query="descriptions:v1:10:parent"):
         query,
         "de-DE",
         "f" * 64,
+        purpose="description" if query.startswith("descriptions:") else "unknown",
     )
 
 
@@ -30,7 +32,7 @@ def test_missing_known_id_description_is_due_without_baseline_delay():
         current, None, baseline_adopted_at=None, clock=lambda: datetime(2026, 10, 21)
     )
     assert advice.eligible and advice.reason == "due"
-    unknown = replace(current, query="Game")
+    unknown = replace(current, query="Game", purpose="unknown")
     assert not assess_retry(
         unknown, None, baseline_adopted_at=None, clock=lambda: datetime(2026, 10, 21)
     ).eligible
@@ -104,7 +106,9 @@ def setup_retry(monkeypatch, sources=("steam", "ss"), policy=None):
         clock=lambda: datetime(2026, 10, 21),
     )
     monkeypatch.setattr(execution, "configured_sources", lambda policy: list(sources))
-    monkeypatch.setattr(descriptions, "load_retry_states", lambda binding: [])
+    monkeypatch.setattr(
+        descriptions, "get_description_retry_state", lambda identity: None
+    )
     quick = SimpleNamespace(binding=binding())
     rom = SimpleNamespace(
         id=binding().rom_id,
@@ -160,7 +164,16 @@ def test_eight_target_cap_parent_first_and_fair_progress(monkeypatch):
                 config_blocked=False,
             )
         )
-    monkeypatch.setattr(descriptions, "load_retry_states", lambda binding: records)
+
+    def restored(identity):
+        from handler.scan_metadata_retry_policy import RetryState
+
+        row = next(
+            (row for row in records if row.identity_digest == identity.key), None
+        )
+        return RetryState.from_record(identity, row) if row else None
+
+    monkeypatch.setattr(descriptions, "get_description_retry_state", restored)
     retry.candidates.clear()
     retry.description_targets.clear()
     retry.consider_descriptions(quick, rom, None, targets=offered)
@@ -259,3 +272,71 @@ def test_partial_matching_id_cannot_clear_cooldown_and_cache_clocks_remain_truth
     noop = description_outcome(item, None, facts, complete=False, clock=lambda: now)
     assert noop.last_request_at is None and noop.last_invoked_at is None
     assert noop.next_eligible_at > now
+    expired = replace(result, next_eligible_at=datetime(2026, 10, 1))
+    deferred = description_outcome(
+        item, expired, facts, complete=False, clock=lambda: now
+    )
+    assert deferred.next_eligible_at > now
+    assert deferred.no_match_streak == expired.no_match_streak
+
+
+@pytest.mark.asyncio
+async def test_mixed_purposes_select_once_and_dispatch_five_games(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from handler import scan_description_retry as descriptions
+    from handler import scan_retry_execution as execution
+    from handler.scan_command import MappedScanCommand, ScanScope, ScanTrigger
+    from handler.scan_inventory_contracts import InventoryEvidence, QuickScanDecision
+    from handler.windows_quick_execution import WindowsQuickContext
+
+    retry, _, rom = setup_retry(monkeypatch, sources=("steam",))
+    monkeypatch.setattr(execution, "load_retry_states", lambda binding: [])
+    monkeypatch.setattr(
+        execution, "baseline_completed_at", lambda binding: datetime(2026, 10, 1)
+    )
+    monkeypatch.setattr(execution, "check_worker_boundary", lambda: None)
+    repair = AsyncMock()
+    monkeypatch.setattr(descriptions, "dispatch_description", repair)
+    retry.revalidate = AsyncMock(return_value=True)
+    for index in range(6):
+        current = replace(binding(), rom_id=index + 1, mapping_id=index + 1)
+        quick = WindowsQuickContext(
+            current,
+            InventoryEvidence("c" * 64, 2, True),
+            QuickScanDecision.METADATA_ONLY,
+        )
+        command = MappedScanCommand(
+            current.mapping_id, 1, ScanTrigger.MANUAL, ScanScope.PLATFORM, "quick"
+        )
+        rom.id = current.rom_id
+        retry.consider(quick, rom, command)
+        retry.consider_descriptions(quick, rom, command, targets=[target()])
+    dispatch = AsyncMock()
+    await retry.run(dispatch)
+    assert dispatch.await_count == repair.await_count == 5
+    assert (
+        len(
+            {
+                item.identity.game_key
+                for item in retry.selection
+                if item.assessment.eligible
+            }
+        )
+        == 5
+    )
+
+
+def test_unknown_filename_cannot_claim_description_purpose():
+    original = identity()
+    unknown = RetryIdentity(
+        original.binding,
+        original.provider,
+        "descriptions:v1:10:parent",
+        original.locale,
+        original.config_fingerprint,
+    )
+    assert unknown.purpose == "unknown"
+    assert not assess_retry(
+        unknown, None, baseline_adopted_at=None, clock=lambda: datetime(2026, 10, 21)
+    ).eligible

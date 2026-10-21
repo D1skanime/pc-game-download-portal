@@ -2661,6 +2661,12 @@ class DBRomsHandler(DBBaseHandler):
         return component
 
     @begin_session
+    def apply_description_patch(self, *, session=None, **patch):
+        from handler.database.description_state import apply_description_patch
+
+        return apply_description_patch(session=session, **patch)
+
+    @begin_session
     def apply_pc_metadata_candidate(
         self,
         id: int,
