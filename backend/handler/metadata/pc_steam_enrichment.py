@@ -22,6 +22,8 @@ class SteamPcEnrichmentRequest:
     metadata_sources: Collection[str]
     explicit_steam_id: int | None = None
     metadata_locale: str | None = None
+    descriptions_only: bool = False
+    text_languages: tuple[str, ...] | None = None
 
 
 async def resolve_steam_pc_enrichment(
