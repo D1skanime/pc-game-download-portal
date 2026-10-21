@@ -65,7 +65,7 @@ def test_count_bound():
 
 
 def test_partial_merge():
-    current = {
+    current: dict = {
         "text_variants": {
             "de": {"source_language": "de", "summary": "Old"},
             "en": {"source_language": "en", "summary": "English"},
