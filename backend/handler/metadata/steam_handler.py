@@ -138,6 +138,9 @@ class SteamHandler(MetadataHandler):
         steam_id: int,
         platform_slug: str | None = None,
         metadata_locale: str | None = None,
+        *,
+        descriptions_only: bool = False,
+        text_languages: tuple[str, ...] | None = None,
     ) -> SteamRom:
         if not self.is_enabled():
             return SteamRom(steam_id=None)

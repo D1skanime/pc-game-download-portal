@@ -485,3 +485,83 @@ async def test_name_search_hydrates_candidates_with_review_media(handler):
         456,
         123,
     ]
+
+
+async def test_text_only_collects_bounded_requested_and_english_without_artwork(
+    handler,
+):
+    handler.steam_service.get_app_details = AsyncMock(
+        side_effect=lambda app_id, **kwargs: {
+            "steam_appid": app_id,
+            "type": "game",
+            "name": "Title",
+            "short_description": {
+                "french": "Description francaise.",
+                "german": "Deutsche Beschreibung.",
+                "english": "English description.",
+            }[kwargs["language"]],
+        }
+    )
+    handler.steam_service.search_apps = AsyncMock()
+    result = await handler.get_rom_by_id(
+        1091500,
+        "win",
+        metadata_locale="fr_FR",
+        descriptions_only=True,
+        text_languages=("de", "en", "unsupported") * 100,
+    )
+    assert set(result) == {"steam_id", "steam_metadata"}
+    assert set(result["steam_metadata"]) == {"text_variants"}
+    variants = result["steam_metadata"]["text_variants"]
+    assert set(variants) == {"fr", "de", "en"}
+    assert variants["fr"]["summary"] == "Description francaise."
+    assert variants["en"]["summary"] == "English description."
+    assert all(v["language_evidence"] == "provider_slot" for v in variants.values())
+    assert variants["fr"]["requested_language"] == "french"
+    calls = handler.steam_service.get_app_details.await_args_list
+    assert [c.kwargs["language"] for c in calls] == ["french", "german", "english"]
+    assert [c.kwargs["country"] for c in calls] == ["US", "CH", "US"]
+    handler.steam_service.get_library_capsule_url.assert_not_awaited()
+    handler.steam_service.search_apps.assert_not_awaited()
+
+
+async def test_text_only_english_default_and_ambiguous_slot_are_honest(handler):
+    handler.steam_service.get_app_details = AsyncMock(return_value=ENGLISH_FULL)
+    result = await handler.get_rom_by_id(
+        1091500,
+        descriptions_only=True,
+        text_languages=("de",),
+    )
+    assert (
+        handler.steam_service.get_app_details.await_args_list[0].kwargs["language"]
+        == "english"
+    )
+    variants = result["steam_metadata"]["text_variants"]
+    assert variants["en"]["summary"] == ENGLISH_FULL["short_description"]
+    assert "summary" not in variants.get("de", {})
+    handler.steam_service.get_library_capsule_url.assert_not_awaited()
+
+
+@pytest.mark.parametrize("app_id", [True, 0, -1, "1091500"])
+async def test_text_only_rejects_invalid_identity_before_transport(handler, app_id):
+    result = await handler.get_rom_by_id(app_id, descriptions_only=True)
+    assert result == {"steam_id": None}
+    handler.steam_service.get_app_details.assert_not_awaited()
+    handler.steam_service.get_library_capsule_url.assert_not_awaited()
+
+
+async def test_text_only_rejects_wrong_app_and_preserves_partial_slots(handler):
+    handler.steam_service.get_app_details = AsyncMock(
+        side_effect=[
+            {**ENGLISH_FULL, "steam_appid": 42},
+            ENGLISH_FULL,
+        ]
+    )
+    result = await handler.get_rom_by_id(
+        1091500,
+        metadata_locale="fr",
+        descriptions_only=True,
+        text_languages=(),
+    )
+    assert set(result["steam_metadata"]["text_variants"]) == {"en"}
+    handler.steam_service.get_library_capsule_url.assert_not_awaited()
