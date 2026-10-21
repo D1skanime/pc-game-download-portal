@@ -1705,3 +1705,183 @@ class TestSonySerialFilenames:
         mock_hget.assert_awaited_once_with(PS1_SERIAL_INDEX_KEY, "SCUS-94163")
         assert result.get("name") == "Gran Turismo"
         assert result["ss_id"] is None
+
+
+class TestCapturedDescriptions:
+    @staticmethod
+    def game():
+        return {
+            "id": "42",
+            "noms": [{"region": "ss", "text": "Game"}],
+            "synopsis": [
+                {"langue": "de", "text": "Deutsch"},
+                {"langue": "fr", "text": "French &amp; more"},
+                {"langue": "en", "text": "English"},
+            ],
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "locale,summary",
+        [("de-DE", "Deutsch"), ("fr-CH", "French & more"), (None, "English")],
+    )
+    async def test_actual_service_info_and_search(self, locale, summary):
+        handler = SSHandler()
+        rom = MagicMock(
+            regions=[],
+            ss_id=42,
+            ss_metadata={},
+            manual_metadata={"descriptions": {"en": "Manual"}},
+        )
+        wire = AsyncMock(
+            side_effect=[
+                {"response": {"jeu": self.game()}},
+                {"response": {"jeux": [self.game()]}},
+            ]
+        )
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(handler.ss_service, "_request", wire),
+            patch.object(
+                ss_handler.cm,
+                "get_config",
+                return_value=_make_config(language_priority=["de", "en"]),
+            ),
+        ):
+            fetched = await handler.get_rom_by_id(rom, 42, metadata_locale=locale)
+            searched = await handler.get_matched_roms_by_name(
+                rom, "Game", 3, metadata_locale=locale
+            )
+        assert fetched["summary"] == summary
+        assert searched[0]["summary"] == summary
+        assert set(fetched["ss_metadata"]["text_variants"]) == {"de", "fr", "en"}
+        assert fetched["ss_metadata"]["text_variants"]["fr"]["source_language"] == "fr"
+        assert rom.manual_metadata == {"descriptions": {"en": "Manual"}}
+        assert wire.await_count == 2
+        urls = [urlparse(call.args[0]) for call in wire.await_args_list]
+        assert urls[0].path.endswith("/jeuInfos.php")
+        assert parse_qs(urls[0].query) == {"gameid": ["42"]}
+        assert urls[1].path.endswith("/jeuRecherche.php")
+        assert parse_qs(urls[1].query) == {"recherche": ["Game"], "systemeid": ["3"]}
+
+    @pytest.mark.asyncio
+    async def test_text_only_patch_preserves_slots_without_media_or_files(self):
+        handler = SSHandler()
+        rom = MagicMock(
+            ss_id=42,
+            ss_metadata={
+                "text_variants": {
+                    "de": {"source_language": "de", "summary": "Old German"}
+                },
+                "box2d_url": "stored",
+            },
+            manual_metadata={"descriptions": {"en": "Manual"}},
+        )
+        game = self.game()
+        game["synopsis"] = [
+            {"langue": "fr", "text": "French"},
+            {"langue": "de", "text": ""},
+        ]
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service,
+                "_request",
+                AsyncMock(return_value={"response": {"jeu": game}}),
+            ) as wire,
+            patch.object(
+                ss_handler,
+                "extract_media_from_ss_game",
+                side_effect=AssertionError("media"),
+            ),
+            patch.object(
+                ss_handler,
+                "get_preferred_media_types",
+                side_effect=AssertionError("media config"),
+            ),
+        ):
+            result = await handler.get_rom_by_id(
+                rom, 42, metadata_locale="fr", descriptions_only=True
+            )
+        assert set(result) == {"ss_metadata"}
+        assert set(result["ss_metadata"]) == {"text_variants"}
+        assert result["ss_metadata"]["text_variants"] == {
+            "de": {"source_language": "de", "summary": "Old German"},
+            "fr": {"source_language": "fr", "summary": "French"},
+        }
+        assert rom.ss_metadata["box2d_url"] == "stored"
+        assert rom.manual_metadata["descriptions"]["en"] == "Manual"
+        assert wire.await_count == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("bad_id", [None, True, 0, -1, "42"])
+    async def test_invalid_id_never_fetches(self, bad_id):
+        handler = SSHandler()
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service, "get_game_info", AsyncMock(return_value=None)
+            ) as fetch,
+        ):
+            assert not await handler.get_rom_by_id(
+                MagicMock(), bad_id, descriptions_only=True
+            )
+        fetch.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            None,
+            {},
+            {"id": "43"},
+            {"id": True},
+            {"id": "bad"},
+            {"id": "42", "synopsis": None},
+        ],
+    )
+    async def test_bad_payload_gives_no_text_patch(self, payload):
+        handler = SSHandler()
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service, "get_game_info", AsyncMock(return_value=payload)
+            ),
+        ):
+            assert not await handler.get_rom_by_id(
+                MagicMock(ss_id=42), 42, descriptions_only=True
+            )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "error",
+        [TimeoutError(), HTTPException(status_code=503), ScreenScraperRateLimitError()],
+    )
+    async def test_text_only_failure_keeps_old_data(self, error):
+        handler = SSHandler()
+        rom = MagicMock(
+            ss_id=42,
+            ss_metadata={
+                "text_variants": {"en": {"source_language": "en", "summary": "Old"}}
+            },
+        )
+        with (
+            patch.object(handler, "is_enabled", return_value=True),
+            patch.object(
+                handler.ss_service, "get_game_info", AsyncMock(side_effect=error)
+            ),
+        ):
+            assert not await handler.get_rom_by_id(rom, 42, descriptions_only=True)
+        assert rom.ss_metadata["text_variants"]["en"]["summary"] == "Old"
+
+    @pytest.mark.asyncio
+    async def test_disabled_text_only_never_fetches(self):
+        handler = SSHandler()
+        with (
+            patch.object(handler, "is_enabled", return_value=False),
+            patch.object(handler.ss_service, "get_game_info", AsyncMock()) as fetch,
+        ):
+            assert not await handler.get_rom_by_id(
+                MagicMock(), 42, descriptions_only=True
+            )
+        fetch.assert_not_awaited()

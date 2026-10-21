@@ -656,7 +656,13 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
     )
 
 
-def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
+def build_ss_game(
+    rom: Rom,
+    game: SSGame,
+    *,
+    metadata_locale: str | None = None,
+    descriptions_only: bool = False,
+) -> SSRom:
     ss_metadata = extract_metadata_from_ss_rom(rom, game)
     preferred_media_types = get_preferred_media_types()
 
@@ -1000,7 +1006,14 @@ class SSHandler(MetadataHandler):
 
         return build_ss_game(rom, res)
 
-    async def get_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom:
+    async def get_rom_by_id(
+        self,
+        rom: Rom,
+        ss_id: int,
+        *,
+        metadata_locale: str | None = None,
+        descriptions_only: bool = False,
+    ) -> SSRom:
         if not self.is_enabled():
             return SSRom(ss_id=None)
 
@@ -1024,7 +1037,13 @@ class SSHandler(MetadataHandler):
         return game_rom if game_rom.get("ss_id", "") else None
 
     async def get_matched_roms_by_name(
-        self, rom: Rom, search_term: str, platform_ss_id: int | None
+        self,
+        rom: Rom,
+        search_term: str,
+        platform_ss_id: int | None,
+        *,
+        metadata_locale: str | None = None,
+        descriptions_only: bool = False,
     ) -> list[SSRom]:
         if not self.is_enabled():
             return []
