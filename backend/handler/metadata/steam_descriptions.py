@@ -48,7 +48,7 @@ def accepted_text_variants(
         language = TEXT_VARIANT_LANGUAGE_BY_TAG.get(tag)
         if (
             language is None
-            or entry.get("source_language") != language
+            or bounded_text(entry.get("source_language"), 32) != language
             or not valid_steam_provenance(entry, app_id)
             or (
                 "requested_language" in entry

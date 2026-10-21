@@ -158,3 +158,40 @@ def test_provider_requested_text_is_complete_without_changing_manual_english():
     before = deepcopy(current)
     assert assess_description_completeness(current, (), "fr").complete
     assert current == before
+
+
+@pytest.mark.parametrize(
+    "stored,requested,missing",
+    [
+        ("fr-FR", "fr-FR", ()),
+        ("fr-FR", "fr-CA", ("fr",)),
+        ("fr", "fr-FR", ()),
+    ],
+)
+def test_screenscraper_exact_or_base_locale_matches_without_regional_leak(
+    stored, requested, missing
+):
+    current = {
+        "ss_id": 38,
+        "manual_metadata": {"descriptions": {"en": "Manual"}},
+        "ss_metadata": {
+            "text_variants": {
+                stored: slot(stored, "Francais"),
+            }
+        },
+    }
+    assert (
+        assess_description_completeness(
+            current, (), requested, provider="ss"
+        ).missing_locales
+        == missing
+    )
+
+
+def test_historical_source_language_whitespace_remains_accepted():
+    assert (
+        accepted_text_variants(
+            {"de": slot(" german ", "Deutsch")}, app_id=38, historical=True
+        )["de"]["summary"]
+        == "Deutsch"
+    )

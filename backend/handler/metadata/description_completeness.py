@@ -76,16 +76,25 @@ def _provider_locales(current: Mapping, provider: str) -> set[str]:
         ss_variants = _mapping(
             _mapping(current.get("ss_metadata")).get("text_variants")
         )
-        return {
-            locale
-            for locale, entry in ss_variants.items()
-            if isinstance(locale, str)
-            and description_locale(locale) == locale
-            and isinstance(entry, Mapping)
-            and entry.get("source_language") == locale
-            and bounded_text(entry.get("summary"), TEXT_VARIANT_SUMMARY_MAX_LENGTH)
-            is not None
-        }
+        available = set()
+        for locale, entry in ss_variants.items():
+            if (
+                not isinstance(entry, Mapping)
+                or bounded_text(entry.get("summary"), TEXT_VARIANT_SUMMARY_MAX_LENGTH)
+                is None
+            ):
+                continue
+            source_language = entry.get("source_language")
+            if not isinstance(source_language, str):
+                continue
+            try:
+                normalized = normalize_locale(locale)
+                source = normalize_locale(source_language)
+            except ValueError:
+                continue
+            if description_locale(normalized) and source == normalized:
+                available.add(normalized)
+        return available
     return set()
 
 
@@ -120,7 +129,7 @@ def assess_description_completeness(
         for locale in required
         if locale not in available
         and locale not in manual
-        and not (locale == requested and exact in manual)
-        and not (locale == "en" and manual & {"en-US", "en-GB"})
+        and not (locale == requested and exact in (manual | available))
+        and not (locale == "en" and (manual | available) & {"en-US", "en-GB"})
     )
     return DescriptionCompleteness(required, missing)
