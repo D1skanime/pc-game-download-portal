@@ -89,7 +89,12 @@ describe("matching locale transport", () => {
 
   it("keeps console concurrency in query and never synthesizes manual text", async () => {
     await romApi.updateRom({
-      rom: { id: 41, ss_id: 33, summary: null } as UpdateRom,
+      rom: {
+        id: 41,
+        ss_id: 33,
+        summary: null,
+        manual_metadata: null,
+      } as UpdateRom,
       metadataLocale: "fr",
       expectedVersion: version,
     });

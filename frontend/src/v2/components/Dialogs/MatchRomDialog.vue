@@ -31,6 +31,8 @@ import type {
   PcMatchTarget,
 } from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { resolveDescription } from "@/v2/composables/useManualDescription";
+import { useMetadataMatchLanguage } from "@/v2/composables/useMetadataMatchLanguage";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import romApi, {
   type PcMatcherCandidate,
@@ -59,7 +61,10 @@ type SourceFilter = {
   active: boolean;
 };
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const matchLanguage = useMetadataMatchLanguage();
+const candidateQuery = ref("");
+const consoleExpectedVersion = ref<string>();
 const { lgAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
@@ -208,6 +213,9 @@ const filteredMatchedRoms = computed(() =>
 );
 
 const openHandler = (romToSearch: SimpleRom) => {
+  matchLanguage.reset();
+  searching.value = false;
+  matching.value = false;
   pcTarget.value = null;
   pcRefresh.value = null;
   pcExpectedVersion.value = null;
@@ -222,6 +230,9 @@ const openHandler = (romToSearch: SimpleRom) => {
 };
 emitter?.on("showMatchRomDialog", openHandler);
 const openPcHandler = ({ target, refresh }: Events["showPcMatchRomDialog"]) => {
+  matchLanguage.reset();
+  searching.value = false;
+  matching.value = false;
   pcTarget.value = target;
   pcRefresh.value = refresh;
   pcExpectedVersion.value = null;
@@ -234,12 +245,19 @@ const openPcHandler = ({ target, refresh }: Events["showPcMatchRomDialog"]) => {
 };
 emitter?.on("showPcMatchRomDialog", openPcHandler);
 onBeforeUnmount(() => {
+  matchLanguage.reset();
   emitter?.off("showMatchRomDialog", openHandler);
   emitter?.off("showPcMatchRomDialog", openPcHandler);
 });
 
 async function searchRom() {
-  if ((!rom.value && !pcTarget.value) || searching.value) return;
+  if ((!rom.value && !pcTarget.value) || matching.value) return;
+  const capture = matchLanguage.begin(locale.value);
+  const metadataLocale = capture.metadataLocale;
+  const query = searchText.value;
+  const expectedVersion = rom.value?.updated_at;
+  matchedRoms.value = [];
+  pcCandidates.value = new Map();
 
   const inputElement = document.getElementById("r-v2-match-search");
   inputElement?.blur();
@@ -252,12 +270,16 @@ async function searchRom() {
           ? await romApi.searchPcComponentMetadataCandidates({
               romId: pcTarget.value.romId,
               componentId: pcTarget.value.componentId,
-              query: searchText.value,
+              query,
+              metadataLocale,
             })
           : await romApi.searchPcMetadataCandidates({
               romId: pcTarget.value.romId,
-              query: searchText.value,
+              query,
+              metadataLocale,
             });
+      if (!matchLanguage.accept(capture)) return;
+      candidateQuery.value = query;
       pcExpectedVersion.value = result.expectedVersion;
       pcCandidates.value = new Map(
         result.candidates.map((candidate, index) => [index + 1, candidate]),
@@ -266,7 +288,13 @@ async function searchRom() {
         id: index + 1,
         platform_id: 0,
         name: candidate.title,
-        summary: candidate.description_available ? candidate.title : undefined,
+        steam_metadata: candidate.steam_metadata,
+        summary:
+          resolveDescription({
+            steamMetadata: candidate.steam_metadata,
+            provider: candidate.provider === "steam" ? "steam" : null,
+            locale: metadataLocale,
+          }).text ?? undefined,
         is_unidentified: false,
         is_identified: true,
         ...(candidate.provider === "igdb" ? { igdb_id: index + 1 } : {}),
@@ -291,22 +319,44 @@ async function searchRom() {
         romId: rom.value.id,
         searchTerm: searchText.value,
         searchBy: searchBy.value,
+        metadataLocale,
       });
-      matchedRoms.value = response.data;
+      if (!matchLanguage.accept(capture)) return;
+      candidateQuery.value = query;
+      consoleExpectedVersion.value = expectedVersion;
+      matchedRoms.value = response.data.map((candidate) => ({
+        ...candidate,
+        summary:
+          candidate.ss_id || candidate.steam_id
+            ? (resolveDescription({
+                steamMetadata: candidate.steam_metadata,
+                ssMetadata: candidate.ss_metadata,
+                provider: candidate.ss_id ? "screenscraper" : "steam",
+                locale: metadataLocale,
+              }).text ?? undefined)
+            : candidate.summary,
+      }));
     }
   } catch (error: unknown) {
+    if (!matchLanguage.isCurrent(capture)) return;
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(axiosErr.response?.data?.detail ?? t("rom.search-failed"), {
       icon: "mdi-close-circle",
     });
   } finally {
-    searching.value = false;
-    searched.value = true;
+    if (matchLanguage.isCurrent(capture)) {
+      searching.value = false;
+      searched.value = true;
+    }
   }
 }
 
 async function onBodyConfirm(payload: ConfirmPayload) {
   if ((!rom.value && !pcTarget.value) || matching.value) return;
+  const capture = matchLanguage.accepted.value;
+  if (!capture || !matchedRoms.value.includes(payload.matchedRom)) return;
+  const metadataLocale = capture.metadataLocale;
+  const refresh = pcRefresh.value;
   matching.value = true;
 
   if (pcTarget.value) {
@@ -333,7 +383,8 @@ async function onBodyConfirm(payload: ConfirmPayload) {
       const selection = {
         candidate_id: candidate.id,
         expected_version: expectedVersion,
-        query: searchText.value,
+        query: candidateQuery.value,
+        metadata_locale: metadataLocale,
         selected_media_ids: selectedMedia,
       };
       if (pcTarget.value.kind === "component") {
@@ -349,6 +400,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
         });
       }
     } catch (error: unknown) {
+      if (!matchLanguage.isCurrent(capture)) return;
       const axiosErr = error as { response?: { data?: { detail?: string } } };
       snackbar.error(
         axiosErr.response?.data?.detail ?? t("rom.update-failed"),
@@ -358,15 +410,16 @@ async function onBodyConfirm(payload: ConfirmPayload) {
       );
       return;
     } finally {
-      matching.value = false;
+      if (matchLanguage.isCurrent(capture)) matching.value = false;
     }
 
+    if (!matchLanguage.isCurrent(capture)) return;
     snackbar.success(t("rom.rom-updated-successfully"), {
       icon: "mdi-check-bold",
     });
     closeDialog();
     try {
-      await pcRefresh.value?.();
+      await refresh?.();
     } catch (refreshError: unknown) {
       console.error("PC match refresh failed", refreshError);
     }
@@ -381,6 +434,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
   const { matchedRom, cover } = payload;
   const updatedRom = {
     ...targetRom,
+    manual_metadata: null,
     igdb_id: matchedRom.igdb_id || null,
     steam_id: matchedRom.steam_id || null,
     ss_id: matchedRom.ss_id || null,
@@ -390,7 +444,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     libretro_id: matchedRom.libretro_id || null,
     name: matchedRom.name || null,
     slug: matchedRom.slug || null,
-    summary: matchedRom.summary || null,
+    summary: targetRom.summary,
     url_cover:
       cover?.url_cover ||
       matchedRom.igdb_url_cover ||
@@ -410,7 +464,12 @@ async function onBodyConfirm(payload: ConfirmPayload) {
   }
 
   try {
-    const { data } = await romApi.updateRom({ rom: updatedRom });
+    const { data } = await romApi.updateRom({
+      rom: updatedRom,
+      metadataLocale,
+      expectedVersion: consoleExpectedVersion.value,
+    });
+    if (!matchLanguage.isCurrent(capture)) return;
     snackbar.success(t("rom.rom-updated-successfully"), {
       icon: "mdi-check-bold",
     });
@@ -418,16 +477,19 @@ async function onBodyConfirm(payload: ConfirmPayload) {
     if (route.name === "rom") romsStore.currentRom = data;
     closeDialog();
   } catch (error: unknown) {
+    if (!matchLanguage.isCurrent(capture)) return;
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(axiosErr.response?.data?.detail ?? t("rom.update-failed"), {
       icon: "mdi-close-circle",
     });
   } finally {
-    matching.value = false;
+    if (matchLanguage.isCurrent(capture)) matching.value = false;
   }
 }
 
 function closeDialog() {
+  matchLanguage.reset();
+  matching.value = false;
   show.value = false;
   searching.value = false;
   searched.value = false;
