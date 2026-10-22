@@ -1,13 +1,14 @@
 from handler.metadata.sgdb_handler import SGDBResource
 
 from .base import BaseModel
-from .rom import RomSSMetadata
+from .rom import RomSSMetadata, SteamMetadataSchema
 
 
 class SearchRomSchema(BaseModel):
     id: int | None = None
     igdb_id: int | None = None
     steam_id: int | None = None
+    steam_metadata: SteamMetadataSchema | None = None
     moby_id: int | None = None
     ss_id: int | None = None
     ss_metadata: RomSSMetadata | None = None

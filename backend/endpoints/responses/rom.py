@@ -99,6 +99,7 @@ class PcMetadataCandidateSchema(BaseModel):
     title: str
     provider_ids: dict[str, int | str]
     description_available: bool
+    steam_metadata: SteamMetadataSchema | None = None
     media: list[PcMetadataMediaSchema]
 
 
@@ -131,6 +132,7 @@ class ManualDescriptionResponse(BaseModel):
 class PcMetadataSelectionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    metadata_locale: str | None = Field(default=None, max_length=32)
     candidate_id: str = Field(min_length=1)
     query: str = Field(min_length=1, max_length=200)
     selected_media_ids: list[str] = Field(default_factory=list, max_length=20)

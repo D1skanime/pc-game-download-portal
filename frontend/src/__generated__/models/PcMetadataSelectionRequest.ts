@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type PcMetadataSelectionRequest = {
+    metadata_locale?: (string | null);
     candidate_id: string;
     query: string;
     selected_media_ids?: Array<string>;

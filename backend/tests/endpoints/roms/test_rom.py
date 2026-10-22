@@ -2388,3 +2388,65 @@ def test_interactive_description_writer_guards_current_snapshot(rom, mutation):
     else:
         assert db_rom_handler.apply_interactive_description_patch(**patch) is None
     assert not db_rom_handler.get_rom(rom.id).ss_metadata.get("text_variants")
+
+
+def test_full_ss_confirmation_recollects_trusted_text(
+    client, access_token, rom, monkeypatch
+):
+    from handler.metadata import meta_ss_handler
+
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "ss_id": 33333,
+            "manual_metadata": {"descriptions": {"en": "Manual English"}},
+            "ss_metadata": {"custom": "retained"},
+        },
+    )
+    current = db_rom_handler.get_rom(rom.id)
+    monkeypatch.setattr(type(meta_ss_handler), "is_enabled", lambda self: True)
+    transport = AsyncMock(
+        return_value={
+            "id": "33333",
+            "synopsis": [
+                {"langue": "de", "text": "Trusted German"},
+                {"langue": "en", "text": "Provider English"},
+            ],
+        }
+    )
+    monkeypatch.setattr(meta_ss_handler.ss_service, "get_game_info", transport)
+    monkeypatch.setattr(
+        roms_endpoint.fs_resource_handler, "get_cover", AsyncMock(return_value=("", ""))
+    )
+    monkeypatch.setattr(
+        roms_endpoint.fs_resource_handler, "get_manual", AsyncMock(return_value="")
+    )
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "metadata_locale": "de-DE",
+            "expected_version": current.updated_at.isoformat(),
+        },
+        data={
+            "ss_id": "33333",
+            "name": "Reviewed title",
+            "raw_ss_metadata": json.dumps(
+                {
+                    "text_variants": {
+                        "de": {"source_language": "de", "summary": "Forged client text"}
+                    }
+                }
+            ),
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert (
+        response.json()["ss_metadata"]["text_variants"]["de"]["summary"]
+        == "Trusted German"
+    )
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored.name == "Reviewed title"
+    assert stored.manual_metadata["descriptions"]["en"] == "Manual English"
+    assert stored.ss_metadata["custom"] == "retained"
+    transport.assert_awaited_once_with(game_id=33333)

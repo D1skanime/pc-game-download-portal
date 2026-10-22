@@ -120,7 +120,9 @@ async def search_rom(
                     rom, int(search_term), metadata_locale=captured_locale
                 ),
                 meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
-                meta_steam_handler.get_rom_by_id(int(search_term), rom.platform_slug),
+                meta_steam_handler.get_rom_by_id(
+                    int(search_term), rom.platform_slug, metadata_locale=captured_locale
+                ),
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -132,6 +134,7 @@ async def search_rom(
             igdb_matched_roms = [igdb_rom] if igdb_rom else []
             moby_matched_roms = [moby_rom] if moby_rom else []
             ss_matched_roms = [ss_rom] if ss_rom else []
+            steam_matched_roms = [steam_rom] if steam_rom else []
             launchbox_matched_roms = [lb_rom] if lb_rom else []
     elif search_by.lower() == "name":
         (
@@ -157,7 +160,9 @@ async def search_rom(
             meta_launchbox_handler.get_matched_roms_by_name(
                 search_term, rom.platform.slug
             ),
-            meta_steam_handler.get_matched_roms_by_name(search_term, rom.platform_slug),
+            meta_steam_handler.get_matched_roms_by_name(
+                search_term, rom.platform_slug, metadata_locale=captured_locale
+            ),
         )
 
     merged_dict: dict[str, dict] = {}

@@ -198,12 +198,21 @@ class SteamHandler(MetadataHandler):
         )
 
     async def get_matched_roms_by_name(
-        self, search_term: str, platform_slug: str
+        self,
+        search_term: str,
+        platform_slug: str,
+        *,
+        metadata_locale: str | None = None,
     ) -> list[SteamRom]:
         if not self.is_enabled() or platform_slug not in STEAM_PLATFORMS:
             return []
+        language = (
+            self._requested_language(metadata_locale)
+            if metadata_locale is not None
+            else STEAM_API_LANGUAGE
+        )
         apps = await self.steam_service.search_apps(
-            search_term, country=STEAM_API_COUNTRY, language=STEAM_API_LANGUAGE
+            search_term, country=self._country_for_language(language), language=language
         )
         results: list[SteamRom] = []
         for item in apps:
@@ -215,7 +224,12 @@ class SteamHandler(MetadataHandler):
                 continue
             if not isinstance(name, str):
                 continue
-            hydrated = await self.get_rom_by_id(steam_id, platform_slug)
+            if metadata_locale is None:
+                hydrated = await self.get_rom_by_id(steam_id, platform_slug)
+            else:
+                hydrated = await self.get_rom_by_id(
+                    steam_id, platform_slug, metadata_locale=metadata_locale
+                )
             if hydrated.get("steam_id") == steam_id:
                 results.append(hydrated)
         return results[:15]

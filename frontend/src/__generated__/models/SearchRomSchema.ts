@@ -3,10 +3,12 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RomSSMetadata } from './RomSSMetadata';
+import type { SteamMetadataSchema } from './SteamMetadataSchema';
 export type SearchRomSchema = {
     id?: (number | null);
     igdb_id?: (number | null);
     steam_id?: (number | null);
+    steam_metadata?: (SteamMetadataSchema | null);
     moby_id?: (number | null);
     ss_id?: (number | null);
     ss_metadata?: (RomSSMetadata | null);

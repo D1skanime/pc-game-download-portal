@@ -27,6 +27,8 @@ from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
 from handler.database.pc_automation_handler import DBPcAutomationHandler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.metadata.manual_description_refresh import refresh_manual_descriptions
+from handler.metadata.metadata_locale import effective_metadata_locale
 from handler.metadata.pc_match_handler import (
     PcMetadataCandidate,
     pc_metadata_match_handler,
@@ -68,14 +70,14 @@ MEDIA_ROLES = {
 
 
 async def _prefer_localized_steam_summary(
-    rom, candidate: PcMetadataCandidate
+    rom, candidate: PcMetadataCandidate, metadata_locale: str | None = None
 ) -> dict[str, Any]:
     """Keep reviewed provider fields, but prefer Steam's localized summary."""
     fields = dict(candidate.fields)
     if candidate.provider != "igdb":
         return fields
     steam = await pc_metadata_match_handler.fetch_unique_steam_match(
-        rom, candidate.title
+        rom, candidate.title, metadata_locale=metadata_locale
     )
     if not steam:
         return fields
@@ -196,11 +198,14 @@ async def get_pc_component_metadata_candidates(
     id: Annotated[int, Path(description="Rom internal id.", ge=1)],
     component_id: Annotated[int, Path(ge=1)],
     query: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    metadata_locale: str | None = None,
 ) -> PcMetadataCandidatesResponse:
     rom, component = _pc_component(id, component_id)
     assert_rom_visible(request, rom)
     if component.kind == RomComponentKind.BASE:
-        results = await pc_metadata_match_handler.collect_candidates(rom, query)
+        results = await pc_metadata_match_handler.collect_candidates(
+            rom, query, metadata_locale=effective_metadata_locale(metadata_locale)
+        )
         return PcMetadataCandidatesResponse(
             expected_version=rom.updated_at,
             providers={
@@ -216,7 +221,10 @@ async def get_pc_component_metadata_candidates(
             },
         )
     results = await pc_metadata_match_handler.collect_component_candidates(
-        rom, component, query
+        rom,
+        component,
+        query,
+        metadata_locale=effective_metadata_locale(metadata_locale),
     )
     return PcMetadataCandidatesResponse(
         expected_version=component.updated_at,
@@ -247,12 +255,14 @@ async def select_pc_component_metadata_candidate(
 ) -> PcComponentMetadataSelectionResponse:
     rom, component = _pc_component(id, component_id)
     assert_rom_visible(request, rom)
+    captured_locale = effective_metadata_locale(selection.metadata_locale)
+    selection = selection.model_copy(update={"metadata_locale": captured_locale})
     if component.kind == RomComponentKind.BASE:
         # Older browser sessions opened the base download as a component.
         # Treat it as the parent game and import its provider media by default.
         if not selection.selected_media_ids:
             results = await pc_metadata_match_handler.collect_candidates(
-                rom, selection.query
+                rom, selection.query, metadata_locale=captured_locale
             )
             candidate = next(
                 (
@@ -281,7 +291,7 @@ async def select_pc_component_metadata_candidate(
             expected_version=applied.expected_version,
         )
     results = await pc_metadata_match_handler.collect_component_candidates(
-        rom, component, selection.query
+        rom, component, selection.query, metadata_locale=captured_locale
     )
     candidate = next(
         (
@@ -313,8 +323,13 @@ async def select_pc_component_metadata_candidate(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Unknown PC component provider media selection",
         )
-    candidate_fields = await _prefer_localized_steam_summary(rom, candidate)
-    if candidate.provider == "steam":
+    candidate_fields = await _prefer_localized_steam_summary(
+        rom, candidate, captured_locale
+    )
+    same_steam = candidate.provider == "steam" and candidate.provider_ids.get(
+        "steam_id"
+    ) == getattr(component.component_metadata, "steam_id", None)
+    if candidate.provider == "steam" and not same_steam:
         steam_id = candidate.provider_ids.get("steam_id")
         if not isinstance(steam_id, int) or isinstance(steam_id, bool) or steam_id <= 0:
             raise HTTPException(
@@ -345,6 +360,7 @@ async def select_pc_component_metadata_candidate(
                 fs_name=component.relative_path,
                 metadata_sources=["steam"],
                 explicit_steam_id=steam_id,
+                metadata_locale=captured_locale,
             )
         )
         if not candidate_fields:
@@ -352,12 +368,18 @@ async def select_pc_component_metadata_candidate(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Unknown or unavailable Steam component metadata candidate",
             )
-    updated = db_rom_handler.apply_pc_component_metadata_candidate(
-        id,
-        component_id,
-        selection.expected_version,
-        candidate.provider,
-        candidate_fields,
+    updated = (
+        await refresh_manual_descriptions(
+            rom, "steam", captured_locale, selection.expected_version, component
+        )
+        if same_steam
+        else db_rom_handler.apply_pc_component_metadata_candidate(
+            id,
+            component_id,
+            selection.expected_version,
+            candidate.provider,
+            candidate_fields,
+        )
     )
     if updated is None:
         raise HTTPException(
@@ -594,6 +616,7 @@ def _candidate_schema(candidate: PcMetadataCandidate) -> PcMetadataCandidateSche
         title=candidate.title,
         provider_ids=candidate.provider_ids,
         description_available=candidate.description_available,
+        steam_metadata=candidate.fields.get("steam_metadata"),
         media=[
             {**media, "id": _candidate_media_id(candidate, media)}
             for media in candidate.media
@@ -611,13 +634,16 @@ async def get_pc_metadata_candidates(
     request: Request,
     id: Annotated[int, Path(description="Rom internal id.", ge=1)],
     query: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    metadata_locale: str | None = None,
 ) -> PcMetadataCandidatesResponse:
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
     assert_rom_visible(request, rom)
 
-    results = await pc_metadata_match_handler.collect_candidates(rom, query)
+    results = await pc_metadata_match_handler.collect_candidates(
+        rom, query, metadata_locale=effective_metadata_locale(metadata_locale)
+    )
     return PcMetadataCandidatesResponse(
         expected_version=rom.updated_at,
         providers={
@@ -645,7 +671,10 @@ async def select_pc_metadata_candidate(
         raise RomNotFoundInDatabaseException(id)
     assert_rom_visible(request, rom)
 
-    results = await pc_metadata_match_handler.collect_candidates(rom, selection.query)
+    captured_locale = effective_metadata_locale(selection.metadata_locale)
+    results = await pc_metadata_match_handler.collect_candidates(
+        rom, selection.query, metadata_locale=captured_locale
+    )
     candidate = next(
         (
             item
@@ -662,8 +691,14 @@ async def select_pc_metadata_candidate(
             detail="Unknown or unavailable PC metadata candidate",
         )
 
-    candidate_fields = await _prefer_localized_steam_summary(rom, candidate)
-    if candidate.provider == "steam":
+    candidate_fields = await _prefer_localized_steam_summary(
+        rom, candidate, captured_locale
+    )
+    same_steam = (
+        candidate.provider == "steam"
+        and candidate.provider_ids.get("steam_id") == rom.steam_id
+    )
+    if candidate.provider == "steam" and not same_steam:
         steam_id = candidate.provider_ids.get("steam_id")
         if not isinstance(steam_id, int) or isinstance(steam_id, bool) or steam_id <= 0:
             raise HTTPException(
@@ -695,6 +730,7 @@ async def select_pc_metadata_candidate(
                 fs_name=rom.fs_name,
                 metadata_sources=["steam"],
                 explicit_steam_id=steam_id,
+                metadata_locale=captured_locale,
             )
         )
         if not candidate_fields:
@@ -715,8 +751,14 @@ async def select_pc_metadata_candidate(
             detail="Unknown PC metadata provider media selection",
         )
 
-    updated = db_rom_handler.apply_pc_metadata_candidate(
-        id, selection.expected_version, candidate_fields
+    updated = (
+        await refresh_manual_descriptions(
+            rom, "steam", captured_locale, selection.expected_version
+        )
+        if same_steam
+        else db_rom_handler.apply_pc_metadata_candidate(
+            id, selection.expected_version, candidate_fields
+        )
     )
     if updated is None:
         raise HTTPException(
