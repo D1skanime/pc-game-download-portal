@@ -190,11 +190,13 @@ def source_dependencies(entry, tested, current):
     if current is None:
         return
     kind = entry["kind"]
+    record = entry.get("dependencies", {})
+    if record.get("scenario") != kind:
+        raise RuntimeError("source dependency scenario mismatch")
     required = dependency_files(kind, current)
     if kind == "backend" and tested["files"] != required:
         raise RuntimeError("backend source differs from independent CI inventory")
-    record = entry.get("dependencies", {})
-    if record.get("scenario") != kind or record.get("files") != required:
+    if record.get("files") != required:
         raise RuntimeError("removed, stale or mis-scoped source dependency")
     if any(tested["files"].get(name) != value for name, value in required.items()):
         raise RuntimeError("relevant tested source differs from current source")
