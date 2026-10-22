@@ -154,6 +154,69 @@ class ArtifactContracts(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.validate()
 
+    def backend_result(self, skips=None, count=None):
+        RVZ_SKIPS = {
+            "tests/utils/test_rvz_hasher.py::test_real_gamecube_rvz_matches_retroachievements_hash": "mock GameCube RVZ not present",
+            "tests/utils/test_rvz_hasher.py::test_real_wii_rvz_matches_retroachievements_hash": "mock Wii RVZ not present",
+        }
+
+        rows = (
+            [
+                {"nodeid": nodeid, "reason": reason}
+                for nodeid, reason in RVZ_SKIPS.items()
+            ]
+            if skips is None
+            else skips
+        )
+        self.entry.update(kind="backend", dialect="mariadb")
+        self.mutate(
+            "result.json",
+            lambda value: value.update(
+                kind="backend",
+                dialect="mariadb",
+                full_suite=True,
+                tests=916,
+                failures=0,
+                errors=0,
+                skipped=len(rows) if count is None else count,
+                skip_details=rows,
+            ),
+        )
+
+    def test_backend_accepts_only_recorded_missing_rvz_fixtures(self):
+        self.backend_result()
+        self.assertEqual(self.validate(), ("backend", "mariadb"))
+
+    def test_backend_rejects_unknown_skip(self):
+        self.backend_result([{"nodeid": "tests/new.py::test_new", "reason": "missing"}])
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_backend_rejects_changed_skip_reason(self):
+        self.backend_result()
+        self.mutate(
+            "result.json",
+            lambda value: value["skip_details"][0].update(reason="different"),
+        )
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_backend_rejects_skip_count_mismatch(self):
+        self.backend_result(count=0)
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_backend_rejects_duplicate_skip(self):
+        self.backend_result()
+        self.mutate(
+            "result.json",
+            lambda value: value.update(
+                skip_details=[value["skip_details"][0]] * 2,
+            ),
+        )
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
     def test_rejects_partial_final_gate_set(self):
         from phase36_receipts import validate_index
 
