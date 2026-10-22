@@ -21,5 +21,19 @@ class BrowserContracts(unittest.TestCase):
             browser_config("http://127.0.0.1:3100")
 
 
+class ReceiptContracts(unittest.TestCase):
+    def test_rejects_historical_phase(self):
+        from phase36_receipts import validate_index
+
+        with self.assertRaises(RuntimeError):
+            validate_index({"phase": 35, "entries": []}, Path("."))
+
+    def test_rejects_incomplete_phase(self):
+        from phase36_receipts import validate_index
+
+        with self.assertRaises(RuntimeError):
+            validate_index({"phase": 36, "entries": []}, Path("."))
+
+
 if __name__ == "__main__":
     unittest.main()
