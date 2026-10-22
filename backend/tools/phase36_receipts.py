@@ -137,6 +137,78 @@ def sources(manifest, current):
         raise RuntimeError("stale frozen source manifest")
 
 
+def dependency_files(kind, current):
+    """Declare scenario file scopes independently from receipt-provided lists."""
+    if kind not in {pair[0] for pair in GATES}:
+        raise RuntimeError("unknown dependency scenario")
+    protected = current.get("protected_untracked", {})
+    if any(current["files"].get(name) != value for name, value in protected.items()):
+        raise RuntimeError("protected source hash mismatch")
+    selected = {}
+    for name, value in current["files"].items():
+        if name in protected:
+            continue
+        backend = name.startswith("backend/") and not name.startswith(
+            ("backend/tests/", "backend/tools/")
+        )
+        frontend = name.startswith("frontend/src/") and not name.endswith(
+            (".test.ts", ".spec.ts", ".stories.ts")
+        )
+        infrastructure = (
+            name.startswith("docker/")
+            or name in {"pyproject.toml", "uv.lock"}
+            or (
+                name.startswith("frontend/")
+                and "/" not in name.removeprefix("frontend/")
+            )
+        )
+        helper = name.startswith("backend/tools/phase")
+        if kind in {"browser", "descriptions", "authority"} and name in {
+            "backend/tools/phase36_receipts.py",
+            "backend/tools/phase36_quality.py",
+        }:
+            helper = False
+        extra = (
+            kind == "security"
+            or (kind == "backend" and name.startswith("backend/"))
+            or (kind == "quality" and name.startswith("frontend/"))
+            or (kind == "browser" and name.startswith("frontend/e2e/"))
+        )
+        if backend or frontend or infrastructure or helper or extra:
+            selected[name] = value
+    if not selected:
+        raise RuntimeError("empty scenario source dependencies")
+    return selected
+
+
+def source_dependencies(entry, tested, current):
+    sources(tested, None)
+    if current is None:
+        return
+    kind = entry["kind"]
+    required = dependency_files(kind, current)
+    record = entry.get("dependencies", {})
+    if record.get("scenario") != kind or record.get("files") != required:
+        raise RuntimeError("removed, stale or mis-scoped source dependency")
+    if any(tested["files"].get(name) != value for name, value in required.items()):
+        raise RuntimeError("relevant tested source differs from current source")
+    delta = []
+    for name in sorted(set(tested["files"]) | set(current["files"])):
+        before, after = tested["files"].get(name), current["files"].get(name)
+        if before == after:
+            continue
+        reason = (
+            "protected_untracked"
+            if name in current.get("protected_untracked", {})
+            else "outside_scenario"
+        )
+        delta.append(
+            {"file": name, "tested": before, "current": after, "reason": reason}
+        )
+    if record.get("snapshot_delta") != delta:
+        raise RuntimeError("unexplained full snapshot source delta")
+
+
 def browser(payload, artifacts):
     checks = payload.get("checks", {})
     if any(checks.get(key) is not True for key in BROWSER_CHECKS):
@@ -202,7 +274,7 @@ def validate_entry(entry, root, current):
         raise RuntimeError("failed or historical receipt")
     if (payload.get("kind"), payload.get("dialect")) != pair:
         raise RuntimeError("receipt gate/dialect mismatch")
-    sources(read(evidence / "code-before.json"), current)
+    source_dependencies(entry, read(evidence / "code-before.json"), current)
     clean(read(evidence / "cleanup.json"))
     commands = read(evidence / "commands.json")
     if not commands or any(row.get("exit") != 0 for row in commands):
@@ -258,6 +330,30 @@ def assert_receipts(path):
         raise RuntimeError("unexpected Phase36 receipt index")
     index = read(target)
     current_sources(index["source_hashes"])
+    import subprocess  # nosec B404, fixed read-only index enumeration
+
+    # trunk-ignore(bandit/B603): Fixed Git argv inside the verified repository.
+    untracked = subprocess.check_output(  # nosec B603,B607
+        [
+            "git",
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            "backend",
+            "frontend",
+        ],
+        cwd=REPO,
+        text=True,
+    ).split("\0")
+    expected = {
+        name: value
+        for name, value in index["source_hashes"]["files"].items()
+        if name in untracked
+    }
+    if index["source_hashes"].get("protected_untracked", {}) != expected:
+        raise RuntimeError("protected untracked inventory differs from Git")
     validate_index(index, phase, current=index["source_hashes"])
     print("PASS complete Phase36 exact-source final evidence")
 
