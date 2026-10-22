@@ -221,10 +221,9 @@ def validate_entry(entry, root, current):
     elif kind == "quality":
         quality(payload)
     elif kind == "backend":
-        if payload.get("full_suite") is not True or payload.get("tests", 0) < 500:
-            raise RuntimeError("missing full backend suite")
-        if any(payload.get(key, 0) for key in ("failures", "errors", "skipped")):
-            raise RuntimeError("backend suite did not fully pass")
+        from phase36_quality import validate_backend_summary
+
+        validate_backend_summary(payload)
     elif kind == "security":
         if payload.get("threats") != dict.fromkeys(SECURITY, "resolved"):
             raise RuntimeError("missing security barrier")
