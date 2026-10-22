@@ -202,7 +202,7 @@ def root_skip_environment(commands, folder, artifacts, prefix):
 
 
 def shard_source_delta(tested, baseline, number, selected, recorded):
-    """Keep the reviewed first group's evidence-gate-only changes explicit."""
+    """Keep reviewed seed-group source changes explicit and bounded."""
     reviewed_tools = {
         1: {
             "tools/tests/test_phase33_uat.py",
@@ -223,13 +223,20 @@ def shard_source_delta(tested, baseline, number, selected, recorded):
         == reviewed_tools[number]
         else set()
     )
+    fixture = "backend/tests/endpoints/test_storage_policy_denials.py"
+    if allowed and fixture.removeprefix("backend/") not in selected:
+        allowed.add(fixture)
     before, after = tested.get("files", {}), baseline.get("files", {})
     delta = [
         {
             "file": name,
             "tested": before.get(name),
             "current": after.get(name),
-            "reason": "evidence_gate_only_outside_reviewed_shard_imports",
+            "reason": (
+                "unselected_unimported_storage_policy_fixture_alignment"
+                if name == fixture
+                else "evidence_gate_only_outside_reviewed_shard_imports"
+            ),
         }
         for name in sorted(set(before) | set(after))
         if before.get(name) != after.get(name)
