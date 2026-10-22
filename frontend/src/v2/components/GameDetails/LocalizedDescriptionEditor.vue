@@ -32,6 +32,7 @@ const props = withDefaults(
     canEdit?: boolean;
   }>(),
   {
+    canEdit: undefined,
     componentId: undefined,
     expectedVersion: null,
     manualMetadata: null,
