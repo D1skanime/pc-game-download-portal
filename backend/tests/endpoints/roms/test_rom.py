@@ -2272,7 +2272,7 @@ def test_same_ss_identity_repairs_language_only(
             "ss_metadata": {"custom": "retained"},
         },
     )
-    current = db_rom_handler.get_rom(rom.id)
+    db_rom_handler.get_rom(rom.id)
     monkeypatch.setattr(meta_ss_handler, "is_enabled", lambda: True)
     transport = AsyncMock(
         return_value={
@@ -2291,12 +2291,16 @@ def test_same_ss_identity_repairs_language_only(
             name,
             AsyncMock(side_effect=AssertionError("description repair accessed media")),
         )
+    review = client.get(
+        f"/api/roms/{rom.id}", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert review.status_code == 200, review.text
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
         params={
             "metadata_locale": locale,
-            "expected_version": current.updated_at.isoformat(),
+            "expected_version": review.json()["updated_at"],
         },
         data={"ss_id": "33333"},
     )
@@ -2308,6 +2312,27 @@ def test_same_ss_identity_repairs_language_only(
     assert stored.manual_metadata == {"descriptions": {"en": "Manual English"}}
     assert stored.name == "Protected title"
     assert stored.ss_metadata["custom"] == "retained"
+
+    edited = client.put(
+        f"/api/roms/{rom.id}/description",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "locale": "ja",
+            "description": "Concurrent version owner",
+            "expected_version": response.json()["updated_at"],
+        },
+    )
+    assert edited.status_code == 200, edited.text
+    stale = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "metadata_locale": locale,
+            "expected_version": review.json()["updated_at"],
+        },
+        data={"ss_id": "33333"},
+    )
+    assert stale.status_code == 409, stale.text
 
 
 def test_ss_repair_rejects_concurrent_manual_save(

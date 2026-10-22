@@ -1465,7 +1465,7 @@ def test_pc_same_identity_captures_locale_and_repairs_only_text(
     from handler.metadata import meta_steam_handler
 
     db_rom_handler.update_rom(rom.id, {"steam_id": 1091500, "name": "Protected parent"})
-    target = db_rom_handler.get_rom(rom.id)
+    db_rom_handler.get_rom(rom.id)
     suffix = "pc-metadata-selection"
     candidate = _steam_candidate()
     if component_target:
@@ -1489,7 +1489,7 @@ def test_pc_same_identity_captures_locale_and_repairs_only_text(
                     steam_metadata={"custom": "retained"},
                 )
             )
-        target = db_rom_handler.get_rom(rom.id).components[0]
+        db_rom_handler.get_rom(rom.id).components[0]
         suffix = f"pc-components/{component.id}/metadata-selection"
     else:
         db_rom_handler.update_rom(
@@ -1499,7 +1499,7 @@ def test_pc_same_identity_captures_locale_and_repairs_only_text(
                 "steam_metadata": {"custom": "retained"},
             },
         )
-        target = db_rom_handler.get_rom(rom.id)
+        db_rom_handler.get_rom(rom.id)
     collect = AsyncMock(
         return_value={"steam": PcMetadataProviderResult("steam", True, [candidate])}
     )
@@ -1520,6 +1520,12 @@ def test_pc_same_identity_captures_locale_and_repairs_only_text(
 
     transport = AsyncMock(side_effect=details)
     monkeypatch.setattr(meta_steam_handler.steam_service, "get_app_details", transport)
+    review = client.get(
+        f"/api/roms/{rom.id}/{suffix.replace('selection', 'candidates')}",
+        headers=_headers(access_token),
+        params={"query": "Captured selection", "metadata_locale": locale},
+    )
+    assert review.status_code == 200, review.text
     response = client.post(
         f"/api/roms/{rom.id}/{suffix}",
         headers=_headers(access_token),
@@ -1527,7 +1533,7 @@ def test_pc_same_identity_captures_locale_and_repairs_only_text(
             "candidate_id": candidate.id,
             "query": "Captured selection",
             "metadata_locale": locale,
-            "expected_version": target.updated_at.isoformat(),
+            "expected_version": review.json()["expected_version"],
             "selected_media_ids": [],
         },
     )
@@ -1551,6 +1557,42 @@ def test_pc_same_identity_captures_locale_and_repairs_only_text(
         }
     if component_target:
         assert metadata.metadata_source == "manual"
+
+    description_path = f"/api/roms/{rom.id}/" + (
+        f"pc-components/{component.id}/description"
+        if component_target
+        else "description"
+    )
+    edited = client.put(
+        description_path,
+        headers=_headers(access_token),
+        json={
+            "locale": "ja",
+            "description": "Concurrent version owner",
+            "expected_version": response.json()["expected_version"],
+        },
+    )
+    assert edited.status_code == 200, edited.text
+    if component_target:
+        # Fixture clock advance: component timestamps have second precision.
+        # A same-second manual save need not produce a distinct wire version.
+        with sync_session.begin() as session:
+            row = session.get(RomComponent, component.id)
+            row.updated_at = datetime.fromisoformat(
+                edited.json()["expected_version"]
+            ) + timedelta(seconds=1)
+    stale = client.post(
+        f"/api/roms/{rom.id}/{suffix}",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": candidate.id,
+            "query": "Captured selection",
+            "metadata_locale": locale,
+            "expected_version": review.json()["expected_version"],
+            "selected_media_ids": [],
+        },
+    )
+    assert stale.status_code == 409, stale.text
 
 
 @pytest.mark.parametrize(

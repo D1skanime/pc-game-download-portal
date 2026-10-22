@@ -108,6 +108,7 @@ from models.rom import (
 )
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
+from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.m3u import generate_m3u_content
@@ -1626,7 +1627,9 @@ async def update_rom(
     from handler.metadata.metadata_locale import effective_metadata_locale
 
     captured_locale = effective_metadata_locale(metadata_locale)
-    if expected_version is not None and rom.updated_at != expected_version:
+    if expected_version is not None and to_utc(rom.updated_at) != to_utc(
+        expected_version
+    ):
         raise HTTPException(
             status_code=409, detail="The metadata changed before confirmation"
         )

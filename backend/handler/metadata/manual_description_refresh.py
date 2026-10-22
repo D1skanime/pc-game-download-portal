@@ -14,6 +14,7 @@ from handler.metadata.pc_steam_enrichment import (
     SteamPcEnrichmentRequest,
     resolve_steam_pc_enrichment,
 )
+from utils.datetime import to_utc
 
 
 def text_snapshot(metadata, provider):
@@ -34,7 +35,7 @@ async def refresh_manual_descriptions(
     provider_id = current[provider + "_id"]
     if not provider_id:
         return target
-    if target.updated_at != expected_version:
+    if to_utc(target.updated_at) != to_utc(expected_version):
         raise HTTPException(
             status_code=409, detail="The metadata changed before confirmation"
         )
