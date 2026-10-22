@@ -1,6 +1,7 @@
 """Loopback provider HTTP and delegating observations around actual application owners."""
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -100,6 +101,8 @@ class Provider(BaseHTTPRequestHandler):
                 text = ""
             if identity == 202:
                 text = TEXT["en"] + " " + str(identity)
+            if identity == 1245620 and json.loads(control.read_text()).get("markup"):
+                text = "<img src=x onerror=alert(1)> " + text
             data = {
                 "steam_appid": 999 if identity == 203 else identity,
                 "type": "dlc" if 300 <= identity < 400 else "game",
@@ -129,8 +132,36 @@ class Provider(BaseHTTPRequestHandler):
             )
         if parsed.path.endswith("jeuInfos.php") and query.get("gameid") == ["39"]:
             status, payload = 429, {}
+        wire_data = json.dumps(payload).encode()
+        response_slots = []
+        if parsed.path.endswith("appdetails") and status == 200 and payload:
+            summary = (
+                payload.get(str(identity), {})
+                .get("data", {})
+                .get("short_description", "")
+            )
+            response_slots = [
+                {"summary_sha256": hashlib.sha256(summary.encode()).hexdigest()}
+            ]
+        elif (
+            parsed.path.endswith(("jeuInfos.php", "jeuRecherche.php")) and status == 200
+        ):
+            games = payload.get("response", {}).get("jeux", [])
+            if "jeu" in payload.get("response", {}):
+                games = [payload["response"]["jeu"]]
+            response_slots = [
+                {
+                    "source_language": slot["langue"],
+                    "summary_sha256": hashlib.sha256(slot["text"].encode()).hexdigest(),
+                }
+                for game in games
+                for slot in game.get("synopsis", [])
+            ]
         record(
             "provider_http",
+            response_sha256=hashlib.sha256(wire_data).hexdigest(),
+            requested_language=query.get("l", [None])[0],
+            response_text_variants=response_slots,
             provider=(
                 "ss"
                 if parsed.path.endswith(".php")
