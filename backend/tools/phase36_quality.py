@@ -180,7 +180,12 @@ def root_skip_environment(commands, folder, artifacts, prefix):
         raise RuntimeError("root permission skip lacks default exec-user evidence")
     users = []
     for row in commands:
-        if row.get("command", [])[:2] != ["docker", "inspect"]:
+        argv = row.get("command", [])
+        if argv[:2] != ["docker", "inspect"] and argv[:3] != [
+            "docker",
+            "container",
+            "inspect",
+        ]:
             continue
         log = row.get("log")
         if not isinstance(log, str) or prefix + "/" + log not in artifacts:
