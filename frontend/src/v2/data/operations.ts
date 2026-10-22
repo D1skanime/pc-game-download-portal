@@ -34,7 +34,7 @@ export function buildLibraryScanRequest(
     scope: input.scope,
     profiles: input.profiles,
     uiLocale: input.uiLocale,
-    metadataLocale: input.metadataLocale,
+    metadataLocale: normalizeLocale(input.uiLocale.trim() || "en"),
     providerPolicy: {
       providers: input.providers,
       fallbackProviders: input.playmatchEnabled ? ["playmatch"] : [],

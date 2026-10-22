@@ -1,6 +1,8 @@
 import { useLocalStorage } from "@vueuse/core";
 import { computed, ref, watch, type ComputedRef } from "vue";
 import { useI18n } from "vue-i18n";
+import { normalizeLocale } from "@/v2/composables/useProviderResolution";
+import { useSystemLanguage } from "@/v2/composables/useSystemLanguage";
 import storeHeartbeat, {
   type MetadataOption,
 } from "@/v2/data/adapters/legacy/stores/heartbeat";
@@ -23,7 +25,7 @@ export function useScanProviders(calculateHashes: ComputedRef<boolean>) {
     "scan.launchboxRemoteEnabled";
   const LOCAL_STORAGE_HASHEOUS_ENABLED_KEY = "scan.hasheousEnabled";
   const LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY = "scan.playmatchEnabled";
-  const LOCAL_STORAGE_METADATA_LOCALE_KEY = "scan.metadataLocale";
+  const { currentValue: selectedLanguage } = useSystemLanguage();
 
   // Hash-matcher providers — proxies that match files by hash and feed
   // IDs into the primary catalogs (IGDB, RetroAchievements). Kept out of
@@ -111,10 +113,12 @@ export function useScanProviders(calculateHashes: ComputedRef<boolean>) {
     LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY,
     true,
   );
-  const metadataLocale = useLocalStorage(
-    LOCAL_STORAGE_METADATA_LOCALE_KEY,
-    locale.value,
-  );
+  const metadataLocale = computed({
+    get: () => normalizeLocale(locale.value.trim() || "en"),
+    set: (value: string) => {
+      selectedLanguage.value = value;
+    },
+  });
 
   const metadataSources = ref<MetadataOption[]>(
     metadataOptions.value.filter(
