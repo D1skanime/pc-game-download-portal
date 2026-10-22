@@ -39,7 +39,37 @@ def validate_backend_summary(payload):
         raise RuntimeError("backend skip count exceeds tests")
 
 
-def backend_xml(path, selected):
+def pytest_terminal(path):
+    """Read the exact completed command's terminal outcome counters."""
+    import re
+
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 32_000_000:
+        raise RuntimeError("missing or unsafe pytest command log")
+    text = re.sub(r"\x1b\[[0-9;]*m", "", path.read_text())
+    summaries = re.findall(r"^=+\s*(.*?)\s+in\s+[0-9.]+s.*?=+$", text, re.MULTILINE)
+    if len(summaries) != 1:
+        raise RuntimeError("missing unique completed pytest summary")
+    summary = summaries[0]
+    if any(
+        word in summary
+        for word in ("failed", "error", "xpassed", "deselected", "rerun")
+    ):
+        raise RuntimeError("unsuccessful or narrowed pytest summary")
+
+    def counter(label):
+        matches = re.findall(r"(?:^|, )(\d+) " + label + r"(?:,|$)", summary)
+        if len(matches) > 1:
+            raise RuntimeError("duplicate pytest outcome counter")
+        return int(matches[0]) if matches else 0
+
+    return {
+        "passed": counter("passed"),
+        "skipped": counter("skipped"),
+        "subtests_passed": counter("subtests passed"),
+    }
+
+
+def backend_xml(path, selected, output=None):
     """Read bounded JUnit records and bind every case to its selected module."""
     import xml.etree.ElementTree as ET  # nosec B405, declarations rejected below
 
@@ -55,7 +85,12 @@ def backend_xml(path, selected):
     suites = list(root.iter("testsuite"))
     if not suites:
         raise RuntimeError("missing backend XML suites")
-    counts = dict.fromkeys(("tests", "failures", "errors", "skipped"), 0)
+    counts = dict.fromkeys(
+        ("tests", "failures", "errors", "skipped", "junit_tests", "subtests_passed"), 0
+    )
+    terminal = pytest_terminal(output) if output is not None else None
+    if len(suites) != 1:
+        raise RuntimeError("unexpected multiple pytest XML suites")
     skips = []
     seen = set()
     for suite in suites:
@@ -66,8 +101,29 @@ def backend_xml(path, selected):
             "errors": sum(case.find("error") is not None for case in cases),
             "skipped": sum(case.find("skipped") is not None for case in cases),
         }
-        if any(suite.get(key) != str(value) for key, value in actual.items()):
+        if any(
+            suite.get(key) != str(actual[key])
+            for key in ("failures", "errors", "skipped")
+        ):
             raise RuntimeError("backend XML count mismatch")
+        try:
+            declared = int(suite.get("tests", "-1"))
+        except ValueError as error:
+            raise RuntimeError("invalid backend XML test count") from error
+        subtests = terminal["subtests_passed"] if terminal is not None else 0
+        if declared != actual["tests"] + subtests:
+            raise RuntimeError("backend XML test/subtest count mismatch")
+        if terminal is not None and (
+            terminal["passed"]
+            != actual["tests"]
+            - actual["skipped"]
+            - actual["failures"]
+            - actual["errors"]
+            or terminal["skipped"] != actual["skipped"]
+        ):
+            raise RuntimeError("pytest terminal differs from actual XML")
+        counts["subtests_passed"] = subtests
+        counts["junit_tests"] = declared
         for key, value in actual.items():
             counts[key] += value
         for case in cases:
@@ -96,6 +152,36 @@ def backend_xml(path, selected):
     return {**counts, "skip_details": skips}
 
 
+def shard_source_delta(tested, baseline, number, selected, recorded):
+    """Keep the reviewed first group's evidence-gate-only changes explicit."""
+    reviewed_tools = {
+        "tools/tests/test_phase33_uat.py",
+        "tools/tests/test_phase35_incremental_scan_probe.py",
+    }
+    allowed = (
+        {
+            "backend/tools/phase36_quality.py",
+            "backend/tools/tests/test_phase36_receipts.py",
+        }
+        if number == 1
+        and {name for name in selected if name.startswith("tools/")} == reviewed_tools
+        else set()
+    )
+    before, after = tested.get("files", {}), baseline.get("files", {})
+    delta = [
+        {
+            "file": name,
+            "tested": before.get(name),
+            "current": after.get(name),
+            "reason": "evidence_gate_only_outside_reviewed_shard1_imports",
+        }
+        for name in sorted(set(before) | set(after))
+        if before.get(name) != after.get(name)
+    ]
+    if any(row["file"] not in allowed for row in delta) or recorded != delta:
+        raise RuntimeError("relevant or unexplained backend shard source delta")
+
+
 def validate_backend_shards(payload, evidence, artifacts):
     """Require the supported eight-shard CI union and its actual retained proof."""
     import phase34
@@ -108,7 +194,9 @@ def validate_backend_shards(payload, evidence, artifacts):
     expected = tracked_test_files(phase34.REPO)
     if not expected or len(set(expected)) != len(expected):
         raise RuntimeError("invalid backend file inventory")
-    total = dict.fromkeys(("tests", "failures", "errors", "skipped"), 0)
+    total = dict.fromkeys(
+        ("tests", "failures", "errors", "skipped", "junit_tests", "subtests_passed"), 0
+    )
     skips = []
     covered = []
     numbers = set()
@@ -147,7 +235,15 @@ def validate_backend_shards(payload, evidence, artifacts):
         }:
             raise RuntimeError("failed backend shard or wrong dialect")
         clean(read(folder / "cleanup.json"))
-        sources(read(folder / "code-before.json"), baseline)
+        tested = read(folder / "code-before.json")
+        sources(tested, None)
+        shard_source_delta(
+            tested,
+            baseline,
+            number,
+            selected,
+            payload.get("shard_source_deltas", {}).get(name, []),
+        )
         commands = read(folder / "commands.json")
         if not commands or any(row.get("exit") != 0 for row in commands):
             raise RuntimeError("failed backend shard command")
@@ -178,7 +274,11 @@ def validate_backend_shards(payload, evidence, artifacts):
             for arg in args
         ):
             raise RuntimeError("backend command narrowed the complete shard")
-        actual = backend_xml(folder / "backend.xml", selected)
+        execution = next(row for row in commands if row["command"] == executions[0])
+        log = execution.get("log")
+        if not isinstance(log, str) or name + "/" + log not in artifacts:
+            raise RuntimeError("missing indexed pytest command log")
+        actual = backend_xml(folder / "backend.xml", selected, child(folder, log))
         for key in total:
             total[key] += actual[key]
         skips.extend(actual["skip_details"])
