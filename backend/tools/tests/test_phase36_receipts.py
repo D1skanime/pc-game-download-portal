@@ -323,6 +323,26 @@ class ArtifactContracts(unittest.TestCase):
 
 
 class SanitizationContracts(unittest.TestCase):
+    def test_unchanged_read_only_artifact_needs_no_write(self):
+        from unittest.mock import patch
+
+        from phase36_receipts import sanitize
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            artifact = root / "worker.pid"
+            artifact.write_bytes(b"20\n")
+            with patch.object(
+                Path, "write_bytes", side_effect=PermissionError("read-only evidence")
+            ):
+                sanitize(root, "secret-token")
+            artifact.write_text("secret-token")
+            with patch.object(
+                Path, "write_bytes", side_effect=PermissionError("read-only evidence")
+            ):
+                with self.assertRaises(PermissionError):
+                    sanitize(root, "secret-token")
+
     def test_scrubs_token_jwt_and_headers_inside_trace(self):
         from phase36_receipts import sanitize
 
