@@ -423,6 +423,8 @@ class BackendShardContracts(unittest.TestCase):
             "errors": 0,
             "skipped": 0,
             "skip_details": [],
+            "subtests_passed": 0,
+            "junit_tests": 800,
             "shards": [f"shard{index}" for index in range(1, 9)],
         }
         self.entry.update(kind="backend", dialect="mariadb")
@@ -453,11 +455,13 @@ class BackendShardContracts(unittest.TestCase):
                             selected,
                         ],
                         "exit": 0,
+                        "log": "pytest.log",
                     }
                 ],
             }
             for name, value in values.items():
                 (folder / name).write_text(json.dumps(value))
+            (folder / "pytest.log").write_text("=== 100 passed in 0.01s ===\n")
             cases = "".join(
                 f'<testcase classname="tests.test_shard{index}" name="test_{case}"/>'
                 for case in range(100)
@@ -485,6 +489,43 @@ class BackendShardContracts(unittest.TestCase):
 
     def test_complete_real_xml_union_passes(self):
         self.assertEqual(self.validate(), ("backend", "mariadb"))
+
+    def add_subtests(self, reported=1):
+        target = self.evidence / "shard1/backend.xml"
+        target.write_text(target.read_text().replace('tests="100"', 'tests="101"'))
+        (self.evidence / "shard1/pytest.log").write_text(
+            f"=== 100 passed, {reported} subtests passed in 0.01s ===\n"
+        )
+        self.payload["subtests_passed"] = 1
+        self.payload["junit_tests"] = 801
+        self.write_payload()
+
+    def test_accepts_actual_junit_passed_subtest_shape(self):
+        self.add_subtests()
+        self.assertEqual(self.validate(), ("backend", "mariadb"))
+
+    def test_rejects_unexplained_subtest_delta(self):
+        self.add_subtests(reported=2)
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_forged_base_summary(self):
+        self.add_subtests()
+        (self.evidence / "shard1/pytest.log").write_text(
+            "=== 99 passed, 1 subtests passed in 0.01s ===\n"
+        )
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_failed_subtest_in_terminal(self):
+        self.add_subtests()
+        (self.evidence / "shard1/pytest.log").write_text(
+            "=== 100 passed, 1 subtests failed in 0.01s ===\n"
+        )
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
 
     def test_rejects_summary_counts_without_all_shards(self):
         self.payload["shards"].pop()
