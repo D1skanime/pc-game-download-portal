@@ -8,6 +8,38 @@ export async function presentation(page: Page) {
   const captures: { case: string; file: string; sha256: string }[] = [];
   const trigger = page.getByTestId("overview-description-edit");
   const editor = page.getByTestId("localized-description-editor");
+  const settledEditor = async () => {
+    await expect(editor).toBeVisible();
+    await expect
+      .poll(() =>
+        editor.evaluate(async (node) => {
+          const panel = node.closest(".r-dialog__panel");
+          const root = panel?.closest(".r-dialog");
+          if (!panel || !root) return false;
+          if (
+            root
+              .getAnimations({ subtree: true })
+              .some((animation) => animation.playState !== "finished")
+          )
+            return false;
+          const transform = new DOMMatrixReadOnly(
+            getComputedStyle(panel).transform,
+          );
+          if (!transform.isIdentity || getComputedStyle(root).opacity !== "1")
+            return false;
+          const before = panel.getBoundingClientRect();
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          );
+          const after = panel.getBoundingClientRect();
+          return ["x", "y", "width", "height"].every(
+            (key) =>
+              before[key as keyof DOMRect] === after[key as keyof DOMRect],
+          );
+        }),
+      )
+      .toBe(true);
+  };
   const capture = async (name: string) => {
     const file = "description-" + name + ".png";
     await page.screenshot({
@@ -64,7 +96,7 @@ export async function presentation(page: Page) {
       await overflow();
       await capture(width + "-" + theme);
       await trigger.click();
-      await expect(editor).toBeVisible();
+      await settledEditor();
       await overflow();
       const targets = await editor.locator("button").evaluateAll((nodes) =>
         nodes.map((node) => {
@@ -82,6 +114,7 @@ export async function presentation(page: Page) {
       await expect(trigger).toBeFocused();
     }
     await trigger.click();
+    await settledEditor();
     await contrast();
     await page.keyboard.press("Escape");
   }

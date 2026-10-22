@@ -550,7 +550,7 @@ test("actual localized descriptions, manual protection and controlled presentati
     .click();
   await page.getByRole("option", { name: "Steam", exact: true }).click();
   await page
-    .getByRole("option", { name: "ScreenScraper", exact: true })
+    .getByRole("option", { name: "Screenscraper", exact: true })
     .click();
   await page.keyboard.press("Escape");
   const submitted = page.waitForResponse(
