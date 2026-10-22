@@ -366,5 +366,169 @@ class ProviderObservationContracts(unittest.TestCase):
         self.assertIn("<img", payload["1245620"]["data"]["short_description"])
 
 
+class BackendShardContracts(unittest.TestCase):
+    def setUp(self):
+        from unittest.mock import patch
+
+        import phase36_receipts as receipts
+
+        fixture = ArtifactContracts()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        self.root = fixture.root
+        self.evidence = fixture.evidence
+        self.entry = fixture.entry
+        self.files = [f"tests/test_shard{index}.py" for index in range(1, 9)]
+        self.addCleanup(patch.stopall)
+        patch("ci_target.tracked_test_files", return_value=self.files).start()
+        self.payload: dict[str, Any] = {
+            "phase": 36,
+            "kind": "backend",
+            "dialect": "mariadb",
+            "passed": True,
+            "full_suite": True,
+            "tests": 800,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "skip_details": [],
+            "shards": [f"shard{index}" for index in range(1, 9)],
+        }
+        self.entry.update(kind="backend", dialect="mariadb")
+        for index, selected in enumerate(self.files, 1):
+            folder = self.evidence / f"shard{index}"
+            folder.mkdir()
+            for name in ("cleanup.json", "code-before.json"):
+                (folder / name).write_bytes((self.evidence / name).read_bytes())
+            values = {
+                "ci-result.json": {
+                    "gate": "pytest",
+                    "dialect": "mariadb",
+                    "passed": True,
+                },
+                "shard-files.json": {
+                    "shard": index,
+                    "shards": 8,
+                    "all_files": self.files,
+                    "selected_files": [selected],
+                },
+                "commands.json": [
+                    {
+                        "command": [
+                            "uv",
+                            "run",
+                            "pytest",
+                            "--junitxml=/phase34/evidence/backend.xml",
+                            selected,
+                        ],
+                        "exit": 0,
+                    }
+                ],
+            }
+            for name, value in values.items():
+                (folder / name).write_text(json.dumps(value))
+            cases = "".join(
+                f'<testcase classname="tests.test_shard{index}" name="test_{case}"/>'
+                for case in range(100)
+            )
+            (folder / "backend.xml").write_text(
+                '<testsuites><testsuite tests="100" failures="0" errors="0" skipped="0">'
+                + cases
+                + "</testsuite></testsuites>"
+            )
+        self.write_payload()
+        self.receipts = receipts
+
+    def write_payload(self):
+        from phase36_receipts import digest
+
+        (self.evidence / "result.json").write_text(json.dumps(self.payload))
+        self.entry["artifacts"] = {
+            path.relative_to(self.evidence).as_posix(): digest(path)
+            for path in self.evidence.rglob("*")
+            if path.is_file()
+        }
+
+    def validate(self):
+        return self.receipts.validate_entry(self.entry, self.root, None)
+
+    def test_complete_real_xml_union_passes(self):
+        self.assertEqual(self.validate(), ("backend", "mariadb"))
+
+    def test_rejects_summary_counts_without_all_shards(self):
+        self.payload["shards"].pop()
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_duplicate_shard(self):
+        self.payload["shards"][-1] = "shard1"
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_fabricated_xml_counts(self):
+        target = self.evidence / "shard1/backend.xml"
+        target.write_text(target.read_text().replace('tests="100"', 'tests="101"'))
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_xml_failure_even_when_summary_is_green(self):
+        target = self.evidence / "shard1/backend.xml"
+        target.write_text(
+            target.read_text().replace(
+                'name="test_0"/>',
+                'name="test_0"><failure>actual failure</failure></testcase>',
+            )
+        )
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_wrong_selected_union(self):
+        target = self.evidence / "shard8/shard-files.json"
+        row = json.loads(target.read_text())
+        row["selected_files"] = [self.files[0]]
+        target.write_text(json.dumps(row))
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_unexecuted_selection(self):
+        target = self.evidence / "shard1/commands.json"
+        target.write_text(json.dumps([{"command": ["uv", "run", "pytest"], "exit": 0}]))
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_partial_shard_cleanup(self):
+        target = self.evidence / "shard1/cleanup.json"
+        row = json.loads(target.read_text())
+        row["snapshot_removed"] = False
+        target.write_text(json.dumps(row))
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_wrong_shard_dialect(self):
+        target = self.evidence / "shard1/ci-result.json"
+        row = json.loads(target.read_text())
+        row["dialect"] = "postgresql"
+        target.write_text(json.dumps(row))
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_xml_from_unselected_module(self):
+        target = self.evidence / "shard1/backend.xml"
+        target.write_text(
+            target.read_text().replace("tests.test_shard1", "tests.test_foreign")
+        )
+        self.write_payload()
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+
 if __name__ == "__main__":
     unittest.main()
