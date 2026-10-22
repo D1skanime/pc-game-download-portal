@@ -239,6 +239,48 @@ class ArtifactContracts(unittest.TestCase):
                     {**payload, "skip_details": [{**row, "environment": environment}]}
                 )
 
+    def test_exact_historical_delete_skips_stay_source_bound_and_unexecuted(self):
+        from phase36_quality import validate_backend_summary
+
+        names = (
+            "test_delete_rom_file_success",
+            "test_delete_rom_file_wrong_rom_returns_404",
+            "test_delete_rom_file_unknown_file_returns_404",
+            "test_delete_rom_file_tolerates_missing_disk_file",
+            "test_delete_rom_file_forbidden_viewer",
+            "test_delete_rom_file_forbidden_without_delete_grant",
+            "test_delete_rom_file_allowed_for_editor",
+        )
+        rows = [
+            {
+                "nodeid": "tests/endpoints/roms/test_files.py::" + name,
+                "reason": "Superseded by bounded external denial matrix",
+                "baseline_source_sha256": "9716bb9f42ae8efdb054fff981af6822c5e9d4884654b784575baef4d8f96ee3",
+                "disposition": "historical_unexecuted_http_delete_role_flows",
+            }
+            for name in names
+        ]
+        self.backend_result(rows)
+        payload = json.loads((self.evidence / "result.json").read_text())
+        validate_backend_summary(payload)
+        self.assertEqual(payload["skipped"], 7)
+        for key, value in (
+            ("nodeid", "tools/tests/test_phase36_receipts.py::test_security"),
+            ("reason", "different reason"),
+            ("baseline_source_sha256", "b" * 64),
+            ("disposition", "passed"),
+        ):
+            changed = [{**row} for row in rows]
+            changed[0][key] = value
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                validate_backend_summary({**payload, "skip_details": changed})
+        with self.assertRaises(RuntimeError):
+            validate_backend_summary({**payload, "skipped": 6})
+        with self.assertRaises(RuntimeError):
+            validate_backend_summary(
+                {**payload, "skip_details": rows[:-1], "skipped": 6}
+            )
+
     def test_backend_rejects_unknown_skip(self):
         self.backend_result([{"nodeid": "tests/new.py::test_new", "reason": "missing"}])
         with self.assertRaises(RuntimeError):
@@ -698,6 +740,41 @@ class ShardSourceDeltaContracts(unittest.TestCase):
                 number=number, selected=files, record=record
             ), self.assertRaises(RuntimeError):
                 shard_source_delta(before, after, number, files, record)
+
+    def test_reviewed_non_receipt_groups_allow_only_evidence_gate_deltas(self):
+        from phase36_quality import shard_source_delta
+
+        name = "backend/tools/phase36_quality.py"
+        before, after = {"files": {name: "a" * 64}}, {"files": {name: "b" * 64}}
+        delta = [
+            {
+                "file": name,
+                "tested": "a" * 64,
+                "current": "b" * 64,
+                "reason": "evidence_gate_only_outside_reviewed_shard_imports",
+            }
+        ]
+        reviewed = {
+            4: "tools/tests/test_phase34_portainer.py",
+            5: "tools/tests/test_phase34_runner.py",
+            6: "tools/tests/test_phase34_target_guard.py",
+            7: "tools/tests/test_phase35_acceptance_invariants.py",
+        }
+        for number, selected in reviewed.items():
+            with self.subTest(number=number):
+                shard_source_delta(before, after, number, [selected], delta)
+                with self.assertRaises(RuntimeError):
+                    shard_source_delta(
+                        before,
+                        after,
+                        number,
+                        [selected, "tools/tests/test_phase36_receipts.py"],
+                        delta,
+                    )
+        with self.assertRaises(RuntimeError):
+            shard_source_delta(
+                before, after, 3, ["tools/tests/test_phase36_receipts.py"], delta
+            )
 
     def test_unselected_fixture_delta_is_limited_to_reviewed_seed_groups(self):
         from phase36_quality import shard_source_delta
