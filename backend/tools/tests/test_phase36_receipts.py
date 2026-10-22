@@ -184,8 +184,14 @@ class ArtifactContracts(unittest.TestCase):
         )
 
     def test_backend_accepts_only_recorded_missing_rvz_fixtures(self):
+        from phase36_quality import validate_backend_summary
+
         self.backend_result()
-        self.assertEqual(self.validate(), ("backend", "mariadb"))
+        validate_backend_summary(
+            json.loads((self.evidence / "result.json").read_text())
+        )
+        with self.assertRaises(RuntimeError):
+            self.validate()
 
     def test_backend_rejects_unknown_skip(self):
         self.backend_result([{"nodeid": "tests/new.py::test_new", "reason": "missing"}])

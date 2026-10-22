@@ -221,9 +221,10 @@ def validate_entry(entry, root, current):
     elif kind == "quality":
         quality(payload)
     elif kind == "backend":
-        from phase36_quality import validate_backend_summary
+        from phase36_quality import validate_backend_shards, validate_backend_summary
 
         validate_backend_summary(payload)
+        validate_backend_shards(payload, evidence, artifacts)
     elif kind == "security":
         if payload.get("threats") != dict.fromkeys(SECURITY, "resolved"):
             raise RuntimeError("missing security barrier")
