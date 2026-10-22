@@ -120,7 +120,10 @@ class Provider(BaseHTTPRequestHandler):
         elif enabled and parsed.path.endswith(("jeuInfos.php", "jeuRecherche.php")):
             game = {
                 "id": query.get("gameid", ["38"])[0],
-                "noms": [{"region": "wor", "text": "Control"}],
+                "noms": [
+                    {"region": "wor", "text": "Control"},
+                    {"region": "ss", "text": "Control"},
+                ],
                 "synopsis": [
                     {"langue": tag, "text": text + " 38"} for tag, text in TEXT.items()
                 ],

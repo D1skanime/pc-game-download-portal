@@ -211,6 +211,22 @@ class SanitizationContracts(unittest.TestCase):
                     self.assertEqual(value["cookie"], "[redacted]")
                     self.assertNotIn(token, value["action"])
 
+    def test_archive_limits_each_line_member_and_total(self):
+        from unittest.mock import patch
+
+        import phase36_receipts as receipts
+
+        for limit in ("TRACE_LINE_BYTES", "TRACE_MEMBER_BYTES", "TRACE_ARCHIVE_BYTES"):
+            with self.subTest(limit=limit), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                with zipfile.ZipFile(root / "trace.zip", "w") as archive:
+                    archive.writestr(
+                        "trace.network", json.dumps({"padding": "x" * 128}) + "\n"
+                    )
+                with patch.object(receipts, limit, 64, create=True):
+                    with self.assertRaises(RuntimeError):
+                        receipts.sanitize(root, "b" * 32)
+
     def test_archive_rejects_unsafe_member_paths_and_links(self):
         from phase36_receipts import sanitize
 
