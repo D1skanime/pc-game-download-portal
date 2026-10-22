@@ -602,5 +602,55 @@ class BackendShardContracts(unittest.TestCase):
             self.validate()
 
 
+class ShardSourceDeltaContracts(unittest.TestCase):
+    def test_only_reviewed_unexecuted_gate_files_can_differ(self):
+        from phase36_quality import shard_source_delta
+
+        name = "backend/tools/phase36_quality.py"
+        before, after = {"files": {name: "a" * 64}}, {"files": {name: "b" * 64}}
+        selected = [
+            "tools/tests/test_phase33_uat.py",
+            "tools/tests/test_phase35_incremental_scan_probe.py",
+        ]
+        delta = [
+            {
+                "file": name,
+                "tested": "a" * 64,
+                "current": "b" * 64,
+                "reason": "evidence_gate_only_outside_reviewed_shard1_imports",
+            }
+        ]
+        shard_source_delta(before, after, 1, selected, delta)
+        for number, files, record in (
+            (2, selected, delta),
+            (1, selected + ["tools/tests/test_phase36_receipts.py"], delta),
+            (1, selected, []),
+        ):
+            with self.subTest(
+                number=number, selected=files, record=record
+            ), self.assertRaises(RuntimeError):
+                shard_source_delta(before, after, number, files, record)
+
+    def test_product_delta_cannot_claim_gate_only_exemption(self):
+        from phase36_quality import shard_source_delta
+
+        name = "backend/handler/scan_description_retry.py"
+        before, after = {"files": {name: "a" * 64}}, {"files": {name: "b" * 64}}
+        selected = [
+            "tools/tests/test_phase33_uat.py",
+            "tools/tests/test_phase35_incremental_scan_probe.py",
+        ]
+        delta = [
+            {
+                "file": name,
+                "tested": "a" * 64,
+                "current": "b" * 64,
+                "reason": "evidence_gate_only_outside_reviewed_shard1_imports",
+            }
+        ]
+        with self.assertRaises(RuntimeError):
+            shard_source_delta(before, after, 1, selected, delta)
+
+
 if __name__ == "__main__":
     unittest.main()
