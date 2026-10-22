@@ -831,6 +831,22 @@ if __name__ == "__main__":
 
 
 class CIInventoryContracts(unittest.TestCase):
+    def test_rejects_mis_scoped_backend_before_host_inventory(self):
+        from unittest.mock import patch
+
+        from phase36_receipts import source_dependencies
+
+        with patch(
+            "phase36_quality.ci_source_files",
+            side_effect=AssertionError("host inventory must not execute"),
+        ):
+            with self.assertRaises(RuntimeError):
+                source_dependencies(
+                    {"kind": "backend", "dependencies": {"scenario": "security"}},
+                    {"files": {"backend/product.py": "a" * 64}},
+                    {"files": {"backend/product.py": "a" * 64}},
+                )
+
     def test_backend_binds_independent_tracked_inventory(self):
         from unittest.mock import patch
 
