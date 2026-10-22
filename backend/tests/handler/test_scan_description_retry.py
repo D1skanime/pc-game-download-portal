@@ -340,3 +340,35 @@ def test_unknown_filename_cannot_claim_description_purpose():
     assert not assess_retry(
         unknown, None, baseline_adopted_at=None, clock=lambda: datetime(2026, 10, 21)
     ).eligible
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["steam", "ss"])
+async def test_lost_description_binding_rejects_attempt_before_provider(
+    monkeypatch, provider
+):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from handler import scan_description_retry as descriptions
+    from handler import scan_operation_worker as worker
+    from handler.database import db_rom_handler
+    from handler.database.scan_write_fence import ScanWriteRejected
+
+    monkeypatch.setattr(worker, "check_worker_boundary", lambda: None)
+    monkeypatch.setattr(
+        descriptions, "description_binding_current", lambda binding: False
+    )
+    read = Mock(
+        side_effect=AssertionError(
+            "revoked binding must fail before catalog/provider access"
+        )
+    )
+    monkeypatch.setattr(db_rom_handler, "get_rom", read)
+    with pytest.raises(ScanWriteRejected, match="inventory_binding_changed"):
+        await descriptions.dispatch_description(
+            SimpleNamespace(),
+            SimpleNamespace(rom_id=1),
+            replace(identity(), provider=provider),
+        )
+    read.assert_not_called()

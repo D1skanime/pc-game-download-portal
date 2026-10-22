@@ -299,7 +299,10 @@ def description_outcome(
 async def dispatch_description(coordinator, work, identity):
     from handler import metadata
     from handler.database import db_rom_handler
-    from handler.database.scan_write_fence import require_scan_write_context
+    from handler.database.scan_write_fence import (
+        ScanWriteRejected,
+        require_scan_write_context,
+    )
     from handler.metadata.pc_steam_enrichment import (
         SteamPcEnrichmentRequest,
         resolve_steam_pc_enrichment,
@@ -313,7 +316,7 @@ async def dispatch_description(coordinator, work, identity):
 
     check_worker_boundary()
     if not description_binding_current(identity.binding):
-        return
+        raise ScanWriteRejected("inventory_binding_changed")
     rom = db_rom_handler.get_rom(work.rom_id)
     target = coordinator.description_targets[identity.key]
     if rom is None or rom.incarnation_token != identity.binding.rom_incarnation:
