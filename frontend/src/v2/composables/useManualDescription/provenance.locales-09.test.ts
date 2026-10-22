@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import frFR from "@/locales/fr_FR/rom.json";
 import huHU from "@/locales/hu_HU/rom.json";
 import itIT from "@/locales/it_IT/rom.json";
+import jaJP from "@/locales/ja_JP/rom.json";
+import koKR from "@/locales/ko_KR/rom.json";
+import plPL from "@/locales/pl_PL/rom.json";
 import { descriptionPresentation } from "./provenance";
 
 const copies = [
@@ -28,6 +31,30 @@ const copies = [
     fallback:
       "Descrizione non disponibile in {requestedLanguage}. Viene mostrata la descrizione in {language} da {source}.",
     cancel: "Annulla modifiche",
+  },
+  {
+    locale: "ja_JP",
+    messages: jaJP,
+    source: "出典: {source}（{language}）",
+    fallback:
+      "{requestedLanguage}の説明はありません。{source}の{language}の説明を表示しています。",
+    cancel: "編集をキャンセル",
+  },
+  {
+    locale: "ko_KR",
+    messages: koKR,
+    source: "출처: {source} ({language})",
+    fallback:
+      "{requestedLanguage} 설명이 없습니다. {source}의 {language} 설명을 표시합니다.",
+    cancel: "편집 취소",
+  },
+  {
+    locale: "pl_PL",
+    messages: plPL,
+    source: "Źródło: {source} ({language})",
+    fallback:
+      "Opis w języku {requestedLanguage} jest niedostępny. Wyświetlany jest opis w języku {language} ze źródła {source}.",
+    cancel: "Anuluj edycję",
   },
 ];
 
