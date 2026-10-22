@@ -165,7 +165,10 @@ class RetryCoordinator:
             from handler.metadata.steam_handler import STEAM_PLATFORMS
             from handler.scan_description_retry import description_binding_current
 
-            if rom.platform_slug not in STEAM_PLATFORMS:
+            if (
+                rom.platform_slug not in STEAM_PLATFORMS
+                or getattr(work.quick, "before", None) is None
+            ):
                 return description_binding_current(binding)
         handler = FSRomsHandler.for_mapping(mapping, binding.game_relative_path)
         current = await handler.get_pc_inventory(rom)

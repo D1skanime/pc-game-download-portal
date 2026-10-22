@@ -2,7 +2,14 @@
 
 
 async def observe_pc_automation(
-    automation, platform, scanned, durable, newly_added, *, selected=True
+    automation,
+    platform,
+    scanned,
+    durable,
+    newly_added,
+    *,
+    selected=True,
+    completed=None
 ):
     from handler.database import db_rom_handler
     from handler.scan_metadata_result import record_provider_result
@@ -25,8 +32,44 @@ async def observe_pc_automation(
             "cached": observation.cached,
             "outcome": observation.outcome,
         }
+    if completed is not None:
+        completed(durable)
     current = db_rom_handler.get_rom(durable.id)
+    if current is not None:
+        consider_scan_descriptions(current)
     if selected and current is not None:
         record_provider_result(
             "steam", current.fs_name, rom=current, files=current.files
         )
+
+
+def consider_scan_descriptions(rom):
+    """Offer current persisted IDs without creating inventory or provider work."""
+    from pathlib import PurePosixPath
+    from types import SimpleNamespace
+
+    from handler.scan_operation_checkpoint import current_checkpoint_command
+    from handler.scan_retry_execution import current_retry_coordinator
+    from handler.storage.read_context import MappingReadContext
+    from handler.windows_quick_execution import current_windows_quick, inventory_binding
+
+    coordinator = current_retry_coordinator()
+    command = current_checkpoint_command()
+    if coordinator is None or command is None:
+        return
+    quick = current_windows_quick()
+    if quick is None:
+        mapping = MappingReadContext(
+            command.mapping_id, command.expected_revision
+        ).validate()
+        relative = (
+            (PurePosixPath(rom.fs_path) / rom.fs_name)
+            .relative_to(PurePosixPath(mapping.relative_path))
+            .as_posix()
+        )
+        quick = SimpleNamespace(
+            binding=inventory_binding(rom, relative),
+            before=None,
+            automation_observation=None,
+        )
+    coordinator.consider_descriptions(quick, rom, command)

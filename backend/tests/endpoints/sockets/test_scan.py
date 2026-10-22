@@ -1552,6 +1552,9 @@ class TestIdentifyPlatformQuickPcComponents:
         )
         if quick_decision == "reuse":
             mocker.patch(
+                "handler.scan_pc_automation_observation.consider_scan_descriptions"
+            )
+            mocker.patch(
                 "handler.scan_inventory_status.emit_inventory_status", AsyncMock()
             )
             from tests.handler.test_windows_quick_execution import binding

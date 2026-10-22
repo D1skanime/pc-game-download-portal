@@ -1010,6 +1010,7 @@ async def _identify_rom(
             )
     await _emit_scanning_rom(socket_manager, _added_rom)
 
+    from handler.scan_operation_checkpoint import record_completed_game
     from handler.scan_pc_automation_observation import observe_pc_automation
 
     await observe_pc_automation(
@@ -1019,10 +1020,8 @@ async def _identify_rom(
         _added_rom,
         newly_added,
         selected=MetadataSource.STEAM in metadata_sources,
+        completed=record_completed_game,
     )
-    from handler.scan_operation_checkpoint import record_completed_game
-
-    record_completed_game(_added_rom)
 
 
 async def _identify_platform(
@@ -1270,6 +1269,11 @@ async def _identify_platform(
             ):
                 roms_to_scan.append((fs_rom, rom))
             elif rom:
+                from handler.scan_pc_automation_observation import (
+                    consider_scan_descriptions,
+                )
+
+                consider_scan_descriptions(rom)
                 skipped_rom_ids.append(rom.id)
                 if rom.id in previously_missing_rom_ids:
                     restored_roms.append(rom)

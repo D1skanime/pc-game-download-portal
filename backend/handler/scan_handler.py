@@ -1008,7 +1008,9 @@ async def scan_rom(
             try:
                 # Use the ID to refetch metadata
                 if scan_type == ScanType.UPDATE and rom.ss_id:
-                    return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
+                    return await meta_ss_handler.get_rom_by_id(
+                        rom, rom.ss_id, metadata_locale=metadata_locale
+                    )
 
                 # Use Playmatch's hash-based id when available
                 if playmatch_rom["ss_id"] is not None:
@@ -1018,19 +1020,25 @@ async def scan_rom(
                         extra=LOGGER_MODULE_NAME,
                     )
                     return await meta_ss_handler.get_rom_by_id(
-                        rom, playmatch_rom["ss_id"]
+                        rom, playmatch_rom["ss_id"], metadata_locale=metadata_locale
                     )
 
                 # Use the file hashes for lookup
                 game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
-                    rom, platform.ss_id, get_match_files()
+                    rom,
+                    platform.ss_id,
+                    get_match_files(),
+                    metadata_locale=metadata_locale,
                 )
                 if game_by_hash.get("ss_id") or is_not_game:
                     return game_by_hash
 
                 # Fallback to the filename
                 return await meta_ss_handler.get_rom(
-                    rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+                    rom,
+                    rom_attrs["fs_name"],
+                    platform_ss_id=platform.ss_id,
+                    metadata_locale=metadata_locale,
                 )
             except ScreenScraperRateLimitError:
                 from handler.scan_metadata_result import record_auxiliary_warning

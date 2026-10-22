@@ -423,3 +423,19 @@ async def dispatch_description(coordinator, work, identity):
     )
     if applied:
         coordinator.states[identity.key] = state
+    if getattr(work.quick, "before", None) is None:
+        from handler.scan_metadata_result import (
+            record_provider_observation,
+            record_provider_result,
+        )
+        from handler.scan_retry_execution import bind_retry_coordinator
+
+        command = replace(
+            work.command,
+            options=(("relative_path", identity.binding.game_relative_path),),
+        )
+        with bind_checkpoint_command(command), bind_retry_coordinator(None):
+            record_provider_observation(identity.provider, rom.fs_name, observation)
+            if applied:
+                current_rom = db_rom_handler.get_rom(rom.id)
+                record_provider_result(identity.provider, rom.fs_name, rom=current_rom)
