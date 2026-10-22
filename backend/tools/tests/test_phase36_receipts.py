@@ -828,3 +828,85 @@ class ShardSourceDeltaContracts(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CIInventoryContracts(unittest.TestCase):
+    def test_backend_binds_independent_tracked_inventory(self):
+        from unittest.mock import patch
+
+        from phase36_receipts import dependency_files, source_dependencies
+
+        tracked = {
+            "backend/product.py": "a" * 64,
+            "tests/fixtures/support.bin": "b" * 64,
+        }
+        current = {
+            "files": {
+                "backend/product.py": "a" * 64,
+                "backend/.hypothesis/cache": "c" * 64,
+            }
+        }
+        delta = [
+            {
+                "file": "backend/.hypothesis/cache",
+                "tested": None,
+                "current": "c" * 64,
+                "reason": "outside_scenario",
+            },
+            {
+                "file": "tests/fixtures/support.bin",
+                "tested": "b" * 64,
+                "current": None,
+                "reason": "ci_tracked_support",
+            },
+        ]
+        entry = {
+            "kind": "backend",
+            "dependencies": {
+                "scenario": "backend",
+                "files": tracked,
+                "snapshot_delta": delta,
+            },
+        }
+        with patch(
+            "phase36_quality.ci_source_files", return_value=tracked, create=True
+        ):
+            self.assertEqual(dependency_files("backend", current), tracked)
+            source_dependencies(entry, {"files": tracked}, current)
+            for tested in (
+                {
+                    "files": {
+                        "backend/product.py": "d" * 64,
+                        "tests/fixtures/support.bin": "b" * 64,
+                    }
+                },
+                {"files": {"backend/product.py": "a" * 64}},
+                {"files": {**tracked, "backend/untracked.py": "e" * 64}},
+            ):
+                with self.subTest(tested=tested), self.assertRaises(RuntimeError):
+                    source_dependencies(entry, tested, current)
+
+    def test_third_reviewed_helper_delta_is_exact(self):
+        from phase36_quality import shard_source_delta
+
+        name = "backend/tools/phase36_receipts.py"
+        selected = ["tools/tests/test_phase34_runner.py"]
+        before, after = {"files": {name: "a" * 64}}, {"files": {name: "b" * 64}}
+        delta = [
+            {
+                "file": name,
+                "tested": "a" * 64,
+                "current": "b" * 64,
+                "reason": "evidence_gate_only_outside_reviewed_shard_imports",
+            }
+        ]
+        shard_source_delta(before, after, 5, selected, delta)
+        for number, files, record in (
+            (3, selected, delta),
+            (5, selected + ["tools/tests/test_phase36_receipts.py"], delta),
+            (5, selected, []),
+        ):
+            with self.subTest(number=number, files=files), self.assertRaises(
+                RuntimeError
+            ):
+                shard_source_delta(before, after, number, files, record)
