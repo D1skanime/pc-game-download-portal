@@ -2558,10 +2558,27 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         data: dict,
         session: Session = None,  # type: ignore
-    ) -> Rom:
+        *,
+        expected_updated_at: datetime | None = None,
+    ) -> Rom | None:
         from handler.scan_collection_policy import guard_scan_rom_publication
 
-        current = session.get(Rom, id)
+        current = session.scalar(
+            select(Rom)
+            .where(Rom.id == id)
+            .with_for_update(of=Rom)
+            .execution_options(populate_existing=True)
+        )
+        if (
+            expected_updated_at is not None
+            and session.scalar(
+                select(Rom.id).where(
+                    Rom.id == id, Rom.updated_at == expected_updated_at
+                )
+            )
+            is None
+        ):
+            return None
         if current is not None:
             guard_scan_rom_publication(session, current, data)
         if "name" in data and "name_sort_key" not in data:
@@ -2659,6 +2676,14 @@ class DBRomsHandler(DBBaseHandler):
         session.flush()
         session.refresh(component)
         return component
+
+    @begin_session
+    def apply_interactive_description_patch(self, *, session=None, **patch):
+        from handler.database.description_state import (
+            apply_interactive_description_patch,
+        )
+
+        return apply_interactive_description_patch(session=session, **patch)
 
     @begin_session
     def apply_description_patch(self, *, session=None, **patch):

@@ -148,3 +148,82 @@ def apply_description_patch(
                 record_retry_outcome(binding, **values, session=session)
         session.flush()
         return changed or retry_changed
+
+
+def apply_interactive_description_patch(
+    *,
+    rom_id,
+    component_id,
+    incarnation,
+    provider,
+    provider_id,
+    expected_updated_at,
+    expected_text_digest,
+    data,
+    session,
+):
+    """Apply provider text under the existing interactive version authority."""
+    if provider not in {"steam", "ss"} or not valid_app_id(provider_id):
+        return None
+    if component_id is not None and provider != "steam":
+        return None
+    rom = session.scalar(
+        select(Rom)
+        .where(
+            Rom.id == rom_id,
+            Rom.incarnation_token == incarnation,
+        )
+        .with_for_update(of=Rom)
+        .execution_options(populate_existing=True)
+    )
+    if rom is None:
+        return None
+    target = rom
+    metadata = rom
+    if component_id is not None:
+        target = session.scalar(
+            select(RomComponent)
+            .where(
+                RomComponent.id == component_id,
+                RomComponent.rom_id == rom_id,
+            )
+            .with_for_update(of=RomComponent)
+            .execution_options(populate_existing=True)
+        )
+        metadata = session.scalar(
+            select(RomComponentMetadata)
+            .where(
+                RomComponentMetadata.component_id == component_id,
+            )
+            .with_for_update(of=RomComponentMetadata)
+            .execution_options(populate_existing=True)
+        )
+    if target is None or metadata is None:
+        return None
+    model = Rom if component_id is None else RomComponent
+    if (
+        session.scalar(
+            select(model.id).where(
+                model.id == target.id,
+                model.updated_at == expected_updated_at,
+            )
+        )
+        is None
+        or getattr(metadata, provider + "_id", None) != provider_id
+    ):
+        return None
+    field = provider + "_metadata"
+    current = {
+        provider + "_id": provider_id,
+        field: deepcopy(getattr(metadata, field)),
+        "manual_metadata": deepcopy(metadata.manual_metadata),
+    }
+    if _digest(current) != expected_text_digest:
+        return None
+    merged = _text_metadata(provider, provider_id, current[field], data.get(field))
+    if merged != (current[field] or {}):
+        setattr(metadata, field, merged)
+        target.updated_at = datetime.now(timezone.utc)
+    session.flush()
+    session.refresh(target)
+    return target

@@ -2,12 +2,14 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { RomSSMetadata } from './RomSSMetadata';
 export type SearchRomSchema = {
     id?: (number | null);
     igdb_id?: (number | null);
     steam_id?: (number | null);
     moby_id?: (number | null);
     ss_id?: (number | null);
+    ss_metadata?: (RomSSMetadata | null);
     sgdb_id?: (number | null);
     flashpoint_id?: (string | null);
     launchbox_id?: (number | null);

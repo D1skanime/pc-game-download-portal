@@ -48,6 +48,7 @@ async def search_rom(
     rom_id: int,
     search_term: str | None = None,
     search_by: str = "name",
+    metadata_locale: str | None = None,
 ) -> list[SearchRomSchema]:
     """Search for rom in metadata providers
 
@@ -87,6 +88,9 @@ async def search_rom(
     ):
         return []
 
+    from handler.metadata.metadata_locale import effective_metadata_locale
+
+    captured_locale = effective_metadata_locale(metadata_locale)
     search_term = search_term or rom.fs_name_no_tags
     if not search_term:
         return []
@@ -112,7 +116,9 @@ async def search_rom(
             igdb_rom, moby_rom, ss_rom, lb_rom, steam_rom = await asyncio.gather(
                 meta_igdb_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_moby_handler.get_matched_rom_by_id(int(search_term)),
-                meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
+                meta_ss_handler.get_matched_rom_by_id(
+                    rom, int(search_term), metadata_locale=captured_locale
+                ),
                 meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
                 meta_steam_handler.get_rom_by_id(int(search_term), rom.platform_slug),
             )
@@ -143,7 +149,7 @@ async def search_rom(
                 search_term, rom.platform.moby_id
             ),
             meta_ss_handler.get_matched_roms_by_name(
-                rom, search_term, rom.platform.ss_id
+                rom, search_term, rom.platform.ss_id, metadata_locale=captured_locale
             ),
             meta_flashpoint_handler.get_matched_roms_by_name(
                 search_term, rom.platform.slug

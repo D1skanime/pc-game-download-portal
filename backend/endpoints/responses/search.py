@@ -1,6 +1,7 @@
 from handler.metadata.sgdb_handler import SGDBResource
 
 from .base import BaseModel
+from .rom import RomSSMetadata
 
 
 class SearchRomSchema(BaseModel):
@@ -9,6 +10,7 @@ class SearchRomSchema(BaseModel):
     steam_id: int | None = None
     moby_id: int | None = None
     ss_id: int | None = None
+    ss_metadata: RomSSMetadata | None = None
     sgdb_id: int | None = None
     flashpoint_id: str | None = None
     launchbox_id: int | None = None
