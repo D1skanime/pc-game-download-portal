@@ -1,6 +1,8 @@
 import { flushPromises, mount } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
+import storePermissions from "@/stores/permissions";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { closeTopEscapable } from "@/v2/lib/overlays/RDialog/escapeStack";
 import LocalizedDescriptionEditor from "./LocalizedDescriptionEditor.vue";
@@ -368,5 +370,40 @@ it("restores attached trigger focus after an exact-only clear becomes empty", as
   expect(mocks.rom).toHaveBeenCalledWith({
     romId: 41,
     payload: { locale: "de-DE", description: null, expected_version: "v1" },
+  });
+});
+
+describe("description editor inherited permission", () => {
+  afterEach(() => setActivePinia(undefined));
+
+  it("allows an administrator when canEdit is omitted", () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    storePermissions(pinia).isAdmin = true;
+    const wrapper = mount(LocalizedDescriptionEditor, {
+      props: { romId: 41, expectedVersion: "v1", provider: "steam" },
+      global: { plugins: [pinia], stubs },
+    });
+    wrappers.push(wrapper);
+    expect(wrapper.get("textarea").attributes("disabled")).toBeUndefined();
+  });
+
+  it("keeps an ungranted viewer read-only when canEdit is omitted", () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const wrapper = mount(LocalizedDescriptionEditor, {
+      props: { romId: 41, expectedVersion: "v1", provider: "steam" },
+      global: { plugins: [pinia], stubs },
+    });
+    wrappers.push(wrapper);
+    expect(wrapper.get("textarea").attributes("disabled")).toBeDefined();
+  });
+
+  it("preserves an explicit false override for administrators", () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    storePermissions(pinia).isAdmin = true;
+    const wrapper = setup({ canEdit: false });
+    expect(wrapper.get("textarea").attributes("disabled")).toBeDefined();
   });
 });
