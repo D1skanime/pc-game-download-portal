@@ -76,6 +76,11 @@ class ArtifactContracts(unittest.TestCase):
             "kind": "security",
             "dialect": "static",
             "evidence": "run",
+            "dependencies": {
+                "scenario": "security",
+                "files": self.source["files"].copy(),
+                "snapshot_delta": [],
+            },
             "artifacts": {name: digest(self.evidence / name) for name in values},
         }
 
@@ -151,6 +156,26 @@ class ArtifactContracts(unittest.TestCase):
         except OSError:
             self.skipTest("symlink creation unavailable")
         self.entry["evidence"] = "linked"
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_removed_relevant_dependency(self):
+        self.entry["dependencies"]["files"] = {}
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_dependency_from_another_scenario(self):
+        self.entry["dependencies"]["scenario"] = "browser"
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_tampered_relevant_dependency_hash(self):
+        self.entry["dependencies"]["files"]["backend/example.py"] = "b" * 64
+        with self.assertRaises(RuntimeError):
+            self.validate()
+
+    def test_rejects_unexplained_snapshot_delta(self):
+        self.entry["dependencies"]["snapshot_delta"] = [{"file": "invented.py"}]
         with self.assertRaises(RuntimeError):
             self.validate()
 
