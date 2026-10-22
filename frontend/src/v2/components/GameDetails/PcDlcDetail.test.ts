@@ -150,8 +150,7 @@ function mountDetail(component: PcComponentSchema = selectedDlc) {
             "expectedVersion",
             "manualMetadata",
             "steamMetadata",
-            "fallbackDescription",
-            "providerSummaryIsAuthoritative",
+            "provider",
           ],
           template: "<div data-testid='localized-editor' />",
         },
@@ -424,8 +423,7 @@ describe("PcDlcDetail", () => {
       romId: parent.id,
       componentId: selectedDlc.id,
       expectedVersion: selectedDlc.updated_at,
-      fallbackDescription: selectedDlc.component_metadata?.summary,
-      providerSummaryIsAuthoritative: true,
+      provider: "steam",
     });
   });
 
@@ -472,8 +470,7 @@ describe("PcDlcDetail", () => {
               "expectedVersion",
               "manualMetadata",
               "steamMetadata",
-              "fallbackDescription",
-              "providerSummaryIsAuthoritative",
+              "provider",
             ],
             template: "<div data-testid='localized-editor' />",
           },

@@ -535,95 +535,108 @@ describe("OverviewTab", () => {
     expect(wrapper.text()).toContain("rom.youtube-invalid");
   });
 
-  it("keeps the resolved description read-only until the authorized pencil is activated", async () => {
-    permissionState.value = true;
-    const editableRom = {
-      ...rom,
-      updated_at: "version-7",
-      manual_metadata: { descriptions: { en: "Manual text" } },
-      steam_metadata: { fields: ["summary"] },
-    } as Partial<DetailedRom> as DetailedRom;
-    const wrapper = mount(OverviewTab, {
-      props: {
-        rom: editableRom,
-        description: resolveDescription({
-          provider: null,
-          manualMetadata: { descriptions: { en: "Resolved description" } },
-        }),
-        sections: [],
-        playerCount: null,
-        userCollections: [],
-        hltb: null,
-        lastPlayed: null,
-        revision: null,
-        screenshots: [],
-        expansions: [],
-        dlcs: [],
-        localDlcCandidates: [],
-        localExpansionCandidates: [],
-        remakes: [],
-        remasters: [],
-        similarGames: [],
-        parentRomId: 42,
-      },
-      global: {
-        stubs: {
-          RBtn: {
-            inheritAttrs: false,
-            template:
-              "<button v-bind='$attrs' @click='$emit(\"click\")'><slot /></button>",
+  it.each(["steam", "screenscraper"] as const)(
+    "forwards the eligible %s editor provider after the authorized pencil is activated",
+    async (descriptionProvider) => {
+      permissionState.value = true;
+      const editableRom = {
+        ...rom,
+        updated_at: "version-7",
+        manual_metadata: { descriptions: { en: "Manual text" } },
+        steam_metadata: { fields: ["summary"] },
+      } as Partial<DetailedRom> as DetailedRom;
+      const wrapper = mount(OverviewTab, {
+        props: {
+          rom: editableRom,
+          descriptionProvider,
+          ssMetadata: {
+            text_variants: {
+              fr: { source_language: "fr", summary: "Console text" },
+            },
           },
-          RDialog: {
-            props: ["modelValue"],
-            template:
-              "<div v-if='modelValue' data-testid='description-dialog'><slot name='header' /><slot name='content' /></div>",
-          },
-          LocalizedDescriptionEditor: {
-            name: "LocalizedDescriptionEditor",
-            props: [
-              "romId",
-              "expectedVersion",
-              "manualMetadata",
-              "steamMetadata",
-              "fallbackDescription",
-              "providerSummaryIsAuthoritative",
-            ],
-            template: "<div data-testid='localized-editor' />",
+          description: resolveDescription({
+            provider: null,
+            manualMetadata: { descriptions: { en: "Resolved description" } },
+          }),
+          sections: [],
+          playerCount: null,
+          userCollections: [],
+          hltb: null,
+          lastPlayed: null,
+          revision: null,
+          screenshots: [],
+          expansions: [],
+          dlcs: [],
+          localDlcCandidates: [],
+          localExpansionCandidates: [],
+          remakes: [],
+          remasters: [],
+          similarGames: [],
+          parentRomId: 42,
+        },
+        global: {
+          stubs: {
+            RBtn: {
+              inheritAttrs: false,
+              template:
+                "<button v-bind='$attrs' @click='$emit(\"click\")'><slot /></button>",
+            },
+            RDialog: {
+              props: ["modelValue"],
+              template:
+                "<div v-if='modelValue' data-testid='description-dialog'><slot name='header' /><slot name='content' /></div>",
+            },
+            LocalizedDescriptionEditor: {
+              name: "LocalizedDescriptionEditor",
+              props: [
+                "romId",
+                "expectedVersion",
+                "manualMetadata",
+                "steamMetadata",
+                "ssMetadata",
+                "provider",
+              ],
+              template: "<div data-testid='localized-editor' />",
+            },
           },
         },
-      },
-    });
+      });
 
-    expect(wrapper.get(".overview-tab__summary").text()).toBe(
-      "Resolved description",
-    );
-    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
-      false,
-    );
-    expect(
-      wrapper
+      expect(wrapper.get(".overview-tab__summary").text()).toBe(
+        "Resolved description",
+      );
+      expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper
+          .get("[data-testid='overview-description-edit']")
+          .attributes("aria-label"),
+      ).toBe("common.edit");
+
+      await wrapper
         .get("[data-testid='overview-description-edit']")
-        .attributes("aria-label"),
-    ).toBe("common.edit");
+        .trigger("click");
 
-    await wrapper
-      .get("[data-testid='overview-description-edit']")
-      .trigger("click");
-
-    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
-      true,
-    );
-    expect(
-      wrapper.getComponent({ name: "LocalizedDescriptionEditor" }).props(),
-    ).toMatchObject({
-      romId: editableRom.id,
-      expectedVersion: "version-7",
-      manualMetadata: editableRom.manual_metadata,
-      steamMetadata: editableRom.steam_metadata,
-      fallbackDescription: editableRom.summary,
-      providerSummaryIsAuthoritative: true,
-    });
-  });
+      expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+        true,
+      );
+      expect(
+        wrapper.getComponent({ name: "LocalizedDescriptionEditor" }).props(),
+      ).toMatchObject({
+        romId: editableRom.id,
+        expectedVersion: "version-7",
+        manualMetadata: editableRom.manual_metadata,
+        steamMetadata: editableRom.steam_metadata,
+        provider: descriptionProvider,
+        ssMetadata: {
+          text_variants: {
+            fr: { source_language: "fr", summary: "Console text" },
+          },
+        },
+      });
+    },
+  );
 
   it("keeps the description read-only without an edit grant", () => {
     permissionState.value = false;

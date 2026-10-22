@@ -505,6 +505,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :rom="currentRom"
             :parent-rom-id="currentRom.id"
             :description="overviewDescription"
+            :description-provider="isPcRom ? 'steam' : 'screenscraper'"
             :sections="overviewSections"
             :ss-metadata="currentRom.ss_metadata"
             :player-count="playerCount"

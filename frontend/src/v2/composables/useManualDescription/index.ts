@@ -28,15 +28,6 @@ export interface LocalizedDescriptionInput {
   provider: DescriptionProvider | null;
 }
 
-export interface DescriptionResolutionInput {
-  manualMetadata: ManualMetadata | null | undefined;
-  steamMetadata: SteamMetadataSchema | null | undefined;
-  ssMetadata?: ProviderMetadata | null;
-  legacySummary: string | null | undefined;
-  locale: string;
-  providerSummaryIsAuthoritative?: boolean;
-}
-
 function manualCandidates(
   metadata: ManualMetadata | null | undefined,
 ): DescriptionCandidate[] {
@@ -106,42 +97,6 @@ export function resolveDescription(
     manualCandidates(input.manualMetadata),
     providers,
   );
-}
-
-export function resolveManualDescription(
-  input: DescriptionResolutionInput,
-): string | null {
-  const providers =
-    input.providerSummaryIsAuthoritative === false
-      ? []
-      : [
-          ...providerCandidates(input.steamMetadata, "steam"),
-          ...providerCandidates(input.ssMetadata, "screenscraper"),
-        ];
-  return (
-    selectDescription(
-      input.locale,
-      manualCandidates(input.manualMetadata),
-      providers,
-    ).text ?? descriptionText(input.legacySummary)
-  );
-}
-
-export function resolveProviderDescription({
-  steamMetadata,
-  ssMetadata,
-  locale,
-}: {
-  steamMetadata: SteamMetadataSchema | null | undefined;
-  ssMetadata: ProviderMetadata | null | undefined;
-  locale: string;
-}): string | null {
-  const candidates = [
-    ...providerCandidates(steamMetadata, "steam"),
-    ...providerCandidates(ssMetadata, "screenscraper"),
-  ];
-  const result = selectDescription(locale, [], candidates);
-  return result.match === "english_fallback" ? null : result.text;
 }
 
 export function useManualDescription() {

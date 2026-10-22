@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  resolveDescription,
-  resolveManualDescription,
-  resolveProviderDescription,
-  useManualDescription,
-} from "./index";
+import { resolveDescription, useManualDescription } from "./index";
 
 const mocks = vi.hoisted(() => ({
   apiPut: vi.fn(),
@@ -23,94 +18,6 @@ vi.mock("@/services/api/rom", () => ({
       mocks.updatePcComponentManualDescription,
   },
 }));
-
-describe("resolveManualDescription", () => {
-  const steamMetadata = {
-    text_variants: {
-      en: { source_language: "english", summary: "English provider text" },
-      de: { source_language: "german", summary: "German provider text" },
-    },
-  };
-
-  it("keeps manual descriptions locale-scoped and lets them win over providers", () => {
-    const source = {
-      manualMetadata: { descriptions: { "de-DE": "Manuelle Beschreibung" } },
-      steamMetadata,
-      legacySummary: "Legacy summary",
-    };
-
-    expect(resolveManualDescription({ ...source, locale: "de-DE" })).toBe(
-      "Manuelle Beschreibung",
-    );
-    expect(resolveManualDescription({ ...source, locale: "en-US" })).toBe(
-      "English provider text",
-    );
-  });
-
-  it("falls back to provider text and then legacy text after clearing manual text", () => {
-    const source = {
-      manualMetadata: { descriptions: {} },
-      steamMetadata,
-      legacySummary: "Legacy summary",
-    };
-
-    expect(resolveManualDescription({ ...source, locale: "de-DE" })).toBe(
-      "German provider text",
-    );
-    expect(
-      resolveManualDescription({
-        ...source,
-        locale: "fr-FR",
-        providerSummaryIsAuthoritative: false,
-      }),
-    ).toBe("Legacy summary");
-  });
-
-  it("uses a language manual description for regional locales", () => {
-    expect(
-      resolveManualDescription({
-        manualMetadata: { descriptions: { de: "Deutsch" } },
-        steamMetadata,
-        legacySummary: "Legacy summary",
-        locale: "de-AT",
-      }),
-    ).toBe("Deutsch");
-  });
-
-  it("prefers manual English before provider English", () => {
-    expect(
-      resolveManualDescription({
-        manualMetadata: { descriptions: { en: "Manuelles Englisch" } },
-        steamMetadata,
-        legacySummary: "Legacy summary",
-        locale: "fr-FR",
-      }),
-    ).toBe("Manuelles Englisch");
-  });
-
-  it("resolves an exact ScreenScraper locale before provider English", () => {
-    expect(
-      resolveManualDescription({
-        manualMetadata: { descriptions: {} },
-        steamMetadata: {
-          text_variants: {
-            en: { source_language: "english", summary: "Steam English" },
-          },
-        },
-        ssMetadata: {
-          text_variants: {
-            fr: {
-              source_language: "fr",
-              summary: "ScreenScraper français",
-            },
-          },
-        },
-        legacySummary: "Legacy summary",
-        locale: "fr-FR",
-      }),
-    ).toBe("ScreenScraper français");
-  });
-});
 
 describe("useManualDescription mutations", () => {
   it("delegates ROM and component writes through the shared ROM service", async () => {
@@ -150,42 +57,6 @@ describe("useManualDescription mutations", () => {
       payload,
     });
     expect(mocks.apiPut).not.toHaveBeenCalled();
-  });
-});
-
-describe("requested language precedence and provenance", () => {
-  it("uses German provider text before protected manual English without mutation", () => {
-    const manualMetadata = { descriptions: { en: "  Protected English  " } };
-    expect(
-      resolveManualDescription({
-        manualMetadata,
-        steamMetadata: {
-          text_variants: {
-            de: { source_language: "german", summary: "Deutsch" },
-          },
-        },
-        locale: "de-DE",
-        legacySummary: "Legacy",
-      }),
-    ).toBe("Deutsch");
-    expect(manualMetadata.descriptions.en).toBe("  Protected English  ");
-  });
-
-  it("rejects a German slot whose actual source language is English", () => {
-    expect(
-      resolveProviderDescription({
-        steamMetadata: {
-          text_variants: {
-            de: {
-              source_language: "english",
-              summary: "Wrongly tagged English",
-            },
-          },
-        },
-        ssMetadata: null,
-        locale: "de-DE",
-      }),
-    ).toBeNull();
   });
 });
 
@@ -370,4 +241,18 @@ describe("resolveDescription typed policy", () => {
     expect(mocks.updateManualDescription).not.toHaveBeenCalled();
     expect(mocks.updatePcComponentManualDescription).not.toHaveBeenCalled();
   });
+});
+
+it("rejects requested provider slots with mismatched actual language", () => {
+  expect(
+    resolveDescription({
+      provider: "steam",
+      locale: "de-DE",
+      steamMetadata: {
+        text_variants: {
+          de: { source_language: "english", summary: "Mislabeled" },
+        },
+      },
+    }).match,
+  ).toBe("empty");
 });

@@ -292,10 +292,7 @@ function showMedia() {
                     component.component_metadata?.manual_metadata
                   "
                   :steam-metadata="component.component_metadata?.steam_metadata"
-                  :fallback-description="component.component_metadata?.summary"
-                  :provider-summary-is-authoritative="
-                    component.component_metadata?.metadata_source !== 'manual'
-                  "
+                  provider="steam"
                   @saved="
                     () => {
                       descriptionEditorOpen = false;

@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { RBtn, RSelect, RTextField } from "@v2/lib";
 import { getActivePinia } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { ManualMetadata, SteamMetadataSchema } from "@/__generated__";
+import { toBrowserLocale } from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
+import { useDescriptionEditor } from "@/v2/composables/useDescriptionEditor";
 import {
-  resolveManualDescription,
-  resolveProviderDescription,
+  resolveDescription,
   useManualDescription,
+  type DescriptionProvider,
 } from "@/v2/composables/useManualDescription";
+import {
+  descriptionPresentation,
+  type ProviderMetadata,
+} from "@/v2/composables/useManualDescription/provenance";
 import { normalizeLocale } from "@/v2/composables/useProviderResolution";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -21,14 +27,8 @@ const props = withDefaults(
     expectedVersion?: string | null;
     manualMetadata?: ManualMetadata | null;
     steamMetadata?: SteamMetadataSchema | null;
-    ssMetadata?: {
-      text_variants?: Record<
-        string,
-        { summary?: string | null } | undefined
-      > | null;
-    } | null;
-    fallbackDescription?: string | null;
-    providerSummaryIsAuthoritative?: boolean;
+    ssMetadata?: ProviderMetadata | null;
+    provider: DescriptionProvider | null;
     canEdit?: boolean;
   }>(),
   {
@@ -37,8 +37,6 @@ const props = withDefaults(
     manualMetadata: null,
     steamMetadata: null,
     ssMetadata: null,
-    fallbackDescription: null,
-    providerSummaryIsAuthoritative: true,
   },
 );
 const emit = defineEmits<{
@@ -49,109 +47,90 @@ const snackbar = useSnackbar();
 const { updateRomDescription, updateComponentDescription } =
   useManualDescription();
 const permission = getActivePinia()
-  ? useCan("rom.edit", { kind: "rom", id: props.romId })
-  : null;
-const canEdit = computed(() => props.canEdit ?? permission?.value ?? true);
-const currentLocale = computed(() =>
-  typeof locale === "string" ? locale : locale.value,
-);
-const selectedLocale = ref(normalizeLocale(currentLocale.value));
-const draft = ref("");
-const baseline = ref("");
-const saving = ref(false);
-const localeItems = computed(() =>
-  (availableLocales ?? []).map(normalizeLocale),
-);
-const manualDescription = computed(() => {
-  const descriptions = props.manualMetadata?.descriptions ?? {};
-  const normalized = normalizeLocale(selectedLocale.value);
-  const language = normalized.split("-", 1)[0];
-  return descriptions[normalized] ?? descriptions[language] ?? null;
-});
-const providerDescription = computed(() => {
-  if (!props.providerSummaryIsAuthoritative) return null;
-  return (
-    resolveProviderDescription({
-      steamMetadata: props.steamMetadata,
-      ssMetadata: props.ssMetadata,
-      locale: selectedLocale.value,
-    }) ??
-    resolveProviderDescription({
-      steamMetadata: props.steamMetadata,
-      ssMetadata: props.ssMetadata,
-      locale: "en",
+  ? useCan("rom.edit", {
+      kind: "rom",
+      get id() {
+        return props.romId;
+      },
     })
-  );
+  : null;
+const canEdit = computed(() => props.canEdit ?? permission?.value ?? false);
+const editor = useDescriptionEditor({
+  entity: () =>
+    props.componentId === undefined
+      ? `rom:${props.romId}`
+      : `component:${props.romId}:${props.componentId}`,
+  locale: () => (typeof locale === "string" ? locale : locale.value),
+  descriptions: () => props.manualMetadata?.descriptions,
+  expectedVersion: () => props.expectedVersion,
 });
-const resolvedDescription = computed(() =>
-  resolveManualDescription({
+const { selectedLocale, draft, dirty, expectedVersion, saving, cancel } =
+  editor;
+const localeItems = computed(() => [
+  ...new Set([
+    ...(availableLocales ?? []).map(normalizeLocale),
+    selectedLocale.value,
+  ]),
+]);
+const resolution = computed(() =>
+  resolveDescription({
     manualMetadata: props.manualMetadata,
     steamMetadata: props.steamMetadata,
-    legacySummary: props.fallbackDescription,
+    ssMetadata: props.ssMetadata,
+    provider: props.provider,
     locale: selectedLocale.value,
-    providerSummaryIsAuthoritative: props.providerSummaryIsAuthoritative,
   }),
 );
-const sourceKey = computed(() => {
-  if (manualDescription.value?.trim()) return "rom.description-source-manual";
-  if (providerDescription.value) return "rom.description-source-provider";
-  if (props.fallbackDescription?.trim())
-    return "rom.description-source-fallback";
-  return "rom.description-source-empty";
+const provenance = computed(() => {
+  const result = resolution.value;
+  const language = typeof locale === "string" ? locale : locale.value;
+  const names = new Intl.DisplayNames([toBrowserLocale(language)], {
+    type: "language",
+  });
+  return descriptionPresentation(result, {
+    source:
+      result.source === "manual"
+        ? t("rom.description-manual-label")
+        : result.source === "steam"
+          ? "Steam"
+          : "ScreenScraper",
+    language: result.resolvedLocale
+      ? (names.of(result.resolvedLocale) ?? result.resolvedLocale)
+      : "",
+    requestedLanguage:
+      names.of(result.requestedLocale) ?? result.requestedLocale,
+  });
 });
-const dirty = computed(() => draft.value !== baseline.value);
-function exactManualDescription() {
-  const descriptions = props.manualMetadata?.descriptions ?? {};
-  return descriptions[normalizeLocale(selectedLocale.value)] ?? "";
-}
-function syncDraft() {
-  const next = exactManualDescription();
-  draft.value = next;
-  baseline.value = next;
-}
-watch(
-  [selectedLocale, () => props.manualMetadata],
-  () => {
-    if (!dirty.value) syncDraft();
-  },
-  { immediate: true, deep: true },
-);
-watch(currentLocale, (value) => {
-  const next = normalizeLocale(value);
-  if (!dirty.value && localeItems.value.includes(next))
-    selectedLocale.value = next;
-});
-function cancel() {
-  draft.value = baseline.value;
-}
 function reset() {
-  draft.value = "";
+  if (canEdit.value && !saving.value) draft.value = "";
 }
 async function save() {
-  if (!dirty.value || saving.value || !canEdit.value || !props.expectedVersion)
-    return;
-  saving.value = true;
-  const description = draft.value.trim() || null;
+  if (!canEdit.value) return;
+  const romId = props.romId;
+  const componentId = props.componentId;
+  const capture = editor.beginSave();
+  if (!capture) return;
+  const description = capture.draft.trim() || null;
+  const payload = {
+    locale: capture.locale,
+    description,
+    expected_version: capture.expectedVersion,
+  };
   try {
-    const response = props.componentId
-      ? await updateComponentDescription(props.romId, props.componentId, {
-          locale: selectedLocale.value,
-          description,
-          expected_version: props.expectedVersion,
-        })
-      : await updateRomDescription(props.romId, {
-          locale: selectedLocale.value,
-          description,
-          expected_version: props.expectedVersion,
-        });
-    baseline.value = draft.value;
+    const response =
+      componentId === undefined
+        ? await updateRomDescription(romId, payload)
+        : await updateComponentDescription(romId, componentId, payload);
+    if (!editor.isCurrent(capture)) return;
+    editor.finishSave(capture, response.expected_version);
     emit("saved", response.locale, response.description);
     snackbar.success(t("rom.description-saved"));
   } catch (error) {
+    if (!editor.isCurrent(capture)) return;
     console.error(error);
     snackbar.error(t("rom.description-save-failed"));
   } finally {
-    saving.value = false;
+    editor.finishSave(capture);
   }
 }
 </script>
@@ -168,15 +147,14 @@ async function save() {
           {{ t("rom.description-editor") }}
         </h3>
         <p class="localized-description-editor__source" aria-live="polite">
-          {{ t(sourceKey) }}
+          {{ t(provenance.key, provenance.params) }}
         </p>
       </div>
       <RSelect
         v-model="selectedLocale"
         :items="localeItems"
         :label="t('rom.description-locale')"
-        density="compact"
-        :disabled="saving"
+        :disabled="dirty || saving"
       />
     </div>
     <RTextField
@@ -184,24 +162,18 @@ async function save() {
       multiline
       :rows="5"
       :label="t('rom.description-manual-label')"
-      :hint="resolvedDescription || t('rom.description-empty')"
-      persistent-hint
       :disabled="!canEdit || saving"
     />
     <p
-      v-if="providerDescription && !manualDescription"
+      v-if="resolution.text"
+      data-testid="description-preview"
       class="localized-description-editor__provider"
+      :lang="resolution.resolvedLocale ?? undefined"
     >
-      {{ t("rom.description-provider-preview") }} {{ providerDescription }}
+      {{ resolution.text }}
     </p>
-    <p
-      v-else-if="
-        props.fallbackDescription && !manualDescription && !providerDescription
-      "
-      class="localized-description-editor__provider"
-    >
-      {{ t("rom.description-fallback-preview") }}
-      {{ props.fallbackDescription }}
+    <p v-else class="localized-description-editor__hint">
+      {{ t("rom.description-empty") }}
     </p>
     <div class="localized-description-editor__actions">
       <RBtn variant="text" :disabled="!dirty || saving" @click="cancel">{{
@@ -209,7 +181,7 @@ async function save() {
       }}</RBtn>
       <RBtn
         variant="outlined"
-        :disabled="!dirty || saving || !canEdit"
+        :disabled="!draft || saving || !canEdit"
         @click="reset"
         >{{ t("rom.description-reset") }}</RBtn
       >
@@ -231,7 +203,7 @@ async function save() {
 .localized-description-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--r-space-3);
+  gap: var(--r-space-4);
   padding: var(--r-space-4);
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
@@ -241,7 +213,7 @@ async function save() {
 .localized-description-editor__actions {
   display: flex;
   align-items: flex-start;
-  gap: var(--r-space-3);
+  gap: var(--r-space-2);
 }
 .localized-description-editor__head {
   justify-content: space-between;
@@ -250,6 +222,7 @@ async function save() {
   margin: 0;
   color: var(--r-color-fg);
   font-size: var(--r-font-size-lg);
+  font-weight: var(--r-font-weight-semibold);
 }
 .localized-description-editor__source,
 .localized-description-editor__provider,
@@ -257,18 +230,21 @@ async function save() {
   margin: var(--r-space-1) 0 0;
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-sm);
+  overflow-wrap: anywhere;
 }
 .localized-description-editor__provider {
   padding: var(--r-space-2) var(--r-space-3);
   border-left: 2px solid var(--r-color-brand-primary);
+  white-space: pre-wrap;
 }
 .localized-description-editor__actions {
   justify-content: flex-end;
   flex-wrap: wrap;
 }
-@media (max-width: 599px) {
-  .localized-description-editor__head {
-    flex-direction: column;
-  }
+.localized-description-editor__actions :deep(button) {
+  min-height: 44px;
+}
+:global(html[data-bp~="xs"]) .localized-description-editor__head {
+  flex-direction: column;
 }
 </style>

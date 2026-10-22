@@ -41,8 +41,14 @@ import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
 import { useCan } from "@/v2/composables/useCan";
-import type { DescriptionResolution } from "@/v2/composables/useManualDescription";
-import { descriptionPresentation } from "@/v2/composables/useManualDescription/provenance";
+import type {
+  DescriptionProvider,
+  DescriptionResolution,
+} from "@/v2/composables/useManualDescription";
+import {
+  descriptionPresentation,
+  type ProviderMetadata,
+} from "@/v2/composables/useManualDescription/provenance";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeCollections from "@/v2/data/adapters/legacy/stores/collections";
 import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
@@ -55,12 +61,8 @@ const props = defineProps<{
   rom: DetailedRom;
   parentRomId: number;
   description: DescriptionResolution;
-  ssMetadata?: {
-    text_variants?: Record<
-      string,
-      { summary?: string | null } | undefined
-    > | null;
-  } | null;
+  descriptionProvider?: DescriptionProvider | null;
+  ssMetadata?: ProviderMetadata | null;
   sections: InfoGridSection[];
   playerCount: string | null;
   userCollections: UserCollectionSchema[];
@@ -317,10 +319,7 @@ const youtubeEmbedUrl = computed(() =>
           :manual-metadata="rom.manual_metadata"
           :steam-metadata="rom.steam_metadata"
           :ss-metadata="ssMetadata"
-          :fallback-description="rom.summary"
-          :provider-summary-is-authoritative="
-            Boolean(rom.steam_metadata?.fields?.includes('summary'))
-          "
+          :provider="descriptionProvider ?? null"
           @saved="
             () => {
               descriptionEditorOpen = false;
