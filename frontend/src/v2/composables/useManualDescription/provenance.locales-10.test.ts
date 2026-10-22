@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import ptBR from "@/locales/pt_BR/rom.json";
 import roRO from "@/locales/ro_RO/rom.json";
 import ruRU from "@/locales/ru_RU/rom.json";
+import trTR from "@/locales/tr_TR/rom.json";
+import zhCN from "@/locales/zh_CN/rom.json";
+import zhTW from "@/locales/zh_TW/rom.json";
 import { descriptionPresentation } from "./provenance";
 
 const copies = [
@@ -28,6 +31,30 @@ const copies = [
     fallback:
       "Описание на языке {requestedLanguage} недоступно. Показано описание на языке {language} из источника {source}.",
     cancel: "Отменить редактирование",
+  },
+  {
+    locale: "tr_TR",
+    messages: trTR,
+    source: "Kaynak: {source} ({language})",
+    fallback:
+      "{requestedLanguage} dilinde açıklama yok. {source} kaynağından {language} dilindeki açıklama gösteriliyor.",
+    cancel: "Düzenlemeyi iptal et",
+  },
+  {
+    locale: "zh_CN",
+    messages: zhCN,
+    source: "来源：{source}（{language}）",
+    fallback:
+      "没有{requestedLanguage}的描述。正在显示来自{source}的{language}描述。",
+    cancel: "取消编辑",
+  },
+  {
+    locale: "zh_TW",
+    messages: zhTW,
+    source: "來源：{source}（{language}）",
+    fallback:
+      "沒有{requestedLanguage}的描述。目前顯示來自{source}的{language}描述。",
+    cancel: "取消編輯",
   },
 ];
 
