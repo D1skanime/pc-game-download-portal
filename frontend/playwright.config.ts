@@ -47,6 +47,7 @@ export default defineConfig({
         /.*\.setup\.ts/,
         /phase35-incremental-scan\.spec\.ts/,
         /phase35-presentation-smoke\.spec\.ts/,
+        /phase36-descriptions\.spec\.ts/,
       ],
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
