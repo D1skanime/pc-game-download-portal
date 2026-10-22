@@ -44,20 +44,31 @@ function validateCopy(copy: Record<string, unknown>) {
     const value = copy[key];
     if (typeof value !== "string" || !value.trim())
       throw new Error(key + ": missing copy");
-    if (key === "description-cancel" && placeholders(value).length)
+    if (
+      JSON.stringify(placeholders(value)) !==
+      JSON.stringify(placeholders(enUS[key]))
+    )
       throw new Error(key + ": placeholder mismatch");
   }
 }
 
 function validateTree(reference: unknown, candidate: unknown, path = "") {
-  if (!reference || typeof reference !== "object") return;
-  if (!candidate || typeof candidate !== "object")
-    throw new Error(path + ": invalid tree");
   if (
-    JSON.stringify(Object.keys(candidate).sort()) !==
-    JSON.stringify(Object.keys(reference).sort())
+    typeof candidate !== typeof reference ||
+    Array.isArray(candidate) !== Array.isArray(reference) ||
+    (candidate === null) !== (reference === null)
+  )
+    throw new Error(path + ": type mismatch");
+  if (!reference || typeof reference !== "object") return;
+  const expected = reference as Record<string, unknown>;
+  const actual = candidate as Record<string, unknown>;
+  if (
+    JSON.stringify(Object.keys(actual).sort()) !==
+    JSON.stringify(Object.keys(expected).sort())
   )
     throw new Error(path + ": key mismatch");
+  for (const key of Object.keys(expected))
+    validateTree(expected[key], actual[key], path + "." + key);
 }
 
 describe("combined eighteen-locale description gate", () => {
