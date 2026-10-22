@@ -623,6 +623,53 @@ class BackendShardContracts(unittest.TestCase):
             self.validate()
 
 
+class RootSkipEvidenceContracts(unittest.TestCase):
+    def test_requires_indexed_inspection_and_default_exec_user(self):
+        from phase36_quality import ROOT_ENVIRONMENT, root_skip_environment
+
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            path = folder / "inspect.json"
+
+            def inspection(user):
+                path.write_text(
+                    json.dumps([{"Name": "/owned-runner-1", "Config": {"User": user}}])
+                )
+
+            inspection("")
+            commands: list[dict[str, Any]] = [
+                {
+                    "command": [
+                        "docker",
+                        "exec",
+                        "owned-runner",
+                        "uv",
+                        "run",
+                        "pytest",
+                    ],
+                    "log": "pytest.log",
+                },
+                {
+                    "command": ["docker", "inspect", "owned-runner"],
+                    "log": "inspect.json",
+                },
+            ]
+            artifacts = {"shard/inspect.json": "a" * 64}
+            self.assertEqual(
+                root_skip_environment(commands, folder, artifacts, "shard"),
+                ROOT_ENVIRONMENT,
+            )
+            with self.assertRaises(RuntimeError):
+                root_skip_environment(commands, folder, {}, "shard")
+            inspection("1000")
+            with self.assertRaises(RuntimeError):
+                root_skip_environment(commands, folder, artifacts, "shard")
+            inspection("")
+            commands[0]["command"].insert(2, "--user=0")
+            with self.assertRaises(RuntimeError):
+                root_skip_environment(commands, folder, artifacts, "shard")
+
+
 class ShardSourceDeltaContracts(unittest.TestCase):
     def test_only_reviewed_unexecuted_gate_files_can_differ(self):
         from phase36_quality import shard_source_delta
@@ -638,7 +685,7 @@ class ShardSourceDeltaContracts(unittest.TestCase):
                 "file": name,
                 "tested": "a" * 64,
                 "current": "b" * 64,
-                "reason": "evidence_gate_only_outside_reviewed_shard1_imports",
+                "reason": "evidence_gate_only_outside_reviewed_shard_imports",
             }
         ]
         shard_source_delta(before, after, 1, selected, delta)
@@ -666,7 +713,7 @@ class ShardSourceDeltaContracts(unittest.TestCase):
                 "file": name,
                 "tested": "a" * 64,
                 "current": "b" * 64,
-                "reason": "evidence_gate_only_outside_reviewed_shard1_imports",
+                "reason": "evidence_gate_only_outside_reviewed_shard_imports",
             }
         ]
         with self.assertRaises(RuntimeError):

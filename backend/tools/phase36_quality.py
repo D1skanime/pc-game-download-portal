@@ -11,6 +11,11 @@ RVZ_SKIPS = {
 }
 
 
+ROOT_PERMISSION_NODE = "tests/handler/filesystem/test_roms_handler.py::TestExtractCHDHash::test_extract_chd_hash_permission_error"
+ROOT_PERMISSION_REASON = "root bypasses file permission bits"
+ROOT_ENVIRONMENT = {"runner_config_user": "", "pytest_exec_user": "default"}
+
+
 def validate_backend_summary(payload):
     """Keep existing missing-fixture skips distinct from passing tests."""
     if payload.get("full_suite") is not True or payload.get("tests", 0) < 500:
@@ -28,6 +33,14 @@ def validate_backend_summary(payload):
         if not isinstance(row, dict):
             raise RuntimeError("invalid backend skip record")
         nodeid = row.get("nodeid")
+        if (
+            nodeid == ROOT_PERMISSION_NODE
+            and row.get("reason") == ROOT_PERMISSION_REASON
+            and row.get("environment") == ROOT_ENVIRONMENT
+            and nodeid not in seen
+        ):
+            seen.add(nodeid)
+            continue
         if (
             nodeid not in RVZ_SKIPS
             or row.get("reason") != RVZ_SKIPS[nodeid]
@@ -152,19 +165,57 @@ def backend_xml(path, selected, output=None):
     return {**counts, "skip_details": skips}
 
 
+def root_skip_environment(commands, folder, artifacts, prefix):
+    """Bind the inherited root-only skip to inspected runner and exec defaults."""
+    from phase36_receipts import child, read
+
+    pytest = [row["command"] for row in commands if "pytest" in row.get("command", [])]
+    if (
+        len(pytest) != 1
+        or "exec" not in pytest[0]
+        or any(
+            arg in {"--user", "-u"} or arg.startswith("--user=") for arg in pytest[0]
+        )
+    ):
+        raise RuntimeError("root permission skip lacks default exec-user evidence")
+    users = []
+    for row in commands:
+        if row.get("command", [])[:2] != ["docker", "inspect"]:
+            continue
+        log = row.get("log")
+        if not isinstance(log, str) or prefix + "/" + log not in artifacts:
+            raise RuntimeError("unindexed runner inspection")
+        inspection = read(child(folder, log))
+        if not isinstance(inspection, list):
+            raise RuntimeError("invalid runner inspection")
+        for inspected in inspection:
+            if str(inspected.get("Name", "")).endswith("-runner-1"):
+                users.append(inspected.get("Config", {}).get("User"))
+    if not users or any(user != "" for user in users):
+        raise RuntimeError("root permission skip lacks inspected root runner")
+    return ROOT_ENVIRONMENT.copy()
+
+
 def shard_source_delta(tested, baseline, number, selected, recorded):
     """Keep the reviewed first group's evidence-gate-only changes explicit."""
     reviewed_tools = {
-        "tools/tests/test_phase33_uat.py",
-        "tools/tests/test_phase35_incremental_scan_probe.py",
+        1: {
+            "tools/tests/test_phase33_uat.py",
+            "tools/tests/test_phase35_incremental_scan_probe.py",
+        },
+        2: {
+            "tools/tests/test_phase34_evidence.py",
+            "tools/tests/test_phase36_description_probe.py",
+        },
     }
     allowed = (
         {
             "backend/tools/phase36_quality.py",
             "backend/tools/tests/test_phase36_receipts.py",
         }
-        if number == 1
-        and {name for name in selected if name.startswith("tools/")} == reviewed_tools
+        if number in reviewed_tools
+        and {name for name in selected if name.startswith("tools/")}
+        == reviewed_tools[number]
         else set()
     )
     before, after = tested.get("files", {}), baseline.get("files", {})
@@ -173,7 +224,7 @@ def shard_source_delta(tested, baseline, number, selected, recorded):
             "file": name,
             "tested": before.get(name),
             "current": after.get(name),
-            "reason": "evidence_gate_only_outside_reviewed_shard1_imports",
+            "reason": "evidence_gate_only_outside_reviewed_shard_imports",
         }
         for name in sorted(set(before) | set(after))
         if before.get(name) != after.get(name)
@@ -279,6 +330,11 @@ def validate_backend_shards(payload, evidence, artifacts):
         if not isinstance(log, str) or name + "/" + log not in artifacts:
             raise RuntimeError("missing indexed pytest command log")
         actual = backend_xml(folder / "backend.xml", selected, child(folder, log))
+        if any(row["nodeid"] == ROOT_PERMISSION_NODE for row in actual["skip_details"]):
+            environment = root_skip_environment(commands, folder, artifacts, name)
+            for row in actual["skip_details"]:
+                if row["nodeid"] == ROOT_PERMISSION_NODE:
+                    row["environment"] = environment
         for key in total:
             total[key] += actual[key]
         skips.extend(actual["skip_details"])
