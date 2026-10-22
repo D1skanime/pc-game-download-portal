@@ -608,3 +608,34 @@ def test_commit_boundary_revocation_rolls_back_catalog_and_retry(
                     )
     assert snapshot(binding)[1] == current
     assert not load_retry_states(binding)
+
+
+def test_detached_component_lookup_loads_description_metadata(bound_game):
+    from sqlalchemy import inspect
+
+    from models.rom import RomComponent, RomComponentKind, RomComponentMetadata
+
+    binding, _ = bound_game
+    with sync_session.begin() as session:
+        component = RomComponent(
+            rom_id=binding.rom_id, relative_path="dlc", kind=RomComponentKind.DLC
+        )
+        session.add(component)
+        session.flush()
+        identity = component.id
+        session.add(
+            RomComponentMetadata(
+                component_id=identity,
+                steam_id=10,
+                steam_metadata={"text_variants": {}},
+                manual_metadata={"descriptions": {"en": "Protected component English"}},
+            )
+        )
+    loaded = db_rom_handler.get_pc_component_by_id(binding.rom_id, identity)
+    assert loaded is not None
+    assert "component_metadata" not in inspect(loaded).unloaded
+    assert loaded.component_metadata.steam_id == 10
+    assert loaded.component_metadata.manual_metadata == {
+        "descriptions": {"en": "Protected component English"}
+    }
+    assert db_rom_handler.get_pc_component_by_id(binding.rom_id + 1, identity) is None

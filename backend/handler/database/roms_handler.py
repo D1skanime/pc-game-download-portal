@@ -2953,7 +2953,10 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomComponent | None:
         return session.scalar(
             select(RomComponent)
-            .options(selectinload(RomComponent.manifest_members))
+            .options(
+                selectinload(RomComponent.manifest_members),
+                selectinload(RomComponent.component_metadata),
+            )
             .where(
                 and_(
                     RomComponent.id == component_id,
