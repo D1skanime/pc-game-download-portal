@@ -252,6 +252,20 @@ def root_skip_environment(commands, folder, artifacts, prefix):
     return ROOT_ENVIRONMENT.copy()
 
 
+def ci_source_files():
+    """Fingerprint the existing CI owner's tracked snapshot selection."""
+    import tempfile
+    from pathlib import Path
+
+    import phase34
+    from ci_target import prepare_ci_snapshot
+    from phase34_fixtures import code_manifest
+
+    with tempfile.TemporaryDirectory(prefix="phase36-ci-source-") as temporary:
+        _, snapshot = prepare_ci_snapshot(Path(temporary), phase34.REPO)
+        return code_manifest(snapshot)["files"]
+
+
 def shard_source_delta(tested, baseline, number, selected, recorded):
     """Keep reviewed seed-group source changes explicit and bounded."""
     reviewed_tools = {
@@ -267,10 +281,12 @@ def shard_source_delta(tested, baseline, number, selected, recorded):
         5: {"tools/tests/test_phase34_runner.py"},
         6: {"tools/tests/test_phase34_target_guard.py"},
         7: {"tools/tests/test_phase35_acceptance_invariants.py"},
+        8: {"tools/tests/test_ci_target.py", "tools/tests/test_phase35_contracts.py"},
     }
     allowed = (
         {
             "backend/tools/phase36_quality.py",
+            "backend/tools/phase36_receipts.py",
             "backend/tools/tests/test_phase36_receipts.py",
         }
         if number in reviewed_tools

@@ -901,6 +901,13 @@ class CIInventoryContracts(unittest.TestCase):
             }
         ]
         shard_source_delta(before, after, 5, selected, delta)
+        shard_source_delta(
+            before,
+            after,
+            8,
+            ["tools/tests/test_ci_target.py", "tools/tests/test_phase35_contracts.py"],
+            delta,
+        )
         for number, files, record in (
             (3, selected, delta),
             (5, selected + ["tools/tests/test_phase36_receipts.py"], delta),

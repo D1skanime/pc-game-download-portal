@@ -141,6 +141,10 @@ def dependency_files(kind, current):
     """Declare scenario file scopes independently from receipt-provided lists."""
     if kind not in {pair[0] for pair in GATES}:
         raise RuntimeError("unknown dependency scenario")
+    if kind == "backend":
+        from phase36_quality import ci_source_files
+
+        return ci_source_files()
     protected = current.get("protected_untracked", {})
     if any(current["files"].get(name) != value for name, value in protected.items()):
         raise RuntimeError("protected source hash mismatch")
@@ -187,6 +191,8 @@ def source_dependencies(entry, tested, current):
         return
     kind = entry["kind"]
     required = dependency_files(kind, current)
+    if kind == "backend" and tested["files"] != required:
+        raise RuntimeError("backend source differs from independent CI inventory")
     record = entry.get("dependencies", {})
     if record.get("scenario") != kind or record.get("files") != required:
         raise RuntimeError("removed, stale or mis-scoped source dependency")
@@ -200,7 +206,11 @@ def source_dependencies(entry, tested, current):
         reason = (
             "protected_untracked"
             if name in current.get("protected_untracked", {})
-            else "outside_scenario"
+            else (
+                "ci_tracked_support"
+                if kind == "backend" and name in required
+                else "outside_scenario"
+            )
         )
         delta.append(
             {"file": name, "tested": before, "current": after, "reason": reason}
