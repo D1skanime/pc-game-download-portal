@@ -218,6 +218,27 @@ class ArtifactContracts(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.validate()
 
+    def test_inherited_permission_skip_requires_verified_root_environment(self):
+        from phase36_quality import validate_backend_summary
+
+        row = {
+            "nodeid": "tests/handler/filesystem/test_roms_handler.py::TestExtractCHDHash::test_extract_chd_hash_permission_error",
+            "reason": "root bypasses file permission bits",
+            "environment": {"runner_config_user": "", "pytest_exec_user": "default"},
+        }
+        self.backend_result([row])
+        payload = json.loads((self.evidence / "result.json").read_text())
+        validate_backend_summary(payload)
+        for environment in (
+            {},
+            {"runner_config_user": "1000", "pytest_exec_user": "default"},
+            {"runner_config_user": "", "pytest_exec_user": "override"},
+        ):
+            with self.subTest(environment=environment), self.assertRaises(RuntimeError):
+                validate_backend_summary(
+                    {**payload, "skip_details": [{**row, "environment": environment}]}
+                )
+
     def test_backend_rejects_unknown_skip(self):
         self.backend_result([{"nodeid": "tests/new.py::test_new", "reason": "missing"}])
         with self.assertRaises(RuntimeError):
