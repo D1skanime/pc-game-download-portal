@@ -16,7 +16,8 @@ import PcDlcMediaTab from "@/v2/components/GameDetails/PcDlcMediaTab.vue";
 import PcDlcNotesTab from "@/v2/components/GameDetails/PcDlcNotesTab.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
-import { resolveManualDescription } from "@/v2/composables/useManualDescription";
+import { resolveDescription } from "@/v2/composables/useManualDescription";
+import { descriptionPresentation } from "@/v2/composables/useManualDescription/provenance";
 
 defineOptions({ inheritAttrs: false });
 
@@ -31,9 +32,14 @@ const route = useRoute();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const editPermission = getActivePinia()
-  ? useCan("rom.edit", { kind: "rom", id: props.parent.id })
+  ? useCan("rom.edit", {
+      kind: "rom",
+      get id() {
+        return props.parent.id;
+      },
+    })
   : null;
-const canEdit = computed(() => editPermission?.value ?? true);
+const canEdit = computed(() => editPermission?.value ?? false);
 const descriptionEditorOpen = ref(false);
 const validTabs = [
   "overview",
@@ -80,16 +86,36 @@ const title = computed(
       relativePath: props.component.relative_path,
     }),
 );
-const summary = computed(() => {
+const description = computed(() => {
   const metadata = props.component.component_metadata;
-  return resolveManualDescription({
+  return resolveDescription({
     manualMetadata: metadata?.manual_metadata,
     steamMetadata: metadata?.steam_metadata,
-    legacySummary: metadata?.summary,
     locale: locale.value,
-    providerSummaryIsAuthoritative: metadata?.metadata_source !== "manual",
+    provider: "steam",
   });
 });
+const provenance = computed(() => {
+  const result = description.value;
+  const names = new Intl.DisplayNames([toBrowserLocale(locale.value)], {
+    type: "language",
+  });
+  return descriptionPresentation(result, {
+    source:
+      result.source === "manual" ? t("rom.description-manual-label") : "Steam",
+    language: result.resolvedLocale
+      ? (names.of(result.resolvedLocale) ?? result.resolvedLocale)
+      : "",
+    requestedLanguage:
+      names.of(result.requestedLocale) ?? result.requestedLocale,
+  });
+});
+watch(
+  () => [props.parent.id, props.component.id],
+  () => {
+    descriptionEditorOpen.value = false;
+  },
+);
 const cover = computed(
   () =>
     props.component.owned_media?.find((media) => media.role === "cover") ??
@@ -229,11 +255,26 @@ function showMedia() {
 
         <div class="r-v2-det__panel">
           <section v-if="tab === 'overview'" class="pc-dlc-detail__overview">
-            <div v-if="summary" class="pc-dlc-detail__summary-row">
-              <p class="pc-dlc-detail__summary">{{ summary }}</p>
+            <div class="pc-dlc-detail__summary-row">
+              <div class="flex-grow-1 pc-dlc-detail__description">
+                <p
+                  v-if="description.text"
+                  class="pc-dlc-detail__summary"
+                  :lang="description.resolvedLocale ?? undefined"
+                >
+                  {{ description.text }}
+                </p>
+                <p v-else class="pc-dlc-detail__summary">
+                  {{ t("rom.description-empty") }}
+                </p>
+                <p class="pc-dlc-detail__provenance">
+                  {{ t(provenance.key, provenance.params) }}
+                </p>
+              </div>
               <RBtn
                 v-if="canEdit"
                 data-testid="pc-dlc-description-edit"
+                size="large"
                 icon="mdi-pencil-outline"
                 :aria-label="t('common.edit')"
                 variant="text"
@@ -460,7 +501,15 @@ function showMedia() {
   overflow-wrap: anywhere;
 }
 
+.pc-dlc-detail__description {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pc-dlc-detail__provenance {
+  color: var(--r-color-fg-muted);
+}
 .pc-dlc-detail__summary {
+  white-space: pre-line;
   margin: 0;
   color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-md);

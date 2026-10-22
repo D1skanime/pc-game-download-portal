@@ -16,7 +16,14 @@ vi.mock("@/v2/composables/useCan", () => ({
   useCan: () => permissionState,
 }));
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: activeLocale }),
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, string>) =>
+      key +
+      (key.startsWith("rom.description-") && params
+        ? JSON.stringify(params)
+        : ""),
+    locale: activeLocale,
+  }),
 }));
 vi.mock("@/stores/collections", () => ({ default: () => ({}) }));
 vi.mock("@/v2/composables/useWebpSupport", () => ({
@@ -130,6 +137,16 @@ describe("OverviewTab", () => {
         resolvedLocale,
       );
       expect(wrapper.find("img").exists()).toBe(false);
+      expect(wrapper.text()).toContain(
+        resolvedLocale === "en" ? "English" : "German",
+      );
+      expect(wrapper.text()).toContain(
+        source === "steam"
+          ? "Steam"
+          : source === "screenscraper"
+            ? "ScreenScraper"
+            : "rom.description-manual-label",
+      );
       expect(wrapper.text()).toContain(
         match === "english_fallback"
           ? "rom.description-language-fallback"

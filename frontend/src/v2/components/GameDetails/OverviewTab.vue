@@ -301,6 +301,7 @@ const youtubeEmbedUrl = computed(() =>
       <RBtn
         v-if="canEdit"
         data-testid="overview-description-edit"
+        size="large"
         icon="mdi-pencil-outline"
         :aria-label="t('common.edit')"
         variant="text"
