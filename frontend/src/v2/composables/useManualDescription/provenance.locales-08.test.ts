@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import bgBG from "@/locales/bg_BG/rom.json";
+import csCZ from "@/locales/cs_CZ/rom.json";
+import deDE from "@/locales/de_DE/rom.json";
 import enGB from "@/locales/en_GB/rom.json";
 import enUS from "@/locales/en_US/rom.json";
+import esES from "@/locales/es_ES/rom.json";
 import { descriptionPresentation } from "./provenance";
 
 const copies = [
@@ -28,6 +31,30 @@ const copies = [
     fallback:
       "Няма описание на {requestedLanguage}. Показва се описание на {language} от {source}.",
     cancel: "Отказ от редактирането",
+  },
+  {
+    locale: "cs_CZ",
+    messages: csCZ,
+    source: "Zdroj: {source} ({language})",
+    fallback:
+      "Popis v jazyce {requestedLanguage} není k dispozici. Zobrazuje se popis v jazyce {language} ze zdroje {source}.",
+    cancel: "Zrušit úpravy",
+  },
+  {
+    locale: "de_DE",
+    messages: deDE,
+    source: "Quelle: {source} ({language})",
+    fallback:
+      "Keine Beschreibung auf {requestedLanguage} verfügbar. Angezeigt wird eine Beschreibung auf {language} von {source}.",
+    cancel: "Bearbeitung abbrechen",
+  },
+  {
+    locale: "es_ES",
+    messages: esES,
+    source: "Fuente: {source} ({language})",
+    fallback:
+      "No hay descripción en {requestedLanguage}. Se muestra una descripción en {language} de {source}.",
+    cancel: "Cancelar edición",
   },
 ];
 
