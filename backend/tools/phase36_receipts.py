@@ -426,7 +426,10 @@ def sanitize(evidence, token):
         if not path.is_file():
             continue
         if path.suffix != ".zip":
-            path.write_bytes(payload(path.read_bytes()))
+            original = path.read_bytes()
+            sanitized = payload(original)
+            if sanitized != original:
+                path.write_bytes(sanitized)
             continue
         output = io.BytesIO()
         total = 0
