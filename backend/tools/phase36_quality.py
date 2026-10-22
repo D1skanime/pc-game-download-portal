@@ -16,6 +16,41 @@ ROOT_PERMISSION_REASON = "root bypasses file permission bits"
 ROOT_ENVIRONMENT = {"runner_config_user": "", "pytest_exec_user": "default"}
 
 
+LEGACY_DELETE_FILE = "backend/tests/endpoints/roms/test_files.py"
+LEGACY_DELETE_SOURCE = (
+    "9716bb9f42ae8efdb054fff981af6822c5e9d4884654b784575baef4d8f96ee3"
+)
+LEGACY_DELETE_REASON = "Superseded by bounded external denial matrix"
+LEGACY_DELETE_DISPOSITION = "historical_unexecuted_http_delete_role_flows"
+LEGACY_DELETE_NODES = {
+    "tests/endpoints/roms/test_files.py::" + name
+    for name in (
+        "test_delete_rom_file_success",
+        "test_delete_rom_file_wrong_rom_returns_404",
+        "test_delete_rom_file_unknown_file_returns_404",
+        "test_delete_rom_file_tolerates_missing_disk_file",
+        "test_delete_rom_file_forbidden_viewer",
+        "test_delete_rom_file_forbidden_without_delete_grant",
+        "test_delete_rom_file_allowed_for_editor",
+    )
+}
+
+
+def inherited_delete_skip(row, tested):
+    """Preserve seven historical non-executions on their exact baseline source."""
+    if (
+        row.get("nodeid") not in LEGACY_DELETE_NODES
+        or row.get("reason") != LEGACY_DELETE_REASON
+        or tested.get("files", {}).get(LEGACY_DELETE_FILE) != LEGACY_DELETE_SOURCE
+    ):
+        raise RuntimeError("unregistered or changed historical delete skip source")
+    return {
+        **row,
+        "baseline_source_sha256": LEGACY_DELETE_SOURCE,
+        "disposition": LEGACY_DELETE_DISPOSITION,
+    }
+
+
 def validate_backend_summary(payload):
     """Keep existing missing-fixture skips distinct from passing tests."""
     if payload.get("full_suite") is not True or payload.get("tests", 0) < 500:
@@ -34,6 +69,19 @@ def validate_backend_summary(payload):
             raise RuntimeError("invalid backend skip record")
         nodeid = row.get("nodeid")
         if (
+            nodeid in LEGACY_DELETE_NODES
+            and row
+            == {
+                "nodeid": nodeid,
+                "reason": LEGACY_DELETE_REASON,
+                "baseline_source_sha256": LEGACY_DELETE_SOURCE,
+                "disposition": LEGACY_DELETE_DISPOSITION,
+            }
+            and nodeid not in seen
+        ):
+            seen.add(nodeid)
+            continue
+        if (
             nodeid == ROOT_PERMISSION_NODE
             and row.get("reason") == ROOT_PERMISSION_REASON
             and row.get("environment") == ROOT_ENVIRONMENT
@@ -48,6 +96,9 @@ def validate_backend_summary(payload):
         ):
             raise RuntimeError("unregistered or duplicate backend skip")
         seen.add(nodeid)
+    legacy_seen = seen & LEGACY_DELETE_NODES
+    if legacy_seen and legacy_seen != LEGACY_DELETE_NODES:
+        raise RuntimeError("incomplete historical delete skip inventory")
     if payload["skipped"] > payload["tests"]:
         raise RuntimeError("backend skip count exceeds tests")
 
@@ -212,6 +263,10 @@ def shard_source_delta(tested, baseline, number, selected, recorded):
             "tools/tests/test_phase34_evidence.py",
             "tools/tests/test_phase36_description_probe.py",
         },
+        4: {"tools/tests/test_phase34_portainer.py"},
+        5: {"tools/tests/test_phase34_runner.py"},
+        6: {"tools/tests/test_phase34_target_guard.py"},
+        7: {"tools/tests/test_phase35_acceptance_invariants.py"},
     }
     allowed = (
         {
@@ -224,7 +279,11 @@ def shard_source_delta(tested, baseline, number, selected, recorded):
         else set()
     )
     fixture = "backend/tests/endpoints/test_storage_policy_denials.py"
-    if allowed and fixture.removeprefix("backend/") not in selected:
+    if (
+        number in {1, 2}
+        and allowed
+        and fixture.removeprefix("backend/") not in selected
+    ):
         allowed.add(fixture)
     before, after = tested.get("files", {}), baseline.get("files", {})
     delta = [
@@ -347,6 +406,14 @@ def validate_backend_shards(payload, evidence, artifacts):
             for row in actual["skip_details"]:
                 if row["nodeid"] == ROOT_PERMISSION_NODE:
                     row["environment"] = environment
+        actual["skip_details"] = [
+            (
+                inherited_delete_skip(row, tested)
+                if row["nodeid"] in LEGACY_DELETE_NODES
+                else row
+            )
+            for row in actual["skip_details"]
+        ]
         for key in total:
             total[key] += actual[key]
         skips.extend(actual["skip_details"])
