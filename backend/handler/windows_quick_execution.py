@@ -139,6 +139,14 @@ async def inspect_windows_quick(
         from handler.scan_retry_execution import consider_unknown_retry
 
         consider_unknown_retry(context, rom)
+    elif decision == QuickScanDecision.REUSE:
+        from handler.scan_retry_execution import current_retry_coordinator
+
+        coordinator = current_retry_coordinator()
+        if coordinator is not None:
+            coordinator.consider_descriptions(
+                context, rom, current_checkpoint_command()
+            )
     return context
 
 

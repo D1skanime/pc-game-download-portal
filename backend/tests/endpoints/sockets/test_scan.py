@@ -1540,7 +1540,37 @@ class TestIdentifyPlatformQuickPcComponents:
         self, mocker, quick_decision
     ):
         from handler import windows_quick_execution
-        from handler.scan_inventory_contracts import QuickScanDecision
+        from handler.scan_inventory_contracts import (
+            InventoryEvidence,
+            QuickScanDecision,
+        )
+
+        coordinator = Mock()
+        evidence = InventoryEvidence("c" * 64, 1, True)
+        inventory_handler = SimpleNamespace(
+            get_pc_inventory=AsyncMock(return_value=evidence)
+        )
+        if quick_decision == "reuse":
+            mocker.patch(
+                "handler.scan_inventory_status.emit_inventory_status", AsyncMock()
+            )
+            from tests.handler.test_windows_quick_execution import binding
+
+            from handler import scan_retry_execution
+
+            mocker.patch.object(
+                scan_retry_execution,
+                "current_retry_coordinator",
+                return_value=coordinator,
+            )
+            mocker.patch.object(
+                windows_quick_execution,
+                "inventory_binding",
+                return_value=binding("Collection/Game"),
+            )
+            mocker.patch.object(
+                windows_quick_execution, "load_baseline", return_value=evidence
+            )
 
         async def inspect(platform, entry, rom, **kwargs):
             if (
@@ -1549,6 +1579,15 @@ class TestIdentifyPlatformQuickPcComponents:
                 or rom.platform_slug != "win"
             ):
                 return None
+            if quick_decision == "reuse":
+                return await windows_quick_execution.inspect_windows_quick(
+                    inventory_handler,
+                    rom,
+                    relative_path="Collection/Game",
+                    platform_slug="win",
+                    collection_expanded=True,
+                    **kwargs,
+                )
             return SimpleNamespace(decision=QuickScanDecision(quick_decision))
 
         mocker.patch.object(windows_quick_execution, "inspect_discovered_game", inspect)
@@ -1639,6 +1678,13 @@ class TestIdentifyPlatformQuickPcComponents:
 
         if quick_decision is not None:
             identify.assert_not_awaited()
+            if quick_decision == "reuse":
+                coordinator.consider_descriptions.assert_called_once()
+                offered = coordinator.consider_descriptions.call_args.args
+                assert offered[1] is witcher
+                assert offered[0].decision == QuickScanDecision.REUSE
+                assert offered[0].binding.game_relative_path == "Collection/Game"
+                inventory_handler.get_pc_inventory.assert_awaited_once_with(witcher)
             return
         identify.assert_awaited_once_with(
             platform=platform,
