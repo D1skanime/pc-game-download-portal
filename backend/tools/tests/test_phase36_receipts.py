@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from phase36_browser import browser_config
@@ -71,7 +72,7 @@ class ArtifactContracts(unittest.TestCase):
         }
         for name, value in values.items():
             (self.evidence / name).write_text(json.dumps(value))
-        self.entry = {
+        self.entry: dict[str, Any] = {
             "kind": "security",
             "dialect": "static",
             "evidence": "run",
@@ -186,9 +187,56 @@ class SanitizationContracts(unittest.TestCase):
             self.assertNotIn("session-secret", data)
             self.assertNotIn("eyJ", data)
 
+    def test_large_jsonl_member_is_scrubbed_record_by_record(self):
+        from phase36_receipts import sanitize
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            token = "b" * 32
+            record = (
+                json.dumps(
+                    {"cookie": "secret-cookie", "action": token, "padding": "x" * 1024}
+                )
+                + "\n"
+            )
+            trace = root / "trace.zip"
+            with zipfile.ZipFile(
+                trace, "w", compression=zipfile.ZIP_DEFLATED
+            ) as archive:
+                archive.writestr("trace.network", record * 30000)
+            sanitize(root, token)
+            with zipfile.ZipFile(trace) as archive:
+                for line in archive.open("trace.network"):
+                    value = json.loads(line)
+                    self.assertEqual(value["cookie"], "[redacted]")
+                    self.assertNotIn(token, value["action"])
+
+    def test_archive_rejects_unsafe_member_paths_and_links(self):
+        from phase36_receipts import sanitize
+
+        for name, link in (
+            ("../trace.network", False),
+            ("/trace.network", False),
+            ("trace.network", True),
+        ):
+            with self.subTest(
+                name=name, link=link
+            ), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                with zipfile.ZipFile(root / "trace.zip", "w") as archive:
+                    info = zipfile.ZipInfo(name)
+                    if link:
+                        info.create_system = 3
+                        info.external_attr = 0o120777 << 16
+                    archive.writestr(info, "{}")
+                with self.assertRaises(RuntimeError):
+                    sanitize(root, "b" * 32)
+
 
 class ProviderObservationContracts(unittest.TestCase):
-    def response(self, markup=False):
+    def response(
+        self, markup=False, endpoint="/api/appdetails?appids=1245620&l=german"
+    ):
         import threading
         import urllib.request
         from http.server import ThreadingHTTPServer
@@ -210,9 +258,7 @@ class ProviderObservationContracts(unittest.TestCase):
                 thread.start()
                 try:
                     url = "http://127.0.0.1:" + str(server.server_port)
-                    data = urllib.request.urlopen(
-                        url + "/api/appdetails?appids=1245620&l=german", timeout=5
-                    ).read()
+                    data = urllib.request.urlopen(url + endpoint, timeout=5).read()
                 finally:
                     server.shutdown()
                     thread.join()
@@ -226,6 +272,15 @@ class ProviderObservationContracts(unittest.TestCase):
         self.assertEqual(row.get("response_sha256"), hashlib.sha256(data).hexdigest())
         self.assertEqual(row.get("requested_language"), "german")
         self.assertNotIn("source_language", row)
+
+    def test_ss_name_search_has_canonical_region(self):
+        payload, _, _ = self.response(
+            endpoint="/api2/jeuRecherche.php?recherche=Control&systemeid=4"
+        )
+        names = payload["response"]["jeux"][0]["noms"]
+        self.assertTrue(
+            any(name["region"] == "ss" and name["text"] == "Control" for name in names)
+        )
 
     def test_markup_control_reaches_provider_payload(self):
         payload, _, _ = self.response(markup=True)
