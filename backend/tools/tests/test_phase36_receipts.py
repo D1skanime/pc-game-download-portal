@@ -650,7 +650,7 @@ class RootSkipEvidenceContracts(unittest.TestCase):
                     "log": "pytest.log",
                 },
                 {
-                    "command": ["docker", "inspect", "owned-runner"],
+                    "command": ["docker", "container", "inspect", "owned-runner"],
                     "log": "inspect.json",
                 },
             ]
