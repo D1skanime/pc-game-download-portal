@@ -699,6 +699,35 @@ class ShardSourceDeltaContracts(unittest.TestCase):
             ), self.assertRaises(RuntimeError):
                 shard_source_delta(before, after, number, files, record)
 
+    def test_unselected_fixture_delta_is_limited_to_reviewed_seed_groups(self):
+        from phase36_quality import shard_source_delta
+
+        name = "backend/tests/endpoints/test_storage_policy_denials.py"
+        before, after = {"files": {name: "a" * 64}}, {"files": {name: "b" * 64}}
+        selected = [
+            "tools/tests/test_phase33_uat.py",
+            "tools/tests/test_phase35_incremental_scan_probe.py",
+        ]
+        delta = [
+            {
+                "file": name,
+                "tested": "a" * 64,
+                "current": "b" * 64,
+                "reason": "unselected_unimported_storage_policy_fixture_alignment",
+            }
+        ]
+        shard_source_delta(before, after, 1, selected, delta)
+        for number, files in (
+            (3, selected),
+            (1, selected + [name.removeprefix("backend/")]),
+        ):
+            with self.subTest(number=number, selected=files), self.assertRaises(
+                RuntimeError
+            ):
+                shard_source_delta(before, after, number, files, delta)
+        with self.assertRaises(RuntimeError):
+            shard_source_delta(before, after, 1, selected, [])
+
     def test_product_delta_cannot_claim_gate_only_exemption(self):
         from phase36_quality import shard_source_delta
 
