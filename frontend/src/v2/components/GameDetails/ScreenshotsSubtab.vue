@@ -7,252 +7,38 @@ import {
   RSkeletonBlock,
   RTooltip,
 } from "@v2/lib";
-import axios from "axios";
-import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type {
-  RomOwnedMediaSchema,
-  RomOwnedMediaSurface,
-} from "@/__generated__";
-import ScreenshotsTab, {
-  type ScreenshotItem,
-} from "@/v2/components/GameDetails/ScreenshotsTab.vue";
-import { useCan } from "@/v2/composables/useCan";
-import { useConfirm } from "@/v2/composables/useConfirm";
-import { useSnackbar } from "@/v2/composables/useSnackbar";
-import romApi from "@/v2/data/adapters/legacy/services/api/rom";
-import screenshotApi from "@/v2/data/adapters/legacy/services/api/screenshot";
-import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
-import storeRoms, {
-  type DetailedRom,
-} from "@/v2/data/adapters/legacy/stores/roms";
-import storeUpload from "@/v2/data/adapters/legacy/stores/upload";
+import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import { useScreenshotManagement } from "@/v2/composables/useScreenshotManagement";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
-const snackbar = useSnackbar();
-const confirm = useConfirm();
-const romsStore = storeRoms();
-const uploadStore = storeUpload();
-const { user } = storeToRefs(storeAuth());
-const scope = { kind: "rom", id: props.rom.id } as const;
-const canManage = useCan("rom.edit", scope);
-const canRefresh = useCan("rom.refresh", scope);
-const providerScreenshots = computed(() =>
-  (props.rom.owned_media ?? []).filter(
-    (item) =>
-      item.origin === "provider" &&
-      item.role === "screenshot" &&
-      item.state === "active",
-  ),
-);
-const providerUrls = computed(() =>
-  providerScreenshots.value.map((item) => mediaContentUrl(item.id)),
-);
+const {
+  providerScreenshots,
+  providerUrls,
+  myScreenshots,
+  communityScreenshots,
+  canManage,
+  canRefresh,
+  refreshing,
+  mutatingId,
+  togglingId,
+  deletingId,
+  mediaContentUrl,
+  hasPlacement,
+  placementPosition,
+  handleMyFiles,
+  deleteMyScreenshot,
+  deleteProviderScreenshot,
+  toggleVisibility,
+  togglePlacement,
+  refreshProviderScreenshots,
+} = useScreenshotManagement(() => props.rom);
 const providerLightboxOpen = ref(false);
 const providerLightboxIndex = ref(0);
-const refreshing = ref(false);
-const mutatingId = ref<number | null>(null);
-const allUserScreenshots = computed(() => props.rom.all_user_screenshots ?? []);
-const myScreenshots = computed<ScreenshotItem[]>(() =>
-  allUserScreenshots.value
-    .filter((item) => user.value?.id != null && item.user_id === user.value.id)
-    .map((item) => ({
-      id: item.id,
-      url: item.download_path,
-      isOwn: true,
-      isPublic: Boolean(item.is_public),
-    })),
-);
-const communityScreenshots = computed<ScreenshotItem[]>(() =>
-  allUserScreenshots.value
-    .filter((item) => user.value?.id == null || item.user_id !== user.value.id)
-    .map((item) => ({
-      id: item.id,
-      url: item.download_path,
-      isOwn: false,
-      isPublic: true,
-      username: item.username,
-      userId: item.user_id,
-      userAvatarPath: item.user_avatar_path,
-      userUpdatedAt: item.user_updated_at,
-    })),
-);
 const myDz = ref<InstanceType<typeof RDropzone> | null>(null);
-const togglingId = ref<number | null>(null);
-const deletingId = ref<number | null>(null);
-
-function mediaContentUrl(mediaId: number) {
-  return `/api/roms/${props.rom.id}/media/${mediaId}/content`;
-}
-function hasPlacement(
-  item: RomOwnedMediaSchema,
-  surface: RomOwnedMediaSurface,
-) {
-  return (
-    item.placements?.some((placement) => placement.surface === surface) ?? false
-  );
-}
-function placementPosition(
-  item: RomOwnedMediaSchema,
-  surface: RomOwnedMediaSurface,
-) {
-  return item.placements?.find((placement) => placement.surface === surface)
-    ?.position;
-}
-function errorMessage(error: unknown) {
-  if (axios.isAxiosError(error))
-    return typeof error.response?.data?.detail === "string"
-      ? error.response.data.detail
-      : error.message;
-  return error instanceof Error ? error.message : String(error);
-}
-async function refreshCanonical() {
-  await romsStore.refreshRom(props.rom.id);
-}
-async function recoverFromConflict(error: unknown) {
-  if (axios.isAxiosError(error) && error.response?.status === 409) {
-    await refreshCanonical();
-    snackbar.warning(t("common.error"));
-    return true;
-  }
-  return false;
-}
-async function togglePlacement(
-  item: RomOwnedMediaSchema,
-  surface: RomOwnedMediaSurface,
-) {
-  if (mutatingId.value !== null) return;
-  mutatingId.value = item.id;
-  try {
-    if (hasPlacement(item, surface))
-      await romApi.removeOwnedMediaPlacement({
-        romId: props.rom.id,
-        mediaId: item.id,
-        surface,
-        expectedVersion: props.rom.updated_at,
-      });
-    else
-      await romApi.setOwnedMediaPlacement({
-        romId: props.rom.id,
-        mediaId: item.id,
-        surface,
-        expectedVersion: props.rom.updated_at,
-      });
-    await refreshCanonical();
-  } catch (error) {
-    if (!(await recoverFromConflict(error)))
-      snackbar.error(errorMessage(error));
-  } finally {
-    mutatingId.value = null;
-  }
-}
-async function refreshProviderScreenshots() {
-  if (refreshing.value) return;
-  refreshing.value = true;
-  try {
-    await romApi.refreshOwnedMedia({
-      romId: props.rom.id,
-      expectedVersion: props.rom.updated_at,
-    });
-    await refreshCanonical();
-    snackbar.success(t("common.refresh"));
-  } catch (error) {
-    if (!(await recoverFromConflict(error)))
-      snackbar.error(errorMessage(error));
-  } finally {
-    refreshing.value = false;
-  }
-}
-async function deleteProviderScreenshot(item: RomOwnedMediaSchema) {
-  if (
-    !(await confirm({
-      title: t("rom.delete-screenshot-title"),
-      body: item.display_label,
-      confirmText: t("common.delete"),
-      tone: "danger",
-    }))
-  )
-    return;
-  mutatingId.value = item.id;
-  try {
-    await romApi.deleteOwnedMedia({
-      romId: props.rom.id,
-      mediaId: item.id,
-      expectedVersion: props.rom.updated_at,
-    });
-    await refreshCanonical();
-    snackbar.success(t("rom.owned-media-deleted"));
-  } catch (error) {
-    if (!(await recoverFromConflict(error)))
-      snackbar.error(errorMessage(error));
-  } finally {
-    mutatingId.value = null;
-  }
-}
-async function refreshRom() {
-  try {
-    await refreshCanonical();
-  } catch (error) {
-    console.error(error);
-  }
-}
-function reportUpload(responses: PromiseSettledResult<unknown>[]) {
-  const successful = responses.filter(
-    (item) => item.status === "fulfilled",
-  ).length;
-  if (successful === responses.length) uploadStore.reset();
-  successful
-    ? snackbar.success(
-        t("rom.screenshots-uploaded-n", successful, {
-          named: { n: successful },
-        }),
-      )
-    : snackbar.warning(t("rom.no-screenshots-uploaded"));
-}
-async function handleMyFiles(files: File[]) {
-  if (!files.length) return;
-  const responses = await screenshotApi.uploadGalleryScreenshots({
-    romId: props.rom.id,
-    filesToUpload: files,
-  });
-  reportUpload(responses);
-  if (responses.some((item) => item.status === "fulfilled")) await refreshRom();
-}
-async function deleteMyScreenshot(id: number) {
-  if (
-    !(await confirm({
-      title: t("rom.delete-screenshot-title"),
-      body: t("rom.delete-screenshot-body"),
-      confirmText: t("common.delete"),
-      tone: "danger",
-    }))
-  )
-    return;
-  deletingId.value = id;
-  try {
-    await screenshotApi.deleteScreenshot({ id });
-    await refreshRom();
-    snackbar.success(t("rom.screenshot-removed"));
-  } catch (error) {
-    snackbar.error(errorMessage(error));
-  } finally {
-    deletingId.value = null;
-  }
-}
-async function toggleVisibility(id: number, isPublic: boolean) {
-  if (togglingId.value !== null) return;
-  togglingId.value = id;
-  try {
-    await screenshotApi.setScreenshotVisibility({ id, isPublic });
-    await refreshRom();
-  } catch (error) {
-    snackbar.error(errorMessage(error));
-  } finally {
-    togglingId.value = null;
-  }
-}
 </script>
 
 <template>

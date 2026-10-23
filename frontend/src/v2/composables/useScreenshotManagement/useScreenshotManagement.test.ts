@@ -93,12 +93,12 @@ describe("screenshot action ownership", () => {
   it("dispatches provider placement endpoints with captured version and position zero", async () => {
     const { actions, current } = setup();
     const item = provider(7, [
-      { surface: "overview", position: 0 },
-      { surface: "background", position: 3 },
+      { id: 1, media_id: 7, surface: "overview", position: 0 },
+      { id: 2, media_id: 7, surface: "background", position: 3 },
     ]);
     current.value.owned_media = [
       item,
-      provider(8, [{ surface: "overview", position: 4 }]),
+      provider(8, [{ id: 3, media_id: 8, surface: "overview", position: 4 }]),
     ];
     expect(actions.placementPosition(item, "overview")).toBe(0);
     await actions.togglePlacement(item, "overview");
@@ -108,16 +108,16 @@ describe("screenshot action ownership", () => {
       surface: "overview",
       expectedVersion: "v1",
     });
-    await actions.togglePlacement(provider(), "background");
+    await actions.togglePlacement(provider(8), "background");
     expect(m.setOwnedMediaPlacement).toHaveBeenCalledWith({
       romId: 1,
-      mediaId: 7,
+      mediaId: 8,
       surface: "background",
       expectedVersion: "v1",
     });
     expect(item.placements).toEqual([
-      { surface: "overview", position: 0 },
-      { surface: "background", position: 3 },
+      { id: 1, media_id: 7, surface: "overview", position: 0 },
+      { id: 2, media_id: 7, surface: "background", position: 3 },
     ]);
     expect(m.setCurrentRom).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
@@ -155,7 +155,7 @@ describe("screenshot action ownership", () => {
     expect(m.setScreenshotVisibility).toHaveBeenCalled();
     storePermissions().$patch({ isAdmin: true });
     await actions.togglePlacement(
-      { ...provider(), origin: "user" } as RomOwnedMediaSchema,
+      { ...provider(), origin: "upload" } as RomOwnedMediaSchema,
       "overview",
     );
     expect(m.setOwnedMediaPlacement).not.toHaveBeenCalled();
