@@ -32,7 +32,7 @@ vi.mock("@v2/lib", () => ({
   RTooltip: { template: "<span />" },
   RAvatar: { template: "<span />" },
   REmptyState: { props: ["title"], template: "<p>{{ title }}</p>" },
-  RSkeletonBlock: { template: "<span />" },
+  RSkeletonBlock: { name: "RSkeletonBlock", template: "<span />" },
   RCarousel: {
     name: "RCarousel",
     props: ["items", "modelValue"],
@@ -126,13 +126,13 @@ describe("ScreenshotsSubtab single gallery owner", () => {
     state.myScreenshots.value = [];
     const wrapper = render();
     const input = wrapper.get('input[type="file"]').element;
-    const zone = wrapper.getComponent({ name: "RDropzone" }).vm;
+    const zone = wrapper.getComponent({ name: "RDropzone" }).element;
     await wrapper.get('[aria-label="rom.upload-screenshots"]').trigger("click");
     expect(actions.open).toHaveBeenCalledTimes(1);
     state.myScreenshots.value = [{ id: 10, url: "/mine/10", isOwn: true }];
     await nextTick();
     expect(wrapper.get('input[type="file"]').element).toBe(input);
-    expect(wrapper.getComponent({ name: "RDropzone" }).vm).toBe(zone);
+    expect(wrapper.getComponent({ name: "RDropzone" }).element).toBe(zone);
     expect(wrapper.findAll('input[type="file"]')).toHaveLength(1);
     const files = [new File(["a"], "a.png"), new File(["b"], "b.png")];
     wrapper.getComponent({ name: "RDropzone" }).vm.$emit("files", files);
@@ -261,59 +261,124 @@ describe("ScreenshotsSubtab single gallery owner", () => {
     expect(wrapper.find("[data-carousel]").exists()).toBe(false);
     wrapper.unmount();
   });
-  it("marks confirmed uploads and compensates only visible anchor displacement without stealing focus", async () => {
-    const wrapper = render();
-    const owner = wrapper.get("[data-shot-scroll]").element as HTMLElement;
-    Object.defineProperty(owner, "clientHeight", { value: 500 });
-    owner.scrollTop = 200;
-    const card = wrapper.get('[data-shot-key="user:10"]')
-      .element as HTMLElement;
-    let top = 100;
-    vi.spyOn(owner, "getBoundingClientRect").mockReturnValue({
-      top: 0,
-      bottom: 500,
-    } as DOMRect);
-    wrapper.findAll("[data-shot-key]").forEach((node) => {
-      vi.spyOn(node.element, "getBoundingClientRect").mockImplementation(
-        () =>
-          ({
-            top: node.element === card ? top : -100,
-            bottom: node.element === card ? top + 100 : -1,
-          }) as DOMRect,
-      );
-    });
-    const preview = wrapper.get('[data-shot-key="user:10"] [data-preview]')
-      .element as HTMLElement;
-    preview.focus();
-    actions.handleMyFiles.mockImplementationOnce(async () => {
-      state.myScreenshots.value = [
-        { id: 12, url: "/mine/12", isOwn: true },
-        ...state.myScreenshots.value,
-      ];
-      state.newlyUploadedIds.value = [12];
-      top = 240;
-    });
-    wrapper
-      .getComponent({ name: "RDropzone" })
-      .vm.$emit("files", [new File(["x"], "x.png")]);
-    await flushPromises();
-    expect(owner.scrollTop).toBe(340);
-    expect(document.activeElement).toBe(preview);
-    expect(wrapper.get('[data-shot-key="user:12"]').text()).toContain(
-      "common.uploaded-n",
-    );
-    expect(
+  it.each(["inner", "document"])(
+    "marks uploads and preserves the visible anchor in the %s scroll owner",
+    async (mode) => {
+      const wrapper = render();
+      const root = wrapper.get("[data-shot-scroll]").element as HTMLElement;
+      if (mode === "document") root.style.overflowY = "visible";
+      const owner =
+        mode === "document"
+          ? ((document.scrollingElement ??
+              document.documentElement) as HTMLElement)
+          : root;
+      Object.defineProperty(owner, "clientHeight", { value: 500 });
+      owner.scrollTop = 200;
+      const card = wrapper.get('[data-shot-key="user:10"]')
+        .element as HTMLElement;
+      let top = 100;
+      vi.spyOn(owner, "getBoundingClientRect").mockReturnValue({
+        top: 0,
+        bottom: 500,
+      } as DOMRect);
+      wrapper.findAll("[data-shot-key]").forEach((node) => {
+        vi.spyOn(node.element, "getBoundingClientRect").mockImplementation(
+          () =>
+            ({
+              top: node.element === card ? top : -100,
+              bottom: node.element === card ? top + 100 : -1,
+            }) as DOMRect,
+        );
+      });
+      const preview = wrapper.get('[data-shot-key="user:10"] [data-preview]')
+        .element as HTMLElement;
+      preview.focus();
+      actions.handleMyFiles.mockImplementationOnce(async () => {
+        state.myScreenshots.value = [
+          { id: 12, url: "/mine/12", isOwn: true },
+          ...state.myScreenshots.value,
+        ];
+        state.newlyUploadedIds.value = [12];
+        top = 240;
+      });
       wrapper
-        .findAll("[data-shot-key]")
-        .map((node) => node.attributes("data-shot-key")),
-    ).toEqual([
-      "provider:7",
-      "provider:8",
-      "user:12",
-      "user:10",
-      "user:11",
-      "user:7",
+        .getComponent({ name: "RDropzone" })
+        .vm.$emit("files", [new File(["x"], "x.png")]);
+      await flushPromises();
+      expect(owner.scrollTop).toBe(340);
+      owner.scrollTop = 0;
+      expect(document.activeElement).toBe(preview);
+      expect(wrapper.get('[data-shot-key="user:12"]').text()).toContain(
+        "common.uploaded-n",
+      );
+      expect(
+        wrapper
+          .findAll("[data-shot-key]")
+          .map((node) => node.attributes("data-shot-key")),
+      ).toEqual([
+        "provider:7",
+        "provider:8",
+        "user:12",
+        "user:10",
+        "user:11",
+        "user:7",
+      ]);
+      wrapper.unmount();
+    },
+  );
+  it("keeps the active lightbox image after a same-source prepend", async () => {
+    const wrapper = render();
+    await wrapper
+      .get('[data-shot-key="user:11"] [data-preview]')
+      .trigger("click");
+    state.myScreenshots.value.unshift({ id: 12, url: "/mine/12", isOwn: true });
+    await nextTick();
+    const carousel = wrapper.getComponent({ name: "RCarousel" });
+    expect(carousel.props("items")).toEqual([
+      "/mine/12",
+      "/mine/10",
+      "/mine/11",
     ]);
+    expect(carousel.props("modelValue")).toBe(2);
     wrapper.unmount();
   });
+  it.each(["user scroll", "navigation", "A-B-A navigation"])(
+    "abandons a pending anchor after %s",
+    async (change) => {
+      const wrapper = render();
+      const owner = wrapper.get("[data-shot-scroll]").element as HTMLElement;
+      owner.scrollTop = 200;
+      vi.spyOn(owner, "getBoundingClientRect").mockReturnValue({
+        top: 0,
+        bottom: 500,
+      } as DOMRect);
+      let top = 100;
+      const anchor = wrapper.get('[data-shot-key="provider:7"]').element;
+      vi.spyOn(anchor, "getBoundingClientRect").mockImplementation(
+        () => ({ top, bottom: top + 100 }) as DOMRect,
+      );
+      let finish: (() => void) | undefined;
+      actions.handleMyFiles.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          }),
+      );
+      wrapper
+        .getComponent({ name: "RDropzone" })
+        .vm.$emit("files", [new File(["x"], "x.png")]);
+      await nextTick();
+      top = 240;
+      if (change !== "user scroll") {
+        await wrapper.setProps({ rom: { id: 2 } as DetailedRom });
+        if (change === "A-B-A navigation")
+          await wrapper.setProps({ rom: { id: 1 } as DetailedRom });
+      } else owner.scrollTop = 300;
+      state.newlyUploadedIds.value = [12];
+      finish?.();
+      await flushPromises();
+      expect(owner.scrollTop).toBe(change !== "user scroll" ? 200 : 300);
+      wrapper.unmount();
+    },
+  );
 });

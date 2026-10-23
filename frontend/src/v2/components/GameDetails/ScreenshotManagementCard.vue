@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RAvatar, RBtn, RTooltip } from "@v2/lib";
+import { RAvatar, RBtn } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomOwnedMediaSchema } from "@/__generated__";
@@ -40,6 +40,9 @@ const props = defineProps<{
   item: ScreenshotManagementItem;
   canManage?: boolean;
   busy?: boolean;
+  providerLoading?: boolean;
+  visibilityLoading?: boolean;
+  deletionLoading?: boolean;
   newlyUploaded?: boolean;
 }>();
 const emit = defineEmits<{ action: [action: ScreenshotManagementAction] }>();
@@ -178,12 +181,21 @@ const visibilityLabel = computed(() =>
           :class="{
             [`za-shot__action--${surface}`]: position(surface) !== undefined,
           }"
+          :loading="providerLoading"
+          variant="translucent"
+          :color="
+            position(surface) !== undefined
+              ? surface === 'overview'
+                ? 'var(--r-color-brand-primary)'
+                : 'var(--r-color-info)'
+              : undefined
+          "
           :aria-pressed="position(surface) !== undefined"
           :aria-label="placementLabel(surface)"
+          :tooltip="placementLabel(surface)"
           :disabled="busy"
           @click="emit('action', { type: 'placement', item, surface })"
         >
-          <RTooltip activator="parent" :text="placementLabel(surface)" />
         </RBtn>
         <RBtn
           size="small"
@@ -191,12 +203,10 @@ const visibilityLabel = computed(() =>
           color="var(--r-color-danger)"
           :disabled="busy"
           :aria-label="t('rom.provider-screenshot-remove-title')"
+          :tooltip="t('rom.provider-screenshot-remove-title')"
+          :loading="providerLoading"
           @click="emit('action', { type: 'remove-provider', item })"
         >
-          <RTooltip
-            activator="parent"
-            :text="t('rom.provider-screenshot-remove-title')"
-          />
         </RBtn>
       </div>
       <div
@@ -208,6 +218,8 @@ const visibilityLabel = computed(() =>
           :icon="item.shot.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'"
           :disabled="busy"
           :aria-label="visibilityLabel"
+          :tooltip="visibilityLabel"
+          :loading="visibilityLoading"
           :aria-pressed="Boolean(item.shot.isPublic)"
           @click="
             emit('action', {
@@ -217,7 +229,6 @@ const visibilityLabel = computed(() =>
             })
           "
         >
-          <RTooltip activator="parent" :text="visibilityLabel" />
         </RBtn>
         <RBtn
           size="small"
@@ -225,9 +236,10 @@ const visibilityLabel = computed(() =>
           color="var(--r-color-danger)"
           :disabled="busy"
           :aria-label="t('common.delete')"
+          :tooltip="t('common.delete')"
+          :loading="deletionLoading"
           @click="emit('action', { type: 'delete-mine', item })"
         >
-          <RTooltip activator="parent" :text="t('common.delete')" />
         </RBtn>
       </div>
     </div>
