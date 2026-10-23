@@ -613,3 +613,7 @@ All 17 plans and 35 tasks are implemented through 12e568116. Current-source back
 ## Phase36 independent verification (2026-10-23)
 
 The independent gsd-verifier confirmed 24/24 technical truths, all eleven DESC requirements and five roadmap criteria with no implementation blocker. Status: human_needed. Four human tests are persisted in 36-HUMAN-UAT.md: provider prose/copy, existing-data live workflow, visual/error flows and physical controller. No deployment, phase completion or global requirement closure is claimed.
+
+## Phase36 authorized Dev deployment and live UAT (2026-10-23)
+
+The user explicitly authorized Dev deployment and joint live UAT. Only pgdp-dev was recreated with its existing image and exact four Compose files. HTTP frontend and heartbeat return 200 and the Phase36 language module is served. All 37 games, one user identity, eight platforms, storage mappings, schema 0142, media binding, read-only Games mount and the 15-minute schedule are preserved. Database, Redis and Team4s container IDs are unchanged. Backup: /home/d1sk/pgdp-dev-backups/20261023T110159Z-phase36-deploy. Sanitized evidence: Phase36 evidence/live-deployment/deployment-receipt.json. Joint 36-UAT.md starts at Test 1; no human test has yet been accepted.
