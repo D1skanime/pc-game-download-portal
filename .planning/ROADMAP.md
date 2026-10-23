@@ -981,8 +981,8 @@ Plans:
 **Goal:** Fetch, persist and display descriptions in the selected system language for Steam PC/Windows games and ScreenScraper console ROMs. Cover manual search, matching, confirmation, metadata refresh and all scan entry points, including scheduled scans. Use explicit English fallback, preserve manual text and Phase35 quick-scan performance, and retire legacy summary presentation.
 **Requirements:** DESC-01, DESC-02, DESC-03, DESC-04, DESC-05, DESC-06, DESC-07, DESC-08, DESC-09, DESC-10, DESC-11.
 **Depends on:** Phase35, merged to main through PR2 at b0d3f6ad61fdb5a502349fa449e5458e77de25d4 and accepted in live UAT.
-**Status:** All 17 plans implemented. Final source-bound backend, frontend, browser, description and authority gates pass; independent verification passed 24/24 technical truths. Four human UAT items are pending. Historical skips and the monolithic timeout remain explicit. No deployment.
-**Plans:** 17 plans, 35 tasks, 9 waves
+**Status:** Complete, accepted by the user on 2026-10-23 after authorized Dev deployment and joint live UAT. All 17 plans and 35 tasks implemented; 24/24 technical truths verified. Cancellation workaround, unavailable controller/zoom and unexecuted live subcases remain documented exceptions. Historical obligations are unchanged.
+**Plans:** 17/17 plans complete
 
 **Success Criteria:**
 1. No v2 description surface displays the obsolete unlocalized summary as a description fallback or silently stores it under a locale.
