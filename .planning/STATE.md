@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: milestone
 status: verifying
 stopped_at: Phase 37 technically verified; human visual and live UAT pending
-last_updated: "2026-10-23T20:44:00+00:00"
-last_activity: 2026-10-23 -- Phase 37 four plans implemented;1659 frontend tests pass;20/20 technical must-haves verified
+last_updated: "2026-10-23T22:29:58+00:00"
+last_activity: 2026-10-24 -- Completed quick task 261023-urj: screenshot action and upload visual polish; human UAT pending
 progress:
   total_phases: 37
   completed_phases: 26
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 Phase:37 (zockarchive-screenshot-management-ui-redesign) - HUMAN VERIFICATION PENDING
 Plan:4 of4 complete; technical verification passed; human visual/live acceptance pending
 Status: human_needed; four implemented plans and eight tasks; no remaining implementation gaps
-Last activity:2026-10-23
+Last activity: 2026-10-24 - Completed quick task 261023-urj: screenshot action and upload visual polish
 
 ## Phase 37 implementation handoff
 
@@ -37,6 +37,12 @@ Technical source is 7ee1efa45. Independent verification confirms20/20 must-haves
 The isolated assembled-app browser covers the fifteen requested regressions. Evidence distinguishes the full six-width both-theme geometry sweep from affected reruns after the44px touch correction. Final controller cases at320/1280 reach all17 controls using one entry focus and actual D-pad/A translation; refresh and inline actions preserve continuation focus. Desktop/mobile screenshots in both themes and compact receipts are retained under .planning/phases/37-zockarchive-screenshot-management-ui-redesign/evidence. Read37-VERIFICATION.md,37-BROWSER-EVIDENCE.md and37-HUMAN-UAT.md when resuming. Phase artifacts remain ignored according to repository policy.
 
 Human visual, translated-copy and live-data workflow acceptance remain pending. No physical controller was connected; synthetic evidence does not replace hardware acceptance. Existing carousel B/history behavior and filename-keyed duplicate upload progress remain documented limitations. Backend-dependent E2E was not run; its existing screenshot assertions were retained with updated selectors. No Phase37 deployment or live mutation was performed. Own preview/build/cache resources were removed;17 screenshots and compact evidence remain. Original Compose/media/prototype changes and protected hashes are preserved.
+
+### Current Dev visual follow-up
+
+Quick task 261023-urj is implemented through a6d1f044d on codex/dev-phase37-suppression-uat. Captioned crown and landscape icons persist in selected states with small checks and accented glass frames. The single existing upload control uses a cloud/title group and softer dashed glass; three provider actions, multi-placement ordering, one-based display positions, ownership and durable suppression remain intact. Architecture documentation is updated. 324 focused tests, typecheck, production build, maintainability and exact-path Trunk pass. Isolated browser checks initially passed15/15; a later desktop synthetic dialog-close failure passed its final targeted rerun alongside all four both-theme desktop/mobile visual cases. This intermittent case remains recorded, not treated as a hardware result.
+
+Authenticated ROM24 Dev inspection confirms the actual new actions and sticky upload presentation without reload, preference changes or media mutations. Read-only scroll checks preserved the user page and selection. HMR delivered the bounded frontend change; no service recreation was needed. Own build/cache/preview resources were removed and protected dirty hashes remain unchanged. PR6 records the combined Dev source; main remains unmerged and human visual/live acceptance stays pending. Evidence and SUMMARY are retained in the ignored quick directory.
 
 ## Shipping and Phase 35 handoff
 
@@ -511,6 +517,7 @@ Recent decisions affecting current work:
 
 | #                         | Description                                                                                                                 | Date       | Commit       | Directory                                                                                                           |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| 261023-urj | Polish screenshot identity icons, selected glass actions and sticky cloud upload | 2026-10-24 | a6d1f044d | [261023-urj-polish-screenshot-icons-buttons-and-uplo](./quick/261023-urj-polish-screenshot-icons-buttons-and-uplo/) |
 | 261016-cgq               | Fix storage preview button state and translations                                                                                | 2026-10-16 | 37e73ab3e   | [261016-cgq-fix-storage-preview-button-state-and-tra](./quick/261016-cgq-fix-storage-preview-button-state-and-tra/) |
 | 261010-sdf                | Localize PC DLC media role selector labels while preserving enum values                                                     | 2026-10-10 | d52bd8532    | [261010-sdf-localize-pc-dlc-media-role-labe](./quick/261010-sdf-localize-pc-dlc-media-role-labe/)                   |
 | 20261007-background-media | Fix selected media backgrounds and reduced-motion visibility                                                                | 2026-10-07 | bd0b4fee5    | [20261007-background-media-display](./quick/20261007-background-media-display/)                                     |
