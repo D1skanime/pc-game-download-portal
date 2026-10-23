@@ -146,7 +146,7 @@ describe("screenshot management message contract", () => {
     );
   });
 
-  it("explains provider copy deletion, automatic suppression and possible explicit refresh restoration", () => {
+  it("explains durable provider deletion across scans and manual refreshes", () => {
     expect(english["provider-screenshot-remove-title"]).toBe(
       "Remove provider screenshot",
     );
@@ -154,7 +154,7 @@ describe("screenshot management message contract", () => {
       "Remove screenshot",
     );
     expect(english["provider-screenshot-remove-body"]).toBe(
-      "This removes the managed screenshot copy and its overview/background placements. Automatic collection skips it. Refreshing provider media explicitly may restore the screenshot.",
+      "This removes the managed screenshot copy and its overview/background placements. Deleted provider screenshots stay excluded from scans and manual provider refreshes.",
     );
     expect(english["provider-screenshot-delete-note"]).toBe(
       english["provider-screenshot-remove-body"],
