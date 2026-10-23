@@ -283,7 +283,7 @@ const visibilityLabel = computed(() =>
   overflow: hidden;
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-card);
-  background: color-mix(in srgb, var(--r-color-panel) 86%, transparent);
+  background: var(--r-color-bg-elevated);
   backdrop-filter: blur(var(--r-space-2));
   font-size: var(--r-font-size-md);
   line-height: var(--r-line-height-normal);

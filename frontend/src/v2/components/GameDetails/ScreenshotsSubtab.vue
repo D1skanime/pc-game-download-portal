@@ -436,8 +436,10 @@ async function uploadFiles(files: File[]) {
   z-index: 2;
   gap: var(--r-space-3);
   padding: var(--r-space-3);
-  background: var(--r-color-panel);
-  border-bottom: 1px solid var(--r-color-panel-border);
+  background: var(--r-color-surface);
+  backdrop-filter: blur(var(--r-space-2));
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-card);
 }
 .za-shots__gallery {
   gap: var(--r-space-6);
