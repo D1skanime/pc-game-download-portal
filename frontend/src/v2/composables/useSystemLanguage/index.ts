@@ -1,8 +1,8 @@
 import { computed, onScopeDispose, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
-import configApi from "@/services/api/config";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import configApi from "@/v2/data/adapters/legacy/services/api/config";
 import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 import storeConfig from "@/v2/data/adapters/legacy/stores/config";
 import storeLanguage from "@/v2/data/adapters/legacy/stores/language";
