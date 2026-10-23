@@ -168,8 +168,8 @@ describe("ScreenshotsSubtab single gallery owner", () => {
         .map((card) => card.attributes("data-shot-key")),
     ).toEqual(["provider:7", "provider:8", "user:10", "user:11", "user:7"]);
     const first = wrapper.get('[data-shot-key="provider:7"]');
-    expect(first.text()).toContain("rom.screenshots-overview-position:0");
-    expect(first.text()).toContain("rom.screenshots-background-position:2");
+    expect(first.text()).toContain("rom.screenshots-overview-position:1");
+    expect(first.text()).toContain("rom.screenshots-background-position:3");
     await first.get('[aria-label="rom.remove-from-overview"]').trigger("click");
     await first.get('[aria-label="rom.remove-as-background"]').trigger("click");
     await first

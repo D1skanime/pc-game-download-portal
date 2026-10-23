@@ -16,7 +16,10 @@ vi.mock("@v2/lib", () => ({
   },
   RTooltip: { template: "<span />" },
   RAvatar: { template: "<span />" },
-  RIcon: { template: '<span aria-hidden="true" />' },
+  RIcon: {
+    props: ["icon"],
+    template: '<span aria-hidden="true" :data-icon="icon" />',
+  },
 }));
 const media = {
   id: 7,
@@ -41,8 +44,8 @@ describe("ScreenshotManagementCard source capabilities", () => {
     expect(wrapper.text()).toContain("rom.screenshots-action-overview");
     expect(wrapper.text()).toContain("rom.screenshots-action-background");
     expect(wrapper.text()).toContain("common.delete");
-    expect(wrapper.text()).toContain("rom.screenshots-overview-position:0");
-    expect(wrapper.text()).toContain("rom.screenshots-background-position:3");
+    expect(wrapper.text()).toContain("rom.screenshots-overview-position:1");
+    expect(wrapper.text()).toContain("rom.screenshots-background-position:4");
     expect(
       wrapper
         .get('[aria-label="rom.remove-from-overview"]')
@@ -69,6 +72,17 @@ describe("ScreenshotManagementCard source capabilities", () => {
       { type: "placement", item, surface: "background" },
       { type: "remove-provider", item },
     ]);
+    const overview = wrapper.get('[aria-label="rom.remove-from-overview"]');
+    expect(overview.attributes("variant")).toBe("flat");
+    expect(overview.find('[data-icon="mdi-check-circle"]').exists()).toBe(true);
+    await wrapper.setProps({
+      item: { ...item, media: { ...media, placements: [] } },
+    });
+    const unselected = wrapper.get('[aria-label="rom.add-to-overview"]');
+    expect(unselected.attributes("variant")).toBe("translucent");
+    expect(unselected.find('[data-icon="mdi-check-circle"]').exists()).toBe(
+      false,
+    );
     expect(wrapper.find("script").exists()).toBe(false);
     expect(wrapper.get("[data-preview]").find("button").exists()).toBe(false);
   });

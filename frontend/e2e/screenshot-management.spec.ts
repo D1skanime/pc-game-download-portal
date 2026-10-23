@@ -68,7 +68,7 @@ test("provider placements preserve both surfaces, position zero, order and captu
   const first = card(page, "provider:7"),
     third = card(page, "provider:9");
   await expect(first.locator(".za-shot__badge")).toHaveCount(2);
-  await expect(first.locator(".za-shot__badge").first()).toContainText("0");
+  await expect(first.locator(".za-shot__badge").first()).toContainText("1");
   for (const [add, remove] of [
     ["Add to overview", "Remove from overview"],
     ["Add as background", "Remove as background"],

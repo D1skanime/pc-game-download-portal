@@ -65,11 +65,13 @@ const sourceLabel = computed(() =>
 );
 const surfaces = ["overview", "background"] as const;
 function position(surface: "overview" | "background") {
-  return props.item.source === "provider"
-    ? props.item.media.placements?.find(
-        (placement) => placement.surface === surface,
-      )?.position
-    : undefined;
+  const stored =
+    props.item.source === "provider"
+      ? props.item.media.placements?.find(
+          (placement) => placement.surface === surface,
+        )?.position
+      : undefined;
+  return stored === undefined ? undefined : stored + 1;
 }
 function placementLabel(surface: "overview" | "background") {
   return t(
@@ -178,7 +180,7 @@ const visibilityLabel = computed(() =>
             'za-shot__action--selected': position(surface) !== undefined,
           }"
           :loading="providerLoading"
-          variant="translucent"
+          :variant="position(surface) !== undefined ? 'flat' : 'translucent'"
           border
           :color="
             surface === 'overview'
@@ -194,9 +196,11 @@ const visibilityLabel = computed(() =>
           <span class="za-shot__action-content">
             <RIcon
               :icon="
-                surface === 'overview'
-                  ? 'mdi-crown-outline'
-                  : 'mdi-image-outline'
+                position(surface) !== undefined
+                  ? 'mdi-check-circle'
+                  : surface === 'overview'
+                    ? 'mdi-crown-outline'
+                    : 'mdi-image-outline'
               "
               size="18"
             />
@@ -361,6 +365,6 @@ const visibilityLabel = computed(() =>
   overflow-wrap: normal;
 }
 .za-shot__action--selected {
-  box-shadow: inset 0 0 0 1px currentColor;
+  box-shadow: inset 0 0 0 2px currentColor;
 }
 </style>
