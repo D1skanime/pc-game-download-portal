@@ -308,9 +308,6 @@ async function uploadFiles(files: File[]) {
       <header
         ref="toolbar"
         class="za-shots__toolbar d-flex flex-wrap align-center ga-3 pa-4"
-        :class="{
-          'za-shots__toolbar--over': myDz?.isOver && !uploading && canUpload,
-        }"
       >
         <RBtn
           v-if="canUpload"
@@ -321,35 +318,30 @@ async function uploadFiles(files: File[]) {
           :aria-label="t('rom.upload-screenshots')"
           @click="myDz?.open()"
         >
-          <span class="d-flex align-center ga-3">
-            <RIcon
-              icon="mdi-cloud-upload-outline"
-              size="30"
-              color="primary"
-              class="flex-shrink-0"
-            />
-            <span>{{ t("rom.upload-screenshots") }}</span>
-          </span>
+          <template #prepend>
+            <RIcon icon="mdi-cloud-upload-outline" size="30" color="primary" />
+          </template>
+          {{ t("rom.upload-screenshots") }}
         </RBtn>
-        <p class="za-shots__hint flex-1-1">
+        <p class="ma-0 za-shots__hint flex-1-1">
           {{ t("rom.screenshots-upload-hint") }}
         </p>
       </header>
       <div
         ref="gallery"
-        class="za-shots__gallery d-flex flex-column"
+        class="za-shots__gallery d-flex flex-column ga-6 pt-4"
         :style="{ '--za-shot-columns': columns }"
       >
         <template v-for="group in groups" :key="group.source">
           <section
             v-if="group.source !== 'community' || group.items.length"
-            class="za-shots__section d-flex flex-column"
+            class="za-shots__section d-flex flex-column ga-3"
             :aria-labelledby="`shots-${group.source}`"
           >
             <header
-              class="za-shots__head d-flex align-center justify-space-between"
+              class="za-shots__head d-flex align-center justify-space-between ga-3"
             >
-              <h3 :id="`shots-${group.source}`" class="za-shots__title">
+              <h3 :id="`shots-${group.source}`" class="za-shots__title ma-0">
                 {{ group.label }}
               </h3>
               <RBtn
@@ -363,14 +355,14 @@ async function uploadFiles(files: File[]) {
               >
               </RBtn>
             </header>
-            <p v-if="group.source === 'provider'" class="za-shots__hint">
+            <p v-if="group.source === 'provider'" class="ma-0 za-shots__hint">
               {{ t("rom.provider-screenshot-delete-note") }}
             </p>
             <div
               v-if="
                 group.source === 'provider' && refreshing && !group.items.length
               "
-              class="za-shots__grid"
+              class="za-shots__grid ga-3 ma-0 pa-0"
             >
               <RSkeletonBlock v-for="index in 3" :key="index" height="180" />
             </div>
@@ -378,7 +370,7 @@ async function uploadFiles(files: File[]) {
               v-else-if="!group.items.length"
               :title="t('rom.screenshots-empty')"
             />
-            <ul v-else class="za-shots__grid">
+            <ul v-else class="za-shots__grid ga-3 ma-0 pa-0">
               <li
                 v-for="item in group.items"
                 :key="item.key"
@@ -446,60 +438,41 @@ async function uploadFiles(files: File[]) {
   min-height: 100%;
 }
 .za-shots__toolbar {
+  --za-tint: var(--r-color-brand-primary);
   position: sticky;
   top: 0;
   z-index: 2;
-  background: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 6%,
-    var(--r-color-surface)
-  );
+  background: color-mix(in srgb, var(--za-tint) 6%, var(--r-color-surface));
   backdrop-filter: blur(var(--r-space-2));
-  border: 1px dashed
-    color-mix(in srgb, var(--r-color-brand-primary) 38%, var(--r-color-border));
+  border: 1px dashed;
+  border-color: color-mix(in srgb, var(--za-tint) 38%, var(--r-color-border));
   border-radius: var(--r-radius-card);
 }
 .za-shots__toolbar:hover,
-.za-shots__toolbar--over {
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 65%,
-    var(--r-color-border)
-  );
+.za-shots__dropzone.r-dropzone--active .za-shots__toolbar {
+  border-color: color-mix(in srgb, var(--za-tint) 65%, var(--r-color-border));
   background: color-mix(
     in srgb,
-    var(--r-color-brand-primary) 10%,
+    var(--za-tint) 10%,
     var(--r-color-bg-elevated)
   );
 }
 .za-shots__upload {
   min-height: var(--r-touch-target);
   height: auto;
-  color: var(--r-color-fg);
-  font-size: var(--r-font-size-lg);
-  font-weight: var(--r-font-weight-semibold);
   white-space: normal;
-}
-.za-shots__gallery {
-  gap: var(--r-space-6);
-  padding-top: var(--r-space-4);
 }
 .za-shots__section {
   min-width: 0;
-  gap: var(--r-space-3);
 }
-.za-shots__head {
-  gap: var(--r-space-3);
-}
-.za-shots__title {
-  margin: 0;
+.za-shots__title,
+.za-shots__upload {
   color: var(--r-color-fg);
   font-size: var(--r-font-size-lg);
   font-weight: var(--r-font-weight-semibold);
   line-height: var(--r-line-height-normal);
 }
 .za-shots__hint {
-  margin: 0;
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-md);
   line-height: var(--r-line-height-normal);
@@ -507,9 +480,6 @@ async function uploadFiles(files: File[]) {
 .za-shots__grid {
   display: grid;
   grid-template-columns: repeat(var(--za-shot-columns, 1), minmax(0, 1fr));
-  gap: var(--r-space-3);
-  margin: 0;
-  padding: 0;
   list-style: none;
 }
 .za-shots__grid > li {
@@ -519,10 +489,8 @@ async function uploadFiles(files: File[]) {
 html[data-bp~="sm-and-down"] .za-shots {
   flex: none;
   overflow: visible;
-  height: auto;
 }
 html[data-bp~="sm-and-down"] .za-shots__dropzone {
-  height: auto;
   min-height: 0;
 }
 html[data-bp~="sm-and-down"] .za-shots__toolbar {
@@ -533,9 +501,7 @@ html[data-bp~="sm-and-down"] .za-shots__grid > li {
     var(--r-nav-h) + var(--r-touch-target) + var(--r-space-6)
   );
 }
-html[data-bp~="xs"] .za-shots__toolbar :deep(button),
-html[data-input="touch"] .za-shots__toolbar :deep(button),
-html[data-input="pad"] .za-shots__toolbar :deep(button) {
+.za-shots__toolbar :deep(button) {
   min-height: var(--r-touch-target);
 }
 </style>

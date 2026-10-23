@@ -359,9 +359,9 @@ const visibilityLabel = computed(() =>
   min-width: var(--r-touch-target);
   min-height: var(--r-touch-target);
 }
-.za-shot__action {
+.za-shot__action.r-btn {
   --za-action-accent: var(--r-color-brand-primary);
-  flex: 1 1 56px;
+  flex: 1 1 auto;
   min-width: var(--r-touch-target);
   height: auto;
   padding: var(--r-space-2) var(--r-space-1);
@@ -381,9 +381,9 @@ const visibilityLabel = computed(() =>
   min-width: 0;
   line-height: var(--r-line-height-tight);
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
-.za-shot__action--selected {
+.za-shot__action.r-btn.za-shot__action--selected:not(:disabled) {
   background: color-mix(
     in srgb,
     var(--za-action-accent) 18%,
@@ -408,7 +408,7 @@ const visibilityLabel = computed(() =>
   right: -3px;
   bottom: -2px;
 }
-.za-shot__action--danger {
+.za-shot__action.r-btn.za-shot__action--danger {
   --za-action-accent: var(--r-color-danger);
 }
 </style>

@@ -4,8 +4,9 @@ if (process.env.E2E_BASE_URL)
   throw new Error("Screenshot tests require the isolated local preview");
 // The owned build directory avoids shared outputs; this static server has no backend proxy.
 // Prepare it with npm run build -- --outDir /tmp/za-37-04-dist.
+const buildRoot = process.env.ZA_SCREENSHOT_BUILD_ROOT ?? "/tmp/za-37-04-dist";
 const server = `import http from "node:http"; import fs from "node:fs"; import path from "node:path";
-const root=path.resolve("/tmp/za-37-04-dist"); const types={".js":"text/javascript",".css":"text/css",".svg":"image/svg+xml",".png":"image/png",".woff2":"font/woff2"};
+const root=path.resolve(${JSON.stringify(buildRoot)}); const types={".js":"text/javascript",".css":"text/css",".svg":"image/svg+xml",".png":"image/png",".woff2":"font/woff2"};
 http.createServer((req,res)=>{let file=path.resolve(root,"."+decodeURIComponent(new URL(req.url,"http://localhost").pathname));
 if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}
 if(!fs.existsSync(file)||fs.statSync(file).isDirectory())file=path.join(root,"index.html");
@@ -19,6 +20,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: "list",
   outputDir:
+    process.env.ZA_SCREENSHOT_OUTPUT_DIR ??
     "../.planning/phases/37-zockarchive-screenshot-management-ui-redesign/evidence/browser-results",
   use: {
     baseURL: "http://127.0.0.1:4177",
@@ -39,7 +41,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `node --input-type=module -e '${server}'`,
+    command: `node --input-type=module -e "import('data:text/javascript;base64,${Buffer.from(server).toString("base64")}')"`,
     url: "http://127.0.0.1:4177",
     reuseExistingServer: false,
     timeout: 15_000,

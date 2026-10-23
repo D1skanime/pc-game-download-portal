@@ -5,6 +5,7 @@ import type {
 } from "../../src/__generated__";
 
 export const evidence =
+  process.env.ZA_SCREENSHOT_EVIDENCE_DIR ??
   "../.planning/phases/37-zockarchive-screenshot-management-ui-redesign/evidence";
 const image = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><defs><linearGradient id="g"><stop stop-color="#302755"/><stop offset="1" stop-color="#207581"/></linearGradient></defs><path fill="url(#g)" d="M0 0h640v360H0z"/><path fill="#98b4bc" d="m0 300 150-170 120 90 160-160 210 240v60H0z"/><text x="30" y="50" fill="white" font-size="24">ZockArchive screenshot fixture</text></svg>`;
 type GalleryMedia = RomOwnedMediaSchema & {

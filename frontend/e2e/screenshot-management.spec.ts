@@ -149,7 +149,9 @@ test("provider managed-copy confirmation is truthful and source-specific", async
     .click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("managed screenshot copy");
-  await expect(dialog).toContainText("may restore");
+  await expect(dialog).toContainText(
+    "stay excluded from scans and manual provider refreshes",
+  );
   await page.screenshot({
     path: evidence + "/confirmation-dark.png",
     animations: "disabled",
@@ -743,3 +745,129 @@ test("unknown API and external requests fail closed", async ({ page }) => {
   state.unexpected.length = 0;
   expect(state.blocked.some((url) => url.includes("socket.io"))).toBe(true);
 });
+
+for (const theme of ["dark", "light"] as const)
+  for (const width of [320, 1280])
+    test(`visual polish ${theme} ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      const state = await open(page, { count: 40, theme, locale: "de_DE" });
+      const selected = card(page, "provider:7");
+      const idle = card(page, "provider:9");
+      for (const [item, checks] of [
+        [selected, 2],
+        [idle, 0],
+      ] as const) {
+        await expect(item.locator(".za-shot__actions button")).toHaveCount(3);
+        await expect(item.locator(".mdi-crown-outline")).toHaveCount(1);
+        await expect(item.locator(".mdi-image-outline")).toHaveCount(1);
+        await expect(item.locator(".mdi-delete-outline")).toHaveCount(1);
+        await expect(item.locator(".za-shot__check")).toHaveCount(checks);
+        for (const check of await item.locator(".za-shot__check").all()) {
+          await expect(check).toHaveAttribute("aria-hidden", "true");
+          expect((await check.boundingBox())!.width).toBe(10);
+        }
+        const geometry = await item
+          .locator(".za-shot__actions button")
+          .evaluateAll((nodes) =>
+            nodes.map((node) => {
+              const rect = node.getBoundingClientRect();
+              return {
+                width: rect.width,
+                height: rect.height,
+                overflow: node.scrollWidth - node.clientWidth,
+              };
+            }),
+          );
+        expect(
+          geometry.every(
+            (rect) =>
+              rect.width >= 44 && rect.height >= 44 && rect.overflow <= 1,
+          ),
+        ).toBe(true);
+      }
+      await expect(selected.locator(".za-shot__badge").first()).toContainText(
+        "1",
+      );
+      await expect(
+        card(page, "provider:8").locator(".za-shot__badge").first(),
+      ).toContainText("2");
+      await expect(selected.locator('[aria-pressed="true"]')).toHaveCount(2);
+      await expect(idle.locator('[aria-pressed="false"]')).toHaveCount(2);
+      await expect(
+        shots(page).locator(".za-shots__toolbar button"),
+      ).toHaveCount(1);
+      await expect(
+        shots(page).locator(".za-shots__toolbar .mdi-cloud-upload-outline"),
+      ).toHaveCount(1);
+      let choosers = 0;
+      page.on("filechooser", () => choosers++);
+      const rows = [];
+      for (const fraction of [0, 0.5, 1]) {
+        await shots(page).evaluate((el, fraction) => {
+          const owner =
+            getComputedStyle(el).overflowY === "visible"
+              ? document.scrollingElement!
+              : el;
+          owner.scrollTop =
+            fraction * (owner.scrollHeight - owner.clientHeight);
+        }, fraction);
+        await expect
+          .poll(() =>
+            shots(page).evaluate((el) => {
+              const bar = el
+                .querySelector(".za-shots__toolbar")!
+                .getBoundingClientRect();
+              const nav =
+                document.querySelector(".r-v2-nav-bar")?.getBoundingClientRect()
+                  .bottom ?? 0;
+              return bar.top >= nav - 1 && bar.bottom <= innerHeight;
+            }),
+          )
+          .toBe(true);
+        const geometry = await shots(page).evaluate((el) => {
+          const owner =
+            getComputedStyle(el).overflowY === "visible"
+              ? document.scrollingElement!
+              : el;
+          const bar = el.querySelector(".za-shots__toolbar")!;
+          const button = bar.querySelector("button")!.getBoundingClientRect();
+          return {
+            owner: owner === el ? "inner" : "document",
+            scrollTop: owner.scrollTop,
+            overflow: document.documentElement.scrollWidth - innerWidth,
+            button: { width: button.width, height: button.height },
+            background: getComputedStyle(bar).backgroundColor,
+            border: getComputedStyle(bar).borderTopStyle,
+          };
+        });
+        expect(geometry.overflow).toBeLessThanOrEqual(1);
+        expect(geometry.button.height).toBeGreaterThanOrEqual(44);
+        expect(geometry.border).toBe("dashed");
+        expect(geometry.owner).toBe(width === 320 ? "document" : "inner");
+        if (fraction) expect(geometry.scrollTop).toBeGreaterThan(0);
+        const chooser = page.waitForEvent("filechooser");
+        await upload(page).click();
+        await (await chooser).setFiles([]);
+        rows.push({ fraction, ...geometry });
+        if (fraction < 1)
+          await page.screenshot({
+            path: `${evidence}/polish-${theme}-${width}-${fraction === 0 ? "top" : "mid"}.png`,
+            animations: "disabled",
+          });
+      }
+      expect(choosers).toBe(3);
+      expect(posts(state)).toHaveLength(0);
+      await pick(page, ["polish-one.png", "polish-two.png"]);
+      await expect.poll(() => posts(state).length).toBe(2);
+      await expect(upload(page)).toBeEnabled();
+      expect(choosers).toBe(4);
+      expect(posts(state).every((post) => post.method === "POST")).toBe(true);
+      writeFileSync(
+        `${evidence}/polish-${theme}-${width}.json`,
+        JSON.stringify(
+          { rows, choosers, uploads: posts(state).length },
+          null,
+          2,
+        ),
+      );
+    });
