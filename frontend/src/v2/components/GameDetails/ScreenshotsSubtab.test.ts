@@ -15,6 +15,9 @@ const actions = vi.hoisted(() => ({
   toggleVisibility: vi.fn(),
   open: vi.fn(),
 }));
+vi.mock("@/v2/data/adapters/legacy/stores/auth", () => ({
+  default: () => ({ user: { id: 1 } }),
+}));
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({
     t: (key: string, args?: Record<string, unknown>) =>
@@ -507,6 +510,101 @@ describe("ScreenshotsSubtab single gallery owner", () => {
         ),
       );
       wrapper.unmount();
+    },
+  );
+  it.each([
+    ["refreshProviderScreenshots", '[aria-label="common.refresh"]', "refresh"],
+    [
+      "togglePlacement",
+      '[data-shot-key="provider:7"] [aria-label="rom.remove-from-overview"]',
+      "provider",
+    ],
+    [
+      "toggleVisibility",
+      '[data-shot-key="user:10"] [aria-label="rom.screenshot-make-private"]',
+      "personal",
+    ],
+    [
+      "deleteProviderScreenshot",
+      '[data-shot-key="provider:7"] [aria-label="rom.provider-screenshot-remove-title"]',
+      "provider",
+    ],
+    [
+      "deleteMyScreenshot",
+      '[data-shot-key="user:10"] [aria-label="common.delete"]',
+      "personal",
+    ],
+  ] as const)(
+    "restores focus after %s disables its invoking control",
+    async (name, selector, lane) => {
+      const wrapper = render();
+      let finish: (() => void) | undefined;
+      actions[name].mockImplementationOnce(async () => {
+        if (lane === "refresh") state.refreshing.value = true;
+        else if (lane === "provider") state.mutatingId.value = 7;
+        else state.togglingId.value = 10;
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+        state.refreshing.value = false;
+        state.mutatingId.value = state.togglingId.value = null;
+      });
+      const trigger = wrapper.get(selector).element as HTMLButtonElement;
+      trigger.focus();
+      trigger.click();
+      await nextTick();
+      expect(trigger.disabled).toBe(true);
+      // happy-dom does not emulate native disabled-control blur consistently.
+      trigger.blur();
+      expect(document.activeElement).toBe(document.body);
+      finish?.();
+      await flushPromises();
+      const focused = document.activeElement;
+      wrapper.unmount();
+      expect(focused).toBe(trigger);
+    },
+  );
+  it.each(["removed", "cancelled", "navigation", "pointer", "other focus"])(
+    "uses a safe inline-action focus outcome after %s",
+    async (outcome) => {
+      const wrapper = render();
+      let finish: (() => void) | undefined;
+      actions.deleteProviderScreenshot.mockImplementationOnce(async () => {
+        state.mutatingId.value = 7;
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+        if (outcome === "removed")
+          state.providerScreenshots.value = [provider(8)];
+        state.mutatingId.value = null;
+      });
+      const trigger = wrapper.get(
+        '[data-shot-key="provider:7"] [aria-label="rom.provider-screenshot-remove-title"]',
+      ).element as HTMLButtonElement;
+      trigger.focus();
+      trigger.click();
+      await nextTick();
+      trigger.blur();
+      const upload = wrapper.get('[aria-label="rom.upload-screenshots"]')
+        .element as HTMLButtonElement;
+      if (outcome === "navigation")
+        await wrapper.setProps({ rom: { id: 2 } as DetailedRom });
+      if (outcome === "pointer")
+        document.body.dispatchEvent(
+          new Event("pointerdown", { bubbles: true }),
+        );
+      if (outcome === "other focus") upload.focus();
+      finish?.();
+      await flushPromises();
+      const focused = document.activeElement;
+      wrapper.unmount();
+      expect(focused).toBe(
+        outcome === "removed" || outcome === "other focus"
+          ? upload
+          : outcome === "cancelled"
+            ? trigger
+            : document.body,
+      );
     },
   );
 });
