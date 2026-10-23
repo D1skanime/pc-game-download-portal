@@ -9,6 +9,7 @@ from fastapi import status
 from sqlalchemy.exc import SQLAlchemyError
 
 from handler.database import db_rom_handler
+from handler.database.provider_media_suppression import candidate_key
 from handler.database.roms_handler import SteamOwnedMediaInventoryItem
 from handler.database.scan_write_fence import (
     ScanWriteRejected,
@@ -118,8 +119,14 @@ async def reconcile_steam_patch_media(
         )
         with scope as unit:
             active = db_rom_handler.get_steam_owned_media_inventory(rom.id, identities)
+            suppressed = db_rom_handler.get_provider_media_suppressions(
+                rom.id, candidates
+            )
             inventory: list[SteamOwnedMediaInventoryItem] = []
             for candidate in candidates:
+                # Operator deletion precedes COMPLETE force and reusable-path decisions.
+                if candidate_key(candidate) in suppressed:
+                    continue
                 mime_type: str | None
                 owned_path = (
                     None

@@ -163,7 +163,7 @@ def test_explicit_refresh_preserves_suppression_policy(
     response = client.post(
         f"/api/roms/{rom.id}/media/refresh",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"expected_version": rom.updated_at.isoformat()},
+        params={"expected_version": rom.updated_at.isoformat()},
     )
     assert response.status_code == 200
     assert "restore_suppressed" not in refresh.call_args.kwargs

@@ -26,6 +26,14 @@ def clear_database():
     yield
 
 
+@pytest.fixture(autouse=True)
+def suppression_lookup(monkeypatch):
+    monkeypatch.setattr(
+        "handler.metadata.steam_owned_media.db_rom_handler.get_provider_media_suppressions",
+        MagicMock(return_value=set()),
+    )
+
+
 def _rom():
     return SimpleNamespace(id=73, updated_at=datetime(2026, 9, 30, tzinfo=timezone.utc))
 

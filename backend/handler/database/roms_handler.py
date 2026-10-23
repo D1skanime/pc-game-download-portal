@@ -45,6 +45,10 @@ from sqlalchemy.sql.selectable import Select
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from decorators.owned_io import serialized_owned_write
+from handler.database.provider_media_suppression import (
+    is_suppressed,
+    suppressed_candidates,
+)
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.manual_description import set_manual_description
 from handler.redis_handler import sync_cache
@@ -692,9 +696,8 @@ class DBRomsHandler(DBBaseHandler):
         mime_type: str,
         owned_path: str,
         session: Session = None,  # type: ignore
-        restore_suppressed: bool = False,
     ) -> AppliedOwnedMedia | None:
-        """Reconcile a provider candidate for explicit refresh only."""
+        """Reconcile provider output without overriding durable operator deletion."""
         rom = self._get_locked_owned_media_rom(session, rom_id, expected_updated_at)
         if (
             rom is None
@@ -719,7 +722,7 @@ class DBRomsHandler(DBBaseHandler):
             ),
             None,
         )
-        if media is not None and media.operator_suppressed and not restore_suppressed:
+        if is_suppressed(rom.owned_media, provider, provider_media_id, role):
             return None
         if media is None:
             media = RomOwnedMedia(
@@ -743,6 +746,11 @@ class DBRomsHandler(DBBaseHandler):
         rom.updated_at = datetime.now(timezone.utc)
         session.flush()
         return AppliedOwnedMedia(rom, media, [])
+
+    @begin_session
+    def get_provider_media_suppressions(self, rom_id, candidates, *, session=None):
+        """Read persisted suppression without granting mutation authority."""
+        return suppressed_candidates(session, rom_id, candidates)
 
     @begin_session
     def get_steam_owned_media_inventory(
@@ -811,7 +819,9 @@ class DBRomsHandler(DBBaseHandler):
         active_inventory: list[RomOwnedMedia] = []
         for item in inventory:
             media = steam_media.get(item.provider_media_id)
-            if media is not None and media.operator_suppressed:
+            if is_suppressed(
+                rom.owned_media, "steam", item.provider_media_id, item.role
+            ):
                 continue
             if media is None:
                 media = RomOwnedMedia(
