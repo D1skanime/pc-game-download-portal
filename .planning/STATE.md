@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: phase_complete
-stopped_at: Phase36 accepted with documented exceptions; main integration authorized
-last_updated: 2026-10-23T14:06:21.022Z
-last_activity: 2026-10-23
+status: executing
+stopped_at: Phase 36 accepted with documented exceptions; main integration authorized
+last_updated: "2026-10-23T18:21:13.953Z"
+last_activity: 2026-10-23 -- Phase 37 planning complete
 progress:
-  total_phases: 36
-  completed_phases: 25
-  total_plans: 287
+  total_phases: 37
+  completed_phases: 26
+  total_plans: 291
   completed_plans: 256
-  percent: 89
+  percent: 70
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase36 accepted and complete; no next phase or milestone closure started
+**Current focus:** Phase37 screenshot management UI execution;0/4 plans complete
 
 ## Current Position
 
-Phase: 36 (localized-provider-descriptions-without-legacy-summary) - COMPLETE
-Plan: 17 of 17 complete; 35 tasks across 9 waves
-Status: User accepted live UAT with recorded exceptions; main integration authorized
-Last activity: 2026-10-23
+Phase:37 (zockarchive-screenshot-management-ui-redesign) - EXECUTING
+Plan:0 of4 complete; start37-01, then37-03,37-02,37-04
+Status: Four checked plans, eight tasks, three waves; implementation authorized by the user brief
+Last activity:2026-10-23
 
 ## Shipping and Phase 35 handoff
 
@@ -622,3 +622,11 @@ The user explicitly authorized Dev deployment and joint live UAT. Only pgdp-dev 
 ## Phase36 user acceptance and closure (2026-10-23)
 
 The user explicitly requested commit, push to main and closure after joint Dev UAT. All 17 plans and 35 tasks are complete. Live PC German, manual matching, ScreenScraper PS2 German/French, DE/EN switching, one automatic scan completion and both themes were confirmed. The release is accepted with documented limitations: Cancel resets the draft but leaves its dialog open (close via X); physical controller and browser zoom were unavailable; detailed live warm-successor and remaining error-flow subcases were not exercised. Those tests are not relabelled as passes. The five technical/human verification warnings from phase.complete are retained in the phase reports. Historical gates and overall milestone acceptance are not closed. Architecture descriptions now match the typed locale/source resolver, shared language capture and bounded provider repair. Main integration follows via PR3 without changing Dev data, Games, media or local Compose edits.
+
+## Phase37 intake (2026-10-23)
+
+The user named the product ZockArchive (ZA) and supplied a screenshot-management UI-only brief and mockup. Phase37 captures twelve requirements and thirteen locked decisions. Current main and protected local work are verified. Research must establish actual provider deletion semantics, scroll ownership and safe existing upload reuse before plans. No backend/schema/media-policy changes or blanket rename are allowed. The user resupplied the full implementation assignment in response; continue from checked planning into this bounded implementation.
+
+## Phase37 checked planning and execution start (2026-10-23)
+
+All twelve requirements and thirteen decisions are covered by four executable plans/eight tasks/three waves. Independent UI and plan checks passed; eighteen homogeneous locale files form one reviewed translation contract. New feature branch codex/phase-37-screenshot-management-ui starts at verified origin/main b58945bbff. workflow.use_worktrees=false requires sequential executors in the canonical checkout. Scope remains frontend-only; no live-data mutation, reset or deployment is authorized. Existing local work is preserved.
