@@ -2,6 +2,8 @@ import { defineConfig } from "@playwright/test";
 
 if (process.env.E2E_BASE_URL)
   throw new Error("Screenshot tests require the isolated local preview");
+// The owned build directory avoids shared outputs; this static server has no backend proxy.
+// Prepare it with npm run build -- --outDir /tmp/za-37-04-dist.
 const server = `import http from "node:http"; import fs from "node:fs"; import path from "node:path";
 const root=path.resolve("/tmp/za-37-04-dist"); const types={".js":"text/javascript",".css":"text/css",".svg":"image/svg+xml",".png":"image/png",".woff2":"font/woff2"};
 http.createServer((req,res)=>{let file=path.resolve(root,"."+decodeURIComponent(new URL(req.url,"http://localhost").pathname));

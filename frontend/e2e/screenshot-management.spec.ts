@@ -283,6 +283,14 @@ test("lightbox uses exact clicked source/index and restores focus, keyboard and 
   await expect(
     overlay.locator(".r-carousel__item img").filter({ visible: true }).first(),
   ).toHaveAttribute("src", "/api/roms/1/media/8/content");
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    overlay.locator(".r-carousel__item img").filter({ visible: true }).first(),
+  ).toHaveAttribute("src", "/api/roms/1/media/9/content");
+  await page.keyboard.press("ArrowLeft");
+  await expect(
+    overlay.locator(".r-carousel__item img").filter({ visible: true }).first(),
+  ).toHaveAttribute("src", "/api/roms/1/media/8/content");
   await page.keyboard.press("Escape");
   await expect(overlay).toHaveCount(0);
   await expect(trigger).toBeFocused();
@@ -444,6 +452,17 @@ test("keyboard picker, real touch and synthetic controller use existing input tr
   const trigger = card(page, "provider:7").locator("[data-preview]");
   await trigger.tap();
   await expect(page.locator(".r-carousel--fullscreen")).toBeVisible();
+  const touchTargets = await card(page, "provider:7")
+    .locator(".za-shot__actions button")
+    .evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      }),
+    );
+  expect(
+    touchTargets.every((rect) => rect.width >= 44 && rect.height >= 44),
+  ).toBe(true);
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
   const physical = await page.evaluate(
@@ -511,6 +530,7 @@ test("keyboard picker, real touch and synthetic controller use existing input tr
       physicalDetected: physical,
       physicalController: "unavailable, not verified",
       targets,
+      touchTargets,
       keyboardPicker: true,
       touchPreview: true,
       syntheticPadActivateAndCloseControl: true,

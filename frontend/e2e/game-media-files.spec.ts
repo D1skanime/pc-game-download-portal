@@ -73,7 +73,7 @@ test.describe("Media tab write affordances (read-only user)", () => {
 
     const panel = visiblePanel(page);
     const artwork = panel.getByRole("region", {
-      name: "Screenshots",
+      name: "Provider screenshots",
       exact: true,
     });
     await expect(artwork).toBeVisible();
@@ -83,7 +83,11 @@ test.describe("Media tab write affordances (read-only user)", () => {
     // Per-user section writes user assets: must survive, dropzone included.
     // Hiding this would be the regression in the opposite direction.
     await expect(panel.getByText("My screenshots")).toBeVisible();
-    await expect(panel.locator(".r-dropzone__cta")).not.toHaveCount(0);
+    await expect(
+      panel.getByRole("button", { name: "Upload screenshots", exact: true }),
+    ).toBeEnabled();
+    await expect(panel.locator('.za-shots input[type="file"]')).toHaveCount(1);
+    await expect(panel.locator('.za-shots input[type="file"]')).toBeEnabled();
   });
 });
 
@@ -116,7 +120,7 @@ test.describe("Media tab write affordances (admin)", () => {
 
     await expect(
       visiblePanel(page).getByRole("region", {
-        name: "Screenshots",
+        name: "Provider screenshots",
         exact: true,
       }),
     ).toBeVisible();
