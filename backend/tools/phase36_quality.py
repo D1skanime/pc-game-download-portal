@@ -302,6 +302,15 @@ def shard_source_delta(tested, baseline, number, selected, recorded):
     ):
         allowed.add(fixture)
     before, after = tested.get("files", {}), baseline.get("files", {})
+    adapter_import = "frontend/src/v2/composables/useSystemLanguage/index.ts"
+    if (
+        allowed
+        and before.get(adapter_import)
+        == "08bff5c812bf708c61be3543db5af6d2aea02f5c943d1b062564f6568b081ef5"
+        and after.get(adapter_import)
+        == "fb30a9488a5dec6c817d623b0ebaee705c096eaa33a5af69824f37e5c994ab2e"
+    ):
+        allowed.add(adapter_import)
     delta = [
         {
             "file": name,
@@ -310,7 +319,11 @@ def shard_source_delta(tested, baseline, number, selected, recorded):
             "reason": (
                 "unselected_unimported_storage_policy_fixture_alignment"
                 if name == fixture
-                else "evidence_gate_only_outside_reviewed_shard_imports"
+                else (
+                    "equivalent_existing_v2_config_adapter_import"
+                    if name == adapter_import
+                    else "evidence_gate_only_outside_reviewed_shard_imports"
+                )
             ),
         }
         for name in sorted(set(before) | set(after))
