@@ -189,11 +189,15 @@ def test_get_rom_serializes_steam_identity_and_observational_provenance(
     assert parent_steam_metadata["text_variants"] == {
         "de": {
             "source_language": "german",
+            "requested_language": None,
+            "language_evidence": None,
             "name": "Cyberpunk 2077",
             "summary": "Deutsche Steam-Beschreibung",
         },
         "en": {
             "source_language": "english",
+            "requested_language": None,
+            "language_evidence": None,
             "name": "Cyberpunk 2077",
             "summary": "English Steam description",
         },
@@ -207,11 +211,15 @@ def test_get_rom_serializes_steam_identity_and_observational_provenance(
     assert component_steam_metadata["text_variants"] == {
         "de": {
             "source_language": "german",
+            "requested_language": None,
+            "language_evidence": None,
             "name": "Phantom Liberty",
             "summary": "Deutsche DLC-Beschreibung",
         },
         "en": {
             "source_language": "english",
+            "requested_language": None,
+            "language_evidence": None,
             "name": "Phantom Liberty",
             "summary": "English DLC description",
         },
@@ -2247,3 +2255,223 @@ def test_phase5_rom_downloads_never_hand_external_paths_to_nginx():
     assert "ZipContentLine" not in combined
     assert "ZipResponse" not in combined
     assert "legacy_external_storage" not in combined
+
+
+@pytest.mark.parametrize("locale", ["de-DE", "fr-FR", "en"])
+def test_same_ss_identity_repairs_language_only(
+    client, access_token, rom, monkeypatch, locale
+):
+    from handler.metadata import meta_ss_handler
+
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "ss_id": 33333,
+            "name": "Protected title",
+            "manual_metadata": {"descriptions": {"en": "Manual English"}},
+            "ss_metadata": {"custom": "retained"},
+        },
+    )
+    db_rom_handler.get_rom(rom.id)
+    monkeypatch.setattr(meta_ss_handler, "is_enabled", lambda: True)
+    transport = AsyncMock(
+        return_value={
+            "id": "33333",
+            "synopsis": [
+                {"langue": "de", "text": "Deutscher Text"},
+                {"langue": "fr", "text": "Texte français"},
+                {"langue": "en", "text": "Provider English"},
+            ],
+        }
+    )
+    monkeypatch.setattr(meta_ss_handler.ss_service, "get_game_info", transport)
+    for name in ("get_cover", "get_manual", "get_rom_screenshots"):
+        monkeypatch.setattr(
+            roms_endpoint.fs_resource_handler,
+            name,
+            AsyncMock(side_effect=AssertionError("description repair accessed media")),
+        )
+    review = client.get(
+        f"/api/roms/{rom.id}", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert review.status_code == 200, review.text
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "metadata_locale": locale,
+            "expected_version": review.json()["updated_at"],
+        },
+        data={"ss_id": "33333"},
+    )
+    assert response.status_code == 200, response.text
+    stored = db_rom_handler.get_rom(rom.id)
+    if locale != "en":
+        transport.assert_awaited_once_with(game_id=33333)
+        assert stored.ss_metadata["text_variants"][locale[:2]]["summary"]
+    assert stored.manual_metadata == {"descriptions": {"en": "Manual English"}}
+    assert stored.name == "Protected title"
+    assert stored.ss_metadata["custom"] == "retained"
+
+    edited = client.put(
+        f"/api/roms/{rom.id}/description",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "locale": "ja",
+            "description": "Concurrent version owner",
+            "expected_version": response.json()["updated_at"],
+        },
+    )
+    assert edited.status_code == 200, edited.text
+    stale = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "metadata_locale": locale,
+            "expected_version": review.json()["updated_at"],
+        },
+        data={"ss_id": "33333"},
+    )
+    assert stale.status_code == 409, stale.text
+
+
+def test_ss_repair_rejects_concurrent_manual_save(
+    client, access_token, rom, monkeypatch
+):
+    from handler.metadata import meta_ss_handler
+
+    db_rom_handler.update_rom(rom.id, {"ss_id": 33333})
+    current = db_rom_handler.get_rom(rom.id)
+    monkeypatch.setattr(meta_ss_handler, "is_enabled", lambda: True)
+
+    async def transport(**kwargs):
+        db_rom_handler.update_manual_description(
+            rom.id, current.updated_at, "de", "Concurrent manual"
+        )
+        return {"id": "33333", "synopsis": [{"langue": "de", "text": "Provider text"}]}
+
+    monkeypatch.setattr(meta_ss_handler.ss_service, "get_game_info", transport)
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "metadata_locale": "de",
+            "expected_version": current.updated_at.isoformat(),
+        },
+        data={"ss_id": "33333"},
+    )
+    assert response.status_code == 409, response.text
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored.manual_metadata["descriptions"]["de"] == "Concurrent manual"
+    assert not stored.ss_metadata.get("text_variants")
+
+
+@pytest.mark.parametrize(
+    "mutation", ["provider_id", "manual", "incarnation", "rollback"]
+)
+def test_interactive_description_writer_guards_current_snapshot(rom, mutation):
+    from handler.database.scan_inventory_state import _digest
+    from handler.metadata.manual_description_refresh import text_snapshot
+
+    db_rom_handler.update_rom(rom.id, {"ss_id": 33333})
+    current = db_rom_handler.get_rom(rom.id)
+    patch = dict(
+        rom_id=rom.id,
+        component_id=None,
+        incarnation=current.incarnation_token,
+        provider="ss",
+        provider_id=33333,
+        expected_updated_at=current.updated_at,
+        expected_text_digest=_digest(text_snapshot(current, "ss")),
+        data={
+            "ss_metadata": {
+                "text_variants": {
+                    "de": {"source_language": "de", "summary": "Provider"}
+                }
+            }
+        },
+    )
+    if mutation == "provider_id":
+        db_rom_handler.update_rom(rom.id, {"ss_id": 44444})
+    elif mutation == "manual":
+        with sync_session.begin() as session:
+            target = session.get(Rom, rom.id)
+            target.manual_metadata = {"descriptions": {"de": "Manual"}}
+    elif mutation == "incarnation":
+        patch["incarnation"] = "0" * 32
+    if mutation == "rollback":
+        with sync_session() as session:
+            with pytest.raises(RuntimeError):
+                with session.begin():
+                    assert (
+                        db_rom_handler.apply_interactive_description_patch(
+                            session=session, **patch
+                        )
+                        is not None
+                    )
+                    raise RuntimeError("abort transaction")
+    else:
+        assert db_rom_handler.apply_interactive_description_patch(**patch) is None
+    assert not db_rom_handler.get_rom(rom.id).ss_metadata.get("text_variants")
+
+
+def test_full_ss_confirmation_recollects_trusted_text(
+    client, access_token, rom, monkeypatch
+):
+    from handler.metadata import meta_ss_handler
+
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            "ss_id": 33333,
+            "manual_metadata": {"descriptions": {"en": "Manual English"}},
+            "ss_metadata": {"custom": "retained"},
+        },
+    )
+    current = db_rom_handler.get_rom(rom.id)
+    monkeypatch.setattr(type(meta_ss_handler), "is_enabled", lambda self: True)
+    transport = AsyncMock(
+        return_value={
+            "id": "33333",
+            "synopsis": [
+                {"langue": "de", "text": "Trusted German"},
+                {"langue": "en", "text": "Provider English"},
+            ],
+        }
+    )
+    monkeypatch.setattr(meta_ss_handler.ss_service, "get_game_info", transport)
+    monkeypatch.setattr(
+        roms_endpoint.fs_resource_handler, "get_cover", AsyncMock(return_value=("", ""))
+    )
+    monkeypatch.setattr(
+        roms_endpoint.fs_resource_handler, "get_manual", AsyncMock(return_value="")
+    )
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "metadata_locale": "de-DE",
+            "expected_version": current.updated_at.isoformat(),
+        },
+        data={
+            "ss_id": "33333",
+            "name": "Reviewed title",
+            "raw_ss_metadata": json.dumps(
+                {
+                    "text_variants": {
+                        "de": {"source_language": "de", "summary": "Forged client text"}
+                    }
+                }
+            ),
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert (
+        response.json()["ss_metadata"]["text_variants"]["de"]["summary"]
+        == "Trusted German"
+    )
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored.name == "Reviewed title"
+    assert stored.manual_metadata["descriptions"]["en"] == "Manual English"
+    assert stored.ss_metadata["custom"] == "retained"
+    transport.assert_awaited_once_with(game_id=33333)

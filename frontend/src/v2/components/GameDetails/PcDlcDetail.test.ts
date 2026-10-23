@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { readFileSync } from "node:fs";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import PcDlcDetail from "./PcDlcDetail.vue";
 
@@ -32,7 +32,11 @@ vi.mock("vue-i18n", () => ({
         "rom.category-dlc": "DLC",
         "rom.pc-dlc-back-to-game": `Back to ${values?.game}`,
         "rom.pc-dlc-fallback-title": `DLC: ${values?.relativePath}`,
-      })[key] ?? key,
+      })[key] ??
+      key +
+        (key.startsWith("rom.description-") && values
+          ? JSON.stringify(values)
+          : ""),
     locale,
   }),
 }));
@@ -50,7 +54,10 @@ const selectedDlc = {
     steam_id: null,
     steam_metadata: null,
     name: "Selected expansion",
-    summary: "Only selected DLC metadata is visible.",
+    summary: "Legacy unknown text.",
+    manual_metadata: {
+      descriptions: { en: "Only selected DLC metadata is visible." },
+    },
     metadata_source: "local",
     provider_metadata: null,
     main_developer: "CD Projekt Red",
@@ -86,7 +93,7 @@ const selectedDlc = {
   ],
 } satisfies PcComponentSchema;
 
-const parent = {
+const parent: Partial<DetailedRomSchema> = {
   id: 1,
   name: "Parent game",
   path_cover_large: "parent-cover.webp",
@@ -143,8 +150,7 @@ function mountDetail(component: PcComponentSchema = selectedDlc) {
             "expectedVersion",
             "manualMetadata",
             "steamMetadata",
-            "fallbackDescription",
-            "providerSummaryIsAuthoritative",
+            "provider",
           ],
           template: "<div data-testid='localized-editor' />",
         },
@@ -171,6 +177,94 @@ function mountDetail(component: PcComponentSchema = selectedDlc) {
 }
 
 describe("PcDlcDetail", () => {
+  it("keeps the permitted editor reachable for legacy-only component data", async () => {
+    permissionState.value = true;
+    const wrapper = mountDetail({
+      ...selectedDlc,
+      component_metadata: {
+        ...selectedDlc.component_metadata,
+        manual_metadata: null,
+      },
+    });
+    expect(wrapper.text()).not.toContain("Legacy unknown text.");
+    expect(wrapper.text()).toContain("rom.description-empty");
+    await wrapper
+      .get("[data-testid='pc-dlc-description-edit']")
+      .trigger("click");
+    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+      true,
+    );
+    await wrapper.setProps({
+      component: { ...selectedDlc, id: 98, component_metadata: null },
+    });
+    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+      false,
+    );
+    expect(wrapper.text()).not.toContain(
+      "Only selected DLC metadata is visible.",
+    );
+  });
+
+  it.each([
+    [
+      { de: "Manual Deutsch", en: "Manual English" },
+      "de-DE",
+      "Manual Deutsch",
+      "de",
+      false,
+    ],
+    [{ en: "Manual English" }, "de-DE", "Provider Deutsch", "de", false],
+    [{ en: "Manual English" }, "fr-FR", "Manual English", "en", true],
+    [{}, "fr-FR", "Provider English", "en", true],
+  ] as const)(
+    "resolves component requested-language and English controls %#",
+    (descriptions, requested, text, lang, fallback) => {
+      locale.value = requested;
+      const wrapper = mountDetail({
+        ...selectedDlc,
+        component_metadata: {
+          ...selectedDlc.component_metadata,
+          metadata_source: "manual",
+          manual_metadata: { descriptions },
+          steam_metadata: {
+            text_variants: {
+              de: { source_language: "german", summary: "Provider Deutsch" },
+              en: { source_language: "english", summary: "Provider English" },
+            },
+          },
+        },
+      });
+      expect(wrapper.get(".pc-dlc-detail__summary").text()).toBe(text);
+      expect(wrapper.get(".pc-dlc-detail__summary").attributes("lang")).toBe(
+        lang,
+      );
+      expect(wrapper.text().includes("rom.description-language-fallback")).toBe(
+        fallback,
+      );
+    },
+  );
+
+  it("renders untrusted provider markup as text and replaces it on entity refetch", async () => {
+    locale.value = "de-DE";
+    const text = "<script>alert(1)</script>";
+    const wrapper = mountDetail({
+      ...selectedDlc,
+      component_metadata: {
+        ...selectedDlc.component_metadata,
+        manual_metadata: null,
+        steam_metadata: {
+          text_variants: { de: { source_language: "german", summary: text } },
+        },
+      },
+    });
+    expect(wrapper.get(".pc-dlc-detail__summary").text()).toBe(text);
+    expect(wrapper.find("script").exists()).toBe(false);
+    await wrapper.setProps({
+      component: { ...selectedDlc, id: 90, component_metadata: null },
+    });
+    expect(wrapper.text()).not.toContain(text);
+  });
+
   it("limits the query-synced detail shell to DLC-specific tabs", () => {
     const source = readFileSync(
       "src/v2/components/GameDetails/PcDlcDetail.vue",
@@ -329,8 +423,7 @@ describe("PcDlcDetail", () => {
       romId: parent.id,
       componentId: selectedDlc.id,
       expectedVersion: selectedDlc.updated_at,
-      fallbackDescription: selectedDlc.component_metadata?.summary,
-      providerSummaryIsAuthoritative: true,
+      provider: "steam",
     });
   });
 
@@ -377,8 +470,7 @@ describe("PcDlcDetail", () => {
               "expectedVersion",
               "manualMetadata",
               "steamMetadata",
-              "fallbackDescription",
-              "providerSummaryIsAuthoritative",
+              "provider",
             ],
             template: "<div data-testid='localized-editor' />",
           },
@@ -536,7 +628,7 @@ describe("PcDlcDetail", () => {
     );
   });
 
-  it("keeps manual DLC summaries ahead of retained Steam text variants", () => {
+  it("does not let unrelated manual metadata suppress requested Steam variants", () => {
     locale.value = "de-DE";
     const wrapper = mountDetail({
       ...selectedDlc,
@@ -556,7 +648,12 @@ describe("PcDlcDetail", () => {
     });
 
     expect(wrapper.get(".pc-dlc-detail__summary").text()).toBe(
-      "Operator-authored DLC summary.",
+      "Deutsche Steam-Beschreibung des DLC.",
     );
   });
+});
+
+afterEach(() => {
+  locale.value = "en-US";
+  permissionState.value = true;
 });

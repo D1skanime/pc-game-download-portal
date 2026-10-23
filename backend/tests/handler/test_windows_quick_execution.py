@@ -177,3 +177,84 @@ def test_reconciliation_checks_evidence_before_any_database_write(monkeypatch):
         execution.reconcile_quick_files(quick, Mock(), Mock(), object())
     repository.sync_rom_files.assert_not_called()
     repository.sync_rom_components.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "descriptions,enabled,selected,expected",
+    [
+        ({}, True, True, 1),
+        ({"de": "Manual German", "en": "Manual English"}, True, True, 0),
+        ({}, False, True, 0),
+        ({}, True, False, 0),
+    ],
+)
+async def test_warm_reuse_offers_only_missing_selected_descriptions(
+    monkeypatch, descriptions, enabled, selected, expected
+):
+    from datetime import datetime
+
+    from handler import scan_description_retry as repair
+    from handler import scan_retry_execution as retry
+    from handler import windows_quick_execution as execution
+
+    evidence = InventoryEvidence("c" * 64, 1, True)
+    current = binding("Collection/Game")
+    handler = SimpleNamespace(
+        get_pc_inventory=AsyncMock(return_value=evidence),
+        get_pc_components=AsyncMock(),
+        get_rom_files=AsyncMock(),
+    )
+    monkeypatch.setattr(execution, "inventory_binding", lambda rom, path: current)
+    monkeypatch.setattr(execution, "load_baseline", lambda *args: evidence)
+    monkeypatch.setattr(repair, "get_description_retry_state", lambda identity: None)
+    monkeypatch.setattr(
+        repair, "get_description_component_page", lambda *a, **kw: ([], None)
+    )
+    monkeypatch.setattr(
+        retry,
+        "configured_sources",
+        lambda policy: ["steam"] if enabled and selected else [],
+    )
+    coordinator = retry.RetryCoordinator(
+        {
+            "apis": ["steam"] if selected else [],
+            "metadata_locale": "de-DE",
+            "description_languages": ["de", "en"],
+        }
+    )
+    rom = SimpleNamespace(
+        id=3,
+        platform_slug="win",
+        is_identified=True,
+        steam_id=1245620,
+        fs_name="Game",
+        updated_at=datetime(2026, 10, 22),
+        steam_metadata={},
+        manual_metadata={"descriptions": descriptions},
+        summary="Legacy English",
+    )
+    command = object()
+    monkeypatch.setattr(execution, "current_checkpoint_command", lambda: command)
+    with retry.bind_retry_coordinator(coordinator):
+        result = await inspect_windows_quick(
+            handler,
+            rom,
+            scan_type="quick",
+            platform_slug="win",
+            rom_ids=[],
+            relative_path="Collection/Game",
+            collection_expanded=True,
+        )
+    assert result.decision == QuickScanDecision.REUSE
+    assert len(coordinator.candidates) == expected
+    if expected:
+        work = next(iter(coordinator.work.values()))
+        assert work.quick is result
+        assert work.command is command
+        assert work.quick.binding.game_relative_path == "Collection/Game"
+        assert coordinator.candidates[0].identity.purpose == "description"
+        assert coordinator.candidates[0].identity.locale == "de"
+    handler.get_pc_inventory.assert_awaited_once_with(rom)
+    handler.get_pc_components.assert_not_called()
+    handler.get_rom_files.assert_not_called()

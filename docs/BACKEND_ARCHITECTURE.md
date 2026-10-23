@@ -74,7 +74,10 @@ The backend owns catalog state and API shapes. The Vue frontend never accesses t
 
 - Parent metadata is provider JSON plus roms_metadata and filter-oriented roms_facets in backend/models/rom.py.
 - Components have RomComponentMetadata, preserving DLC/provider identity separately from the parent.
-- Manual descriptions live in manual_metadata; Steam/ScreenScraper variants are resolved by exact locale, language base, English fallback and legacy summary in frontend/src/v2/composables/useManualDescription/index.ts.
+- Manual descriptions remain in `manual_metadata.descriptions`. Steam PC/Windows and ScreenScraper console descriptions retain validated language/source variants. English may be collected alongside the requested language, but stays in its English slot. Scalar legacy summary is retained as historical data and is not an active v2 description fallback.
+- `backend/config/scan_language.py` updates the existing shared language priority using administrative permission and compare-and-set checks. `backend/handler/metadata/metadata_locale.py` captures the effective locale into accepted scan commands; queued, scheduled and recovered work retains that snapshot.
+- `backend/handler/scan_description_retry.py` shares the existing retry coordinator across unidentified and missing-description work. It selects at most five distinct games per operation and eight existing targets per game. Complete warm targets need no provider request; description-only repair avoids inventory and media work.
+- `backend/handler/database/description_state.py` applies narrow provider-text patches with current identity, version/digest and execution-authority checks. Partial provider replies preserve valid variants and all stored manual text. Existing interactive matching and refresh paths use `backend/handler/metadata/manual_description_refresh.py` and the same provider/merge owners.
 - Library images are RomComponentLocalMedia; uploaded/provider media is copied to owned resources as RomOwnedMedia or RomComponentOwnedMedia, with roles and placements.
 - backend/endpoints/roms/media.py and backend/endpoints/roms/pc_component_resources.py expose owned media. The v2 detail view selects overview, background and audio placements.
 

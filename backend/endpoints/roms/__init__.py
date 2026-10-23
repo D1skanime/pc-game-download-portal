@@ -108,6 +108,7 @@ from models.rom import (
 )
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
+from utils.datetime import to_utc
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.m3u import generate_m3u_content
@@ -1599,6 +1600,8 @@ async def update_rom(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     form_data: Annotated[RomUpdateForm, Depends(parse_rom_update_form)],
+    metadata_locale: str | None = None,
+    expected_version: datetime | None = None,
     artwork: Annotated[
         UploadFile | None,
         File(description="Custom artwork to set as cover."),
@@ -1619,6 +1622,39 @@ async def update_rom(
         raise RomNotFoundInDatabaseException(id)
 
     assert_rom_visible(request, rom)
+
+    from handler.metadata.manual_description_refresh import refresh_manual_descriptions
+    from handler.metadata.metadata_locale import effective_metadata_locale
+
+    captured_locale = effective_metadata_locale(metadata_locale)
+    if expected_version is not None and to_utc(rom.updated_at) != to_utc(
+        expected_version
+    ):
+        raise HTTPException(
+            status_code=409, detail="The metadata changed before confirmation"
+        )
+    if (
+        not unmatch_metadata
+        and not remove_cover
+        and artwork is None
+        and form_data.model_fields_set <= {"ss_id", "raw_ss_metadata", "steam_id"}
+    ):
+        for provider in ("ss", "steam"):
+            field = provider + "_id"
+            if (
+                field in form_data.model_fields_set
+                and getattr(rom, field)
+                and (safe_int_or_none(getattr(form_data, field)) == getattr(rom, field))
+            ):
+                await refresh_manual_descriptions(
+                    rom,
+                    provider,
+                    captured_locale,
+                    expected_version or rom.updated_at,
+                )
+                return DetailedRomSchema.from_orm_with_request(
+                    db_rom_handler.get_rom(id), request
+                )
 
     new_fs_name = sanitize_filename(str(form_data.fs_name or rom.fs_name))
     should_update_fs = new_fs_name != rom.fs_name
@@ -1752,7 +1788,11 @@ async def update_rom(
     if cleaned_data["moby_id"] and raw_moby_metadata is not None:
         cleaned_data["moby_metadata"] = raw_moby_metadata
     if cleaned_data["ss_id"] and raw_ss_metadata is not None:
-        cleaned_data["ss_metadata"] = raw_ss_metadata
+        raw_ss_metadata.pop("text_variants", None)
+        cleaned_data["ss_metadata"] = {
+            **(rom.ss_metadata or {} if cleaned_data["ss_id"] == rom.ss_id else {}),
+            **raw_ss_metadata,
+        }
     if cleaned_data["launchbox_id"] and raw_launchbox_metadata is not None:
         cleaned_data["launchbox_metadata"] = raw_launchbox_metadata
     if cleaned_data["hasheous_id"] and raw_hasheous_metadata is not None:
@@ -1820,7 +1860,9 @@ async def update_rom(
         cleaned_data.update({"moby_id": None, "moby_metadata": {}})
 
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
-        ss_rom = await meta_ss_handler.get_rom_by_id(rom, cleaned_data["ss_id"])
+        ss_rom = await meta_ss_handler.get_rom_by_id(
+            rom, cleaned_data["ss_id"], metadata_locale=captured_locale
+        )
         if ss_rom.get("ss_id"):
             cleaned_data.update(ss_rom)
     elif rom.ss_id and not cleaned_data["ss_id"]:
@@ -1828,7 +1870,9 @@ async def update_rom(
 
     if cleaned_data["steam_id"] and int(cleaned_data["steam_id"]) != rom.steam_id:
         steam_rom = await meta_steam_handler.get_rom_by_id(
-            int(cleaned_data["steam_id"]), rom.platform_slug
+            int(cleaned_data["steam_id"]),
+            rom.platform_slug,
+            metadata_locale=captured_locale,
         )
         if steam_rom.get("steam_id"):
             cleaned_data.update(steam_rom)
@@ -2037,7 +2081,13 @@ async def update_rom(
     )
 
     try:
-        db_rom_handler.update_rom(id, cleaned_data)
+        applied = db_rom_handler.update_rom(
+            id, cleaned_data, expected_updated_at=expected_version or rom.updated_at
+        )
+        if applied is None:
+            raise HTTPException(
+                status_code=409, detail="The metadata changed before confirmation"
+            )
     except IntegrityError as exc:
         log.error(f"Failed to update ROM {id}: {exc}")
         raise HTTPException(
@@ -2074,6 +2124,18 @@ async def update_rom(
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    for provider in ("ss", "steam"):
+        field = provider + "_id"
+        if (
+            field in provided_fields
+            and getattr(rom, field)
+            and (safe_int_or_none(getattr(form_data, field)) == getattr(rom, field))
+        ):
+            await refresh_manual_descriptions(
+                rom, provider, captured_locale, rom.updated_at
+            )
+            rom = db_rom_handler.get_rom(id)
 
     if meta_playmatch_handler.is_manual_match(form_data.model_fields_set):
         fire_and_forget(meta_playmatch_handler.submit_manual_match_suggestion(rom))

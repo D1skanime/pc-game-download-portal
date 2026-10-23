@@ -32,6 +32,10 @@ VERSION_SUFFIX = re.compile(
 )
 
 
+def _locale_options(locale: str | None) -> dict[str, str]:
+    return {"metadata_locale": locale} if locale is not None else {}
+
+
 class PcMetadataProvider(Protocol):
     def is_enabled(self) -> bool: ...
 
@@ -68,15 +72,24 @@ class PcMetadataMatchHandler:
         }
 
     async def collect_candidates(
-        self, rom: Rom, query: str | None = None
+        self,
+        rom: Rom,
+        query: str | None = None,
+        metadata_locale: str | None = None,
     ) -> dict[str, PcMetadataProviderResult]:
         title = query or rom.fs_name_no_ext or rom.fs_name
         if " " not in title:
             title = COMPACT_TITLE_BOUNDARY.sub(" ", title)
-        return await self._collect_for_title(rom, title)
+        return await self._collect_for_title(
+            rom, title, metadata_locale=metadata_locale
+        )
 
     async def collect_component_candidates(
-        self, rom: Rom, component: RomComponent, query: str | None = None
+        self,
+        rom: Rom,
+        component: RomComponent,
+        query: str | None = None,
+        metadata_locale: str | None = None,
     ) -> dict[str, PcMetadataProviderResult]:
         title = query or self._component_search_title(rom, component)
         related_candidates = await self._enrich_related_igdb_candidates(rom, title)
@@ -85,12 +98,16 @@ class PcMetadataMatchHandler:
             if related_candidates
             else None
         )
-        results = await self._collect_for_title(rom, title, overrides)
+        results = await self._collect_for_title(
+            rom, title, overrides, metadata_locale=metadata_locale
+        )
         if component.kind == RomComponentKind.DLC:
             direct_steam = await self._steam_candidates_from_related(
-                rom, related_candidates
+                rom, related_candidates, metadata_locale=metadata_locale
             )
-            parent_listed = await self.fetch_parent_listed_steam_dlc(rom, component)
+            parent_listed = await self.fetch_parent_listed_steam_dlc(
+                rom, component, metadata_locale=metadata_locale
+            )
             if parent_listed:
                 parent_candidate = self._candidate("steam", parent_listed)
                 if not any(
@@ -105,7 +122,10 @@ class PcMetadataMatchHandler:
         return results
 
     async def _steam_candidates_from_related(
-        self, rom: Rom, related_candidates: list[PcMetadataCandidate]
+        self,
+        rom: Rom,
+        related_candidates: list[PcMetadataCandidate],
+        metadata_locale: str | None = None,
     ) -> list[PcMetadataCandidate]:
         steam = self.providers.get("steam")
         get_by_id = getattr(steam, "get_rom_by_id", None) if steam else None
@@ -113,14 +133,20 @@ class PcMetadataMatchHandler:
             return []
         results = await asyncio.gather(
             *(
-                self._steam_candidate_from_related(rom, steam, related)
+                self._steam_candidate_from_related(
+                    rom, steam, related, metadata_locale=metadata_locale
+                )
                 for related in related_candidates
             )
         )
         return [candidate for candidate in results if candidate is not None]
 
     async def _steam_candidate_from_related(
-        self, rom: Rom, steam: PcMetadataProvider, related: PcMetadataCandidate
+        self,
+        rom: Rom,
+        steam: PcMetadataProvider,
+        related: PcMetadataCandidate,
+        metadata_locale: str | None = None,
     ) -> PcMetadataCandidate | None:
         steam_id = self._positive_int(related.provider_ids.get("steam_id"))
         get_by_id = getattr(steam, "get_rom_by_id", None)
@@ -128,7 +154,9 @@ class PcMetadataMatchHandler:
             return None
         try:
             details = await asyncio.wait_for(
-                get_by_id(steam_id, rom.platform_slug),
+                get_by_id(
+                    steam_id, rom.platform_slug, **_locale_options(metadata_locale)
+                ),
                 timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
             )
         except Exception:
@@ -246,7 +274,10 @@ class PcMetadataMatchHandler:
         return None
 
     async def fetch_validated_steam_dlc(
-        self, rom: Rom, igdb_candidate: PcMetadataCandidate
+        self,
+        rom: Rom,
+        igdb_candidate: PcMetadataCandidate,
+        metadata_locale: str | None = None,
     ) -> dict[str, Any] | None:
         """Resolve one Steam DLC only after IGDB has established its identity."""
         steam = self.providers.get("steam")
@@ -257,7 +288,11 @@ class PcMetadataMatchHandler:
         if get_matches is None or get_by_id is None:
             return None
         try:
-            matches = await get_matches(igdb_candidate.title, rom.platform_slug)
+            matches = await get_matches(
+                igdb_candidate.title,
+                rom.platform_slug,
+                **_locale_options(metadata_locale),
+            )
         except Exception:
             return None
 
@@ -277,7 +312,9 @@ class PcMetadataMatchHandler:
                 continue
             try:
                 details = await asyncio.wait_for(
-                    get_by_id(steam_id, rom.platform_slug),
+                    get_by_id(
+                        steam_id, rom.platform_slug, **_locale_options(metadata_locale)
+                    ),
                     timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
                 )
             except Exception:
@@ -292,7 +329,10 @@ class PcMetadataMatchHandler:
         return validated[0] if len(validated) == 1 else None
 
     async def fetch_unique_steam_match(
-        self, rom: Rom, title: str
+        self,
+        rom: Rom,
+        title: str,
+        metadata_locale: str | None = None,
     ) -> dict[str, Any] | None:
         """Return one exact Steam Store match for a reviewed PC title."""
         steam = self.providers.get("steam")
@@ -303,7 +343,9 @@ class PcMetadataMatchHandler:
         if get_matches is None or get_by_id is None:
             return None
         try:
-            matches = await get_matches(title, rom.platform_slug)
+            matches = await get_matches(
+                title, rom.platform_slug, **_locale_options(metadata_locale)
+            )
         except Exception:
             return None
 
@@ -320,7 +362,9 @@ class PcMetadataMatchHandler:
                 continue
             try:
                 details = await asyncio.wait_for(
-                    get_by_id(steam_id, rom.platform_slug),
+                    get_by_id(
+                        steam_id, rom.platform_slug, **_locale_options(metadata_locale)
+                    ),
                     timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
                 )
             except Exception:
@@ -330,7 +374,10 @@ class PcMetadataMatchHandler:
         return resolved[0] if len(resolved) == 1 else None
 
     async def fetch_parent_listed_steam_dlc(
-        self, rom: Rom, component: RomComponent
+        self,
+        rom: Rom,
+        component: RomComponent,
+        metadata_locale: str | None = None,
     ) -> dict[str, Any] | None:
         """Resolve one local DLC component against the parent's Steam DLC list."""
         steam = self.providers.get("steam")
@@ -348,7 +395,9 @@ class PcMetadataMatchHandler:
         title = self._component_search_title(rom, component)
         detail_results = await asyncio.gather(
             *(
-                self._parent_listed_steam_detail(get_by_id, app_id, title, parent_id)
+                self._parent_listed_steam_detail(
+                    get_by_id, app_id, title, parent_id, metadata_locale=metadata_locale
+                )
                 for app_id in dlc_ids
             )
         )
@@ -356,14 +405,19 @@ class PcMetadataMatchHandler:
         return validated[0] if len(validated) == 1 else None
 
     async def _parent_listed_steam_detail(
-        self, get_by_id: Any, app_id: object, title: str, parent_id: int
+        self,
+        get_by_id: Any,
+        app_id: object,
+        title: str,
+        parent_id: int,
+        metadata_locale: str | None = None,
     ) -> dict[str, Any] | None:
         steam_id = self._positive_int(app_id)
         if steam_id is None:
             return None
         try:
             details = await asyncio.wait_for(
-                get_by_id(steam_id),
+                get_by_id(steam_id, **_locale_options(metadata_locale)),
                 timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
             )
         except Exception:
@@ -516,6 +570,7 @@ class PcMetadataMatchHandler:
         rom: Rom,
         title: str,
         overrides: dict[str, PcMetadataProviderResult] | None = None,
+        metadata_locale: str | None = None,
     ) -> dict[str, PcMetadataProviderResult]:
         results: dict[str, PcMetadataProviderResult] = {}
         lookups: list[tuple[str, PcMetadataProvider, Any]] = []
@@ -534,7 +589,11 @@ class PcMetadataMatchHandler:
                     provider_name,
                     provider,
                     self._lookup_result_with_timeout(
-                        provider_name, provider, rom, title
+                        provider_name,
+                        provider,
+                        rom,
+                        title,
+                        metadata_locale=metadata_locale,
                     ),
                 )
             )
@@ -561,20 +620,30 @@ class PcMetadataMatchHandler:
         provider: PcMetadataProvider,
         rom: Rom,
         title: str,
+        metadata_locale: str | None = None,
     ) -> PcMetadataProviderResult:
         try:
             return await asyncio.wait_for(
-                self._lookup_result(provider_name, provider, rom, title),
+                self._lookup_result(
+                    provider_name, provider, rom, title, metadata_locale=metadata_locale
+                ),
                 timeout=PC_MATCH_PROVIDER_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
             return PcMetadataProviderResult(provider_name, False, [], "timeout")
 
     async def _lookup_result(
-        self, provider_name: str, provider: PcMetadataProvider, rom: Rom, title: str
+        self,
+        provider_name: str,
+        provider: PcMetadataProvider,
+        rom: Rom,
+        title: str,
+        metadata_locale: str | None = None,
     ) -> PcMetadataProviderResult:
         try:
-            provider_results = await self._lookup(provider_name, provider, rom, title)
+            provider_results = await self._lookup(
+                provider_name, provider, rom, title, metadata_locale=metadata_locale
+            )
         except Exception:
             return PcMetadataProviderResult(provider_name, False, [], "unavailable")
         return PcMetadataProviderResult(
@@ -584,7 +653,12 @@ class PcMetadataMatchHandler:
         )
 
     async def _lookup(
-        self, provider_name: str, provider: PcMetadataProvider, rom: Rom, title: str
+        self,
+        provider_name: str,
+        provider: PcMetadataProvider,
+        rom: Rom,
+        title: str,
+        metadata_locale: str | None = None,
     ) -> list[dict[str, Any]]:
         if provider_name == "igdb":
             return await provider.get_matched_roms_by_name(  # type: ignore[attr-defined]
@@ -602,7 +676,7 @@ class PcMetadataMatchHandler:
             )
         if provider_name == "steam":
             return await provider.get_matched_roms_by_name(  # type: ignore[attr-defined]
-                title, rom.platform_slug
+                title, rom.platform_slug, **_locale_options(metadata_locale)
             )
         return []
 

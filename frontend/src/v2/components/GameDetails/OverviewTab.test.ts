@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { IGDBRelatedGame } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
+import { resolveDescription } from "@/v2/composables/useManualDescription";
 import OverviewTab from "./OverviewTab.vue";
 import ScreenshotsTab from "./ScreenshotsTab.vue";
 
@@ -16,7 +16,14 @@ vi.mock("@/v2/composables/useCan", () => ({
   useCan: () => permissionState,
 }));
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: activeLocale }),
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, string>) =>
+      key +
+      (key.startsWith("rom.description-") && params
+        ? JSON.stringify(params)
+        : ""),
+    locale: activeLocale,
+  }),
 }));
 vi.mock("@/stores/collections", () => ({ default: () => ({}) }));
 vi.mock("@/v2/composables/useWebpSupport", () => ({
@@ -57,20 +64,107 @@ const pcMetadataRom = {
     average_rating: null,
   },
 } as Partial<DetailedRom> as DetailedRom;
-const dlc = {
-  id: 123,
-  name: "Phantom Liberty",
-  slug: "cyberpunk-2077-phantom-liberty",
-  type: "dlc",
-  cover_url: "",
-} as IGDBRelatedGame;
 
 describe("OverviewTab", () => {
+  it("keeps a permitted edit action for legacy-only empty data", () => {
+    const wrapper = mount(OverviewTab, {
+      props: {
+        rom: { ...rom, summary: "Unknown legacy prose" },
+        description: resolveDescription({ provider: null, locale: "de-DE" }),
+        parentRomId: 42,
+        sections: [],
+        playerCount: null,
+        userCollections: [],
+        hltb: null,
+        lastPlayed: null,
+        revision: null,
+        screenshots: [],
+        expansions: [],
+        dlcs: [],
+        localDlcCandidates: [],
+        localExpansionCandidates: [],
+        remakes: [],
+        remasters: [],
+        similarGames: [],
+      },
+      global: { stubs: { RBtn: { template: "<button />" } } },
+    });
+    expect(wrapper.text()).not.toContain("Unknown legacy prose");
+    expect(wrapper.text()).toContain("rom.description-empty");
+    expect(
+      wrapper.find("[data-testid='overview-description-edit']").exists(),
+    ).toBe(true);
+  });
+
+  it.each([
+    ["manual", "en", "english_fallback"],
+    ["steam", "en", "english_fallback"],
+    ["screenscraper", "de", "base"],
+  ] as const)(
+    "renders safe %s prose with actual %s language and %s provenance",
+    async (source, resolvedLocale, match) => {
+      const text = "<img src=x onerror=alert(1)>";
+      const description = {
+        text,
+        requestedLocale: "de-DE",
+        resolvedLocale,
+        source,
+        match,
+      };
+      const wrapper = mount(OverviewTab, {
+        props: {
+          rom,
+          description,
+          parentRomId: 42,
+          sections: [],
+          playerCount: null,
+          userCollections: [],
+          hltb: null,
+          lastPlayed: null,
+          revision: null,
+          screenshots: [],
+          expansions: [],
+          dlcs: [],
+          localDlcCandidates: [],
+          localExpansionCandidates: [],
+          remakes: [],
+          remasters: [],
+          similarGames: [],
+        },
+      });
+      expect(wrapper.get(".overview-tab__summary").text()).toBe(text);
+      expect(wrapper.get(".overview-tab__summary").attributes("lang")).toBe(
+        resolvedLocale,
+      );
+      expect(wrapper.find("img").exists()).toBe(false);
+      expect(wrapper.text()).toContain(
+        resolvedLocale === "en" ? "English" : "German",
+      );
+      expect(wrapper.text()).toContain(
+        source === "steam"
+          ? "Steam"
+          : source === "screenscraper"
+            ? "ScreenScraper"
+            : "rom.description-manual-label",
+      );
+      expect(wrapper.text()).toContain(
+        match === "english_fallback"
+          ? "rom.description-language-fallback"
+          : "rom.description-source-localized",
+      );
+      await wrapper.setProps({
+        rom: { ...rom, id: 99 },
+        description: resolveDescription({ provider: null }),
+      });
+      expect(wrapper.text()).not.toContain(text);
+    },
+  );
+
   it("renders a local DLC overview section without IGDB suggestions", () => {
     const wrapper = mount(OverviewTab, {
       props: {
         rom,
-        summary: null,
+        description: resolveDescription({ provider: null }),
         sections: [],
         playerCount: null,
         userCollections: [],
@@ -118,7 +212,7 @@ describe("OverviewTab", () => {
     const wrapper = mount(OverviewTab, {
       props: {
         rom: pcMetadataRom,
-        summary: null,
+        description: resolveDescription({ provider: null }),
         sections: [
           {
             label: "rom.genres",
@@ -174,7 +268,7 @@ describe("OverviewTab", () => {
       const wrapper = mount(OverviewTab, {
         props: {
           rom: pcMetadataRom,
-          summary: null,
+          description: resolveDescription({ provider: null }),
           sections: [],
           playerCount: null,
           userCollections: [],
@@ -229,7 +323,7 @@ describe("OverviewTab", () => {
     const wrapper = mount(OverviewTab, {
       props: {
         rom: pcMetadataRom,
-        summary: null,
+        description: resolveDescription({ provider: null }),
         sections: [
           {
             label: "rom.genres",
@@ -282,7 +376,7 @@ describe("OverviewTab", () => {
     const wrapper = mount(OverviewTab, {
       props: {
         rom: pcMetadataRom,
-        summary: null,
+        description: resolveDescription({ provider: null }),
         sections: [
           {
             label: "rom.companies",
@@ -315,7 +409,7 @@ describe("OverviewTab", () => {
     const wrapper = mount(OverviewTab, {
       props: {
         rom,
-        summary: null,
+        description: resolveDescription({ provider: null }),
         sections: [],
         playerCount: null,
         userCollections: [],
@@ -346,7 +440,7 @@ describe("OverviewTab", () => {
     const wrapper = mount(OverviewTab, {
       props: {
         rom,
-        summary: null,
+        description: resolveDescription({ provider: null }),
         sections: [],
         playerCount: null,
         userCollections: [],
@@ -382,7 +476,7 @@ describe("OverviewTab", () => {
           ...rom,
           manual_metadata: { youtube_video_id: "dQw4w9WgXcQ" },
         } as DetailedRom,
-        summary: null,
+        description: resolveDescription({ provider: null }),
         sections: [],
         playerCount: null,
         userCollections: [],
@@ -418,7 +512,7 @@ describe("OverviewTab", () => {
           ...rom,
           manual_metadata: { youtube_video_id: "invalid" },
         } as DetailedRom,
-        summary: null,
+        description: resolveDescription({ provider: null }),
         sections: [],
         playerCount: null,
         userCollections: [],
@@ -441,99 +535,120 @@ describe("OverviewTab", () => {
     expect(wrapper.text()).toContain("rom.youtube-invalid");
   });
 
-  it("keeps the resolved description read-only until the authorized pencil is activated", async () => {
-    permissionState.value = true;
-    const editableRom = {
-      ...rom,
-      updated_at: "version-7",
-      manual_metadata: { descriptions: { en: "Manual text" } },
-      steam_metadata: { fields: ["summary"] },
-    } as Partial<DetailedRom> as DetailedRom;
-    const wrapper = mount(OverviewTab, {
-      props: {
-        rom: editableRom,
-        summary: "Resolved description",
-        sections: [],
-        playerCount: null,
-        userCollections: [],
-        hltb: null,
-        lastPlayed: null,
-        revision: null,
-        screenshots: [],
-        expansions: [],
-        dlcs: [],
-        localDlcCandidates: [],
-        localExpansionCandidates: [],
-        remakes: [],
-        remasters: [],
-        similarGames: [],
-        parentRomId: 42,
-      },
-      global: {
-        stubs: {
-          RBtn: {
-            inheritAttrs: false,
-            template:
-              "<button v-bind='$attrs' @click='$emit(\"click\")'><slot /></button>",
+  it.each(["steam", "screenscraper"] as const)(
+    "forwards the eligible %s editor provider after the authorized pencil is activated",
+    async (descriptionProvider) => {
+      permissionState.value = true;
+      const editableRom = {
+        ...rom,
+        updated_at: "version-7",
+        manual_metadata: { descriptions: { en: "Manual text" } },
+        steam_metadata: { fields: ["summary"] },
+      } as Partial<DetailedRom> as DetailedRom;
+      const wrapper = mount(OverviewTab, {
+        props: {
+          rom: editableRom,
+          descriptionProvider,
+          ssMetadata: {
+            text_variants: {
+              fr: { source_language: "fr", summary: "Console text" },
+            },
           },
-          RDialog: {
-            props: ["modelValue"],
-            template:
-              "<div v-if='modelValue' data-testid='description-dialog'><slot name='header' /><slot name='content' /></div>",
-          },
-          LocalizedDescriptionEditor: {
-            name: "LocalizedDescriptionEditor",
-            props: [
-              "romId",
-              "expectedVersion",
-              "manualMetadata",
-              "steamMetadata",
-              "fallbackDescription",
-              "providerSummaryIsAuthoritative",
-            ],
-            template: "<div data-testid='localized-editor' />",
+          description: resolveDescription({
+            provider: null,
+            manualMetadata: { descriptions: { en: "Resolved description" } },
+          }),
+          sections: [],
+          playerCount: null,
+          userCollections: [],
+          hltb: null,
+          lastPlayed: null,
+          revision: null,
+          screenshots: [],
+          expansions: [],
+          dlcs: [],
+          localDlcCandidates: [],
+          localExpansionCandidates: [],
+          remakes: [],
+          remasters: [],
+          similarGames: [],
+          parentRomId: 42,
+        },
+        global: {
+          stubs: {
+            RBtn: {
+              inheritAttrs: false,
+              template:
+                "<button v-bind='$attrs' @click='$emit(\"click\")'><slot /></button>",
+            },
+            RDialog: {
+              props: ["modelValue"],
+              template:
+                "<div v-if='modelValue' data-testid='description-dialog'><slot name='header' /><slot name='content' /></div>",
+            },
+            LocalizedDescriptionEditor: {
+              name: "LocalizedDescriptionEditor",
+              props: [
+                "romId",
+                "expectedVersion",
+                "manualMetadata",
+                "steamMetadata",
+                "ssMetadata",
+                "provider",
+              ],
+              template: "<div data-testid='localized-editor' />",
+            },
           },
         },
-      },
-    });
+      });
 
-    expect(wrapper.get(".overview-tab__summary").text()).toBe(
-      "Resolved description",
-    );
-    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
-      false,
-    );
-    expect(
-      wrapper
+      expect(wrapper.get(".overview-tab__summary").text()).toBe(
+        "Resolved description",
+      );
+      expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper
+          .get("[data-testid='overview-description-edit']")
+          .attributes("aria-label"),
+      ).toBe("common.edit");
+
+      await wrapper
         .get("[data-testid='overview-description-edit']")
-        .attributes("aria-label"),
-    ).toBe("common.edit");
+        .trigger("click");
 
-    await wrapper
-      .get("[data-testid='overview-description-edit']")
-      .trigger("click");
-
-    expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
-      true,
-    );
-    expect(
-      wrapper.getComponent({ name: "LocalizedDescriptionEditor" }).props(),
-    ).toMatchObject({
-      romId: editableRom.id,
-      expectedVersion: "version-7",
-      manualMetadata: editableRom.manual_metadata,
-      steamMetadata: editableRom.steam_metadata,
-      fallbackDescription: editableRom.summary,
-      providerSummaryIsAuthoritative: true,
-    });
-  });
+      expect(wrapper.find("[data-testid='localized-editor']").exists()).toBe(
+        true,
+      );
+      expect(
+        wrapper.getComponent({ name: "LocalizedDescriptionEditor" }).props(),
+      ).toMatchObject({
+        romId: editableRom.id,
+        expectedVersion: "version-7",
+        manualMetadata: editableRom.manual_metadata,
+        steamMetadata: editableRom.steam_metadata,
+        provider: descriptionProvider,
+        ssMetadata: {
+          text_variants: {
+            fr: { source_language: "fr", summary: "Console text" },
+          },
+        },
+      });
+    },
+  );
 
   it("keeps the description read-only without an edit grant", () => {
     permissionState.value = false;
     const wrapper = mount(OverviewTab, {
       props: {
         rom,
-        summary: "Visible without permission",
+        description: resolveDescription({
+          provider: null,
+          manualMetadata: {
+            descriptions: { en: "Visible without permission" },
+          },
+        }),
         sections: [],
         playerCount: null,
         userCollections: [],

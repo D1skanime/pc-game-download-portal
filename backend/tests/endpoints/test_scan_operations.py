@@ -455,7 +455,7 @@ def test_subfolder_and_provider_policies_are_frozen_and_replayable(
         stored = session.get(ScanOperation, identity).command
         assert (
             stored["request"]["metadata_only"]
-            and stored["request"]["metadata_locale"] == "de_DE"
+            and stored["request"]["metadata_locale"] == "de"
         )
         assert stored["request"]["apis"] == ["igdb", "steam"]
         assert stored["commands"][0]["options"] == [["relative_path", "PC"]]
@@ -506,3 +506,32 @@ def test_malformed_identity_and_extra_authority(client, headers, mapped):
     )
     assert client.get(BASE + "/not-a-uuid", headers=headers).status_code == 422
     assert client.get(BASE + "/" + str(uuid4()), headers=headers).status_code == 404
+
+
+def test_authenticated_acceptance_captures_global_once(
+    client, headers, mapped, monkeypatch
+):
+    import copy
+
+    from config.config_manager import config_manager as cm
+    from handler.database.scan_operations_handler import DBScanOperationsHandler
+
+    config = copy.deepcopy(cm.get_config())
+    config.SCAN_LANGUAGE_PRIORITY = ["fr", "en"]
+    monkeypatch.setattr(cm, "get_config", lambda: config)
+    body = request_body(mapped)
+    first = client.post(BASE, headers=headers, json=body)
+    assert first.status_code == 202
+    identity = first.json()["id"]
+    repository = DBScanOperationsHandler()
+    assert (
+        repository.execution(identity)["command"]["request"]["metadata_locale"] == "fr"
+    )
+    config.SCAN_LANGUAGE_PRIORITY = ["de", "en"]
+    replay = client.post(BASE, headers=headers, json=body)
+    assert replay.status_code == 202 and replay.json()["id"] == identity
+    assert (
+        repository.execution(identity)["command"]["request"]["metadata_locale"] == "fr"
+    )
+    conflict = client.post(BASE, headers=headers, json=body | {"metadata_locale": "de"})
+    assert conflict.status_code == 409

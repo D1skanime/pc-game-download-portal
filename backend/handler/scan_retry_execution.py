@@ -74,7 +74,9 @@ class RetryWork:
 
 class RetryCoordinator:
     def __init__(self, policy, *, clock=lambda: datetime.now(timezone.utc)):
-        self.policy = policy
+        from handler.scan_description_retry import snapshot_policy
+
+        self.policy = snapshot_policy(policy)
         self.clock = clock
         self.candidates = []
         self.work = {}
@@ -82,6 +84,15 @@ class RetryCoordinator:
         self.identities = {}
         self.selection: tuple[RetryCandidate, ...] = ()
         self.attention_games = set()
+        self.description_targets = {}
+
+    def sources(self):
+        return configured_sources(self.policy)
+
+    def consider_descriptions(self, quick, rom, command, *, targets=None):
+        from handler.scan_description_retry import collect_descriptions
+
+        collect_descriptions(self, quick, rom, command, targets=targets)
 
     def identity(self, binding, provider, query):
         locale = self.policy.get("metadata_locale") or "en-US"
@@ -133,7 +144,7 @@ class RetryCoordinator:
             self.identities[(rom.id, provider)] = identity
             self.work[identity.game_key] = RetryWork(quick, rom.id, command)
 
-    async def revalidate(self, work):
+    async def revalidate(self, work, *, purpose="unknown"):
         from handler.filesystem.roms_handler import FSRomsHandler
         from handler.storage.read_context import MappingReadContext
         from handler.windows_quick_policy import is_identified_windows
@@ -144,12 +155,21 @@ class RetryCoordinator:
         if (
             rom is None
             or rom.incarnation_token != binding.rom_incarnation
-            or is_identified_windows(rom)
+            or (purpose == "unknown" and is_identified_windows(rom))
         ):
             return False
         mapping = MappingReadContext(
             binding.mapping_id, binding.mapping_revision
         ).validate()
+        if purpose == "description":
+            from handler.metadata.steam_handler import STEAM_PLATFORMS
+            from handler.scan_description_retry import description_binding_current
+
+            if (
+                rom.platform_slug not in STEAM_PLATFORMS
+                or getattr(work.quick, "before", None) is None
+            ):
+                return description_binding_current(binding)
         handler = FSRomsHandler.for_mapping(mapping, binding.game_relative_path)
         current = await handler.get_pc_inventory(rom)
         baseline = load_baseline(binding, current)
@@ -163,9 +183,14 @@ class RetryCoordinator:
 
         self.selection = select_retries(self.candidates)
         await emit_retry_status(self)
+        descriptions = [
+            item
+            for item in self.selection
+            if item.assessment.eligible and item.identity.purpose == "description"
+        ]
         selected: dict[str, list[str]] = {}
         for item in self.selection:
-            if item.assessment.eligible:
+            if item.assessment.eligible and item.identity.purpose == "unknown":
                 selected.setdefault(item.identity.game_key, []).append(
                     item.identity.provider
                 )
@@ -217,6 +242,14 @@ class RetryCoordinator:
                     playmatch_enabled=self.policy.get("playmatch_enabled", True),
                 )
             await emit_retry_status(self, game=game)
+
+        from handler.scan_description_retry import dispatch_description
+
+        for item in descriptions:
+            work = self.work[item.identity.game_key]
+            if await self.revalidate(work, purpose="description"):
+                await dispatch_description(self, work, item.identity)
+                await emit_retry_status(self, game=item.identity.game_key)
 
     def observe(self, provider, rom, observation, cause):
         if (

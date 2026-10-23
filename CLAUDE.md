@@ -78,6 +78,19 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 **Don't explain a change.** Avoid comments that explain why a change was made to the code. Focus instead on the current behaviour of the code and how it works.
 **Python tools live in `backend/tools/`.** Standalone dev/test utilities and scripts (not part of the app runtime) go in `backend/tools/`, not scattered across `backend/`.
 
+### Documentation stays current with implementation
+
+This rule applies to every feature, refactor, behavior change and coding agent.
+
+- Update the affected descriptions and architecture documentation in the same task and pull request as the implementation. Documentation is part of completion, not a later cleanup phase.
+- Place concise domain explanations at the responsible class, function, module or component. Explain its responsibility and relevant invariants, permission, transaction or ownership boundaries where these are not obvious from the code. Avoid line-by-line narration and boilerplate for trivial code.
+- Planning identifiers such as "Phase 137, D06-D08" or a plan, quick-task or gap number must never substitute for a domain explanation. A new developer must understand the current behavior without reading phase history.
+- Record historical decisions, rejected alternatives and implementation chronology in architecture or decision documentation, or the existing planning artifacts. Keep code comments focused on the current contract and its rationale.
+- When responsibilities, layers, data flows, central services, routes, permissions, persistence or reusable components change, update the affected sections of `docs/BACKEND_ARCHITECTURE.md`, `docs/FRONTEND_ARCHITECTURE.md` and other relevant documentation. Describe new shared building blocks so they can be found and reused.
+- Keep documented API contracts aligned with the backend-owned schema and regenerate frontend contracts when required. Update affected setup, operation and user-facing descriptions when their workflows change.
+- When modifying existing code, replace historical-only comments in the touched area with useful domain explanations. Do not start an unrelated repository-wide comment rewrite.
+- Plans must include documentation work or explicit documentation acceptance criteria. Review and verification must check that the affected descriptions and architecture match the resulting code. If no documentation update is needed, explain why in the change description.
+
 ### Code-size and decomposition policy
 
 This rule applies to every agent, model, phase, branch, and AI tool working in this repository.

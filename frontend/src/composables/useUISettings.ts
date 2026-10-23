@@ -1,7 +1,7 @@
 import { useLocalStorage } from "@vueuse/core";
 import type { RemovableRef } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { effectScope, watch, ref } from "vue";
+import { effectScope, watch, ref, nextTick } from "vue";
 import type { UserSchema } from "@/__generated__";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -159,8 +159,13 @@ function createUISettings() {
     );
   }
 
-  const saveUISettings = async () => {
-    if (!user.value || isSyncing.value) return;
+  let explicitLocaleSave = false;
+  let saveSequence = 0;
+  const saveUISettings = async (explicit = false): Promise<boolean> => {
+    if (!user.value) return true;
+    if (isSyncing.value && !explicit) return false;
+    const userId = user.value.id;
+    const sequence = ++saveSequence;
 
     const currentSettings = collectSettings();
 
@@ -169,6 +174,8 @@ function createUISettings() {
         id: user.value.id,
         ui_settings: JSON.stringify(currentSettings),
       } as Partial<UserSchema> & { ui_settings: string });
+
+      if (user.value?.id !== userId || sequence !== saveSequence) return false;
 
       // Update the user in the store with the new settings (without triggering sync)
       isSyncing.value = true;
@@ -181,12 +188,15 @@ function createUISettings() {
       }, 50);
     } catch (error) {
       console.error("Failed to save UI settings to backend:", error);
+      return false;
     }
+    return true;
   };
 
   // Watch all localStorage refs for changes (only set up once)
-  Object.values(localStorageRefs).forEach((ref) => {
+  Object.entries(localStorageRefs).forEach(([key, ref]) => {
     watch(ref, () => {
+      if (key === "locale" && explicitLocaleSave) return;
       if (!isSyncing.value) {
         saveUISettings();
       }
@@ -207,6 +217,30 @@ function createUISettings() {
 
   return {
     ...localStorageRefs,
+    async setLocale(value: string): Promise<boolean> {
+      explicitLocaleSave = true;
+      localStorageRefs.locale.value = value;
+      await nextTick();
+      explicitLocaleSave = false;
+      const identity = user.value?.id;
+      const saved = await saveUISettings(true);
+      if (!saved && user.value?.id === identity) {
+        try {
+          const { data } = await userApi.fetchCurrentUser();
+          if (data?.id === identity && user.value?.id === identity) {
+            authStore.setCurrentUser(data);
+            await nextTick();
+            explicitLocaleSave = true;
+            localStorageRefs.locale.value = value;
+            await nextTick();
+            explicitLocaleSave = false;
+          }
+        } catch (error) {
+          console.error("Failed to refresh UI settings:", error);
+        }
+      }
+      return saved;
+    },
     initialize: initialize,
     saveUISettings: () => saveUISettings(),
   };

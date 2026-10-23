@@ -250,6 +250,8 @@ export type { SaveSchema } from './models/SaveSchema';
 export type { SaveStateRequest } from './models/SaveStateRequest';
 export type { SaveSummarySchema } from './models/SaveSummarySchema';
 export type { ScanInventoryFacts } from './models/ScanInventoryFacts';
+export type { ScanLanguagePayload } from './models/ScanLanguagePayload';
+export type { ScanLanguageResponse } from './models/ScanLanguageResponse';
 export type { ScanOperationItemResult } from './models/ScanOperationItemResult';
 export type { ScanOperationMutationRequest } from './models/ScanOperationMutationRequest';
 export type { ScanOperationRequest } from './models/ScanOperationRequest';

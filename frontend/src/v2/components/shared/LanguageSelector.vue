@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// LanguageSelector — wraps the language store in an RSelect so it
+// LanguageSelector wraps the language store in an RSelect so it
 // shares aesthetics with every other v2 select (status picker on the
 // Overview tab, etc). Persists the choice via useUISettings + sets the
 // vue-i18n locale.
@@ -11,7 +11,7 @@ import { RIcon, RSelect } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useUISettings } from "@/composables/useUISettings";
+import { useSystemLanguage } from "@/v2/composables/useSystemLanguage";
 import storeLanguage from "@/v2/data/adapters/legacy/stores/language";
 
 defineOptions({ inheritAttrs: false });
@@ -21,25 +21,12 @@ interface Props {
 }
 withDefaults(defineProps<Props>(), { prefixLabel: false });
 
-const { t, locale } = useI18n();
-const languageStore = storeLanguage();
-const { languages, selectedLanguage } = storeToRefs(languageStore);
-const { locale: localeStorage } = useUISettings();
-
+const { t } = useI18n();
+const { languages } = storeToRefs(storeLanguage());
+const { currentValue, saving } = useSystemLanguage();
 const items = computed(() =>
   languages.value.map((l) => ({ value: l.value, title: l.name })),
 );
-
-const currentValue = computed({
-  get: () => selectedLanguage.value.value,
-  set: (next: string) => {
-    const lang = languages.value.find((l) => l.value === next);
-    if (!lang) return;
-    selectedLanguage.value = lang;
-    locale.value = lang.value;
-    localeStorage.value = lang.value;
-  },
-});
 </script>
 
 <template>
@@ -47,6 +34,7 @@ const currentValue = computed({
     v-if="prefixLabel"
     v-model="currentValue"
     :items="items"
+    :loading="saving"
     prefix-label="stacked"
     hide-details
   >
@@ -59,6 +47,7 @@ const currentValue = computed({
     v-else
     v-model="currentValue"
     :items="items"
+    :loading="saving"
     density="compact"
     variant="outlined"
     hide-details

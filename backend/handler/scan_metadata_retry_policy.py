@@ -1,5 +1,6 @@
 """Conservative retry advice; provider dispatch and fenced writes remain external."""
 
+import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
@@ -29,11 +30,21 @@ class RetryIdentity:
     query: str
     locale: str
     config_fingerprint: str
+    purpose: str = "unknown"
 
     def __post_init__(self):
         fields = self.fields()
         object.__setattr__(self, "query", fields["normalized_query"])
         object.__setattr__(self, "locale", fields["locale"])
+        if self.purpose not in {"unknown", "description"} or (
+            self.purpose == "description"
+            and re.fullmatch(
+                r"descriptions:v1:[1-9][0-9]*:(parent|component:[1-9][0-9]*)",
+                self.query,
+            )
+            is None
+        ):
+            raise ValueError("invalid_inventory_retry_purpose")
 
     def fields(self) -> dict[str, Any]:
         return _retry_fields(
@@ -146,6 +157,8 @@ def assess_retry(
         state = None
     due = state.next_eligible_at if state is not None else None
     if due is None:
+        if identity.purpose == "description":
+            return RetryAssessment(True, "due", now)
         if baseline_adopted_at is None:
             return RetryAssessment(False, "baseline_required")
         due = _utc(baseline_adopted_at) + timedelta(hours=24)

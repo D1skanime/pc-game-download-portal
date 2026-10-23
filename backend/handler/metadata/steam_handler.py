@@ -1,5 +1,6 @@
 import re
-from typing import NotRequired, TypedDict
+from itertools import islice
+from typing import NotRequired, TypedDict, cast
 
 from adapters.services.steam import SteamService
 from adapters.services.steam_types import SteamAppDetails, SteamFullGame, SteamPlatforms
@@ -12,6 +13,8 @@ from config import (
     STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG,
     STEAM_API_TEXT_LANGUAGES,
 )
+from config.scan_language import normalize_language
+from handler.metadata.steam_descriptions import accepted_text_variants, valid_app_id
 
 from .base_handler import BaseRom, MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
@@ -26,6 +29,8 @@ class SteamTextVariant(TypedDict):
     source_language: str
     name: NotRequired[str]
     summary: NotRequired[str]
+    requested_language: NotRequired[str]
+    language_evidence: NotRequired[str]
 
 
 class SteamMetadata(TypedDict):
@@ -74,12 +79,12 @@ class SteamHandler(MetadataHandler):
 
     @staticmethod
     def _requested_language(metadata_locale: str | None) -> str:
-        if isinstance(metadata_locale, str) and metadata_locale.strip():
-            base_tag = metadata_locale.replace("_", "-").split("-", 1)[0].lower()
-            for language, tag in STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG.items():
-                if tag == base_tag:
-                    return language
-        return STEAM_API_LANGUAGE
+        base_tag = normalize_language(metadata_locale) or "en"
+        return next(
+            language
+            for language, tag in STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG.items()
+            if tag == base_tag
+        )
 
     @staticmethod
     def _country_for_language(language: str) -> str:
@@ -138,13 +143,28 @@ class SteamHandler(MetadataHandler):
         steam_id: int,
         platform_slug: str | None = None,
         metadata_locale: str | None = None,
+        *,
+        descriptions_only: bool = False,
+        text_languages: tuple[str, ...] | None = None,
     ) -> SteamRom:
-        if not self.is_enabled():
+        if not self.is_enabled() or not valid_app_id(steam_id):
             return SteamRom(steam_id=None)
         localized_details: dict[str, SteamAppDetails] = {}
         requested_language = self._requested_language(metadata_locale)
+        configured = (
+            STEAM_API_TEXT_LANGUAGES if text_languages is None else text_languages
+        )
+        preferred_languages = (
+            (metadata_locale or "en",)
+            if not descriptions_only or text_languages is None
+            else ()
+        )
         text_languages = tuple(
-            dict.fromkeys((requested_language, *STEAM_API_TEXT_LANGUAGES))
+            dict.fromkeys(
+                self._requested_language(value)
+                for value in (*preferred_languages, *islice(configured, 64), "en")
+                if normalize_language(value) is not None
+            )
         )
         for language in text_languages:
             details = await self.steam_service.get_app_details(
@@ -154,6 +174,11 @@ class SteamHandler(MetadataHandler):
             )
             if validated_details := self._valid_app_details(details, steam_id):
                 localized_details[language] = validated_details
+        if descriptions_only:
+            variants = self._text_variants(localized_details)
+            return SteamRom(
+                steam_id=steam_id, steam_metadata={"text_variants": variants}
+            )
         selected = (
             (requested_language, localized_details[requested_language])
             if requested_language in localized_details
@@ -173,12 +198,21 @@ class SteamHandler(MetadataHandler):
         )
 
     async def get_matched_roms_by_name(
-        self, search_term: str, platform_slug: str
+        self,
+        search_term: str,
+        platform_slug: str,
+        *,
+        metadata_locale: str | None = None,
     ) -> list[SteamRom]:
         if not self.is_enabled() or platform_slug not in STEAM_PLATFORMS:
             return []
+        language = (
+            self._requested_language(metadata_locale)
+            if metadata_locale is not None
+            else STEAM_API_LANGUAGE
+        )
         apps = await self.steam_service.search_apps(
-            search_term, country=STEAM_API_COUNTRY, language=STEAM_API_LANGUAGE
+            search_term, country=self._country_for_language(language), language=language
         )
         results: list[SteamRom] = []
         for item in apps:
@@ -190,7 +224,12 @@ class SteamHandler(MetadataHandler):
                 continue
             if not isinstance(name, str):
                 continue
-            hydrated = await self.get_rom_by_id(steam_id, platform_slug)
+            if metadata_locale is None:
+                hydrated = await self.get_rom_by_id(steam_id, platform_slug)
+            else:
+                hydrated = await self.get_rom_by_id(
+                    steam_id, platform_slug, metadata_locale=metadata_locale
+                )
             if hydrated.get("steam_id") == steam_id:
                 results.append(hydrated)
         return results[:15]
@@ -215,7 +254,7 @@ class SteamHandler(MetadataHandler):
         details: SteamAppDetails | None, steam_id: int
     ) -> SteamAppDetails | None:
         if (
-            not details
+            not isinstance(details, dict)
             or details.get("type") not in {"game", "dlc"}
             or not isinstance(details.get("steam_appid"), int)
             or isinstance(details["steam_appid"], bool)
@@ -231,7 +270,11 @@ class SteamHandler(MetadataHandler):
         variants: dict[str, SteamTextVariant] = {}
         for language, details in localized_details.items():
             base_tag = STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG[language]
-            variant: SteamTextVariant = {"source_language": language}
+            variant: SteamTextVariant = {
+                "source_language": language,
+                "requested_language": language,
+                "language_evidence": "provider_slot",
+            }
             if isinstance(details.get("name"), str) and details["name"].strip():
                 variant["name"] = details["name"].strip()
             if (
@@ -241,7 +284,11 @@ class SteamHandler(MetadataHandler):
                 variant["summary"] = details["short_description"].strip()
             if len(variant) > 1:
                 variants[base_tag] = variant
-        return variants
+        first_details = next(iter(localized_details.values()), None)
+        app_id = first_details["steam_appid"] if first_details else 0
+        return cast(
+            dict[str, SteamTextVariant], accepted_text_variants(variants, app_id=app_id)
+        )
 
     @staticmethod
     def _string_list(value: object) -> list[str]:

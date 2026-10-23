@@ -195,7 +195,7 @@ Home.vue uses CardRow and v2 home adapters. Platform, Search, and Collection vie
 
 ### ROM detail
 
-GameDetails.vue is a cover column plus tab panel. ?tab= is persistent. useManualDescription resolves manual localized text first, then authoritative provider variants, then the legacy summary. Tabs cover overview, metadata/providers, files/downloads, media, saves/states, achievements, notes, patcher, related games, screenshots, artwork, soundtrack, and PC components.
+GameDetails.vue is a cover column plus tab panel. ?tab= is persistent. The typed resolveDescription contract in useManualDescription selects requested exact/base manual text, requested exact/base provider text, manual English, provider English, then empty. It exposes source and resolved language, labels English fallback, and never displays the scalar legacy summary as a description. Tabs cover overview, metadata/providers, files/downloads, media, saves/states, achievements, notes, patcher, related games, screenshots, artwork, soundtrack, and PC components.
 
 ### PC and DLC
 
@@ -236,6 +236,10 @@ useBreakpoint mirrors values to html[data-bp]. AppLayout reserves top and mobile
 frontend/src/locales/index.ts creates a non-legacy vue-i18n instance with en_US locale and fallback. JSON is dynamically discovered and grouped by namespace. The current locale directories are en_US, en_GB, fr_FR, de_DE, bg_BG, cs_CZ, hu_HU, it_IT, ja_JP, ko_KR, pl_PL, pt_BR, ro_RO, ru_RU, es_ES, tr_TR, zh_CN, and zh_TW. English, German, and French are first-class locales.
 
 Namespaces include activity, collection, common, emptyStates, gallery, home, login, logs, patcher, platform, play, rom, scan, settings, setup, and storage. language.ts matches browser locales exactly, then by language prefix, otherwise en_US. LocalizedDescriptionEditor.vue normalizes locale identifiers, selects the active locale, resolves manual/provider/fallback text, and saves a ROM or PC component description with expected_version. localeParity.test.ts checks storage.administration in every locale; the Python scripts check locale parity and sorted keys.
+
+Administrative language selection uses `useSystemLanguage` to synchronize the existing shared scan-language priority through the v2 config adapter, with permission and compare-and-set checks. Personal-only users change their own interface preference. `useMetadataMatchLanguage` captures language and candidate ownership for search and confirmation; the server remains authoritative for provider text.
+
+`useDescriptionEditor` owns an exact entity/locale draft and its expected version. Display fallback never becomes a manual draft. Dirty drafts survive provider refresh and failed saves; locale switching is guarded while dirty or saving. Cancel restores the draft baseline without saving; the dialog currently stays open and can be closed using its X button. This is an accepted live-UAT limitation, not a completed close-on-cancel behavior.
 
 ---
 

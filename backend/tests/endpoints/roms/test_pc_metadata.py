@@ -1,5 +1,6 @@
 import hashlib
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -1452,3 +1453,233 @@ def test_manual_description_validation_is_actionable(
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     assert response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "locale,language", [("de-DE", "german"), ("fr-FR", "french"), ("en", "english")]
+)
+@pytest.mark.parametrize("component_target", [False, True])
+def test_pc_same_identity_captures_locale_and_repairs_only_text(
+    client, access_token, rom, monkeypatch, locale, language, component_target
+):
+    from handler.metadata import meta_steam_handler
+
+    db_rom_handler.update_rom(rom.id, {"steam_id": 1091500, "name": "Protected parent"})
+    db_rom_handler.get_rom(rom.id)
+    suffix = "pc-metadata-selection"
+    candidate = _steam_candidate()
+    if component_target:
+        db_rom_handler.sync_rom_components(
+            rom.id,
+            [
+                RomComponent(
+                    relative_path="dlc", kind=RomComponentKind.DLC, manifest_members=[]
+                )
+            ],
+        )
+        component = db_rom_handler.get_rom(rom.id).components[0]
+        with sync_session.begin() as session:
+            session.add(
+                RomComponentMetadata(
+                    component_id=component.id,
+                    steam_id=1091500,
+                    name="Protected component",
+                    metadata_source="manual",
+                    manual_metadata={"descriptions": {"en": "Manual English"}},
+                    steam_metadata={"custom": "retained"},
+                )
+            )
+        db_rom_handler.get_rom(rom.id).components[0]
+        suffix = f"pc-components/{component.id}/metadata-selection"
+    else:
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "manual_metadata": {"descriptions": {"en": "Manual English"}},
+                "steam_metadata": {"custom": "retained"},
+            },
+        )
+        db_rom_handler.get_rom(rom.id)
+    collect = AsyncMock(
+        return_value={"steam": PcMetadataProviderResult("steam", True, [candidate])}
+    )
+    monkeypatch.setattr(
+        pc_metadata_match_handler,
+        "collect_component_candidates" if component_target else "collect_candidates",
+        collect,
+    )
+    monkeypatch.setattr(type(meta_steam_handler), "is_enabled", lambda self: True)
+
+    async def details(app_id, **kwargs):
+        return {
+            "steam_appid": app_id,
+            "type": "dlc" if component_target else "game",
+            "name": "Untrusted replacement",
+            "short_description": kwargs["language"] + " text",
+        }
+
+    transport = AsyncMock(side_effect=details)
+    monkeypatch.setattr(meta_steam_handler.steam_service, "get_app_details", transport)
+    review = client.get(
+        f"/api/roms/{rom.id}/{suffix.replace('selection', 'candidates')}",
+        headers=_headers(access_token),
+        params={"query": "Captured selection", "metadata_locale": locale},
+    )
+    assert review.status_code == 200, review.text
+    response = client.post(
+        f"/api/roms/{rom.id}/{suffix}",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": candidate.id,
+            "query": "Captured selection",
+            "metadata_locale": locale,
+            "expected_version": review.json()["expected_version"],
+            "selected_media_ids": [],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert collect.await_args is not None
+    assert collect.await_args.kwargs["metadata_locale"] == locale[:2]
+    current = db_rom_handler.get_rom(rom.id)
+    metadata = current.components[0].component_metadata if component_target else current
+    assert metadata.manual_metadata["descriptions"]["en"] == "Manual English"
+    assert metadata.name == (
+        "Protected component" if component_target else "Protected parent"
+    )
+    assert metadata.steam_metadata["custom"] == "retained"
+    if locale != "en":
+        assert (
+            metadata.steam_metadata["text_variants"][locale[:2]]["summary"]
+            == language + " text"
+        )
+        assert language in {
+            call.kwargs["language"] for call in transport.await_args_list
+        }
+    if component_target:
+        assert metadata.metadata_source == "manual"
+
+    description_path = f"/api/roms/{rom.id}/" + (
+        f"pc-components/{component.id}/description"
+        if component_target
+        else "description"
+    )
+    edited = client.put(
+        description_path,
+        headers=_headers(access_token),
+        json={
+            "locale": "ja",
+            "description": "Concurrent version owner",
+            "expected_version": response.json()["expected_version"],
+        },
+    )
+    assert edited.status_code == 200, edited.text
+    if component_target:
+        # Fixture clock advance: component timestamps have second precision.
+        # A same-second manual save need not produce a distinct wire version.
+        with sync_session.begin() as session:
+            row = session.get(RomComponent, component.id)
+            row.updated_at = datetime.fromisoformat(
+                edited.json()["expected_version"]
+            ) + timedelta(seconds=1)
+    stale = client.post(
+        f"/api/roms/{rom.id}/{suffix}",
+        headers=_headers(access_token),
+        json={
+            "candidate_id": candidate.id,
+            "query": "Captured selection",
+            "metadata_locale": locale,
+            "expected_version": review.json()["expected_version"],
+            "selected_media_ids": [],
+        },
+    )
+    assert stale.status_code == 409, stale.text
+
+
+@pytest.mark.parametrize(
+    "locale,language", [("de", "german"), ("fr", "french"), ("en", "english")]
+)
+@pytest.mark.parametrize("flow", ["direct", "igdb_identity", "unique", "parent_dlc"])
+async def test_pc_locale_reaches_actual_steam_search_and_hydration(
+    monkeypatch, locale, language, flow
+):
+    from types import SimpleNamespace
+
+    from handler.metadata.pc_match_handler import PcMetadataMatchHandler
+    from handler.metadata.steam_handler import SteamHandler
+
+    steam = SteamHandler()
+    monkeypatch.setattr(type(steam), "is_enabled", lambda self: True)
+    search = AsyncMock(
+        return_value=[{"id": 700, "name": "Localized game", "type": "app"}]
+    )
+
+    async def details(app_id, **kwargs):
+        return {
+            "steam_appid": app_id,
+            "type": "dlc",
+            "fullgame": {"appid": "600"},
+            "name": "Localized game",
+            "short_description": kwargs["language"] + " text",
+        }
+
+    transport = AsyncMock(side_effect=details)
+    monkeypatch.setattr(steam.steam_service, "search_apps", search)
+    monkeypatch.setattr(steam.steam_service, "get_app_details", transport)
+    monkeypatch.setattr(
+        steam.steam_service, "get_library_capsule_url", AsyncMock(return_value=None)
+    )
+    matcher = PcMetadataMatchHandler({"steam": steam})
+    parent: Any = SimpleNamespace(
+        platform_slug="win",
+        fs_name="Localized game",
+        fs_name_no_ext="Localized game",
+        steam_id=600,
+        steam_metadata={"dlc_ids": [700]},
+        platform=SimpleNamespace(igdb_id=None),
+        name="Parent game",
+    )
+    component: Any = SimpleNamespace(
+        relative_path="Localized game",
+        kind=RomComponentKind.DLC,
+        component_metadata=SimpleNamespace(name="Localized game"),
+    )
+    related = matcher._candidate(
+        "igdb", {"igdb_id": 123, "steam_id": 700, "name": "Localized game"}
+    )
+    result: Any
+    if flow == "direct":
+        result = await matcher.collect_candidates(parent, metadata_locale=locale)
+        assert (
+            result["steam"]
+            .candidates[0]
+            .fields["steam_metadata"]["text_variants"][locale]["summary"]
+            == language + " text"
+        )
+    elif flow == "igdb_identity":
+        result = await matcher._steam_candidates_from_related(
+            parent, [related], metadata_locale=locale
+        )
+        assert (
+            result[0].fields["steam_metadata"]["text_variants"][locale]["summary"]
+            == language + " text"
+        )
+    elif flow == "unique":
+        result = await matcher.fetch_unique_steam_match(
+            parent, "Localized game", metadata_locale=locale
+        )
+        assert (
+            result["steam_metadata"]["text_variants"][locale]["summary"]
+            == language + " text"
+        )
+    else:
+        result = await matcher.fetch_parent_listed_steam_dlc(
+            parent, component, metadata_locale=locale
+        )
+        assert (
+            result["steam_metadata"]["text_variants"][locale]["summary"]
+            == language + " text"
+        )
+    assert language in {call.kwargs["language"] for call in transport.await_args_list}
+    if flow in {"direct", "unique"}:
+        assert search.await_args is not None
+        assert search.await_args.kwargs["language"] == language

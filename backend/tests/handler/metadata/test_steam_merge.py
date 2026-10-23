@@ -1,3 +1,7 @@
+from copy import deepcopy
+
+import pytest
+
 from handler.metadata.steam_merge import normalize_steam
 
 
@@ -298,3 +302,147 @@ def test_normalize_steam_rejects_malformed_text_variants_without_clearing_existi
             "source_language": "english",
         }
     }
+
+
+@pytest.mark.parametrize(
+    "incoming",
+    [
+        {"name": "New title"},
+        {"name": "New title", "summary": "  "},
+        {"name": "New title", "summary": "x" * 65536},
+    ],
+)
+def test_partial_variant_preserves_saved_summary_and_other_locales(incoming):
+    current = {
+        "steam_id": 38,
+        "manual_metadata": {"descriptions": {"de": "Manuell", "en": "Manual"}},
+        "steam_metadata": {
+            "app_id": 38,
+            "source": "storefront",
+            "text_variants": {
+                "de": {
+                    "name": "Old title",
+                    "summary": "Deutsch",
+                    "source_language": "german",
+                },
+                "fr": {"summary": "Francais", "source_language": "french"},
+            },
+        },
+        "summary": "Legacy",
+        "metadata": {"genres": ["Saved"]},
+    }
+    before = deepcopy(current)
+    result = normalize_steam(
+        {
+            "steam_id": 38,
+            "steam_metadata": {
+                "text_variants": {
+                    "de": {**incoming, "source_language": "german"},
+                }
+            },
+        },
+        current,
+    )
+    variants = result["steam_metadata"]["text_variants"]
+    assert variants["de"] == {
+        "name": "New title",
+        "summary": "Deutsch",
+        "source_language": "german",
+    }
+    assert variants["fr"] == {"summary": "Francais", "source_language": "french"}
+    assert current == before
+    assert not ({"summary", "manual_metadata", "metadata", "media"} & result.keys())
+
+
+@pytest.mark.parametrize("english_in_incoming", [True, False])
+def test_ambiguous_incoming_summary_preserves_saved_german(english_in_incoming):
+    current_variants = {
+        "de": {"summary": "Deutsch", "source_language": "german"},
+        "en": {"summary": "English", "source_language": "english"},
+    }
+    incoming = {"de": {"summary": " English ", "source_language": "german"}}
+    if english_in_incoming:
+        incoming["en"] = {"summary": "English", "source_language": "english"}
+    result = normalize_steam(
+        {"steam_id": 38, "steam_metadata": {"text_variants": incoming}},
+        {
+            "steam_id": 38,
+            "steam_metadata": {
+                "app_id": 38,
+                "source": "storefront",
+                "text_variants": current_variants,
+            },
+        },
+    )
+    assert result["steam_metadata"]["text_variants"] == current_variants
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"app_id": 39},
+        {"app_id": True},
+        {"type": "movie"},
+        {"source": "other"},
+    ],
+)
+def test_wrong_incoming_metadata_provenance_cannot_replace_saved_variant(invalid):
+    saved = {"de": {"summary": "Deutsch", "source_language": "german"}}
+    result = normalize_steam(
+        {
+            "steam_id": 38,
+            "steam_metadata": {
+                **invalid,
+                "text_variants": {
+                    "de": {"summary": "Untrusted", "source_language": "german"},
+                },
+            },
+        },
+        {
+            "steam_metadata": {
+                "app_id": 38,
+                "source": "storefront",
+                "text_variants": saved,
+            }
+        },
+    )
+    assert result["steam_metadata"]["text_variants"] == saved
+
+
+def test_valid_historical_identical_slots_survive_empty_refresh():
+    saved = {
+        locale: {"summary": "Shared", "source_language": language}
+        for locale, language in (("de", "german"), ("en", "english"))
+    }
+    result = normalize_steam(
+        {"steam_id": 38, "steam_metadata": {"text_variants": {}}},
+        {
+            "steam_metadata": {
+                "app_id": 38,
+                "source": "storefront",
+                "text_variants": saved,
+            }
+        },
+    )
+    assert result["steam_metadata"]["text_variants"] == saved
+
+
+def test_new_separate_de_fr_en_slots_and_evidence_survive_merge():
+    variants = {
+        locale: {
+            "summary": summary,
+            "source_language": language,
+            "requested_language": language,
+            "language_evidence": "provider_slot",
+        }
+        for locale, language, summary in (
+            ("de", "german", "Deutsch"),
+            ("fr", "french", "Francais"),
+            ("en", "english", "English"),
+        )
+    }
+    result = normalize_steam(
+        {"steam_id": 38, "steam_metadata": {"text_variants": variants}},
+        {"manual_metadata": {"descriptions": {"en": "Protected"}}},
+    )
+    assert result["steam_metadata"]["text_variants"] == variants

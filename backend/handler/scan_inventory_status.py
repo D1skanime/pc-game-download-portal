@@ -342,6 +342,8 @@ async def emit_retry_status(coordinator, *, game=None):
     for identity, work in coordinator.work.items():
         if game is not None and identity != game:
             continue
+        if getattr(work.quick, "before", None) is None:
+            continue
         rom = db_rom_handler.get_rom(work.rom_id)
         if rom is not None:
             await emit_inventory_status(

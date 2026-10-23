@@ -20,7 +20,7 @@
 // — see GameActionBtn (status) and MetricMenuBtn.
 import { RBtn, RDialog, RIcon } from "@v2/lib";
 import { getActivePinia } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   IGDBRelatedGame,
@@ -41,6 +41,14 @@ import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
 import { useCan } from "@/v2/composables/useCan";
+import type {
+  DescriptionProvider,
+  DescriptionResolution,
+} from "@/v2/composables/useManualDescription";
+import {
+  descriptionPresentation,
+  type ProviderMetadata,
+} from "@/v2/composables/useManualDescription/provenance";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeCollections from "@/v2/data/adapters/legacy/stores/collections";
 import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
@@ -52,13 +60,9 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{
   rom: DetailedRom;
   parentRomId: number;
-  summary: string | null | undefined;
-  ssMetadata?: {
-    text_variants?: Record<
-      string,
-      { summary?: string | null } | undefined
-    > | null;
-  } | null;
+  description: DescriptionResolution;
+  descriptionProvider?: DescriptionProvider | null;
+  ssMetadata?: ProviderMetadata | null;
   sections: InfoGridSection[];
   playerCount: string | null;
   userCollections: UserCollectionSchema[];
@@ -88,9 +92,14 @@ const props = defineProps<{
 const emit = defineEmits<{ refresh: [] }>();
 
 const editPermission = getActivePinia()
-  ? useCan("rom.edit", { kind: "rom", id: props.rom.id })
+  ? useCan("rom.edit", {
+      kind: "rom",
+      get id() {
+        return props.rom.id;
+      },
+    })
   : null;
-const canEdit = computed(() => editPermission?.value ?? true);
+const canEdit = computed(() => editPermission?.value ?? false);
 const descriptionEditorOpen = ref(false);
 
 const hasAgeRatings = computed(
@@ -118,6 +127,31 @@ const hasHltb = computed(() => {
 // Falls back to a bare entry if the store is empty (e.g. deep-link before
 // the AppLayout fetch resolves).
 const { t, locale } = useI18n();
+const provenance = computed(() => {
+  const result = props.description;
+  const names = new Intl.DisplayNames([toBrowserLocale(locale.value)], {
+    type: "language",
+  });
+  return descriptionPresentation(result, {
+    source:
+      result.source === "manual"
+        ? t("rom.description-manual-label")
+        : result.source === "steam"
+          ? "Steam"
+          : "ScreenScraper",
+    language: result.resolvedLocale
+      ? (names.of(result.resolvedLocale) ?? result.resolvedLocale)
+      : "",
+    requestedLanguage:
+      names.of(result.requestedLocale) ?? result.requestedLocale,
+  });
+});
+watch(
+  () => props.rom.id,
+  () => {
+    descriptionEditorOpen.value = false;
+  },
+);
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
 
@@ -250,11 +284,26 @@ const youtubeEmbedUrl = computed(() =>
 <template>
   <section class="overview-tab">
     <!-- 1. Summary -->
-    <div v-if="summary" class="overview-tab__summary-row">
-      <p class="overview-tab__summary">{{ summary }}</p>
+    <div class="overview-tab__summary-row d-flex align-start ga-2">
+      <div class="flex-grow-1 overview-tab__description">
+        <p
+          v-if="description.text"
+          class="overview-tab__summary"
+          :lang="description.resolvedLocale ?? undefined"
+        >
+          {{ description.text }}
+        </p>
+        <p v-else class="overview-tab__summary overview-tab__summary--muted">
+          {{ t("rom.description-empty") }}
+        </p>
+        <p class="overview-tab__muted">
+          {{ t(provenance.key, provenance.params) }}
+        </p>
+      </div>
       <RBtn
         v-if="canEdit"
         data-testid="overview-description-edit"
+        size="large"
         icon="mdi-pencil-outline"
         :aria-label="t('common.edit')"
         variant="text"
@@ -270,10 +319,7 @@ const youtubeEmbedUrl = computed(() =>
           :manual-metadata="rom.manual_metadata"
           :steam-metadata="rom.steam_metadata"
           :ss-metadata="ssMetadata"
-          :fallback-description="rom.summary"
-          :provider-summary-is-authoritative="
-            Boolean(rom.steam_metadata?.fields?.includes('summary'))
-          "
+          :provider="descriptionProvider ?? null"
           @saved="
             () => {
               descriptionEditorOpen = false;
@@ -532,7 +578,13 @@ const youtubeEmbedUrl = computed(() =>
   gap: 30px;
 }
 
+.overview-tab__description {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .overview-tab__summary {
+  white-space: pre-line;
   font-size: 13.5px;
   line-height: 1.7;
   color: var(--r-color-fg-secondary);

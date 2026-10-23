@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import stat
+from datetime import UTC, datetime
 from inspect import unwrap
 from pathlib import Path
 from types import SimpleNamespace
@@ -612,6 +613,7 @@ async def test_crafted_setup_platform_requests_are_replay_safe_and_immutable(
 def _rom_update_fixture() -> SimpleNamespace:
     return SimpleNamespace(
         id=41,
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
         platform_id=2,
         platform_slug="win",
         fs_name="game.bin",
@@ -984,5 +986,6 @@ async def test_update_rom_same_fs_name_keeps_metadata_and_owned_resources(
     db_update.assert_called_once()
     assert db_update.call_args.args[1]["name"] == "Updated"
     assert db_update.call_args.args[1]["fs_name"] == rom.fs_name
+    assert db_update.call_args.kwargs["expected_updated_at"] == rom.updated_at
     cast(AsyncMock, rom_endpoints.fs_resource_handler.get_cover).assert_awaited_once()
     cast(AsyncMock, rom_endpoints.fs_resource_handler.get_manual).assert_awaited_once()

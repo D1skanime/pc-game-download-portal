@@ -1,5 +1,6 @@
 """Reconcile committed scan intents into the existing RQ queues."""
 
+from copy import deepcopy
 from dataclasses import asdict
 from uuid import uuid4
 
@@ -83,7 +84,9 @@ def accept_commands(actor, commands, policies, *, request_key=None, repository=N
     repository = repository or DBScanOperationsHandler()
     key = request_key or "scan-" + str(uuid4())
     accepted = repository.accept(
-        actor, key, {"commands": [asdict(c) for c in commands], "request": policies}
+        actor,
+        key,
+        {"commands": [asdict(c) for c in commands], "request": deepcopy(policies)},
     )
     dispatch_operation(accepted.id, repository=repository)
     return repository.get_by_id(accepted.id, actor)

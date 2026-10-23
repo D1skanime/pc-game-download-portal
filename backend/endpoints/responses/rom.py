@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Literal, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
@@ -99,6 +99,7 @@ class PcMetadataCandidateSchema(BaseModel):
     title: str
     provider_ids: dict[str, int | str]
     description_available: bool
+    steam_metadata: SteamMetadataSchema | None = None
     media: list[PcMetadataMediaSchema]
 
 
@@ -131,6 +132,7 @@ class ManualDescriptionResponse(BaseModel):
 class PcMetadataSelectionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    metadata_locale: str | None = Field(default=None, max_length=32)
     candidate_id: str = Field(min_length=1)
     query: str = Field(min_length=1, max_length=200)
     selected_media_ids: list[str] = Field(default_factory=list, max_length=20)
@@ -395,6 +397,8 @@ class PcComponentManifestMemberSchema(BaseModel):
 
 class SteamTextVariantSchema(BaseModel):
     source_language: str
+    requested_language: str | None = None
+    language_evidence: Literal["provider_slot"] | None = None
     name: str | None = None
     summary: str | None = None
 

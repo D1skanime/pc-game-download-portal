@@ -36,7 +36,7 @@ import {
   scheduleBackgroundRotation,
   selectedBackgroundAudioTracks,
 } from "@/v2/composables/useGameDetailsMedia";
-import { resolveManualDescription } from "@/v2/composables/useManualDescription";
+import { resolveDescription } from "@/v2/composables/useManualDescription";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
@@ -117,19 +117,14 @@ const title = computed(() => {
   return r.name || r.fs_name_no_ext;
 });
 
-const overviewSummary = computed(() => {
+const overviewDescription = computed(() => {
   const rom = currentRom.value;
-  if (!rom) return null;
-  return resolveManualDescription({
-    manualMetadata: rom.manual_metadata,
-    steamMetadata: rom.steam_metadata,
-    ssMetadata: rom.ss_metadata,
-    legacySummary: rom.summary,
+  return resolveDescription({
+    manualMetadata: rom?.manual_metadata,
+    steamMetadata: rom?.steam_metadata,
+    ssMetadata: rom?.ss_metadata,
     locale: locale.value,
-    providerSummaryIsAuthoritative: Boolean(
-      rom.steam_metadata?.fields?.includes("summary") ||
-      Boolean(rom.ss_metadata?.text_variants),
-    ),
+    provider: !rom ? null : isPcRom.value ? "steam" : "screenscraper",
   });
 });
 
@@ -509,7 +504,8 @@ const tabs = computed<RTabNavItem[]>(() => [
             v-if="tab === 'overview'"
             :rom="currentRom"
             :parent-rom-id="currentRom.id"
-            :summary="overviewSummary"
+            :description="overviewDescription"
+            :description-provider="isPcRom ? 'steam' : 'screenscraper'"
             :sections="overviewSections"
             :ss-metadata="currentRom.ss_metadata"
             :player-count="playerCount"

@@ -4,76 +4,98 @@ import type {
   ManualMetadata,
   SteamMetadataSchema,
 } from "@/__generated__";
-import { normalizeLocale } from "@/v2/composables/useProviderResolution";
+import {
+  descriptionLocale,
+  descriptionText,
+  providerCandidates,
+  type DescriptionCandidate,
+  type DescriptionProvider,
+  type DescriptionResolution,
+  type ProviderMetadata,
+} from "@/v2/composables/useManualDescription/provenance";
 import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 
-export interface DescriptionResolutionInput {
-  manualMetadata: ManualMetadata | null | undefined;
-  steamMetadata: SteamMetadataSchema | null | undefined;
-  ssMetadata?: {
-    text_variants?: Record<
-      string,
-      { source_language?: string | null; summary?: string | null } | undefined
-    > | null;
-  } | null;
-  legacySummary: string | null | undefined;
-  locale: string;
-  providerSummaryIsAuthoritative?: boolean;
+export type {
+  DescriptionProvider,
+  DescriptionResolution,
+} from "@/v2/composables/useManualDescription/provenance";
+
+export interface LocalizedDescriptionInput {
+  manualMetadata?: ManualMetadata | null;
+  steamMetadata?: SteamMetadataSchema | null;
+  ssMetadata?: ProviderMetadata | null;
+  locale?: string | null;
+  provider: DescriptionProvider | null;
 }
 
-export function resolveManualDescription({
-  manualMetadata,
-  steamMetadata,
-  ssMetadata,
-  legacySummary,
-  locale,
-  providerSummaryIsAuthoritative = true,
-}: DescriptionResolutionInput): string | null {
-  const normalizedLocale = normalizeLocale(locale);
-  const language = normalizedLocale.split("-", 1)[0];
-  const descriptions = manualMetadata?.descriptions ?? {};
-  const manualSummary =
-    descriptions[normalizedLocale] ?? descriptions[language] ?? null;
-  if (manualSummary?.trim()) return manualSummary.trim();
+function manualCandidates(
+  metadata: ManualMetadata | null | undefined,
+): DescriptionCandidate[] {
+  return Object.entries(metadata?.descriptions ?? {}).flatMap(
+    ([tag, value]) => {
+      const locale = descriptionLocale(tag);
+      const text = descriptionText(value);
+      return locale && text
+        ? [{ locale, text, source: "manual" as const }]
+        : [];
+    },
+  );
+}
 
-  const manualEnglish =
-    descriptions.en ?? descriptions["en-US"] ?? descriptions["en-GB"] ?? null;
-  if (manualEnglish?.trim()) return manualEnglish.trim();
-
-  if (providerSummaryIsAuthoritative) {
-    const providerSummary = resolveProviderDescription({
-      steamMetadata,
-      ssMetadata,
-      locale: normalizedLocale,
-    });
-    if (providerSummary) return providerSummary;
-    const english = resolveProviderDescription({
-      steamMetadata,
-      ssMetadata,
-      locale: "en",
-    });
-    if (english) return english;
+function selectDescription(
+  locale: string | null | undefined,
+  manual: DescriptionCandidate[],
+  providers: DescriptionCandidate[],
+): DescriptionResolution {
+  const requestedLocale = descriptionLocale(locale) ?? "en";
+  const base = requestedLocale.split("-", 1)[0];
+  const requested = [requestedLocale, base];
+  const english = ["en", "en-US", "en-GB"];
+  for (const [candidates, locales] of [
+    [manual, requested],
+    [providers, requested],
+    [manual, english],
+    [providers, english],
+  ] as const) {
+    for (const tag of locales) {
+      const candidate = candidates.find((value) => value.locale === tag);
+      if (!candidate) continue;
+      return {
+        text: candidate.text,
+        requestedLocale,
+        resolvedLocale: candidate.locale,
+        source: candidate.source,
+        match:
+          tag === requestedLocale
+            ? "exact"
+            : tag === base || base === "en"
+              ? "base"
+              : "english_fallback",
+      };
+    }
   }
-
-  return normalizedSummary(legacySummary);
+  return {
+    text: null,
+    requestedLocale,
+    resolvedLocale: null,
+    source: "none",
+    match: "empty",
+  };
 }
 
-export function resolveProviderDescription({
-  steamMetadata,
-  ssMetadata,
-  locale,
-}: {
-  steamMetadata: SteamMetadataSchema | null | undefined;
-  ssMetadata: ProviderMetadata | null | undefined;
-  locale: string;
-}): string | null {
-  const normalizedLocale = normalizeLocale(locale);
-  const language = normalizedLocale.split("-", 1)[0];
-  const variants = collectProviderVariants(steamMetadata, ssMetadata);
-  return normalizedSummary(
-    variants[normalizedLocale] ??
-      variants[language] ??
-      (language === "en" ? (variants["en-US"] ?? variants["en-GB"]) : null),
+export function resolveDescription(
+  input: LocalizedDescriptionInput,
+): DescriptionResolution {
+  const providers =
+    input.provider === "steam"
+      ? providerCandidates(input.steamMetadata, "steam")
+      : input.provider === "screenscraper"
+        ? providerCandidates(input.ssMetadata, "screenscraper")
+        : [];
+  return selectDescription(
+    input.locale,
+    manualCandidates(input.manualMetadata),
+    providers,
   );
 }
 
@@ -100,41 +122,4 @@ export function useManualDescription() {
   }
 
   return { updateRomDescription, updateComponentDescription };
-}
-
-function normalizedSummary(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-type ProviderMetadata = {
-  text_variants?: Record<
-    string,
-    { source_language?: string | null; summary?: string | null } | undefined
-  > | null;
-};
-
-function collectProviderVariants(
-  steamMetadata: SteamMetadataSchema | null | undefined,
-  ssMetadata: ProviderMetadata | null | undefined,
-): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const variants of [
-    steamMetadata?.text_variants,
-    ssMetadata?.text_variants,
-  ]) {
-    if (!variants) continue;
-    for (const [locale, variant] of Object.entries(variants)) {
-      const summary = normalizedSummary(variant?.summary);
-      let normalizedLocale: string;
-      try {
-        normalizedLocale = normalizeLocale(locale);
-      } catch {
-        continue;
-      }
-      if (summary && !result[normalizedLocale]) {
-        result[normalizedLocale] = summary;
-      }
-    }
-  }
-  return result;
 }

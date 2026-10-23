@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: ready
-stopped_at: Phase 35 live UAT accepted; localized descriptions captured for follow-up
-last_updated: "2026-10-21T09:59:31.422397+00:00"
-last_activity: 2026-10-21
+status: phase_complete
+stopped_at: Phase36 accepted with documented exceptions; main integration authorized
+last_updated: 2026-10-23T14:06:21.022Z
+last_activity: 2026-10-23
 progress:
-  total_phases: 35
-  completed_phases: 24
-  total_plans: 270
-  completed_plans: 239
-  percent: 69
+  total_phases: 36
+  completed_phases: 25
+  total_plans: 287
+  completed_plans: 256
+  percent: 89
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase 35 live UAT accepted on 2026-10-21; localized-description follow-up captured
+**Current focus:** Phase36 accepted and complete; no next phase or milestone closure started
 
 ## Current Position
 
-Phase: 35 (incremental-windows-quick-scans-and-unidentified-game-status) - ACCEPTED
-Plan: 14 of 14 complete; no implementation plan pending
-Status: Phase35 live UAT passed by explicit user acceptance; separate description follow-up pending planning
-Last activity: 2026-10-21
+Phase: 36 (localized-provider-descriptions-without-legacy-summary) - COMPLETE
+Plan: 17 of 17 complete; 35 tasks across 9 waves
+Status: User accepted live UAT with recorded exceptions; main integration authorized
+Last activity: 2026-10-23
 
 ## Shipping and Phase 35 handoff
 
@@ -60,7 +60,7 @@ The user confirmed the tested live UAT scope on 2026-10-20: "gut uat so weit bes
 
 **Velocity:**
 
-- Total plans completed: 47
+- Total plans completed: 64
 - Average duration: 10 min
 - Total execution time: 1.41 hours
 
@@ -72,6 +72,7 @@ The user confirmed the tested live UAT scope on 2026-10-20: "gut uat so weit bes
 | 08    | 4     | -     | -        |
 | 14    | 4     | -     | -        |
 | 18    | 15    | -     | -        |
+| 36 | 17 | - | - |
 
 **Recent Trend:**
 
@@ -560,7 +561,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-10-20T21:26:49.727Z
-Stopped at: Completed 35-11; Plan 12 pending
+Stopped at: Phase 36 accepted with documented exceptions; main integration authorized
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
@@ -591,3 +592,33 @@ User explicitly requested deployment for live UAT. Recreated only pgdp-dev using
 ## Phase 35 human acceptance (2026-10-21)
 
 User explicitly accepted Phase35 live UAT. All14 plans implemented,24/24 technical truths verified, and the one phase human UAT item is passed. No global requirement checkbox or historical gate is closed by this update. Description-language defect confirmed separately and captured in Phase35/35-FOLLOW-UP-DESCRIPTIONS.md; next-phase planning has not started.
+
+## Phase35 main merge and Phase36 planning (2026-10-21)
+
+PR2 merged to main atb0d3f6ad61fdb5a502349fa449e5458e77de25d4 after28successfulCIchecks. CI integration corrections are test-onlyda8162861. Localcheckout fast-forwarded to exactmain tree while preservingdirtyCompose/media/prototypework; branchidentityunchanged perplan-phaseinvariant. Phase36 approvedscope+research,UIcontract,patternmap and12executableplans/25tasks/9waves are complete. Independentchecker passed revision1 withzeroblockers/warnings; all8DESCrequirements and8decisions covered, SDKgatepassedwithoutskip. SeePhase36/36-PLAN-CHECK.md and36-VALIDATION.md. Execution hasnotstarted. No runtime/deployment/sourcechange duringplanning. Ignoredphaseartifacts retainedlocally; noforce-add.
+
+## Phase36 provider/language/manual-matching planning update (2026-10-21)
+
+User requestedfreshresearch andconfirmedadministrativeUIlanguagealsogovernsAutoscan, withpreferredGerman/FrenchandEnglishfallback. Researchidentifiedseparatecurrentsourcesandmissingmanual/SSpropagation. RevisedUIcontractapproved and17plans/35tasks/9waves independentlypassedzero blockers/warnings; all11DESCrequirements andD01..11covered. Newplans13..17coverSSprovider,globallanguageauthority/immutablecapture,authorizedUI/configsync,backendmanualmatchingandfrontendmatchingcapture. RequestedproviderDE/FRprecedesmanualEnglishwithoutchangingstoredmanualtext. See36-PLAN-CHECK.md. Earlier12-planapprovalissupersededwhereaffected. Noimplementation/testexecution/runtime/deploymentchanges;source/media/dirtyComposepreserved.
+
+Phase36 clarification2026-10-21: English may be collected alongside preferred German/French and must stay in its own English provider slot. English fallback restriction applies to presentation, not provider text collection. Existing manual protection, request bounds and warm reuse remain unchanged.
+
+## Phase36 execution start (2026-10-21)
+
+User explicitly invokedgsd-execute-phase36. PreflightLinux/canonicalPGDP/origin/statepassed. Freshfeaturebranchcodex/phase-36-localized-provider-descriptions startsfromorigin/main ancestorb0d3f6ad6 plusverifiedplanningmetadata. AllprotectedCompose/prototypehashesremainunchanged. workflow.use_worktrees=false meanssequentialexecutors andsingleheavyisolatedtest atatime. Noautomaticdeployment/liveDBreset/migration/service/schedulechange authorized. EnglishmaybecollectedalongsidepreferredlanguagebutonlystoredinitsownEnglishslot.
+
+## Phase36 implementation handoff (2026-10-23)
+
+All 17 plans and 35 tasks are implemented through 12e568116. Current-source backend matrices pass 5,248 base cases and 181 subtests per SQL, with ten explicit historical skips per SQL; both full browsers pass 33/33 checks. All seven frontend quality commands, 1,340 Vitest and 157 portable tests, scoped Trunk and connected description/authority proofs pass. The strict 36-final-receipts.json assertion passes. All owned test containers, networks, volumes and temporary runs are removed; 9.3 GB is free. Protected local work and Dev, Games and media data are preserved. Independent verification is recorded below. Human copy/live UAT and physical controller acceptance remain open. No deployment or global requirement closure is claimed.
+
+## Phase36 independent verification (2026-10-23)
+
+The independent gsd-verifier confirmed 24/24 technical truths, all eleven DESC requirements and five roadmap criteria with no implementation blocker. Status: human_needed. Four human tests are persisted in 36-HUMAN-UAT.md: provider prose/copy, existing-data live workflow, visual/error flows and physical controller. No deployment, phase completion or global requirement closure is claimed.
+
+## Phase36 authorized Dev deployment and live UAT (2026-10-23)
+
+The user explicitly authorized Dev deployment and joint live UAT. Only pgdp-dev was recreated with its existing image and exact four Compose files. HTTP frontend and heartbeat return 200 and the Phase36 language module is served. All 37 games, one user identity, eight platforms, storage mappings, schema 0142, media binding, read-only Games mount and the 15-minute schedule are preserved. Database, Redis and Team4s container IDs are unchanged. Backup: /home/d1sk/pgdp-dev-backups/20261023T110159Z-phase36-deploy. Sanitized evidence: Phase36 evidence/live-deployment/deployment-receipt.json. Joint 36-UAT.md starts at Test 1; no human test has yet been accepted.
+
+## Phase36 user acceptance and closure (2026-10-23)
+
+The user explicitly requested commit, push to main and closure after joint Dev UAT. All 17 plans and 35 tasks are complete. Live PC German, manual matching, ScreenScraper PS2 German/French, DE/EN switching, one automatic scan completion and both themes were confirmed. The release is accepted with documented limitations: Cancel resets the draft but leaves its dialog open (close via X); physical controller and browser zoom were unavailable; detailed live warm-successor and remaining error-flow subcases were not exercised. Those tests are not relabelled as passes. The five technical/human verification warnings from phase.complete are retained in the phase reports. Historical gates and overall milestone acceptance are not closed. Architecture descriptions now match the typed locale/source resolver, shared language capture and bounded provider repair. Main integration follows via PR3 without changing Dev data, Games, media or local Compose edits.

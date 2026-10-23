@@ -538,13 +538,15 @@ async function getPcMetadataCandidates({ romId }: { romId: number }) {
 async function searchPcMetadataCandidates({
   romId,
   query,
+  metadataLocale,
 }: {
   romId: number;
   query: string;
+  metadataLocale?: string;
 }) {
   const response = await api.get<PcMetadataCandidatesResponse>(
     `/roms/${romId}/pc-metadata-candidates`,
-    { params: { query } },
+    { params: { query, metadata_locale: metadataLocale } },
   );
   return normalizePcMatcherCandidates(response.data);
 }
@@ -578,14 +580,16 @@ async function searchPcComponentMetadataCandidates({
   romId,
   componentId,
   query,
+  metadataLocale,
 }: {
   romId: number;
   componentId: number;
   query: string;
+  metadataLocale?: string;
 }) {
   const response = await api.get<PcMetadataCandidatesResponse>(
     `/roms/${romId}/pc-components/${componentId}/metadata-candidates`,
-    { params: { query } },
+    { params: { query, metadata_locale: metadataLocale } },
   );
   return normalizePcMatcherCandidates(response.data);
 }
@@ -640,16 +644,19 @@ async function searchRom({
   romId,
   searchTerm,
   searchBy,
+  metadataLocale,
 }: {
   romId: number;
   searchTerm: string;
   searchBy: string;
+  metadataLocale?: string;
 }) {
   return api.get<SearchRom[]>("/search/roms", {
     params: {
       rom_id: romId,
       search_term: searchTerm,
       search_by: searchBy,
+      metadata_locale: metadataLocale,
     },
   });
 }
@@ -736,10 +743,14 @@ async function updateRom({
   rom,
   removeCover = false,
   unmatch = false,
+  metadataLocale,
+  expectedVersion,
 }: {
   rom: Omit<UpdateRom, "fs_name">;
   removeCover?: boolean;
   unmatch?: boolean;
+  metadataLocale?: string;
+  expectedVersion?: string;
 }) {
   const toFormIdValue = (value: number | string | null | undefined): string =>
     value === null || value === undefined ? "" : String(value);
@@ -806,6 +817,8 @@ async function updateRom({
     params: {
       remove_cover: removeCover,
       unmatch_metadata: unmatch,
+      metadata_locale: metadataLocale,
+      expected_version: expectedVersion,
     },
   });
 }

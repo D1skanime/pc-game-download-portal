@@ -108,7 +108,6 @@ const calculateHashes = computed(
 const {
   storedMetadataSources,
   launchboxRemoteEnabled,
-  metadataLocale,
   metadataSources,
   isLaunchboxSelected,
   hashMatchers,
@@ -277,7 +276,7 @@ function scan(subfolder?: SubfolderScanRequest) {
     scope,
     profiles: [],
     uiLocale: locale.value,
-    metadataLocale: metadataLocale.value,
+    metadataLocale: locale.value,
     providers,
     playmatchEnabled: Boolean(
       playmatchMatcher && isHashMatcherOn(playmatchMatcher),

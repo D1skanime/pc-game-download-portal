@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, Mapping
 
-from config import STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG
+from handler.metadata.steam_descriptions import (
+    accepted_text_variants,
+    valid_steam_provenance,
+)
 
 DISPLAY_FIELDS = frozenset(
     {
@@ -41,11 +44,6 @@ GERMAN_MONTH_NAMES = {
     "November": "November",
     "Dezember": "December",
 }
-TEXT_VARIANT_NAME_MAX_LENGTH = 255
-TEXT_VARIANT_SUMMARY_MAX_LENGTH = 65_535
-TEXT_VARIANT_LANGUAGE_BY_TAG = {
-    tag: language for language, tag in STEAM_API_TEXT_LANGUAGE_TO_UI_BASE_TAG.items()
-}
 
 
 def normalize_steam(
@@ -61,8 +59,9 @@ def normalize_steam(
     steam_fields = _string_set(existing_metadata.get("fields"))
     metadata = _provenance(steam.get("steam_metadata"), steam_id, steam_fields)
     text_variants = _merge_text_variants(
-        existing_metadata.get("text_variants"),
-        _mapping(steam.get("steam_metadata")).get("text_variants"),
+        existing_metadata,
+        _mapping(steam.get("steam_metadata")),
+        steam_id,
     )
     if text_variants:
         metadata["text_variants"] = text_variants
@@ -204,42 +203,27 @@ def _provenance(value: object, steam_id: int, fields: set[str]) -> dict[str, Any
 
 
 def _merge_text_variants(
-    existing: object, incoming: object
-) -> dict[str, dict[str, str]]:
-    variants = _text_variants(existing)
-    variants.update(_text_variants(incoming))
-    return dict(sorted(variants.items()))
-
-
-def _text_variants(value: object) -> dict[str, dict[str, str]]:
-    if not isinstance(value, Mapping):
-        return {}
-
-    variants: dict[str, dict[str, str]] = {}
-    for tag, entry in value.items():
-        if not isinstance(tag, str) or tag not in TEXT_VARIANT_LANGUAGE_BY_TAG:
-            continue
-        entry_mapping = _mapping(entry)
-        source_language = _non_empty_string(entry_mapping.get("source_language"))
-        if source_language != TEXT_VARIANT_LANGUAGE_BY_TAG[tag]:
-            continue
-        variant = {"source_language": source_language}
-        name = _bounded_text(entry_mapping.get("name"), TEXT_VARIANT_NAME_MAX_LENGTH)
-        if name is not None:
-            variant["name"] = name
-        summary = _bounded_text(
-            entry_mapping.get("summary"), TEXT_VARIANT_SUMMARY_MAX_LENGTH
+    existing: Mapping[str, Any], incoming: Mapping[str, Any], steam_id: int
+) -> dict[str, dict[str, Any]]:
+    variants = (
+        accepted_text_variants(
+            existing.get("text_variants"), app_id=steam_id, historical=True
         )
-        if summary is not None:
-            variant["summary"] = summary
-        if len(variant) > 1:
-            variants[tag] = variant
-    return variants
+        if valid_steam_provenance(existing, steam_id)
+        else {}
+    )
+    if not valid_steam_provenance(incoming, steam_id):
+        return dict(sorted(variants.items()))
 
-
-def _bounded_text(value: object, maximum_length: int) -> str | None:
-    text = _non_empty_string(value)
-    return text if text is not None and len(text) <= maximum_length else None
+    candidates = accepted_text_variants(
+        incoming.get("text_variants"), app_id=steam_id, historical=True
+    )
+    # Compare against saved English too, without reclassifying historical slots.
+    accepted = accepted_text_variants({**variants, **candidates}, app_id=steam_id)
+    for locale in candidates:
+        if entry := accepted.get(locale):
+            variants[locale] = {**variants.get(locale, {}), **entry}
+    return dict(sorted(variants.items()))
 
 
 def _is_manual(metadata: Mapping[str, Any], field: str) -> bool:

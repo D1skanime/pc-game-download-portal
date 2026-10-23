@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OperationRequest } from "./contracts";
+import type { OperationRequest, ScanType, OperationScope } from "./contracts";
 import {
   OperationTranslationError,
   buildLibraryScanRequest,
@@ -253,7 +253,7 @@ describe("operation compatibility translation", () => {
       type: "complete",
       roms_ids: [],
       platform_fs_slugs: [],
-      metadata_locale: "en-US",
+      metadata_locale: "de-DE",
       apis: ["igdb", "launchbox", "hasheous", "playmatch"],
       launchbox_remote_enabled: false,
       playmatch_enabled: true,
@@ -479,5 +479,82 @@ describe("operation compatibility translation", () => {
         }),
       ),
     ).toThrow("PC/DLC matcher API");
+  });
+  it.each([
+    "quick",
+    "full",
+    "new_platforms",
+    "unmatched",
+    "update",
+    "media",
+    "hashes",
+    "complete",
+  ] as ScanType[])(
+    "captures UI language for every %s scan mode and scope",
+    (scanType) => {
+      const scopes: OperationScope[] = [
+        { kind: "library" },
+        { kind: "platform", platformIds: [7] },
+        { kind: "rom", romIds: [41] },
+        {
+          kind: "filesystem",
+          platformFsSlugs: ["win"],
+          relativePaths: { win: "Games/Example" },
+        },
+      ];
+      for (const scope of scopes)
+        for (const uiLocale of ["de_DE", "fr_FR", "en_US", ""]) {
+          const input = {
+            operationId: "captured-1",
+            kind: "metadata-refresh" as const,
+            scope,
+            profiles: [],
+            uiLocale,
+            metadataLocale: "ru_RU",
+            providers: ["steam"],
+            playmatchEnabled: false,
+            launchboxRemoteEnabled: false,
+            scanType,
+          };
+          const request = buildLibraryScanRequest(input);
+          const expected = uiLocale.replace("_", "-") || "en";
+          expect(toScanOperationRequest(request).metadata_locale).toBe(
+            expected,
+          );
+          input.uiLocale = "ja_JP";
+          input.metadataLocale = "ja_JP";
+          expect(toScanOperationRequest(request).metadata_locale).toBe(
+            expected,
+          );
+          expect(request.scope).toEqual(scope);
+          expect(request.providerPolicy.providers).toEqual(["steam"]);
+        }
+    },
+  );
+  it("keeps accepted locale immutable and makes a new explicit choice conflict-visible", () => {
+    const input = {
+      operationId: "same-key",
+      kind: "metadata-refresh" as const,
+      scope: { kind: "rom" as const, romIds: [41] },
+      profiles: [],
+      uiLocale: "de_DE",
+      metadataLocale: "en",
+      providers: ["steam"],
+      playmatchEnabled: false,
+      launchboxRemoteEnabled: false,
+      scanType: "update" as const,
+    };
+    const accepted = toScanOperationRequest(buildLibraryScanRequest(input));
+    const later = toScanOperationRequest(
+      buildLibraryScanRequest({ ...input, uiLocale: "fr_FR" }),
+    );
+    expect(accepted.metadata_locale).toBe("de-DE");
+    expect(later.metadata_locale).toBe("fr-FR");
+    expect(accepted.request_key).toBe(later.request_key);
+    expect(
+      normalizeOperationRequest(
+        baseRequest({ metadataLocale: "de-DE", uiLocale: "fr-FR" }),
+      ).metadataLocale,
+    ).toBe("de-DE");
   });
 });

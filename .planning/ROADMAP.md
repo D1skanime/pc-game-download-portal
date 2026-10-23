@@ -974,3 +974,75 @@ Plans:
 **Cross-cutting constraints:**
 
 - All scan status labels use actual translations and preserve interpolation
+
+
+### Phase 36: Localized provider descriptions without legacy summary
+
+**Goal:** Fetch, persist and display descriptions in the selected system language for Steam PC/Windows games and ScreenScraper console ROMs. Cover manual search, matching, confirmation, metadata refresh and all scan entry points, including scheduled scans. Use explicit English fallback, preserve manual text and Phase35 quick-scan performance, and retire legacy summary presentation.
+**Requirements:** DESC-01, DESC-02, DESC-03, DESC-04, DESC-05, DESC-06, DESC-07, DESC-08, DESC-09, DESC-10, DESC-11.
+**Depends on:** Phase35, merged to main through PR2 at b0d3f6ad61fdb5a502349fa449e5458e77de25d4 and accepted in live UAT.
+**Status:** Complete, accepted by the user on 2026-10-23 after authorized Dev deployment and joint live UAT. All 17 plans and 35 tasks implemented; 24/24 technical truths verified. Cancellation workaround, unavailable controller/zoom and unexecuted live subcases remain documented exceptions. Historical obligations are unchanged.
+**Plans:** 17/17 plans complete
+
+**Success Criteria:**
+1. No v2 description surface displays the obsolete unlocalized summary as a description fallback or silently stores it under a locale.
+2. German/English provider text and any explicit fallback preserve their language and source; manual text remains protected.
+3. A newly identified game and a game with an existing Steam identity but missing variants can acquire configured languages using the same bounded provider/merge owners, without repeating expensive inventory/media work for unchanged games.
+4. Isolated regression and connected UI/worker evidence reproduce the Elden Ring failure and prove repair, empty/failure/backoff behavior, manual protection, concurrency and request accounting.
+5. Existing data, auth, Games/media and15-minute schedule remain intact; no automatic deployment or historical acceptance closure.
+
+Plans:
+
+**Wave 1**
+
+- [x] 36-01-PLAN.md - Establish conservative pure completeness/slot contracts and non-destructive field-wise provider merge. No DDL.
+- [x] 36-14-PLAN.md - Make the existing global scan language priority the authorized administrative default and freeze one effective metadata_locale in every accepted operation request.
+
+**Wave 2** *(blocked on assigned prior dependency waves)*
+
+- [x] 36-11-PLAN.md - Expose canonical bounded text-only Steam retrieval and additive typed provenance through existing enrichment/schema owners.
+- [x] 36-13-PLAN.md - Fetch and normalize ScreenScraper console descriptions in explicit DE/FR/EN slots through the existing provider, preserving non-destructive merge and text-only work.
+
+**Wave 3** *(blocked on assigned prior dependency waves)*
+
+- [x] 36-02-PLAN.md - Extend the existing operation-wide retry owner with description-purpose selection, durable cooldown and a narrow checked text patch. Preserve the unidentified retry policy.
+Purpose: Deliver the approved description-language correction through existing owners.
+Output: Tested behavior and explicit task verification receipts.
+- [x] 36-04-PLAN.md - Add a provenance-bearing typed resolution seam and generate backend contracts while preserving existing callers until their atomic migration.
+
+**Wave 4** *(blocked on assigned prior dependency waves)*
+
+- [x] 36-03-PLAN.md - Wire warm identified QUICK reuse and newly persisted IGDB-derived Steam IDs into the same bounded coordinator, for manual and scheduled operations.
+Purpose: Deliver the approved description-language correction through existing owners.
+Output: Tested behavior and explicit task verification receipts.
+- [x] 36-08-PLAN.md - Translate approved source/fallback and Cancel editing wording for en_US, en_GB, bg_BG, cs_CZ, de_DE, es_ES.
+- [x] 36-09-PLAN.md - Translate approved source/fallback and Cancel editing wording for fr_FR, hu_HU, it_IT, ja_JP, ko_KR, pl_PL.
+- [x] 36-15-PLAN.md - Connect administrative interface-language selection to authorized global scan preference and remove stale browser metadata language as a manual scan override.
+- [x] 36-16-PLAN.md - Propagate one captured language through console and PC search/confirmation and same-ID missing-description repair at existing interactive boundaries.
+
+**Wave 5** *(blocked on assigned prior dependency waves)*
+
+- [x] 36-10-PLAN.md - Translate approved source/fallback and Cancel editing wording for pt_BR, ro_RO, ru_RU, tr_TR, zh_CN, zh_TW.
+- [x] 36-17-PLAN.md - Capture selected interface language for manual ROM matching search, choice and confirmation and verify durable localized results after reload.
+
+**Wave 6** *(blocked on assigned prior dependency waves)*
+
+- [x] 36-05-PLAN.md - Wire game and component overview surfaces to typed locale/source results after all18locale parity, keeping empty edit access and existing controls.
+
+**Wave 7** *(blocked on assigned prior dependency waves)*
+
+- [x] 36-12-PLAN.md - Protect exact-locale editor draft ownership and atomically finish caller migration by removing the transitional string/legacy seam.
+
+**Wave 8** *(blocked on assigned prior dependency waves)*
+
+- [x] 36-06-PLAN.md - Prove real description repair through authenticated HTTP/RQ and scheduled execution, plus revoked authority, in token-owned disposable MariaDB and PostgreSQL fixtures.
+Purpose: Deliver the approved description-language correction through existing owners.
+Output: Tested behavior and explicit task verification receipts.
+
+**Wave 9** *(blocked on assigned prior dependency waves)*
+
+- [x] 36-07-PLAN.md - Complete actual connected browser acceptance and frozen-source SQL/frontend/security/receipt validation. Produce reviewable evidence without automatic deployment.
+Purpose: Deliver the approved description-language correction through existing owners.
+Output: Tested behavior and explicit task verification receipts.
+
+**Cross-cutting constraints:** PreferredDE/FRprovidertext precedesEnglishfallback whileallmanualstorage isprotected. Reuseexistingauthorizedglobalpriority,immutableoperationlocale,provider/merge/retry/fenceowners. CoveractualSteamPC/ScreenScraperROMfetch/persistence,manualsearch/confirmation/refreshandallscanpaths. Preservewarmreuse,18locales,andisolateddual-SQL/worker/browserproof. No livechanges/deploymentfromplanning.

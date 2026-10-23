@@ -23,8 +23,35 @@ vi.mock("@/v2/data/adapters/legacy/stores/heartbeat", () => ({
   }),
 }));
 
-function setup() {
+const selection = vi.hoisted(() => ({ select: vi.fn() }));
+vi.mock("@/v2/composables/useSystemLanguage", () => ({
+  useSystemLanguage: () => ({
+    currentValue: {
+      set value(next: string) {
+        selection.select(next);
+      },
+    },
+  }),
+}));
+
+function setup(initialLocale = "en") {
   const hashes = ref(true);
+  const i18n = createI18n({
+    legacy: false,
+    locale: initialLocale,
+    messages: {
+      fr_FR: {},
+      en: {
+        scan: {
+          "requires-hashes": "Hashes required: {source}",
+          "disabled-by-admin": "Disabled",
+          "playmatch-requires-igdb": "IGDB required",
+        },
+      },
+    },
+    missingWarn: false,
+    fallbackWarn: false,
+  });
   let providers!: ReturnType<typeof useScanProviders>;
   const wrapper = mount(
     defineComponent({
@@ -35,29 +62,18 @@ function setup() {
     }),
     {
       global: {
-        plugins: [
-          createI18n({
-            legacy: false,
-            locale: "en",
-            messages: {
-              en: {
-                scan: {
-                  "requires-hashes": "Hashes required: {source}",
-                  "disabled-by-admin": "Disabled",
-                  "playmatch-requires-igdb": "IGDB required",
-                },
-              },
-            },
-          }),
-        ],
+        plugins: [i18n],
       },
     },
   );
-  return { providers, hashes, wrapper };
+  return { providers, hashes, wrapper, i18n };
 }
 
 describe("scan provider selection", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    selection.select.mockReset();
+  });
   it("materializes each enabled All group and permits explicit discovery without providers", () => {
     const { providers, wrapper } = setup();
     expect(
@@ -104,6 +120,32 @@ describe("scan provider selection", () => {
     expect(
       providers.effectiveMetadataSources.value.map((source) => source.value),
     ).toEqual(["gamelist", "ra"]);
+    wrapper.unmount();
+  });
+  it.each([
+    ["de_DE", "de-DE"],
+    ["fr_FR", "fr-FR"],
+    ["en_US", "en-US"],
+    ["", "en"],
+  ])(
+    "uses selected UI %s despite a stale stored scan language",
+    (ui, expected) => {
+      localStorage.setItem("scan.metadataLocale", "ru_RU");
+      const { providers, wrapper, i18n } = setup(ui);
+      expect(providers.metadataLocale.value).toBe(expected);
+      const accepted = { metadata_locale: providers.metadataLocale.value };
+      i18n.global.locale.value = "fr_FR";
+      expect(accepted.metadata_locale).toBe(expected);
+      expect(providers.metadataLocale.value).toBe("fr-FR");
+      expect(selection.select).not.toHaveBeenCalled();
+      wrapper.unmount();
+    },
+  );
+  it("routes compatible language control writes through the UI authority", () => {
+    const { providers, wrapper } = setup();
+    providers.metadataLocale.value = "de_DE";
+    expect(selection.select).toHaveBeenCalledWith("de_DE");
+    expect(localStorage.getItem("scan.metadataLocale")).toBeNull();
     wrapper.unmount();
   });
 });

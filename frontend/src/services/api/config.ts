@@ -4,6 +4,8 @@ import type {
   ExclusionPayload,
   PlatformBindingPayload,
   ScanSettingsPayload,
+  ScanLanguagePayload,
+  ScanLanguageResponse,
 } from "@/__generated__";
 import api from "@/services/api";
 
@@ -80,7 +82,12 @@ async function updateScanSettings(payload: ScanSettingsPayload) {
   );
 }
 
+async function updateScanLanguage(payload: ScanLanguagePayload) {
+  return api.put<ScanLanguageResponse>("/config/scan/language", payload);
+}
+
 export default {
+  updateScanLanguage,
   getBrowserDownloadQueueConfig,
   addPlatformBindConfig,
   deletePlatformBindConfig,

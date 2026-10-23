@@ -2,7 +2,7 @@ import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Final, NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict, cast
 
 import pydash
 from fastapi import HTTPException, status
@@ -39,13 +39,15 @@ from .base_handler import (
     restore_sensitive_query_params,
     strip_sensitive_query_params,
 )
+from .ss_descriptions import (
+    SSDescriptionVariant,
+    accepted_synopsis,
+    merge_ss_metadata,
+    select_summary,
+    valid_ss_id,
+)
 
 SENSITIVE_KEYS = {"ssid", "sspassword"}
-
-
-class SSDescriptionVariant(TypedDict):
-    source_language: str
-    summary: str
 
 
 @dataclass
@@ -523,25 +525,6 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
     return ss_media
 
 
-def _get_text_variants(game: SSGame) -> dict[str, SSDescriptionVariant]:
-    variants: dict[str, SSDescriptionVariant] = {}
-    for synopsis in game.get("synopsis", []):
-        language = synopsis.get("langue")
-        text = synopsis.get("text")
-        if not isinstance(language, str) or not isinstance(text, str):
-            continue
-        language = language.strip().lower().replace("_", "-")
-        text = html.unescape(text).strip()
-        if (
-            not language
-            or not text
-            or not re.fullmatch(r"[a-z]{2,3}(?:-[a-z0-9]{2,8})*", language)
-        ):
-            continue
-        variants[language] = {"source_language": language, "summary": text}
-    return dict(sorted(variants.items()))
-
-
 def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
     taxonomy_languages = get_taxonomy_languages()
 
@@ -637,7 +620,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
     return SSMetadata(
         {
             "ss_score": _normalize_score(game.get("note", {}).get("text", "")),
-            "text_variants": _get_text_variants(game),
+            "text_variants": accepted_synopsis(game.get("synopsis")),
             "alternative_names": [name["text"] for name in game.get("noms", [])],
             "age_ratings": _get_age_ratings(game),
             "companies": pydash.compact(
@@ -656,8 +639,28 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
     )
 
 
-def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
+def build_ss_game(
+    rom: Rom,
+    game: SSGame,
+    *,
+    metadata_locale: str | None = None,
+    descriptions_only: bool = False,
+) -> SSRom:
+    ss_id = valid_ss_id(game.get("id"))
+    if ss_id is None:
+        return cast(SSRom, {} if descriptions_only else {"ss_id": None})
+    incoming = accepted_synopsis(game.get("synopsis"))
+    old = (
+        getattr(rom, "ss_metadata", {}) if getattr(rom, "ss_id", None) == ss_id else {}
+    )
+    merged = merge_ss_metadata(old, {"text_variants": incoming})
+    text_variants = merged.get("text_variants", {})
+    if descriptions_only:
+        if not incoming:
+            return cast(SSRom, {})
+        return cast(SSRom, {"ss_metadata": {"text_variants": text_variants}})
     ss_metadata = extract_metadata_from_ss_rom(rom, game)
+    ss_metadata["text_variants"] = text_variants
     preferred_media_types = get_preferred_media_types()
 
     res_name = ""
@@ -673,23 +676,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
         if res_name:
             break
 
-    res_summary = ""
-    preferred_languages = get_preferred_languages()
-    used_lang = None
-    text_variants = ss_metadata.get("text_variants", {})
-    for lang in preferred_languages:
-        normalized_language = lang.strip().lower().replace("_", "-")
-        variant = text_variants.get(normalized_language)
-        if variant:
-            res_summary = variant["summary"]
-            used_lang = normalized_language
-            break
-
-    # Log warning if we had to fall back from the preferred locale
-    if preferred_languages and used_lang and used_lang != preferred_languages[0]:
-        log.warning(
-            f"ScreenScraper locale '{preferred_languages[0]}' not found for '{res_name}', using '{used_lang}'"
-        )
+    res_summary = select_summary(text_variants, metadata_locale)
 
     url_cover = ss_metadata["box2d_url"]
     url_manual = (
@@ -713,7 +700,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     game_rom: SSRom = {
         "ss_id": ss_id,
         "name": html.unescape(res_name.replace(" : ", ": ")),  # Normalize colons
-        "summary": html.unescape(res_summary),
+        "summary": res_summary,
         "url_cover": str(url_cover) if url_cover else "",
         "url_manual": str(url_manual) if url_manual else "",
         "url_screenshots": url_screenshots,
@@ -801,8 +788,27 @@ class SSHandler(MetadataHandler):
         )
 
     async def lookup_rom(
-        self, rom: Rom, platform_ss_id: int, files: list[RomFile]
+        self,
+        rom: Rom,
+        platform_ss_id: int,
+        files: list[RomFile],
+        *,
+        metadata_locale: str | None = None,
+        descriptions_only: bool = False,
     ) -> tuple[SSRom, bool]:
+        if descriptions_only:
+            result = (
+                await self.get_rom_by_id(
+                    rom,
+                    rom.ss_id,
+                    metadata_locale=metadata_locale,
+                    descriptions_only=True,
+                )
+                if rom.ss_id
+                else cast(SSRom, {})
+            )
+            return result, False
+
         if not self.is_enabled():
             return SSRom(ss_id=None), False
 
@@ -878,9 +884,29 @@ class SSHandler(MetadataHandler):
             )
             return SSRom(ss_id=None), True
 
-        return build_ss_game(rom, res), False
+        return build_ss_game(rom, res, metadata_locale=metadata_locale), False
 
-    async def get_rom(self, rom: Rom, file_name: str, platform_ss_id: int) -> SSRom:
+    async def get_rom(
+        self,
+        rom: Rom,
+        file_name: str,
+        platform_ss_id: int,
+        *,
+        metadata_locale: str | None = None,
+        descriptions_only: bool = False,
+    ) -> SSRom:
+        if descriptions_only:
+            return (
+                await self.get_rom_by_id(
+                    rom,
+                    rom.ss_id,
+                    metadata_locale=metadata_locale,
+                    descriptions_only=True,
+                )
+                if rom.ss_id
+                else cast(SSRom, {})
+            )
+
         from handler.filesystem import fs_rom_handler
 
         if not self.is_enabled():
@@ -893,7 +919,9 @@ class SSHandler(MetadataHandler):
         ss_id_from_tag = self.extract_ss_id_from_filename(file_name)
         if ss_id_from_tag:
             log.debug(f"Found ScreenScraper ID tag in filename: {ss_id_from_tag}")
-            rom_by_id = await self.get_rom_by_id(rom, ss_id_from_tag)
+            rom_by_id = await self.get_rom_by_id(
+                rom, ss_id_from_tag, metadata_locale=metadata_locale
+            )
             if rom_by_id["ss_id"]:
                 log.debug(
                     f"Successfully matched ROM by ScreenScraper ID tag: {file_name} -> {ss_id_from_tag}"
@@ -998,33 +1026,62 @@ class SSHandler(MetadataHandler):
         if not res or not res.get("id"):
             return fallback_rom
 
-        return build_ss_game(rom, res)
+        return build_ss_game(
+            rom,
+            res,
+            metadata_locale=metadata_locale,
+            descriptions_only=descriptions_only,
+        )
 
-    async def get_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom:
-        if not self.is_enabled():
-            return SSRom(ss_id=None)
-
+    async def get_rom_by_id(
+        self,
+        rom: Rom,
+        ss_id: int,
+        *,
+        metadata_locale: str | None = None,
+        descriptions_only: bool = False,
+    ) -> SSRom:
+        empty = cast(SSRom, {} if descriptions_only else {"ss_id": None})
+        if not self.is_enabled() or type(ss_id) is not int or ss_id <= 0:
+            return empty
+        if descriptions_only and getattr(rom, "ss_id", None) != ss_id:
+            return empty
         try:
             res = await self.ss_service.get_game_info(game_id=ss_id)
         except HTTPException as exc:
-            # Daily quota exhausted: return an empty match rather than failing.
-            if not _is_daily_quota_error(exc):
+            if not descriptions_only and not _is_daily_quota_error(exc):
                 raise
-            return SSRom(ss_id=None)
-        if not res:
-            return SSRom(ss_id=None)
+            return empty
+        except (TimeoutError, ValueError, TypeError, AttributeError):
+            if not descriptions_only:
+                raise
+            return empty
+        if not isinstance(res, dict) or valid_ss_id(res.get("id")) != ss_id:
+            return empty
+        return build_ss_game(
+            rom,
+            res,
+            metadata_locale=metadata_locale,
+            descriptions_only=descriptions_only,
+        )
 
-        return build_ss_game(rom, res)
-
-    async def get_matched_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom | None:
+    async def get_matched_rom_by_id(
+        self, rom: Rom, ss_id: int, *, metadata_locale: str | None = None
+    ) -> SSRom | None:
         if not self.is_enabled():
             return None
 
-        game_rom = await self.get_rom_by_id(rom, ss_id)
+        game_rom = await self.get_rom_by_id(rom, ss_id, metadata_locale=metadata_locale)
         return game_rom if game_rom.get("ss_id", "") else None
 
     async def get_matched_roms_by_name(
-        self, rom: Rom, search_term: str, platform_ss_id: int | None
+        self,
+        rom: Rom,
+        search_term: str,
+        platform_ss_id: int | None,
+        *,
+        metadata_locale: str | None = None,
+        descriptions_only: bool = False,
     ) -> list[SSRom]:
         if not self.is_enabled():
             return []
@@ -1041,9 +1098,17 @@ class SSHandler(MetadataHandler):
             return any(name.get("region") == "ss" for name in game.get("noms", []))
 
         return [
-            build_ss_game(rom, game)
+            build_ss_game(
+                rom,
+                game,
+                metadata_locale=metadata_locale,
+                descriptions_only=descriptions_only,
+            )
             for game in matched_games
-            if not _is_notgame(game) and _is_ss_region(game) and game.get("id")
+            if isinstance(game, dict)
+            and valid_ss_id(game.get("id"))
+            and not _is_notgame(game)
+            and _is_ss_region(game)
         ]
 
 
