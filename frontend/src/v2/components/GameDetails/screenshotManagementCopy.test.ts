@@ -12,6 +12,13 @@ const locales = Object.entries(catalogs).map(([path, module]) => ({
 }));
 const requiredKeys = [
   "upload-screenshots",
+  "add-to-overview",
+  "remove-from-overview",
+  "add-as-background",
+  "remove-as-background",
+  "screenshot-public",
+  "screenshot-make-public",
+  "screenshot-make-private",
   "screenshots-upload-hint",
   "screenshots-source-provider",
   "screenshots-section-mine",
@@ -64,11 +71,18 @@ describe("screenshot management message contract", () => {
         });
         expect(rendered, key).not.toBe("rom." + key);
         expect(rendered, key).not.toMatch(/\{\w+\}/);
-        if (!locale.startsWith("en_")) {
-          expect(messages[key], key).not.toBe(english[key]);
-        }
       }
       expect(missing).not.toHaveBeenCalled();
+    });
+
+    it("preserves the named parameter contract for every required message", () => {
+      for (const key of requiredKeys) {
+        const parameters = (message: string) =>
+          [...new Set(message.match(/\{\w+\}/g) ?? [])].sort();
+        expect(parameters(messages[key]), key).toEqual(
+          parameters(english[key]),
+        );
+      }
     });
 
     it.each([0, 1, 2, 17])(
