@@ -126,7 +126,7 @@ function render() {
   });
 }
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   state = createState();
   actions.handleMyFiles.mockResolvedValue(undefined);
 });
@@ -555,7 +555,9 @@ describe("ScreenshotsSubtab single gallery owner", () => {
       await nextTick();
       expect(trigger.disabled).toBe(true);
       // happy-dom does not emulate native disabled-control blur consistently.
-      trigger.blur();
+      document.body.tabIndex = -1;
+      document.body.focus();
+      document.body.removeAttribute("tabindex");
       expect(document.activeElement).toBe(document.body);
       finish?.();
       await flushPromises();
@@ -584,7 +586,9 @@ describe("ScreenshotsSubtab single gallery owner", () => {
       trigger.focus();
       trigger.click();
       await nextTick();
-      trigger.blur();
+      document.body.tabIndex = -1;
+      document.body.focus();
+      document.body.removeAttribute("tabindex");
       const upload = wrapper.get('[aria-label="rom.upload-screenshots"]')
         .element as HTMLButtonElement;
       if (outcome === "navigation")

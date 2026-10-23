@@ -15,10 +15,12 @@ import ScreenshotManagementCard, {
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useScreenshotManagement } from "@/v2/composables/useScreenshotManagement";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
+import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
+const auth = storeAuth();
 const {
   providerScreenshots,
   myScreenshots,
@@ -54,7 +56,8 @@ const { columns } = useResponsiveColumns(gallery, {
       : 12,
 });
 // Each native control participates so directional input reaches both previews and actions.
-useWrapGridNav(root, { cellSelector: "button:not([disabled])" });
+const actionSelector = "button:not([disabled])";
+useWrapGridNav(root, { cellSelector: actionSelector });
 type Source = ScreenshotManagementItem["source"];
 const groups = computed<
   { source: Source; label: string; items: ScreenshotManagementItem[] }[]
@@ -127,13 +130,22 @@ const lightboxIndex = computed({
 let invokingKey: string | null = null;
 let mounted = true;
 let viewGeneration = 0;
+const focusGuards = new Set<AbortController>();
 onBeforeUnmount(() => {
   mounted = false;
+  focusGuards.forEach((guard) => guard.abort());
 });
 function cardElement(key: string) {
   return Array.from(
     root.value?.querySelectorAll<HTMLElement>("[data-shot-key]") ?? [],
   ).find((element) => element.dataset.shotKey === key);
+}
+function survivingControl(key?: string | null) {
+  return (
+    (key
+      ? cardElement(key)?.querySelector<HTMLElement>(actionSelector)
+      : null) ?? root.value?.querySelector<HTMLElement>(actionSelector)
+  );
 }
 async function closeLightbox(restoreInvoker = true) {
   const key = restoreInvoker ? invokingKey : null;
@@ -149,13 +161,7 @@ async function closeLightbox(restoreInvoker = true) {
     lightbox.value
   )
     return;
-  const target =
-    (key
-      ? cardElement(key)?.querySelector<HTMLElement>("[data-preview]")
-      : null) ??
-    toolbar.value?.querySelector<HTMLElement>("button:not([disabled])") ??
-    root.value?.querySelector<HTMLElement>("[data-preview]");
-  target?.focus({ preventScroll: true });
+  survivingControl(key)?.focus({ preventScroll: true });
 }
 watch(
   () => props.rom.id,
@@ -169,26 +175,72 @@ watch(lightboxItems, (items) => {
   if (lightbox.value && !items.some((item) => item.key === lightbox.value?.key))
     void closeLightbox();
 });
-function dispatch(action: ScreenshotManagementAction) {
-  switch (action.type) {
-    case "preview":
-      invokingKey = action.item.key;
-      lightbox.value = { source: action.item.source, key: action.item.key };
-      break;
-    case "placement":
-      void togglePlacement(action.item.media, action.surface);
-      break;
-    case "remove-provider":
-      void deleteProviderScreenshot(action.item.media);
-      break;
-    case "visibility":
-      if (action.item.shot.id != null)
-        void toggleVisibility(action.item.shot.id, action.isPublic);
-      break;
-    case "delete-mine":
-      if (action.item.shot.id != null)
-        void deleteMyScreenshot(action.item.shot.id);
+// Native disabled controls can drop focus before canonical settlement re-enables them.
+async function retainActionFocus(operation: () => unknown) {
+  const trigger = root.value?.contains(document.activeElement)
+    ? document.activeElement
+    : null;
+  const generation = viewGeneration;
+  const userId = auth.user?.id;
+  const key = trigger?.closest<HTMLElement>("[data-shot-key]")?.dataset.shotKey;
+  const guard = new AbortController();
+  let interrupted = false;
+  focusGuards.add(guard);
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest('[role="dialog"]'))
+        interrupted = true;
+    },
+    { capture: true, signal: guard.signal },
+  );
+  try {
+    await operation();
+    await nextTick();
+    if (
+      !mounted ||
+      interrupted ||
+      generation !== viewGeneration ||
+      userId !== auth.user?.id ||
+      document.activeElement !== document.body ||
+      !(trigger instanceof HTMLElement) ||
+      !root.value
+    )
+      return;
+    const target =
+      trigger.isConnected &&
+      root.value.contains(trigger) &&
+      !trigger.matches(":disabled")
+        ? trigger
+        : survivingControl(key);
+    target?.focus({ preventScroll: true });
+  } finally {
+    guard.abort();
+    focusGuards.delete(guard);
   }
+}
+function dispatch(action: ScreenshotManagementAction) {
+  if (action.type === "preview") {
+    invokingKey = action.item.key;
+    lightbox.value = { source: action.item.source, key: action.item.key };
+    return;
+  }
+  void retainActionFocus(() => {
+    switch (action.type) {
+      case "placement":
+        return togglePlacement(action.item.media, action.surface);
+      case "remove-provider":
+        return deleteProviderScreenshot(action.item.media);
+      case "visibility":
+        if (action.item.shot.id != null)
+          return toggleVisibility(action.item.shot.id, action.isPublic);
+        break;
+      case "delete-mine":
+        if (action.item.shot.id != null)
+          return deleteMyScreenshot(action.item.shot.id);
+    }
+  });
 }
 function scrollOwner() {
   if (!root.value) return null;
@@ -292,7 +344,7 @@ async function uploadFiles(files: File[]) {
                 :disabled="providerBusy"
                 :aria-label="t('common.refresh')"
                 :tooltip="t('common.refresh')"
-                @click="refreshProviderScreenshots"
+                @click="retainActionFocus(refreshProviderScreenshots)"
               >
               </RBtn>
             </header>
