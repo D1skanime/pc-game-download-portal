@@ -991,3 +991,37 @@ class EquivalentAdapterImportContracts(unittest.TestCase):
                     files,
                     record,
                 )
+
+
+class QualityCommandContracts(unittest.TestCase):
+    def test_actual_seven_command_owner_shape_requires_full_vitest(self):
+        from phase34_fixtures import frontend_command
+        from phase36_receipts import quality
+
+        commands = [
+            ["npm", "run", name]
+            for name in ("generate", "typecheck", "build", "v2:maintainability")
+        ]
+        commands += [frontend_command([])]
+        commands += [
+            ["python3", "src/locales/" + name]
+            for name in ("check_i18n_locales.py", "check_i18n_sorted.py")
+        ]
+        payload = {"checks": [{"command": command, "exit": 0} for command in commands]}
+        quality(payload)
+        for changed in (["npm", "run", "test"], frontend_command(["src/only.test.ts"])):
+            invalid = {
+                "checks": [
+                    {
+                        **row,
+                        "command": (
+                            changed
+                            if row["command"] == frontend_command([])
+                            else row["command"]
+                        ),
+                    }
+                    for row in payload["checks"]
+                ]
+            }
+            with self.subTest(command=changed), self.assertRaises(RuntimeError):
+                quality(invalid)
