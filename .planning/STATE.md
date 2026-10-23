@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: executing
-stopped_at: Phase 36 accepted with documented exceptions; main integration authorized
-last_updated: "2026-10-23T18:21:13.953Z"
-last_activity: 2026-10-23 -- Phase 37 planning complete
+status: verifying
+stopped_at: Phase 37 technically verified; human visual and live UAT pending
+last_updated: "2026-10-23T20:44:00+00:00"
+last_activity: 2026-10-23 -- Phase 37 four plans implemented;1659 frontend tests pass;20/20 technical must-haves verified
 progress:
   total_phases: 37
   completed_phases: 26
   total_plans: 291
-  completed_plans: 256
+  completed_plans: 260
   percent: 70
 ---
 
@@ -21,14 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase37 screenshot management UI execution;0/4 plans complete
+**Current focus:** Phase37 screenshot management UI;4/4 plans implemented;20/20 technical truths verified;human UAT pending
 
 ## Current Position
 
-Phase:37 (zockarchive-screenshot-management-ui-redesign) - EXECUTING
-Plan:0 of4 complete; start37-01, then37-03,37-02,37-04
-Status: Four checked plans, eight tasks, three waves; implementation authorized by the user brief
+Phase:37 (zockarchive-screenshot-management-ui-redesign) - HUMAN VERIFICATION PENDING
+Plan:4 of4 complete; technical verification passed; human visual/live acceptance pending
+Status: human_needed; four implemented plans and eight tasks; no remaining implementation gaps
 Last activity:2026-10-23
+
+## Phase 37 implementation handoff
+
+Technical source is 7ee1efa45. Independent verification confirms20/20 must-haves, with no remaining implementation gap. Final frontend suite passed1659/1659 across147 files; typecheck, build, maintainability for486 production files, all18 locale checks and scoped Trunk passed. Runtime modules remain at or below500 physical lines. One existing upload owner, multi-placement order, ownership and APIs are preserved; no backend/schema/permission/storage change is included.
+
+The isolated assembled-app browser covers the fifteen requested regressions. Evidence distinguishes the full six-width both-theme geometry sweep from affected reruns after the44px touch correction. Final controller cases at320/1280 reach all17 controls using one entry focus and actual D-pad/A translation; refresh and inline actions preserve continuation focus. Desktop/mobile screenshots in both themes and compact receipts are retained under .planning/phases/37-zockarchive-screenshot-management-ui-redesign/evidence. Read37-VERIFICATION.md,37-BROWSER-EVIDENCE.md and37-HUMAN-UAT.md when resuming. Phase artifacts remain ignored according to repository policy.
+
+Human visual, translated-copy and live-data workflow acceptance remain pending. No physical controller was connected; synthetic evidence does not replace hardware acceptance. Existing carousel B/history behavior and filename-keyed duplicate upload progress remain documented limitations. Backend-dependent E2E was not run; its existing screenshot assertions were retained with updated selectors. No Phase37 deployment or live mutation was performed. Own preview/build/cache resources were removed;17 screenshots and compact evidence remain. Original Compose/media/prototype changes and protected hashes are preserved.
 
 ## Shipping and Phase 35 handoff
 

@@ -1066,15 +1066,15 @@ Plans:
 
 **Wave1**
 
-- [ ] 37-01-PLAN.md: Existing action/upload owner and safe entity-bound completion.
-- [ ] 37-03-PLAN.md: All18 localized screenshot action and outcome contracts.
+- [x] 37-01-PLAN.md: Existing action/upload owner and safe entity-bound completion.
+- [x] 37-03-PLAN.md: All18 localized screenshot action and outcome contracts.
 
 **Wave2 (depends on Wave1)**
 
-- [ ] 37-02-PLAN.md: Compact cards, sticky upload, scroll anchoring and architecture documentation.
+- [x] 37-02-PLAN.md: Compact cards, sticky upload, scroll anchoring and architecture documentation.
 
 **Wave3 (depends on Wave2)**
 
-- [ ] 37-04-PLAN.md: Isolated real-browser regressions, desktop/mobile captures and final frontend quality.
+- [x] 37-04-PLAN.md: Isolated real-browser regressions, desktop/mobile captures and final frontend quality.
 
 Cross-cutting constraints: Existing provider/personal/community ownership and placement order remain authoritative. One upload owner, no backend/schema/permission/storage change, all18 locales, existing design/input/scroll mechanisms and preserved local data.
