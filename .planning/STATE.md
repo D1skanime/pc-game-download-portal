@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: ready
-stopped_at: Phase36 updated after fresh research;17plans verified and ready to execute
-last_updated: "2026-10-21T12:21:12.073511+00:00"
-last_activity: 2026-10-21
+status: awaiting_human_verification
+stopped_at: Phase36 technical verification passed24/24; four human UAT items pending
+last_updated: "2026-10-23T10:33:18.152745+00:00"
+last_activity: 2026-10-23
 progress:
   total_phases: 36
   completed_phases: 24
   total_plans: 287
-  completed_plans: 239
-  percent: 69
+  completed_plans: 256
+  percent: 89
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase36 updated and verified;Steam/ScreenScraper preferred-language fetching, storage and manual matching;17plans/35tasks/9waves, execution not started
+**Current focus:** Phase36 implementation and technical verification complete; four human live UAT items pending
 
 ## Current Position
 
-Phase: 36 (localized-provider-descriptions-without-legacy-summary) - READY TO EXECUTE
-Plan: 0 of17 complete; start assigned Wave1 plans
-Status: Revised17plans independently approved withzero blockers/warnings;11/11requirements anddecisions covered
-Last activity: 2026-10-21
+Phase: 36 (localized-provider-descriptions-without-legacy-summary) - VERIFYING
+Plan: 17 of 17 complete; all 9 waves executed
+Status: All 17 plans implemented; 24/24 technical truths verified; human_needed (four UAT items)
+Last activity: 2026-10-23
 
 ## Shipping and Phase 35 handoff
 
@@ -560,7 +560,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-10-20T21:26:49.727Z
-Stopped at: Completed 35-11; Plan 12 pending
+Stopped at: Phase 36 implementation and technical verification complete; four human UAT items pending
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
@@ -599,3 +599,17 @@ PR2 merged to main atb0d3f6ad61fdb5a502349fa449e5458e77de25d4 after28successfulC
 ## Phase36 provider/language/manual-matching planning update (2026-10-21)
 
 User requestedfreshresearch andconfirmedadministrativeUIlanguagealsogovernsAutoscan, withpreferredGerman/FrenchandEnglishfallback. Researchidentifiedseparatecurrentsourcesandmissingmanual/SSpropagation. RevisedUIcontractapproved and17plans/35tasks/9waves independentlypassedzero blockers/warnings; all11DESCrequirements andD01..11covered. Newplans13..17coverSSprovider,globallanguageauthority/immutablecapture,authorizedUI/configsync,backendmanualmatchingandfrontendmatchingcapture. RequestedproviderDE/FRprecedesmanualEnglishwithoutchangingstoredmanualtext. See36-PLAN-CHECK.md. Earlier12-planapprovalissupersededwhereaffected. Noimplementation/testexecution/runtime/deploymentchanges;source/media/dirtyComposepreserved.
+
+Phase36 clarification2026-10-21: English may be collected alongside preferred German/French and must stay in its own English provider slot. English fallback restriction applies to presentation, not provider text collection. Existing manual protection, request bounds and warm reuse remain unchanged.
+
+## Phase36 execution start (2026-10-21)
+
+User explicitly invokedgsd-execute-phase36. PreflightLinux/canonicalPGDP/origin/statepassed. Freshfeaturebranchcodex/phase-36-localized-provider-descriptions startsfromorigin/main ancestorb0d3f6ad6 plusverifiedplanningmetadata. AllprotectedCompose/prototypehashesremainunchanged. workflow.use_worktrees=false meanssequentialexecutors andsingleheavyisolatedtest atatime. Noautomaticdeployment/liveDBreset/migration/service/schedulechange authorized. EnglishmaybecollectedalongsidepreferredlanguagebutonlystoredinitsownEnglishslot.
+
+## Phase36 implementation handoff (2026-10-23)
+
+All 17 plans and 35 tasks are implemented through 12e568116. Current-source backend matrices pass 5,248 base cases and 181 subtests per SQL, with ten explicit historical skips per SQL; both full browsers pass 33/33 checks. All seven frontend quality commands, 1,340 Vitest and 157 portable tests, scoped Trunk and connected description/authority proofs pass. The strict 36-final-receipts.json assertion passes. All owned test containers, networks, volumes and temporary runs are removed; 9.3 GB is free. Protected local work and Dev, Games and media data are preserved. Independent verification is recorded below. Human copy/live UAT and physical controller acceptance remain open. No deployment or global requirement closure is claimed.
+
+## Phase36 independent verification (2026-10-23)
+
+The independent gsd-verifier confirmed 24/24 technical truths, all eleven DESC requirements and five roadmap criteria with no implementation blocker. Status: human_needed. Four human tests are persisted in 36-HUMAN-UAT.md: provider prose/copy, existing-data live workflow, visual/error flows and physical controller. No deployment, phase completion or global requirement closure is claimed.
