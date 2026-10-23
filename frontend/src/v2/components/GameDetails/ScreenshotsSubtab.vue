@@ -4,6 +4,7 @@ import {
   RCarousel,
   RDropzone,
   REmptyState,
+  RIcon,
   RSkeletonBlock,
 } from "@v2/lib";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
@@ -306,19 +307,33 @@ async function uploadFiles(files: File[]) {
     >
       <header
         ref="toolbar"
-        class="za-shots__toolbar d-flex flex-wrap align-center"
+        class="za-shots__toolbar d-flex flex-wrap align-center ga-3 pa-4"
+        :class="{
+          'za-shots__toolbar--over': myDz?.isOver && !uploading && canUpload,
+        }"
       >
         <RBtn
           v-if="canUpload"
-          prepend-icon="mdi-cloud-upload-outline"
-          color="primary"
+          class="za-shots__upload pa-1"
+          variant="text"
           :loading="uploading"
           :disabled="uploading"
           :aria-label="t('rom.upload-screenshots')"
           @click="myDz?.open()"
-          >{{ t("rom.upload-screenshots") }}</RBtn
         >
-        <p class="za-shots__hint">{{ t("rom.screenshots-upload-hint") }}</p>
+          <span class="d-flex align-center ga-3">
+            <RIcon
+              icon="mdi-cloud-upload-outline"
+              size="30"
+              color="primary"
+              class="flex-shrink-0"
+            />
+            <span>{{ t("rom.upload-screenshots") }}</span>
+          </span>
+        </RBtn>
+        <p class="za-shots__hint flex-1-1">
+          {{ t("rom.screenshots-upload-hint") }}
+        </p>
       </header>
       <div
         ref="gallery"
@@ -434,12 +449,36 @@ async function uploadFiles(files: File[]) {
   position: sticky;
   top: 0;
   z-index: 2;
-  gap: var(--r-space-3);
-  padding: var(--r-space-3);
-  background: var(--r-color-surface);
+  background: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 6%,
+    var(--r-color-surface)
+  );
   backdrop-filter: blur(var(--r-space-2));
-  border: 1px solid var(--r-color-border);
+  border: 1px dashed
+    color-mix(in srgb, var(--r-color-brand-primary) 38%, var(--r-color-border));
   border-radius: var(--r-radius-card);
+}
+.za-shots__toolbar:hover,
+.za-shots__toolbar--over {
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 65%,
+    var(--r-color-border)
+  );
+  background: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 10%,
+    var(--r-color-bg-elevated)
+  );
+}
+.za-shots__upload {
+  min-height: var(--r-touch-target);
+  height: auto;
+  color: var(--r-color-fg);
+  font-size: var(--r-font-size-lg);
+  font-weight: var(--r-font-weight-semibold);
+  white-space: normal;
 }
 .za-shots__gallery {
   gap: var(--r-space-6);

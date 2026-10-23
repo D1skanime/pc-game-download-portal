@@ -134,6 +134,14 @@ describe("ScreenshotsSubtab single gallery owner", () => {
   it("keeps one input/dropzone through empty-to-populated and opens the top picker once", async () => {
     state.myScreenshots.value = [];
     const wrapper = render();
+    const toolbar = wrapper.get(".za-shots__toolbar");
+    expect(toolbar.findAll("button")).toHaveLength(1);
+    expect(toolbar.get(".za-shots__upload").text()).toContain(
+      "rom.upload-screenshots",
+    );
+    expect(toolbar.get(".za-shots__hint").text()).toBe(
+      "rom.screenshots-upload-hint",
+    );
     const input = wrapper.get('input[type="file"]').element;
     const zone = wrapper.getComponent({ name: "RDropzone" }).element;
     await wrapper.get('[aria-label="rom.upload-screenshots"]').trigger("click");
