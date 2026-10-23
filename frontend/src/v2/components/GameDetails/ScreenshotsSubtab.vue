@@ -53,7 +53,8 @@ const { columns } = useResponsiveColumns(gallery, {
         ) || 12
       : 12,
 });
-useWrapGridNav(root, { cellSelector: "[data-shot-key]" });
+// Each native control participates so directional input reaches both previews and actions.
+useWrapGridNav(root, { cellSelector: "button:not([disabled])" });
 type Source = ScreenshotManagementItem["source"];
 const groups = computed<
   { source: Source; label: string; items: ScreenshotManagementItem[] }[]

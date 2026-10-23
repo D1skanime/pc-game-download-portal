@@ -433,7 +433,7 @@ describe("ScreenshotsSubtab single gallery owner", () => {
         .element as HTMLButtonElement;
       // Only entry focus is assigned. Every destination must be reached by the real navigation owner.
       upload.focus();
-      const visited = new Set<Element>([upload]);
+      let visited = new Set<Element>([upload]);
       function direction(key: string) {
         window.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -483,6 +483,29 @@ describe("ScreenshotsSubtab single gallery owner", () => {
       });
       window.dispatchEvent(tab);
       expect(tab.defaultPrevented).toBe(false);
+      state.mutatingId.value = 7;
+      state.togglingId.value = 10;
+      await nextTick();
+      const hiddenPreview = wrapper.get(
+        '[data-shot-key="user:7"] [data-preview]',
+      ).element;
+      Object.defineProperty(hiddenPreview, "offsetParent", {
+        configurable: true,
+        value: null,
+      });
+      visited = new Set<Element>([upload]);
+      for (let row = 0; row < 15; row++) {
+        for (let column = 0; column < 8; column++) direction("ArrowLeft");
+        for (let column = 0; column < 8; column++) direction("ArrowRight");
+        direction("ArrowDown");
+      }
+      expect(visited).toEqual(
+        new Set(
+          buttons.filter(
+            (button) => !button.disabled && button.offsetParent !== null,
+          ),
+        ),
+      );
       wrapper.unmount();
     },
   );
