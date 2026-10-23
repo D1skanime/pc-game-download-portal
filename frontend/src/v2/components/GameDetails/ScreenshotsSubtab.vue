@@ -307,11 +307,11 @@ async function uploadFiles(files: File[]) {
     >
       <header
         ref="toolbar"
-        class="za-shots__toolbar d-flex flex-wrap align-center ga-3 pa-4"
+        class="za-shots__toolbar za-media-upload d-flex flex-wrap align-center ga-3 pa-4"
       >
         <RBtn
           v-if="canUpload"
-          class="za-shots__upload pa-1"
+          class="za-shots__upload za-media-upload__button pa-1"
           variant="text"
           :loading="uploading"
           :disabled="uploading"
@@ -323,7 +323,7 @@ async function uploadFiles(files: File[]) {
           </template>
           {{ t("rom.upload-screenshots") }}
         </RBtn>
-        <p class="ma-0 za-shots__hint flex-1-1">
+        <p class="ma-0 za-shots__hint za-media-upload__hint flex-1-1">
           {{ t("rom.screenshots-upload-hint") }}
         </p>
       </header>
@@ -437,36 +437,10 @@ async function uploadFiles(files: File[]) {
   height: auto;
   min-height: 100%;
 }
-.za-shots__toolbar {
-  --za-tint: var(--r-color-brand-primary);
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: color-mix(in srgb, var(--za-tint) 6%, var(--r-color-surface));
-  backdrop-filter: blur(var(--r-space-2));
-  border: 1px dashed;
-  border-color: color-mix(in srgb, var(--za-tint) 38%, var(--r-color-border));
-  border-radius: var(--r-radius-card);
-}
-.za-shots__toolbar:hover,
-.za-shots__dropzone.r-dropzone--active .za-shots__toolbar {
-  border-color: color-mix(in srgb, var(--za-tint) 65%, var(--r-color-border));
-  background: color-mix(
-    in srgb,
-    var(--za-tint) 10%,
-    var(--r-color-bg-elevated)
-  );
-}
-.za-shots__upload {
-  min-height: var(--r-touch-target);
-  height: auto;
-  white-space: normal;
-}
 .za-shots__section {
   min-width: 0;
 }
-.za-shots__title,
-.za-shots__upload {
+.za-shots__title {
   color: var(--r-color-fg);
   font-size: var(--r-font-size-lg);
   font-weight: var(--r-font-weight-semibold);
@@ -493,15 +467,11 @@ html[data-bp~="sm-and-down"] .za-shots {
 html[data-bp~="sm-and-down"] .za-shots__dropzone {
   min-height: 0;
 }
-html[data-bp~="sm-and-down"] .za-shots__toolbar {
-  top: var(--r-nav-h);
-}
 html[data-bp~="sm-and-down"] .za-shots__grid > li {
   scroll-margin-top: calc(
     var(--r-nav-h) + var(--r-touch-target) + var(--r-space-6)
   );
 }
-.za-shots__toolbar :deep(button) {
-  min-height: var(--r-touch-target);
-}
 </style>
+
+<style scoped src="./mediaManagementUpload.css" />

@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import type {
   DetailedRomSchema,
+  PcComponentOwnedMediaSchema,
   RomOwnedMediaSchema,
 } from "../../src/__generated__";
 
@@ -206,6 +207,7 @@ export async function mountGallery(
   page: Page,
   options: {
     count?: number;
+    dlc?: boolean;
     ownCount?: number;
     viewer?: boolean;
     theme?: "dark" | "light";
@@ -230,6 +232,32 @@ export async function mountGallery(
     uploadBarrier: null as Promise<void> | null,
     mediaBarrier: null as Promise<void> | null,
   };
+  if (options.dlc) {
+    state.rom.components = [
+      {
+        id: 20,
+        updated_at: state.rom.updated_at,
+        kind: "dlc",
+        relative_path: "Fixture DLC",
+        manifest_members: [],
+        owned_media: state.rom.owned_media.map(
+          (item, index): PcComponentOwnedMediaSchema => ({
+            id: item.id,
+            role: item.role as "screenshot",
+            mime_type: item.mime_type,
+            owned_path: item.owned_path ?? `/fixture/provider${index}.svg`,
+            origin: "provider",
+            provider: item.provider,
+            provider_media_id: item.provider_media_id,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            placements:
+              index === 0 ? [{ id: 1, media_id: item.id, position: 0 }] : [],
+          }),
+        ),
+      },
+    ];
+  }
   page.on("pageerror", (error) =>
     state.errors.push(error.stack ?? error.message),
   );
@@ -277,6 +305,7 @@ export async function mountGallery(
     if (
       path === "/assets/default/user.svg" ||
       path.startsWith("/fixture/") ||
+      /^\/api\/roms\/1\/pc-components\/20\/media\/\d+\/content$/.test(path) ||
       /^\/api\/roms\/1\/media\/\d+\/content$/.test(path)
     )
       return route.fulfill({ contentType: "image/svg+xml", body: image });
@@ -359,6 +388,36 @@ export async function mountGallery(
         ? json({ detail: "Canonical refresh failed" }, 500)
         : json(state.rom);
     }
+    if (options.dlc && path.startsWith("/api/roms/1/pc-components/20/media")) {
+      const component = state.rom.components![0];
+      const items = component.owned_media!;
+      if (path.endsWith("/media") && req.method() === "GET") return json(items);
+      const id = Number(path.split("/")[7]);
+      if (path.endsWith("/placement")) {
+        const item = items.find((entry) => entry.id === id)!;
+        item.placements =
+          req.method() === "DELETE"
+            ? []
+            : [
+                {
+                  id,
+                  media_id: id,
+                  position: items.filter((entry) => entry.placements?.length)
+                    .length,
+                },
+              ];
+        return json(item);
+      }
+      if (req.method() === "DELETE") {
+        component.owned_media = items.filter((entry) => entry.id !== id);
+        return json({});
+      }
+      if (req.method() === "POST" && path.endsWith("/media")) {
+        const item = { ...items[0], id: 900, placements: [] };
+        items.push(item);
+        return json(item);
+      }
+    }
     if (path === "/api/screenshots" && req.method() === "POST") {
       if (state.uploadBarrier) await state.uploadBarrier;
       if (state.uploadFailure && req.postData()?.includes("fail.png"))
@@ -434,8 +493,18 @@ export async function mountGallery(
     state.unexpected.push(req.method() + " " + path);
     return route.abort();
   });
-  await page.goto("/rom/1?tab=media&subtab=screenshots&fixture=preserved");
-  await expect(page.locator(".za-shots__toolbar button"))
+  await page.goto(
+    options.dlc
+      ? "/rom/1/dlc/20?tab=media"
+      : "/rom/1?tab=media&subtab=screenshots&fixture=preserved",
+  );
+  await expect(
+    page.locator(
+      options.dlc
+        ? ".pc-dlc-media .za-media-upload button"
+        : ".za-shots__toolbar button",
+    ),
+  )
     .toBeVisible()
     .catch((error) => {
       throw new Error(error.message + "\n" + state.errors.join("\n"));

@@ -871,3 +871,73 @@ for (const theme of ["dark", "light"] as const)
         ),
       );
     });
+
+for (const theme of ["dark", "light"] as const) {
+  for (const width of [320, 1280]) {
+    test(`DLC media parity ${theme} ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const state = await open(page, {
+        dlc: true,
+        count: 80,
+        theme,
+        locale: "de_DE",
+      });
+      const root = page.locator(".pc-dlc-media");
+      const toolbar = root.locator(".za-media-upload");
+      const first = root.locator(".za-shot").first();
+      await expect(first.locator(".za-shot__badge")).toContainText("1");
+      await expect(first.locator(".za-shot__actions button")).toHaveCount(2);
+      await expect(first.locator(".mdi-crown-outline")).toHaveCount(1);
+      await expect(first.locator(".za-shot__check")).toHaveCount(1);
+      await expect(root.locator('input[type="file"]')).toHaveCount(1);
+      for (const button of await first
+        .locator(".za-shot__actions button")
+        .all()) {
+        const rect = await button.boundingBox();
+        expect(rect!.width).toBeGreaterThanOrEqual(44);
+        expect(rect!.height).toBeGreaterThanOrEqual(44);
+      }
+      await page.screenshot({
+        path: `${evidence}/dlc-${theme}-${width}-top.png`,
+      });
+      await first.locator(".za-shot__preview").click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await root.locator(".za-shot").nth(50).scrollIntoViewIfNeeded();
+      const rect = await toolbar.boundingBox();
+      expect(rect!.y).toBeGreaterThanOrEqual(0);
+      expect(rect!.y + rect!.height).toBeLessThanOrEqual(900);
+      expect(
+        await page
+          .locator("html")
+          .evaluate((el) => el.scrollWidth <= innerWidth),
+      ).toBe(true);
+      await page.screenshot({
+        path: `${evidence}/dlc-${theme}-${width}-mid.png`,
+      });
+      const chooser = page.waitForEvent("filechooser");
+      await toolbar.getByRole("button").click();
+      expect((await chooser).isMultiple()).toBe(false);
+      await (
+        await chooser
+      ).setFiles({
+        name: "dlc.png",
+        mimeType: "image/png",
+        buffer: Buffer.from("fixture"),
+      });
+      await expect
+        .poll(
+          () =>
+            state.mutations.filter((m) =>
+              m.path.endsWith("/pc-components/20/media"),
+            ).length,
+        )
+        .toBe(1);
+      expect(
+        state.mutations.every((m) => m.path.includes("/pc-components/20/")),
+      ).toBe(true);
+      expect(state.errors).toEqual([]);
+    });
+  }
+}

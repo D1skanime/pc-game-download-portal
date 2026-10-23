@@ -199,7 +199,7 @@ GameDetails.vue is a cover column plus tab panel. ?tab= is persistent. The typed
 
 ### PC and DLC
 
-PcComponents exposes parent-game components. PcDlcDetails loads the parent and selects the requested DLC. PC APIs and components support metadata candidate search/selection, local-media candidates/selection, files, media, notes, and component-local descriptions.
+PcComponents exposes parent-game components. PcDlcDetails loads the parent and selects the requested DLC. PC APIs and components support metadata candidate search/selection, local-media candidates/selection, files, media, notes, and component-local descriptions. PcDlcMediaTab reuses the feature-scoped mediaManagementCard.css and mediaManagementUpload.css presentation with the main screenshot manager: transparent cards, persistent crown icons with small selected checks, one-based overview badges, captioned danger deletion and a sticky dashed cloud upload bar. DLC retains its component-owned endpoints, single-file upload and overview-only placement model; no background, visibility or provider-refresh capability is implied. Its one overlay RDropzone owns picker/drop delivery and edit-gates uploads. Responsive columns and native-control grid navigation use the existing composables.
 
 ### Scan and library management
 

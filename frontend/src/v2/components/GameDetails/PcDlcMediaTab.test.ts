@@ -18,7 +18,9 @@ describe("PcDlcMediaTab", () => {
   });
 
   it("renders owned media previews in the parent-style fullscreen gallery", () => {
-    expect(source).toContain("import { RBtn, RCarousel, RDropzone");
+    expect(source).toMatch(
+      /import \{[\s\S]*RBtn,[\s\S]*RCarousel,[\s\S]*RDropzone,/,
+    );
     expect(source).toContain("function mediaContentUrl(mediaId: number)");
     expect(source).toContain("return `/api${endpoint}/${mediaId}/content`");
     expect(source).toContain("lightboxOpen");
@@ -29,8 +31,8 @@ describe("PcDlcMediaTab", () => {
   it("keeps placement controls permission-gated and component-scoped", () => {
     expect(source).toContain('useCan("rom.edit"');
     expect(source).toContain("/placement");
-    expect(source).toContain('t("rom.add-to-overview")');
-    expect(source).toContain('t("rom.remove-from-overview")');
+    expect(source).toMatch(/t\(['"]rom\.add-to-overview['"]\)/);
+    expect(source).toMatch(/t\(['"]rom\.remove-from-overview['"]\)/);
   });
 
   it("renders localized media role and useful source labels", () => {
@@ -40,7 +42,7 @@ describe("PcDlcMediaTab", () => {
     expect(source).toContain('t("rom.pc-media-source-provider")');
     expect(source).toContain('t("rom.pc-media-source-uploaded")');
     expect(source).toContain("{{ mediaRoleLabel(item) }}");
-    expect(source).toContain("{{ mediaSourceLabel(item) }}");
+    expect(source).toMatch(/\{\{\s*mediaSourceLabel\(item\)\s*\}\}/);
     expect(source).not.toContain("<strong>{{ item.role }}</strong>");
     expect(source).not.toContain("<span>{{ item.mime_type }}</span>");
   });

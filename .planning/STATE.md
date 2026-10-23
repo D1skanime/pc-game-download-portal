@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: milestone
 status: verifying
 stopped_at: Phase 37 technically verified; human visual and live UAT pending
-last_updated: "2026-10-23T22:29:58+00:00"
-last_activity: 2026-10-24 -- Completed quick task 261023-urj: screenshot action and upload visual polish; human UAT pending
+last_updated: "2026-10-23T23:38:32+00:00"
+last_activity: 2026-10-24 -- DLC media visual parity implemented;1663 frontend tests and8 isolated browser cases pass; human UAT pending
 progress:
   total_phases: 37
   completed_phases: 26
@@ -43,6 +43,8 @@ Human visual, translated-copy and live-data workflow acceptance remain pending. 
 Quick task 261023-urj is implemented through a6d1f044d on codex/dev-phase37-suppression-uat. Captioned crown and landscape icons persist in selected states with small checks and accented glass frames. The single existing upload control uses a cloud/title group and softer dashed glass; three provider actions, multi-placement ordering, one-based display positions, ownership and durable suppression remain intact. Architecture documentation is updated. 324 focused tests, typecheck, production build, maintainability and exact-path Trunk pass. Isolated browser checks initially passed15/15; a later desktop synthetic dialog-close failure passed its final targeted rerun alongside all four both-theme desktop/mobile visual cases. This intermittent case remains recorded, not treated as a hardware result.
 
 Authenticated ROM24 Dev inspection confirms the actual new actions and sticky upload presentation without reload, preference changes or media mutations. Read-only scroll checks preserved the user page and selection. HMR delivered the bounded frontend change; no service recreation was needed. Own build/cache/preview resources were removed and protected dirty hashes remain unchanged. PR6 records the combined Dev source; main remains unmerged and human visual/live acceptance stays pending. Evidence and SUMMARY are retained in the ignored quick directory.
+
+DLC media now shares the scoped screenshot card and upload glass styles with the parent manager. Component-owned overview and deletion controls retain their endpoints, version and confirmation semantics; no background capability is introduced. One single-file overlay dropzone, permission-gated upload, responsive columns and native-control grid navigation remain within the DLC view. Full frontend1663/1663, final affected10/10, typecheck, build, maintainability486 and scoped Trunk pass. Eight isolated desktop/mobile both-theme cases cover parent and DLC presentation, DLC picker, exact nested upload count, lightbox and sticky scrolling. Actual authenticated DLC20 visuals were inspected read-only on Dev. Own preview/build/cache resources were cleaned, protected dirty hashes preserved; main remains unmerged.
 
 ## Shipping and Phase 35 handoff
 
