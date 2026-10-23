@@ -953,3 +953,41 @@ class CIInventoryContracts(unittest.TestCase):
                 RuntimeError
             ):
                 shard_source_delta(before, after, number, files, record)
+
+
+class EquivalentAdapterImportContracts(unittest.TestCase):
+    def test_only_exact_reviewed_nonexecuted_import_transition_is_allowed(self):
+        from phase36_quality import shard_source_delta
+
+        name = "frontend/src/v2/composables/useSystemLanguage/index.ts"
+        old = "08bff5c812bf708c61be3543db5af6d2aea02f5c943d1b062564f6568b081ef5"
+        new = "fb30a9488a5dec6c817d623b0ebaee705c096eaa33a5af69824f37e5c994ab2e"
+        selected = ["tools/tests/test_phase34_runner.py"]
+        delta = [
+            {
+                "file": name,
+                "tested": old,
+                "current": new,
+                "reason": "equivalent_existing_v2_config_adapter_import",
+            }
+        ]
+        shard_source_delta(
+            {"files": {name: old}}, {"files": {name: new}}, 5, selected, delta
+        )
+        for number, before, after, files, record in (
+            (3, old, new, selected, delta),
+            (5, "a" * 64, new, selected, delta),
+            (5, old, "b" * 64, selected, delta),
+            (5, old, new, selected, []),
+            (5, old, new, selected + ["tools/tests/test_phase36_receipts.py"], delta),
+        ):
+            with self.subTest(
+                number=number, before=before, after=after
+            ), self.assertRaises(RuntimeError):
+                shard_source_delta(
+                    {"files": {name: before}},
+                    {"files": {name: after}},
+                    number,
+                    files,
+                    record,
+                )
