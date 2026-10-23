@@ -81,6 +81,38 @@ The backend owns catalog state and API shapes. The Vue frontend never accesses t
 - Library images are RomComponentLocalMedia; uploaded/provider media is copied to owned resources as RomOwnedMedia or RomComponentOwnedMedia, with roles and placements.
 - backend/endpoints/roms/media.py and backend/endpoints/roms/pc_component_resources.py expose owned media. The v2 detail view selects overview, background and audio placements.
 
+### Provider image deletion and placement
+
+Deleting parent provider media keeps its catalog identity as a tombstone with
+`operator_suppressed=True`, removes its placements and clears its owned path.
+Normal, media-only, COMPLETE and explicit provider refresh preserve this intent.
+Automatic inventory disappearance instead uses a tombstone with
+`operator_suppressed=False`; that candidate may return with a later inventory.
+Uploads retain their separate deletion and placement behavior.
+
+`backend/handler/database/provider_media_suppression.py` shares the persisted
+suppression policy between optimistic download filtering and locked reconciliation.
+Exact native IDs remain provider-qualified. Identical `url-sha256:` identities
+also match across existing provider namespaces, only within the same ROM and role.
+The digest comes from the existing normalized HTTPS URL. Native records without
+a comparable persisted URL identity cannot be reconstructed or aliased by guessing.
+
+Generic and Steam refresh batch suppression checks before downloading or storing
+images, including Steam COMPLETE force updates. Repository reconciliation checks
+again under the existing ROM version/parent lock and scan write fence. Legacy
+cover/screenshot publication filters attempted downloads without changing stored
+metadata URL lists. Filtered screenshots are regenerated together so their returned
+paths retain their download order, without reusing paths indexed by the original
+unfiltered list. Suppression is rechecked under the publication transaction's parent
+lock and fence before staged output publication and again before association.
+A deletion during download rejects that attempt; the existing batch abort removes
+its private outputs. Publication failures retain the existing recovery protocol.
+
+Removing a placement leaves an active candidate in the catalog. Steam inventory
+reconciliation can seed empty overview/background surfaces again, so placement
+removal is not a durable hide flag. There is no independent per-media hidden state
+or restore endpoint. Explicit refresh does not restore operator-deleted images.
+
 ### Saves, States and Downloads
 
 - Save and State are user-owned ROM assets with retained catalog identity, device linkage and visibility. Handlers are backend/handler/database/saves_handler.py and states_handler.py.
