@@ -16,6 +16,10 @@ For GSD work, the chat is the control plane and `/home/d1sk/pc-game-download-por
 
 - Apply the repository-wide code-size and decomposition rules in CLAUDE.md to every implementation, regardless of which agent, model, phase, or AI tool performs the work.
 
+## Documentation completion rule
+
+Follow the "Documentation stays current with implementation" policy in `CLAUDE.md` for every feature and refactor. Include affected domain comments, architecture and workflow descriptions in the same task and PR. Plans, review and verification must account for this work; phase identifiers alone are not domain documentation.
+
 ## Git workflow
 
 - The canonical development checkout is `/home/d1sk/pc-game-download-portal` on `team4s-linux`.
