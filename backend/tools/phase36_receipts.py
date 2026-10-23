@@ -250,12 +250,15 @@ def browser(payload, artifacts):
 
 
 def quality(payload):
+    from phase34_fixtures import frontend_command
+
     checks = payload.get("checks", [])
     npm = {tuple(row["command"]) for row in checks}
     expected: set[tuple[str, ...]] = {
         ("npm", "run", name)
-        for name in ("generate", "typecheck", "test", "build", "v2:maintainability")
+        for name in ("generate", "typecheck", "build", "v2:maintainability")
     }
+    expected.add(tuple(frontend_command([])))
     expected |= {
         ("python3", "src/locales/" + name)
         for name in ("check_i18n_locales.py", "check_i18n_sorted.py")
