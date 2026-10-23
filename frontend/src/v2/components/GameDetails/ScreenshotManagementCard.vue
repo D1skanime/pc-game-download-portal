@@ -176,11 +176,17 @@ const visibilityLabel = computed(() =>
           :key="surface"
           size="small"
           class="za-shot__action"
+          :style="{
+            '--za-action-accent':
+              surface === 'overview'
+                ? 'var(--r-color-brand-primary)'
+                : 'var(--r-color-info)',
+          }"
           :class="{
             'za-shot__action--selected': position(surface) !== undefined,
           }"
           :loading="providerLoading"
-          :variant="position(surface) !== undefined ? 'flat' : 'translucent'"
+          variant="translucent"
           border
           :color="
             surface === 'overview'
@@ -194,22 +200,29 @@ const visibilityLabel = computed(() =>
           @click="emit('action', { type: 'placement', item, surface })"
         >
           <span class="za-shot__action-content">
-            <RIcon
-              :icon="
-                position(surface) !== undefined
-                  ? 'mdi-check-circle'
-                  : surface === 'overview'
+            <span class="za-shot__identity">
+              <RIcon
+                :icon="
+                  surface === 'overview'
                     ? 'mdi-crown-outline'
                     : 'mdi-image-outline'
-              "
-              size="18"
-            />
+                "
+                size="18"
+              />
+              <RIcon
+                v-if="position(surface) !== undefined"
+                class="za-shot__check"
+                icon="mdi-check"
+                size="10"
+                aria-hidden="true"
+              />
+            </span>
             <span>{{ t(`rom.screenshots-action-${surface}`) }}</span>
           </span>
         </RBtn>
         <RBtn
           size="small"
-          class="za-shot__action"
+          class="za-shot__action za-shot__action--danger"
           variant="outlined"
           color="var(--r-color-danger)"
           :disabled="busy"
@@ -258,7 +271,7 @@ const visibilityLabel = computed(() =>
         </RBtn>
         <RBtn
           size="small"
-          class="za-shot__action"
+          class="za-shot__action za-shot__action--danger"
           variant="outlined"
           color="var(--r-color-danger)"
           :disabled="busy"
@@ -347,10 +360,16 @@ const visibilityLabel = computed(() =>
   min-height: var(--r-touch-target);
 }
 .za-shot__action {
-  flex: 1 1 auto;
-  min-width: 0;
+  --za-action-accent: var(--r-color-brand-primary);
+  flex: 1 1 56px;
+  min-width: var(--r-touch-target);
   height: auto;
-  padding: var(--r-space-1) 0;
+  padding: var(--r-space-2) var(--r-space-1);
+  color: var(--za-action-accent);
+  background: color-mix(in srgb, var(--za-action-accent) 6%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--za-action-accent) 22%, var(--r-color-border));
+  border-radius: var(--r-radius-md);
   font-size: var(--r-font-size-xs);
   letter-spacing: normal;
 }
@@ -362,9 +381,34 @@ const visibilityLabel = computed(() =>
   min-width: 0;
   line-height: var(--r-line-height-tight);
   white-space: normal;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
 }
 .za-shot__action--selected {
-  box-shadow: inset 0 0 0 2px currentColor;
+  background: color-mix(
+    in srgb,
+    var(--za-action-accent) 18%,
+    var(--r-color-surface)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--za-action-accent) 70%,
+    var(--r-color-border)
+  );
+}
+.za-shot__identity {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 18px;
+}
+.za-shot__check {
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+}
+.za-shot__action--danger {
+  --za-action-accent: var(--r-color-danger);
 }
 </style>

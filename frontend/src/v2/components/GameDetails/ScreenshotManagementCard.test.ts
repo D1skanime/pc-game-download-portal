@@ -73,16 +73,36 @@ describe("ScreenshotManagementCard source capabilities", () => {
       { type: "remove-provider", item },
     ]);
     const overview = wrapper.get('[aria-label="rom.remove-from-overview"]');
-    expect(overview.attributes("variant")).toBe("flat");
-    expect(overview.find('[data-icon="mdi-check-circle"]').exists()).toBe(true);
+    expect(overview.attributes("variant")).toBe("translucent");
+    expect(overview.find('[data-icon="mdi-crown-outline"]').exists()).toBe(
+      true,
+    );
+    expect(
+      overview
+        .find('.za-shot__check[data-icon="mdi-check"]')
+        .attributes("aria-hidden"),
+    ).toBe("true");
+    const background = wrapper.get('[aria-label="rom.remove-as-background"]');
+    expect(background.find('[data-icon="mdi-image-outline"]').exists()).toBe(
+      true,
+    );
+    expect(background.find(".za-shot__check").exists()).toBe(true);
+    expect(wrapper.findAll(".za-shot__actions button")).toHaveLength(3);
     await wrapper.setProps({
       item: { ...item, media: { ...media, placements: [] } },
     });
     const unselected = wrapper.get('[aria-label="rom.add-to-overview"]');
     expect(unselected.attributes("variant")).toBe("translucent");
-    expect(unselected.find('[data-icon="mdi-check-circle"]').exists()).toBe(
-      false,
+    expect(unselected.find('[data-icon="mdi-crown-outline"]').exists()).toBe(
+      true,
     );
+    expect(
+      wrapper
+        .get('[aria-label="rom.add-as-background"]')
+        .find('[data-icon="mdi-image-outline"]')
+        .exists(),
+    ).toBe(true);
+    expect(wrapper.findAll(".za-shot__check")).toHaveLength(0);
     expect(wrapper.find("script").exists()).toBe(false);
     expect(wrapper.get("[data-preview]").find("button").exists()).toBe(false);
   });
