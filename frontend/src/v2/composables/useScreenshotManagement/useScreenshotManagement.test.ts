@@ -3,12 +3,14 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import type { RomOwnedMediaSchema } from "@/__generated__";
+import uploadStore from "@/stores/upload";
 import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
 import storePermissions from "@/v2/data/adapters/legacy/stores/permissions";
 import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 import { useScreenshotManagement } from "./index";
 
 const m = vi.hoisted(() => ({
+  translate: vi.fn((key: string) => key),
   getRom: vi.fn(),
   setOwnedMediaPlacement: vi.fn(),
   removeOwnedMediaPlacement: vi.fn(),
@@ -25,7 +27,7 @@ const m = vi.hoisted(() => ({
   update: vi.fn(),
   reset: vi.fn(),
 }));
-vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock("vue-i18n", () => ({ useI18n: () => ({ t: m.translate }) }));
 vi.mock("@/v2/composables/useConfirm", () => ({ useConfirm: () => m.confirm }));
 vi.mock("@/v2/composables/useSnackbar", () => ({ useSnackbar: () => m }));
 vi.mock("@/v2/data/adapters/legacy/services/api/rom", () => ({ default: m }));
@@ -85,6 +87,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   storeAuth().$patch({ user: { id: 1 } });
   storePermissions().$patch({ isAdmin: true });
+  m.translate.mockImplementation((key: string) => key);
+  m.reset.mockImplementation(() => uploadStore().reset());
   m.confirm.mockResolvedValue(true);
   m.getRom.mockResolvedValue({ data: rom() });
 });
@@ -243,5 +247,166 @@ describe("screenshot action ownership", () => {
     await actions.deleteMyScreenshot(10);
     expect(m.error).toHaveBeenCalledWith("refresh unavailable");
     expect(m.success).not.toHaveBeenCalled();
+  });
+});
+
+describe("settled screenshot uploads", () => {
+  const files = [new File(["a"], "a.png"), new File(["b"], "b.png")];
+  it("ignores empty batches and overlaps, then permits a later batch", async () => {
+    const pending = deferred<PromiseSettledResult<unknown>[]>();
+    m.uploadGalleryScreenshots
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue([]);
+    const { actions } = setup();
+    await actions.handleMyFiles([]);
+    expect(m.uploadGalleryScreenshots).not.toHaveBeenCalled();
+    const first = actions.handleMyFiles(files);
+    expect(actions.uploading.value).toBe(true);
+    await actions.handleMyFiles(files);
+    expect(m.uploadGalleryScreenshots).toHaveBeenCalledTimes(1);
+    pending.resolve([
+      { status: "fulfilled", value: {} },
+      { status: "fulfilled", value: {} },
+    ]);
+    await first;
+    expect(actions.uploading.value).toBe(false);
+    expect(m.getRom).toHaveBeenCalledTimes(1);
+    expect(m.reset).toHaveBeenCalledTimes(1);
+    await actions.handleMyFiles([files[0]]);
+    expect(m.uploadGalleryScreenshots).toHaveBeenCalledTimes(2);
+  });
+  it("reports partial counts and retains failed progress with useful detail", async () => {
+    const progress = uploadStore();
+    progress.start("a.png");
+    progress.start("b.png");
+    progress.fail("b.png", "invalid image");
+    m.uploadGalleryScreenshots.mockResolvedValue([
+      { status: "fulfilled", value: {} },
+      { status: "rejected", reason: new Error("invalid image") },
+    ]);
+    const { actions } = setup();
+    await actions.handleMyFiles(files);
+    expect(m.reset).not.toHaveBeenCalled();
+    expect(
+      progress.files.find((file) => file.filename === "b.png")?.failureReason,
+    ).toBe("invalid image");
+    expect(m.translate).toHaveBeenCalledWith("rom.screenshots-upload-partial", {
+      uploaded: 1,
+      failed: 1,
+    });
+    expect(m.warning).toHaveBeenCalledWith("rom.screenshots-upload-partial");
+    expect(m.error).toHaveBeenCalledWith("invalid image");
+    expect(m.success).not.toHaveBeenCalled();
+    expect(m.getRom).toHaveBeenCalledTimes(1);
+  });
+  it("reports all failures and retains records without fetching", async () => {
+    uploadStore().start("a.png");
+    uploadStore().fail("a.png", "rejected");
+    m.uploadGalleryScreenshots.mockResolvedValue([
+      { status: "rejected", reason: new Error("rejected") },
+    ]);
+    const { actions } = setup();
+    await actions.handleMyFiles([files[0]]);
+    expect(m.warning).toHaveBeenCalledWith("rom.no-screenshots-uploaded");
+    expect(m.getRom).not.toHaveBeenCalled();
+    expect(m.reset).not.toHaveBeenCalled();
+    expect(uploadStore().files[0].failed).toBe(true);
+  });
+  it("marks newly observed own IDs without reordering or mixing provider IDs", async () => {
+    m.uploadGalleryScreenshots.mockResolvedValue([
+      { status: "fulfilled", value: { id: 11 } },
+    ]);
+    const updated = rom();
+    updated.all_user_screenshots = [
+      ...updated.all_user_screenshots,
+      { ...updated.all_user_screenshots[0], id: 11 },
+      { ...updated.all_user_screenshots[1], id: 12 },
+    ];
+    m.getRom.mockResolvedValue({ data: updated });
+    const { actions } = setup();
+    await actions.handleMyFiles([files[0]]);
+    expect(actions.newlyUploadedIds.value).toEqual([11]);
+    expect(m.setCurrentRom).toHaveBeenCalledWith(updated);
+    expect(updated.all_user_screenshots.map((item) => item.id)).toEqual([
+      10, 7, 11, 12,
+    ]);
+  });
+  it("does not claim canonical success when refresh fails", async () => {
+    m.uploadGalleryScreenshots.mockResolvedValue([
+      { status: "fulfilled", value: {} },
+    ]);
+    m.getRom.mockRejectedValue(new Error("network detail"));
+    const { actions } = setup();
+    await actions.handleMyFiles([files[0]]);
+    expect(m.error).toHaveBeenCalledWith("rom.screenshots-update-error");
+    expect(m.success).not.toHaveBeenCalled();
+    expect(actions.newlyUploadedIds.value).toEqual([]);
+  });
+  it.each(["upload", "fetch"])(
+    "suppresses stale %s completion, store writes and progress reset",
+    async (stage) => {
+      const settlement = deferred<PromiseSettledResult<unknown>[]>();
+      const response = deferred<{ data: DetailedRom }>();
+      m.uploadGalleryScreenshots.mockReturnValue(
+        stage === "upload"
+          ? settlement.promise
+          : Promise.resolve([{ status: "fulfilled", value: {} }]),
+      );
+      m.getRom.mockReturnValue(response.promise);
+      const { actions, current } = setup();
+      const operation = actions.handleMyFiles([files[0]]);
+      await Promise.resolve();
+      current.value = rom(2);
+      settlement.resolve([{ status: "fulfilled", value: {} }]);
+      response.resolve({ data: rom() });
+      await operation;
+      expect(m.setCurrentRom).not.toHaveBeenCalled();
+      expect(m.update).not.toHaveBeenCalled();
+      expect(m.reset).not.toHaveBeenCalled();
+      expect(m.success).not.toHaveBeenCalled();
+      expect(m.warning).not.toHaveBeenCalled();
+      expect(m.error).not.toHaveBeenCalled();
+    },
+  );
+  it("releases the upload guard on unexpected API rejection", async () => {
+    m.uploadGalleryScreenshots.mockRejectedValue(
+      new Error("upload unavailable"),
+    );
+    const { actions } = setup();
+    await actions.handleMyFiles([files[0]]);
+    expect(actions.uploading.value).toBe(false);
+    expect(m.error).toHaveBeenCalledWith("upload unavailable");
+  });
+  it("keeps the existing service one POST per file and inherited duplicate-name progress", async () => {
+    const service = await import("@/services/api/screenshot");
+    const post = vi
+      .spyOn(service.screenshotApi, "post")
+      .mockResolvedValue({ data: { id: 11 } });
+    m.uploadGalleryScreenshots.mockImplementation(
+      service.default.uploadGalleryScreenshots,
+    );
+    const { actions } = setup();
+    await actions.handleMyFiles([files[0], new File(["other"], "a.png")]);
+    expect(m.uploadGalleryScreenshots).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(
+      post.mock.calls.every(
+        ([path, , config]) =>
+          path === "/screenshots" && config?.params.rom_id === 1,
+      ),
+    ).toBe(true);
+    expect(m.reset).toHaveBeenCalledTimes(1);
+    const progress = uploadStore();
+    progress.start("same.png");
+    progress.start("same.png");
+    progress.update("same.png", {
+      loaded: 1,
+      total: 1,
+      bytes: 1,
+      lengthComputable: true,
+      progress: 1,
+    });
+    expect(progress.files.map((file) => file.finished)).toEqual([true, false]);
+    post.mockRestore();
   });
 });
