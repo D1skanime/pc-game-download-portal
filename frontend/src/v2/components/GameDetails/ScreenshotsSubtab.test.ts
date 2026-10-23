@@ -21,7 +21,13 @@ vi.mock("vue-i18n", () => ({
       args?.position !== undefined ? key + ":" + args.position : key,
   }),
 }));
-vi.mock("@/v2/composables/useWrapGridNav", () => ({ useWrapGridNav: vi.fn() }));
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRoute: () => ({ fullPath: "/rom/1?tab=media&subtab=screenshots" }),
+}));
+vi.mock("@/v2/stores/focusRestoration", () => ({
+  default: () => ({ save: vi.fn(), restore: () => null }),
+}));
 vi.mock("@v2/lib", () => ({
   RBtn: {
     name: "RBtn",
@@ -378,6 +384,105 @@ describe("ScreenshotsSubtab single gallery owner", () => {
       finish?.();
       await flushPromises();
       expect(owner.scrollTop).toBe(change !== "user scroll" ? 200 : 300);
+      wrapper.unmount();
+    },
+  );
+  it.each([1, 2])(
+    "reaches every action and returns to upload with directional input across %i columns",
+    async (columns) => {
+      const wrapper = render();
+      const root = wrapper.get("[data-shot-scroll]").element as HTMLElement;
+      const buttons = Array.from(
+        root.querySelectorAll<HTMLButtonElement>("button"),
+      );
+      function locate(element: HTMLElement, top: number, left: number) {
+        Object.defineProperty(element, "offsetParent", {
+          configurable: true,
+          value: root,
+        });
+        vi.spyOn(element, "getBoundingClientRect").mockReturnValue({
+          top,
+          left,
+          bottom: top + 44,
+          right: left + 44,
+        } as DOMRect);
+        element.scrollIntoView = vi.fn();
+      }
+      locate(buttons[0], 0, 0);
+      locate(
+        wrapper.get('[aria-label="common.refresh"]').element as HTMLElement,
+        60,
+        0,
+      );
+      wrapper.findAll("[data-shot-key]").forEach((card, index) => {
+        const top = 100 + Math.floor(index / columns) * 250;
+        const left = (index % columns) * 240;
+        locate(card.element as HTMLElement, top, left);
+        locate(card.get("[data-preview]").element as HTMLElement, top, left);
+        card
+          .findAll(".za-shot__actions button")
+          .forEach((action, actionIndex) => {
+            locate(
+              action.element as HTMLElement,
+              top + 150,
+              left + actionIndex * 48,
+            );
+          });
+      });
+      const upload = wrapper.get('[aria-label="rom.upload-screenshots"]')
+        .element as HTMLButtonElement;
+      // Only entry focus is assigned. Every destination must be reached by the real navigation owner.
+      upload.focus();
+      const visited = new Set<Element>([upload]);
+      function direction(key: string) {
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        if (document.activeElement) visited.add(document.activeElement);
+        const active = document.activeElement as HTMLButtonElement;
+        const cardKey = active
+          .closest("[data-shot-key]")
+          ?.getAttribute("data-shot-key");
+        if (
+          cardKey === "provider:7" &&
+          active.getAttribute("aria-label") === "rom.remove-from-overview" &&
+          !actions.togglePlacement.mock.calls.length
+        )
+          active.click();
+        if (
+          cardKey === "user:10" &&
+          active.getAttribute("aria-label") === "rom.screenshot-make-private" &&
+          !actions.toggleVisibility.mock.calls.length
+        )
+          active.click();
+      }
+      for (let row = 0; row < 15; row++) {
+        for (let column = 0; column < 8; column++) direction("ArrowLeft");
+        for (let column = 0; column < 8; column++) direction("ArrowRight");
+        direction("ArrowDown");
+      }
+      expect(visited).toEqual(new Set(buttons));
+      expect(actions.togglePlacement).toHaveBeenCalledWith(
+        state.providerScreenshots.value[0],
+        "overview",
+      );
+      expect(actions.toggleVisibility).toHaveBeenCalledWith(10, false);
+      for (let row = 0; row < 15; row++) direction("ArrowUp");
+      for (let column = 0; column < 8; column++) direction("ArrowLeft");
+      expect(document.activeElement).toBe(upload);
+      upload.click();
+      expect(actions.open).toHaveBeenCalledTimes(1);
+      const tab = new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(tab);
+      expect(tab.defaultPrevented).toBe(false);
       wrapper.unmount();
     },
   );
