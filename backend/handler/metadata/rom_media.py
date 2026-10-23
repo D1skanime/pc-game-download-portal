@@ -13,6 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from fastapi import status
 
 from handler.database import db_rom_handler
+from handler.database.provider_media_suppression import candidate_key
 from handler.database.scan_write_fence import current_scan_write_context
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.scan_media_publication import ScanMediaBatch
@@ -111,9 +112,7 @@ async def _download_provider_image(
     )
 
 
-async def refresh_provider_owned_media(
-    rom, expected_version, provider: str, *, restore_suppressed: bool = False
-):
+async def refresh_provider_owned_media(rom, expected_version, provider: str):
     """Refresh selected provider images within their publication transaction."""
     if not isinstance(provider, str) or not provider:
         raise ValueError("Provider is required")
@@ -122,7 +121,11 @@ async def refresh_provider_owned_media(
         "url_artworks": [rom.url_cover] if rom.url_cover else [],
     }
     failures: list[ProviderMediaFailure] = []
-    for candidate in discover_provider_media(provider, source):
+    candidates = discover_provider_media(provider, source)
+    suppressed = db_rom_handler.get_provider_media_suppressions(rom.id, candidates)
+    for candidate in candidates:
+        if candidate_key(candidate) in suppressed:
+            continue
         path = None
         unit = None
         try:
@@ -142,8 +145,7 @@ async def refresh_provider_owned_media(
                     mime_type=mime_type,
                     path=path,
                 ):
-                    kwargs = {"restore_suppressed": True} if restore_suppressed else {}
-                    kwargs.update({"session": session} if session is not None else {})
+                    kwargs = {"session": session} if session is not None else {}
                     applied = db_rom_handler.reconcile_provider_owned_media(
                         rom.id,
                         expected_version,

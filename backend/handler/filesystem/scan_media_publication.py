@@ -243,7 +243,7 @@ class ScanMediaBatch:
         output.digest, output.size = output.capability.seal()
         self._snapshot()
 
-    def publish_and_associate(self, associate, *, session=None):
+    def publish_and_associate(self, associate, *, session=None, before_publish=None):
         units = self._publication_units()
         expected_bytes = sum(
             (output.size or 0) * 2 for unit in units for output in unit.outputs
@@ -253,7 +253,9 @@ class ScanMediaBatch:
                 expected_bytes=expected_bytes,
                 expected_records=sum(len(unit.outputs) * 2 for unit in units),
             ), owned_writer_domain():
-                return _publish_media_batches(units, associate, session=session)
+                return _publish_media_batches(
+                    units, associate, session=session, before_publish=before_publish
+                )
         except OwnedContentProofRejected:
             for unit in units:
                 unit._retain = True
@@ -279,7 +281,7 @@ class ScanMediaBatch:
 
 
 @begin_session
-def _publish_media_batches(units, associate, *, session=None):
+def _publish_media_batches(units, associate, *, session=None, before_publish=None):
     context = require_scan_write_context()
     if not units or any(unit.context != context or unit._closed for unit in units):
         raise ValueError("scan_media_batch_context")
@@ -302,6 +304,8 @@ def _publish_media_batches(units, associate, *, session=None):
             with checked_scan_write(session):
                 pass
 
+        if before_publish is not None:
+            before_publish(session)
         for unit in units:
             unit.publication_started = True
         for unit in units:
@@ -410,26 +414,85 @@ def merge_scan_rom(scanned, *, session=None):
 
 async def publish_rom_resources(handler, rom, previous, *, complete=False):
     from handler.database import db_rom_handler
+    from handler.database.provider_media_suppression import candidate_key
+    from handler.metadata.rom_media import discover_provider_media
     from handler.metadata.ss_handler import add_ss_auth_to_url
 
+    source = {
+        "url_artworks": [rom.url_cover] if rom.url_cover else [],
+        "url_screenshots": rom.url_screenshots or [],
+    }
+    # Legacy providers can include local paths; only HTTPS identities are comparable.
+    candidates = []
+    for key, values in source.items():
+        for url in values:
+            try:
+                candidates.extend(discover_provider_media("provider", {key: [url]}))
+            except ValueError:
+                continue
+    suppressed = db_rom_handler.get_provider_media_suppressions(rom.id, candidates)
+    skipped = {
+        (item.url, item.role)
+        for item in candidates
+        if candidate_key(item) in suppressed
+    }
+    from handler.metadata.rom_media import normalize_provider_url
+
+    def allowed(url, role):
+        try:
+            return (normalize_provider_url(url), role) not in skipped
+        except ValueError:
+            return True
+
+    from models.rom import RomOwnedMediaRole
+
+    cover_allowed = not rom.url_cover or allowed(
+        rom.url_cover, RomOwnedMediaRole.ARTWORK
+    )
+    screenshot_urls = [
+        url
+        for url in rom.url_screenshots or []
+        if allowed(url, RomOwnedMediaRole.SCREENSHOT)
+    ]
+    attempted = [item for item in candidates if candidate_key(item) not in suppressed]
     with ScanMediaBatch(rom.id, rom.platform_id, handler.storage) as unit:
-        small, large = await handler.get_cover(
-            rom,
-            complete or rom.url_cover != previous.url_cover,
-            add_ss_auth_to_url(rom.url_cover),
+        small, large = (
+            await handler.get_cover(
+                rom,
+                complete or rom.url_cover != previous.url_cover,
+                add_ss_auth_to_url(rom.url_cover),
+            )
+            if cover_allowed
+            else ("", "")
         )
         manual = await handler.get_manual(
             rom,
             complete or rom.url_manual != previous.url_manual,
             add_ss_auth_to_url(rom.url_manual),
         )
-        screenshots = await handler.get_rom_screenshots(
-            rom,
-            complete or rom.url_screenshots != previous.url_screenshots,
-            [add_ss_auth_to_url(url) for url in rom.url_screenshots or []],
+        screenshots = (
+            await handler.get_rom_screenshots(
+                rom,
+                complete
+                or bool(skipped)
+                or rom.url_screenshots != previous.url_screenshots,
+                [add_ss_auth_to_url(url) for url in screenshot_urls],
+            )
+            if screenshot_urls
+            else ([] if rom.url_screenshots else rom.path_screenshots or [])
         )
-        return unit.publish_and_associate(
-            lambda session: db_rom_handler.update_rom(
+
+        def check_suppression(session):
+            # Keep deletion authoritative under the existing parent lock and fence,
+            # before staged files become visible or references can be associated.
+            if db_rom_handler.get_provider_media_suppressions(
+                rom.id, attempted, session=session
+            ):
+                raise ValueError("Provider media suppressed during publication")
+
+        def associate(session):
+            check_suppression(session)
+            return db_rom_handler.update_rom(
                 rom.id,
                 dict(
                     path_cover_s=small,
@@ -439,4 +502,5 @@ async def publish_rom_resources(handler, rom, previous, *, complete=False):
                 ),
                 session=session,
             )
-        )
+
+        return unit.publish_and_associate(associate, before_publish=check_suppression)

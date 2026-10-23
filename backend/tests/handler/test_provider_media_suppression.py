@@ -1,11 +1,15 @@
 """Connected suppression contracts against disposable SQL."""
 
+# Bounded local file checks instrument publication and cleanup.
+# ruff: noqa: ASYNC240
+
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-from tests.handler.test_scan_media_publication import attempt, command
+from tests.handler.test_scan_media_publication import attempt as attempt
+from tests.handler.test_scan_media_publication import command as command
 from tests.handler.test_scan_write_fence import context
 
 from handler.database import db_rom_handler
@@ -212,3 +216,104 @@ async def test_suppression_legacy_publication_filters_without_shifting(
     assert received == [urls[1]]
     assert current.path_screenshots == [f"{rom.fs_resources_path}/screenshots/keep.png"]
     assert_suppressed(rom.id, media_id)
+
+
+@pytest.mark.parametrize("different", ["role", "url", "rom", "native-provider"])
+def test_suppression_identity_boundaries(rom, platform, different):
+    from tests.conftest import session
+
+    from models.rom import Rom
+
+    current, media_id = suppress(rom, "provider", RomOwnedMediaRole.SCREENSHOT)
+    item = candidate("igdb", RomOwnedMediaRole.SCREENSHOT)
+    target = current
+    if different == "role":
+        item = candidate("igdb", RomOwnedMediaRole.ARTWORK)
+    elif different == "url":
+        item = candidate(
+            "igdb", RomOwnedMediaRole.SCREENSHOT, "https://fixture.invalid/other.png"
+        )
+    elif different == "rom":
+        target = db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name="other",
+                fs_name="other.zip",
+                fs_path=rom.fs_path,
+            )
+        )
+    else:
+        with session.begin() as db:
+            from models.rom import RomOwnedMedia
+
+            db.get(RomOwnedMedia, media_id).provider_media_id = "native-1"
+        item = rom_media.discover_provider_media(
+            "igdb", {"url_screenshots": [{"id": "native-1", "url": URL}]}
+        )[0]
+    applied = db_rom_handler.reconcile_provider_owned_media(
+        target.id,
+        target.updated_at,
+        item.provider,
+        item.provider_media_id,
+        item.role,
+        item.display_label,
+        "image/png",
+        f"{target.fs_resources_path}/owned-media/allowed.png",
+    )
+    assert applied is not None
+
+
+@pytest.mark.asyncio
+async def test_suppression_legacy_delete_during_publication(rom, attempt, monkeypatch):
+    from handler.filesystem.scan_media_publication import require_scan_media_batch
+
+    added = seed(rom, "provider", RomOwnedMediaRole.ARTWORK)
+    current = db_rom_handler.update_rom(
+        rom.id, {"url_cover": URL, "url_screenshots": []}
+    )
+    outputs = []
+
+    async def cover(*args):
+        unit = require_scan_media_batch()
+        output = unit.prepare(f"{rom.fs_resources_path}/cover/big.png")
+        output.file.write(b"attempt image")
+        unit.finish(output)
+        outputs.append(output.path)
+        assert (
+            db_rom_handler.delete_owned_media(
+                rom.id, added.media.id, current.updated_at
+            )
+            is not None
+        )
+        return output.path, output.path
+
+    monkeypatch.setattr(fs_resource_handler, "get_cover", cover)
+    monkeypatch.setattr(fs_resource_handler, "get_manual", AsyncMock(return_value=""))
+    with bind_scan_write_context(context(attempt)):
+        with pytest.raises(ValueError, match="suppressed during publication"):
+            await publish_rom_resources(
+                fs_resource_handler, current, current, complete=True
+            )
+    assert_suppressed(rom.id, added.media.id)
+    persisted = db_rom_handler.get_rom(rom.id)
+    assert persisted.path_cover_l != outputs[0]
+    assert not fs_resource_handler.validate_path(outputs[0]).exists()
+
+
+@pytest.mark.asyncio
+async def test_suppression_legacy_roles_are_independent(rom, attempt, monkeypatch):
+    current, _ = suppress(rom, "provider", RomOwnedMediaRole.SCREENSHOT)
+    current = db_rom_handler.update_rom(
+        rom.id, {"url_cover": URL, "url_screenshots": [URL]}
+    )
+    cover = AsyncMock(return_value=("", ""))
+    shots = AsyncMock(return_value=[])
+    monkeypatch.setattr(fs_resource_handler, "get_cover", cover)
+    monkeypatch.setattr(fs_resource_handler, "get_manual", AsyncMock(return_value=""))
+    monkeypatch.setattr(fs_resource_handler, "get_rom_screenshots", shots)
+    with bind_scan_write_context(context(attempt)):
+        await publish_rom_resources(
+            fs_resource_handler, current, current, complete=True
+        )
+    cover.assert_awaited_once()
+    shots.assert_not_awaited()
