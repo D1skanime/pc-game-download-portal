@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Locator } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import {
   mountGallery,
@@ -440,7 +440,7 @@ for (const width of [320, 1280])
     );
   });
 
-test("keyboard picker, real touch and synthetic controller use existing input translation", async ({
+test("keyboard picker and real touch preserve existing input", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 600, height: 1000 });
@@ -465,7 +465,14 @@ test("keyboard picker, real touch and synthetic controller use existing input tr
   ).toBe(true);
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
-  const physical = await page.evaluate(
+  writeFileSync(
+    `${evidence}/touch-input.json`,
+    JSON.stringify({ touchTargets, keyboardPicker: true, touchPreview: true }),
+  );
+});
+
+async function padBridge(page: Page) {
+  const physicalDetected = await page.evaluate(
     () => Array.from(navigator.getGamepads()).filter(Boolean).length,
   );
   await page.evaluate(() => {
@@ -474,7 +481,7 @@ test("keyboard picker, real touch and synthetic controller use existing input tr
       configurable: true,
       value: () => [
         {
-          id: "synthetic-shot-input",
+          id: "synthetic-shot-dpad",
           index: 0,
           connected: true,
           mapping: "standard",
@@ -489,8 +496,8 @@ test("keyboard picker, real touch and synthetic controller use existing input tr
       ],
     });
   });
-  const press = async (button: number) => {
-    await page.evaluate(async (button) => {
+  const press = async (button: number) =>
+    page.evaluate(async (button) => {
       Reflect.set(window, "shotPadButton", button);
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
@@ -500,44 +507,174 @@ test("keyboard picker, real touch and synthetic controller use existing input tr
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       );
     }, button);
-  };
-  await trigger.focus();
-  await press(0);
-  await expect(page.locator(".r-carousel--fullscreen")).toBeVisible();
-  await page
-    .locator(".r-carousel--fullscreen")
-    .getByRole("button", { name: "Close", exact: true })
-    .focus();
-  await press(0);
-  await expect(page.locator(".r-carousel--fullscreen")).toHaveCount(0);
-  await expect(trigger).toBeFocused();
-  await expect(page.locator("html")).toHaveAttribute("data-input", "pad");
-  const targets = await card(page, "provider:7")
-    .locator(".za-shot__actions button")
-    .evaluateAll((nodes) =>
-      nodes.map((node) => {
-        const rect = node.getBoundingClientRect();
-        return { width: rect.width, height: rect.height };
+  return { press, physicalDetected };
+}
+
+for (const width of [320, 1280])
+  test(`controller D-pad reaches every screenshot control at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const state = await open(page, { count: 2 });
+    const preview = (key: string) => card(page, key).locator("[data-preview]");
+    const actions = (key: string) =>
+      card(page, key).locator(".za-shot__actions button");
+    const refresh = shots(page).locator(".za-shots__head button");
+    const { press, physicalDetected } = await padBridge(page);
+    const visited: { button: number; active: string }[] = [];
+    // Follow actual visual positions because a sticky toolbar changes row order during scrolling.
+    const moveTo = async (target: Locator) => {
+      await expect(target).toBeEnabled();
+      for (let i = 0; i < 30; i++) {
+        if (await target.evaluate((el) => el === document.activeElement))
+          return;
+        await expect
+          .poll(() =>
+            shots(page).evaluate((el) => el.contains(document.activeElement)),
+          )
+          .toBe(true);
+        const desired = (await target.boundingBox())!;
+        const active = await page.evaluate(() => {
+          const node = document.activeElement!;
+          const r = node.getBoundingClientRect();
+          return { top: r.top, left: r.left };
+        });
+        const button =
+          Math.abs(desired.y - active.top) > 3
+            ? desired.y > active.top
+              ? 13
+              : 12
+            : desired.x > active.left
+              ? 15
+              : 14;
+        await press(button);
+        visited.push({
+          button,
+          active: await page.evaluate(() => {
+            const node = document.activeElement!;
+            return (
+              (node.closest("[data-shot-key]")?.getAttribute("data-shot-key") ??
+                "toolbar") +
+              ":" +
+              node.getAttribute("aria-label")
+            );
+          }),
+        });
+      }
+      writeFileSync(
+        `${evidence}/dpad-diagnostic-${width}.json`,
+        JSON.stringify(visited, null, 2),
+      );
+      await expect(target).toBeFocused();
+    };
+    // The sole direct focus establishes entry; every subsequent gallery target uses D-pad events.
+    await upload(page).focus();
+    const required = [
+      refresh,
+      preview("provider:7"),
+      ...[0, 1, 2].map((i) => actions("provider:7").nth(i)),
+      preview("provider:8"),
+      ...[0, 1, 2].map((i) => actions("provider:8").nth(i)),
+      preview("user:10"),
+      ...[0, 1].map((i) => actions("user:10").nth(i)),
+      preview("user:11"),
+      ...[0, 1].map((i) => actions("user:11").nth(i)),
+      preview("user:7"),
+    ];
+    const reached: string[] = [];
+    for (const target of required) {
+      await moveTo(target);
+      reached.push((await target.getAttribute("aria-label")) ?? "");
+    }
+    await expect(actions("user:7")).toHaveCount(0);
+    await moveTo(upload(page));
+    const chooser = page.waitForEvent("filechooser");
+    await press(0);
+    await (await chooser).setFiles([]);
+    await moveTo(refresh);
+    const beforeRefresh = state.reads;
+    await press(0);
+    await expect.poll(() => state.reads).toBe(beforeRefresh + 1);
+    await expect(refresh).toBeEnabled();
+    await moveTo(preview("provider:7"));
+    await press(0);
+    await expect(page.locator(".r-carousel--fullscreen")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(preview("provider:7")).toBeFocused();
+    for (const [index, surface] of [
+      [0, "overview"],
+      [1, "background"],
+    ] as const) {
+      for (let iteration = 0; iteration < 2; iteration++) {
+        await moveTo(actions("provider:7").nth(index));
+        const before = state.mutations.length;
+        await press(0);
+        await expect.poll(() => state.mutations.length).toBe(before + 1);
+        await expect(actions("provider:7").nth(index)).toBeEnabled();
+        const mutation = state.mutations.at(-1)!;
+        expect(mutation.path).toContain("/media/placements");
+        expect(
+          mutation.method === "POST"
+            ? mutation.body?.surface
+            : new URLSearchParams(mutation.query).get("surface"),
+        ).toBe(surface);
+      }
+    }
+    await moveTo(actions("user:10").nth(0));
+    await press(0);
+    await expect(
+      card(page, "user:10").getByRole("button", {
+        name: "Make public",
+        exact: true,
       }),
+    ).toBeEnabled();
+    expect(state.mutations.at(-1)?.path).toBe("/api/screenshots/10");
+    await moveTo(upload(page));
+    await expect(page.locator("html")).toHaveAttribute("data-input", "pad");
+    // The shared dialog focuses its header Close; activate that real focus with A.
+    const dangerSource = width === 320 ? "provider:7" : "user:10";
+    await moveTo(actions(dangerSource).nth(width === 320 ? 2 : 1));
+    const beforeDanger = state.mutations.length;
+    await press(0);
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Close", exact: true }),
+    ).toBeFocused();
+    const dialogFocus = await dialog.evaluate((el) => ({
+      inside: el.contains(document.activeElement),
+      label: document.activeElement?.getAttribute("aria-label"),
+      text: document.activeElement?.textContent?.trim(),
+    }));
+    expect(dialogFocus.inside).toBe(true);
+    await press(0);
+    await expect(dialog).toHaveCount(0);
+    expect(state.mutations).toHaveLength(beforeDanger);
+    writeFileSync(
+      `${evidence}/dpad-${width}.json`,
+      JSON.stringify(
+        {
+          width,
+          physicalDetected,
+          directGalleryFocusCalls: 1,
+          reached,
+          visited,
+          chooserByA: true,
+          placementByA: true,
+          visibilityByA: true,
+          dangerSource,
+          dangerOpenedByA: true,
+          dialogFocus,
+          headerCloseCancelledByA: true,
+          communityReadonly: true,
+          returnedToUploadBeforeDialog: true,
+          physicalController: "unavailable",
+        },
+        null,
+        2,
+      ),
     );
-  expect(targets.every((rect) => rect.width >= 44 && rect.height >= 44)).toBe(
-    true,
-  );
-  expect((await upload(page).boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  writeFileSync(
-    `${evidence}/input.json`,
-    JSON.stringify({
-      physicalDetected: physical,
-      physicalController: "unavailable, not verified",
-      targets,
-      touchTargets,
-      keyboardPicker: true,
-      touchPreview: true,
-      syntheticPadActivateAndCloseControl: true,
-      carouselB: "pre-existing history navigation, not verified as cancel",
-    }),
-  );
-});
+  });
 
 test("empty and broken-image states remain operable", async ({ page }) => {
   await open(page, { count: 0 });
