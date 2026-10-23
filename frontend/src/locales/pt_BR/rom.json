@@ -491,6 +491,8 @@
   "screenshot-removed": "Captura de tela removida com sucesso",
   "screenshot-visibility-failed": "Não foi possível atualizar a visibilidade: {error}",
   "screenshots": "Capturas de tela",
+  "screenshots-action-background": "Fundo",
+  "screenshots-action-overview": "Visão geral",
   "screenshots-background-position": "Plano de fundo: {position}",
   "screenshots-empty": "Nenhuma captura de tela ainda",
   "screenshots-overview-position": "Visão geral: {position}",

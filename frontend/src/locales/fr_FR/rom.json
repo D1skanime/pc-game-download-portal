@@ -491,6 +491,8 @@
   "screenshot-removed": "Capture d'écran supprimée",
   "screenshot-visibility-failed": "Impossible de mettre à jour la visibilité : {error}",
   "screenshots": "Captures d'écran",
+  "screenshots-action-background": "Arrière-plan",
+  "screenshots-action-overview": "Aperçu",
   "screenshots-background-position": "Arrière-plan : {position}",
   "screenshots-empty": "Aucune capture d'écran pour le moment",
   "screenshots-overview-position": "Vue d'ensemble : {position}",

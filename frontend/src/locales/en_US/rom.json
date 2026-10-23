@@ -491,6 +491,8 @@
   "screenshot-removed": "Screenshot removed successfully",
   "screenshot-visibility-failed": "Couldn't update visibility: {error}",
   "screenshots": "Screenshots",
+  "screenshots-action-background": "Background",
+  "screenshots-action-overview": "Overview",
   "screenshots-background-position": "Background: {position}",
   "screenshots-empty": "No screenshots yet",
   "screenshots-overview-position": "Overview: {position}",

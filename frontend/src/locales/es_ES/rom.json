@@ -491,6 +491,8 @@
   "screenshot-removed": "Captura eliminada correctamente",
   "screenshot-visibility-failed": "No se pudo actualizar la visibilidad: {error}",
   "screenshots": "Capturas",
+  "screenshots-action-background": "Fondo",
+  "screenshots-action-overview": "Resumen",
   "screenshots-background-position": "Fondo: {position}",
   "screenshots-empty": "Aún no hay capturas",
   "screenshots-overview-position": "Vista general: {position}",

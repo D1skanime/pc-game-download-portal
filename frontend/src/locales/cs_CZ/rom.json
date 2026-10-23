@@ -491,6 +491,8 @@
   "screenshot-removed": "Screenshot byl úspěšně odstraněn",
   "screenshot-visibility-failed": "Nepodařilo se změnit viditelnost: {error}",
   "screenshots": "Screenshoty",
+  "screenshots-action-background": "Pozadí",
+  "screenshots-action-overview": "Přehled",
   "screenshots-background-position": "Pozadí: {position}",
   "screenshots-empty": "Zatím žádné screenshoty",
   "screenshots-overview-position": "Přehled: {position}",

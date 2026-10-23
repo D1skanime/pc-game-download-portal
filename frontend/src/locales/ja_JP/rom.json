@@ -491,6 +491,8 @@
   "screenshot-removed": "スクリーンショットを削除しました",
   "screenshot-visibility-failed": "表示設定を更新できませんでした：{error}",
   "screenshots": "スクリーンショット",
+  "screenshots-action-background": "背景",
+  "screenshots-action-overview": "概要",
   "screenshots-background-position": "背景: {position}",
   "screenshots-empty": "スクリーンショットはまだありません",
   "screenshots-overview-position": "概要: {position}",

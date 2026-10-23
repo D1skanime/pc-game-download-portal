@@ -16,6 +16,7 @@ vi.mock("@v2/lib", () => ({
   },
   RTooltip: { template: "<span />" },
   RAvatar: { template: "<span />" },
+  RIcon: { template: '<span aria-hidden="true" />' },
 }));
 const media = {
   id: 7,
@@ -37,6 +38,9 @@ describe("ScreenshotManagementCard source capabilities", () => {
     const wrapper = mount(ScreenshotManagementCard, {
       props: { item, canManage: true },
     });
+    expect(wrapper.text()).toContain("rom.screenshots-action-overview");
+    expect(wrapper.text()).toContain("rom.screenshots-action-background");
+    expect(wrapper.text()).toContain("common.delete");
     expect(wrapper.text()).toContain("rom.screenshots-overview-position:0");
     expect(wrapper.text()).toContain("rom.screenshots-background-position:3");
     expect(

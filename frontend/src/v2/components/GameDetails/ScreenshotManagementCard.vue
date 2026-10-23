@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RAvatar, RBtn } from "@v2/lib";
+import { RAvatar, RBtn, RIcon } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomOwnedMediaSchema } from "@/__generated__";
@@ -173,22 +173,17 @@ const visibilityLabel = computed(() =>
           v-for="surface in surfaces"
           :key="surface"
           size="small"
-          :icon="
-            surface === 'overview'
-              ? 'mdi-view-dashboard-outline'
-              : 'mdi-image-outline'
-          "
+          class="za-shot__action"
           :class="{
-            [`za-shot__action--${surface}`]: position(surface) !== undefined,
+            'za-shot__action--selected': position(surface) !== undefined,
           }"
           :loading="providerLoading"
           variant="translucent"
+          border
           :color="
-            position(surface) !== undefined
-              ? surface === 'overview'
-                ? 'var(--r-color-brand-primary)'
-                : 'var(--r-color-info)'
-              : undefined
+            surface === 'overview'
+              ? 'var(--r-color-brand-primary)'
+              : 'var(--r-color-info)'
           "
           :aria-pressed="position(surface) !== undefined"
           :aria-label="placementLabel(surface)"
@@ -196,10 +191,22 @@ const visibilityLabel = computed(() =>
           :disabled="busy"
           @click="emit('action', { type: 'placement', item, surface })"
         >
+          <span class="za-shot__action-content">
+            <RIcon
+              :icon="
+                surface === 'overview'
+                  ? 'mdi-crown-outline'
+                  : 'mdi-image-outline'
+              "
+              size="18"
+            />
+            <span>{{ t(`rom.screenshots-action-${surface}`) }}</span>
+          </span>
         </RBtn>
         <RBtn
           size="small"
-          icon="mdi-delete-outline"
+          class="za-shot__action"
+          variant="outlined"
           color="var(--r-color-danger)"
           :disabled="busy"
           :aria-label="t('rom.provider-screenshot-remove-title')"
@@ -207,6 +214,10 @@ const visibilityLabel = computed(() =>
           :loading="providerLoading"
           @click="emit('action', { type: 'remove-provider', item })"
         >
+          <span class="za-shot__action-content">
+            <RIcon icon="mdi-delete-outline" size="18" />
+            <span>{{ t("common.delete") }}</span>
+          </span>
         </RBtn>
       </div>
       <div
@@ -215,7 +226,9 @@ const visibilityLabel = computed(() =>
       >
         <RBtn
           size="small"
-          :icon="item.shot.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'"
+          class="za-shot__action"
+          variant="translucent"
+          border
           :disabled="busy"
           :aria-label="visibilityLabel"
           :tooltip="visibilityLabel"
@@ -229,10 +242,20 @@ const visibilityLabel = computed(() =>
             })
           "
         >
+          <span class="za-shot__action-content">
+            <RIcon
+              :icon="item.shot.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'"
+              size="18"
+            />
+            <span>{{
+              t(item.shot.isPublic ? "rom.screenshot-public" : "rom.private")
+            }}</span>
+          </span>
         </RBtn>
         <RBtn
           size="small"
-          icon="mdi-delete-outline"
+          class="za-shot__action"
+          variant="outlined"
           color="var(--r-color-danger)"
           :disabled="busy"
           :aria-label="t('common.delete')"
@@ -240,6 +263,10 @@ const visibilityLabel = computed(() =>
           :loading="deletionLoading"
           @click="emit('action', { type: 'delete-mine', item })"
         >
+          <span class="za-shot__action-content">
+            <RIcon icon="mdi-delete-outline" size="18" />
+            <span>{{ t("common.delete") }}</span>
+          </span>
         </RBtn>
       </div>
     </div>
@@ -252,7 +279,8 @@ const visibilityLabel = computed(() =>
   overflow: hidden;
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-card);
-  background: var(--r-color-panel);
+  background: color-mix(in srgb, var(--r-color-panel) 86%, transparent);
+  backdrop-filter: blur(var(--r-space-2));
   font-size: var(--r-font-size-md);
   line-height: var(--r-line-height-normal);
 }
@@ -298,13 +326,11 @@ const visibilityLabel = computed(() =>
   border-radius: var(--r-radius-md);
 }
 .za-shot__badge--overview,
-.za-shot__action--overview,
 .za-shot__new {
   color: var(--r-color-brand-primary);
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
-.za-shot__badge--background,
-.za-shot__action--background {
+.za-shot__badge--background {
   color: var(--r-color-info);
   background: color-mix(in srgb, var(--r-color-info) 12%, transparent);
 }
@@ -315,5 +341,26 @@ const visibilityLabel = computed(() =>
 .za-shot__actions :deep(button) {
   min-width: var(--r-touch-target);
   min-height: var(--r-touch-target);
+}
+.za-shot__action {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: auto;
+  padding: var(--r-space-1) 0;
+  font-size: var(--r-font-size-xs);
+  letter-spacing: normal;
+}
+.za-shot__action-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--r-space-1);
+  min-width: 0;
+  line-height: var(--r-line-height-tight);
+  white-space: normal;
+  overflow-wrap: normal;
+}
+.za-shot__action--selected {
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 </style>

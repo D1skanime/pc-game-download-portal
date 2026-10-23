@@ -491,6 +491,8 @@
   "screenshot-removed": "스크린샷을 삭제했습니다",
   "screenshot-visibility-failed": "공개 설정을 변경할 수 없습니다: {error}",
   "screenshots": "스크린샷",
+  "screenshots-action-background": "배경",
+  "screenshots-action-overview": "개요",
   "screenshots-background-position": "배경: {position}",
   "screenshots-empty": "아직 스크린샷이 없습니다",
   "screenshots-overview-position": "개요: {position}",

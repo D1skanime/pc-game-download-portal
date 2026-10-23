@@ -491,6 +491,8 @@
   "screenshot-removed": "Screenshot rimosso correttamente",
   "screenshot-visibility-failed": "Impossibile aggiornare la visibilità: {error}",
   "screenshots": "Screenshot",
+  "screenshots-action-background": "Sfondo",
+  "screenshots-action-overview": "Panoramica",
   "screenshots-background-position": "Sfondo: {position}",
   "screenshots-empty": "Nessuno screenshot ancora disponibile",
   "screenshots-overview-position": "Panoramica: {position}",

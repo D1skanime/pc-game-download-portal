@@ -491,6 +491,8 @@
   "screenshot-removed": "Екранната снимка е премахната успешно",
   "screenshot-visibility-failed": "Видимостта не може да се промени: {error}",
   "screenshots": "Екранни снимки",
+  "screenshots-action-background": "Фон",
+  "screenshots-action-overview": "Преглед",
   "screenshots-background-position": "Фон: {position}",
   "screenshots-empty": "Все още няма екранни снимки",
   "screenshots-overview-position": "Преглед: {position}",

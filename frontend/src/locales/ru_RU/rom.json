@@ -491,6 +491,8 @@
   "screenshot-removed": "Скриншот успешно удалён",
   "screenshot-visibility-failed": "Не удалось изменить видимость: {error}",
   "screenshots": "Скриншоты",
+  "screenshots-action-background": "Фон",
+  "screenshots-action-overview": "Обзор",
   "screenshots-background-position": "Фон: {position}",
   "screenshots-empty": "Скриншотов пока нет",
   "screenshots-overview-position": "Обзор: {position}",

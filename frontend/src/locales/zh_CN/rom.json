@@ -491,6 +491,8 @@
   "screenshot-removed": "截图已成功移除",
   "screenshot-visibility-failed": "无法更新可见性：{error}",
   "screenshots": "截图",
+  "screenshots-action-background": "背景",
+  "screenshots-action-overview": "概览",
   "screenshots-background-position": "背景：{position}",
   "screenshots-empty": "暂无截图",
   "screenshots-overview-position": "概览：{position}",

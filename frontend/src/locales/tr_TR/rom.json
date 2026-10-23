@@ -491,6 +491,8 @@
   "screenshot-removed": "Ekran görüntüsü başarıyla kaldırıldı",
   "screenshot-visibility-failed": "Görünürlük güncellenemedi: {error}",
   "screenshots": "Ekran Görüntüleri",
+  "screenshots-action-background": "Arka plan",
+  "screenshots-action-overview": "Genel bakış",
   "screenshots-background-position": "Arka plan: {position}",
   "screenshots-empty": "Henüz ekran görüntüsü yok",
   "screenshots-overview-position": "Genel bakış: {position}",

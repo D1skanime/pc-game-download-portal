@@ -491,6 +491,8 @@
   "screenshot-removed": "Captura de ecran a fost eliminată",
   "screenshot-visibility-failed": "Vizibilitatea nu a putut fi actualizată: {error}",
   "screenshots": "Capturi de ecran",
+  "screenshots-action-background": "Fundal",
+  "screenshots-action-overview": "Prezentare",
   "screenshots-background-position": "Fundal: {position}",
   "screenshots-empty": "Nicio captură de ecran încă",
   "screenshots-overview-position": "Prezentare generală: {position}",

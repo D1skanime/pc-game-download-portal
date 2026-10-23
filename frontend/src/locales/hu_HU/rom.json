@@ -491,6 +491,8 @@
   "screenshot-removed": "Képernyőkép sikeresen eltávolítva",
   "screenshot-visibility-failed": "A láthatóság nem frissíthető: {error}",
   "screenshots": "Képernyőképek",
+  "screenshots-action-background": "Háttér",
+  "screenshots-action-overview": "Áttekintés",
   "screenshots-background-position": "Háttér: {position}",
   "screenshots-empty": "Még nincsenek képernyőképek",
   "screenshots-overview-position": "Áttekintés: {position}",
