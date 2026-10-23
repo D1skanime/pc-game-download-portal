@@ -5,7 +5,7 @@ milestone_name: milestone
 status: phase_complete
 stopped_at: Phase36 accepted with documented exceptions; main integration authorized
 last_updated: 2026-10-23T14:06:21.022Z
-last_activity: 2026-10-23
+last_activity: 2026-10-23 -- Verified quick task261023-suc; permanent provider media suppression
 progress:
   total_phases: 36
   completed_phases: 25
@@ -503,6 +503,7 @@ Recent decisions affecting current work:
 
 | #                         | Description                                                                                                                 | Date       | Commit       | Directory                                                                                                           |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| 261023-suc | Preserve operator suppression across provider media updates (verified) | 2026-10-23 | 5bb3b07df | [261023-suc-preserve-operator-suppression-across-pro](./quick/261023-suc-preserve-operator-suppression-across-pro/) |
 | 261016-cgq               | Fix storage preview button state and translations                                                                                | 2026-10-16 | 37e73ab3e   | [261016-cgq-fix-storage-preview-button-state-and-tra](./quick/261016-cgq-fix-storage-preview-button-state-and-tra/) |
 | 261010-sdf                | Localize PC DLC media role selector labels while preserving enum values                                                     | 2026-10-10 | d52bd8532    | [261010-sdf-localize-pc-dlc-media-role-labe](./quick/261010-sdf-localize-pc-dlc-media-role-labe/)                   |
 | 20261007-background-media | Fix selected media backgrounds and reduced-motion visibility                                                                | 2026-10-07 | bd0b4fee5    | [20261007-background-media-display](./quick/20261007-background-media-display/)                                     |
@@ -622,3 +623,7 @@ The user explicitly authorized Dev deployment and joint live UAT. Only pgdp-dev 
 ## Phase36 user acceptance and closure (2026-10-23)
 
 The user explicitly requested commit, push to main and closure after joint Dev UAT. All 17 plans and 35 tasks are complete. Live PC German, manual matching, ScreenScraper PS2 German/French, DE/EN switching, one automatic scan completion and both themes were confirmed. The release is accepted with documented limitations: Cancel resets the draft but leaves its dialog open (close via X); physical controller and browser zoom were unavailable; detailed live warm-successor and remaining error-flow subcases were not exercised. Those tests are not relabelled as passes. The five technical/human verification warnings from phase.complete are retained in the phase reports. Historical gates and overall milestone acceptance are not closed. Architecture descriptions now match the typed locale/source resolver, shared language capture and bounded provider repair. Main integration follows via PR3 without changing Dev data, Games, media or local Compose edits.
+
+## Verified backend correction
+
+Quick task261023-suc: permanent operator suppression for provider screenshots/artwork. Branch codex/fix-provider-media-suppression is based on main b58945bbf and remains separate from Phase37 UI PR4. Read .planning/quick/261023-suc-preserve-operator-suppression-across-pro/REQUEST.md and261023-suc-PLAN.md. Existing local Compose/media/prototype work remains protected. Implementation is complete in aad023070,782958a48 and5bb3b07df. Independent verification passed5/5 must-haves and all seven requirements. MariaDB and PostgreSQL each passed77 focused tests. All five owned disposable environments were removed with clean=true,source_unchanged=true and no remaining resources. Scoped Trunk reports no new issues; five existing issues were left unchanged. Protected file hashes match the initial baseline. No schema, frontend, live data or deployment change occurred. PR4 restoration wording must be synchronized separately before joint release; it remains on its own UI branch.
