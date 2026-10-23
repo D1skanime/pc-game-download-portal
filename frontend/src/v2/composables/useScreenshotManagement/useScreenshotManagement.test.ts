@@ -389,12 +389,13 @@ describe("settled screenshot uploads", () => {
     await actions.handleMyFiles([files[0], new File(["other"], "a.png")]);
     expect(m.uploadGalleryScreenshots).toHaveBeenCalledTimes(1);
     expect(post).toHaveBeenCalledTimes(2);
-    expect(
-      post.mock.calls.every(
-        ([path, , config]) =>
-          path === "/screenshots" && config?.params.rom_id === 1,
-      ),
-    ).toBe(true);
+    for (const call of post.mock.calls) {
+      expect(call).toEqual([
+        "/screenshots",
+        expect.any(FormData),
+        expect.objectContaining({ params: { rom_id: 1 } }),
+      ]);
+    }
     expect(m.reset).toHaveBeenCalledTimes(1);
     const progress = uploadStore();
     progress.start("same.png");
@@ -408,5 +409,66 @@ describe("settled screenshot uploads", () => {
     });
     expect(progress.files.map((file) => file.finished)).toEqual([true, false]);
     post.mockRestore();
+  });
+});
+
+describe("provider surface and version contracts", () => {
+  it.each(["overview", "background"] as const)(
+    "adds and removes %s without rewriting survivor order",
+    async (surface) => {
+      const { actions, current } = setup();
+      await actions.togglePlacement(provider(), surface);
+      expect(m.setOwnedMediaPlacement).toHaveBeenCalledWith({
+        romId: 1,
+        mediaId: 7,
+        surface,
+        expectedVersion: "v1",
+      });
+      const placed = provider(7, [
+        { id: 1, media_id: 7, surface, position: 0 },
+      ]);
+      const survivor = provider(8, [
+        { id: 2, media_id: 8, surface, position: 4 },
+      ]);
+      current.value.owned_media = [placed, survivor];
+      const updated = { ...rom(), owned_media: [provider(), survivor] };
+      m.getRom.mockResolvedValue({ data: updated });
+      await actions.togglePlacement(placed, surface);
+      expect(m.removeOwnedMediaPlacement).toHaveBeenCalledWith({
+        romId: 1,
+        mediaId: 7,
+        surface,
+        expectedVersion: "v1",
+      });
+      expect(m.setCurrentRom).toHaveBeenLastCalledWith(updated);
+      expect(updated.owned_media[1].placements?.[0]?.position).toBe(4);
+    },
+  );
+  it("captures version before confirmation rather than borrowing a later revision", async () => {
+    const confirmation = deferred<boolean>();
+    m.confirm.mockReturnValue(confirmation.promise);
+    const { actions, current } = setup();
+    const pending = actions.deleteProviderScreenshot(provider());
+    current.value.updated_at = "v2";
+    confirmation.resolve(true);
+    await pending;
+    expect(m.deleteOwnedMedia).toHaveBeenCalledWith({
+      romId: 1,
+      mediaId: 7,
+      expectedVersion: "v1",
+    });
+  });
+  it("allows an authenticated viewer to upload without rom.edit", async () => {
+    storePermissions().$patch({ isAdmin: false, grants: [] });
+    m.uploadGalleryScreenshots.mockResolvedValue([
+      { status: "fulfilled", value: {} },
+    ]);
+    const { actions } = setup();
+    await actions.handleMyFiles([new File(["a"], "a.png")]);
+    expect(actions.canManage.value).toBe(false);
+    expect(m.uploadGalleryScreenshots).toHaveBeenCalledWith(
+      expect.objectContaining({ romId: 1 }),
+    );
+    expect(m.success).toHaveBeenCalledWith("rom.screenshots-uploaded-n");
   });
 });

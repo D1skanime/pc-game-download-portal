@@ -306,32 +306,67 @@ export function useScreenshotManagement(rom: () => DetailedRom) {
   function toggleVisibility(id: number, isPublic: boolean) {
     return runPersonal(id, isPublic);
   }
-  function reportUpload(responses: PromiseSettledResult<unknown>[]) {
-    const successful = responses.filter(
+  function reportUpload(
+    responses: PromiseSettledResult<unknown>[],
+    canonicalReady: boolean,
+  ) {
+    const uploaded = responses.filter(
       (item) => item.status === "fulfilled",
     ).length;
-    if (successful === responses.length) uploadStore.reset();
-    successful
-      ? snackbar.success(
-          t("rom.screenshots-uploaded-n", successful, {
-            named: { n: successful },
-          }),
-        )
-      : snackbar.warning(t("rom.no-screenshots-uploaded"));
+    const failed = responses.length - uploaded;
+    if (!responses.length) return;
+    if (failed) {
+      snackbar.warning(
+        uploaded
+          ? t("rom.screenshots-upload-partial", { uploaded, failed })
+          : t("rom.no-screenshots-uploaded"),
+      );
+      const rejection = responses.find((item) => item.status === "rejected");
+      if (rejection?.status === "rejected")
+        snackbar.error(errorMessage(rejection.reason));
+    } else if (canonicalReady) {
+      uploadStore.reset();
+      snackbar.success(
+        t("rom.screenshots-uploaded-n", uploaded, { named: { n: uploaded } }),
+      );
+    }
   }
   async function handleMyFiles(files: File[]) {
-    if (!files.length) return;
-    const responses = await screenshotApi.uploadGalleryScreenshots({
-      romId: rom().id,
-      filesToUpload: files,
-    });
-    reportUpload(responses);
-    if (responses.some((item) => item.status === "fulfilled")) {
-      try {
-        await refreshCanonical();
-      } catch (error) {
-        snackbar.error(errorMessage(error));
+    if (!files.length || uploading.value || !active || !canUpload.value) return;
+    const context = capture();
+    const ownerId = user.value?.id;
+    const previousIds = new Set(myScreenshots.value.map((item) => item.id));
+    // Keep the guard until settlement, including navigation, so a late batch cannot clear a newer one.
+    uploading.value = true;
+    try {
+      const responses = await screenshotApi.uploadGalleryScreenshots({
+        romId: context.romId,
+        filesToUpload: files,
+      });
+      if (!current(context)) return;
+      const uploaded = responses.some((item) => item.status === "fulfilled");
+      if (!uploaded) {
+        reportUpload(responses, false);
+        return;
       }
+      let canonical: DetailedRom | undefined;
+      try {
+        canonical = await refreshCanonical(context);
+      } catch {
+        if (!current(context)) return;
+        reportUpload(responses, false);
+        snackbar.error(t("rom.screenshots-update-error"));
+        return;
+      }
+      if (!current(context) || !canonical) return;
+      newlyUploadedIds.value = (canonical.all_user_screenshots ?? [])
+        .filter((item) => item.user_id === ownerId && !previousIds.has(item.id))
+        .map((item) => item.id);
+      reportUpload(responses, true);
+    } catch (error) {
+      if (current(context)) snackbar.error(errorMessage(error));
+    } finally {
+      uploading.value = false;
     }
   }
   return {
