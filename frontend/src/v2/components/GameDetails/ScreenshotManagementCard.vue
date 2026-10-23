@@ -311,9 +311,8 @@ const visibilityLabel = computed(() =>
 .za-shot__actions {
   min-width: 0;
 }
-html[data-bp~="xs"] .za-shot__actions :deep(button),
-html[data-input="touch"] .za-shot__actions :deep(button),
-html[data-input="pad"] .za-shot__actions :deep(button) {
+/* Touch compatibility mouse events must not shrink action hit targets. */
+.za-shot__actions :deep(button) {
   min-width: var(--r-touch-target);
   min-height: var(--r-touch-target);
 }
