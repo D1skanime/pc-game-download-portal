@@ -9,11 +9,12 @@
 // Library tools (Scan / Upload) are administrative actions, not content
 // destinations — they live in the user menu's Library group, keeping the
 // primary nav focused on browsing destinations.
-import { RSliderBtnGroup, RImg } from "@v2/lib";
+import { RSliderBtnGroup } from "@v2/lib";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
+import ProjectBrand from "@/v2/components/shared/ProjectBrand.vue";
 import { useNavDestinations } from "@/v2/composables/useNavDestinations";
 
 defineOptions({ inheritAttrs: false });
@@ -50,20 +51,7 @@ onBeforeUnmount(() => {
   <header class="r-v2-nav-bar" :class="{ 'r-v2-nav-bar--scrolled': scrolled }">
     <nav class="r-v2-nav">
       <router-link to="/" class="r-v2-nav__logo" :aria-label="t('common.home')">
-        <RImg
-          src="/assets/isotipo.svg"
-          alt="PGDP isotipo"
-          aria-hidden="true"
-          class="r-v2-nav__logo-mark"
-          :width="32"
-        />
-        <RImg
-          src="/assets/logotipo.svg"
-          alt="PGDP logotipo"
-          aria-hidden="true"
-          class="r-v2-nav__logo-word"
-          :width="70"
-        />
+        <ProjectBrand variant="navigation" aria-hidden="true" />
       </router-link>
 
       <div class="r-v2-nav__center">
@@ -154,6 +142,8 @@ onBeforeUnmount(() => {
   text-decoration: none;
   color: var(--r-color-fg);
   flex-shrink: 0;
+  min-height: var(--r-touch-target);
+  min-width: var(--r-touch-target);
   justify-self: start;
   transition: filter var(--r-motion-med) var(--r-motion-ease-out);
 }
@@ -165,18 +155,6 @@ onBeforeUnmount(() => {
 }
 .r-v2-nav__logo:focus-visible {
   outline: none;
-}
-
-.r-v2-nav__logo-mark {
-  width: 32px;
-  height: 32px;
-  display: block;
-}
-
-.r-v2-nav__logo-word {
-  height: 22px;
-  width: auto;
-  display: block;
 }
 
 .r-v2-nav__center {
@@ -204,12 +182,6 @@ html[data-bp~="sm-and-down"] .r-v2-nav {
   grid-template-columns: 1fr auto;
 }
 html[data-bp~="sm-and-down"] .r-v2-nav__center {
-  display: none;
-}
-
-/* The wordmark stays on the tablet range but drops on the tightest
-   phones so the isotipo + user cluster have room. */
-html[data-bp~="xs"] .r-v2-nav__logo-word {
   display: none;
 }
 </style>

@@ -2,12 +2,13 @@
 // v2 AboutDialog — emitter-driven. Replaces the v1 AboutDialog in the v2
 // GlobalDialogs stack so the "About" entry in UserMenu renders the v2 glass
 // panel instead of the legacy card.
-import { RDialog, RIcon, RImg } from "@v2/lib";
+import { RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
-import { PROJECT_GITHUB_URL } from "@/v2/config/project";
+import ProjectBrand from "@/v2/components/shared/ProjectBrand.vue";
+import { PROJECT_DOCS_URL, PROJECT_GITHUB_URL } from "@/v2/config/project";
 import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
@@ -51,13 +52,13 @@ const links: Link[] = [
   {
     icon: "mdi-file-document-outline",
     label: t("common.about-documentation"),
-    value: "docs.romm.app",
-    href: "https://docs.romm.app",
+    value: "GitHub",
+    href: PROJECT_DOCS_URL,
   },
   {
     icon: "mdi-account-group",
     label: t("common.about-community"),
-    value: "Discord",
+    value: "RomM (upstream) Discord",
     href: "https://discord.com/invite/P5HtHnhUDH",
   },
 ];
@@ -84,14 +85,7 @@ const links: Link[] = [
           class="r-v2-about__tile"
         >
           <div class="r-v2-about__icon">
-            <RImg
-              v-if="link.isotipo"
-              src="/assets/isotipo.svg"
-              alt="PGDP"
-              :width="18"
-              :height="18"
-              contain
-            />
+            <ProjectBrand v-if="link.isotipo" variant="about" />
             <RIcon v-else-if="link.icon" :icon="link.icon" size="18" />
           </div>
           <div class="r-v2-about__meta">
