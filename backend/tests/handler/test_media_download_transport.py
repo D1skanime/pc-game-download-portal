@@ -268,7 +268,7 @@ async def test_actual_scanner_fatal_publication_faults_propagate(
     }[fault]
     original = ScanMediaBatch.publish_and_associate
 
-    def publish(unit, associate, *, session=None):
+    def publish(unit, associate, *, session=None, before_publish=None):
         def inject(session):
             associate(session)
             raise fatal()
@@ -277,6 +277,7 @@ async def test_actual_scanner_fatal_publication_faults_propagate(
             unit,
             inject if unit.outputs and fault != "cancel" else associate,
             session=session,
+            before_publish=before_publish,
         )
 
     monkeypatch.setattr(ScanMediaBatch, "publish_and_associate", publish)

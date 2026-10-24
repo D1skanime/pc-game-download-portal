@@ -344,6 +344,9 @@ class SanitizationContracts(unittest.TestCase):
                     sanitize(root, "secret-token")
 
     def test_scrubs_token_jwt_and_headers_inside_trace(self):
+        from tests._zipfile_shim import reload_zipfile
+
+        reload_zipfile()
         from phase36_receipts import sanitize
 
         with tempfile.TemporaryDirectory() as temporary:
@@ -365,6 +368,9 @@ class SanitizationContracts(unittest.TestCase):
             self.assertNotIn("eyJ", data)
 
     def test_large_jsonl_member_is_scrubbed_record_by_record(self):
+        from tests._zipfile_shim import reload_zipfile
+
+        reload_zipfile()
         from phase36_receipts import sanitize
 
         with tempfile.TemporaryDirectory() as temporary:
@@ -389,6 +395,9 @@ class SanitizationContracts(unittest.TestCase):
                     self.assertNotIn(token, value["action"])
 
     def test_archive_limits_each_line_member_and_total(self):
+        from tests._zipfile_shim import reload_zipfile
+
+        reload_zipfile()
         from unittest.mock import patch
 
         import phase36_receipts as receipts
@@ -405,6 +414,9 @@ class SanitizationContracts(unittest.TestCase):
                         receipts.sanitize(root, "b" * 32)
 
     def test_archive_rejects_unsafe_member_paths_and_links(self):
+        from tests._zipfile_shim import reload_zipfile
+
+        reload_zipfile()
         from phase36_receipts import sanitize
 
         for name, link in (
