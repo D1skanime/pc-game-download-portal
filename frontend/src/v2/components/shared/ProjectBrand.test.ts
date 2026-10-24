@@ -1,10 +1,12 @@
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import { shallowMount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import AboutDialog from "@/v2/components/Dialogs/AboutDialog.vue";
+import NewVersionBanner from "@/v2/components/Notifications/NewVersionBanner.vue";
 import AuthCard from "@/v2/components/shared/AuthCard.vue";
 import ProjectBrand from "@/v2/components/shared/ProjectBrand.vue";
+import VersionTag from "@/v2/components/shared/VersionTag.vue";
 
 describe("ProjectBrand", () => {
   it.each(["auth", "navigation", "about"] as const)(
@@ -83,6 +85,7 @@ describe("brand consumers", () => {
   it("uses project docs and explicitly attributes upstream community", () => {
     const wrapper = shallowMount(AboutDialog, {
       global: {
+        provide: { emitter: { on: vi.fn(), off: vi.fn() } },
         stubs: {
           ProjectBrand: false,
           RDialog: {
@@ -109,5 +112,59 @@ describe("brand consumers", () => {
     ).toContain("RomM (upstream)");
     expect(wrapper.find("r-img-stub").exists()).toBe(false);
     wrapper.unmount();
+  });
+});
+
+describe("rendered release identity", () => {
+  it("links the actual heartbeat version in VersionTag and About", () => {
+    const tag = mount(VersionTag, { props: { link: true } });
+    expect(tag.text()).toBe("v1.2.3");
+    expect(tag.get("a").attributes("href")).toBe(
+      "https://github.com/D1skanime/zockarchive/releases/tag/v1.2.3",
+    );
+    const about = shallowMount(AboutDialog, {
+      global: {
+        provide: { emitter: { on: vi.fn(), off: vi.fn() } },
+        stubs: {
+          RDialog: { template: "<section><slot name='content' /></section>" },
+        },
+      },
+    });
+    expect(about.get("a").attributes("href")).toBe(
+      tag.get("a").attributes("href"),
+    );
+    expect(about.get("a").text()).toContain("v1.2.3");
+    about.unmount();
+  });
+
+  it("fetches the project latest release and opens its truthful tag", async () => {
+    localStorage.removeItem("ui.dismissedVersion");
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      json: async () => ({
+        tag_name: "v1.3.0",
+        published_at: "2020-01-01T00:00:00Z",
+      }),
+    } as Response);
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const wrapper = shallowMount(NewVersionBanner, {
+      global: { stubs: { RBtn: { template: "<button><slot /></button>" } } },
+    });
+    document.dispatchEvent(new Event("network-quiesced"));
+    await flushPromises();
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.github.com/repos/D1skanime/zockarchive/releases/latest",
+    );
+    expect(wrapper.text()).toContain("v1.3.0");
+    await wrapper.findAll("button")[0]!.trigger("click");
+    expect(open).toHaveBeenCalledWith(
+      "https://github.com/D1skanime/zockarchive/releases/tag/v1.3.0",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    await wrapper.findAll("button")[1]!.trigger("click");
+    expect(localStorage.getItem("ui.dismissedVersion")).toBe("v1.3.0");
+    wrapper.unmount();
+    fetch.mockRestore();
+    open.mockRestore();
   });
 });

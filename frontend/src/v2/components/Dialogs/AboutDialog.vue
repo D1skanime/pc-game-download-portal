@@ -4,11 +4,15 @@
 // panel instead of the legacy card.
 import { RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import ProjectBrand from "@/v2/components/shared/ProjectBrand.vue";
-import { PROJECT_DOCS_URL, PROJECT_GITHUB_URL } from "@/v2/config/project";
+import {
+  PROJECT_DOCS_URL,
+  PROJECT_GITHUB_URL,
+  projectReleaseTagUrl,
+} from "@/v2/config/project";
 import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
@@ -36,12 +40,12 @@ type Link = {
   href: string;
 };
 
-const links: Link[] = [
+const links = computed<Link[]>(() => [
   {
     isotipo: true,
     label: t("common.about-version"),
     value: heartbeatStore.value.SYSTEM.VERSION,
-    href: `https://github.com/D1skanime/pc-game-download-portal/releases/tag/${heartbeatStore.value.SYSTEM.VERSION}`,
+    href: projectReleaseTagUrl(heartbeatStore.value.SYSTEM.VERSION),
   },
   {
     icon: "mdi-code-braces",
@@ -61,7 +65,7 @@ const links: Link[] = [
     value: "RomM (upstream) Discord",
     href: "https://discord.com/invite/P5HtHnhUDH",
   },
-];
+]);
 </script>
 
 <template>

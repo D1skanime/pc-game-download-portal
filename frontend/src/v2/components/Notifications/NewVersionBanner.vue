@@ -18,7 +18,10 @@ import { useLocalStorage } from "@vueuse/core";
 import semver from "semver";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { PROJECT_RELEASE_API_URL } from "@/v2/config/project";
+import {
+  PROJECT_RELEASE_API_URL,
+  projectReleaseTagUrl,
+} from "@/v2/config/project";
 import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
@@ -46,7 +49,7 @@ function onDismiss() {
 
 function onOpenRelease() {
   window.open(
-    `https://github.com/D1skanime/pc-game-download-portal/releases/tag/${latestVersion.value}`,
+    projectReleaseTagUrl(latestVersion.value),
     "_blank",
     "noopener,noreferrer",
   );

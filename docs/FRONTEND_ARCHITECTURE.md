@@ -265,6 +265,23 @@ parameters change, and teardown never restores an obsolete title. Keep stores,
 router, API clients and application initialization out of this config so build
 tooling and browser startup can safely share it.
 
+The domain shared composite `components/shared/ProjectBrand.vue` presents that
+metadata as text through auth, navigation and about variants. AuthCard owns the
+shared login/register/reset/setup frame; AppNav retains the localized Home link
+and hides its redundant brand text from assistive technology. Only the expanded
+navigation word hides on xs. About and pairing use the compact ZA text. The
+pairing QR remains unmodified, with product identity outside its encoded area.
+VersionTag, AboutDialog and NewVersionBanner share `projectReleaseTagUrl`;
+the banner fetches the canonical release API and preserves its age/dismissal
+rules. About links current documentation to repository docs and labels the
+retained RomM community link as upstream.
+
+The application bootstrap filename remains `src/PGDP.vue` for compatibility.
+ProjectBrand owns later supplied in-app artwork integration. Public browser/PWA
+icons and desktop packaging icons have separate owners and remain pending supplied
+assets; retained image binaries are not represented as ZockArchive artwork.
+Provider artwork and license attribution retain their upstream identity.
+
 Important v2 composables include useCan, useLibraryOperation, useProviderResolution, useManualDescription, useGameDetailsMedia, useBackgroundArt, useBackgroundAudio, useCoverArt, useWebpSupport, useBreakpoint, useResponsiveColumns, useInputModality, useGamepad, useGridNav, useRightStickScroll, useGallerySelectionInput, useGlobalHotkeys, useThemeMode, useReducedMotion, useCrtMode, useFullscreenPref, useGalleryFilterUrl, useGalleryViewModeUrl, useTileSearchUrl, useGalleryProvenance, usePageTitle, useServerConnection, useSnackbar, useConfirm, useSocketEvent, useScanLifecycle, useBrowserDownloadQueue, and usePlaySession. v2/utils covers route-query validation, artwork, collection covers, player helpers, ROM verification/status, download manifest paths, provider labels, CSS checks, and input helpers. frontend/src/utils contains form-data, task, cover, and IndexedDB helpers.
 
 ---
