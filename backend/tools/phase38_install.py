@@ -193,6 +193,8 @@ def upgrade(identity):
         )["sha256"]
         volume = owned_volume(run)
         validate_volume(run.inspect("volume", volume), run.token, volume)
+        if run.manifest is None:
+            raise RuntimeError("owned production manifest missing")
         receipt["resources"] = {
             "sql": run.manifest["sql"]["id"],
             "redis": run.manifest["redis"]["id"],
