@@ -22,7 +22,7 @@ class CITargetTests(unittest.TestCase):
         self.addCleanup(cwd.stop)
         self.workspace = {
             "GITHUB_ACTIONS": "true",
-            "GITHUB_REPOSITORY": "D1skanime/pc-game-download-portal",
+            "GITHUB_REPOSITORY": "D1skanime/zockarchive",
             "GITHUB_WORKSPACE": str(Path(ci_target.__file__).resolve().parents[2]),
         }
 
@@ -58,6 +58,79 @@ class CITargetTests(unittest.TestCase):
                 side_effect=[root, ci_target.ORIGIN.removesuffix(".git")],
             ):
                 self.assertEqual(ci_target.preflight(), Path(root))
+
+    def test_current_origin_positive_and_foreign_negatives(self):
+        root = str(Path(ci_target.__file__).resolve().parents[2])
+        for origin in (
+            "https://github.com/D1skanime/zockarchive.git",
+            "https://github.com/D1skanime/zockarchive",
+            "https://github.com/D1skanime/pc-game-download-portal.git",
+            "https://github.com/foreign/zockarchive.git",
+            "https://foreign.example/D1skanime/zockarchive.git",
+        ):
+            with self.subTest(origin=origin), patch.dict(
+                ci_target.os.environ, self.workspace, clear=True
+            ), patch.object(
+                ci_target.subprocess, "check_output", side_effect=[root, origin]
+            ):
+                if (
+                    origin.removesuffix(".git")
+                    == "https://github.com/D1skanime/zockarchive"
+                ):
+                    self.assertEqual(ci_target.preflight(), Path(root))
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "identity mismatch"):
+                        ci_target.preflight()
+
+    def test_ci_workspace_positive_and_identity_negatives(self):
+        root = Path("/actions/zockarchive/zockarchive")
+        for overrides in (
+            {},
+            {"GITHUB_REPOSITORY": "foreign/zockarchive"},
+            {"GITHUB_REPOSITORY": "D1skanime/pc-game-download-portal"},
+            {"GITHUB_WORKSPACE": "/actions/foreign"},
+            {"GITHUB_ACTIONS": "false"},
+        ):
+            with self.subTest(overrides=overrides), patch.object(
+                ci_target, "__file__", str(root / "backend/tools/ci_target.py")
+            ), patch.object(ci_target.Path, "cwd", return_value=root), patch.dict(
+                ci_target.os.environ,
+                {**self.workspace, "GITHUB_WORKSPACE": str(root), **overrides},
+                clear=True,
+            ), patch.object(
+                ci_target.subprocess,
+                "check_output",
+                side_effect=[str(root), "https://github.com/D1skanime/zockarchive.git"],
+            ) as git, patch.object(
+                ci_target.Path, "is_file", return_value=True
+            ):
+                if overrides:
+                    with self.assertRaisesRegex(RuntimeError, "workspace"):
+                        ci_target.preflight()
+                    git.assert_not_called()
+                else:
+                    self.assertEqual(ci_target.preflight(), root)
+
+    def test_all_inherited_target_overrides_fail_before_git(self):
+        for key in (
+            "DB_HOST",
+            "DB_NAME",
+            "DB_USER",
+            "DB_PASSWD",
+            "REDIS_HOST",
+            "REDIS_URL",
+            "DATABASE_URL",
+            "PHASE34_RUN_TOKEN",
+            "COMPOSE_FILE",
+            "COMPOSE_PROJECT_NAME",
+            "PYTEST_ADDOPTS",
+        ):
+            with self.subTest(key=key), patch.dict(
+                ci_target.os.environ, {**self.workspace, key: "foreign"}, clear=True
+            ), patch.object(ci_target.subprocess, "check_output") as git:
+                with self.assertRaisesRegex(RuntimeError, "inherited target override"):
+                    ci_target.preflight()
+                git.assert_not_called()
 
     def run_gate(self, gate, failure=False, shard=None):
         temporary = tempfile.TemporaryDirectory()
