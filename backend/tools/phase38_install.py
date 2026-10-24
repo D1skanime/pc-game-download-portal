@@ -318,6 +318,13 @@ def upgrade(identity):
         receipt["preserved"] = after
         receipt["passed"] = True
     finally:
+        for container in run.owned("container"):
+            item = run.inspect("container", container)
+            if item["Config"]["Labels"].get("com.docker.compose.service") in (
+                "api",
+                "worker",
+            ):
+                run.command(["docker", "logs", "--tail", "120", container], check=False)
         try:
             run.close()
             for image in images:
