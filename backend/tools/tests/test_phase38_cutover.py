@@ -13,6 +13,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import phase38_cutover as cutover
+import phase38_cutover_source as source_module
 import phase38_cutover_validation as validation
 from phase38_cutover_source import manifest, source_proof
 
@@ -202,6 +203,55 @@ class BackupTests(unittest.TestCase):
         with self.assertRaises((ValueError, RuntimeError)):
             cutover.verify_bundle(self.row, "f" * 40)
 
+    def test_complete_local_and_remote_backups(self):
+        mirror = self.backups / "remote.git"
+        self.git("clone", "--mirror", str(self.root), str(mirror))
+        advertised = cutover.parse_refs(self.git("show-ref", "--dereference"))
+        remote_refs = [r for r in advertised if not r[0].endswith("^{}")]
+        remote_bundle = self.backups / "remote.bundle"
+        self.git(
+            "--git-dir=" + str(mirror),
+            "bundle",
+            "create",
+            str(remote_bundle),
+            *[r[0] for r in remote_refs],
+        )
+        remote_head = self.sha
+        self.git("branch", "-m", "unpublished-feature")
+        (self.root / "source").write_text("unpublished feature source")
+        self.git("add", "source")
+        self.git("commit", "-qm", "unpublished feature")
+        self.sha = self.git("rev-parse", "HEAD").strip()
+        local_final = self.backups / "local-final.bundle"
+        self.git("bundle", "create", str(local_final), "--all")
+        self.row = {
+            "path": str(local_final),
+            "sha256": hashlib.sha256(local_final.read_bytes()).hexdigest(),
+            "refs": cutover.parse_refs(
+                self.git("bundle", "list-heads", str(local_final))
+            ),
+        }
+        before = {
+            "repository_head": remote_head,
+            "refs": advertised,
+            "local_refs": self.row["refs"],
+            "backup": {
+                "source": self.sha,
+                "local": self.row,
+                "local_refs": self.row["refs"],
+                "mirror": str(mirror),
+                "remote": {
+                    "path": str(remote_bundle),
+                    "refs": remote_refs,
+                    "sha256": hashlib.sha256(remote_bundle.read_bytes()).hexdigest(),
+                },
+            },
+        }
+        cutover.verify_backup(before)
+        before["backup"]["local_refs"] = before["backup"]["local_refs"][:-1]
+        with self.assertRaises(ValueError):
+            cutover.verify_backup(before)
+
     def test_symlink_escape_rejected(self):
         link = self.backups / "escape.bundle"
         link.symlink_to(self.root / "source")
@@ -324,12 +374,12 @@ class ValidationTests(unittest.TestCase):
                     validation.validate(row)
 
 
-class SourceTests(unittest.TestCase):
+class SourceTests(BackupTests):
     def test_real_manifest_rejects_incomplete_digest_and_equivalent_flag(self):
-        root = Path(__file__).resolve().parents[3]
-        sha = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=root, text=True
-        ).strip()
+        mocked = patch.object(source_module, "ROOT", self.root)
+        mocked.start()
+        self.addCleanup(mocked.stop)
+        sha = self.sha
         row = {"commit": sha, "manifest": manifest(sha, "full")}
         source_proof(row, sha, "full")
         for changed in (
@@ -345,6 +395,49 @@ class SourceTests(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 source_proof(changed, sha, "full")
+
+    def test_changed_full_source_rejected_and_schema_coverage_fixed(self):
+        mocked = patch.object(source_module, "ROOT", self.root)
+        mocked.start()
+        self.addCleanup(mocked.stop)
+        (self.root / "backend").mkdir()
+        (self.root / "backend/app.py").write_text("runtime")
+        self.git("add", "backend/app.py")
+        self.git("commit", "-qm", "runtime input")
+        previous = self.git("rev-parse", "HEAD").strip()
+        observed_files = source_module.runtime_manifest(previous)
+        receipt = {
+            "commit": previous,
+            "manifest": manifest(previous, "schema"),
+            "observed_inputs": {
+                "files": observed_files,
+                "sha256": hashlib.sha256(
+                    json.dumps(observed_files, sort_keys=True).encode()
+                ).hexdigest(),
+            },
+        }
+        (self.root / "source").write_text("helper documentation")
+        self.git("add", "source")
+        self.git("commit", "-qm", "non schema input")
+        current = self.git("rev-parse", "HEAD").strip()
+        source_proof(receipt, current, "schema")
+        for altered in (
+            {"commit": previous, "manifest": receipt["manifest"]},
+            {**receipt, "observed_inputs": {"files": {}, "sha256": "0" * 64}},
+        ):
+            with self.assertRaises(ValueError):
+                source_proof(altered, current, "schema")
+        with self.assertRaises(ValueError):
+            source_proof(
+                {"commit": previous, "manifest": manifest(previous, "full")},
+                current,
+                "full",
+            )
+        (self.root / "backend/app.py").write_text("changed runtime")
+        self.git("add", "backend/app.py")
+        self.git("commit", "-qm", "changed runtime")
+        with self.assertRaises(ValueError):
+            source_proof(receipt, self.git("rev-parse", "HEAD").strip(), "schema")
 
 
 if __name__ == "__main__":
