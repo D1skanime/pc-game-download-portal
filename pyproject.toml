@@ -1,7 +1,7 @@
 [project]
-name = "pgdp"
+name = "zockarchive"
 version = "0.0.1"
-description = "A self-hosted PC game library and download portal"
+description = "A self-hosted PC and console game library and download portal"
 authors = [
   { name = "Zurdi", email = "zurdi@romm.app" },
   { name = "Arcane", email = "arcane@romm.app" },
@@ -89,8 +89,8 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://romm.app/"
-Source = "https://github.com/rommapp/romm"
+Homepage = "https://github.com/D1skanime/zockarchive"
+Source = "https://github.com/D1skanime/zockarchive"
 
 [tool.deptry]
 known_first_party = [
