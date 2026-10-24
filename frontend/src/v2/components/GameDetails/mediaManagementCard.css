@@ -45,6 +45,9 @@
   white-space: nowrap;
   color: var(--r-color-fg-muted);
 }
+.za-shot__badges {
+  min-height: calc(1em * var(--r-line-height-normal));
+}
 .za-shot__badge {
   padding: 0 var(--r-space-1);
   border-radius: var(--r-radius-md);

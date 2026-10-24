@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { RBtn, REmptyState } from "@v2/lib";
-import { ref } from "vue";
+import { onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import type { DetailedRomSchema, PcComponentSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import PcDlcDetail from "@/v2/components/GameDetails/PcDlcDetail.vue";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import romApi from "@/v2/data/adapters/legacy/services/api/rom";
 import storeRoms from "@/v2/data/adapters/legacy/stores/roms";
 
@@ -25,9 +26,14 @@ function parseSafeRouteId(value: unknown): number | null {
 const route = useRoute();
 const romsStore = storeRoms();
 const { t } = useI18n();
+const snackbar = useSnackbar();
 const state = ref<PageState>("loading");
 const parentRom = ref<DetailedRomSchema | null>(null);
 const component = ref<PcComponentSchema | null>(null);
+let generation = 0;
+onBeforeUnmount(() => {
+  generation++;
+});
 
 function resolveComponent(
   parent: DetailedRomSchema,
@@ -41,9 +47,13 @@ function resolveComponent(
 }
 
 async function loadDlc(params: Record<string, unknown>, forceFresh = false) {
-  state.value = "loading";
-  parentRom.value = null;
-  component.value = null;
+  const current = ++generation;
+  const retainView = forceFresh && state.value === "ready";
+  if (!retainView) {
+    state.value = "loading";
+    parentRom.value = null;
+    component.value = null;
+  }
 
   const romId = parseSafeRouteId(params.rom);
   const componentId = parseSafeRouteId(params.component);
@@ -57,6 +67,7 @@ async function loadDlc(params: Record<string, unknown>, forceFresh = false) {
       !forceFresh && romsStore.currentRom?.id === romId
         ? romsStore.currentRom
         : (await romApi.getRom({ romId })).data;
+    if (current !== generation) return;
     if (parent.id !== romId) {
       state.value = "unavailable";
       return;
@@ -73,8 +84,10 @@ async function loadDlc(params: Record<string, unknown>, forceFresh = false) {
     component.value = selectedComponent;
     state.value = "ready";
   } catch (error) {
+    if (current !== generation) return;
     console.error(error);
-    state.value = "unavailable";
+    if (!retainView) state.value = "unavailable";
+    else snackbar.error(t("common.error"));
   }
 }
 

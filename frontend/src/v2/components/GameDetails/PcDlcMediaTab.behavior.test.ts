@@ -153,6 +153,27 @@ describe("DLC media presentation preserves component capabilities", () => {
     await flushPromises();
   });
 
+  it("keeps the existing card mounted during media reconciliation", async () => {
+    const wrapper = render();
+    await flushPromises();
+    const card = wrapper.get(".za-shot").element;
+    let release!: (value: { data: (typeof media)[] }) => void;
+    mocks.get.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    await wrapper
+      .get('[aria-label="rom.remove-from-overview"]')
+      .trigger("click");
+    await flushPromises();
+    expect(wrapper.get(".za-shot").element).toBe(card);
+    release({ data: [media] });
+    await flushPromises();
+    expect(wrapper.get(".za-shot").element).toBe(card);
+  });
+
   it("preserves deletion confirmation and does not mutate after cancellation", async () => {
     mocks.confirm.mockResolvedValue(false);
     const wrapper = render();

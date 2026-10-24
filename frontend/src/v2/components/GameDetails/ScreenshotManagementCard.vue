@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { RAvatar, RBtn, RIcon } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { RAvatar } from "@v2/lib";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomOwnedMediaSchema } from "@/__generated__";
+import MediaManagementAction from "@/v2/components/GameDetails/MediaManagementAction.vue";
+import MediaManagementCard from "@/v2/components/GameDetails/MediaManagementCard.vue";
 import type { ScreenshotItem } from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -47,13 +49,9 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ action: [action: ScreenshotManagementAction] }>();
 const { t } = useI18n();
-const failed = ref(false);
 const url = computed(() =>
   props.item.source === "provider" ? props.item.url : props.item.shot.url,
 );
-watch(url, () => {
-  failed.value = false;
-});
 const sourceLabel = computed(() =>
   props.item.source === "provider"
     ? (props.item.media.provider ?? t("rom.screenshots-source-provider"))
@@ -94,200 +92,119 @@ const visibilityLabel = computed(() =>
 </script>
 
 <template>
-  <article class="za-shot" :class="{ 'za-shot--new': newlyUploaded }">
-    <button
-      type="button"
-      class="za-shot__preview"
-      data-preview
-      :aria-label="
-        item.source === 'provider'
-          ? item.media.display_label
-          : t('rom.screenshots')
-      "
-      @click="emit('action', { type: 'preview', item })"
+  <MediaManagementCard
+    :url="url"
+    :label="
+      item.source === 'provider'
+        ? item.media.display_label
+        : t('rom.screenshots')
+    "
+    :newly-uploaded="newlyUploaded"
+    @preview="emit('action', { type: 'preview', item })"
+  >
+    <span class="za-shot__source" :title="sourceLabel">{{ sourceLabel }}</span>
+    <div
+      v-if="item.source === 'community' && item.shot.username"
+      class="d-flex align-center ga-1"
     >
-      <span v-if="failed" class="za-shot__fallback">{{
-        t("rom.screenshots-preview-unavailable")
-      }}</span>
-      <img
-        v-else
-        :src="url"
-        :alt="
-          item.source === 'provider'
-            ? item.media.display_label
-            : t('rom.screenshots')
+      <RAvatar
+        :image="
+          userAvatarUrl({
+            userId: item.shot.userId,
+            avatarPath: item.shot.userAvatarPath,
+            updatedAt: item.shot.userUpdatedAt,
+          })
         "
-        loading="lazy"
-        @error="failed = true"
+        size="16"
       />
-    </button>
-    <div class="za-shot__body d-flex flex-column">
-      <span class="za-shot__source" :title="sourceLabel">{{
-        sourceLabel
+      <span class="za-shot__source" :title="item.shot.username">{{
+        item.shot.username
       }}</span>
-      <div
-        v-if="item.source === 'community' && item.shot.username"
-        class="d-flex align-center ga-1"
-      >
-        <RAvatar
-          :image="
-            userAvatarUrl({
-              userId: item.shot.userId,
-              avatarPath: item.shot.userAvatarPath,
-              updatedAt: item.shot.userUpdatedAt,
-            })
-          "
-          size="16"
-        />
-        <span class="za-shot__source" :title="item.shot.username">{{
-          item.shot.username
-        }}</span>
-      </div>
-      <span v-if="item.source === 'mine'">{{
-        t(item.shot.isPublic ? "rom.screenshot-public" : "rom.private")
-      }}</span>
-      <span v-if="newlyUploaded" class="za-shot__new" role="status">{{
-        t("common.uploaded-n", { n: 1 })
-      }}</span>
-      <div
-        v-if="item.source === 'provider'"
-        class="za-shot__badges d-flex flex-wrap ga-1"
-      >
-        <template v-for="surface in surfaces" :key="surface">
-          <span
-            v-if="position(surface) !== undefined"
-            class="za-shot__badge"
-            :class="`za-shot__badge--${surface}`"
-          >
-            {{
-              t(`rom.screenshots-${surface}-position`, {
-                position: position(surface),
-              })
-            }}
-          </span>
-        </template>
-      </div>
-      <div
-        v-if="item.source === 'provider' && canManage"
-        class="za-shot__actions d-flex flex-wrap ga-1"
-      >
-        <RBtn
-          v-for="surface in surfaces"
-          :key="surface"
-          size="small"
-          class="za-shot__action"
-          :style="{
-            '--za-action-accent':
-              surface === 'overview'
-                ? 'var(--r-color-brand-primary)'
-                : 'var(--r-color-info)',
-          }"
-          :class="{
-            'za-shot__action--selected': position(surface) !== undefined,
-          }"
-          :loading="providerLoading"
-          variant="translucent"
-          border
-          :color="
-            surface === 'overview'
-              ? 'var(--r-color-brand-primary)'
-              : 'var(--r-color-info)'
-          "
-          :aria-pressed="position(surface) !== undefined"
-          :aria-label="placementLabel(surface)"
-          :tooltip="placementLabel(surface)"
-          :disabled="busy"
-          @click="emit('action', { type: 'placement', item, surface })"
-        >
-          <span class="za-shot__action-content">
-            <span class="za-shot__identity">
-              <RIcon
-                :icon="
-                  surface === 'overview'
-                    ? 'mdi-crown-outline'
-                    : 'mdi-image-outline'
-                "
-                size="18"
-              />
-              <RIcon
-                v-if="position(surface) !== undefined"
-                class="za-shot__check"
-                icon="mdi-check"
-                size="10"
-                aria-hidden="true"
-              />
-            </span>
-            <span>{{ t(`rom.screenshots-action-${surface}`) }}</span>
-          </span>
-        </RBtn>
-        <RBtn
-          size="small"
-          class="za-shot__action za-shot__action--danger"
-          variant="outlined"
-          color="var(--r-color-danger)"
-          :disabled="busy"
-          :aria-label="t('rom.provider-screenshot-remove-title')"
-          :tooltip="t('rom.provider-screenshot-remove-title')"
-          :loading="providerLoading"
-          @click="emit('action', { type: 'remove-provider', item })"
-        >
-          <span class="za-shot__action-content">
-            <RIcon icon="mdi-delete-outline" size="18" />
-            <span>{{ t("common.delete") }}</span>
-          </span>
-        </RBtn>
-      </div>
-      <div
-        v-else-if="item.source === 'mine' && item.shot.id != null"
-        class="za-shot__actions d-flex flex-wrap ga-1"
-      >
-        <RBtn
-          size="small"
-          class="za-shot__action"
-          variant="translucent"
-          border
-          :disabled="busy"
-          :aria-label="visibilityLabel"
-          :tooltip="visibilityLabel"
-          :loading="visibilityLoading"
-          :aria-pressed="Boolean(item.shot.isPublic)"
-          @click="
-            emit('action', {
-              type: 'visibility',
-              item,
-              isPublic: !item.shot.isPublic,
-            })
-          "
-        >
-          <span class="za-shot__action-content">
-            <RIcon
-              :icon="item.shot.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'"
-              size="18"
-            />
-            <span>{{
-              t(item.shot.isPublic ? "rom.screenshot-public" : "rom.private")
-            }}</span>
-          </span>
-        </RBtn>
-        <RBtn
-          size="small"
-          class="za-shot__action za-shot__action--danger"
-          variant="outlined"
-          color="var(--r-color-danger)"
-          :disabled="busy"
-          :aria-label="t('common.delete')"
-          :tooltip="t('common.delete')"
-          :loading="deletionLoading"
-          @click="emit('action', { type: 'delete-mine', item })"
-        >
-          <span class="za-shot__action-content">
-            <RIcon icon="mdi-delete-outline" size="18" />
-            <span>{{ t("common.delete") }}</span>
-          </span>
-        </RBtn>
-      </div>
     </div>
-  </article>
+    <span v-if="item.source === 'mine'">{{
+      t(item.shot.isPublic ? "rom.screenshot-public" : "rom.private")
+    }}</span>
+    <span v-if="newlyUploaded" class="za-shot__new" role="status">{{
+      t("common.uploaded-n", { n: 1 })
+    }}</span>
+    <div
+      v-if="item.source === 'provider'"
+      class="za-shot__badges d-flex flex-wrap ga-1"
+    >
+      <template v-for="surface in surfaces" :key="surface">
+        <span
+          v-if="position(surface) !== undefined"
+          class="za-shot__badge"
+          :class="`za-shot__badge--${surface}`"
+        >
+          {{
+            t(`rom.screenshots-${surface}-position`, {
+              position: position(surface),
+            })
+          }}
+        </span>
+      </template>
+    </div>
+    <div
+      v-if="item.source === 'provider' && canManage"
+      class="za-shot__actions d-flex flex-wrap ga-1"
+    >
+      <MediaManagementAction
+        v-for="surface in surfaces"
+        :key="surface"
+        :icon="
+          surface === 'overview' ? 'mdi-crown-outline' : 'mdi-image-outline'
+        "
+        :tone="surface === 'overview' ? 'brand' : 'info'"
+        :selected="position(surface) !== undefined"
+        :caption="t(`rom.screenshots-action-${surface}`)"
+        :label="placementLabel(surface)"
+        :loading="providerLoading"
+        :disabled="busy"
+        @click="emit('action', { type: 'placement', item, surface })"
+      />
+      <MediaManagementAction
+        icon="mdi-delete-outline"
+        tone="danger"
+        :caption="t('common.delete')"
+        :label="t('rom.provider-screenshot-remove-title')"
+        :disabled="busy"
+        :loading="providerLoading"
+        @click="emit('action', { type: 'remove-provider', item })"
+      />
+    </div>
+    <div
+      v-else-if="item.source === 'mine' && item.shot.id != null"
+      class="za-shot__actions d-flex flex-wrap ga-1"
+    >
+      <MediaManagementAction
+        :icon="item.shot.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'"
+        :caption="
+          t(item.shot.isPublic ? 'rom.screenshot-public' : 'rom.private')
+        "
+        :label="visibilityLabel"
+        :pressed="Boolean(item.shot.isPublic)"
+        :disabled="busy"
+        :loading="visibilityLoading"
+        @click="
+          emit('action', {
+            type: 'visibility',
+            item,
+            isPublic: !item.shot.isPublic,
+          })
+        "
+      />
+      <MediaManagementAction
+        icon="mdi-delete-outline"
+        tone="danger"
+        :caption="t('common.delete')"
+        :label="t('common.delete')"
+        :disabled="busy"
+        :loading="deletionLoading"
+        @click="emit('action', { type: 'delete-mine', item })"
+      />
+    </div>
+  </MediaManagementCard>
 </template>
 
 <style scoped src="./mediaManagementCard.css" />

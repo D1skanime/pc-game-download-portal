@@ -219,6 +219,9 @@ const stubs = {
       '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
   },
   ScreenshotManagementCard: false,
+  MediaManagementCard: false,
+  MediaManagementAction: false,
+  MediaUploadControl: false,
   RCheckbox: { template: '<input type="checkbox" />' },
   RDropzone: {
     emits: ["files"],

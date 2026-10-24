@@ -88,6 +88,11 @@ describe("ScreenshotManagementCard source capabilities", () => {
     );
     expect(background.find(".za-shot__check").exists()).toBe(true);
     expect(wrapper.findAll(".za-shot__actions button")).toHaveLength(3);
+    expect(
+      wrapper
+        .get('[aria-label="rom.provider-screenshot-remove-title"]')
+        .attributes("aria-pressed"),
+    ).toBeUndefined();
     await wrapper.setProps({
       item: { ...item, media: { ...media, placements: [] } },
     });
@@ -127,6 +132,12 @@ describe("ScreenshotManagementCard source capabilities", () => {
     };
     const wrapper = mount(ScreenshotManagementCard, { props: { item } });
     expect(wrapper.text()).toContain("rom.screenshot-public");
+    expect(wrapper.findAll(".za-shot__check")).toHaveLength(0);
+    expect(
+      wrapper
+        .get('[aria-label="rom.screenshot-make-private"]')
+        .attributes("aria-pressed"),
+    ).toBe("true");
     await wrapper
       .get('[aria-label="rom.screenshot-make-private"]')
       .trigger("click");

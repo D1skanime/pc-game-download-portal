@@ -979,3 +979,47 @@ test("DLC placement survives media-to-overview navigation without a page reload"
       .evaluate(() => performance.getEntriesByType("navigation").length),
   ).toBe(1);
 });
+
+test("DLC selection preserves card node, dimensions, filter and scroll during delayed reconciliation", async ({
+  page,
+}) => {
+  const state = await open(page, { dlc: true, count: 50 });
+  const first = page.locator(".pc-dlc-media .za-shot").nth(4);
+  await first.scrollIntoViewIfNeeded();
+  const before = await first.boundingBox();
+  const handle = await first.elementHandle();
+  const panel = page.locator(".pc-dlc-detail .r-v2-det__panel");
+  const scroll = await panel.evaluate((el) => el.scrollTop);
+  let release!: () => void;
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/roms/1", async (route) => {
+    await barrier;
+    await route.fallback();
+  });
+  const canonicalResponse = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/roms/1",
+  );
+  await first
+    .getByRole("button", { name: "Add to overview", exact: true })
+    .click();
+  await expect(
+    first.getByRole("button", { name: "Remove from overview", exact: true }),
+  ).toBeVisible();
+  expect(await handle!.evaluate((el) => el.isConnected)).toBe(true);
+  await expect(page.locator('[data-testid="pc-dlc-loading"]')).toHaveCount(0);
+  release();
+  await canonicalResponse;
+  await expect.poll(() => state.reads).toBeGreaterThan(1);
+  await expect(
+    first.getByRole("button", { name: "Remove from overview", exact: true }),
+  ).toBeEnabled();
+  expect(await handle!.evaluate((el) => el.isConnected)).toBe(true);
+  const after = await first.boundingBox();
+  expect(Math.abs(after!.height - before!.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after!.width - before!.width)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs((await panel.evaluate((el) => el.scrollTop)) - scroll),
+  ).toBeLessThanOrEqual(1);
+});

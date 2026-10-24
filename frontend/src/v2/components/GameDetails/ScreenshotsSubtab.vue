@@ -4,11 +4,11 @@ import {
   RCarousel,
   RDropzone,
   REmptyState,
-  RIcon,
   RSkeletonBlock,
 } from "@v2/lib";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import MediaUploadControl from "@/v2/components/GameDetails/MediaUploadControl.vue";
 import ScreenshotManagementCard, {
   type ScreenshotManagementAction,
   type ScreenshotManagementItem,
@@ -309,23 +309,15 @@ async function uploadFiles(files: File[]) {
         ref="toolbar"
         class="za-shots__toolbar za-media-upload d-flex flex-wrap align-center ga-3 pa-4"
       >
-        <RBtn
-          v-if="canUpload"
-          class="za-shots__upload za-media-upload__button pa-1"
-          variant="text"
+        <MediaUploadControl
+          class="za-shots__upload"
+          :available="canUpload"
           :loading="uploading"
           :disabled="uploading"
-          :aria-label="t('rom.upload-screenshots')"
-          @click="myDz?.open()"
-        >
-          <template #prepend>
-            <RIcon icon="mdi-cloud-upload-outline" size="30" color="primary" />
-          </template>
-          {{ t("rom.upload-screenshots") }}
-        </RBtn>
-        <p class="ma-0 za-shots__hint za-media-upload__hint flex-1-1">
-          {{ t("rom.screenshots-upload-hint") }}
-        </p>
+          :label="t('rom.upload-screenshots')"
+          :hint="t('rom.screenshots-upload-hint')"
+          @upload="myDz?.open()"
+        />
       </header>
       <div
         ref="gallery"

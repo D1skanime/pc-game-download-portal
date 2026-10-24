@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import {
-  RBtn,
-  RCarousel,
-  RDropzone,
-  REmptyState,
-  RIcon,
-  RSelect,
-} from "@v2/lib";
+import { RCarousel, RDropzone, REmptyState, RSelect } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
@@ -14,6 +7,9 @@ import type {
   PcComponentSchema,
   RomComponentOwnedMediaRole,
 } from "@/__generated__";
+import MediaManagementAction from "@/v2/components/GameDetails/MediaManagementAction.vue";
+import MediaManagementCard from "@/v2/components/GameDetails/MediaManagementCard.vue";
+import MediaUploadControl from "@/v2/components/GameDetails/MediaUploadControl.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
@@ -87,8 +83,8 @@ function closeLightbox() {
   lightboxOpen.value = false;
 }
 
-async function load() {
-  loading.value = true;
+async function load(initial = false) {
+  if (initial) loading.value = true;
   try {
     media.value = (await api.get<PcComponentOwnedMediaSchema[]>(endpoint)).data;
   } catch (error) {
@@ -171,7 +167,7 @@ async function remove(mediaId: number) {
   }
 }
 
-onMounted(load);
+onMounted(() => load(true));
 </script>
 
 <template>
@@ -200,23 +196,14 @@ onMounted(load);
       @files="upload"
     >
       <header class="za-media-upload d-flex flex-wrap align-center ga-3 pa-4">
-        <RBtn
-          v-if="canEdit"
-          class="za-media-upload__button pa-1"
-          variant="text"
+        <MediaUploadControl
+          :available="canEdit"
           :loading="uploading"
           :disabled="uploading || placing || !componentVersion"
-          :aria-label="t('common.upload')"
-          @click="dropzone?.open()"
-        >
-          <template #prepend>
-            <RIcon icon="mdi-cloud-upload-outline" size="30" color="primary" />
-          </template>
-          {{ t("common.upload") }}
-        </RBtn>
-        <p class="ma-0 za-media-upload__hint flex-1-1">
-          {{ t("common.dropzone-hint") }}
-        </p>
+          :label="t('common.upload')"
+          :hint="t('common.dropzone-hint')"
+          @upload="dropzone?.open()"
+        />
       </header>
       <p v-if="loading">{{ t("common.loading") }}</p>
       <REmptyState
@@ -230,23 +217,16 @@ onMounted(load);
         :style="{ '--za-shot-columns': columns }"
       >
         <li v-for="(item, index) in filteredMedia" :key="item.id">
-          <article class="za-shot">
-            <button
-              type="button"
-              class="za-shot__preview"
-              :aria-label="`${mediaRoleLabel(item)} ${index + 1}`"
-              @click="openMedia(index)"
-            >
-              <img
-                :src="mediaContentUrl(item.id)"
-                :alt="mediaRoleLabel(item)"
-              />
-            </button>
-            <div class="za-shot__body d-flex flex-column">
-              <span class="za-shot__source">{{ mediaRoleLabel(item) }}</span>
-              <span class="za-shot__source" :title="mediaSourceLabel(item)">{{
-                mediaSourceLabel(item)
-              }}</span>
+          <MediaManagementCard
+            :url="mediaContentUrl(item.id)"
+            :label="`${mediaRoleLabel(item)} ${index + 1}`"
+            @preview="openMedia(index)"
+          >
+            <span class="za-shot__source">{{ mediaRoleLabel(item) }}</span>
+            <span class="za-shot__source" :title="mediaSourceLabel(item)">{{
+              mediaSourceLabel(item)
+            }}</span>
+            <div class="za-shot__badges d-flex flex-wrap ga-1">
               <span
                 v-if="hasPlacement(item)"
                 class="za-shot__badge za-shot__badge--overview"
@@ -257,64 +237,31 @@ onMounted(load);
                   })
                 }}
               </span>
-              <div
-                v-if="canEdit"
-                class="za-shot__actions d-flex flex-wrap ga-1"
-              >
-                <RBtn
-                  size="small"
-                  class="za-shot__action"
-                  :class="{ 'za-shot__action--selected': hasPlacement(item) }"
-                  variant="translucent"
-                  border
-                  color="var(--r-color-brand-primary)"
-                  :disabled="!componentVersion || placing"
-                  :loading="placing"
-                  :aria-pressed="hasPlacement(item)"
-                  :aria-label="
-                    hasPlacement(item)
-                      ? t('rom.remove-from-overview')
-                      : t('rom.add-to-overview')
-                  "
-                  :tooltip="
-                    hasPlacement(item)
-                      ? t('rom.remove-from-overview')
-                      : t('rom.add-to-overview')
-                  "
-                  @click="togglePlacement(item)"
-                >
-                  <span class="za-shot__action-content">
-                    <span class="za-shot__identity">
-                      <RIcon icon="mdi-crown-outline" size="18" />
-                      <RIcon
-                        v-if="hasPlacement(item)"
-                        class="za-shot__check"
-                        icon="mdi-check"
-                        size="10"
-                        aria-hidden="true"
-                      />
-                    </span>
-                    <span>{{ t("rom.screenshots-action-overview") }}</span>
-                  </span>
-                </RBtn>
-                <RBtn
-                  size="small"
-                  class="za-shot__action za-shot__action--danger"
-                  variant="outlined"
-                  color="var(--r-color-danger)"
-                  :disabled="!componentVersion || placing"
-                  :aria-label="t('common.delete')"
-                  :tooltip="t('common.delete')"
-                  @click="remove(item.id)"
-                >
-                  <span class="za-shot__action-content">
-                    <RIcon icon="mdi-delete-outline" size="18" />
-                    <span>{{ t("common.delete") }}</span>
-                  </span>
-                </RBtn>
-              </div>
             </div>
-          </article>
+            <div v-if="canEdit" class="za-shot__actions d-flex flex-wrap ga-1">
+              <MediaManagementAction
+                icon="mdi-crown-outline"
+                :selected="hasPlacement(item)"
+                :caption="t('rom.screenshots-action-overview')"
+                :label="
+                  hasPlacement(item)
+                    ? t('rom.remove-from-overview')
+                    : t('rom.add-to-overview')
+                "
+                :disabled="!componentVersion || placing"
+                :loading="placing"
+                @click="togglePlacement(item)"
+              />
+              <MediaManagementAction
+                icon="mdi-delete-outline"
+                tone="danger"
+                :caption="t('common.delete')"
+                :label="t('common.delete')"
+                :disabled="!componentVersion || placing"
+                @click="remove(item.id)"
+              />
+            </div>
+          </MediaManagementCard>
         </li>
       </ul>
     </RDropzone>

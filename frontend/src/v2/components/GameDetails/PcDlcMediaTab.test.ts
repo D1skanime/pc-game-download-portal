@@ -18,9 +18,14 @@ describe("PcDlcMediaTab", () => {
   });
 
   it("renders owned media previews in the parent-style fullscreen gallery", () => {
-    expect(source).toMatch(
-      /import \{[\s\S]*RBtn,[\s\S]*RCarousel,[\s\S]*RDropzone,/,
-    );
+    expect(source).toMatch(/import \{[\s\S]*RCarousel,[\s\S]*RDropzone,/);
+    expect(source).toContain("MediaManagementCard");
+    expect(
+      readFileSync(
+        "src/v2/components/GameDetails/MediaManagementAction.vue",
+        "utf8",
+      ),
+    ).toContain("RBtn");
     expect(source).toContain("function mediaContentUrl(mediaId: number)");
     expect(source).toContain("return `/api${endpoint}/${mediaId}/content`");
     expect(source).toContain("lightboxOpen");

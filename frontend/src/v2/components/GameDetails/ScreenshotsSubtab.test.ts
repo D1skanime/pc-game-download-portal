@@ -139,7 +139,7 @@ describe("ScreenshotsSubtab single gallery owner", () => {
     expect(toolbar.get(".za-shots__upload").text()).toContain(
       "rom.upload-screenshots",
     );
-    expect(toolbar.get(".za-shots__hint").text()).toBe(
+    expect(toolbar.get(".za-media-upload__hint").text()).toBe(
       "rom.screenshots-upload-hint",
     );
     const input = wrapper.get('input[type="file"]').element;

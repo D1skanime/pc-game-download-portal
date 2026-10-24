@@ -31,6 +31,10 @@ const {
 let currentRom: Pick<DetailedRomSchema, "id" | "name" | "components"> | null =
   null;
 
+vi.mock("@/v2/composables/useSnackbar", () => ({
+  useSnackbar: () => ({ error: vi.fn() }),
+}));
+
 const route = {
   params: { rom: "1", component: "2" } as Record<string, unknown>,
 };
@@ -269,6 +273,27 @@ describe("PcDlcDetails", () => {
     await flushPromises();
 
     expect(wrapper.text()).toBe("Library");
+  });
+
+  it("keeps the same detail instance mounted while a mutation refresh is pending", async () => {
+    getRom.mockResolvedValueOnce({ data: parent });
+    const wrapper = mountView();
+    await flushPromises();
+    const detail = wrapper.getComponent({ name: "PcDlcDetail" });
+    let release!: (value: { data: typeof parent }) => void;
+    getRom.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    detail.vm.$emit("refresh");
+    await flushPromises();
+    expect(wrapper.find('[data-testid="pc-dlc-loading"]').exists()).toBe(false);
+    expect(wrapper.getComponent({ name: "PcDlcDetail" }).vm).toBe(detail.vm);
+    release({ data: parent });
+    await flushPromises();
+    expect(wrapper.getComponent({ name: "PcDlcDetail" }).vm).toBe(detail.vm);
   });
 
   it("retains freshly saved DLC media across a tab-only route update despite an old parent store", async () => {

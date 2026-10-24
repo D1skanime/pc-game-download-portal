@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: milestone
 status: verifying
 stopped_at: Phase 37 technically verified; human visual and live UAT pending
-last_updated: "2026-10-24T01:42:07+00:00"
-last_activity: 2026-10-24 -- Fixed DLC overview stale-state regression;1665 frontend tests and5 browser cases pass; live UAT pending
+last_updated: "2026-10-24T10:32:52+00:00"
+last_activity: 2026-10-24 -- Shared media controls and stable DLC reconciliation implemented;92 final affected tests pass; live UAT pending
 progress:
   total_phases: 37
   completed_phases: 26
@@ -47,6 +47,8 @@ Authenticated ROM24 Dev inspection confirms the actual new actions and sticky up
 DLC media now shares the scoped screenshot card and upload glass styles with the parent manager. Component-owned overview and deletion controls retain their endpoints, version and confirmation semantics; no background capability is introduced. One single-file overlay dropzone, permission-gated upload, responsive columns and native-control grid navigation remain within the DLC view. Full frontend1663/1663, final affected10/10, typecheck, build, maintainability486 and scoped Trunk pass. Eight isolated desktop/mobile both-theme cases cover parent and DLC presentation, DLC picker, exact nested upload count, lightbox and sticky scrolling. Actual authenticated DLC20 visuals were inspected read-only on Dev. Own preview/build/cache resources were cleaned, protected dirty hashes preserved; main remains unmerged.
 
 DLC overview live UAT exposed a stale-state regression: successful placements persisted, but a tab-only route update reloaded the old parent store after the local refresh. PcDlcDetails now commits the validated fresh parent through setCurrentRom and retains the current entity during tab-query changes. Real identity changes still reload and validate. A placement in-flight guard prevents duplicate selection requests. Two RED unit regressions fail before the fix;45 focused and1665 full frontend tests pass afterward. Five browser cases pass, including add/tab-switch/remove/tab-switch without a page reload. Typecheck, build, maintainability486 and six-file Trunk pass. Read-only Dev inspection confirms the three pre-existing selections in DLC20 and their overview images. No live media mutations, backend changes or restart; own resources removed. Evidence: ignored quick261023-urj/evidence/dlc-refresh. Human acceptance remains pending.
+
+Main-game and DLC media now consume the same MediaManagementCard, MediaManagementAction and MediaUploadControl feature composites. The reuse audit confirms one owner each for preview markup, action icon/caption markup and upload cloud control. Existing resource-specific APIs, ownership and permissions remain separate. Same-entity DLC refresh keeps the detail subtree and card nodes mounted; initial loading is distinct from reconciliation. Shared placement badge space prevents selection height changes, and obsolete parent reads cannot replace later route state. Full frontend1667 passed before the final pressed/placement decoration separation; final affected92/92, typecheck, build, maintainability489 and scoped Trunk pass. Twelve core browser cases pass; final isolated D-pad cases pass2/2. Earlier controller focus/close instability and intermediate assertion failures remain in receipts, with no hardware claim. Live Dev rendering was inspected read-only. Own temporary build/cache/browser resources were removed and protected hashes match. Human visual/live acceptance remains open. Evidence: ignored quick261023-urj/evidence/dlc-shared.
 
 ## Shipping and Phase 35 handoff
 
