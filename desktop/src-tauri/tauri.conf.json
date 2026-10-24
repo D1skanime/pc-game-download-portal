@@ -10,7 +10,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "RomM Desktop",
+        "title": "ZockArchive Desktop",
         "width": 1080,
         "height": 720,
         "resizable": true

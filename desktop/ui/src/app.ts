@@ -86,7 +86,7 @@ export async function renderDesktopApp(
     root.innerHTML = `
       <section class="shell" aria-labelledby="title">
         <header class="shell__header">
-          <p class="eyebrow">RomM Desktop</p>
+          <p class="eyebrow">ZockArchive Desktop</p>
           <h1 id="title">Download original files to this PC</h1>
           <p class="lede">This client transfers selected files directly to a local destination.</p>
         </header>

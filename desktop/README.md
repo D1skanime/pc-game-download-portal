@@ -1,13 +1,32 @@
-# RomM Desktop
+# ZockArchive Desktop
 
 `romm-desktop` is the Windows and Linux desktop shell for the isolated
 `romm-download-core` crate. The shell exposes typed, redacted IPC commands and
 delegates manifest validation, local path safety, transfer, hashing, and job
 recovery to the core.
 
+## Display and compatibility identities
+
+The window, HTML title and shell display ZockArchive Desktop. The technical
+Tauri `productName` remains `RomM Desktop`: Tauri 2.11.5's bundled NSIS template
+uses it in the uninstall registry key, saved installation location and default
+installation directory. Changing it requires a separately verified installer
+migration. Installer names and OS shortcuts can therefore retain RomM Desktop.
+See the [upstream installer template](https://github.com/tauri-apps/tauri/blob/tauri-v2.11.5/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi).
+
+The bundle ID `org.romm.desktop`, credential service and `device-token` account,
+`romm-desktop` pairing client, typed IPC/capabilities, Rust crate names and
+`.romm-jobs.json` store remain compatible. Transfer part and replacement suffixes
+also remain stable. Display metadata never migrates credentials or local jobs.
+Native app-data path and installed upgrade compatibility require platform
+verification; the UI build alone does not prove either.
+
+Packaging icons must be supplied by the operator. No ZockArchive artwork is
+included or generated; the existing empty bundle icon list is retained.
+
 ## Pairing and token storage
 
-The shell pairs with an existing RomM server through `POST /api/auth/device/init`
+The shell pairs with an existing ZockArchive server through `POST /api/auth/device/init`
 and polls `/api/auth/device/token`. It requests only `roms.read`. The returned
 `rmm_` bearer token is stored in the operating system credential store through
 the native adapter. It is never written to job data, command results, events,
@@ -51,7 +70,7 @@ cargo test -p romm-download-core --test sparse_30gib_uat -- --ignored --exact sp
 
 Run only on an isolated local volume. A failed capacity or platform preflight is
 `BLOCKED`, never a passing result. The gate has no code path to Team4s, NAS
-storage, a deployed RomM, or a source library.
+storage, a deployed ZockArchive, or a source library.
 
 These checks use mocks and temporary local destination roots. This phase does
 not contact a real NAS or Team4s, restart services, change source libraries, or
