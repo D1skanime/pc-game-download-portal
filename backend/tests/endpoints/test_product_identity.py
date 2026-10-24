@@ -3,8 +3,10 @@
 import csv
 import io
 
+import pytest
+
 from endpoints import feeds
-from handler.database import db_platform_handler
+from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
 from models.rom import Rom
 from utils.gamelist_exporter import GamelistExporter
@@ -39,9 +41,12 @@ def test_webrcade_display_and_upstream_assets(client, access_token):
     assert client.get("/api/feeds/webrcade").status_code == 401
 
 
-def test_kekatsu_author_keeps_nine_wire_fields(
-    client, access_token, platform: Platform, rom: Rom
+@pytest.mark.parametrize("cover", [False, True])
+def test_kekatsu_author_keeps_wire_fields(
+    client, access_token, platform: Platform, rom: Rom, cover: bool
 ):
+    if cover:
+        db_rom_handler.update_rom(rom.id, {"path_cover_s": "nds/covers/example.jpg"})
     response = client.get(
         f"/api/feeds/kekatsu/{platform.slug}",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -49,7 +54,7 @@ def test_kekatsu_author_keeps_nine_wire_fields(
     assert response.status_code == 200
     rows = list(csv.reader(io.StringIO(response.text), delimiter="\t"))
     item = rows[2]
-    assert len(item) == 9
+    assert len(item) == (9 if cover else 8)
     assert item[0] == (rom.name or rom.fs_name_no_tags)
     assert item[4] == "ZockArchive"
     assert f"/roms/{rom.id}/content/" in item[5]
