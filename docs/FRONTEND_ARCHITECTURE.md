@@ -257,6 +257,14 @@ Pinia retains active user, platform, collection, ROM, scan, task, permission, an
 
 ## 16. Utilities & Composables
 
+Product display identity and repository links belong to the dependency-free
+`src/v2/config/project.ts` module. Router default/error titles and
+`usePageTitle` fallbacks consume its product name; meaningful route and game
+titles remain unchanged. Reactive detail titles update as fetched data or route
+parameters change, and teardown never restores an obsolete title. Keep stores,
+router, API clients and application initialization out of this config so build
+tooling and browser startup can safely share it.
+
 Important v2 composables include useCan, useLibraryOperation, useProviderResolution, useManualDescription, useGameDetailsMedia, useBackgroundArt, useBackgroundAudio, useCoverArt, useWebpSupport, useBreakpoint, useResponsiveColumns, useInputModality, useGamepad, useGridNav, useRightStickScroll, useGallerySelectionInput, useGlobalHotkeys, useThemeMode, useReducedMotion, useCrtMode, useFullscreenPref, useGalleryFilterUrl, useGalleryViewModeUrl, useTileSearchUrl, useGalleryProvenance, usePageTitle, useServerConnection, useSnackbar, useConfirm, useSocketEvent, useScanLifecycle, useBrowserDownloadQueue, and usePlaySession. v2/utils covers route-query validation, artwork, collection covers, player helpers, ROM verification/status, download manifest paths, provider labels, CSS checks, and input helpers. frontend/src/utils contains form-data, task, cover, and IndexedDB helpers.
 
 ---
