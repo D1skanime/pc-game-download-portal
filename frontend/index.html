@@ -10,16 +10,13 @@
     <meta name="msapplication-TileColor" content="#9205f2" />
     <meta name="theme-color" content="#2a0145" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PGDP</title>
+    <title>ZockArchive</title>
   </head>
 
   <body>
     <div id="app">
       <div id="app-loading-logo">
-        <img
-          src="/assets/logos/pgdp_logo_xbox_one_circle_grayscale.svg"
-          alt="PGDP Logo"
-        />
+        <span>ZockArchive</span>
       </div>
     </div>
 
@@ -37,10 +34,19 @@
         background-color: rgba(242, 244, 248) !important;
       }
 
-      #app-loading-logo img {
-        width: 30%;
-        height: 30%;
-        opacity: 0.1;
+      #app-loading-logo {
+        font-family:
+          "Segoe UI",
+          -apple-system,
+          BlinkMacSystemFont,
+          system-ui,
+          "Inter",
+          Roboto,
+          sans-serif;
+        font-size: 32px;
+        font-weight: 600;
+        line-height: 1.1;
+        color: #111117;
       }
 
       @media (prefers-color-scheme: dark) {
@@ -51,13 +57,7 @@
 
         #app-loading-logo {
           background-color: rgba(13, 17, 23) !important;
-        }
-      }
-
-      @media (max-width: 960px) {
-        #app-loading-logo img {
-          width: 50%;
-          height: 50%;
+          color: #ffffff;
         }
       }
     </style>
