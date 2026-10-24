@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 38-07-PLAN.md; ready for 38-08
-last_updated: "2026-10-24T18:17:38.994Z"
+stopped_at: Completed 38-08-PLAN.md; ready for independent review and 38-09
+last_updated: "2026-10-24T19:19:09.243Z"
 last_activity: 2026-10-24
 progress:
   total_phases: 38
   completed_phases: 24
   total_plans: 308
-  completed_plans: 267
-  percent: 63
+  completed_plans: 268
+  percent: 87
 ---
 
 # Project State
@@ -26,9 +26,17 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase:38 (zockarchive-product-and-repository-rebranding) - EXECUTING
-Plan: 8 of 9; ready for owned browser, SQL and populated-install proof
+Plan: 9 of 9; ready for independent review, same-ID cutover and exact-source full CI
 Status: Ready to execute
 Last activity: 2026-10-24
+
+## Phase38 owned integration proof
+
+Plans01 through08 are implemented. Runtime source0f94a759e passes eight owned gates:20 affected cases per MariaDB/PostgreSQL, schema roundtrips on three dialects,8 actual browser cases including German, fresh full-image install and populated base251edcc5d upgrade. Auth, catalog, mapped download/403, schema0142 and source/resource/cache digests survive restart; real local EmulatorJS passes1/1. Frontend passes1708 tests, typecheck/build/manifests, maintainability490 and4 built browser cases with synthetic input.
+
+Final helperb7a2087b6 adds the verified-manifest invariant only; focused helper tests and scoped Trunk pass. Runtime/image receipts retain their actual source. All other backend/frontend/Docker/lock Git-object inputs are equal; full Docker context differs because it also copies the proof helper. Read38-08-SUMMARY.md,38-ACCEPTANCE.md and38-08-RECEIPTS.json.23 owned projects and28 temporary paths are cleaned; six protected hashes and legal/history remain unchanged.
+
+ZA-BRAND-09 and the complete16-shard backend matrix remain pending exact pushed Plan09 CI, or full local fallback if equivalent CI is unavailable. Independent review precedes cutover. No push, rename, publication, deployment, live SQL/NAS/Team4s mutation or physical-controller/native-package acceptance occurred in08.
 
 ## Phase 37 completion
 
@@ -227,6 +235,7 @@ _Updated after each plan completion_
 | Phase 38 P05 | 10min | 2 tasks | 10 files |
 | Phase 38 P06 | 10min | 3 tasks | 21 files |
 | Phase 38 P07 | 7min | 3 tasks | 11 files |
+| Phase 38 P08 | 51min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -503,6 +512,8 @@ Recent decisions affecting current work:
 - [Phase 38]: Rename only root private package metadata, preserving dependency graphs, authors, licenses and native identity owners exactly.
 - [Phase 38]: Retain local Portainer and legacy publication aliases; preview comments consume actual metadata output tags
 - [Phase 38]: Keep historical probe branches and planning checks exact; current verification consumes the tracked branding contract without ignored planning.
+- [Phase 38]: Full16-shard backend acceptance remains pending exact pushed Plan09 CI, with full local fallback. Rationale: Plan08 owned integration passed; affected20-case profiles do not fulfill complete backend acceptance
+- [Phase 38]: Runtime receipts retain source0f94a759e; final helperb7a2087b6 adds only the post-start manifest invariant. Rationale: All other backend frontend Docker and locked inputs are equal; image digests are not relabelled
 
 ### Blockers/Concerns
 
@@ -590,8 +601,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-24T18:17:38.987Z
-Stopped at: Completed 38-07-PLAN.md; ready for 38-08
+Last session: 2026-10-24T19:18:30.801Z
+Stopped at: Completed 38-08-PLAN.md; ready for independent review and 38-09
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
