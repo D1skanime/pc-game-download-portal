@@ -242,3 +242,7 @@ WebRcade artwork URLs still reference upstream RomM assets pending final supplie
 artwork. Metadata-provider User-Agent strings and upstream endpoints retain their
 provider-compatible identities. No stored library, operator configuration,
 authentication, session, cache, schema or filesystem identifier is migrated.
+
+### Owned identity-transition validation
+
+The rebranding probe in backend/tools/phase38_probe.py composes the existing disposable SQL/Redis runner, snapshot fixtures, target labels and exact cleanup. Its source adapter requires the canonical Linux host, root, feature branch and planning markers plus an authenticated live GitHub numeric/node ID and exact current name/origin pair. Inherited database, Compose and disposable-target overrides fail closed. This adapter does not change CI repository authority. Backend defaults to every existing tracked CI shard; the affected profile is a fixed product-identity test list. Schema uses the existing upgrade/downgrade/re-upgrade and constraint checks. Focused local receipts do not fulfill the final complete dual-SQL CI requirement.
