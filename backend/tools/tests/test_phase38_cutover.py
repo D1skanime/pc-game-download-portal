@@ -278,6 +278,13 @@ def acceptance():
         "status": "completed",
         "conclusion": "success",
     }
+    profiles = classify_test_files(
+        [
+            *[f"tests/test_{i}.py" for i in range(1, 9)],
+            "tests/utils/test_rvz_hasher.py",
+            *HOST_TEST_FILES,
+        ]
+    )
     rows = []
     for dialect in ("mariadb", "postgresql"):
         for shard in range(1, 9):
@@ -285,10 +292,22 @@ def acceptance():
                 {
                     "dialect": dialect,
                     "shard": shard,
-                    "files": [f"tests/test_{shard}.py"],
+                    "files": profiles["sql"][shard - 1 :: 8],
+                    "file_results": [
+                        {
+                            "file": name,
+                            "tests": 10,
+                            "passed": 10,
+                            "failures": 0,
+                            "errors": 0,
+                            "skipped": 0,
+                        }
+                        for name in profiles["sql"][shard - 1 :: 8]
+                    ],
+                    "skip_cases": [],
                     "source": source,
                     "action": action,
-                    "tests": 10,
+                    "tests": 10 * len(profiles["sql"][shard - 1 :: 8]),
                     "failures": 0,
                     "errors": 0,
                     "skipped": 0,
@@ -313,9 +332,7 @@ def acceptance():
                 "node": "v24.19.0",
                 "compose": "2.39",
             },
-            "membership": classify_test_files(
-                [*[f"tests/test_{i}.py" for i in range(1, 9)], *HOST_TEST_FILES]
-            ),
+            "membership": profiles,
             "file_results": [
                 {
                     "file": name,
@@ -366,7 +383,11 @@ class ValidationTests(unittest.TestCase):
             validation,
             "test_membership",
             return_value=classify_test_files(
-                [*[f"tests/test_{i}.py" for i in range(1, 9)], *HOST_TEST_FILES]
+                [
+                    *[f"tests/test_{i}.py" for i in range(1, 9)],
+                    "tests/utils/test_rvz_hasher.py",
+                    *HOST_TEST_FILES,
+                ]
             ),
         )
         mocked.start()
@@ -374,6 +395,42 @@ class ValidationTests(unittest.TestCase):
 
     def test_all_required_gates_pass(self):
         validation.validate(self.row)
+
+    def optional_rvz_skips(self):
+        row = copy.deepcopy(self.row)
+        gate = row["backend"][0]
+        gate["skipped"] = 2
+        gate["file_results"][-1].update(skipped=2, passed=8)
+        gate["skip_cases"] = [
+            {
+                "nodeid": "tests/utils/test_rvz_hasher.py::test_real_gamecube_rvz_matches_retroachievements_hash",
+                "reason": "mock GameCube RVZ not present",
+            },
+            {
+                "nodeid": "tests/utils/test_rvz_hasher.py::test_real_wii_rvz_matches_retroachievements_hash",
+                "reason": "mock Wii RVZ not present",
+            },
+        ]
+        return row
+
+    def test_exact_optional_rvz_fixture_skips_are_disclosed(self):
+        validation.validate(self.optional_rvz_skips())
+
+    def test_wrong_skip_identity_reason_extra_case_or_file_counts_fail(self):
+        changes = [
+            lambda g: g["skip_cases"][0].update(nodeid="tests/test_auth.py::missing"),
+            lambda g: g["skip_cases"][0].update(reason="some optional fixture"),
+            lambda g: g["skip_cases"].append(copy.deepcopy(g["skip_cases"][0])),
+            lambda g: g["file_results"].pop(),
+            lambda g: g["file_results"][0].update(tests=999),
+            lambda g: g["file_results"][-1].update(skipped=0),
+        ]
+        for change in changes:
+            row = self.optional_rvz_skips()
+            change(row["backend"][0])
+            with self.subTest(change=change):
+                with self.assertRaises((ValueError, RuntimeError)):
+                    validation.validate(row)
 
     def test_missing_failed_skipped_stale_and_wrong_membership_fail(self):
         changes = [
