@@ -388,7 +388,7 @@ def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> Non
             detail=(
                 f"Could not reach ROM broker at {url}. "
                 "Check that broker.py is running inside the emulator container "
-                "and that port 8000 is reachable from the RomM host."
+                "and that port 8000 is reachable from the ZockArchive host."
             ),
         ) from exc
 

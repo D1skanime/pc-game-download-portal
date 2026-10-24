@@ -227,3 +227,9 @@ the configured DSN, Sentry project, credentials and capture behavior are unchang
 The logger remains `romm`, with the existing formatter configuration key `pgdp`,
 Redis channels and admin-log transport. Product labels do not rename these
 installation or integration identities.
+
+`TINFOIL_WELCOME_MESSAGE` keeps its operator key and configured-value precedence.
+Only its fallback welcome is ZockArchive Switch Library. Existing custom and
+legacy-branded configured welcomes are not migrated. Configuration warnings and
+broker connectivity guidance use the current product name; broker failures keep
+their existing HTTP status and session-owner authorization rules.
