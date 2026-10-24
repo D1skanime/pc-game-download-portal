@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, "/backend/tools")
@@ -108,6 +109,7 @@ def seed():
                 file_path="PC",
                 file_size_bytes=26,
                 category=RomFileCategory.GAME,
+                last_modified=datetime(2026, 1, 1, tzinfo=timezone.utc),
             )
         )
         session.add(RomUser(rom_id=rom.id, user_id=user.id, backlogged=True, rating=3))
@@ -142,6 +144,7 @@ def seed():
                 file_path="GB GameBoy",
                 file_size_bytes=32768,
                 category=RomFileCategory.GAME,
+                last_modified=datetime(2026, 1, 1, tzinfo=timezone.utc),
             )
         )
     resource = Path(RESOURCES_BASE_PATH) / "phase38-sentinel.bin"
