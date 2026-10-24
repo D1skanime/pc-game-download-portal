@@ -1,18 +1,10 @@
 <script setup lang="ts">
-// ScanInfoDialog — reference card for the Scan view. Two tabs (same
-// underlined-pill pattern as GameDetails): "Scan types" explains what
-// each scan does in long form (matching v1's reference card); "Metadata
-// providers" lists every provider RomM can talk to with one-line setup
-// notes. Pure static content — it's a lookup card, not a configurator.
-//
-// Why static descriptions instead of i18n: the v1 `scan-types-info`
-// key shipped as one HTML blob with `<strong>` + `<br>` — hard to
-// translate by section and harder to restyle. Embedding the text as
-// typed arrays here keeps the layout flexible. If i18n becomes
-// necessary, each row maps cleanly to a key.
+// Reference rows explain scan behavior and provider setup without changing configuration.
+// Provider links retain their upstream documentation ownership.
 import { RAvatar, RDialog, RIcon, RTabNav } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { PROJECT_NAME } from "@/v2/config/project";
 
 defineProps<{
   modelValue: boolean;
@@ -59,7 +51,7 @@ const scanTypes = computed<ScanTypeRow[]>(() => [
   {
     id: "new_platforms",
     title: t("scan.new-platforms"),
-    desc: "This will only look for platforms that are not already in RomM.",
+    desc: `This will only look for platforms that are not already in ${PROJECT_NAME}.`,
   },
   {
     id: "quick",

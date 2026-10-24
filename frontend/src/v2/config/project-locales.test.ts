@@ -40,7 +40,7 @@ describe("localized product identity", () => {
   }
 
   it("renders recovery, interpolation and plural copy through vue-i18n", () => {
-    const load = (namespace: string) =>
+    const load = (namespace: string): Record<string, string> =>
       JSON.parse(
         readFileSync(resolve(root, "en_US", `${namespace}.json`), "utf8"),
       );

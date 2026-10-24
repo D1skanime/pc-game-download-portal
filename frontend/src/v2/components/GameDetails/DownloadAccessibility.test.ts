@@ -36,7 +36,7 @@ const translations: Record<string, string> = {
     "This download is no longer available. Prepare it again.",
   "rom.download-failed": "Download failed",
   "rom.download-failed-description":
-    "RomM could not continue this file. Check your connection and folder permission, then retry.",
+    "ZockArchive could not continue this file. Check your connection and folder permission, then retry.",
   "rom.download-file": "Download file",
   "rom.download-handed-to-browser": "Handed to browser",
   "rom.download-no-complete-set": "No complete download set is available",
@@ -45,7 +45,7 @@ const translations: Record<string, string> = {
   "rom.download-queued": "Queued",
   "rom.download-required-missing":
     "This selection is incomplete. Add the required components shown above before starting the download.",
-  "rom.download-served": "Served by RomM",
+  "rom.download-served": "Served by ZockArchive",
   "rom.download-stale": "Source changed. Prepare the download again.",
   "rom.download-start": "Start download",
   "rom.download-state-downloading": "Downloading",
@@ -405,7 +405,7 @@ describe("browser download accessibility and truthful state contract", () => {
 
     const text = wrapper.text();
     expect(text).toContain("Handed to browser");
-    expect(text).toContain("Served by RomM");
+    expect(text).toContain("Served by ZockArchive");
     expect(text).toContain("Verified");
     expect(text).toContain("Source changed. Prepare the download again.");
     expect(text).toContain("Cancelled");

@@ -276,6 +276,16 @@ the banner fetches the canonical release API and preserves its age/dismissal
 rules. About links current documentation to repository docs and labels the
 retained RomM community link as upstream.
 
+Localized product copy uses invariant ZockArchive spelling in the existing locale
+values, including the retained `about-romm` and `upload-to-romm` keys. The
+`config/project-locales.test.ts` contract covers all eighteen locales against a
+tracked pre-rebranding normalized-value digest fixture. It protects every key,
+placeholder, plural branch, HTML fragment and non-brand wording; intentional
+future translation edits must explicitly update the affected baseline digest.
+Collection deletion uses its existing translation directly. Static scan and
+platform/storage confirmation fallbacks consume PROJECT_NAME and preserve the
+distinction between catalog or mapping removal and deleting original files.
+
 The application bootstrap filename remains `src/PGDP.vue` for compatibility.
 ProjectBrand owns later supplied in-app artwork integration. Public browser/PWA
 icons and desktop packaging icons have separate owners and remain pending supplied

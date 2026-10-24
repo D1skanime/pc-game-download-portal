@@ -18,6 +18,7 @@ import { ROUTES } from "@/plugins/router";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { PROJECT_NAME } from "@/v2/config/project";
 import storageApi from "@/v2/data/adapters/legacy/services/api/storage";
 import storePlatforms from "@/v2/data/adapters/legacy/stores/platforms";
 
@@ -353,7 +354,7 @@ async function removeCurrentMapping() {
       title: t("storage.remove-title", "Remove storage mapping"),
       body: t(
         "storage.remove-body",
-        "This removes only RomM's mapping. Original files remain unchanged.",
+        `This removes only ${PROJECT_NAME}'s mapping. Original files remain unchanged.`,
       ),
       confirmText: t("storage.remove", "Remove mapping"),
       tone: "danger",
