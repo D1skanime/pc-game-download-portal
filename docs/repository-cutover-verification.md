@@ -45,7 +45,12 @@ The validation document contains:
 - `repository_id`, final `pr_head` and `final_source`.
 - `backend`: exactly eight SQL-profile shards each for MariaDB and PostgreSQL, with
   `dialect`, `shard`, complete ordered `files`, `source`, `action`,
-  `tests`, `failures`, `errors`, `skipped`, `passed`.
+  `tests`, `failures`, `errors`, `skipped`, `passed`,
+  ordered `file_results` and explicit `skip_cases`. Each file result has
+  `file`, `tests`, `passed`, `failures`, `errors`, `skipped` counts,
+  summing exactly to shard totals. Every selected file must have a positive
+  successful executed-case count. A selected file with zero collected or only
+  skipped cases fails.
 - `host_contracts`: the required complete-checkout job's artifact, with
   `schema: 1`, `repository_id`, `job: "host-contracts"`, `passed`,
   exact `source`, successful current-source `action`, prerequisite versions
@@ -65,7 +70,8 @@ The validation document contains:
   `kind`, `url`, `final_url`, `status`, `classification`, `source`.
   A redirect to another location does not establish current-link proof.
 - Separate nonempty explanations for `artwork`, `physical_controller`,
-  `native_desktop`, `registry`, `production_portainer` in `limitations`.
+  `native_desktop`, `registry`, `production_portainer` and
+  `optional_real_rvz_fixtures` in `limitations`.
 - `later_ref_changes` entries with `ref`, nullable `before`, `after` and
   `reason` (`feature-push` or `metadata-push`). An empty list is valid
   when no later ref changes occurred.
@@ -87,3 +93,25 @@ logs, snapshot manifests and HTTP observations. A missing original snapshot
 manifest cannot be reconstructed into a claimed runtime observation. Rerun the
 owned gate when it cannot be verified. No production acceptance or publication
 is implied by a successful validator.
+
+The general seeded E2E configuration excludes only specs owned by the separate
+static project-brand preview and isolated runtime/player profiles. The static
+preview still selects all four theme cases. The owned runtime profiles select
+their authenticated synthetic-library and player cases independently, without
+inheriting the general testIgnore list. Their source-attributed proof must remain
+available; exclusion from the seeded suite is not acceptance by itself.
+
+Trunk invokes the existing frontend ESLint policy explicitly from the repository
+root. This applies that same TypeScript policy to both frontend and desktop files,
+including differential baseline checks, without requiring a second desktop
+configuration or new dependencies. The operational-doc verifier expects the
+current product guide's heading while retaining its exact read-only mount and
+writable-storage separation requirements.
+
+Only the two pre-existing optional real-game RVZ cases may be recorded as
+unavailable SQL test cases. Each skip must use its exact node ID and exact
+missing-fixture reason from OPTIONAL_RVZ_SKIPS. Duplicate identities, other skipped
+cases, wrong reasons or inconsistent per-file counts fail. These cases remain
+skipped and explicitly disclosed, never counted as passed. The validator still
+rejects skipped required Actions jobs, missing shards and any skipped host suite.
+No private games, real NAS or invented fixture is used to remove this limitation.

@@ -130,6 +130,21 @@ class PublicationTests(unittest.TestCase):
                 self.assertIn(SOURCE, comment["body"])
                 self.assertNotIn("undefined", comment["body"])
 
+    def test_browser_and_lint_profiles_keep_their_execution_owners(self):
+        generic = read("frontend/playwright.config.ts")
+        preview = read("frontend/playwright.project-brand.config.ts")
+        runtime = read("backend/tools/phase38_browser.py")
+        player = read("backend/tools/phase38_install.py")
+        for name in ("project-brand", "zockarchive-brand", "zockarchive-player"):
+            self.assertIn("/" + name + r"\.spec\.ts/", generic)
+        self.assertIn('testMatch: "project-brand.spec.ts"', preview)
+        self.assertNotIn("playwright.config", preview)
+        self.assertIn('"zockarchive-brand.spec.ts"', runtime)
+        self.assertIn('config["testMatch"] = "zockarchive-player.spec.ts"', player)
+        self.assertIn("frontend/eslint.config.js", read(".trunk/trunk.yaml"))
+        self.assertIn("run: eslint --config", read(".trunk/trunk.yaml"))
+        self.assertNotIn("desktop/**", read(".trunk/trunk.yaml"))
+
     def test_support_ownership_is_truthful(self):
         self.assertIn(
             "ZockArchive version", read(".github/ISSUE_TEMPLATE/bug_report.md")

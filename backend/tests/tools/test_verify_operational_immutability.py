@@ -426,7 +426,7 @@ def test_browser_matrix_allows_isolated_stack_startup_time(
 def test_docs_contract_rejects_forbidden_team4s_guidance():
     module = _load_module()
     content = """
-# External Read-Only Library Operations
+# ZockArchive External Read-Only Library Operations
 ## Read-Only Mount Topology
 ## Writable Separation
 ## Register a Root and Browse Mappings
@@ -437,7 +437,7 @@ def test_docs_contract_rejects_forbidden_team4s_guidance():
 ## Maintenance Window Checklist
 ## Team4s Safeguards
 Mount one library root read-only at `/romm/library:ro`.
-RomM-owned writes stay on separate writable storage.
+ZockArchive-owned writes stay on separate writable storage.
 Original files and folders stay unchanged.
 Access time can still change during ordinary reads unless `noatime` or a NAS-equivalent setting is enabled.
 Content and directory structure remain unchanged even when access time changes.

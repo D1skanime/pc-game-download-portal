@@ -49,6 +49,10 @@ export default defineConfig({
         /phase35-presentation-smoke\.spec\.ts/,
         /phase36-descriptions\.spec\.ts/,
         /screenshot-management\.spec\.ts/,
+        // Dedicated static-preview and owned-library fixtures have separate configs.
+        /project-brand\.spec\.ts/,
+        /zockarchive-brand\.spec\.ts/,
+        /zockarchive-player\.spec\.ts/,
       ],
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],

@@ -209,6 +209,8 @@ class HistoricalIdentityTests(unittest.TestCase):
             with self.subTest(
                 branch=branch, origin=origin, project=project, state=state
             ), patch.object(probe.phase34, "host_preflight"), patch.object(
+                probe.phase34, "REPO", probe.ROOT
+            ), patch.object(
                 probe, "git_value", side_effect=[branch, origin]
             ), patch(
                 "pathlib.Path.read_text", side_effect=[project, state]

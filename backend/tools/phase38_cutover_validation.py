@@ -18,8 +18,65 @@ LIMITATIONS = {
     "native_desktop",
     "registry",
     "production_portainer",
+    "optional_real_rvz_fixtures",
 }
 SCHEMA_STEPS = ["upgrade-head", "downgrade-base", "upgrade-head"]
+
+OPTIONAL_RVZ_SKIPS = {
+    "tests/utils/test_rvz_hasher.py::test_real_gamecube_rvz_matches_retroachievements_hash": "mock GameCube RVZ not present",
+    "tests/utils/test_rvz_hasher.py::test_real_wii_rvz_matches_retroachievements_hash": "mock Wii RVZ not present",
+}
+
+
+def backend_observations(gate):
+    """Preserve explicit unavailable real-game cases without calling them passed."""
+    results = gate["file_results"]
+    require(
+        [r["file"] for r in results] == gate["files"],
+        "missing or duplicate per-file observations",
+    )
+    cases = gate["skip_cases"]
+    require(
+        isinstance(cases, list)
+        and len({case["nodeid"] for case in cases}) == len(cases),
+        "duplicate optional fixture case",
+    )
+    for case in cases:
+        require(
+            set(case) == {"nodeid", "reason"}
+            and OPTIONAL_RVZ_SKIPS.get(case["nodeid"]) == case["reason"]
+            and case["nodeid"].split("::", 1)[0] in gate["files"],
+            "unexpected skipped test or unavailable-fixture reason",
+        )
+    require(
+        type(gate.get("skipped")) is int and gate["skipped"] == len(cases),
+        "skipped-case accounting mismatch",
+    )
+    for result in results:
+        require(
+            all(
+                type(result.get(k)) is int and result[k] >= 0
+                for k in ("tests", "passed", "failures", "errors", "skipped")
+            ),
+            "invalid per-file test counts",
+        )
+        require(result["passed"] > 0, "selected test file has no successful cases")
+        skipped = sum(
+            case["nodeid"].split("::", 1)[0] == result["file"] for case in cases
+        )
+        require(
+            result["failures"] == result["errors"] == 0
+            and result["skipped"] == skipped
+            and result["tests"] == result["passed"] + skipped,
+            "per-file execution or skip accounting mismatch",
+        )
+    require(
+        all(
+            sum(result[k] for result in results) == gate[k]
+            for k in ("tests", "failures", "errors", "skipped")
+        ),
+        "shard/per-file count mismatch",
+    )
 
 
 def action(row, head):
@@ -102,10 +159,11 @@ def validate(row):
             and gate["tests"] > 0
             and all(
                 type(gate.get(k)) is int and gate[k] == 0
-                for k in ("failures", "errors", "skipped")
+                for k in ("failures", "errors")
             ),
-            "backend failed, skipped or unobserved",
+            "backend failed or unobserved",
         )
+        backend_observations(gate)
         source_proof(gate["source"], head, "full")
         action(gate["action"], head)
     require(

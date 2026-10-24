@@ -416,6 +416,22 @@ class ValidationTests(unittest.TestCase):
     def test_exact_optional_rvz_fixture_skips_are_disclosed(self):
         validation.validate(self.optional_rvz_skips())
 
+    def test_zero_collected_selected_testfile_fails(self):
+        row = copy.deepcopy(self.row)
+        gate = row["backend"][0]
+        gate["file_results"][0].update(tests=0, passed=0)
+        gate["tests"] = sum(result["tests"] for result in gate["file_results"])
+        with self.assertRaises(ValueError):
+            validation.validate(row)
+
+    def test_selected_file_with_only_optional_skips_fails(self):
+        row = self.optional_rvz_skips()
+        gate = row["backend"][0]
+        gate["file_results"][-1].update(tests=2, passed=0)
+        gate["tests"] = sum(result["tests"] for result in gate["file_results"])
+        with self.assertRaises(ValueError):
+            validation.validate(row)
+
     def test_wrong_skip_identity_reason_extra_case_or_file_counts_fail(self):
         changes = [
             lambda g: g["skip_cases"][0].update(nodeid="tests/test_auth.py::missing"),
