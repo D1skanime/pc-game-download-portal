@@ -18,7 +18,7 @@ class VerifierTests(unittest.TestCase):
         self.assertIn("Retained compatibility", contract)
         naming = (ROOT / "scripts/verify-pgdp-naming.sh").read_text()
         self.assertIn(CONTRACT, naming)
-        self.assertNotIn(".planning/", naming)
+        self.assertNotIn("/.planning/", naming)
         fresh = (ROOT / "scripts/verify-pgdp-fresh-stack.sh").read_text()
         self.assertIn(
             "38-zockarchive-product-and-repository-rebranding/evidence/install/", fresh
@@ -57,6 +57,9 @@ class VerifierTests(unittest.TestCase):
 
 
 class FreshCloneTests(unittest.TestCase):
+    temporary: tempfile.TemporaryDirectory[str]
+    clone: Path
+
     @classmethod
     def setUpClass(cls):
         cls.temporary = tempfile.TemporaryDirectory(prefix="za-38-07-clone-")

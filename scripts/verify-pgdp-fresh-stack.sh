@@ -13,7 +13,7 @@ env_file="${work_root}/portainer.env"
 rendered_file="${work_root}/rendered.yml"
 logs_file="${work_root}/logs.txt"
 cleanup_log="${work_root}/cleanup.txt"
-summary_file="${repo_root}/.planning/phases/32-pgdp-namensumstellung-fresh-installation/32-03-SUMMARY.md"
+summary_file="${repo_root}/.planning/phases/38-zockarchive-product-and-repository-rebranding/evidence/install/${run_id}/summary.md"
 app_container="${project}-app"
 db_container="${project}-db"
 selected_port=''
@@ -21,6 +21,8 @@ cleanup_result='not-run'
 db_health='not-observed'
 heartbeat='not-observed'
 image_digest='not-observed'
+naming_gate='not-observed'
+rendered_gate='not-observed'
 empty_volumes='not-observed'
 log_scan='not-observed'
 
@@ -32,7 +34,7 @@ write_summary() {
 	summary_directory="$(dirname -- "${summary_file}")"
 	mkdir -p "${summary_directory}"
 	{
-		echo '# Phase 32 Plan 03: Fresh PGDP Stack Proof'
+		echo '# Phase 38: Fresh ZockArchive Stack Proof'
 		echo
 		echo "Result: ${status}"
 		echo
@@ -48,8 +50,8 @@ write_summary() {
 		echo
 		echo '## Evidence'
 		echo
-		echo "- Static naming gate in clean clone: passed before build."
-		echo "- Rendered Compose parity and collision checks: passed before create."
+		echo "- Static naming gate in clean clone: ${naming_gate}."
+		echo "- Rendered Compose parity and collision checks: ${rendered_gate}."
 		echo "- Empty disposable volume labels and pre-start contents: ${empty_volumes}."
 		echo "- MariaDB health: ${db_health}."
 		echo "- Application heartbeat /api/heartbeat: ${heartbeat}."
@@ -59,7 +61,7 @@ write_summary() {
 		echo
 		echo '## Retained-name allowlist'
 		echo
-		echo 'The proof consumes 32-NAMING-INVENTORY.md. Compatibility-owned ROMM_* runtime keys, /romm and /assets/romm paths, schema/provider identifiers, browser/cache keys, and upstream URLs remain retained. PGDP is the only product-owned operator/deployment wrapper.'
+		echo 'The proof consumes tracked docs/zockarchive-branding-contract.md. ZockArchive/ZA is the visible identity. ROMM_*/PGDP_* keys, /romm and /assets/romm paths, schema/provider identifiers, browser/cache keys, existing local image tags and upstream attribution remain retained.'
 		echo
 		echo '## Commands'
 		echo
@@ -185,6 +187,7 @@ test -z "${observed_output}"
 
 bash "${clone_root}/scripts/verify-pgdp-naming.sh"
 bash "${clone_root}/scripts/verify-portainer-stack.sh"
+naming_gate=passed
 docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" config >"${rendered_file}"
 grep -Fq "name: ${project}" "${rendered_file}"
@@ -204,6 +207,7 @@ else
 	test "$?" -eq 1
 fi
 
+rendered_gate=passed
 docker compose --project-name "${project}" --project-directory "${clone_root}/examples" \
 	--env-file "${env_file}" -f "${clone_root}/${stack_relative}" build
 image_digest="$(docker image inspect "pc-game-download-portal:${project}" --format '{{.Id}}')"
