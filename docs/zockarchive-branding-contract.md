@@ -224,6 +224,16 @@ retain|backend/romm_test/setup.sql|-- `pgdp_test_gw0`, ... databases created und
 retain|backend/romm_test/setup.sql|GRANT ALL PRIVILEGES ON `pgdp\_test%`.* TO 'pgdp_test'@'%' WITH GRANT OPTION;
 ```
 
+## Verification authority
+
+CI accepts only the exact D1skanime/zockarchive origin and matching Actions
+repository/workspace, with optional .git suffix normalization. Inherited SQL, Redis,
+Compose, pytest and run-token overrides fail before provisioning. The canonical
+Linux checkout path is unchanged. Historical scan and description probes retain
+their own branch, host and planning identities with the current source URL; a
+current-phase runner composes their fixture/client functions through the existing
+disposable target authority instead of widening those historical entrypoints.
+
 ## Disposable evidence
 
 Fresh installation receipts belong only to the generated run directory under
