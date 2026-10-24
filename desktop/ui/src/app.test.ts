@@ -36,6 +36,19 @@ beforeEach(() => {
 });
 
 describe("desktop shell", () => {
+  it("shows ZockArchive while retaining native jobs", async () => {
+    const native = bindings();
+    await renderDesktopApp(document.querySelector("#app")!, native);
+    expect(document.querySelector(".eyebrow")?.textContent).toBe(
+      "ZockArchive Desktop",
+    );
+    expect(native.invoke).toHaveBeenCalledWith("state_snapshot");
+    expect(document.body.textContent).toContain("manifest-opaque-1");
+    expect(
+      document.querySelector("[data-state='LOCAL_CONFLICT']"),
+    ).not.toBeNull();
+  });
+
   it("renders pairing, opaque manifest, destination and original-file progress", async () => {
     const native = bindings();
     await renderDesktopApp(document.querySelector("#app")!, native);
