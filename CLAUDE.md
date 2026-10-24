@@ -1,6 +1,6 @@
 # ZockArchive (ZA) - Repository Guide for Contributors & Agents
 
-RomM is a self-hosted ROM manager and player: scan a game library off disk, enrich it with metadata from 10+ providers, browse it in a web UI, and play in the browser.
+ZockArchive is a self-hosted PC and console library, metadata manager and download portal, derived from upstream RomM. Existing source archives remain unchanged; supported console games can be played in the browser.
 
 ## Product identity
 
@@ -68,7 +68,7 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 
 ## Repo-wide rules
 
-**Disclose AI assistance in the PR.** RomM requires it (see `CONTRIBUTING.md`): state that AI was used and to what extent. This is mandatory and non-negotiable for agent-written contributions.
+**Disclose AI assistance in the PR.** ZockArchive requires it (see `CONTRIBUTING.md`): state that AI was used and to what extent. This is mandatory and non-negotiable for agent-written contributions.
 **Branch off `main`; open PRs against `main`.** Feature branch -> verification -> commit -> push -> PR. Do not push feature work directly to `main` unless explicitly requested.
 **Linting is via [Trunk](https://trunk.io)** (`trunk fmt && trunk check`) — it wraps ruff, black, isort, mypy, ESLint, Prettier, and more, and runs in CI on every PR. **Never commit with `--no-verify`.**
 **The backend owns the API contract.** Changed a response schema or route? Regenerate frontend types (`npm run generate`) and re-typecheck.

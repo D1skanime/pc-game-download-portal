@@ -1,6 +1,6 @@
 <!-- generated-by: gsd-doc-writer -->
 
-# RomM Frontend Architecture
+# ZockArchive Frontend Architecture
 
 Comprehensive documentation of the current Vue 3 and TypeScript frontend for browsing, enriching, managing, playing, and downloading the ROM and PC-game library.
 
@@ -31,7 +31,7 @@ Comprehensive documentation of the current Vue 3 and TypeScript frontend for bro
 
 ## 1. Overview
 
-The frontend is a Vue 3 Composition API single-page application built with Vite and TypeScript. frontend/src/main.ts loads heartbeat, current-user, and configuration data, registers plugins, and mounts RomM.vue. The active router loads v2 layouts, views, and components. The client calls the backend through Axios at /api and receives live events through Socket.IO at /ws/socket.io/. Backend OpenAPI models are generated into frontend/src/**generated**.
+The frontend is a Vue 3 Composition API single-page application built with Vite and TypeScript. frontend/src/main.ts loads heartbeat, current-user, and configuration data, registers plugins, and mounts PGDP.vue. The active router loads v2 layouts, views, and components. The client calls the backend through Axios at /api and receives live events through Socket.IO at /ws/socket.io/. Backend OpenAPI models are generated into frontend/src/**generated**.
 
 | Area    | Current implementation                                       |
 | ------- | ------------------------------------------------------------ |
@@ -81,7 +81,7 @@ The v2 contract layer in frontend/src/v2/data/contracts.ts models repositories, 
     frontend/
     ├── package.json, vite.config.js, vitest.config.ts, playwright.config.ts
     └── src/
-        ├── main.ts, RomM.vue
+        ├── main.ts, PGDP.vue
         ├── plugins/                 # Router, Pinia, Vuetify, i18n, editor
         ├── v2/
         │   ├── layouts/             # AppLayout, AuthLayout, SettingsLayout

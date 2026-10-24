@@ -1,6 +1,6 @@
 <!-- generated-by: gsd-doc-writer -->
 
-# RomM Backend Architecture
+# ZockArchive Backend Architecture
 
 **Analysis Date:** 2026-10-15
 
@@ -24,10 +24,10 @@ The backend owns catalog state and API shapes. The Vue frontend never accesses t
 | Scan pipeline     | Filesystem scan, ROM/component reconciliation, provider enrichment    | backend/handler/scan_handler.py                                                                 |
 | API boundary      | Request validation, scopes, delegation and serialization              | backend/endpoints/                                                                              |
 | Catalog aggregate | ROM identity, metadata, files, PC components, media, saves and states | backend/models/rom.py                                                                           |
-| Storage boundary  | External read-only versus RomM-owned roots                            | backend/handler/filesystem/storage_composition.py, backend/handler/filesystem/storage_policy.py |
+| Storage boundary  | External read-only versus ZockArchive-owned roots                     | backend/handler/filesystem/storage_composition.py, backend/handler/filesystem/storage_policy.py |
 | Metadata          | Provider clients, normalization, merge and priority                   | backend/handler/metadata/, backend/adapters/services/                                           |
 | PC automation     | Guarded unique decisions and review queue                             | backend/handler/metadata/pc_automation.py, backend/models/pc_automation.py                      |
-| Frontend shell    | Bootstrap, initial auth/config/heartbeat, themes and routes           | frontend/src/main.ts, frontend/src/RomM.vue                                                     |
+| Frontend shell    | Bootstrap, initial auth/config/heartbeat, themes and routes           | frontend/src/main.ts, frontend/src/PGDP.vue                                                     |
 | Frontend data     | Pinia state and API/socket adapters                                   | frontend/src/v2/data/adapters/legacy/, frontend/src/stores/                                     |
 
 ## Pattern Overview
@@ -137,13 +137,13 @@ or restore endpoint. Explicit refresh does not restore operator-deleted images.
 
 - FastAPI: backend/main.py, invoked by Uvicorn/Gunicorn or direct Python.
 - Background work: backend/startup.py, backend/tasks/, backend/handler/redis_handler.py.
-- Frontend: frontend/src/main.ts and frontend/src/RomM.vue.
+- Frontend: frontend/src/main.ts and frontend/src/PGDP.vue.
 
 ## Architectural Constraints
 
 - **Threading:** Async FastAPI/Socket.IO coexist with RQ workers; blocking I/O stays in handlers/tasks.
 - **Global state:** Provider handlers, config manager, Redis clients, Socket.IO handlers and storage composition are module-level infrastructure.
-- **Circular imports:** The Axios client imports the router for 401 redirects. RomM.vue lazy-loads app-shell pieces to avoid bootstrap cycles. V2 primitives must not import stores, services, router or i18n.
+- **Circular imports:** The Axios client imports the router for 401 redirects. PGDP.vue lazy-loads app-shell pieces to avoid bootstrap cycles. V2 primitives must not import stores, services, router or i18n.
 - **Storage safety:** The library root is external/read-only. Never write sidecars, exports or generated media there.
 - **API contract:** Backend response schemas are authoritative; changes require OpenAPI regeneration into frontend/src/**generated**/.
 - **Compatibility:** Do not refactor frozen v1 paths.
@@ -200,9 +200,9 @@ Role is user or admin in backend/models/user.py. Admin bypasses the granular mat
 
 ### Database, Redis and storage
 
-MariaDB is the default driver. MySQL and PostgreSQL are supported by backend/config/config_manager.py and Alembic. docker-compose.yml includes MariaDB for RomM and a separate PostgreSQL service for Authentik. The production Portainer stack uses MariaDB 11.3 and Valkey-compatible Redis runtime state.
+MariaDB is the default driver. MySQL and PostgreSQL are supported by backend/config/config_manager.py and Alembic. docker-compose.yml includes MariaDB for ZockArchive and a separate PostgreSQL service for Authentik. The production Portainer stack uses MariaDB 11.3 and Valkey-compatible Redis runtime state.
 
-StorageRoot and PlatformStorageMapping in backend/models/storage.py model external_read_only roots and versioned platform mappings. backend/handler/storage/read_context.py validates mapping revision and root health. backend/handler/filesystem/storage_policy.py permits only resolve/list/stat/read/scan/hash/stream/download on external roots; writes go to classified RomM-owned roots.
+StorageRoot and PlatformStorageMapping in backend/models/storage.py model external_read_only roots and versioned platform mappings. backend/handler/storage/read_context.py validates mapping revision and root health. backend/handler/filesystem/storage_policy.py permits only resolve/list/stat/read/scan/hash/stream/download on external roots; writes go to classified ZockArchive-owned roots.
 
 ### PC models, metadata, DLC and descriptions
 

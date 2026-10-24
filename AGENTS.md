@@ -1,4 +1,4 @@
-# Repository Instructions
+# ZockArchive Repository Instructions
 
 Read and follow [CLAUDE.md](CLAUDE.md) for all repository instructions.
 
@@ -23,7 +23,7 @@ Follow the "Documentation stays current with implementation" policy in `CLAUDE.m
 ## Git workflow
 
 - The canonical development checkout is `/home/d1sk/pc-game-download-portal` on `team4s-linux`.
-- The remote is `https://github.com/D1skanime/pc-game-download-portal.git`.
+- The remote is `https://github.com/D1skanime/zockarchive.git`.
 - Start implementation work from a fresh or up-to-date local feature branch based on `main`. Do not use the old `/home/d1sk/romm` checkout as a development base.
 - After implementation and verification, commit the project changes in the Linux checkout with a concise English commit message. Never commit secrets, filled environment files, ROMs, media, databases, or local runtime state.
 - Push the feature branch to the new repository and open a pull request against `main`. Do not push feature work directly to `main` unless the user explicitly requests direct main updates.
