@@ -72,9 +72,7 @@ async def refresh_media(
     """Explicitly reconcile provider images without changing user placements."""
     rom = _visible_rom(request, id)
     try:
-        await refresh_provider_owned_media(
-            rom, expected_version, "provider", restore_suppressed=True
-        )
+        await refresh_provider_owned_media(rom, expected_version, "provider")
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

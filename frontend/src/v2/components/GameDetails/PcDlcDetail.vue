@@ -24,6 +24,7 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{
   parent: DetailedRomSchema;
   component: PcComponentSchema;
+  refresh: () => Promise<boolean>;
 }>();
 const emit = defineEmits<{ (event: "refresh"): void }>();
 
@@ -367,7 +368,7 @@ function showMedia() {
             v-if="tab === 'media'"
             :rom-id="parent.id"
             :component="component"
-            @refresh="emit('refresh')"
+            :refresh="refresh"
           />
           <PcDlcNotesTab
             v-if="tab === 'notes'"

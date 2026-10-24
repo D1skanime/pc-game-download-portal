@@ -12,7 +12,6 @@ from handler.metadata.moby_handler import MobyGamesHandler
 from handler.metadata.playmatch_handler import PlaymatchHandler
 from handler.metadata.ra_handler import RAHandler
 from handler.metadata.sgdb_handler import SGDBBaseHandler
-from handler.metadata.ss_handler import SSHandler
 from handler.metadata.tgdb_handler import TGDBHandler
 from handler.scan_command import ScanScope, ScanTrigger
 from handler.scan_handler import MetadataSource, ScanType
@@ -42,7 +41,14 @@ class TestScanLibraryTask:
         mocker.patch.object(PlaymatchHandler, "is_enabled", return_value=False)
         mocker.patch.object(RAHandler, "is_enabled", return_value=True)
         mocker.patch.object(SGDBBaseHandler, "is_enabled", return_value=False)
-        mocker.patch.object(SSHandler, "is_enabled", return_value=False)
+        mocker.patch(
+            "tasks.scheduled.scan_library.meta_ss_handler.is_enabled",
+            return_value=False,
+        )
+        mocker.patch(
+            "tasks.scheduled.scan_library.meta_steam_handler.is_enabled",
+            return_value=False,
+        )
         mocker.patch.object(FlashpointHandler, "is_enabled", return_value=False)
         mocker.patch.object(HLTBHandler, "is_enabled", return_value=False)
         mocker.patch.object(TGDBHandler, "is_enabled", return_value=False)

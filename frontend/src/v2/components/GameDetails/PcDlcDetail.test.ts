@@ -122,7 +122,11 @@ const parent: Partial<DetailedRomSchema> = {
 
 function mountDetail(component: PcComponentSchema = selectedDlc) {
   return mount(PcDlcDetail, {
-    props: { parent: parent as DetailedRomSchema, component },
+    props: {
+      parent: parent as DetailedRomSchema,
+      component,
+      refresh: async () => true,
+    },
     global: {
       stubs: {
         RMenu: {
@@ -441,7 +445,11 @@ describe("PcDlcDetail", () => {
   it("opens component-scoped cover search with the parent and component ids", async () => {
     const emitter = { emit: vi.fn() };
     const wrapper = mount(PcDlcDetail, {
-      props: { parent: parent as DetailedRomSchema, component: selectedDlc },
+      props: {
+        parent: parent as DetailedRomSchema,
+        component: selectedDlc,
+        refresh: async () => true,
+      },
       global: {
         stubs: {
           RMenu: {

@@ -2,6 +2,7 @@ import { flushPromises, shallowMount } from "@vue/test-utils";
 import mitt from "mitt";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createPinia } from "pinia";
 import { describe, expect, it, vi } from "vitest";
 import { computed, ref } from "vue";
 import type { Events } from "@/types/emitter";
@@ -217,6 +218,10 @@ const stubs = {
     template:
       '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
   },
+  ScreenshotManagementCard: false,
+  MediaManagementCard: false,
+  MediaManagementAction: false,
+  MediaUploadControl: false,
   RCheckbox: { template: '<input type="checkbox" />' },
   RDropzone: {
     emits: ["files"],
@@ -249,7 +254,10 @@ const stubs = {
 };
 
 function mountPanel(component: object) {
-  return shallowMount(component, { props: { rom }, global: { stubs } });
+  return shallowMount(component, {
+    props: { rom },
+    global: { plugins: [createPinia()], stubs },
+  });
 }
 
 describe("maximum-grant source mutation controls", () => {
@@ -281,15 +289,33 @@ describe("maximum-grant source mutation controls", () => {
 
   it("keeps personal screenshots mutable without exposing source-library media controls", async () => {
     const screenshots = mountPanel(ScreenshotsSubtab);
-    const screenshotPanels = screenshots.findAll("[data-screenshots]");
-    expect("data-deletable" in screenshotPanels[0].attributes()).toBe(true);
-    expect("data-togglable" in screenshotPanels[0].attributes()).toBe(true);
+    const personal = screenshots.find('[data-shot-key="user:201"]');
+    const deletion = personal.find('[aria-label="common.delete"]');
+    const visibility = personal.find(
+      '[aria-label="rom.screenshot-make-public"]',
+    );
+    expect(deletion.exists()).toBe(true);
+    expect(visibility.exists()).toBe(true);
+    expect(deletion.attributes("disabled")).toBeUndefined();
+    expect(visibility.attributes("disabled")).toBeUndefined();
+    await visibility.trigger("click");
+    await flushPromises();
+    expect(mocks.setScreenshotVisibility).toHaveBeenCalledWith({
+      id: 201,
+      isPublic: true,
+    });
+    await deletion.trigger("click");
+    await flushPromises();
+    expect(mocks.deleteScreenshot).toHaveBeenCalledWith({ id: 201 });
+    expect(screenshots.text()).not.toContain("shared.png");
     expect(screenshots.findAll("[data-dropzone]")).toHaveLength(1);
 
     const media = mountPanel(MediaTab);
     await flushPromises();
     expect(media.findAll("[data-dropzone]")).toHaveLength(0);
     expect(media.html()).not.toContain("common.upload");
+    screenshots.unmount();
+    media.unmount();
   });
 
   it("uses parent-owned media routes and exposes linked Media tabs", () => {
@@ -317,9 +343,15 @@ describe("maximum-grant source mutation controls", () => {
       "src/v2/components/GameDetails/ScreenshotsSubtab.vue",
     );
 
-    expect(screenshots).toContain("/media/${mediaId}/content");
-    expect(screenshots).not.toContain("/files/content/");
-    expect(screenshots).not.toContain("full_path");
+    const lifecycle = source(
+      "src/v2/composables/useScreenshotManagement/index.ts",
+    );
+    expect(lifecycle).toContain("/media/${mediaId}/content");
+    expect(screenshots).toContain("url: mediaContentUrl(media.id)");
+    for (const owner of [screenshots, lifecycle]) {
+      expect(owner).not.toContain("/files/content/");
+      expect(owner).not.toContain("full_path");
+    }
   });
 
   it("renders the source filename read-only and omits both match rename controls", async () => {

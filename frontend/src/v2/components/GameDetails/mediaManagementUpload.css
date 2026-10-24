@@ -1,0 +1,40 @@
+.za-media-upload {
+  --za-tint: var(--r-color-brand-primary);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--za-tint) 6%, var(--r-color-surface));
+  backdrop-filter: blur(var(--r-space-2));
+  border: 1px dashed;
+  border-color: color-mix(in srgb, var(--za-tint) 38%, var(--r-color-border));
+  border-radius: var(--r-radius-card);
+}
+.za-media-upload:hover,
+.r-dropzone--active .za-media-upload {
+  border-color: color-mix(in srgb, var(--za-tint) 65%, var(--r-color-border));
+  background: color-mix(
+    in srgb,
+    var(--za-tint) 10%,
+    var(--r-color-bg-elevated)
+  );
+}
+.za-media-upload__button {
+  min-height: var(--r-touch-target);
+  height: auto;
+  white-space: normal;
+  color: var(--r-color-fg);
+  font-size: var(--r-font-size-lg);
+  font-weight: var(--r-font-weight-semibold);
+  line-height: var(--r-line-height-normal);
+}
+.za-media-upload__hint {
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-md);
+  line-height: var(--r-line-height-normal);
+}
+html[data-bp~="sm-and-down"] .za-media-upload {
+  top: var(--r-nav-h);
+}
+.za-media-upload :deep(button) {
+  min-height: var(--r-touch-target);
+}

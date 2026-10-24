@@ -153,3 +153,17 @@ async def test_provider_delete_removes_owned_file_and_keeps_tombstone(
     )
     assert tombstone.operator_suppressed is True
     assert tombstone.owned_path is None
+
+
+def test_explicit_refresh_preserves_suppression_policy(
+    client, access_token, rom, monkeypatch
+):
+    refresh = AsyncMock(return_value=(rom, []))
+    monkeypatch.setattr("endpoints.roms.media.refresh_provider_owned_media", refresh)
+    response = client.post(
+        f"/api/roms/{rom.id}/media/refresh",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"expected_version": rom.updated_at.isoformat()},
+    )
+    assert response.status_code == 200
+    assert "restore_suppressed" not in refresh.call_args.kwargs

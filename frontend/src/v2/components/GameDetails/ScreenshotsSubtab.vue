@@ -5,492 +5,465 @@ import {
   RDropzone,
   REmptyState,
   RSkeletonBlock,
-  RTooltip,
 } from "@v2/lib";
-import axios from "axios";
-import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type {
-  RomOwnedMediaSchema,
-  RomOwnedMediaSurface,
-} from "@/__generated__";
-import ScreenshotsTab, {
-  type ScreenshotItem,
-} from "@/v2/components/GameDetails/ScreenshotsTab.vue";
-import { useCan } from "@/v2/composables/useCan";
-import { useConfirm } from "@/v2/composables/useConfirm";
-import { useSnackbar } from "@/v2/composables/useSnackbar";
-import romApi from "@/v2/data/adapters/legacy/services/api/rom";
-import screenshotApi from "@/v2/data/adapters/legacy/services/api/screenshot";
+import MediaUploadControl from "@/v2/components/GameDetails/MediaUploadControl.vue";
+import ScreenshotManagementCard, {
+  type ScreenshotManagementAction,
+  type ScreenshotManagementItem,
+} from "@/v2/components/GameDetails/ScreenshotManagementCard.vue";
+import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
+import { useScreenshotManagement } from "@/v2/composables/useScreenshotManagement";
+import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import storeAuth from "@/v2/data/adapters/legacy/stores/auth";
-import storeRoms, {
-  type DetailedRom,
-} from "@/v2/data/adapters/legacy/stores/roms";
-import storeUpload from "@/v2/data/adapters/legacy/stores/upload";
+import type { DetailedRom } from "@/v2/data/adapters/legacy/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
-const snackbar = useSnackbar();
-const confirm = useConfirm();
-const romsStore = storeRoms();
-const uploadStore = storeUpload();
-const { user } = storeToRefs(storeAuth());
-const scope = { kind: "rom", id: props.rom.id } as const;
-const canManage = useCan("rom.edit", scope);
-const canRefresh = useCan("rom.refresh", scope);
-const providerScreenshots = computed(() =>
-  (props.rom.owned_media ?? []).filter(
-    (item) =>
-      item.origin === "provider" &&
-      item.role === "screenshot" &&
-      item.state === "active",
-  ),
-);
-const providerUrls = computed(() =>
-  providerScreenshots.value.map((item) => mediaContentUrl(item.id)),
-);
-const providerLightboxOpen = ref(false);
-const providerLightboxIndex = ref(0);
-const refreshing = ref(false);
-const mutatingId = ref<number | null>(null);
-const allUserScreenshots = computed(() => props.rom.all_user_screenshots ?? []);
-const myScreenshots = computed<ScreenshotItem[]>(() =>
-  allUserScreenshots.value
-    .filter((item) => user.value?.id != null && item.user_id === user.value.id)
-    .map((item) => ({
-      id: item.id,
-      url: item.download_path,
-      isOwn: true,
-      isPublic: Boolean(item.is_public),
-    })),
-);
-const communityScreenshots = computed<ScreenshotItem[]>(() =>
-  allUserScreenshots.value
-    .filter((item) => user.value?.id == null || item.user_id !== user.value.id)
-    .map((item) => ({
-      id: item.id,
-      url: item.download_path,
-      isOwn: false,
-      isPublic: true,
-      username: item.username,
-      userId: item.user_id,
-      userAvatarPath: item.user_avatar_path,
-      userUpdatedAt: item.user_updated_at,
-    })),
-);
+const auth = storeAuth();
+const {
+  providerScreenshots,
+  myScreenshots,
+  communityScreenshots,
+  canManage,
+  canRefresh,
+  canUpload,
+  refreshing,
+  mutatingId,
+  togglingId,
+  deletingId,
+  uploading,
+  newlyUploadedIds,
+  mediaContentUrl,
+  handleMyFiles,
+  deleteMyScreenshot,
+  deleteProviderScreenshot,
+  toggleVisibility,
+  togglePlacement,
+  refreshProviderScreenshots,
+} = useScreenshotManagement(() => props.rom);
+const root = ref<HTMLElement | null>(null);
+const gallery = ref<HTMLElement | null>(null);
+const toolbar = ref<HTMLElement | null>(null);
 const myDz = ref<InstanceType<typeof RDropzone> | null>(null);
-const togglingId = ref<number | null>(null);
-const deletingId = ref<number | null>(null);
-
-function mediaContentUrl(mediaId: number) {
-  return `/api/roms/${props.rom.id}/media/${mediaId}/content`;
+const { columns } = useResponsiveColumns(gallery, {
+  cardWidth: 200,
+  gap: () =>
+    gallery.value
+      ? parseFloat(
+          getComputedStyle(gallery.value).getPropertyValue("--r-space-3"),
+        ) || 12
+      : 12,
+});
+// Each native control participates so directional input reaches both previews and actions.
+const actionSelector = "button:not([disabled])";
+useWrapGridNav(root, { cellSelector: actionSelector });
+type Source = ScreenshotManagementItem["source"];
+const groups = computed<
+  { source: Source; label: string; items: ScreenshotManagementItem[] }[]
+>(() => [
+  {
+    source: "provider",
+    label: t("rom.screenshots-source-provider"),
+    items: providerScreenshots.value.map((media) => ({
+      source: "provider",
+      key: `provider:${media.id}`,
+      media,
+      url: mediaContentUrl(media.id),
+    })),
+  },
+  {
+    source: "mine",
+    label: t("rom.screenshots-section-mine"),
+    items: myScreenshots.value.flatMap((shot) =>
+      shot.id == null
+        ? []
+        : [
+            {
+              source: "mine" as const,
+              key: `user:${shot.id}` as const,
+              shot,
+            },
+          ],
+    ),
+  },
+  {
+    source: "community",
+    label: t("rom.screenshots-section-community"),
+    items: communityScreenshots.value.flatMap((shot) =>
+      shot.id == null
+        ? []
+        : [
+            {
+              source: "community" as const,
+              key: `user:${shot.id}` as const,
+              shot,
+            },
+          ],
+    ),
+  },
+]);
+const providerBusy = computed(
+  () => refreshing.value || mutatingId.value !== null,
+);
+const personalBusy = computed(
+  () => togglingId.value !== null || deletingId.value !== null,
+);
+function cardUrl(item: ScreenshotManagementItem) {
+  return item.source === "provider" ? item.url : item.shot.url;
 }
-function hasPlacement(
-  item: RomOwnedMediaSchema,
-  surface: RomOwnedMediaSurface,
-) {
+const lightbox = ref<{ source: Source; key: string } | null>(null);
+const lightboxItems = computed(
+  () =>
+    groups.value.find((group) => group.source === lightbox.value?.source)
+      ?.items ?? [],
+);
+const lightboxUrls = computed(() => lightboxItems.value.map(cardUrl));
+const lightboxIndex = computed({
+  get: () =>
+    lightboxItems.value.findIndex((item) => item.key === lightbox.value?.key),
+  set: (index: number) => {
+    const item = lightboxItems.value[index];
+    if (item) lightbox.value = { source: item.source, key: item.key };
+  },
+});
+let invokingKey: string | null = null;
+let mounted = true;
+let viewGeneration = 0;
+const focusGuards = new Set<AbortController>();
+onBeforeUnmount(() => {
+  mounted = false;
+  focusGuards.forEach((guard) => guard.abort());
+});
+function cardElement(key: string) {
+  return Array.from(
+    root.value?.querySelectorAll<HTMLElement>("[data-shot-key]") ?? [],
+  ).find((element) => element.dataset.shotKey === key);
+}
+function survivingControl(key?: string | null) {
   return (
-    item.placements?.some((placement) => placement.surface === surface) ?? false
+    (key
+      ? cardElement(key)?.querySelector<HTMLElement>(actionSelector)
+      : null) ?? root.value?.querySelector<HTMLElement>(actionSelector)
   );
 }
-function placementPosition(
-  item: RomOwnedMediaSchema,
-  surface: RomOwnedMediaSurface,
-) {
-  return item.placements?.find((placement) => placement.surface === surface)
-    ?.position;
-}
-function errorMessage(error: unknown) {
-  if (axios.isAxiosError(error))
-    return typeof error.response?.data?.detail === "string"
-      ? error.response.data.detail
-      : error.message;
-  return error instanceof Error ? error.message : String(error);
-}
-async function refreshCanonical() {
-  await romsStore.refreshRom(props.rom.id);
-}
-async function recoverFromConflict(error: unknown) {
-  if (axios.isAxiosError(error) && error.response?.status === 409) {
-    await refreshCanonical();
-    snackbar.warning(t("common.error"));
-    return true;
-  }
-  return false;
-}
-async function togglePlacement(
-  item: RomOwnedMediaSchema,
-  surface: RomOwnedMediaSurface,
-) {
-  if (mutatingId.value !== null) return;
-  mutatingId.value = item.id;
-  try {
-    if (hasPlacement(item, surface))
-      await romApi.removeOwnedMediaPlacement({
-        romId: props.rom.id,
-        mediaId: item.id,
-        surface,
-        expectedVersion: props.rom.updated_at,
-      });
-    else
-      await romApi.setOwnedMediaPlacement({
-        romId: props.rom.id,
-        mediaId: item.id,
-        surface,
-        expectedVersion: props.rom.updated_at,
-      });
-    await refreshCanonical();
-  } catch (error) {
-    if (!(await recoverFromConflict(error)))
-      snackbar.error(errorMessage(error));
-  } finally {
-    mutatingId.value = null;
-  }
-}
-async function refreshProviderScreenshots() {
-  if (refreshing.value) return;
-  refreshing.value = true;
-  try {
-    await romApi.refreshOwnedMedia({
-      romId: props.rom.id,
-      expectedVersion: props.rom.updated_at,
-    });
-    await refreshCanonical();
-    snackbar.success(t("common.refresh"));
-  } catch (error) {
-    if (!(await recoverFromConflict(error)))
-      snackbar.error(errorMessage(error));
-  } finally {
-    refreshing.value = false;
-  }
-}
-async function deleteProviderScreenshot(item: RomOwnedMediaSchema) {
+async function closeLightbox(restoreInvoker = true) {
+  const key = restoreInvoker ? invokingKey : null;
+  const romId = props.rom.id;
+  const generation = viewGeneration;
+  lightbox.value = null;
+  invokingKey = null;
+  await nextTick();
   if (
-    !(await confirm({
-      title: t("rom.delete-screenshot-title"),
-      body: item.display_label,
-      confirmText: t("common.delete"),
-      tone: "danger",
-    }))
+    !mounted ||
+    romId !== props.rom.id ||
+    generation !== viewGeneration ||
+    lightbox.value
   )
     return;
-  mutatingId.value = item.id;
+  survivingControl(key)?.focus({ preventScroll: true });
+}
+watch(
+  () => props.rom.id,
+  () => {
+    viewGeneration++;
+    if (lightbox.value) void closeLightbox(false);
+  },
+  { flush: "sync" },
+);
+watch(lightboxItems, (items) => {
+  if (lightbox.value && !items.some((item) => item.key === lightbox.value?.key))
+    void closeLightbox();
+});
+// Native disabled controls can drop focus before canonical settlement re-enables them.
+async function retainActionFocus(operation: () => unknown) {
+  const trigger = root.value?.contains(document.activeElement)
+    ? document.activeElement
+    : null;
+  const generation = viewGeneration;
+  const userId = auth.user?.id;
+  const key = trigger?.closest<HTMLElement>("[data-shot-key]")?.dataset.shotKey;
+  const guard = new AbortController();
+  let interrupted = false;
+  focusGuards.add(guard);
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest('[role="dialog"]'))
+        interrupted = true;
+    },
+    { capture: true, signal: guard.signal },
+  );
   try {
-    await romApi.deleteOwnedMedia({
-      romId: props.rom.id,
-      mediaId: item.id,
-      expectedVersion: props.rom.updated_at,
-    });
-    await refreshCanonical();
-    snackbar.success(t("rom.owned-media-deleted"));
-  } catch (error) {
-    if (!(await recoverFromConflict(error)))
-      snackbar.error(errorMessage(error));
+    await operation();
+    await nextTick();
+    if (
+      !mounted ||
+      interrupted ||
+      generation !== viewGeneration ||
+      userId !== auth.user?.id ||
+      document.activeElement !== document.body ||
+      !(trigger instanceof HTMLElement) ||
+      !root.value
+    )
+      return;
+    const target =
+      trigger.isConnected &&
+      root.value.contains(trigger) &&
+      !trigger.matches(":disabled")
+        ? trigger
+        : survivingControl(key);
+    target?.focus({ preventScroll: true });
   } finally {
-    mutatingId.value = null;
+    guard.abort();
+    focusGuards.delete(guard);
   }
 }
-async function refreshRom() {
-  try {
-    await refreshCanonical();
-  } catch (error) {
-    console.error(error);
+function dispatch(action: ScreenshotManagementAction) {
+  if (action.type === "preview") {
+    invokingKey = action.item.key;
+    lightbox.value = { source: action.item.source, key: action.item.key };
+    return;
   }
-}
-function reportUpload(responses: PromiseSettledResult<unknown>[]) {
-  const successful = responses.filter(
-    (item) => item.status === "fulfilled",
-  ).length;
-  if (successful === responses.length) uploadStore.reset();
-  successful
-    ? snackbar.success(
-        t("rom.screenshots-uploaded-n", successful, {
-          named: { n: successful },
-        }),
-      )
-    : snackbar.warning(t("rom.no-screenshots-uploaded"));
-}
-async function handleMyFiles(files: File[]) {
-  if (!files.length) return;
-  const responses = await screenshotApi.uploadGalleryScreenshots({
-    romId: props.rom.id,
-    filesToUpload: files,
+  void retainActionFocus(() => {
+    switch (action.type) {
+      case "placement":
+        return togglePlacement(action.item.media, action.surface);
+      case "remove-provider":
+        return deleteProviderScreenshot(action.item.media);
+      case "visibility":
+        if (action.item.shot.id != null)
+          return toggleVisibility(action.item.shot.id, action.isPublic);
+        break;
+      case "delete-mine":
+        if (action.item.shot.id != null)
+          return deleteMyScreenshot(action.item.shot.id);
+    }
   });
-  reportUpload(responses);
-  if (responses.some((item) => item.status === "fulfilled")) await refreshRom();
 }
-async function deleteMyScreenshot(id: number) {
+function scrollOwner() {
+  if (!root.value) return null;
+  return getComputedStyle(root.value).overflowY === "visible"
+    ? ((document.scrollingElement as HTMLElement | null) ??
+        document.documentElement)
+    : root.value;
+}
+// Only this view measures DOM geometry; the lifecycle owns canonical upload settlement.
+async function uploadFiles(files: File[]) {
+  if (uploading.value || !canUpload.value || !files.length) return;
+  const romId = props.rom.id;
+  const generation = viewGeneration;
+  const previousUploads = newlyUploadedIds.value;
+  const owner = scrollOwner();
+  const scrollTop = owner?.scrollTop;
+  const inset = toolbar.value?.getBoundingClientRect().bottom ?? 0;
+  const bottom =
+    owner === root.value
+      ? (owner?.getBoundingClientRect().bottom ?? innerHeight)
+      : innerHeight;
+  const anchor = Array.from(
+    root.value?.querySelectorAll<HTMLElement>("[data-shot-key]") ?? [],
+  ).find((element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.bottom > inset && rect.top < bottom;
+  });
+  const key = anchor?.dataset.shotKey;
+  const top = anchor?.getBoundingClientRect().top;
+  await handleMyFiles(files);
+  await nextTick();
+  // A user scroll, breakpoint change or navigation supersedes the saved anchor.
   if (
-    !(await confirm({
-      title: t("rom.delete-screenshot-title"),
-      body: t("rom.delete-screenshot-body"),
-      confirmText: t("common.delete"),
-      tone: "danger",
-    }))
+    !mounted ||
+    props.rom.id !== romId ||
+    generation !== viewGeneration ||
+    previousUploads === newlyUploadedIds.value ||
+    !newlyUploadedIds.value.length ||
+    !owner ||
+    owner !== scrollOwner() ||
+    owner.scrollTop !== scrollTop ||
+    !key ||
+    top === undefined
   )
     return;
-  deletingId.value = id;
-  try {
-    await screenshotApi.deleteScreenshot({ id });
-    await refreshRom();
-    snackbar.success(t("rom.screenshot-removed"));
-  } catch (error) {
-    snackbar.error(errorMessage(error));
-  } finally {
-    deletingId.value = null;
-  }
-}
-async function toggleVisibility(id: number, isPublic: boolean) {
-  if (togglingId.value !== null) return;
-  togglingId.value = id;
-  try {
-    await screenshotApi.setScreenshotVisibility({ id, isPublic });
-    await refreshRom();
-  } catch (error) {
-    snackbar.error(errorMessage(error));
-  } finally {
-    togglingId.value = null;
-  }
+  const surviving = cardElement(key);
+  if (surviving) owner.scrollTop += surviving.getBoundingClientRect().top - top;
 }
 </script>
 
 <template>
-  <div class="r-v2-shots">
-    <section
-      class="r-v2-shots__section"
-      aria-labelledby="provider-screenshots-heading"
+  <div ref="root" class="za-shots" data-shot-scroll>
+    <RDropzone
+      ref="myDz"
+      class="za-shots__dropzone"
+      overlay
+      accept="image/*"
+      multiple
+      :disabled="uploading || !canUpload"
+      :input-label="t('rom.upload-screenshots')"
+      :release-label="t('common.dropzone-drag-over')"
+      @files="uploadFiles"
     >
-      <header class="r-v2-shots__head">
-        <div>
-          <h3 id="provider-screenshots-heading" class="r-v2-shots__title">
-            {{ t("rom.screenshots") }}
-          </h3>
-          <p class="r-v2-shots__subtitle">
-            {{ t("rom.screenshots-section-rom-desc") }}
-            <br />{{ t("rom.provider-screenshot-delete-note") }}
-          </p>
-        </div>
-        <RTooltip :text="t('common.refresh')"
-          ><RBtn
-            v-if="canRefresh"
-            icon="mdi-refresh"
-            :loading="refreshing"
-            :aria-label="t('common.refresh')"
-            @click="refreshProviderScreenshots"
-        /></RTooltip>
+      <header
+        ref="toolbar"
+        class="za-shots__toolbar za-media-upload d-flex flex-wrap align-center ga-3 pa-4"
+      >
+        <MediaUploadControl
+          class="za-shots__upload"
+          :available="canUpload"
+          :loading="uploading"
+          :disabled="uploading"
+          :label="t('rom.upload-screenshots')"
+          :hint="t('rom.screenshots-upload-hint')"
+          @upload="myDz?.open()"
+        />
       </header>
       <div
-        v-if="refreshing && providerScreenshots.length === 0"
-        class="r-v2-shots__grid"
+        ref="gallery"
+        class="za-shots__gallery d-flex flex-column ga-6 pt-4"
+        :style="{ '--za-shot-columns': columns }"
       >
-        <RSkeletonBlock v-for="index in 3" :key="index" height="180" />
-      </div>
-      <REmptyState
-        v-else-if="providerScreenshots.length === 0"
-        :title="t('rom.screenshots-empty')"
-      />
-      <ul v-else class="r-v2-shots__grid">
-        <li
-          v-for="(item, index) in providerScreenshots"
-          :key="item.id"
-          class="r-v2-shots__candidate"
-        >
-          <button
-            type="button"
-            class="r-v2-shots__preview"
-            :aria-label="item.display_label"
-            @click="
-              providerLightboxIndex = index;
-              providerLightboxOpen = true;
-            "
+        <template v-for="group in groups" :key="group.source">
+          <section
+            v-if="group.source !== 'community' || group.items.length"
+            class="za-shots__section d-flex flex-column ga-3"
+            :aria-labelledby="`shots-${group.source}`"
           >
-            <img :src="mediaContentUrl(item.id)" :alt="item.display_label" />
-          </button>
-          <p class="r-v2-shots__origin">
-            {{ item.provider ?? t("rom.screenshots") }}
-          </p>
-          <p v-if="hasPlacement(item, 'overview')" class="r-v2-shots__ordinal">
-            {{ placementPosition(item, "overview") }}
-          </p>
-          <div v-if="canManage" class="r-v2-shots__actions">
-            <RBtn
-              size="small"
-              :loading="mutatingId === item.id"
-              :aria-label="
-                hasPlacement(item, 'overview')
-                  ? t('rom.remove-from-overview')
-                  : t('rom.add-to-overview')
-              "
-              @click.stop="togglePlacement(item, 'overview')"
-              >{{
-                hasPlacement(item, "overview")
-                  ? t("rom.remove-from-overview")
-                  : t("rom.add-to-overview")
-              }}</RBtn
-            ><RBtn
-              size="small"
-              variant="outlined"
-              :loading="mutatingId === item.id"
-              :aria-label="
-                hasPlacement(item, 'background')
-                  ? t('rom.remove-as-background')
-                  : t('rom.add-as-background')
-              "
-              @click.stop="togglePlacement(item, 'background')"
-              >{{
-                hasPlacement(item, "background")
-                  ? t("rom.remove-as-background")
-                  : t("rom.add-as-background")
-              }}</RBtn
-            ><RBtn
-              v-if="canManage"
-              icon="mdi-delete-outline"
-              :loading="mutatingId === item.id"
-              :aria-label="t('common.delete')"
-              @click.stop="deleteProviderScreenshot(item)"
-              ><RTooltip activator="parent" :text="t('common.delete')" />
-              ></RBtn
+            <header
+              class="za-shots__head d-flex align-center justify-space-between ga-3"
             >
-          </div>
-        </li>
-      </ul>
-    </section>
-    <section class="r-v2-shots__section">
-      <header class="r-v2-shots__head">
-        <h3 class="r-v2-shots__title">
-          {{ t("rom.screenshots-section-mine") }}
-        </h3>
-        <RBtn
-          v-if="myScreenshots.length"
-          variant="outlined"
-          size="small"
-          @click="myDz?.open()"
-          >{{ t("common.upload") }}</RBtn
-        >
-      </header>
-      <RDropzone
-        v-if="!myScreenshots.length"
-        :title="t('rom.screenshots-empty')"
-        :hint="t('common.dropzone-hint')"
-        :active-title="t('common.dropzone-drag-over')"
-        :input-label="t('rom.upload-screenshots')"
-        accept="image/*"
-        multiple
-        @files="handleMyFiles"
-      /><RDropzone
-        v-else
-        ref="myDz"
-        overlay
-        :input-label="t('rom.upload-screenshots')"
-        accept="image/*"
-        multiple
-        @files="handleMyFiles"
-        ><ScreenshotsTab
-          :screenshots="myScreenshots"
-          deletable
-          togglable
-          :toggling-id="togglingId"
-          :deleting-id="deletingId"
-          @delete="deleteMyScreenshot"
-          @toggle-visibility="toggleVisibility"
-      /></RDropzone>
-    </section>
-    <section v-if="communityScreenshots.length" class="r-v2-shots__section">
-      <h3 class="r-v2-shots__title">
-        {{ t("rom.screenshots-section-community") }}
-      </h3>
-      <ScreenshotsTab :screenshots="communityScreenshots" />
-    </section>
+              <h3 :id="`shots-${group.source}`" class="za-shots__title ma-0">
+                {{ group.label }}
+              </h3>
+              <RBtn
+                v-if="group.source === 'provider' && canRefresh"
+                icon="mdi-refresh"
+                :loading="refreshing"
+                :disabled="providerBusy"
+                :aria-label="t('common.refresh')"
+                :tooltip="t('common.refresh')"
+                @click="retainActionFocus(refreshProviderScreenshots)"
+              >
+              </RBtn>
+            </header>
+            <p v-if="group.source === 'provider'" class="ma-0 za-shots__hint">
+              {{ t("rom.provider-screenshot-delete-note") }}
+            </p>
+            <div
+              v-if="
+                group.source === 'provider' && refreshing && !group.items.length
+              "
+              class="za-shots__grid ga-3 ma-0 pa-0"
+            >
+              <RSkeletonBlock v-for="index in 3" :key="index" height="180" />
+            </div>
+            <REmptyState
+              v-else-if="!group.items.length"
+              :title="t('rom.screenshots-empty')"
+            />
+            <ul v-else class="za-shots__grid ga-3 ma-0 pa-0">
+              <li
+                v-for="item in group.items"
+                :key="item.key"
+                :data-shot-key="item.key"
+                :data-focus-key="item.key"
+              >
+                <ScreenshotManagementCard
+                  :item="item"
+                  :can-manage="canManage"
+                  :busy="
+                    item.source === 'provider' ? providerBusy : personalBusy
+                  "
+                  :provider-loading="
+                    item.source === 'provider' && mutatingId === item.media.id
+                  "
+                  :visibility-loading="
+                    item.source === 'mine' && togglingId === item.shot.id
+                  "
+                  :deletion-loading="
+                    item.source === 'mine' && deletingId === item.shot.id
+                  "
+                  :newly-uploaded="
+                    item.source === 'mine' &&
+                    item.shot.id != null &&
+                    newlyUploadedIds.includes(item.shot.id)
+                  "
+                  @action="dispatch"
+                />
+              </li>
+            </ul>
+          </section>
+        </template>
+      </div>
+    </RDropzone>
   </div>
   <RCarousel
-    v-if="providerLightboxOpen"
-    v-model="providerLightboxIndex"
-    :items="providerUrls"
+    v-if="lightbox"
+    v-model="lightboxIndex"
+    :items="lightboxUrls"
     fullscreen
     show-thumbnails
     :aria-label="t('rom.screenshots')"
-    @close="providerLightboxOpen = false"
-    ><template #default="{ item, index }"
-      ><img
-        :src="item"
-        :alt="providerScreenshots[index]?.display_label" /></template
-    ><template #thumbnail="{ item, index }"
-      ><img
-        :src="item"
-        :alt="providerScreenshots[index]?.display_label" /></template
-  ></RCarousel>
+    :close-label="t('common.close')"
+    @close="closeLightbox()"
+  >
+    <template #default="{ item, index }">
+      <img :src="item" :alt="t('rom.screenshot-num', { n: index + 1 })" />
+    </template>
+    <template #thumbnail="{ item, index }">
+      <img :src="item" :alt="t('rom.screenshot-num-thumb', { n: index + 1 })" />
+    </template>
+  </RCarousel>
 </template>
 
 <style scoped>
-.r-v2-shots {
-  display: flex;
+.za-shots {
   flex: 1;
-  flex-direction: column;
-  gap: var(--r-space-6);
   min-height: 0;
+  min-width: 0;
   overflow-y: auto;
+  overflow-anchor: none;
 }
-.r-v2-shots__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-4);
+.za-shots__dropzone {
+  height: auto;
+  min-height: 100%;
 }
-.r-v2-shots__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--r-space-4);
+.za-shots__section {
+  min-width: 0;
 }
-.r-v2-shots__title {
-  margin: 0;
+.za-shots__title {
   color: var(--r-color-fg);
   font-size: var(--r-font-size-lg);
   font-weight: var(--r-font-weight-semibold);
+  line-height: var(--r-line-height-normal);
 }
-.r-v2-shots__subtitle,
-.r-v2-shots__origin,
-.r-v2-shots__ordinal {
-  margin: 0;
+.za-shots__hint {
   color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
+  font-size: var(--r-font-size-md);
+  line-height: var(--r-line-height-normal);
 }
-.r-v2-shots__grid {
+.za-shots__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--r-space-4);
-  margin: 0;
-  padding: 0;
+  grid-template-columns: repeat(var(--za-shot-columns, 1), minmax(0, 1fr));
   list-style: none;
 }
-.r-v2-shots__candidate {
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-2);
-  padding: var(--r-space-4);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  background: var(--r-color-bg-elevated);
+.za-shots__grid > li {
+  min-width: 0;
+  scroll-margin-top: calc(var(--r-touch-target) + var(--r-space-6));
 }
-.r-v2-shots__preview {
-  width: 100%;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: var(--r-radius-md);
-  background: transparent;
-  cursor: pointer;
+html[data-bp~="sm-and-down"] .za-shots {
+  flex: none;
+  overflow: visible;
 }
-.r-v2-shots__preview img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  background: var(--r-color-cover-placeholder);
+html[data-bp~="sm-and-down"] .za-shots__dropzone {
+  min-height: 0;
 }
-.r-v2-shots__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--r-space-2);
+html[data-bp~="sm-and-down"] .za-shots__grid > li {
+  scroll-margin-top: calc(
+    var(--r-nav-h) + var(--r-touch-target) + var(--r-space-6)
+  );
 }
 </style>
+
+<style scoped src="./mediaManagementUpload.css" />

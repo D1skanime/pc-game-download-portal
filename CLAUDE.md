@@ -1,6 +1,10 @@
-# PC Game Download Portal - Repository Guide for Contributors & Agents
+# ZockArchive (ZA) - Repository Guide for Contributors & Agents
 
 RomM is a self-hosted ROM manager and player: scan a game library off disk, enrich it with metadata from 10+ providers, browse it in a web UI, and play in the browser.
+
+## Product identity
+
+The product name is **ZockArchive**, abbreviated **ZA**. When new project-branded namespaces or prefixes are needed, use `za` instead of introducing new RomM/PGDP branding. Reuse existing domain names, public interfaces and the `R*` design-system primitives; `ROM` remains a domain term. This is not authorization for a repository-wide rename of existing APIs, routes, database objects, services or files.
 
 ## Canonical development environment
 

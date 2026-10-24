@@ -1046,3 +1046,35 @@ Purpose: Deliver the approved description-language correction through existing o
 Output: Tested behavior and explicit task verification receipts.
 
 **Cross-cutting constraints:** PreferredDE/FRprovidertext precedesEnglishfallback whileallmanualstorage isprotected. Reuseexistingauthorizedglobalpriority,immutableoperationlocale,provider/merge/retry/fenceowners. CoveractualSteamPC/ScreenScraperROMfetch/persistence,manualsearch/confirmation/refreshandallscanpaths. Preservewarmreuse,18locales,andisolateddual-SQL/worker/browserproof. No livechanges/deploymentfromplanning.
+
+### Phase 37: ZockArchive screenshot management UI redesign
+
+**Goal:** Make screenshot upload reachable while browsing large collections and compact the existing screenshot management UI, preserving loaded data, multi-placement order, ownership, visibility, lightboxes and permissions through existing frontend handlers and APIs.
+**Depends on:** Phase36, merged and user-accepted on 2026-10-23 at b58945bbffe472e65dba441cf9fc82e9c244348e.
+**Requirements:** ZA-SHOT-01, ZA-SHOT-02, ZA-SHOT-03, ZA-SHOT-04, ZA-SHOT-05, ZA-SHOT-06, ZA-SHOT-07, ZA-SHOT-08, ZA-SHOT-09, ZA-SHOT-10, ZA-SHOT-11, ZA-SHOT-12.
+**Status:** Four executable plans independently checked; UI contract approved,12/12 requirements and13/13 decisions covered. Execution starting;0/4 plans complete. No deployment.
+**Plans:**4 plans,8 tasks,3 waves
+
+**Success Criteria:**
+1. Upload remains reachable at the top and after long scrolling without duplicate upload logic or overlapping navigation.
+2. Compact responsive cards expose truthful source, placement and permission-aware actions; multiple placements and ordering survive.
+3. Provider, owner and community behavior remains faithful to current backend semantics, with no invented hide/delete or sort behavior.
+4. Existing APIs, storage, permissions and other media surfaces remain intact; no backend or schema change is included.
+5. Existing behavior tests, real-scroll browser checks, both themes and desktop/mobile evidence verify the redesign; architecture descriptions accompany it.
+
+Plans:
+
+**Wave1**
+
+- [x] 37-01-PLAN.md: Existing action/upload owner and safe entity-bound completion.
+- [x] 37-03-PLAN.md: All18 localized screenshot action and outcome contracts.
+
+**Wave2 (depends on Wave1)**
+
+- [x] 37-02-PLAN.md: Compact cards, sticky upload, scroll anchoring and architecture documentation.
+
+**Wave3 (depends on Wave2)**
+
+- [x] 37-04-PLAN.md: Isolated real-browser regressions, desktop/mobile captures and final frontend quality.
+
+Cross-cutting constraints: Existing provider/personal/community ownership and placement order remain authoritative. One upload owner, no backend/schema/permission/storage change, all18 locales, existing design/input/scroll mechanisms and preserved local data.
