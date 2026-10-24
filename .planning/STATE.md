@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
 status: executing
-stopped_at: Completed 38-05-PLAN.md; ready for 38-06
-last_updated: "2026-10-24T17:53:54.433Z"
+stopped_at: Completed 38-06-PLAN.md; ready for 38-07
+last_updated: "2026-10-24T18:06:38.644Z"
 last_activity: 2026-10-24
 progress:
   total_phases: 38
   completed_phases: 24
   total_plans: 308
-  completed_plans: 265
+  completed_plans: 266
   percent: 63
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 ## Current Position
 
 Phase:38 (zockarchive-product-and-repository-rebranding) - EXECUTING
-Plan: 6 of 9; ready for operator documentation and release automation
+Plan: 7 of 9; ready for exact repository guards and naming/install verifiers
 Status: Ready to execute
 Last activity: 2026-10-24
 
@@ -225,6 +225,7 @@ _Updated after each plan completion_
 | Phase 38 P03 | 12min | 2 tasks | 155 files |
 | Phase 38 P04 | 16min | 3 tasks | 14 files |
 | Phase 38 P05 | 10min | 2 tasks | 10 files |
+| Phase 38 P06 | 10min | 3 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -499,6 +500,7 @@ Recent decisions affecting current work:
 - [Phase 38]: Keep operator welcome overrides, romm logging and wire IDs unchanged while using ZockArchive displays and za telemetry releases.
 - [Phase 38]: Retain RomM Desktop technical productName because version-tagged NSIS uses it for persisted registry and install paths; rebrand window, HTML and shell only.
 - [Phase 38]: Rename only root private package metadata, preserving dependency graphs, authors, licenses and native identity owners exactly.
+- [Phase 38]: Retain local Portainer and legacy publication aliases; preview comments consume actual metadata output tags
 
 ### Blockers/Concerns
 
@@ -586,8 +588,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-24T17:53:25.653Z
-Stopped at: Completed 38-05-PLAN.md; ready for 38-06
+Last session: 2026-10-24T18:06:38.636Z
+Stopped at: Completed 38-06-PLAN.md; ready for 38-07
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten
