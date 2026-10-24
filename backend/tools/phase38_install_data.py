@@ -4,9 +4,11 @@ import argparse
 import hashlib
 import json
 import os
+import sys
 from pathlib import Path
 
-from tools.phase33_collection_fixture import authority
+sys.path.insert(0, "/backend/tools")
+from tools.phase33_collection_fixture import authority  # noqa: E402
 
 
 def digest(value):
