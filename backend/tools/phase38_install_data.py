@@ -210,6 +210,7 @@ def snapshot():
             ).scalar_one(),
         }
     result = {key: digest(value) for key, value in values.items()}
+    result["schema_revision"] = values["schema"]
     for key, path in (
         ("source", Path(LIBRARY_BASE_PATH) / "PC/Phase34-Synthetic.bin"),
         ("resource", Path(RESOURCES_BASE_PATH) / "phase38-sentinel.bin"),

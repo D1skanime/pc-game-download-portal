@@ -190,6 +190,13 @@ def upgrade(identity):
         )["sha256"]
         volume = owned_volume(run)
         validate_volume(run.inspect("volume", volume), run.token, volume)
+        receipt["resources"] = {
+            "sql": run.manifest["sql"]["id"],
+            "redis": run.manifest["redis"]["id"],
+            "owned_volume": volume,
+            "sql_storage": "same isolated container tmpfs",
+        }
+        receipt["images"] = []
         old = run.root / "old-source"
         old.mkdir()
         archive = run.root / "base.tar"
@@ -202,6 +209,13 @@ def upgrade(identity):
         ):
             image = build(run, source, tag)
             images.append(image)
+            receipt["images"].append(
+                {
+                    "source": BASE if tag == "base" else identity["source"],
+                    "tag": tag,
+                    "id": run.inspect("image", image)["Id"],
+                }
+            )
             config = stack_config(run, image)
             for service in config["services"].values():
                 service["volumes"].extend(
