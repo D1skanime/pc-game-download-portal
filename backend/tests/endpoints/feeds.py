@@ -37,7 +37,7 @@ def test_webrcade_feed(
     assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
-    assert body["title"] == "RomM Feed"
+    assert body["title"] == "ZockArchive Feed"
     assert len(body["categories"]) == 1
     assert body["categories"][0]["title"] == platform.name
     assert len(body["categories"][0]["items"]) == 1

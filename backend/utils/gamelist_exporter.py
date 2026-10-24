@@ -54,7 +54,7 @@ def get_media_options_for_export() -> tuple[str, str]:
 
 
 class GamelistExporter:
-    """Export RomM collections to ES-DE gamelist.xml format"""
+    """Export ZockArchive collections to ES-DE gamelist.xml format"""
 
     def __init__(self, local_export: bool = False):
         self.local_export = local_export
@@ -261,7 +261,7 @@ class GamelistExporter:
 
         # Add scraping info
         scrap = SubElement(game, "scrap")
-        scrap.set("name", "RomM")
+        scrap.set("name", "ZockArchive")
         scrap.set("date", datetime.now().strftime("%Y%m%dT%H%M%S"))
 
         return game

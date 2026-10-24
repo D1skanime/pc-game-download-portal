@@ -233,3 +233,12 @@ Only its fallback welcome is ZockArchive Switch Library. Existing custom and
 legacy-branded configured welcomes are not migrated. Configuration warnings and
 broker connectivity guidance use the current product name; broker failures keep
 their existing HTTP status and session-owner authorization rules.
+
+WebRcade feed titles/descriptions, Kekatsu author metadata and the ES-DE scraper
+display name use ZockArchive. Feed routes, serialization fields, scopes and
+download URLs are unchanged. FPKGi synthetic title IDs retain the `ROMM` prefix
+so related content stays grouped; Pegasus retains `x-romm-id` for round trips.
+WebRcade artwork URLs still reference upstream RomM assets pending final supplied
+artwork. Metadata-provider User-Agent strings and upstream endpoints retain their
+provider-compatible identities. No stored library, operator configuration,
+authentication, session, cache, schema or filesystem identifier is migrated.

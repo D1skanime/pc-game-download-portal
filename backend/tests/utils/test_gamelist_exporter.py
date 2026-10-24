@@ -228,7 +228,7 @@ def test_export_gamelist_xml_scrap_element(platform_with_roms):
 
     scrap = game.find("scrap")
     assert scrap is not None
-    assert scrap.get("name") == "RomM"
+    assert scrap.get("name") == "ZockArchive"
 
 
 @pytest.mark.parametrize("tag", ["thumbnail", "image", "video", "screenshot", "manual"])
