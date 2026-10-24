@@ -20,6 +20,10 @@ OVERRIDES = {
     "PYTEST_ADDOPTS",
     "GITHUB_REPOSITORY",
     "GITHUB_ACTIONS",
+    "GH_HOST",
+    "GH_REPO",
+    "SQLALCHEMY_DATABASE_URI",
+    "DB_QUERY_JSON",
 }
 
 
@@ -69,7 +73,10 @@ def preflight():
         key: True
         for key, value in os.environ.items()
         if value
-        and (key in OVERRIDES or key.startswith(("DB_", "REDIS_", "P34_", "PHASE34_")))
+        and (
+            key in OVERRIDES
+            or key.startswith(("DB_", "REDIS_", "P34_", "PHASE34_", "ROMM_", "GIT_"))
+        )
     }
     identity = {
         "system": platform.system(),
@@ -88,7 +95,9 @@ def preflight():
     }
     if overrides:
         raise RuntimeError("refusing inherited target override")
-    identity["proof"] = json.loads(read_only(["gh", "api", "repositories/1415481891"]))
+    identity["proof"] = json.loads(
+        read_only(["gh", "api", "--hostname", "github.com", "repositories/1415481891"])
+    )
     validate_identity(identity)
     return {
         "source": read_only(["git", "rev-parse", "HEAD"]),

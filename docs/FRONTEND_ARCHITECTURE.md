@@ -349,3 +349,7 @@ vitest.config.ts uses happy-dom, globals, vitest.setup.ts, Vuetify inlining, and
 6. Operation requests carry scope, providers, locales, provenance, retry/resume, and file-mutation capabilities.
 7. Media UI distinguishes local files, provider media, owned media, community assets, and private assets.
 8. Tokens, breakpoints, reduced-motion classes, input modality, and safe-area spacing define responsive v2 presentation.
+
+### Owned product identity browser validation
+
+The rebranding browser gate composes the existing disposable setup, scan and login fixtures with the real API and worker. It checks branded auth/navigation/about surfaces in both themes across every responsive boundary, plus actual invitation registration and protected mapped-file bytes. The shared static-preview helper and existing project-brand suite separately cover synthetic gamepad activation, semantic brand text and source/release links on built output. Synthetic input does not prove physical controller acceptance. The populated production proof separately checks the actual local EmulatorJS loader and runtime against an owned generated cartridge.

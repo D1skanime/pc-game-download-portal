@@ -37,6 +37,9 @@ def execute(gate, dialect, profile="complete"):
     }
     try:
         run.start()
+        receipt["source_code_sha256"] = json.loads(
+            (run.evidence / "code-before.json").read_text()
+        )["sha256"]
         if gate == "schema":
             for command in schema_commands():
                 run.exec(command, timeout=600)
