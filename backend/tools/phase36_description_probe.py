@@ -16,7 +16,7 @@ from phase35_incremental_scan_probe import git_value, observations, stop_owned_p
 from phase36_description_fixture import prepare
 
 BRANCH = "codex/phase-36-localized-provider-descriptions"
-ORIGIN = "https://github.com/D1skanime/pc-game-download-portal.git"
+ORIGIN = "https://github.com/D1skanime/zockarchive.git"
 ROOT = Path("/home/d1sk/pc-game-download-portal")
 CLIENT = "tools/phase36_description_client.py"
 WORKER = "tools/phase36_description_worker.py"

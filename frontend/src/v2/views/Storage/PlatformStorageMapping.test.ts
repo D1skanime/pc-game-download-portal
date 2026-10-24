@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   refreshPreview: vi.fn(),
   removalConsequences: vi.fn(),
   removeMapping: vi.fn(),
+  confirm: vi.fn().mockResolvedValue(false),
   snackbar: { error: vi.fn(), success: vi.fn() },
 }));
 
@@ -42,7 +43,7 @@ vi.mock("@/v2/composables/useCan", () => ({
 }));
 
 vi.mock("@/v2/composables/useConfirm", () => ({
-  useConfirm: () => vi.fn().mockResolvedValue(false),
+  useConfirm: () => mocks.confirm,
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
@@ -101,6 +102,44 @@ describe("PlatformStorageMapping", () => {
     mocks.getRoots.mockResolvedValue({
       data: [{ id: 7, name: "Library", active: true }],
     });
+  });
+
+  it("keeps mapping removal separate from deleting original files", async () => {
+    mocks.getMapping.mockResolvedValue({
+      data: {
+        id: 1,
+        platform_id: 1,
+        storage_root_id: 7,
+        relative_path: "pc",
+        version: 2,
+      },
+    });
+    mocks.getPreview.mockResolvedValue({
+      data: {
+        state: "complete",
+        stale: false,
+        observed_files: 1,
+        observed_directories: 1,
+      },
+    });
+    mocks.removalConsequences.mockResolvedValue({ data: {} });
+    const wrapper = mount(PlatformStorageMapping);
+    await flushPromises();
+    const remove = wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Remove mapping");
+    expect(remove).toBeDefined();
+    await remove!.trigger("click");
+    await flushPromises();
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: "This removes only ZockArchive's mapping. Original files remain unchanged.",
+        tone: "danger",
+      }),
+    );
+    expect(mocks.removalConsequences).toHaveBeenCalledWith(1, 2);
+    expect(mocks.removeMapping).not.toHaveBeenCalled();
+    wrapper.unmount();
   });
 
   it("treats platform_mapping_missing as an unmapped state instead of a generic error", async () => {

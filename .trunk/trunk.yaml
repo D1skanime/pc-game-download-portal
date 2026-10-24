@@ -73,7 +73,9 @@ lint:
         - typescript
       commands:
         - name: lint
-          run_from: ${root_or_parent_with_any_config}
+          direct_configs: [frontend/eslint.config.js]
+          run: eslint --config frontend/eslint.config.js --output-file ${tmpfile} --format json ${target}
+          run_from: ${root_or_parent_with(frontend/eslint.config.js)}
     - name: prettier
       files:
         - typescript

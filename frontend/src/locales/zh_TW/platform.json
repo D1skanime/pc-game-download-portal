@@ -56,7 +56,7 @@
   "random-rom-empty": "此平台沒有 ROM",
   "random-rom-error": "無法選擇隨機 ROM",
   "region": "地區",
-  "removing-firmware": "正在從RomM移除 {n} 個韌體從RomM移除",
+  "removing-firmware": "正在從ZockArchive移除 {n} 個韌體從ZockArchive移除",
   "removing-platform-1": "將删除平台 \"",
   "removing-platform-2": "\"，您確定嗎？",
   "reset-filters": "重置篩選器",

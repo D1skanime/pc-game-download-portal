@@ -1,9 +1,7 @@
 <script setup lang="ts">
-// AuthCard — the translucent card frame used by every auth view
-// (Login / Register / ResetPassword / Setup). Wraps RCard, the logo,
-// and the padded inner column. Views drop their form content into the
-// default slot.
-import { RCard, RImg } from "@v2/lib";
+// Shared auth frame for login, registration, password reset and setup.
+import { RCard } from "@v2/lib";
+import ProjectBrand from "@/v2/components/shared/ProjectBrand.vue";
 
 defineOptions({ inheritAttrs: false });
 </script>
@@ -11,12 +9,7 @@ defineOptions({ inheritAttrs: false });
 <template>
   <RCard v-bind="$attrs" class="auth-card" variant="elevated" elevation="4">
     <div class="auth-card__inner">
-      <RImg
-        src="/assets/isotipo.svg"
-        :width="80"
-        class="auth-card__logo"
-        alt="RomM"
-      />
+      <ProjectBrand variant="auth" class="auth-card__brand" />
       <slot />
     </div>
   </RCard>
@@ -26,9 +19,7 @@ defineOptions({ inheritAttrs: false });
 .auth-card {
   width: 100%;
   max-width: 440px;
-  /* Flex item in the centred auth stage — allow it to shrink below its
-     content's min width on phones narrower than the card, so it never spills
-     past the viewport. */
+  /* Allow the centered frame to shrink on narrow phones. */
   min-width: 0;
   border-radius: var(--r-radius-lg) !important;
   box-shadow: var(--r-elev-4) !important;
@@ -46,10 +37,7 @@ defineOptions({ inheritAttrs: false });
   gap: var(--r-space-4);
 }
 
-.auth-card__logo {
+.auth-card__brand {
   margin: 0 auto var(--r-space-2);
-  filter: drop-shadow(
-    0 0 16px color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent)
-  );
 }
 </style>

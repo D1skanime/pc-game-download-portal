@@ -486,12 +486,7 @@ function discard() {
             {{ t("collection.delete-collection", "Delete collection") }}
           </p>
           <p class="r-v2-coll-set__danger-hint">
-            {{
-              t(
-                "collection.delete-collection-hint",
-                "Removes the collection from RomM. The ROM files themselves are not deleted.",
-              )
-            }}
+            {{ t("collection.delete-collection-hint") }}
           </p>
         </div>
         <RBtn

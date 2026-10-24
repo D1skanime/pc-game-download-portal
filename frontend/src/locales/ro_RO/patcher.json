@@ -29,7 +29,7 @@
   "status-downloading": "Descărcarea ROM-ului patch-uit...",
   "status-patching": "Applying patch on server...",
   "status-preparing": "Pregătirea fișierelor...",
-  "status-uploading": "Încărcarea în RomM...",
+  "status-uploading": "Încărcarea în ZockArchive...",
   "subtitle": "Alegeți un ROM de bază și un fișier patch, apoi aplicați pentru a descărca ROM-ul patch-uit.",
   "success-downloaded": "descărcat",
   "success-message": "ROM-ul patch-uit {actions} cu succes!",
@@ -38,6 +38,6 @@
   "title": "Patcher ROM",
   "upload-errors": " (cu unele erori)",
   "upload-success": "ROM-ul patch-uit a fost încărcat cu succes{errors}. Se inițiază scanarea...",
-  "upload-to-romm": "Încărcați în RomM",
+  "upload-to-romm": "Încărcați în ZockArchive",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

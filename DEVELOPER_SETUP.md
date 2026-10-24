@@ -1,10 +1,12 @@
 <!-- trunk-ignore-all(markdownlint/MD024) -->
 
-# Setting up RomM for development
+# Setting up ZockArchive for development
+
+ZockArchive manages PC and console libraries. Source: <https://github.com/D1skanime/zockarchive>. Run development commands in the canonical Linux checkout on team4s-linux. Existing ROMM_* keys and romm_mock paths remain compatibility inputs.
 
 ## Option 1: Using Docker
 
-If you prefer to use Docker for development, you can set up RomM using the provided Docker Compose configuration. This method simplifies the setup process by encapsulating all dependencies within Docker containers.
+If you prefer to use Docker for development, you can set up ZockArchive using the provided Docker Compose configuration. This method simplifies the setup process by encapsulating all dependencies within Docker containers.
 
 ### Environment setup
 

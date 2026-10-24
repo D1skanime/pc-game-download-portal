@@ -828,7 +828,7 @@ class ConfigManager:
         if unknown_media:
             log.warning(
                 f"Ignoring unknown values in scan.media: {unknown_media}. "
-                "These may be from a newer RomM version; update to use them."
+                "These may be from a newer ZockArchive version; update to use them."
             )
             self.config.SCAN_MEDIA = [
                 m for m in self.config.SCAN_MEDIA if m in MetadataMediaType

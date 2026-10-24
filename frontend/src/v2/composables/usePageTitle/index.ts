@@ -8,14 +8,13 @@
 // The title is deliberately not restored on unmount: the router guard has
 // already set the next route's title by the time a view tears down.
 import { watch } from "vue";
-
-const DEFAULT_TITLE = "RomM";
+import { PROJECT_NAME } from "@/v2/config/project";
 
 export function usePageTitle(source: () => string | null | undefined) {
   watch(
     source,
     (title) => {
-      document.title = title || DEFAULT_TITLE;
+      document.title = title || PROJECT_NAME;
     },
     { immediate: true },
   );

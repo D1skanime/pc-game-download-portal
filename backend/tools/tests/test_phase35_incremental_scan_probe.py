@@ -234,3 +234,51 @@ class RetainedBrowserEvidenceTampering(unittest.TestCase):
             )
             with self.assertRaisesRegex(RuntimeError, "quality"):
                 validate_result(root, exact=False)
+
+
+class HistoricalIdentityTests(unittest.TestCase):
+    def test_current_origin_and_historical_identity_remain_exact(self):
+        import importlib
+        from unittest.mock import patch
+
+        probe = importlib.import_module("phase35_incremental_scan_probe")
+        self.assertEqual(probe.ORIGIN, "https://github.com/D1skanime/zockarchive.git")
+        self.assertEqual(probe.BRANCH, "codex/phase-35-incremental-windows-scans")
+        for branch, origin, project, state, accepted in (
+            (probe.BRANCH, probe.ORIGIN, "RomM PC Library", "Phase35", True),
+            (
+                "codex/phase-38-zockarchive-rebranding",
+                probe.ORIGIN,
+                "RomM PC Library",
+                "Phase35",
+                False,
+            ),
+            (
+                probe.BRANCH,
+                "https://github.com/D1skanime/pc-game-download-portal.git",
+                "RomM PC Library",
+                "Phase35",
+                False,
+            ),
+            (
+                probe.BRANCH,
+                "https://github.com/foreign/zockarchive.git",
+                "RomM PC Library",
+                "Phase35",
+                False,
+            ),
+            (probe.BRANCH, probe.ORIGIN, "foreign project", "Phase35", False),
+            (probe.BRANCH, probe.ORIGIN, "RomM PC Library", "unrelated", False),
+        ):
+            with self.subTest(
+                branch=branch, origin=origin, project=project, state=state
+            ), patch.object(probe.phase34, "host_preflight"), patch.object(
+                probe, "git_value", side_effect=[branch, origin]
+            ), patch(
+                "pathlib.Path.read_text", side_effect=[project, state]
+            ):
+                if accepted:
+                    probe.preflight()
+                else:
+                    with self.assertRaises(RuntimeError):
+                        probe.preflight()

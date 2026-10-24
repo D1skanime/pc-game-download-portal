@@ -170,3 +170,57 @@ class ReceiptTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HistoricalIdentityTests(unittest.TestCase):
+    def test_current_origin_and_historical_identity_remain_exact(self):
+        import importlib
+        from unittest.mock import patch
+
+        probe = importlib.import_module("phase36_description_probe")
+        self.assertEqual(probe.ORIGIN, "https://github.com/D1skanime/zockarchive.git")
+        self.assertEqual(probe.BRANCH, "codex/phase-36-localized-provider-descriptions")
+        for branch, origin, project, state, accepted in (
+            (probe.BRANCH, probe.ORIGIN, "RomM PC Library", "Phase36", True),
+            (
+                "codex/phase-38-zockarchive-rebranding",
+                probe.ORIGIN,
+                "RomM PC Library",
+                "Phase36",
+                False,
+            ),
+            (
+                probe.BRANCH,
+                "https://github.com/D1skanime/pc-game-download-portal.git",
+                "RomM PC Library",
+                "Phase36",
+                False,
+            ),
+            (
+                probe.BRANCH,
+                "https://github.com/foreign/zockarchive.git",
+                "RomM PC Library",
+                "Phase36",
+                False,
+            ),
+            (probe.BRANCH, probe.ORIGIN, "foreign project", "Phase36", False),
+            (probe.BRANCH, probe.ORIGIN, "RomM PC Library", "unrelated", False),
+        ):
+            with self.subTest(
+                branch=branch, origin=origin, project=project, state=state
+            ), patch.object(probe.phase34, "host_preflight"), patch.object(
+                probe.phase34, "REPO", probe.ROOT
+            ), patch.object(
+                probe, "git_value", side_effect=[branch, origin]
+            ), patch(
+                "pathlib.Path.read_text", side_effect=[project, state]
+            ), patch.object(
+                probe.platform, "system", return_value="Linux"
+            ), patch.object(
+                probe.socket, "gethostname", return_value="team4slinux"
+            ):
+                if accepted:
+                    probe.preflight()
+                else:
+                    with self.assertRaises(RuntimeError):
+                        probe.preflight()

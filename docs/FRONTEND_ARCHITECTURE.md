@@ -1,6 +1,6 @@
 <!-- generated-by: gsd-doc-writer -->
 
-# RomM Frontend Architecture
+# ZockArchive Frontend Architecture
 
 Comprehensive documentation of the current Vue 3 and TypeScript frontend for browsing, enriching, managing, playing, and downloading the ROM and PC-game library.
 
@@ -31,7 +31,7 @@ Comprehensive documentation of the current Vue 3 and TypeScript frontend for bro
 
 ## 1. Overview
 
-The frontend is a Vue 3 Composition API single-page application built with Vite and TypeScript. frontend/src/main.ts loads heartbeat, current-user, and configuration data, registers plugins, and mounts RomM.vue. The active router loads v2 layouts, views, and components. The client calls the backend through Axios at /api and receives live events through Socket.IO at /ws/socket.io/. Backend OpenAPI models are generated into frontend/src/**generated**.
+The frontend is a Vue 3 Composition API single-page application built with Vite and TypeScript. frontend/src/main.ts loads heartbeat, current-user, and configuration data, registers plugins, and mounts PGDP.vue. The active router loads v2 layouts, views, and components. The client calls the backend through Axios at /api and receives live events through Socket.IO at /ws/socket.io/. Backend OpenAPI models are generated into frontend/src/**generated**.
 
 | Area    | Current implementation                                       |
 | ------- | ------------------------------------------------------------ |
@@ -81,7 +81,7 @@ The v2 contract layer in frontend/src/v2/data/contracts.ts models repositories, 
     frontend/
     ├── package.json, vite.config.js, vitest.config.ts, playwright.config.ts
     └── src/
-        ├── main.ts, RomM.vue
+        ├── main.ts, PGDP.vue
         ├── plugins/                 # Router, Pinia, Vuetify, i18n, editor
         ├── v2/
         │   ├── layouts/             # AppLayout, AuthLayout, SettingsLayout
@@ -257,6 +257,41 @@ Pinia retains active user, platform, collection, ROM, scan, task, permission, an
 
 ## 16. Utilities & Composables
 
+Product display identity and repository links belong to the dependency-free
+`src/v2/config/project.ts` module. Router default/error titles and
+`usePageTitle` fallbacks consume its product name; meaningful route and game
+titles remain unchanged. Reactive detail titles update as fetched data or route
+parameters change, and teardown never restores an obsolete title. Keep stores,
+router, API clients and application initialization out of this config so build
+tooling and browser startup can safely share it.
+
+The domain shared composite `components/shared/ProjectBrand.vue` presents that
+metadata as text through auth, navigation and about variants. AuthCard owns the
+shared login/register/reset/setup frame; AppNav retains the localized Home link
+and hides its redundant brand text from assistive technology. Only the expanded
+navigation word hides on xs. About and pairing use the compact ZA text. The
+pairing QR remains unmodified, with product identity outside its encoded area.
+VersionTag, AboutDialog and NewVersionBanner share `projectReleaseTagUrl`;
+the banner fetches the canonical release API and preserves its age/dismissal
+rules. About links current documentation to repository docs and labels the
+retained RomM community link as upstream.
+
+Localized product copy uses invariant ZockArchive spelling in the existing locale
+values, including the retained `about-romm` and `upload-to-romm` keys. The
+`config/project-locales.test.ts` contract covers all eighteen locales against a
+tracked pre-rebranding normalized-value digest fixture. It protects every key,
+placeholder, plural branch, HTML fragment and non-brand wording; intentional
+future translation edits must explicitly update the affected baseline digest.
+Collection deletion uses its existing translation directly. Static scan and
+platform/storage confirmation fallbacks consume PROJECT_NAME and preserve the
+distinction between catalog or mapping removal and deleting original files.
+
+The application bootstrap filename remains `src/PGDP.vue` for compatibility.
+ProjectBrand owns later supplied in-app artwork integration. Public browser/PWA
+icons and desktop packaging icons have separate owners and remain pending supplied
+assets; retained image binaries are not represented as ZockArchive artwork.
+Provider artwork and license attribution retain their upstream identity.
+
 Important v2 composables include useCan, useLibraryOperation, useProviderResolution, useManualDescription, useGameDetailsMedia, useBackgroundArt, useBackgroundAudio, useCoverArt, useWebpSupport, useBreakpoint, useResponsiveColumns, useInputModality, useGamepad, useGridNav, useRightStickScroll, useGallerySelectionInput, useGlobalHotkeys, useThemeMode, useReducedMotion, useCrtMode, useFullscreenPref, useGalleryFilterUrl, useGalleryViewModeUrl, useTileSearchUrl, useGalleryProvenance, usePageTitle, useServerConnection, useSnackbar, useConfirm, useSocketEvent, useScanLifecycle, useBrowserDownloadQueue, and usePlaySession. v2/utils covers route-query validation, artwork, collection covers, player helpers, ROM verification/status, download manifest paths, provider labels, CSS checks, and input helpers. frontend/src/utils contains form-data, task, cover, and IndexedDB helpers.
 
 ---
@@ -283,6 +318,15 @@ Run commands from frontend:
 | npm run test:e2e           | Playwright tests                    |
 | npm run test:e2e:ui        | Playwright UI mode                  |
 
+Before JavaScript starts, `index.html` renders centered ZockArchive text and
+the initial title. Both `public/site.webmanifest` and the VitePWA-generated
+`manifest.webmanifest` expose ZockArchive / ZA and the same description.
+VitePWA imports the pure identity config; the static HTML/manifest literals
+are checked against it by `node --import tsx scripts/check-project-manifests.ts
+<output-directory>` after a build. The checker reads actual emitted HTML links
+and both JSON payloads. Existing icon binaries remain pending supplied artwork;
+start URLs, scope, colors, display and service-worker/cache identity are preserved.
+
 package.json declares Node 24, npm >=11.10, and npm@11.13.0. vite.config.js defines @ and @v2, Vue/Vuetify/Tailwind/VitePWA/mkcert plugins, browser-derived CSS targets, PWA support, and proxies for /api, /ws, /netplay, and /openapi.json. DEV_PORT defaults to 5000; HTTP dev uses 3000 and DEV_HTTPS uses 8443. ROM resources are ignored by the watcher.
 
 vitest.config.ts uses happy-dom, globals, vitest.setup.ts, Vuetify inlining, and src/test globs. Tests are colocated with v2 features; Storybook provides interaction/accessibility stories; Playwright is separate. Repository checks also use trunk fmt and trunk check.
@@ -305,3 +349,7 @@ vitest.config.ts uses happy-dom, globals, vitest.setup.ts, Vuetify inlining, and
 6. Operation requests carry scope, providers, locales, provenance, retry/resume, and file-mutation capabilities.
 7. Media UI distinguishes local files, provider media, owned media, community assets, and private assets.
 8. Tokens, breakpoints, reduced-motion classes, input modality, and safe-area spacing define responsive v2 presentation.
+
+### Owned product identity browser validation
+
+The rebranding browser gate composes the existing disposable setup, scan and login fixtures with the real API and worker. It checks branded auth/navigation/about surfaces in both themes across every responsive boundary, plus actual invitation registration and protected mapped-file bytes. The shared static-preview helper and existing project-brand suite separately cover synthetic gamepad activation, semantic brand text and source/release links on built output. Synthetic input does not prove physical controller acceptance. The populated production proof separately checks the actual local EmulatorJS loader and runtime against an owned generated cartridge.

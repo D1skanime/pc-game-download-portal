@@ -3,6 +3,9 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 stack="${repo_root}/examples/portainer-stack.yml"
 env_file="${repo_root}/examples/portainer.env.example"
+contract="${repo_root}/docs/zockarchive-branding-contract.md"
+test -s "${contract}"
+bash "${repo_root}/scripts/verify-pgdp-naming.sh"
 entrypoint="${repo_root}/docker/init_scripts/docker-entrypoint.sh"
 for command_name in docker git grep; do
 	command -v "${command_name}" >/dev/null || {
@@ -51,8 +54,8 @@ grep -Fq 'context: ..' "${stack}"
 for key in PGDP_PROJECT_NAME PGDP_IMAGE PGDP_LIBRARY_PATH PGDP_ASSETS_PATH PGDP_CONFIG_PATH; do
 	grep -Fq "${key}=" "${env_file}"
 done
-grep -Fq 'https://github.com/D1skanime/pc-game-download-portal.git' "${repo_root}/examples/README.md"
-grep -Fq 'https://github.com/D1skanime/pc-game-download-portal.git' "${repo_root}/docs/PORTAINER_INSTALL.md"
+grep -Fq 'https://github.com/D1skanime/zockarchive.git' "${repo_root}/examples/README.md"
+grep -Fq 'https://github.com/D1skanime/zockarchive.git' "${repo_root}/docs/PORTAINER_INSTALL.md"
 for forbidden in '/home/d1sk/romm' 'romm_mysql_data' 'romm_resources' 'romm_redis_data' 'romm-db-dev' 'rommapp/romm:phase27' 'Docker/Media' '/path/to/'; do
 	assert_absent "${forbidden}"
 done
@@ -74,4 +77,4 @@ grep -Fq 'grep "_FILE$"' "${entrypoint}"
 # shellcheck disable=SC2016 # Match the literal entrypoint variable names.
 grep -Fq 'Both ${var_name_no_suffix} and ${var_name}' "${entrypoint}"
 grep -Fq 'exec "$@"' "${entrypoint}"
-echo "PGDP Portainer render, parity, mount, secret, and hygiene contract passed"
+echo "ZockArchive Portainer render, parity, mount, secret, and hygiene contract passed"

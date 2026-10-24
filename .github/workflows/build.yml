@@ -1,4 +1,4 @@
-name: Build Docker Image and Trigger Docs/Website
+name: Build ZockArchive Docker Image
 
 on:
   # push:
@@ -11,7 +11,6 @@ permissions:
   id-token: write
   contents: write
   packages: write
-  actions: write
 
 jobs:
   validate-tag-semver:
@@ -79,8 +78,9 @@ jobs:
             type=semver,pattern={{major}}
           labels: |
             org.opencontainers.image.version={{version}}-slim
-            org.opencontainers.image.title="PGDP"
-            org.opencontainers.image.description="PC Game Download Portal provides a self-hosted library and download portal for PC games with metadata, media, and managed downloads."
+            org.opencontainers.image.title="ZockArchive"
+            org.opencontainers.image.description="ZockArchive provides a self-hosted PC and console game library with metadata, media, and managed downloads."
+            org.opencontainers.image.source=https://github.com/D1skanime/zockarchive
             org.opencontainers.image.licenses="AGPLv3"
 
       - name: Generate Docker metadata (full)
@@ -96,8 +96,9 @@ jobs:
             type=semver,pattern={{major}}
           labels: |
             org.opencontainers.image.version={{version}}
-            org.opencontainers.image.title="PGDP"
-            org.opencontainers.image.description="PC Game Download Portal provides a self-hosted library and download portal for PC games with metadata, media, and managed downloads."
+            org.opencontainers.image.title="ZockArchive"
+            org.opencontainers.image.description="ZockArchive provides a self-hosted PC and console game library with metadata, media, and managed downloads."
+            org.opencontainers.image.source=https://github.com/D1skanime/zockarchive
             org.opencontainers.image.licenses="AGPLv3"
 
       - name: Set version
@@ -133,30 +134,3 @@ jobs:
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
-
-  trigger-docs-and-web:
-    permissions:
-      actions: write
-    needs: build
-    runs-on: ubuntu-latest
-    if: needs.build.result == 'success' && github.event.release.prerelease == false
-    steps:
-      - name: Trigger docs build
-        run: |
-          curl -L -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${DOCS_PAT}" \
-            "https://api.github.com/repos/rommapp/docs/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
-        env:
-          DOCS_PAT: ${{ secrets.DOCS_PAT }}
-
-      - name: Trigger website build
-        run: |
-          curl -L -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${DOCS_PAT}" \
-            "https://api.github.com/repos/rommapp/marketing-site/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
-        env:
-          DOCS_PAT: ${{ secrets.DOCS_PAT }}

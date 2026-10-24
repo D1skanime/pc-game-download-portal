@@ -28,7 +28,7 @@
 #     # Multi files games section
 #     # Will apply to files that are in sub-folders (multi-disc ROMs, games with updates, DLC, patches, etc.)
 #     multi_file:
-#       # Exclude matched 'folder' names to be scanned (RomM identifies folders as multi file games)
+#       # Exclude matched 'folder' names to be scanned (ZockArchive identifies folders as multi file games)
 #       # Common ES-DE media folders are listed below
 #       names:
 #         - 3dboxes
@@ -48,7 +48,7 @@
 #       # Exclude files within sub-folders.
 #       parts:
 #         # Exclude matched file names to be scanned from multi file roms
-#         # Keep in mind that RomM doesn't scan folders inside multi files games,
+#         # Keep in mind that ZockArchive doesn't scan folders inside multi files games,
 #         # so there is no need to exclude folders from inside of multi files games.
 #         names:
 #           - 'data.xml'
@@ -61,8 +61,8 @@
 
 # system:
 #   # Asociate different platform names to your current file system platform names
-#   # [your custom platform folder name]: [RomM platform name]
-#   # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
+#   # [your custom platform folder name]: [ZockArchive platform name]
+#   # In this example if you have a 'gc' folder, ZockArchive will treat it like the 'ngc' folder
 #   platforms:
 #     gc: ngc
 #     ps1: psx

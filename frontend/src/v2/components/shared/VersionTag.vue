@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// VersionTag — renders the running RomM version from the heartbeat store.
+// VersionTag — renders the running application version from the heartbeat store.
 // Shared by AuthLayout (bottom-right, compact) and the About dialog
 // (linked to the GitHub release). Pass `link` to render as an anchor
 // to the release notes page.
 import { computed } from "vue";
+import { projectReleaseTagUrl } from "@/v2/config/project";
 import storeHeartbeat from "@/v2/data/adapters/legacy/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
@@ -17,10 +18,7 @@ withDefaults(
 
 const heartbeatStore = storeHeartbeat();
 const version = computed(() => heartbeatStore.value.SYSTEM.VERSION);
-const releaseHref = computed(
-  () =>
-    `https://github.com/D1skanime/pc-game-download-portal/releases/tag/${version.value}`,
-);
+const releaseHref = computed(() => projectReleaseTagUrl(version.value));
 </script>
 
 <template>

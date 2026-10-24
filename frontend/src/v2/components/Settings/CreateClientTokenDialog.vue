@@ -23,6 +23,7 @@ import qrcode from "qrcode";
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
+import ProjectBrand from "@/v2/components/shared/ProjectBrand.vue";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import clientTokenApi, {
@@ -342,34 +343,15 @@ function renderQR(code: string) {
 
   const isWide = window.innerWidth >= 1280;
   const size = isWide ? 250 : 200;
-  qrcode.toCanvas(
-    canvas,
-    pairUrl,
-    { margin: 2, width: size, errorCorrectionLevel: "H" },
-    () => {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const logo = new Image();
-      logo.src = "/assets/logos/pgdp_logo_xbox_one_circle.svg";
-      logo.onload = () => {
-        const logoSize = canvas.width * 0.24;
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-        const radius = logoSize / 2 + 4;
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
-        ctx.fill();
-        ctx.drawImage(
-          logo,
-          cx - logoSize / 2,
-          cy - logoSize / 2,
-          logoSize,
-          logoSize,
-        );
-      };
-    },
-  );
+  qrcode
+    .toCanvas(canvas, pairUrl, {
+      margin: 2,
+      width: size,
+      errorCorrectionLevel: "H",
+    })
+    .catch((error: Error) => {
+      console.error("Failed to render pairing QR code", error);
+    });
 }
 
 function closeDialog() {
@@ -538,6 +520,7 @@ onBeforeUnmount(() => {
           <RProgressCircular indeterminate :size="36" />
         </div>
         <template v-else-if="pairStatus === 'pending'">
+          <ProjectBrand variant="about" />
           <canvas id="r-v2-pair-qr-code" class="r-v2-tok-dialog__qr" />
           <div class="r-v2-tok-dialog__pair-code">{{ formattedPairCode }}</div>
           <div class="r-v2-tok-dialog__pair-counter">{{ pairCountdown }}s</div>

@@ -1,4 +1,4 @@
-name: Build Experimental Docker Image
+name: Build Experimental ZockArchive Docker Image
 
 on:
   pull_request:
@@ -23,7 +23,6 @@ permissions:
   id-token: write
   contents: write
   packages: write
-  actions: write
   pull-requests: write
 
 jobs:
@@ -97,6 +96,12 @@ jobs:
           tags: |
             type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
 
+          labels: |
+            org.opencontainers.image.title="ZockArchive"
+            org.opencontainers.image.description="A self-hosted PC and console game library and download portal"
+            org.opencontainers.image.source=https://github.com/D1skanime/zockarchive
+            org.opencontainers.image.licenses="AGPLv3"
+
       - name: Build full image
         id: build-full
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
@@ -106,24 +111,27 @@ jobs:
           push: true
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           target: full-image
           build-args: |
             SCREENSCRAPER_DEV_ID=${{ secrets.SCREENSCRAPER_DEV_ID }}
             SCREENSCRAPER_DEV_PASSWORD=${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
 
-      # PR builds always push to GHCR only, so the image link is hardcoded to GHCR.
-      - name: Comment PR with GHCR image link
+      # Report actual metadata outputs so comments follow the pushed destinations.
+      - name: Comment PR with image links
         if: github.event_name == 'pull_request'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
-          HEAD_REF: ${{ github.head_ref }}
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
         with:
           script: |
-            const owner = context.repo.owner;
-            const tag = process.env.HEAD_REF;
-            github.rest.issues.updateComment({
+            const images = process.env.IMAGE_TAGS.split(/\r?\n/).filter(Boolean);
+            const quote = String.fromCharCode(96);
+            await github.rest.issues.updateComment({
               comment_id: ${{ steps.build-comment.outputs.comment-id }},
-              owner: owner,
+              owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `✅ Preview build completed!\n\nDocker image: \`ghcr.io/${owner}/pc-game-download-portal-testing:${tag}\``
-            })
+              body: 'Preview build completed!\n\nDocker images:\n' +
+                images.map(image => '- ' + quote + image + quote).join('\n') +
+                '\n\nSource: https://github.com/D1skanime/zockarchive'
+            });

@@ -975,7 +975,6 @@ Plans:
 
 - All scan status labels use actual translations and preserve interpolation
 
-
 ### Phase 36: Localized provider descriptions without legacy summary
 
 **Goal:** Fetch, persist and display descriptions in the selected system language for Steam PC/Windows games and ScreenScraper console ROMs. Cover manual search, matching, confirmation, metadata refresh and all scan entry points, including scheduled scans. Use explicit English fallback, preserve manual text and Phase35 quick-scan performance, and retire legacy summary presentation.
@@ -985,6 +984,7 @@ Plans:
 **Plans:** 17/17 plans complete
 
 **Success Criteria:**
+
 1. No v2 description surface displays the obsolete unlocalized summary as a description fallback or silently stores it under a locale.
 2. German/English provider text and any explicit fallback preserve their language and source; manual text remains protected.
 3. A newly identified game and a game with an existing Steam identity but missing variants can acquire configured languages using the same bounded provider/merge owners, without repeating expensive inventory/media work for unchanged games.
@@ -1006,15 +1006,19 @@ Plans:
 **Wave 3** *(blocked on assigned prior dependency waves)*
 
 - [x] 36-02-PLAN.md - Extend the existing operation-wide retry owner with description-purpose selection, durable cooldown and a narrow checked text patch. Preserve the unidentified retry policy.
+
 Purpose: Deliver the approved description-language correction through existing owners.
 Output: Tested behavior and explicit task verification receipts.
+
 - [x] 36-04-PLAN.md - Add a provenance-bearing typed resolution seam and generate backend contracts while preserving existing callers until their atomic migration.
 
 **Wave 4** *(blocked on assigned prior dependency waves)*
 
 - [x] 36-03-PLAN.md - Wire warm identified QUICK reuse and newly persisted IGDB-derived Steam IDs into the same bounded coordinator, for manual and scheduled operations.
+
 Purpose: Deliver the approved description-language correction through existing owners.
 Output: Tested behavior and explicit task verification receipts.
+
 - [x] 36-08-PLAN.md - Translate approved source/fallback and Cancel editing wording for en_US, en_GB, bg_BG, cs_CZ, de_DE, es_ES.
 - [x] 36-09-PLAN.md - Translate approved source/fallback and Cancel editing wording for fr_FR, hu_HU, it_IT, ja_JP, ko_KR, pl_PL.
 - [x] 36-15-PLAN.md - Connect administrative interface-language selection to authorized global scan preference and remove stale browser metadata language as a manual scan override.
@@ -1036,12 +1040,14 @@ Output: Tested behavior and explicit task verification receipts.
 **Wave 8** *(blocked on assigned prior dependency waves)*
 
 - [x] 36-06-PLAN.md - Prove real description repair through authenticated HTTP/RQ and scheduled execution, plus revoked authority, in token-owned disposable MariaDB and PostgreSQL fixtures.
+
 Purpose: Deliver the approved description-language correction through existing owners.
 Output: Tested behavior and explicit task verification receipts.
 
 **Wave 9** *(blocked on assigned prior dependency waves)*
 
 - [x] 36-07-PLAN.md - Complete actual connected browser acceptance and frozen-source SQL/frontend/security/receipt validation. Produce reviewable evidence without automatic deployment.
+
 Purpose: Deliver the approved description-language correction through existing owners.
 Output: Tested behavior and explicit task verification receipts.
 
@@ -1056,6 +1062,7 @@ Output: Tested behavior and explicit task verification receipts.
 **Plans:**4 plans,8 tasks,3 waves
 
 **Success Criteria:**
+
 1. Upload remains reachable at the top and after long scrolling without duplicate upload logic or overlapping navigation.
 2. Compact responsive cards expose truthful source, placement and permission-aware actions; multiple placements and ordering survive.
 3. Provider, owner and community behavior remains faithful to current backend semantics, with no invented hide/delete or sort behavior.
@@ -1078,3 +1085,22 @@ Plans:
 - [x] 37-04-PLAN.md: Isolated real-browser regressions, desktop/mobile captures and final frontend quality.
 
 Cross-cutting constraints: Existing provider/personal/community ownership and placement order remain authoritative. One upload owner, no backend/schema/permission/storage change, all18 locales, existing design/input/scroll mechanisms and preserved local data.
+
+### Phase 38: ZockArchive product and repository rebranding
+
+**Goal:** Rebrand visible product identity and active repository/release/install references to ZockArchive and rename the same GitHub repository, preserving history, upstream attribution and installed storage/auth/API compatibility.
+**Requirements**: ZA-BRAND-01, ZA-BRAND-02, ZA-BRAND-03, ZA-BRAND-04, ZA-BRAND-05, ZA-BRAND-06, ZA-BRAND-07, ZA-BRAND-08, ZA-BRAND-09, ZA-BRAND-10
+**Depends on:** Phase 37
+**Plans:** 9/9 source implementations reviewed;8/9 acceptance summaries present before final delivery
+
+Plans:
+
+- [x] 38-01-PLAN.md: Centralize browser identity, titles and real PWA outputs
+- [x] 38-02-PLAN.md: Render shared text identity in active auth, navigation and release surfaces
+- [x] 38-03-PLAN.md: Complete all eighteen localized product identities and remaining active copy
+- [x] 38-04-PLAN.md: Update backend product metadata while preserving protocols and overrides
+- [x] 38-05-PLAN.md: Rebrand desktop display and project metadata without renaming persisted identities
+- [x] 38-06-PLAN.md: Update current operator documentation and product-owned release automation
+- [x] 38-07-PLAN.md: Adapt exact repository guards and current naming/install verifiers
+- [x] 38-08-PLAN.md: Prove compatible identity on owned browser, SQL and populated-install targets
+- [ ] 38-09-PLAN.md: Perform verified same-repository rename and deliver reviewed feature integration (source implemented; external acceptance recorded in ignored cutover/summary receipts)

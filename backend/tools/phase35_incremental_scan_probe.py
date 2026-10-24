@@ -20,7 +20,7 @@ from phase35_incremental_scan_fixture import (
 )
 
 BRANCH = "codex/phase-35-incremental-windows-scans"
-ORIGIN = "https://github.com/D1skanime/pc-game-download-portal.git"
+ORIGIN = "https://github.com/D1skanime/zockarchive.git"
 CLIENT = "tools/phase35_incremental_client.py"
 WORKER = "tools/phase35_incremental_worker.py"
 

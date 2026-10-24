@@ -1,160 +1,59 @@
-# PC Game Download Portal
+# ZockArchive (ZA)
 
-PGDP ist eine eigenständige Edition zur Verwaltung einer bestehenden PC-Spielebibliothek, ohne Quelldateien oder Ordner umzustrukturieren oder zu verändern.
+ZockArchive is a self-hosted PC and console game library, metadata manager and download portal. It connects an existing archive to a catalog without reorganizing or changing source files or directories.
 
-Diese Edition verbindet die bekannte ROM-Bibliotheksverwaltung mit einem schreibgeschützten PC-Bibliotheksworkflow, eigenen PC-Spielkomponenten, Metadaten-gestützter DLC-Zuordnung, Medienverwaltung, verifizierten Browser-Downloads und einer reproduzierbaren Docker-Bereitstellung für NAS-Systeme.
+- Register external read-only libraries and platform-to-storage mappings.
+- Browse PC main games, installers, updates, DLC, patches, manuals and optional files.
+- Match metadata with IGDB, Steam and other optional providers.
+- Manage screenshots, artwork, backgrounds and uploaded soundtracks.
+- Download selected PC components using verified manifests, resumable browser transfers and download history.
+- Browse console libraries and play supported titles through the existing browser players.
 
-## Was diese Edition bietet
+## Install and operate
 
-- Externe PC-Bibliotheksverzeichnisse mit Read-only-Schutz und Plattform-zu-Speicher-Zuordnung.
-- Katalogeinträge für Hauptspiele, Installer, Updates, DLC, Patches, Handbücher und optionale Dateien.
-- Hash-basierte Download-Manifeste für ausgewählte PC-Komponenten.
-- Browser-Downloads mit Fortschritt, Pause, Fortsetzen, Wiederholung, Abbruch und Verlauf.
-- Metadaten-Zuordnung für PC-Spiele und DLC über IGDB, Steam und weitere Anbieter.
-- Deutsche Steam-Metadaten mit kontrollierter Sprache und Fallback-Regeln.
-- Medienverwaltung für Screenshots und Artwork mit Löschen, Duplikat-Schutz, Hintergrundauswahl und Übersichtsbild.
-- Responsive Übersichten für Desktop- und Tablet-Bildschirme.
-- Git-basierte Portainer-Bereitstellung, die ROM-Dateien, Medien, Zugangsdaten und Datenbankzustand ausserhalb von Git hält.
+Use the Git-source [Portainer stack](examples/portainer-stack.yml) and [environment template](examples/portainer.env.example). The [English installation guide](docs/PORTAINER_INSTALL.md) covers host paths, secrets, first startup, providers, backups, updates and rollback.
 
-## Entwicklungsmeilensteine
+Repository: <https://github.com/D1skanime/zockarchive>
+Releases: <https://github.com/D1skanime/zockarchive/releases>
+Issues: <https://github.com/D1skanime/zockarchive/issues>
 
-Während der Entwicklung wurden unter anderem folgende Funktionen abgeschlossen:
+Portainer builds the selected Git revision with `docker/Dockerfile`. The local image tag remains `pc-game-download-portal:portainer` and can be overridden with `PGDP_IMAGE`. This local build tag is not evidence of a published registry image. Registry aliases and external accessibility are described in the installation guide.
 
-1. Unveränderliche Speichergrundlage für bestehende Spielearchive.
-2. Read-only-Grenze für Scans und Katalogoperationen.
-3. Verwaltung und Validierung von Plattform-Speicherzuordnungen.
-4. Aktive v2-Speicherarchitektur mit klaren Datenbereichen.
-5. Sichere Migration bestehender Legacy-Daten.
-6. Vollständige v2-Verwaltung für Speicher und Bibliothek.
-7. PC-Integrationsmodell und PC-spezifische Detailansichten.
-8. PC-Medien- und DLC-Navigation.
-9. IGDB-Metadatenzuordnung und DLC-Medienverarbeitung.
-10. Unveränderliche Download-Manifeste und fortsetzbare Browser-Übertragungen.
-11. Browser-Downloadverwaltung mit Warteschlange und Wiederherstellung.
-12. Steam-Metadaten für PC-Spiele und DLC.
-13. Robuste PC-Scans, IGDB-Zuordnung und sichere DLC-Anreicherung.
-14. Medienverwaltung, Screenshot-Raster und Upload eigener Soundtracks.
-15. Mehrsprachige Steam-Metadaten mit deutschen und englischen Varianten.
-16. Aktuelle UI- und UX-Verbesserungen sowie manuelle Metadatenbearbeitung.
-17. Reproduzierbarer Portainer- und Docker-Deploy mit persistentem Speicher, Startprüfungen und Clean-Install-Validierung.
+Keep the original archive mounted at `/romm/library:ro`. Store database, resources, Redis data, assets and configuration separately. Preserve existing stack names, host paths and volumes when updating.
 
-## Interaktive UI-Demos
+## Compatibility
 
-Die Aufnahmen zeigen workflowspezifische Abläufe mit synthetischen Demodaten. Sie enthalten keine ROM-Dateien, persönlichen Konten, privaten Medien oder Zugangsdaten.
+The product name is ZockArchive, abbreviated ZA. Existing `PGDP_*` and `ROMM_*` keys, `pgdp` services/project defaults, database names, persistent volumes, storage paths, browser/session/cache keys and native desktop identifiers remain compatibility contracts.
 
-|                        PC-Downloadsteuerung                        |                       Medien- und Artwork-Workflow                       |
-| :----------------------------------------------------------------: | :----------------------------------------------------------------------: |
-| ![PC-Downloadsteuerung](docs/screenshots/pc-download-controls.gif) | ![Medien- und Artwork-Workflow](docs/screenshots/media-artwork-flow.gif) |
+The canonical development checkout remains `/home/d1sk/pc-game-download-portal` on `team4s-linux`. A repository URL change does not move that directory or migrate packages, credentials, data or Portainer settings.
 
-## Installation mit Portainer
+## Documentation and development
 
-Der unterstützte Bereitstellungsweg ist ein Docker-Compose-Stack, der über Portainer verwaltet wird. Die Stack-Datei liegt unter [examples/portainer-stack.yml](examples/portainer-stack.yml), die sichere Variablenvorlage unter [examples/portainer.env.example](examples/portainer.env.example).
+- [Developer setup](DEVELOPER_SETUP.md)
+- [Contributor guide](CONTRIBUTING.md), including required AI-assistance disclosure
+- [Backend architecture](docs/BACKEND_ARCHITECTURE.md)
+- [Frontend architecture](docs/FRONTEND_ARCHITECTURE.md)
+- [External read-only library operations](docs/external-read-only-library-operations.md)
+- [Repository and execution rules](CLAUDE.md)
 
-Die vollständige deutsche Anleitung steht in [docs/PORTAINER_INSTALL.md](docs/PORTAINER_INSTALL.md).
+The Windows checkout is a coordination/reference workspace. Implementation, GSD, tests and commits run in the verified canonical Linux checkout. Synthetic proof fixtures must never be replaced with production NAS or user data.
 
-### Voraussetzungen
+## Workflow demonstrations
 
-- Portainer mit Unterstützung für Git-basierte Docker-Compose-Stacks.
-- Ein NAS-Verzeichnis mit der bestehenden PC- und ROM-Bibliothek.
-- Schreibbare NAS-Verzeichnisse für Assets und Konfiguration.
-- Genügend Speicher für den Anwendungs-Build und MariaDB-Daten.
-- Optional Konten und API-Schlüssel für Metadatenanbieter.
+These recordings use synthetic data without ROM files, private accounts, media or credentials. They may show earlier product artwork or copy.
 
-### Aus GitHub bereitstellen
+| PC download controls                                               | Media and artwork workflow                                             |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| ![PC download controls](docs/screenshots/pc-download-controls.gif) | ![Media and artwork workflow](docs/screenshots/media-artwork-flow.gif) |
 
-1. Öffne in Portainer Stacks und wähle Add stack.
-2. Wähle Git repository.
-3. Verwende die Repository-URL https://github.com/D1skanime/pc-game-download-portal.git.
-4. Verwende als Branch oder Referenz main.
-5. Verwende als Compose-Pfad examples/portainer-stack.yml.
-6. Übernimm die Variablen aus examples/portainer.env.example in den Portainer-Bereich für Umgebungsvariablen.
-7. Ersetze alle Platzhalter und setze die drei NAS-Pfade.
-8. Prüfe, dass die Spielebibliothek read-only eingebunden wird.
-9. Deploye den Stack.
+## Assets and verification limits
 
-Der Git-Stack baut das ausgecheckte Repository mit docker/Dockerfile. Damit enthält die Bereitstellung den Code der ausgewählten Git-Revision. Behalte die MariaDB- und Ressourcen-Volumes bei Updates und Redeployments.
+Current navigation, authentication and bootstrap use text identity. Final supplied artwork is pending. App icons, public/PWA icons and desktop installer icons have separate owners, documented in the frontend architecture and desktop README. Native installer identity remains unchanged for upgrade compatibility.
 
-### Erforderliche Variablen
+Source and isolated tests do not establish live Synology/QNAP/Portainer acceptance, physical controller acceptance or registry package availability. These checks require their respective environments and authorization.
 
-| Variable              | Zweck                                                    |
-| --------------------- | -------------------------------------------------------- |
-| PGDP_LIBRARY_PATH     | Bestehende ROM- und PC-Bibliothek, read-only eingebunden |
-| PGDP_ASSETS_PATH      | Schreibbares Verzeichnis für Assets, Saves und States    |
-| PGDP_CONFIG_PATH      | Schreibbares Konfigurationsverzeichnis                   |
-| PGDP_DB_PASSWORD      | Passwort des MariaDB-Anwendungsbenutzers                 |
-| PGDP_DB_ROOT_PASSWORD | Separates MariaDB-root-Passwort                          |
-| PGDP_AUTH_SECRET_KEY  | Langer zufälliger Authentifizierungsschlüssel            |
-| PGDP_HTTP_PORT        | Auf den Container gemappter NAS-Port                     |
-| PGDP_TZ               | Zeitzone des Containers                                  |
+## Origin and license
 
-Erzeuge eindeutige Secrets, zum Beispiel:
+ZockArchive derives from [upstream RomM](https://github.com/rommapp/romm), a self-hosted ROM manager and player. Upstream documentation and provider integrations remain attributed to their owners. Upstream donation and community accounts do not belong to ZockArchive.
 
-    openssl rand -hex 32
-
-Trage echte Werte nur in Portainer oder einem unterstützten Secret-Store ein. Committe niemals ausgefüllte ENV-Dateien, API-Schlüssel, Passwörter, Tokens oder persönliche Pfade.
-
-### Optionale Metadatenanbieter
-
-Die Anbieter-Variablen dürfen leer bleiben. Die Anwendung startet trotzdem; der jeweilige Anbieter bleibt dann deaktiviert.
-
-- SCREENSCRAPER_USER
-- SCREENSCRAPER_PASSWORD
-- RETROACHIEVEMENTS_API_KEY
-- STEAMGRIDDB_API_KEY
-- IGDB_CLIENT_ID
-- IGDB_CLIENT_SECRET
-- HASHEOUS_API_ENABLED
-
-Ein fehlender Anbieter-Schlüssel ist kein Installationsfehler, sondern nur eine fehlende Provider-Konfiguration. Die Cover-Suche bleibt beispielsweise solange nicht verfügbar, bis der ausgewählte Anbieter gültige Zugangsdaten hat.
-
-### Speicher und Persistenz
-
-Erstelle die drei Host-Verzeichnisse vor dem Deployment. Binde die Quellbibliothek read-only ein, damit Scans sie nicht umorganisieren oder verändern können. Halte Ressourcen, Assets, Konfiguration, Redis-Daten und MariaDB-Daten in persistenten Docker-Volumes oder schreibbaren Host-Mounts.
-
-Binde die NAS-Bibliothek nicht über /romm/resources oder /romm/assets ein. Diese Pfade haben andere Besitz- und Schreibregeln.
-
-### Erster Start und Updates
-
-Warte, bis pgdp und pgdp-db als healthy angezeigt werden. Öffne den konfigurierten HTTP-Port und schliesse die Erstanmeldung ab. Der normale Start übernimmt Umgebungsvorbereitung, Migrationen und Healthchecks automatisch.
-
-Für ein Update wählst du in Portainer die gewünschte main-Revision und deployest den Git-Stack erneut. Behalte Datenbank- und Ressourcen-Volumes. Sichere die Datenbank vor grösseren Updates. Ersetze niemals die Spielebibliothek durch einen Git-Checkout.
-
-### Deployment prüfen
-
-Führe die Prüfung in einem Linux-Checkout aus:
-
-    bash scripts/verify-portainer-stack.sh
-
-Die Prüfung weist Entwicklerpfade, getrackte ENV-Dateien und getrackte Laufzeitordner wie Games, Docker und Media zurück.
-
-## Daten- und Datenschutzgrenzen
-
-Das Repository enthält Anwendungscode, Deployment-Vorlagen, Tests und synthetische Dokumentationsdemos. Folgende Daten bleiben auf dem Installationshost:
-
-- ROM-Dateien und PC-Installer.
-- Heruntergeladenes Artwork, Screenshots und weitere Medien.
-- Datenbank- und Cache-Inhalte.
-- NAS-Pfade.
-- API-Schlüssel, Passwörter und Authentifizierungs-Secrets.
-- Benutzerkonten und persönliche Bibliotheksmetadaten.
-
-## Lokale Entwicklung
-
-Lies CLAUDE.md für Repository-Regeln und die kanonische Linux-Entwicklungsumgebung.
-
-Für den Entwicklungsstack:
-
-    cp env.template .env
-    docker compose up -d
-
-Der produktionsähnliche Portainer-Stack ist vom Entwicklungs-Compose getrennt. Verwende für eine NAS-Bereitstellung die Portainer-Dateien und halte deren Umgebungswerte ausserhalb von Git.
-
-## Fehlerbehebung
-
-- Bei einer fehlenden erforderlichen Variable: Prüfe Variablennamen und Platzhalter, ohne Secrets in Logs oder Screenshots offenzulegen.
-- Bei einem fehlerhaften pgdp-db-Healthcheck: Prüfe Datenbankpasswörter und das persistente Volume.
-- Bei leerer Bibliothek: Prüfe, ob der Pfad auf dem NAS-Host existiert und für Docker sichtbar ist, nicht nur auf einer Arbeitsplatzmaschine.
-- Bei nicht verfügbarer Metadatensuche: Prüfe die Zugangsdaten des ausgewählten Anbieters. Die Basisinstallation bleibt ohne Metadatenanbieter verwendbar.
-- Wenn ein Update unverändert aussieht: Prüfe, ob Portainer die gewünschte Revision ausgecheckt und den Anwendungscontainer neu gebaut hat.
-
-Für die vollständige Installations-, Backup- und Rollback-Anleitung siehe [docs/PORTAINER_INSTALL.md](docs/PORTAINER_INSTALL.md).
+The project retains the [AGPL license](LICENSE), copyright notices, author attribution and source history. Historical planning and decision records retain the names used when written.

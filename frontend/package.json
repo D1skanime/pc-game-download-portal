@@ -1,17 +1,17 @@
 {
-  "name": "pgdp",
+  "name": "zockarchive",
   "private": true,
   "version": "0.0.1",
   "author": "Zurdi <https://github.com/zurdi15>",
-  "description": "A self-hosted PC game library and download portal",
+  "description": "A self-hosted PC and console game library and download portal",
   "license": "AGPL-3.0-only",
-  "homepage": "https://github.com/rommapp/romm",
+  "homepage": "https://github.com/D1skanime/zockarchive",
   "repository": {
     "type": "git",
-    "url": "git+github.com/rommapp/romm.git"
+    "url": "git+https://github.com/D1skanime/zockarchive.git"
   },
   "bugs": {
-    "url": "https://github.com/rommapp/romm/issues"
+    "url": "https://github.com/D1skanime/zockarchive/issues"
   },
   "keywords": [
     "rom",

@@ -137,9 +137,9 @@ class Formatter(logging.Formatter):
         level = "%(levelname)s"
         dots = f"{RESET}:"
         module_label = resolve_module_name(record).lower()
-        identifier = f"\t  {BLUE}[PGDP]{LIGHTMAGENTA}[{module_label}]"
-        identifier_warning = f"  {BLUE}[PGDP]{LIGHTMAGENTA}[{module_label}]"
-        identifier_critical = f" {BLUE}[PGDP]{LIGHTMAGENTA}[{module_label}]"
+        identifier = f"\t  {BLUE}[ZockArchive]{LIGHTMAGENTA}[{module_label}]"
+        identifier_warning = f"  {BLUE}[ZockArchive]{LIGHTMAGENTA}[{module_label}]"
+        identifier_critical = f" {BLUE}[ZockArchive]{LIGHTMAGENTA}[{module_label}]"
         msg = f"{RESET_ALL}%(message)s"
 
         message = pformat(record.msg) if hasattr(record, "pprint") else "%(message)s"

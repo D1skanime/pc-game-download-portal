@@ -174,9 +174,9 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         )
 
     return WebrcadeFeedSchema(
-        title="RomM Feed",
-        longTitle="Custom RomM Feed",
-        description="Custom feed from your RomM library",
+        title="ZockArchive Feed",
+        longTitle="Custom ZockArchive Feed",
+        description="Custom feed from your ZockArchive library",
         thumbnail="https://raw.githubusercontent.com/rommapp/romm/release/.github/resources/isotipo.svg",
         background="https://raw.githubusercontent.com/rommapp/romm/release/.github/resources/screenshots/gallery.png",
         categories=categories,
@@ -761,7 +761,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
             platform=platform.slug,
             region=rom.regions[0] if rom.regions else "ANY",
             version=rom.revision or "1.0.0",
-            author="RomM",
+            author="ZockArchive",
             download_url=download_url,
             filename=rom.fs_name,
             size=rom.fs_size_bytes,

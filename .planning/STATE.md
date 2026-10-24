@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: completed
-stopped_at: Phase 37 accepted and merged into main via PR 6
-last_updated: "2026-10-24T11:19:36+00:00"
-last_activity: 2026-10-24 -- Phase 37 accepted; PR 6 merged into main after all GitHub checks passed
+status: awaiting_human_review
+stopped_at: Phase38 source implementation independently reviewed; cutover and exact-source CI outcomes recorded separately
+last_updated: "2026-10-24T19:19:09.243Z"
+last_activity: 2026-10-24
 progress:
-  total_phases: 37
-  completed_phases: 27
-  total_plans: 291
-  completed_plans: 260
-  percent: 73
+  total_phases: 38
+  completed_phases: 24
+  total_plans: 308
+  completed_plans: 268
+  percent: 87
 ---
 
 # Project State
@@ -21,14 +21,28 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase37 screenshot management UI is complete within the user-accepted Dev UAT scope. Do not start another phase automatically.
+**Current focus:** Phase38 ZockArchive product and repository rebranding;9 independently checked plans, executed sequentially on codex/phase-38-zockarchive-rebranding.
 
 ## Current Position
 
-Phase:37 (zockarchive-screenshot-management-ui-redesign) - COMPLETE
-Plan:4 of4 complete; observed live UAT accepted on2026-10-24
-Status: completed; merged into main through PR6 at2a2789775c3cc645fa4a8a86efa277912035b78c
-Last activity:2026-10-24 - Final reviewed source0a532802e93118d09279acd0d5a8470ab0bd5605 passed all GitHub checks and was merged.
+Phase:38 (zockarchive-product-and-repository-rebranding)
+Plan:9 of9; source implementation complete and independently reviewed
+Status: Human review pending; external delivery/acceptance outcomes are separate receipts
+Last activity:2026-10-24
+
+The source includes the reviewed read-only cutover verifier and required complete-checkout
+host-contract CI job. All16 SQL shards, the host Actions job and actual same-ID cutover
+must be verified independently. Their final observed results belong to ignored
+38-CUTOVER.md,38-09-SUMMARY.md and evidence/cutover/validation.json, not an advance
+claim in this frozen source status. No main merge or deployment is authorized.
+
+## Phase38 owned integration proof
+
+Plans01 through08 are implemented. Runtime source0f94a759e passes eight owned gates:20 affected cases per MariaDB/PostgreSQL, schema roundtrips on three dialects,8 actual browser cases including German, fresh full-image install and populated base251edcc5d upgrade. Auth, catalog, mapped download/403, schema0142 and source/resource/cache digests survive restart; real local EmulatorJS passes1/1. Frontend passes1708 tests, typecheck/build/manifests, maintainability490 and4 built browser cases with synthetic input.
+
+Final helperb7a2087b6 adds the verified-manifest invariant only; focused helper tests and scoped Trunk pass. Runtime/image receipts retain their actual source. All other backend/frontend/Docker/lock Git-object inputs are equal; full Docker context differs because it also copies the proof helper. Read38-08-SUMMARY.md,38-ACCEPTANCE.md and38-08-RECEIPTS.json.23 owned projects and28 temporary paths are cleaned; six protected hashes and legal/history remain unchanged.
+
+ZA-BRAND-09 and the complete16-shard backend matrix remain pending exact pushed Plan09 CI, or full local fallback if equivalent CI is unavailable. Independent review precedes cutover. No push, rename, publication, deployment, live SQL/NAS/Team4s mutation or physical-controller/native-package acceptance occurred in08.
 
 ## Phase 37 completion
 
@@ -220,10 +234,20 @@ _Updated after each plan completion_
 | Phase 35 P08 | 12min | 2 tasks | 29 files |
 | Phase 35 P14 | 9min | 2 tasks | 6 files |
 | Phase 35 P10 | 14min | 3 tasks | 11 files |
+| Phase 38 P01 | 8min | 2 tasks | 10 files |
+| Phase 38 P02 | 17min | 3 tasks | 13 files |
+| Phase 38 P03 | 12min | 2 tasks | 155 files |
+| Phase 38 P04 | 16min | 3 tasks | 14 files |
+| Phase 38 P05 | 10min | 2 tasks | 10 files |
+| Phase 38 P06 | 10min | 3 tasks | 21 files |
+| Phase 38 P07 | 7min | 3 tasks | 11 files |
+| Phase 38 P08 | 51min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
+
+- Phase38 added: ZockArchive product and repository rebranding, based on the user-supplied complete specification.
 
 - Phase 34 added: Reliable fresh installation and scan lifecycle.
 - Phase 33 browser acceptance remains open pending a successful fresh setup and first scan after Phase 34 stabilization.
@@ -486,6 +510,16 @@ Recent decisions affecting current work:
 - [Phase 35]: Generate only in token-bound disposable Run and preserve optional server stats through the existing adapter.
 - [Phase 35]: Keep pure inventory presentation and existing monotonic owner with bounded full-identity pages and exact optional global counters.
 - [Phase 35]: Plan 10 renders supplied global counters and server eligibility through existing status authority; paging uses direct facade pass-through.
+- [Phase 38]: Keep product metadata dependency-free; verify static browser identity against actual build output
+- [Phase 38]: Pairing QR remains unmodified with shared ZA text outside its encoded area.
+- [Phase 38]: Preserve all locale keys and non-brand wording exactly; use PROJECT_NAME in existing static product fallbacks.
+- [Phase 38]: Keep operator welcome overrides, romm logging and wire IDs unchanged while using ZockArchive displays and za telemetry releases.
+- [Phase 38]: Retain RomM Desktop technical productName because version-tagged NSIS uses it for persisted registry and install paths; rebrand window, HTML and shell only.
+- [Phase 38]: Rename only root private package metadata, preserving dependency graphs, authors, licenses and native identity owners exactly.
+- [Phase 38]: Retain local Portainer and legacy publication aliases; preview comments consume actual metadata output tags
+- [Phase 38]: Keep historical probe branches and planning checks exact; current verification consumes the tracked branding contract without ignored planning.
+- [Phase 38]: Full16-shard backend acceptance remains pending exact pushed Plan09 CI, with full local fallback. Rationale: Plan08 owned integration passed; affected20-case profiles do not fulfill complete backend acceptance
+- [Phase 38]: Runtime receipts retain source0f94a759e; final helperb7a2087b6 adds only the post-start manifest invariant. Rationale: All other backend frontend Docker and locked inputs are equal; image digests are not relabelled
 
 ### Blockers/Concerns
 
@@ -573,8 +607,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-10-20T21:26:49.727Z
-Stopped at: Phase 36 accepted with documented exceptions; main integration authorized
+Last session: 2026-10-24T19:18:30.801Z
+Stopped at: Completed 38-08-PLAN.md; ready for independent review and 38-09
 Resume file: None
 
 - Phase 25 added: Scan-/Medien-Integration härten

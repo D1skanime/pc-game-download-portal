@@ -63,7 +63,7 @@ REQUIRED_REQUIREMENT_IDS = (
 DOC_REQUIREMENTS: dict[str, dict[str, tuple[str, ...]]] = {
     "DOC-01": {
         "headings": (
-            "# External Read-Only Library Operations",
+            "# ZockArchive External Read-Only Library Operations",
             "## Read-Only Mount Topology",
             "## Writable Separation",
             "## Register a Root and Browse Mappings",
@@ -73,7 +73,7 @@ DOC_REQUIREMENTS: dict[str, dict[str, tuple[str, ...]]] = {
         ),
         "phrases": (
             "Mount one library root read-only at `/romm/library:ro`.",
-            "RomM-owned writes stay on separate writable storage.",
+            "ZockArchive-owned writes stay on separate writable storage.",
             "Original files and folders stay unchanged.",
         ),
     },

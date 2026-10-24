@@ -29,7 +29,7 @@
   "status-downloading": "Stahování opatchovaného ROMu...",
   "status-patching": "Applying patch on server...",
   "status-preparing": "Příprava souborů...",
-  "status-uploading": "Nahrávání do RomM...",
+  "status-uploading": "Nahrávání do ZockArchive...",
   "subtitle": "Vyberte základní ROM a patch soubor, poté aplikujte pro stažení opatchovaného ROMu.",
   "success-downloaded": "staženo",
   "success-message": "Opatchovaný ROM {actions} úspěšně!",
@@ -38,6 +38,6 @@
   "title": "ROM Patcher",
   "upload-errors": " (s některými chybami)",
   "upload-success": "Opatchovaný ROM úspěšně nahrán{errors}. Spouštění skenování...",
-  "upload-to-romm": "Nahrát do RomM",
+  "upload-to-romm": "Nahrát do ZockArchive",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

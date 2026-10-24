@@ -29,7 +29,7 @@
   "status-downloading": "パッチ済みROMをダウンロード中...",
   "status-patching": "Applying patch on server...",
   "status-preparing": "ファイルを準備中...",
-  "status-uploading": "RomMにアップロード中...",
+  "status-uploading": "ZockArchiveにアップロード中...",
   "subtitle": "ベースROMとパッチファイルを選択し、適用してパッチされたROMをダウンロードします。",
   "success-downloaded": "ダウンロードされました",
   "success-message": "パッチ済みROMが{actions}成功しました！",
@@ -38,6 +38,6 @@
   "title": "ROMパッチャー",
   "upload-errors": "（一部エラーあり）",
   "upload-success": "パッチ済みROMが正常にアップロードされました{errors}。スキャンを開始しています...",
-  "upload-to-romm": "RomMにアップロード",
+  "upload-to-romm": "ZockArchiveにアップロード",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

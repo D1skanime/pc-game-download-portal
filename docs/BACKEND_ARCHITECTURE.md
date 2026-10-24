@@ -1,6 +1,6 @@
 <!-- generated-by: gsd-doc-writer -->
 
-# RomM Backend Architecture
+# ZockArchive Backend Architecture
 
 **Analysis Date:** 2026-10-15
 
@@ -24,10 +24,10 @@ The backend owns catalog state and API shapes. The Vue frontend never accesses t
 | Scan pipeline     | Filesystem scan, ROM/component reconciliation, provider enrichment    | backend/handler/scan_handler.py                                                                 |
 | API boundary      | Request validation, scopes, delegation and serialization              | backend/endpoints/                                                                              |
 | Catalog aggregate | ROM identity, metadata, files, PC components, media, saves and states | backend/models/rom.py                                                                           |
-| Storage boundary  | External read-only versus RomM-owned roots                            | backend/handler/filesystem/storage_composition.py, backend/handler/filesystem/storage_policy.py |
+| Storage boundary  | External read-only versus ZockArchive-owned roots                     | backend/handler/filesystem/storage_composition.py, backend/handler/filesystem/storage_policy.py |
 | Metadata          | Provider clients, normalization, merge and priority                   | backend/handler/metadata/, backend/adapters/services/                                           |
 | PC automation     | Guarded unique decisions and review queue                             | backend/handler/metadata/pc_automation.py, backend/models/pc_automation.py                      |
-| Frontend shell    | Bootstrap, initial auth/config/heartbeat, themes and routes           | frontend/src/main.ts, frontend/src/RomM.vue                                                     |
+| Frontend shell    | Bootstrap, initial auth/config/heartbeat, themes and routes           | frontend/src/main.ts, frontend/src/PGDP.vue                                                     |
 | Frontend data     | Pinia state and API/socket adapters                                   | frontend/src/v2/data/adapters/legacy/, frontend/src/stores/                                     |
 
 ## Pattern Overview
@@ -137,13 +137,13 @@ or restore endpoint. Explicit refresh does not restore operator-deleted images.
 
 - FastAPI: backend/main.py, invoked by Uvicorn/Gunicorn or direct Python.
 - Background work: backend/startup.py, backend/tasks/, backend/handler/redis_handler.py.
-- Frontend: frontend/src/main.ts and frontend/src/RomM.vue.
+- Frontend: frontend/src/main.ts and frontend/src/PGDP.vue.
 
 ## Architectural Constraints
 
 - **Threading:** Async FastAPI/Socket.IO coexist with RQ workers; blocking I/O stays in handlers/tasks.
 - **Global state:** Provider handlers, config manager, Redis clients, Socket.IO handlers and storage composition are module-level infrastructure.
-- **Circular imports:** The Axios client imports the router for 401 redirects. RomM.vue lazy-loads app-shell pieces to avoid bootstrap cycles. V2 primitives must not import stores, services, router or i18n.
+- **Circular imports:** The Axios client imports the router for 401 redirects. PGDP.vue lazy-loads app-shell pieces to avoid bootstrap cycles. V2 primitives must not import stores, services, router or i18n.
 - **Storage safety:** The library root is external/read-only. Never write sidecars, exports or generated media there.
 - **API contract:** Backend response schemas are authoritative; changes require OpenAPI regeneration into frontend/src/**generated**/.
 - **Compatibility:** Do not refactor frozen v1 paths.
@@ -200,9 +200,9 @@ Role is user or admin in backend/models/user.py. Admin bypasses the granular mat
 
 ### Database, Redis and storage
 
-MariaDB is the default driver. MySQL and PostgreSQL are supported by backend/config/config_manager.py and Alembic. docker-compose.yml includes MariaDB for RomM and a separate PostgreSQL service for Authentik. The production Portainer stack uses MariaDB 11.3 and Valkey-compatible Redis runtime state.
+MariaDB is the default driver. MySQL and PostgreSQL are supported by backend/config/config_manager.py and Alembic. docker-compose.yml includes MariaDB for ZockArchive and a separate PostgreSQL service for Authentik. The production Portainer stack uses MariaDB 11.3 and Valkey-compatible Redis runtime state.
 
-StorageRoot and PlatformStorageMapping in backend/models/storage.py model external_read_only roots and versioned platform mappings. backend/handler/storage/read_context.py validates mapping revision and root health. backend/handler/filesystem/storage_policy.py permits only resolve/list/stat/read/scan/hash/stream/download on external roots; writes go to classified RomM-owned roots.
+StorageRoot and PlatformStorageMapping in backend/models/storage.py model external_read_only roots and versioned platform mappings. backend/handler/storage/read_context.py validates mapping revision and root health. backend/handler/filesystem/storage_policy.py permits only resolve/list/stat/read/scan/hash/stream/download on external roots; writes go to classified ZockArchive-owned roots.
 
 ### PC models, metadata, DLC and descriptions
 
@@ -217,3 +217,57 @@ The Git-based production contract is examples/portainer-stack.yml. It builds doc
 ### Configuration and verification
 
 env.template is the canonical environment list. backend/config/**init**.py loads database, Redis, auth, OIDC, provider, Steam language, scan, upload, sync and observability variables. ROMM_AUTH_SECRET_KEY is required at import time. Tests live in backend/tests and cross-dialect/storage checks are in backend/tools.
+
+## Product display and retained identities
+
+The API documentation title and visible log prefix use ZockArchive. Both the API
+process and startup task process report Sentry releases as `za@<version>`. This
+starts a new release-name series for release-based dashboards and comparisons;
+the configured DSN, Sentry project, credentials and capture behavior are unchanged.
+The logger remains `romm`, with the existing formatter configuration key `pgdp`,
+Redis channels and admin-log transport. Product labels do not rename these
+installation or integration identities.
+
+`TINFOIL_WELCOME_MESSAGE` keeps its operator key and configured-value precedence.
+Only its fallback welcome is ZockArchive Switch Library. Existing custom and
+legacy-branded configured welcomes are not migrated. Configuration warnings and
+broker connectivity guidance use the current product name; broker failures keep
+their existing HTTP status and session-owner authorization rules.
+
+WebRcade feed titles/descriptions, Kekatsu author metadata and the ES-DE scraper
+display name use ZockArchive. Feed routes, serialization fields, scopes and
+download URLs are unchanged. FPKGi synthetic title IDs retain the `ROMM` prefix
+so related content stays grouped; Pegasus retains `x-romm-id` for round trips.
+WebRcade artwork URLs still reference upstream RomM assets pending final supplied
+artwork. Metadata-provider User-Agent strings and upstream endpoints retain their
+provider-compatible identities. No stored library, operator configuration,
+authentication, session, cache, schema or filesystem identifier is migrated.
+
+### Owned identity-transition validation
+
+The rebranding probe in backend/tools/phase38_probe.py composes the existing disposable SQL/Redis runner, snapshot fixtures, target labels and exact cleanup. Its source adapter requires the canonical Linux host, root, feature branch and planning markers plus an authenticated live GitHub numeric/node ID and exact current name/origin pair. Inherited database, Compose and disposable-target overrides fail closed. This adapter does not change CI repository authority. Backend defaults to every tracked SQL-profile CI shard; the affected profile is a fixed product-identity test list. Schema uses the existing upgrade/downgrade/re-upgrade and constraint checks. Focused local receipts do not fulfill the final complete dual-SQL CI requirement.
+
+The installation proof uses a committed clean clone for the existing fresh-stack verifier. Populated validation builds the original and current Dockerfiles with unique local tags, then composes the existing production-stack adapter with the same labeled disposable SQL, Redis and owned resources. Synthetic account settings, catalog/mapping identities, schema, resource/source bytes and cache sentinels are compared as hashes before and after restart. Authentication, scoped denial and mapped downloads use actual HTTP. A generated blank cartridge is confined to the owned immutable source fixture; the full production image supplies the actual local EmulatorJS runtime for browser bootstrap. No production volume adoption or live Portainer access is part of this proof.
+
+### SQL and complete-checkout CI contracts
+
+The complete tracked backend test selection follows backend/pytest.ini patterns.
+backend/tools/ci_test_profiles.py partitions that selection into disjoint SQL
+and host profiles with an exact union. Missing required host suites or duplicate
+selection fails before a runner starts. SQL shards retain all remaining tests,
+including disposable-authority, installation-helper and cutover-verifier tests.
+
+The four metadata, operator-documentation, publication and fresh-clone verifier
+suites require the complete repository and host Git, Node24 and Docker Compose.
+The required host-contracts job in pytest.yml runs them with Python3.13 on the
+Actions host, without app dependencies or a database. Compose only renders
+configuration; it does not create services. The SQL image and snapshot remain
+narrow and never mount a Docker socket. Both the SQL runner and full rebranding
+probe consume the same profile partition.
+
+Host artifacts retain exact Git source manifests, complete all/SQL/host file
+membership, prerequisite versions and per-file unittest counts/results. The final
+cutover validator requires this successful current-source host proof plus all16
+dual-SQL shards and three schema roundtrips. A missing host artifact, stale
+source, changed membership or skipped suite cannot be classified as acceptance.
+See docs/repository-cutover-verification.md for the receipt contract.

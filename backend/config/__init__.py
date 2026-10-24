@@ -386,7 +386,7 @@ YOUTUBE_BASE_URL: Final[str] = _get_env(
 
 # TINFOIL
 TINFOIL_WELCOME_MESSAGE: Final[str] = _get_env(
-    "TINFOIL_WELCOME_MESSAGE", "RomM Switch Library"
+    "TINFOIL_WELCOME_MESSAGE", "ZockArchive Switch Library"
 )
 
 # EMULATOR STREAMING

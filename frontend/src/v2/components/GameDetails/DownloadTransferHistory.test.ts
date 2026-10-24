@@ -12,7 +12,7 @@ vi.mock("vue-i18n", () => ({
         "rom.download-failed": "Download failed",
         "rom.download-handed-to-browser": "Handed to browser",
         "rom.download-queued": "Queued",
-        "rom.download-served": "Served by RomM",
+        "rom.download-served": "Served by ZockArchive",
         "rom.download-stale": "Source changed. Prepare the download again.",
         "rom.download-verified": "Verified",
         "rom.download-cancel": "Cancel download",
@@ -70,7 +70,7 @@ describe("DownloadTransferHistory", () => {
     });
 
     expect(wrapper.text()).toContain("Handed to browser");
-    expect(wrapper.text()).toContain("Served by RomM");
+    expect(wrapper.text()).toContain("Served by ZockArchive");
     expect(wrapper.text()).toContain("Verified");
     expect(wrapper.text()).toContain(
       "Source changed. Prepare the download again.",

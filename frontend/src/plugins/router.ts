@@ -13,6 +13,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
 import { resolveSetupRoute } from "@/v2/composables/useSetupRouteGuard";
+import { PROJECT_NAME } from "@/v2/config/project";
 import { v2Layouts, v2RouteComponents } from "@/v2/router/routes";
 
 export const ROUTES = {
@@ -139,7 +140,7 @@ const routes = [
     path: "/",
     name: ROUTES.MAIN,
     meta: {
-      title: "RomM",
+      title: PROJECT_NAME,
     },
     component: v2Layouts.main,
     children: [
@@ -565,7 +566,7 @@ router.beforeEach(async (to, _from, next) => {
     if (!heartbeat.connected) {
       document.title = to.meta.title
         ? i18n.global.t(to.meta.title as string)
-        : "RomM";
+        : PROJECT_NAME;
       return next();
     }
 
@@ -608,12 +609,12 @@ router.beforeEach(async (to, _from, next) => {
     if (to.meta.title) {
       document.title = i18n.global.t(to.meta.title as string);
     } else {
-      document.title = "RomM";
+      document.title = PROJECT_NAME;
     }
     next();
   } catch (error) {
     console.error("Navigation guard error:", error);
-    document.title = "RomM";
+    document.title = PROJECT_NAME;
     next({ name: ROUTES.LOGIN });
   }
 });

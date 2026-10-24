@@ -32,6 +32,7 @@ import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { PROJECT_NAME } from "@/v2/config/project";
 import { platformApi } from "@/v2/data/adapters/catalog";
 import { romApi } from "@/v2/data/adapters/catalog";
 import { storePlatforms, type Platform } from "@/v2/data/adapters/catalog";
@@ -373,7 +374,7 @@ async function onDelete() {
   if (!p) return;
   const ok = await confirm({
     title: t("platform.delete-platform", "Delete platform"),
-    body: `This removes "${p.display_name}" from RomM along with its database entries (${p.rom_count} ROMs). ROM files on disk are NOT deleted.`,
+    body: `This removes "${p.display_name}" from ${PROJECT_NAME} along with its database entries (${p.rom_count} ROMs). ROM files on disk are NOT deleted.`,
     confirmText: t("platform.delete-platform", "Delete platform"),
     tone: "danger",
     requireTyped: p.display_name,
