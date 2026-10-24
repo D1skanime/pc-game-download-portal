@@ -29,7 +29,7 @@
   "status-downloading": "패치된 ROM 다운로드 중...",
   "status-patching": "Applying patch on server...",
   "status-preparing": "파일 준비 중...",
-  "status-uploading": "RomM에 업로드 중...",
+  "status-uploading": "ZockArchive에 업로드 중...",
   "subtitle": "기본 ROM과 패치 파일을 선택한 다음 적용하여 패치된 ROM을 다운로드하세요.",
   "success-downloaded": "다운로드됨",
   "success-message": "패치된 ROM이 성공적으로 {actions}되었습니다!",
@@ -38,6 +38,6 @@
   "title": "ROM 패처",
   "upload-errors": " (일부 오류 발생)",
   "upload-success": "패치된 ROM이 성공적으로 업로드되었습니다{errors}. 스캔을 시작합니다...",
-  "upload-to-romm": "RomM에 업로드",
+  "upload-to-romm": "ZockArchive에 업로드",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

@@ -29,7 +29,7 @@
   "status-downloading": "Загрузка пропатченного ROM...",
   "status-patching": "Applying patch on server...",
   "status-preparing": "Подготовка файлов...",
-  "status-uploading": "Загрузка в RomM...",
+  "status-uploading": "Загрузка в ZockArchive...",
   "subtitle": "Выберите базовый ROM и файл патча, затем примените для загрузки пропатченного ROM.",
   "success-downloaded": "скачано",
   "success-message": "Пропатченный ROM {actions} успешно!",
@@ -38,6 +38,6 @@
   "title": "Пропатчивание ROM",
   "upload-errors": " (с некоторыми ошибками)",
   "upload-success": "Пропатченный ROM успешно загружен{errors}. Запуск сканирования...",
-  "upload-to-romm": "Загрузить в RomM",
+  "upload-to-romm": "Загрузить в ZockArchive",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

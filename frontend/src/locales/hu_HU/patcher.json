@@ -29,7 +29,7 @@
   "status-downloading": "Patchelt ROM letöltése...",
   "status-patching": "Applying patch on server...",
   "status-preparing": "Fájlok előkészítése...",
-  "status-uploading": "Feltöltés RomM-be...",
+  "status-uploading": "Feltöltés ZockArchive-be...",
   "subtitle": "Válasszon egy alap ROM-ot és egy patch fájlt, majd alkalmazza a patchelt ROM letöltéséhez.",
   "success-downloaded": "letöltve",
   "success-message": "Patchelt ROM {actions} sikeresen!",
@@ -38,6 +38,6 @@
   "title": "ROM Patcher",
   "upload-errors": " (néhány hibával)",
   "upload-success": "Patchelt ROM sikeresen feltöltve{errors}. Szkennelés indítása...",
-  "upload-to-romm": "Feltöltés RomM-be",
+  "upload-to-romm": "Feltöltés ZockArchive-be",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

@@ -29,7 +29,7 @@
   "status-downloading": "Изтегляне на пачнатия ROM...",
   "status-patching": "Applying patch on server...",
   "status-preparing": "Подготовка на файловете...",
-  "status-uploading": "Качване в RomM...",
+  "status-uploading": "Качване в ZockArchive...",
   "subtitle": "Избери основен ROM и пач файл, след което приложи за да изтеглиш пачнатия ROM.",
   "success-downloaded": "изтеглен",
   "success-message": "Пачнатият ROM беше успешно {actions}!",
@@ -38,6 +38,6 @@
   "title": "ROM Пачър",
   "upload-errors": " (с някои грешки)",
   "upload-success": "Пачнатият ROM беше качен успешно{errors}. Стартиране на сканиране...",
-  "upload-to-romm": "Качи в RomM",
+  "upload-to-romm": "Качи в ZockArchive",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

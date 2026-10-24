@@ -29,7 +29,7 @@
   "status-downloading": "Yamalı ROM indiriliyor...",
   "status-patching": "Sunucuda yama uygulanıyor...",
   "status-preparing": "Dosyalar hazırlanıyor...",
-  "status-uploading": "RomM'e yükleniyor...",
+  "status-uploading": "ZockArchive'e yükleniyor...",
   "subtitle": "Kütüphanenizden bir temel ROM ve yama seçin, ardından yamalı ROM'u indirmek için uygulayın.",
   "success-downloaded": "indirildi",
   "success-message": "Yamalı ROM başarıyla {actions}!",
@@ -38,6 +38,6 @@
   "title": "ROM Yamalayıcı",
   "upload-errors": " (bazı hatalarla)",
   "upload-success": "Yamalı ROM başarıyla yüklendi{errors}. Tarama başlatılıyor...",
-  "upload-to-romm": "RomM'e yükle",
+  "upload-to-romm": "ZockArchive'e yükle",
   "validation-warning": "Yama kaynağı sağlama toplamı ROM ile eşleşmedi; yamalı dosya hatalı olabilir."
 }

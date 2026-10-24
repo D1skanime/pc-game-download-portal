@@ -29,7 +29,7 @@
   "status-downloading": "正在下載修補後的ROM...",
   "status-patching": "Applying patch on server...",
   "status-preparing": "正在準備檔案...",
-  "status-uploading": "正在上傳到RomM...",
+  "status-uploading": "正在上傳到ZockArchive...",
   "subtitle": "選擇基礎ROM和修補檔案，然後應用以下載修補後的ROM。",
   "success-downloaded": "已下載",
   "success-message": "修補後的ROM {actions} 成功！",
@@ -38,6 +38,6 @@
   "title": "ROM修補程式",
   "upload-errors": "（有一些錯誤）",
   "upload-success": "修補後的ROM上傳成功{errors}。正在開始掃描...",
-  "upload-to-romm": "上傳到RomM",
+  "upload-to-romm": "上傳到ZockArchive",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

@@ -29,7 +29,7 @@
   "status-downloading": "Pobieranie załatanego ROM...",
   "status-patching": "Applying patch on server...",
   "status-preparing": "Przygotowywanie plików...",
-  "status-uploading": "Przesyłanie do RomM...",
+  "status-uploading": "Przesyłanie do ZockArchive...",
   "subtitle": "Wybierz podstawowy ROM i plik łatki, a następnie zastosuj, aby pobrać załatany ROM.",
   "success-downloaded": "pobrano",
   "success-message": "Załatany ROM {actions} pomyślnie!",
@@ -38,6 +38,6 @@
   "title": "Patcher ROM",
   "upload-errors": " (z niektórymi błędami)",
   "upload-success": "Załatany ROM przesłano pomyślnie{errors}. Rozpoczynanie skanowania...",
-  "upload-to-romm": "Prześlij do RomM",
+  "upload-to-romm": "Prześlij do ZockArchive",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }

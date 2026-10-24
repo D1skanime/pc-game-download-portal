@@ -29,7 +29,7 @@
   "status-downloading": "Baixando ROM com patch...",
   "status-patching": "Aplicando patch no servidor...",
   "status-preparing": "Preparando arquivos...",
-  "status-uploading": "Enviando para RomM...",
+  "status-uploading": "Enviando para ZockArchive...",
   "subtitle": "Escolha uma ROM base e um arquivo de patch, depois aplique para baixar a ROM com patch.",
   "success-downloaded": "baixada",
   "success-message": "ROM com patch {actions} com sucesso!",
@@ -38,6 +38,6 @@
   "title": "Patchador de ROM",
   "upload-errors": " (com alguns erros)",
   "upload-success": "ROM com patch enviada com sucesso{errors}. Iniciando varredura...",
-  "upload-to-romm": "Enviar para RomM",
+  "upload-to-romm": "Enviar para ZockArchive",
   "validation-warning": "Patch source checksum did not match the ROM; the patched file may be incorrect."
 }
