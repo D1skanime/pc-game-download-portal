@@ -1052,7 +1052,7 @@ Output: Tested behavior and explicit task verification receipts.
 **Goal:** Make screenshot upload reachable while browsing large collections and compact the existing screenshot management UI, preserving loaded data, multi-placement order, ownership, visibility, lightboxes and permissions through existing frontend handlers and APIs.
 **Depends on:** Phase36, merged and user-accepted on 2026-10-23 at b58945bbffe472e65dba441cf9fc82e9c244348e.
 **Requirements:** ZA-SHOT-01, ZA-SHOT-02, ZA-SHOT-03, ZA-SHOT-04, ZA-SHOT-05, ZA-SHOT-06, ZA-SHOT-07, ZA-SHOT-08, ZA-SHOT-09, ZA-SHOT-10, ZA-SHOT-11, ZA-SHOT-12.
-**Status:** Four executable plans independently checked; UI contract approved,12/12 requirements and13/13 decisions covered. Execution starting;0/4 plans complete. No deployment.
+**Status:** Complete:4/4 plans implemented; user accepted the observed Dev UAT scope on2026-10-24. Merged via PR6 at2a2789775c3cc645fa4a8a86efa277912035b78c after all GitHub checks passed, including16 backend shards. Final local frontend1,669/1,669 and38 assembled non-controller browser cases passed. Physical controller and separate production Portainer acceptance remain outside this accepted scope.
 **Plans:**4 plans,8 tasks,3 waves
 
 **Success Criteria:**

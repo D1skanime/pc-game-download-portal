@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 37 technically verified; human visual and live UAT pending
-last_updated: "2026-10-24T10:32:52+00:00"
-last_activity: 2026-10-24 -- Shared media controls and stable DLC reconciliation implemented;92 final affected tests pass; live UAT pending
+status: completed
+stopped_at: Phase 37 accepted and merged into main via PR 6
+last_updated: "2026-10-24T11:19:36+00:00"
+last_activity: 2026-10-24 -- Phase 37 accepted; PR 6 merged into main after all GitHub checks passed
 progress:
   total_phases: 37
-  completed_phases: 26
+  completed_phases: 27
   total_plans: 291
   completed_plans: 260
-  percent: 70
+  percent: 73
 ---
 
 # Project State
@@ -21,34 +21,26 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-31)
 
 **Core value:** RomM adapts to an existing game archive without requiring or permitting any change to the archive's files, directories, or organization.
-**Current focus:** Phase37 screenshot management UI;4/4 plans implemented;20/20 technical truths verified;human UAT pending
+**Current focus:** Phase37 screenshot management UI is complete within the user-accepted Dev UAT scope. Do not start another phase automatically.
 
 ## Current Position
 
-Phase:37 (zockarchive-screenshot-management-ui-redesign) - HUMAN VERIFICATION PENDING
-Plan:4 of4 complete; technical verification passed; human visual/live acceptance pending
-Status: human_needed; four implemented plans and eight tasks; no remaining implementation gaps
-Last activity: 2026-10-24 - Completed quick task 261023-urj: screenshot action and upload visual polish
+Phase:37 (zockarchive-screenshot-management-ui-redesign) - COMPLETE
+Plan:4 of4 complete; observed live UAT accepted on2026-10-24
+Status: completed; merged into main through PR6 at2a2789775c3cc645fa4a8a86efa277912035b78c
+Last activity:2026-10-24 - Final reviewed source0a532802e93118d09279acd0d5a8470ab0bd5605 passed all GitHub checks and was merged.
 
-## Phase 37 implementation handoff
+## Phase 37 completion
 
-Technical source is 7ee1efa45. Independent verification confirms20/20 must-haves, with no remaining implementation gap. Final frontend suite passed1659/1659 across147 files; typecheck, build, maintainability for486 production files, all18 locale checks and scoped Trunk passed. Runtime modules remain at or below500 physical lines. One existing upload owner, multi-placement order, ownership and APIs are preserved; no backend/schema/permission/storage change is included.
+The user accepted the screenshot-management and matching DLC presentation and authorized commit, push and main integration. Main-game and DLC media share the card, action and upload components. Canonical component props own DLC media state; mutations await the parent refresh and Vue reconciliation before another write. Failed reads retain the editor with blocked writes and a read-only retry, without mutation replay. Tab navigation, card geometry and scroll position remain stable. Existing resource endpoints, ownership, multi-placement and ordering are preserved.
 
-The isolated assembled-app browser covers the fifteen requested regressions. Evidence distinguishes the full six-width both-theme geometry sweep from affected reruns after the44px touch correction. Final controller cases at320/1280 reach all17 controls using one entry focus and actual D-pad/A translation; refresh and inline actions preserve continuation focus. Desktop/mobile screenshots in both themes and compact receipts are retained under .planning/phases/37-zockarchive-screenshot-management-ui-redesign/evidence. Read37-VERIFICATION.md,37-BROWSER-EVIDENCE.md and37-HUMAN-UAT.md when resuming. Phase artifacts remain ignored according to repository policy.
+Final local validation passed1,669 frontend tests across148 files, typecheck, production build, maintainability for489 production files and changed-file Trunk checks. The final assembled browser run passed38 non-controller cases, covering both themes,320-3840 widths, upload/drop, permissions, placement, lightbox, scroll anchoring, DLC parity and canonical-version recovery. The independent final review found the stale-version P2 resolved and no remaining Critical or Important issues. All GitHub checks passed, including all16 complete backend shards on MariaDB and PostgreSQL.
 
-Human visual, translated-copy and live-data workflow acceptance remain pending. No physical controller was connected; synthetic evidence does not replace hardware acceptance. Existing carousel B/history behavior and filename-keyed duplicate upload progress remain documented limitations. Backend-dependent E2E was not run; its existing screenshot assertions were retained with updated selectors. No Phase37 deployment or live mutation was performed. Own preview/build/cache resources were removed;17 screenshots and compact evidence remain. Original Compose/media/prototype changes and protected hashes are preserved.
+The separately authorized provider-media suppression correction is included in the same integration, with its own backend architecture and regression evidence. Local final transport/scheduled-scan regressions passed32/32 per SQL dialect and94 receipt contracts passed. Existing tombstones, suppression and publication guards remain authoritative. No database/media reset or game-source changes occurred.
 
-### Current Dev visual follow-up
+Read37-HUMAN-UAT.md and the ignored quick261023-urj/evidence/main-merge receipts for acceptance, exact source and cleanup evidence. Temporary owned builds, previews, caches, SQL/Redis test targets and snapshots were removed. Existing Compose/media/prototype work retains its original hashes. The canonical checkout is on main; Dev continues using its existing services and data.
 
-Quick task 261023-urj is implemented through a6d1f044d on codex/dev-phase37-suppression-uat. Captioned crown and landscape icons persist in selected states with small checks and accented glass frames. The single existing upload control uses a cloud/title group and softer dashed glass; three provider actions, multi-placement ordering, one-based display positions, ownership and durable suppression remain intact. Architecture documentation is updated. 324 focused tests, typecheck, production build, maintainability and exact-path Trunk pass. Isolated browser checks initially passed15/15; a later desktop synthetic dialog-close failure passed its final targeted rerun alongside all four both-theme desktop/mobile visual cases. This intermittent case remains recorded, not treated as a hardware result.
-
-Authenticated ROM24 Dev inspection confirms the actual new actions and sticky upload presentation without reload, preference changes or media mutations. Read-only scroll checks preserved the user page and selection. HMR delivered the bounded frontend change; no service recreation was needed. Own build/cache/preview resources were removed and protected dirty hashes remain unchanged. PR6 records the combined Dev source; main remains unmerged and human visual/live acceptance stays pending. Evidence and SUMMARY are retained in the ignored quick directory.
-
-DLC media now shares the scoped screenshot card and upload glass styles with the parent manager. Component-owned overview and deletion controls retain their endpoints, version and confirmation semantics; no background capability is introduced. One single-file overlay dropzone, permission-gated upload, responsive columns and native-control grid navigation remain within the DLC view. Full frontend1663/1663, final affected10/10, typecheck, build, maintainability486 and scoped Trunk pass. Eight isolated desktop/mobile both-theme cases cover parent and DLC presentation, DLC picker, exact nested upload count, lightbox and sticky scrolling. Actual authenticated DLC20 visuals were inspected read-only on Dev. Own preview/build/cache resources were cleaned, protected dirty hashes preserved; main remains unmerged.
-
-DLC overview live UAT exposed a stale-state regression: successful placements persisted, but a tab-only route update reloaded the old parent store after the local refresh. PcDlcDetails now commits the validated fresh parent through setCurrentRom and retains the current entity during tab-query changes. Real identity changes still reload and validate. A placement in-flight guard prevents duplicate selection requests. Two RED unit regressions fail before the fix;45 focused and1665 full frontend tests pass afterward. Five browser cases pass, including add/tab-switch/remove/tab-switch without a page reload. Typecheck, build, maintainability486 and six-file Trunk pass. Read-only Dev inspection confirms the three pre-existing selections in DLC20 and their overview images. No live media mutations, backend changes or restart; own resources removed. Evidence: ignored quick261023-urj/evidence/dlc-refresh. Human acceptance remains pending.
-
-Main-game and DLC media now consume the same MediaManagementCard, MediaManagementAction and MediaUploadControl feature composites. The reuse audit confirms one owner each for preview markup, action icon/caption markup and upload cloud control. Existing resource-specific APIs, ownership and permissions remain separate. Same-entity DLC refresh keeps the detail subtree and card nodes mounted; initial loading is distinct from reconciliation. Shared placement badge space prevents selection height changes, and obsolete parent reads cannot replace later route state. Full frontend1667 passed before the final pressed/placement decoration separation; final affected92/92, typecheck, build, maintainability489 and scoped Trunk pass. Twelve core browser cases pass; final isolated D-pad cases pass2/2. Earlier controller focus/close instability and intermediate assertion failures remain in receipts, with no hardware claim. Live Dev rendering was inspected read-only. Own temporary build/cache/browser resources were removed and protected hashes match. Human visual/live acceptance remains open. Evidence: ignored quick261023-urj/evidence/dlc-shared.
+Acceptance covers the observed live workflow and recorded automated coverage. No physical controller was connected; prior synthetic controller evidence and intermittent dialog-focus/close failures remain documented. Existing carousel B/history and equal-filename upload-progress limitations remain. Production Portainer acceptance is a separate outstanding scope; no claim of production acceptance is made.
 
 ## Shipping and Phase 35 handoff
 
