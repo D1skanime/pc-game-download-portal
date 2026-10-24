@@ -217,3 +217,13 @@ The Git-based production contract is examples/portainer-stack.yml. It builds doc
 ### Configuration and verification
 
 env.template is the canonical environment list. backend/config/**init**.py loads database, Redis, auth, OIDC, provider, Steam language, scan, upload, sync and observability variables. ROMM_AUTH_SECRET_KEY is required at import time. Tests live in backend/tests and cross-dialect/storage checks are in backend/tools.
+
+## Product display and retained identities
+
+The API documentation title and visible log prefix use ZockArchive. Both the API
+process and startup task process report Sentry releases as `za@<version>`. This
+starts a new release-name series for release-based dashboards and comparisons;
+the configured DSN, Sentry project, credentials and capture behavior are unchanged.
+The logger remains `romm`, with the existing formatter configuration key `pgdp`,
+Redis channels and admin-log transport. Product labels do not rename these
+installation or integration identities.

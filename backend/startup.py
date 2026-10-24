@@ -226,7 +226,7 @@ async def main() -> None:
 if __name__ == "__main__":
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        release=f"pgdp@{get_version()}",
+        release=f"za@{get_version()}",
     )
 
     asyncio.run(main())

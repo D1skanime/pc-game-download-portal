@@ -109,11 +109,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,
-    release="pgdp@" + get_version(),
+    release="za@" + get_version(),
 )
 
 app = FastAPI(
-    title="PGDP API",
+    title="ZockArchive API",
     version=get_version(),
     lifespan=lifespan,
     docs_url="/api/docs",
