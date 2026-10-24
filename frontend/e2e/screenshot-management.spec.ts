@@ -941,3 +941,41 @@ for (const theme of ["dark", "light"] as const) {
     });
   }
 }
+
+test("DLC placement survives media-to-overview navigation without a page reload", async ({
+  page,
+}) => {
+  const state = await open(page, { dlc: true, count: 3 });
+  const target = page.locator(".pc-dlc-media .za-shot").nth(1);
+  await target
+    .getByRole("button", { name: "Add to overview", exact: true })
+    .click();
+  await expect(
+    page
+      .locator(".pc-dlc-media .za-shot")
+      .nth(1)
+      .getByRole("button", { name: "Remove from overview", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+  await expect(
+    page.locator('[data-testid="pc-dlc-overview-media"] .r-v2-det-shots__item'),
+  ).toHaveCount(2);
+  await page.getByRole("tab", { name: "Media", exact: true }).click();
+  await page
+    .locator(".pc-dlc-media .za-shot")
+    .nth(1)
+    .getByRole("button", { name: "Remove from overview", exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+  await expect(
+    page.locator('[data-testid="pc-dlc-overview-media"] .r-v2-det-shots__item'),
+  ).toHaveCount(1);
+  expect(
+    state.mutations.filter((m) => m.path.endsWith("/placement")),
+  ).toHaveLength(2);
+  expect(
+    await page
+      .locator("html")
+      .evaluate(() => performance.getEntriesByType("navigation").length),
+  ).toBe(1);
+});

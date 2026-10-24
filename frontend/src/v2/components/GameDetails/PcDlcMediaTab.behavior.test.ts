@@ -135,6 +135,24 @@ describe("DLC media presentation preserves component capabilities", () => {
     await wrapper.get(".za-shot__preview").trigger("click");
     expect(wrapper.find("[data-carousel]").exists()).toBe(true);
   });
+  it("does not send a second placement while the current selection is saving", async () => {
+    let release!: () => void;
+    mocks.delete.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const wrapper = render();
+    await flushPromises();
+    const button = wrapper.get('[aria-label="rom.remove-from-overview"]');
+    await button.trigger("click");
+    await button.trigger("click");
+    expect(mocks.delete).toHaveBeenCalledTimes(1);
+    release();
+    await flushPromises();
+  });
+
   it("preserves deletion confirmation and does not mutate after cancellation", async () => {
     mocks.confirm.mockResolvedValue(false);
     const wrapper = render();

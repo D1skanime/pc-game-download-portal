@@ -28,6 +28,9 @@ const {
   mutateFilesystem: vi.fn(),
 }));
 
+let currentRom: Pick<DetailedRomSchema, "id" | "name" | "components"> | null =
+  null;
+
 const route = {
   params: { rom: "1", component: "2" } as Record<string, unknown>,
 };
@@ -62,7 +65,12 @@ vi.mock("@/services/api/rom", () => ({
 }));
 
 vi.mock("@/stores/roms", () => ({
-  default: () => ({ currentRom: null, setCurrentRom }),
+  default: () => ({
+    get currentRom() {
+      return currentRom;
+    },
+    setCurrentRom,
+  }),
 }));
 
 const dlc = {
@@ -144,6 +152,7 @@ describe("PcDlcDetails", () => {
     downloadIntoSource.mockReset();
     deleteFromSource.mockReset();
     mutateFilesystem.mockReset();
+    currentRom = null;
     route.params = { rom: "1", component: "2" };
   });
 
@@ -262,12 +271,42 @@ describe("PcDlcDetails", () => {
     expect(wrapper.text()).toBe("Library");
   });
 
+  it("retains freshly saved DLC media across a tab-only route update despite an old parent store", async () => {
+    currentRom = parent;
+    const wrapper = mountView();
+    await flushPromises();
+    const fresh = {
+      ...parent,
+      components: [
+        { ...dlc, updated_at: "2026-10-24T01:30:00Z", owned_media: [] },
+      ],
+    };
+    getRom.mockResolvedValue({ data: fresh });
+    wrapper.getComponent({ name: "PcDlcDetail" }).vm.$emit("refresh");
+    await flushPromises();
+    expect(
+      wrapper.getComponent({ name: "PcDlcDetail" }).props("component"),
+    ).toEqual(fresh.components[0]);
+    await updateRoute({ rom: "1", component: "2" });
+    await flushPromises();
+    expect(
+      wrapper.getComponent({ name: "PcDlcDetail" }).props("component"),
+    ).toEqual(fresh.components[0]);
+    expect(getRom).toHaveBeenCalledTimes(1);
+    expect(setCurrentRom).toHaveBeenCalledWith(fresh);
+  });
+
   it("uses only the parent read while loading and navigating between DLC routes", async () => {
-    getRom.mockResolvedValue({ data: parent });
+    getRom.mockResolvedValue({
+      data: {
+        ...parent,
+        components: [...parent.components, { ...dlc, id: 4 }],
+      },
+    });
 
     mountView();
     await flushPromises();
-    await updateRoute({ rom: "1", component: "2" });
+    await updateRoute({ rom: "1", component: "4" });
 
     expect(getRom).toHaveBeenCalledTimes(2);
     expect(getRom).toHaveBeenLastCalledWith({ romId: 1 });

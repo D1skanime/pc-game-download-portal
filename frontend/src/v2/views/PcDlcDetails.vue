@@ -68,6 +68,7 @@ async function loadDlc(params: Record<string, unknown>, forceFresh = false) {
       return;
     }
 
+    if (forceFresh) romsStore.setCurrentRom(parent);
     parentRom.value = parent;
     component.value = selectedComponent;
     state.value = "ready";
@@ -84,6 +85,13 @@ async function refreshDlc() {
 void loadDlc(route.params);
 
 onBeforeRouteUpdate(async (to) => {
+  // Tab queries retain the current canonical DLC instead of reusing an older parent snapshot.
+  if (
+    state.value === "ready" &&
+    parentRom.value?.id === parseSafeRouteId(to.params.rom) &&
+    component.value?.id === parseSafeRouteId(to.params.component)
+  )
+    return;
   await loadDlc(to.params);
 });
 </script>

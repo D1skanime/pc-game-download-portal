@@ -32,6 +32,7 @@ const canEdit = useCan("rom.edit", { kind: "rom", id: props.romId });
 const media = ref<PcComponentOwnedMediaSchema[]>([]);
 const loading = ref(true);
 const uploading = ref(false);
+const placing = ref(false);
 const role = ref<RomComponentOwnedMediaRole>("screenshot");
 const roles: RomComponentOwnedMediaRole[] = [
   "cover",
@@ -132,7 +133,8 @@ function hasPlacement(item: PcComponentOwnedMediaSchema) {
 }
 
 async function togglePlacement(item: PcComponentOwnedMediaSchema) {
-  if (!componentVersion.value) return;
+  if (!componentVersion.value || !canEdit.value || placing.value) return;
+  placing.value = true;
   try {
     if (hasPlacement(item)) {
       await api.delete(`${endpoint}/${item.id}/placement`, {
@@ -148,6 +150,8 @@ async function togglePlacement(item: PcComponentOwnedMediaSchema) {
   } catch (error) {
     console.error(error);
     snackbar.error(t("common.error"));
+  } finally {
+    placing.value = false;
   }
 }
 
@@ -201,7 +205,7 @@ onMounted(load);
           class="za-media-upload__button pa-1"
           variant="text"
           :loading="uploading"
-          :disabled="uploading || !componentVersion"
+          :disabled="uploading || placing || !componentVersion"
           :aria-label="t('common.upload')"
           @click="dropzone?.open()"
         >
@@ -264,7 +268,8 @@ onMounted(load);
                   variant="translucent"
                   border
                   color="var(--r-color-brand-primary)"
-                  :disabled="!componentVersion"
+                  :disabled="!componentVersion || placing"
+                  :loading="placing"
                   :aria-pressed="hasPlacement(item)"
                   :aria-label="
                     hasPlacement(item)
@@ -297,7 +302,7 @@ onMounted(load);
                   class="za-shot__action za-shot__action--danger"
                   variant="outlined"
                   color="var(--r-color-danger)"
-                  :disabled="!componentVersion"
+                  :disabled="!componentVersion || placing"
                   :aria-label="t('common.delete')"
                   :tooltip="t('common.delete')"
                   @click="remove(item.id)"
