@@ -147,6 +147,28 @@ def seed():
                 last_modified=datetime(2026, 1, 1, tzinfo=timezone.utc),
             )
         )
+    assignments = {
+        "PC": "win",
+        "GB GameBoy": "gb",
+        "GBA GameBoy Advance": "gba",
+        "Nintendo 64": "n64",
+        "Nintendo Switch": "switch",
+        "PlayStation 2": "ps2",
+        "PSP": "psp",
+        "SNES Super Nintendo": "snes",
+    }
+    response = caller.post(
+        "/api/setup/folders/assign",
+        json={
+            "assignments": [
+                {"folder_name": name, "platform_slug": slug}
+                for name, slug in assignments.items()
+            ],
+        },
+    )
+    response.raise_for_status()
+    if response.json()["ready"] is not True:
+        raise RuntimeError("owned fixture setup was not complete")
     resource = Path(RESOURCES_BASE_PATH) / "phase38-sentinel.bin"
     if not resource.resolve().is_relative_to("/phase34/owned"):
         raise RuntimeError("unowned resource sentinel")

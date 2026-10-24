@@ -134,6 +134,9 @@ def fresh(identity):
             and not work.is_symlink()
         ):
             shutil.rmtree(work)
+        from phase36_receipts import sanitize
+
+        sanitize(destination, run.token)
         print("PHASE38_INSTALL_EVIDENCE", destination, flush=True)
     return receipt
 
@@ -343,6 +346,9 @@ def upgrade(identity):
                 json.loads(cleanup.read_text()) if cleanup.exists() else None
             )
             (destination / "result.json").write_text(json.dumps(receipt, indent=2))
+            from phase36_receipts import sanitize
+
+            sanitize(destination, run.token)
             print("PHASE38_UPGRADE_EVIDENCE", destination, flush=True)
     return receipt
 

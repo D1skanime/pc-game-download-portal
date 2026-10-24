@@ -78,6 +78,9 @@ def execute(gate, dialect, profile="complete"):
                 if source.is_file() and source.name not in ("code-before.json",):
                     shutil.copy2(source, destination / source.name)
             (destination / "result.json").write_text(json.dumps(receipt, indent=2))
+            from phase36_receipts import sanitize
+
+            sanitize(destination, run.token)
             print("PHASE38_EVIDENCE", destination, flush=True)
     return receipt
 
