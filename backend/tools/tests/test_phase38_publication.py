@@ -28,7 +28,13 @@ def isolated_release(text):
 
 
 def source_labels(text, count):
-    return text.count("org.opencontainers.image.source=" + SOURCE) == count
+    return (
+        sum(
+            line.strip() == "org.opencontainers.image.source=" + SOURCE
+            for line in text.splitlines()
+        )
+        == count
+    )
 
 
 def run_comment(text, tags):
