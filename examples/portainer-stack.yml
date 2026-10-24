@@ -1,4 +1,4 @@
-# Git-based PGDP stack for the PC Game Download Portal fork.
+# Git-based ZockArchive stack for the ZockArchive PC and console library.
 # In Portainer, select this file from the cloned repository. The build context
 # is the repository root, so Docker builds this fork with docker/Dockerfile.
 name: ${PGDP_PROJECT_NAME:-pgdp}
@@ -6,7 +6,7 @@ name: ${PGDP_PROJECT_NAME:-pgdp}
 volumes:
   # MariaDB catalog data. Keep this volume when updating or redeploying.
   pgdp_mysql_data:
-  # PGDP-owned resources such as generated downloads and managed media.
+  # ZockArchive-owned resources such as generated downloads and managed media.
   pgdp_resources:
   # Redis/Valkey runtime data used by the application container.
   pgdp_redis_data:
@@ -77,7 +77,7 @@ services:
       start_period: 60s
 
   pgdp-db:
-    # MariaDB is the persistent catalog database used by PGDP.
+    # MariaDB is the persistent catalog database used by ZockArchive.
     image: mariadb:11.3
     container_name: ${PGDP_DB_CONTAINER_NAME:-pgdp-db}
     restart: unless-stopped
