@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import phase38_cutover as cutover
 import phase38_cutover_source as source_module
 import phase38_cutover_validation as validation
+from ci_test_profiles import HOST_TEST_FILES, classify_test_files
 from phase38_cutover_source import manifest, source_proof
 
 SHA = "a" * 40
@@ -300,6 +301,33 @@ def acceptance():
         "pr_head": SHA,
         "final_source": source,
         "backend": rows,
+        "host_contracts": {
+            "schema": 1,
+            "repository_id": 1415481891,
+            "job": "host-contracts",
+            "passed": True,
+            "source": source,
+            "action": action,
+            "prerequisites": {
+                "git": "git version 2",
+                "node": "v24.19.0",
+                "compose": "2.39",
+            },
+            "membership": classify_test_files(
+                [*[f"tests/test_{i}.py" for i in range(1, 9)], *HOST_TEST_FILES]
+            ),
+            "file_results": [
+                {
+                    "file": name,
+                    "tests": 1,
+                    "failures": 0,
+                    "errors": 0,
+                    "skipped": 0,
+                    "passed": True,
+                }
+                for name in HOST_TEST_FILES
+            ],
+        },
         "schema_gates": [
             {
                 "dialect": d,
@@ -337,7 +365,9 @@ class ValidationTests(unittest.TestCase):
         mocked = patch.object(
             validation,
             "test_membership",
-            return_value=[f"tests/test_{i}.py" for i in range(1, 9)],
+            return_value=classify_test_files(
+                [*[f"tests/test_{i}.py" for i in range(1, 9)], *HOST_TEST_FILES]
+            ),
         )
         mocked.start()
         self.addCleanup(mocked.stop)
@@ -347,6 +377,18 @@ class ValidationTests(unittest.TestCase):
 
     def test_missing_failed_skipped_stale_and_wrong_membership_fail(self):
         changes = [
+            lambda r: r.pop("host_contracts"),
+            lambda r: r["host_contracts"].update(passed=False),
+            lambda r: r["host_contracts"]["file_results"].pop(),
+            lambda r: r["host_contracts"]["file_results"].append(
+                copy.deepcopy(r["host_contracts"]["file_results"][0])
+            ),
+            lambda r: r["host_contracts"]["file_results"][0].update(skipped=1),
+            lambda r: r["host_contracts"]["membership"]["all"].pop(),
+            lambda r: r["host_contracts"]["membership"]["sql"].pop(),
+            lambda r: r["host_contracts"]["action"].update(head_sha="d" * 40),
+            lambda r: r["host_contracts"].update(job="optional"),
+            lambda r: r["host_contracts"]["prerequisites"].update(node="v20.0"),
             lambda r: r["backend"].pop(),
             lambda r: r["backend"].append(copy.deepcopy(r["backend"][0])),
             lambda r: r["backend"][0].update(passed=False),
@@ -370,7 +412,7 @@ class ValidationTests(unittest.TestCase):
             row = copy.deepcopy(self.row)
             change(row)
             with self.subTest(change=change):
-                with self.assertRaises((ValueError, RuntimeError)):
+                with self.assertRaises((ValueError, RuntimeError, KeyError)):
                     validation.validate(row)
 
 

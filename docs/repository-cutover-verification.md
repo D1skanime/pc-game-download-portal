@@ -43,15 +43,24 @@ must be no ref-changing push during before/after comparison.
 The validation document contains:
 
 - `repository_id`, final `pr_head` and `final_source`.
-- `backend`: exactly eight shards each for MariaDB and PostgreSQL, with
+- `backend`: exactly eight SQL-profile shards each for MariaDB and PostgreSQL, with
   `dialect`, `shard`, complete ordered `files`, `source`, `action`,
   `tests`, `failures`, `errors`, `skipped`, `passed`.
+- `host_contracts`: the required complete-checkout job's artifact, with
+  `schema: 1`, `repository_id`, `job: "host-contracts"`, `passed`,
+  exact `source`, successful current-source `action`, prerequisite versions
+  (`git`, `node`, `compose`), complete `membership` (`all`, `sql`, `host`)
+  and sorted `file_results` (`file`, positive `tests`, zero `failures`,
+  `errors`, `skipped`, and `passed`). All four required host suites must
+  execute; source-manifest equality alone cannot replace their test results.
+  The shared classifier partitions the complete tracked pytest selection, with
+  no overlap or missing file. All16 SQL shards use only the SQL profile.
 - `schema_gates`: MariaDB, MySQL and PostgreSQL, each with `source`, `passed`,
   zero `failures`/`skipped` and steps
   `["upgrade-head", "downgrade-base", "upgrade-head"]`.
 - Nonempty `actions` entries with actual numeric `id`, `repository_id`,
   `head_sha`, canonical new-repository `url`, completed `status` and success
-  `conclusion`. Every backend run must appear in this inventory.
+  `conclusion`. Every backend and required host run must appear in this inventory.
 - `links` with one current HTTP 200 result per fixed `REQUIRED_LINKS` key:
   `kind`, `url`, `final_url`, `status`, `classification`, `source`.
   A redirect to another location does not establish current-link proof.

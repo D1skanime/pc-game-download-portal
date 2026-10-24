@@ -245,6 +245,29 @@ authentication, session, cache, schema or filesystem identifier is migrated.
 
 ### Owned identity-transition validation
 
-The rebranding probe in backend/tools/phase38_probe.py composes the existing disposable SQL/Redis runner, snapshot fixtures, target labels and exact cleanup. Its source adapter requires the canonical Linux host, root, feature branch and planning markers plus an authenticated live GitHub numeric/node ID and exact current name/origin pair. Inherited database, Compose and disposable-target overrides fail closed. This adapter does not change CI repository authority. Backend defaults to every existing tracked CI shard; the affected profile is a fixed product-identity test list. Schema uses the existing upgrade/downgrade/re-upgrade and constraint checks. Focused local receipts do not fulfill the final complete dual-SQL CI requirement.
+The rebranding probe in backend/tools/phase38_probe.py composes the existing disposable SQL/Redis runner, snapshot fixtures, target labels and exact cleanup. Its source adapter requires the canonical Linux host, root, feature branch and planning markers plus an authenticated live GitHub numeric/node ID and exact current name/origin pair. Inherited database, Compose and disposable-target overrides fail closed. This adapter does not change CI repository authority. Backend defaults to every tracked SQL-profile CI shard; the affected profile is a fixed product-identity test list. Schema uses the existing upgrade/downgrade/re-upgrade and constraint checks. Focused local receipts do not fulfill the final complete dual-SQL CI requirement.
 
 The installation proof uses a committed clean clone for the existing fresh-stack verifier. Populated validation builds the original and current Dockerfiles with unique local tags, then composes the existing production-stack adapter with the same labeled disposable SQL, Redis and owned resources. Synthetic account settings, catalog/mapping identities, schema, resource/source bytes and cache sentinels are compared as hashes before and after restart. Authentication, scoped denial and mapped downloads use actual HTTP. A generated blank cartridge is confined to the owned immutable source fixture; the full production image supplies the actual local EmulatorJS runtime for browser bootstrap. No production volume adoption or live Portainer access is part of this proof.
+
+### SQL and complete-checkout CI contracts
+
+The complete tracked backend test selection follows backend/pytest.ini patterns.
+backend/tools/ci_test_profiles.py partitions that selection into disjoint SQL
+and host profiles with an exact union. Missing required host suites or duplicate
+selection fails before a runner starts. SQL shards retain all remaining tests,
+including disposable-authority, installation-helper and cutover-verifier tests.
+
+The four metadata, operator-documentation, publication and fresh-clone verifier
+suites require the complete repository and host Git, Node24 and Docker Compose.
+The required host-contracts job in pytest.yml runs them with Python3.13 on the
+Actions host, without app dependencies or a database. Compose only renders
+configuration; it does not create services. The SQL image and snapshot remain
+narrow and never mount a Docker socket. Both the SQL runner and full rebranding
+probe consume the same profile partition.
+
+Host artifacts retain exact Git source manifests, complete all/SQL/host file
+membership, prerequisite versions and per-file unittest counts/results. The final
+cutover validator requires this successful current-source host proof plus all16
+dual-SQL shards and three schema roundtrips. A missing host artifact, stale
+source, changed membership or skipped suite cannot be classified as acceptance.
+See docs/repository-cutover-verification.md for the receipt contract.

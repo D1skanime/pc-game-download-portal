@@ -43,8 +43,44 @@ def validate(row):
     head = revision(row["pr_head"])
     require(row["final_source"]["commit"] == head, "final source is not PR head")
     source_proof(row["final_source"], head, "full")
-    expected = test_membership(head)
+    profiles = test_membership(head)
+    expected = profiles["sql"]
     require(bool(expected), "empty full-suite membership")
+    host = row["host_contracts"]
+    require(
+        host.get("schema") == 1
+        and host.get("repository_id") == REPOSITORY_ID
+        and host.get("job") == "host-contracts"
+        and host.get("passed") is True,
+        "missing successful required host contracts",
+    )
+    require(host.get("membership") == profiles, "host/SQL partition receipt mismatch")
+    results = host["file_results"]
+    require(
+        [r["file"] for r in results] == profiles["host"],
+        "missing/duplicate host contract suite",
+    )
+    require(
+        all(
+            r.get("passed") is True
+            and type(r.get("tests")) is int
+            and r["tests"] > 0
+            and all(
+                type(r.get(k)) is int and r[k] == 0
+                for k in ("failures", "errors", "skipped")
+            )
+            for r in results
+        ),
+        "failed, skipped or unobserved host contract suite",
+    )
+    require(
+        set(host["prerequisites"]) == {"git", "node", "compose"}
+        and all(isinstance(v, str) and bool(v) for v in host["prerequisites"].values())
+        and host["prerequisites"]["node"].startswith("v24."),
+        "unverified host prerequisites",
+    )
+    source_proof(host["source"], head, "full")
+    action(host["action"], head)
     seen = set()
     for gate in row["backend"]:
         key = (gate["dialect"], gate["shard"])
@@ -95,6 +131,7 @@ def validate(row):
     for run in row["actions"]:
         action(run, head)
     required_runs = {g["action"]["id"] for g in row["backend"]}
+    required_runs.add(host["action"]["id"])
     require(
         required_runs.issubset({r["id"] for r in row["actions"]}),
         "matrix run absent from Actions inventory",

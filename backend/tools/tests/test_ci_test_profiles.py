@@ -8,7 +8,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ci_target
 import ci_test_profiles as profiles
-from phase38_cutover_source import test_membership
+from phase38_cutover_source import test_membership as receipt_membership
 
 
 class ProfileTests(unittest.TestCase):
@@ -39,7 +39,7 @@ class ProfileTests(unittest.TestCase):
                 "phase38_cutover_source.git",
                 return_value="[pytest]\npython_files = test_*.py\n",
             ):
-                selected = test_membership("a" * 40)
+                selected = receipt_membership("a" * 40)
         self.assertEqual(selected["host"], list(profiles.HOST_TEST_FILES))
         self.assertEqual(
             selected["sql"], ["tests/test_app.py", "tools/tests/test_guard.py"]

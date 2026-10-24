@@ -3,7 +3,6 @@
 
 import argparse
 import configparser
-import fnmatch
 import hashlib
 import json
 import os
@@ -13,6 +12,7 @@ import subprocess  # nosec B404, fixed read-only Git commands
 from pathlib import Path
 
 import phase34
+from ci_test_profiles import classify_test_files, select_test_files
 from phase34_fixtures import backend_command
 from phase34_fixtures import prepare as prepare_snapshot
 from phase34_fixtures import schema_commands
@@ -208,12 +208,7 @@ def tracked_test_files(repo):
         cwd=repo,
         text=True,
     ).split("\0")
-    return sorted(
-        name.removeprefix("backend/")
-        for name in tracked
-        if name.startswith("backend/")
-        and any(fnmatch.fnmatchcase(Path(name).name, pattern) for pattern in patterns)
-    )
+    return select_test_files(tracked, patterns)
 
 
 def shard_files(files, shard):
@@ -224,8 +219,15 @@ def shard_files(files, shard):
 
 def execute(dialect, gate, shard=None):
     repo = preflight()
-    files = tracked_test_files(repo) if shard is not None else []
-    selected = shard_files(files, shard) if shard is not None else ["."]
+    profiles = (
+        classify_test_files(tracked_test_files(repo))
+        if gate == "pytest"
+        else {"all": [], "sql": [], "host": []}
+    )
+    files = profiles["sql"]
+    selected = shard_files(files, shard) if shard is not None else files
+    if gate == "schema":
+        selected = ["."]
     if not selected:
         raise RuntimeError("empty CI test shard")
     run = CIRun(dialect)
@@ -235,7 +237,8 @@ def execute(dialect, gate, shard=None):
             {
                 "shard": shard,
                 "shards": SHARDS if shard is not None else 1,
-                "all_files": files,
+                "all_files": profiles["all"],
+                "profiles": profiles,
                 "selected_files": selected,
             },
             indent=2,

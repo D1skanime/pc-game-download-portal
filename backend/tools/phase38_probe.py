@@ -6,6 +6,7 @@ import json
 import shutil
 
 from ci_target import SHARDS, CIRun, shard_files, tracked_test_files
+from ci_test_profiles import classify_test_files
 from phase34_fixtures import backend_command, schema_commands
 from phase38_authority import PHASE, ROOT, preflight, protected
 
@@ -44,7 +45,9 @@ def execute(gate, dialect, profile="complete"):
             for command in schema_commands():
                 run.exec(command, timeout=600)
         else:
-            tracked = tracked_test_files(ROOT)
+            profiles = classify_test_files(tracked_test_files(ROOT))
+            tracked = profiles["sql"]
+            receipt["test_profiles"] = profiles
             groups = (
                 [list(AFFECTED)]
                 if profile == "affected"

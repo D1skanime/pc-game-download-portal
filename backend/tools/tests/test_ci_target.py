@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ci_target
+from ci_test_profiles import HOST_TEST_FILES
 
 
 class CITargetTests(unittest.TestCase):
@@ -142,7 +143,10 @@ class CITargetTests(unittest.TestCase):
         with patch.object(ci_target, "preflight"), patch.object(
             ci_target,
             "tracked_test_files",
-            return_value=[f"tests/test_case_{index}.py" for index in range(16)],
+            return_value=[
+                *[f"tests/test_case_{index:02}.py" for index in range(16)],
+                *HOST_TEST_FILES,
+            ],
         ):
             with patch.object(ci_target, "CIRun", return_value=run):
                 if failure:
@@ -169,7 +173,11 @@ class CITargetTests(unittest.TestCase):
 
     def test_pytest_preserves_complete_suite_and_owned_output(self):
         command = self.run_gate("pytest").exec.call_args
-        self.assertEqual(command.args[0][-1], ".")
+        self.assertEqual(
+            command.args[0][-16:],
+            [f"tests/test_case_{index:02}.py" for index in range(16)],
+        )
+        self.assertFalse(any(name in command.args[0] for name in HOST_TEST_FILES))
         self.assertNotIn("-n", command.args[0])
         self.assertIn("--cov", command.args[0])
         self.assertEqual(
@@ -179,11 +187,13 @@ class CITargetTests(unittest.TestCase):
     def test_pytest_executes_only_the_selected_complete_files(self):
         run = self.run_gate("pytest", shard=2)
         command = run.exec.call_args.args[0]
-        self.assertEqual(command[-2:], ["tests/test_case_1.py", "tests/test_case_9.py"])
+        self.assertEqual(
+            command[-2:], ["tests/test_case_01.py", "tests/test_case_09.py"]
+        )
         self.assertNotIn(".", command)
         receipt = json.loads((run.evidence / "shard-files.json").read_text())
         self.assertEqual(receipt["shard"], 2)
-        self.assertEqual(len(receipt["all_files"]), 16)
+        self.assertEqual(len(receipt["all_files"]), 20)
 
     def test_eight_shards_cover_every_file_once(self):
         files = sorted(
@@ -320,7 +330,11 @@ class CITargetTests(unittest.TestCase):
             run = MagicMock()
             run.evidence = Path(directory)
             run.start.side_effect = RuntimeError("target refused")
-            with patch.object(ci_target, "preflight"):
+            with patch.object(ci_target, "preflight"), patch.object(
+                ci_target,
+                "tracked_test_files",
+                return_value=[*HOST_TEST_FILES, "tests/test_runtime.py"],
+            ):
                 with patch.object(ci_target, "CIRun", return_value=run):
                     with self.assertRaisesRegex(RuntimeError, "target refused"):
                         ci_target.execute("postgresql", "pytest")

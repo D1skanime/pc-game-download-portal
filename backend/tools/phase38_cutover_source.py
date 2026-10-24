@@ -5,12 +5,13 @@ never inferred from a caller's equivalence assertion or a partial manifest.
 """
 
 import configparser
-import fnmatch
 import hashlib
 import json
 import re
 import subprocess  # nosec B404, fixed read-only Git argv
 from pathlib import Path
+
+from ci_test_profiles import classify_test_files, select_test_files
 
 ROOT = Path("/home/d1sk/pc-game-download-portal")
 SHA = re.compile(r"[0-9a-f]{40}")
@@ -126,12 +127,7 @@ def test_membership(commit):
     patterns = config.get(
         "pytest", "python_files", fallback="test_*.py *_test.py"
     ).split()
-    return sorted(
-        name.removeprefix("backend/")
-        for name in files
-        if name.startswith("backend/")
-        and any(fnmatch.fnmatchcase(Path(name).name, p) for p in patterns)
-    )
+    return classify_test_files(select_test_files(files, patterns))
 
 
 def schema_runtime(path):
