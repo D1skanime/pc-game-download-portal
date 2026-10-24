@@ -1091,7 +1091,7 @@ Cross-cutting constraints: Existing provider/personal/community ownership and pl
 **Goal:** Rebrand visible product identity and active repository/release/install references to ZockArchive and rename the same GitHub repository, preserving history, upstream attribution and installed storage/auth/API compatibility.
 **Requirements**: ZA-BRAND-01, ZA-BRAND-02, ZA-BRAND-03, ZA-BRAND-04, ZA-BRAND-05, ZA-BRAND-06, ZA-BRAND-07, ZA-BRAND-08, ZA-BRAND-09, ZA-BRAND-10
 **Depends on:** Phase 37
-**Plans:** 6/9 plans executed
+**Plans:** 7/9 plans executed
 
 Plans:
 
@@ -1101,6 +1101,6 @@ Plans:
 - [x] 38-04-PLAN.md: Update backend product metadata while preserving protocols and overrides
 - [x] 38-05-PLAN.md: Rebrand desktop display and project metadata without renaming persisted identities
 - [x] 38-06-PLAN.md: Update current operator documentation and product-owned release automation
-- [ ] 38-07-PLAN.md: Adapt exact repository guards and current naming/install verifiers
+- [x] 38-07-PLAN.md: Adapt exact repository guards and current naming/install verifiers
 - [ ] 38-08-PLAN.md: Prove compatible identity on owned browser, SQL and populated-install targets
 - [ ] 38-09-PLAN.md: Perform verified same-repository rename and deliver reviewed feature integration
