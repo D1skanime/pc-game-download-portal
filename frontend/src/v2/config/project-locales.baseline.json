@@ -1,0 +1,1874 @@
+{
+  "bg_BG": {
+    "activity": {
+      "digest": "966e9bb4afe39d67f38855774846f2177318d26ed4cf45de0407ea815586777f",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "bda6eb2cf26e122a103dbabc5448d9c1772e6c1bc3e57f21386dad974ea6460e",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "69f298aa487e6ad53fd8d92dd650ac8f6a20860dcfcfc37a070f45e5cb0e3e97",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "8403fba140aee776b02ae0e1379bb59e6338d79b23a565865ebb8e29cca947b7",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "03b2646698bb4e44d87dbf861e7a18690ad9bc4876f752da34d8f5ca71534591",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "76c0edce3e4445b1e681e98dff4dd98c6103f3ea2118b4770d158e846c91c6a7",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "f3be098d3fb17142c26611f15bb0bde6bd5d181ff85c6ef3f5da44040f34d9bc",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "7eeb9c6d9fadf472c68fe23f48a153a193326386dc1a0e7c64e40d9a907db227",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "2c1fa32035d8b89b0464c0708ad80b56621d443ef313eb963f4ccaeaa905d8a0",
+      "brandedKeys": [
+        "firmware-select-to-remove",
+        "removing-firmware",
+        "removing-platform-2"
+      ]
+    },
+    "play": {
+      "digest": "f0ca08fc69f12e08c6ec0c85ab96bdf9cca9721890b3f72a9f9966dac08e933b",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "ab0ae89e09d643ee05d9088e456f8424c9f3c391a44f9c0c43b3c3296390bdcf",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "286c16ffeb75a8df4e96fdf8855695986b5178a85f95e16b363042987dd818dd",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "e2c8f24761535c95abf0b45172b09e4b760ce97c46cf0c5d0d695016de72673c",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "8d9ea0d5e530908cedb2531c782920dd14d1124bbefa386fca28b934368a2ac8",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "ec9e288c73c34be2d5be38da67dc0531a6521db0b2380a61557006f5d0a3682d",
+      "brandedKeys": []
+    }
+  },
+  "cs_CZ": {
+    "activity": {
+      "digest": "531b5ec4b5d171d9d3d13516ebf52ec912e33bbe2b463382684e560a3ec8661f",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "47b492aa28b023811bd978ce59de0ac5afac4d7d999044b335580131cb9c722c",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "3d4c0522d64fc128e938d7f80ddea404ae1b22a224149d51bc5e7d7dd39421b5",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "17248778961474ff3f3e57bd6849aaff1bd7785492a15127a9a04229d17fa284",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "9802c10fb3a2bceaadcca1cc117e20d6451acb1dfecd510688c4aae1edc05334",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "108b6835f9deea9ceb747a6431a07e0226c85adb6f0b3f95542c8e20de1749bd",
+      "brandedKeys": ["empty-scan-desc"]
+    },
+    "login": {
+      "digest": "520cf37cf9ec8c92daa3b2c7c062c7027c9c579aea0b184b0216729edd2b80e5",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "a0a9d47c92daf6f51f8dce80340b307d9a096611dd713b3618f1340e2350d30f",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "fd7ff8eafc24bf1996b001e984abda24c8b10c79f7f283374a62377e0bd75f69",
+      "brandedKeys": ["removing-firmware", "removing-platform-2"]
+    },
+    "play": {
+      "digest": "b6e7440eb5fa214a5eb1b30d609ca5dd10b4bfdffc265aa954786cf25503cd35",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "0fb7137dfe0e1db6d3090f291ccfd6e63a5c10a44883deef4a5bb4d0c8ef105b",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "fabb7b95b176022036b8332a2d830e4b4be8bf8d0ba65462a9e45f4d88f52a2c",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "6615d12e7342d7b224e8f344a7c9d568eb7aaee45ea86ada6c7c1cfade25db8f",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "8d3df80e61bb07ffae65382a548c1b296836a605851641dec59bf001a03f3ce1",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "4752db028959e1a5dd9ba868ccc8ac7ff0bfe8b2a910c34956fd843e664c0ca2",
+      "brandedKeys": []
+    }
+  },
+  "de_DE": {
+    "activity": {
+      "digest": "df0144f8320387ab3b361d6ceb45911008678dafbd143b462fe7066d701059a3",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "5317599afc0db557b10a1249df9302d053c7f94f75e0b61da1cce40faa2d246c",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "e6d46601ae4b095e710a3f18c816a1f7db78ba94d34969bd18fbad3504aa6a05",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "32a1318708488cdf216511a76184f66058d8e5ce313cfc8778d39e790f70279d",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "109b18741afb5f786c04ee7f65a33b320c14cfd066bf07538012ea9b37eef634",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "0f7c403983cf83a5d6659d9b65e6787bab7ab54999fec8523d0a1e198b1fce5f",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "84ca6c6a02fb7e8fa729e096c2a345bf0938c4a0225bf61cb997ade34c1e05a8",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "ecdd09804e4e252f86e5818fd5f65fa1b2c835387202e51c946a7f601a01124c",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "cfcea6740e8287a5860940404b11dc16e7df3521b73db85f94a5ce467c3acd5c",
+      "brandedKeys": ["removing-firmware", "removing-platform-2"]
+    },
+    "play": {
+      "digest": "11e9f3f566633693bd071603d79c00e4dd54e527ced5f07acd0955d08ded76f0",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "89fc3f91d056941d1be072de46c503076790801a8a3d7d905dd9d043802dc4be",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "f10f1c35c8343940bb93fc49608f11fbc41f7e04ca3a417c1b26d0415879c74e",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "e32804c8b568b16d83be8a0cc1a061757588beff5f3d6be97e4a4382eaed87f3",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "0a11f741bd5a8bf8f37ca7486afa43337c02eef7c0d7720215dd034db687bbf8",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "568d2fc8859c118604e14c06cde39eb9f082c96945810f4075505a617b0e0e80",
+      "brandedKeys": []
+    }
+  },
+  "en_GB": {
+    "activity": {
+      "digest": "bbcec94aee6fc692ad372a4eedd7976aac587aa5f6ff57ec46bfb7e8cba832c8",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "e05641c23e855cc3ee5fa19c91139a53cc7ea3a3e875b0a47d61ac8e006e8987",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "58d3c527e2ae1ebc86ee8051b578b362020bf7f524914e3e95373870d6dc2ff7",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "769e7b79755146d9ba86c1e503f30f458c6bcd4d6b7b6c90856c23dc46af6caf",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "79b574d4a38aa65899636a81b44618cbfe4d93e3695baa85718f74af25fd6389",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "c10ca7e31c08878bf50664fd3b032e39f02209c4796094e889aef4601fa22290",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "f9d0c5771d3df17377b33ba5c10bef5f7907c04d5cef4b214004a5150edd3482",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "8f775fff7af18ddb294bbff0c442fcd3de4a8a40b20dc3094b34a7b7093fe12b",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "d533ba907dcd9e9b9eecc5d611b1d8749ea933611fcb081aa8e7331f036ea66f",
+      "brandedKeys": [
+        "firmware-select-to-remove",
+        "removing-firmware",
+        "removing-platform-2"
+      ]
+    },
+    "play": {
+      "digest": "bf357b4772f4a8b417205a8fc5a3afe897458d080ac3970399b73e9199813034",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "c583796d7a31802f8a2ee86daa979c9c63d48ee02c7ce0872bf4971a33bb2a4e",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "a78c5d4ac89386d98134adb1dd80bb33a70fd0425ce4c1ecf093169fe6efacb3",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "b9b4d1a434e62229b5c21ace1ed57c4be894017f294311bcd5e003445217dafa",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "8019aab429909a414526601ad6fd3cc4a4cbf7603d91d05746f2a670913ebec8",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "b66fb966b921d5bf465abb18c3e5d81cd8245c5002ce109049a81652cb715688",
+      "brandedKeys": []
+    }
+  },
+  "en_US": {
+    "activity": {
+      "digest": "bbcec94aee6fc692ad372a4eedd7976aac587aa5f6ff57ec46bfb7e8cba832c8",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "4d86c4b2eea2c54e2aaa9e7eec21f083f7b5c9b9f6afdb4a515b588dbe8847c7",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "58d3c527e2ae1ebc86ee8051b578b362020bf7f524914e3e95373870d6dc2ff7",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "769e7b79755146d9ba86c1e503f30f458c6bcd4d6b7b6c90856c23dc46af6caf",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "471d4e7f52b061c6a17c35a826a19c5ee87650e3ac914b6ef3fc1a49f58d070f",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "274a3ad79f4c86e98f6d34b6f90e7a3eac6d8945b70f7e8f1be93f74219f9fbe",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "f9d0c5771d3df17377b33ba5c10bef5f7907c04d5cef4b214004a5150edd3482",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "2e4b7448de0e8ab367dda4bad23212c3fb6d7fe4d5a3116dd5d0a4aacc31fc13",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "d533ba907dcd9e9b9eecc5d611b1d8749ea933611fcb081aa8e7331f036ea66f",
+      "brandedKeys": [
+        "firmware-select-to-remove",
+        "removing-firmware",
+        "removing-platform-2"
+      ]
+    },
+    "play": {
+      "digest": "bf357b4772f4a8b417205a8fc5a3afe897458d080ac3970399b73e9199813034",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "e153d11ae309abd1d9b78cdd7aae58ffce4e5c5034421948113bc2a047e4aabf",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "5c06683dc0dcbeab5de10f474770014a383dc75da3c37c8a735abbf980fd558f",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "4229a58bf73474b9e0f40ca1a112c8abb65992ace0f965dda1029fe4eb2e8c4b",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "26074e6dc6e5633a2f6b9099586cd84c87cd88f6c7f173d226c3082da22444de",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "b66fb966b921d5bf465abb18c3e5d81cd8245c5002ce109049a81652cb715688",
+      "brandedKeys": []
+    }
+  },
+  "es_ES": {
+    "activity": {
+      "digest": "c7ddd6760020646a3a45babe8a4e2348bacdb3a485978f710e0be97aa45b7798",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "43606a3a5de4bf65042bd5ad15afb673136a20af11f57e59cc8be3575ab5bbcf",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "f105d034771338d0da200046563db655f3e4c3e8f37888ddced4da71efa0c67e",
+      "brandedKeys": ["about-romm"]
+    },
+    "emptyStates": {
+      "digest": "5dc94aa8513f892861e420b2cd630768bf3328179d2bb6e9c1fe15eeb5342246",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "2826daca1d446d7523b58a2cdd2d235b59ae829e5f227333102f463c1ca092c6",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "4eb8acd76e7a1312e1f317dd8d70cae30c27b8e68901ac8ca3e0f17d39971b28",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "481aa644d522c9bbb538f63c9e1ddb40b32879e4c568e42a614fc3a03e993d2a",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "6e6755a444a29768dae0e424e378ea440ac2178b4184fa857b620f2a3a4c41f8",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "15b4eddfe3a2c93ee6f678aa8ac0286f676840166456e090bf192ddb637dbcda",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "5b9d756df0a80757a65883dff87ad7674a181c7a050860990281fde85205445e",
+      "brandedKeys": ["removing-firmware", "removing-platform-2"]
+    },
+    "play": {
+      "digest": "4044edf64c49d6f1ac81e9d2264d492e4455654b73140969bb6b471add89d5b1",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "5ec5353b3215fddf01b76bb843406d4bc1b3d39e4991c61b4b01dbe4449de211",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "80053571a06cdb93cb93bc8babfea5f532926b7e7abdb22d2ff6b11c771d0740",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "68dee634ca7cbf86e7b1b64b705f02b118b9733d83b98bf714a2a6fd44e0bfd5",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "4c50462ae4b007aaa561e4414777aeb347c7e2d0538c9bbae3914480ea086364",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "0f6501b6fbac807f94aeb981eb6f22849646c12c8f93fe591d394acb44d51c8d",
+      "brandedKeys": []
+    }
+  },
+  "fr_FR": {
+    "activity": {
+      "digest": "f68db6481c02ad5292689b1ad07fa175c0acfb5e9609b294fd20d41576cf8498",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "bd01954338776a31ab65aede1b13356b04137c2835226813b001d070571baca6",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "09a2a7301173fd77323a54ef12134fdf4cfbac34eb7a9ed1be49372229ac37fa",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "106f7ad4b9eccde6f692d41767a3ddb7b0ecf18a972d0d2a9c2d00123e492e72",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "044e5a8aa7856ba13a8d94d461bc31f4b496bc9a8db915d17e3c246f925c2402",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "57e8efbcfc179501caf32d5f038b1b0d01e804afa9ee28535b8bcee2f17f0b03",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "30e56319e26f21b777fcb65e869ae11e927b00124208e0b54fc0906859230782",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "2ce725bf422dd3a81a8d30a4ce00514c5182c93840c0af055cfcd88637b7c103",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "b85733658d8383312061b0b0fd7b41df7ab123a0ab04df59c2a094b6deb08b8b",
+      "brandedKeys": [
+        "firmware-select-to-remove",
+        "removing-firmware",
+        "removing-platform-2"
+      ]
+    },
+    "play": {
+      "digest": "1e22392d7bf9750f1176a498824ea6de7dfe7605afdb6195b247b8858a524baf",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "8577ab190c18aa829cd6633b7afbd4d6a26235517cc905f7223550f581330525",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "eca2066a5799e8fff1f9f221dede3d9327ecac033ec56a1c74e0323ac5a4565e",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "2e3c3836254e27555e37b3652f162e809c80c5eef6281074e3322d9e9db4e8b7",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "5d67c9782d093a82c539af38050d575b74ad2bec1a3643e8f1a892495563652e",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "17e6f005a432968f037d52f3d9c14f8cf29259ead3eea7dd9073f290af9af014",
+      "brandedKeys": []
+    }
+  },
+  "hu_HU": {
+    "activity": {
+      "digest": "ab64f44419ad1ddc264cfb7ed02d88f05225b093c14c0a6c53a148330bd7358a",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "cb72e7ec7c399f15affc9d771561c0e042c45e8023cd088cac35b17446fb7ed2",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "55b3ddbab2e7db4027f9bfdf857204a59e60e1a5ca46c9227efea58e9097773d",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "b2e516e86897273b6e3b818ae2a6ad2f7a01b09ed5bae9bd241628d7fa80ffdf",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "f697f0700489ef3afe44b277c1295d167300b367ffc1d681b7a5e91d5d49e7da",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "21ebdfb8c0dd25b28872035d1099d2595a58adf167ca1291b52bdd4362c02d82",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "425fd5a9d3bc6a4182a7201802224fa12ca5d3a559a3b50db4b760edfd864e15",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "28eb75eef93f7c8d024b904502a444925dfb221f77fc3a8a9b7e0711b51e2aa1",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "8735638478baca305a623c60c049813cc38e18b94415e06196e5b7edc8cf5ed5",
+      "brandedKeys": [
+        "firmware-select-to-remove",
+        "removing-firmware",
+        "removing-platform-2"
+      ]
+    },
+    "play": {
+      "digest": "de28e888afd356d10c63668259703007c3381ac5775027799bf39767b5c5485d",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "61822713145ea0b4a9a60533752f840a789718ec7c5d032f13c975b1272b9c16",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "cf2e5835f7670c882fdbbdf12a36760d1a4e9c8e2b663bc345a7059f4cf1b740",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "7196ecc196949b1ebe4f32fb695eff74f8b5d29f45d981254839480abb7877a1",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "ab218d2d61fe0f49613302c8331d1f81993b05c7cf1df3d75727c64b64db2338",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "a39a0ca65647f91e9536f38bcbb1031d801053f9ca8c1af2bb936b31598cb3e3",
+      "brandedKeys": []
+    }
+  },
+  "it_IT": {
+    "activity": {
+      "digest": "ee11de0e0075a984dee4fb841751708a795135809763db45d8e33a8215b763f4",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "8d6a563244d5583404e672644dae0a44cf1386e5062b8c3786be0dd8275f70aa",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "e69c1fa1a9b7ab8686012eddd104aa16cc36bdd9e076bea2e68d602da27123f8",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "cbafcede72e5f9dce2dc17b7598ef48146c6b8a7336fa28468b5f3dc20b1ebfc",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "6e492cb654d0bd6d3ea5738c329e3f2d81d7b8770ba16176269ba8591e710a78",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "05c6dc00488c66aed4445541e772c58907d8b1e875faa58a5941f66858be26ff",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "43518de691aca801fffdaaaebf5e755a1acbe8f223a938114afe1c431c10eeea",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "6f770dcf86ee8445ec9f0baa0f13971b73161f5831ea09495a756e2ccf2cf7b2",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "d6a96d0bf494c96803bad06ee2242ae9cf72364712ba765e061410e41eda4915",
+      "brandedKeys": ["removing-firmware", "removing-platform-2"]
+    },
+    "play": {
+      "digest": "462bff1f3f70e921f2f4fc54e53d7bd79bc3d4909f54054a9b4ac770668fc455",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "092c56ce0a5f435220fbb9150222d6102cfda0a07215227ee163cea29ee4f281",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "3692affe970c1b5aa33b83b6ec1f8789160e47a957f1d1076404741ae8469025",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "77491f857d1b5c4447bfe939d80fce39383d0a87ed7777cbf12c192ba8592ea4",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "99e50731911002264768d47ca3cdb003f7b55f0134ac6e2b83990fe585b082bd",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "3e42b944a4f477c076d68017b7157f6d4def583f451598eef4a421863887e4d7",
+      "brandedKeys": []
+    }
+  },
+  "ja_JP": {
+    "activity": {
+      "digest": "4fb8a6b628981fb287ca331f642795efc7df6b4395c42f032506017bb1d26570",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "0446846d68536f9749a6b31148e21b499be56c20436def14da5bca5c5321870b",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-1",
+        "removing-smart-collection-1"
+      ]
+    },
+    "common": {
+      "digest": "650aa4e93d0b2c866fa5b48635bc9ec37a725b125c094795f80c640eeac27d17",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "b372b58f3af10e2011da70911d15f385583848bb8d95bf585389d4e68547eb05",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "98132d8d170f6e3add99da4805589c1cd3babc35ee373d7845199101f5138235",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "f33349aa4b683f533ec92f926c0aa180e58fc677de21ad54145066eb8b2644a1",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "a6d2b397578db218e3bebc3d832a1aff3da5797367e34255c7587201320aea61",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "9cd1168f874e898b91356090f33fdb162f1edd792408fd87202ed765ec18dbe1",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "159dfd3a226b92fede770f00f3707ca35554801d41de2982d71e7eafe9d5c8a8",
+      "brandedKeys": ["removing-firmware", "removing-platform-1"]
+    },
+    "play": {
+      "digest": "b1ed15fe62089ce40b079da7542cec74a143f3a3d07aca05aa177cabc11760da",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "06b404b71e324d68cd6345c3aea64319f173d999674b538e874d15e19469a8a8",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "manual-replace-success",
+        "manual-upload-success",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "9812b6c59aa6ef9494c93fc016b32c2559f68c5b583164d095c177675c7cf607",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "f732155c0dff8e80aaa135e45e0599f22345cfdf7e6dd3f10042811b4635409e",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "34c17316d3b315ae850217f2ab75a2b408cc9ef75da1f715c3432f211604c50b",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "8109a57daae0a3ceea9048615aab50653edb889d1f125cb6ee6b4cd7a8635272",
+      "brandedKeys": []
+    }
+  },
+  "ko_KR": {
+    "activity": {
+      "digest": "6eed495971e1cb563a72bd6c5f56c39bc542aa5cc3e2b01a9878401394dae0ca",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "45ad448d8bc7c129e0c921e527a758a062ac83f94d4bc7f270f0811056939127",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "40b9d2b51c1bb148fca28ac5680efa0ad167715fcabcded80c73a51dec32fba1",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "7bd738005ae408138310925a0dc263b4ef4f45162c2186bc93eb8544e0c9ebb3",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "292a0669fef064ae4802f75f327d151a081f513ff4792fa6ef0473a06e475fd6",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "68965b9c55b14e555198436abc98edf80c4c9503e564c6c4f52d3416dd1b9d3d",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "697946c101caee94502cbb83b15c87200e4fdda67784c59ffb98fa3fd986045c",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "22c0e8400ab77a8d3ccaf1f1fdf1330b08cef8fddeca5adfd889a17e860d12b2",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "3b4154d54a462fc7082fd01ce482aef0b969a91cc07b49ad9336aca0737ec74d",
+      "brandedKeys": ["removing-firmware", "removing-platform-2"]
+    },
+    "play": {
+      "digest": "b04b29cc43ab5a50398f095a9ab6379b52ba57f392b5468444a57b9e0ff8ee68",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "73a12307acd260d934e1693b58b0a6b7d11894cc77648e5b5405c41ebdd75866",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "manual-replace-success",
+        "manual-upload-success",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "b83c09d10d28a28e7e22e7afae20ff47a9d54127830f08e55dab2807fd8d61b7",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "15a48d4c8a6a1fed312914940158cbdb4edcf2f2577f5077c55018c7c710a0df",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "0ac12a73cdb2a2b086eed3d500718d6915b9f0b25fdc9cb9c8f0dce04d5ae0f5",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "6169618af04fa2b82df50ae76a01540eb7f0f71fd667cfd2bef9b6c908d92d04",
+      "brandedKeys": []
+    }
+  },
+  "pl_PL": {
+    "activity": {
+      "digest": "6860b2c0b6bf1e9f615276499a87e55ba7600f7c01439857d35d91c605e3598c",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "5ccf4de671f2f2549b4a9b5fd456f4c6187cafb6eebf5e66d5060a62441b4b3e",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "6d4031f92159a25cceb343927d07dcfc1dc14699fd20ae6c50e2b80d9121133f",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "db4198d3051578632c4717a270b34730d12cb6219371a9a2efefc9b581e9b5d4",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "605db2584bc94bb1aa739354233af29f1871556ea8e41ea0c7581ecbe68c27f2",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "92327d0ce97bdf8b94e93875e2325bf81eae25b63037130e4202f0688d01efed",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "291d9765fba152478184cece61bf07b81d65dd637c41b474835d4350aa4f7234",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "b47ec12b75baf48c795ed0e49e7bc0b591851346d7ed7d8548b8c93ee25028c4",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "7c77284d117636022fc5fdb55753952e98e5e39e4094f3299a989105afdb31ad",
+      "brandedKeys": ["removing-firmware", "removing-platform-2"]
+    },
+    "play": {
+      "digest": "583bff538546016b52900ec244dacda20bd8860cdb933d73a72e8953069b9c96",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "0cd7756b92a46a341afd299c8e28e9bba0d7311812cbeb2cad21b1a076cdbeb0",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "manual-replace-success",
+        "manual-upload-success",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "0d77feb4a28e357ff81754c5b896e94d4b80d8e4665295177182021d77197375",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "afae2d86d47f600a7f0eded76ecaa5acf3e021e00ecd9684c05d5b5284c1a76c",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "701476c40e3bbb6019a42ad63236d831920386a4520bdf73a43d00e151b6d9ef",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "9f0c2b3144c67229a10caa1b11ecf48adbd486c5e98d537b840c3aa98521f884",
+      "brandedKeys": []
+    }
+  },
+  "pt_BR": {
+    "activity": {
+      "digest": "ffa0a4cce02f6fe5df62900ee6e6264eaa773966f53ba7fd58e00745b3ca3ff8",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "edbcbbc4c173993e787c09367d6ea77ca7b2096126194b79e0a6511f3e3656dc",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "91c16b53901cc6782db19e2db84eec7713455d367a2474ffe8f73a2239bc325b",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "fcf00953f7debbda3843db48db8d87b1436f1ddfe7225e137f42e11105024e67",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "4e30b0fb4810155987aebf174cd282365c5b578cd5186923980d4ad6edc8f68c",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "37900a1c74c8c98c65e83283903601d3bef30d9a110ec386bf322474fe9f0c96",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "2776b44ea8675a297319d6813905e31804f3ca88a59c3abeebed942993e69c44",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "0429b9295369540c7ee52fa6732ac23df6f926b4ee2405c6e336b67e1e5387cc",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "a485406d5688d06b1e87d67e123c27ac721d9d65a3eda344bc52b5c879b4343c",
+      "brandedKeys": ["removing-firmware", "removing-platform-2"]
+    },
+    "play": {
+      "digest": "3979554de4ace6802188d58c47702b0b65804dfe4ea8f046146c8ddf8830808e",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "dde3ca587b39dfa9857609f78313c44b0d700112e23fe8996b88260ccdc7f8e1",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "manual-replace-success",
+        "manual-upload-success",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "df401255cdbba38688944b022bd2501c8f1403ff11f347d06f392da979c13c34",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "6f2052bb3fb56a387d4f45845aa13964c2a1b26a26b48a674b9a6fdf74c9fe6c",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "02cfd900183c5e612073da16d3d4ad6e42f895c40641cf0632e90b9b3efd13e7",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "7e9c77cdfa0129b6cc61db099b68dd89d347737f0d94110f2fd6c62ab79b2039",
+      "brandedKeys": []
+    }
+  },
+  "ro_RO": {
+    "activity": {
+      "digest": "852aa246fdb2c42f81257987046bfa95c1506f30995ae0736b58a1d9d5f2f1a7",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "15b2f50ed8878b6d2f695a49a30304ecd2c11d8a3e588d2dd15438bd07a163fb",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "d9b01e42ef392966db13b33bc417eaa6028cac80f75e0151911a9f915038e5da",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "d2676eff108a7f000963644867c537b4048aa7232338c32f6fd93fdf0396fe3e",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "2d87f12dc50405b37159334146c4dad33ceaeed45629cc76ba142602b523406b",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "65423fb6e1dc2ddd56f161a83d6b254de7e798691e01113cd3ceac377ff88201",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "e226547caca63811bad916274d006f7bdb63e0e751effb4667c207a2c88c9de9",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "e1275364d18559446c97f90fae771b21d8ea55c2b8d5500f8be7b315855663a6",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "c22a81bc9320dc7448e10dd1b8f59356a681441c90c77206faada112c8ce493d",
+      "brandedKeys": ["removing-firmware", "removing-platform-2"]
+    },
+    "play": {
+      "digest": "627c79b3780923710ac99eedd5feb1aa0bfc5d0defd7f1195aeee11a39bb4046",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "84d184c991650f802627f2dc865ef74f63aa21ed5688614ac951e0ae55a3ed7f",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "manual-replace-success",
+        "manual-upload-success",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "8b15ec707985fe20dcadcb363f605bd996091a4fc3b5015906d573ea1f7a0f04",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "425c3bd5e14f327f75caed34d460935a99188e6160ba61b2d10afadc3f8976aa",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "258ee7cc443e8b2f329f753af7cb454891210106f2b40b42d077d4649ba58ab9",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "f5d83214e0accd3ba38712de18124092bafb09d7e099edd26518a62aa6a76815",
+      "brandedKeys": []
+    }
+  },
+  "ru_RU": {
+    "activity": {
+      "digest": "afcb919d99947324f6d7d7c6e6a7fbd8567f68f1556c64b7b86c3ceca0e23fd5",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "f597a2092ce89f0aa724b83bb53f2e69e598c9b74d93180c24197fffa6063e9b",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "8b36025ec697c28ab7fb9c801641eee5730aa0ae29d07f9d205d96f43b61b1ba",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "a5ffd75ee6872e07a55a1013a244bd57a3559873c51505a8043cdf645e7468df",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "0d01aff48866fb9e809d7334f46d7433db11db163b712434c5be4023820cf071",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "db42da9c4dd71647b62d666f0b88bc4e0df90312000c6b54f998ee37c68fa78c",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "de541ff7d21cfc037a4fccd48c739057cfc8b07d21c1bfa1a057130f7b9bd259",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "9893a9a9653d23e5131b5aadbb61ebf7e7efdc9fa6d4c966432c82d0693e0e0f",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "627b3186f5d4a648310c20555d72694f48679c242a261b997952ac1e19c3c64f",
+      "brandedKeys": ["removing-firmware", "removing-platform-2"]
+    },
+    "play": {
+      "digest": "5edd461ac6f823ecebb112d528a114a45e777401de1072972601f8c22e24876b",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "3d21b3c8b56146d5668f320f46f21e381f7f6bfaf748a545969526cfcdf2417e",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "manual-replace-success",
+        "manual-upload-success",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "cf5b8b0809caf48a6d04ec8d71390e6cfb8033c86b77fbe9dcb5182b1675d83d",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "33d88fcff4a4cd38c927228314c4bf7ebf9a712c6851724c3eb4d11a3d291927",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "49816a56d74dd2a140a9823f8d5cef1bde134d6fd248b22b202db728e12141d5",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "db6639aac0ae4487d5468cb67ab8894f1fc7f7e057a459ac132732bbc510e19d",
+      "brandedKeys": []
+    }
+  },
+  "tr_TR": {
+    "activity": {
+      "digest": "80fbb585867ff20b60e4f8146994fd14c46f9861335c5c3feaaca84ff41332fb",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "697f15d61a01d75aa23e5246864104426e4a90fbeb28e730044e8af30545492c",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-2",
+        "removing-smart-collection-2"
+      ]
+    },
+    "common": {
+      "digest": "e0868554c0e1a2b9a4c9af9a7424e277a2a5d47ceb1876b58f82663c972e54f5",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "cdec76fd2744e31f272d4334fd9972a03f3e5768107570b8d7ea20416d44cd95",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "b80fdf63baeb12f37ab4c6021910bf59ddbd190461d4bc9900839b1480feea45",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "a69358c4fd60b3f4f1890d77cffb48674b4964d271707c051df04ab89a01e4ba",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "712391005cbad1685e79d60340eb071fa32704f5a621c0971aaa8a2884c9341b",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "a79443f15a8e6eec0a61f06c890f4b4b0cf47db4b858dff0059944596634888b",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "cd5e6702f3321657550729e81f7eec446e241e96bb3e4981cb68b45b7e42d75b",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "39867a90968a4094d45559870ac131ed93c59efa18028388c9de1439af0d98bb",
+      "brandedKeys": [
+        "firmware-select-to-remove",
+        "removing-firmware",
+        "removing-platform-2"
+      ]
+    },
+    "play": {
+      "digest": "87eff9cc7cfa68d5342543a8051ba43ddcad6c5246cd88bd199ebf0177a55ded",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "45f0bc085da9fdc0175dd90730fd705d913e1006f2a4480c627c7328fa65ee9c",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "manual-replace-success",
+        "manual-upload-success",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "f26f4c39197ed04258b863126d4137970ebf98486c62d113961c93cb789d5029",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "e9264088f904d4adef110033e6ab4e1ac9d789b39e808ce25cc29a404bf1315c",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "2976f96d1ed030ae83ae181ba4655dca549193461b90d409cd3e5c5e95ecff26",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "5a6cdfc535f79fbfc39b45e6fd1ee1a1af9cf069d1f305a57e3afee7fdfb82d5",
+      "brandedKeys": []
+    }
+  },
+  "zh_CN": {
+    "activity": {
+      "digest": "153751c12414ab3357221fd343526e058bc18a78378dab20ba22261a4a4d73f8",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "8487a63b40ec93f5a5f3bb28ee037d655f8f6edb3deae5ed42e740a1a37dbe93",
+      "brandedKeys": [
+        "delete-collection-hint",
+        "removing-collection-1",
+        "removing-smart-collection-1"
+      ]
+    },
+    "common": {
+      "digest": "d05a03d6bc76a800114d6a39479f0db29ac6f0b7558d4e086fc3822fdddf9d3b",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "e578c2ebca4af65865a226219715217fff2a30d9cfebc927538fa239fff8ce81",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "d9178b3c7b9023db1d4155d9ac2595f806ab2ef474b4b0226056f8866e6667d4",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "b5724966a4ae0f456691340f31777a1a1a0943711e989bbe271f693590790413",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "a224727532e9953dfa2b47f81cdf15a32b2419d4d2fd1620f4cd4e8243bf5e5d",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "cb68c57c755b2a4fc877d9c1f6262a5e612d67bf015cca7466cd170617de4490",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "1b48b5c73028e7735e944a2361a0e2ba18700e5e18fb318b823921413b169805",
+      "brandedKeys": ["removing-firmware", "removing-platform-1"]
+    },
+    "play": {
+      "digest": "386f2dae909dce5b2b4cfe3f831622894d92f2e577ae933b389729fe2d51658a",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "a3a52d8db08f6a58fd685b7e6c363f566017aec4fc57435ba6f9f31e6b967136",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "manual-replace-success",
+        "manual-upload-success",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "ad0583883ebefd2ba746ed1573b93cfaf296f4f3e9004ec6407d337f69a996d2",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "827faba2d2c5b08bcf60103d89a6ff3ee3fbe0240538689e6a68e045b6e76ec7",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "67222de42eceb451557b0e9b06bdf070009fe5dfa8170c6e69b204da57d832cd",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "1a4c680cde124694e13481d8e338750e273a73557472537fd8ba5146798d5392",
+      "brandedKeys": []
+    }
+  },
+  "zh_TW": {
+    "activity": {
+      "digest": "0cfe57d65ee95df7be0b5ccad647b366db923f7a040ca620e1a53675a4a32e4f",
+      "brandedKeys": []
+    },
+    "collection": {
+      "digest": "d7670d1fbc654589987a6e733d7b5e0ddc85130b621c3087e3285645a7e6a03b",
+      "brandedKeys": ["delete-collection-hint"]
+    },
+    "common": {
+      "digest": "062b124044210fb2bcb01f0269f487cfafa1116cb4c95d0cc4d11d1d91c9e09e",
+      "brandedKeys": ["about-romm", "about-version"]
+    },
+    "emptyStates": {
+      "digest": "bdab5a7a0bcf03e48fc02243f85cd0f540cef05cc117e58271eaba9bcf15af97",
+      "brandedKeys": []
+    },
+    "gallery": {
+      "digest": "878be18de6962ca929eb8317e03901c0a1b3fcc671350b45c109c65b3dbcaa3b",
+      "brandedKeys": []
+    },
+    "home": {
+      "digest": "8dfb7971715d93a9bc4aae9bc7fb44f1534648b4386a29e31110bb29e154cd90",
+      "brandedKeys": []
+    },
+    "login": {
+      "digest": "492a514658e27bc787d3764bf60e6a1a1882ea9da5bf75064c35842c74761084",
+      "brandedKeys": []
+    },
+    "logs": {
+      "digest": "e507a4e08e4a6066a5e5e35af09b9cd9717132996a346771bf0fe50d961d1511",
+      "brandedKeys": []
+    },
+    "patcher": {
+      "digest": "151b492cc82177b22068f2b76f4cf4452847bc77b0658f8656e14e64a4ba3b79",
+      "brandedKeys": ["status-uploading", "upload-to-romm"]
+    },
+    "platform": {
+      "digest": "54b1fc38f90aefa49d95842c7512635b92f9807da6950bc0e1c9a3be1b483ffe",
+      "brandedKeys": ["removing-firmware"]
+    },
+    "play": {
+      "digest": "380a5b439f7b7242ab72cad8f84bb7547b6122ed9e9fbc1d9feb3b078a80b511",
+      "brandedKeys": []
+    },
+    "rom": {
+      "digest": "4c8fc304e07119b6bc99d65db4aec5bba15aba7ff07bd9f199d16222807bceb9",
+      "brandedKeys": [
+        "delete-artwork-title",
+        "delete-select-instruction",
+        "delete-soundtrack-title",
+        "download-enhanced-description",
+        "download-failed-description",
+        "download-served",
+        "download-standard-description",
+        "manual-empty-upload-hint",
+        "manual-primary-helper",
+        "manual-replace-success",
+        "manual-upload-success",
+        "owned-media-hint",
+        "owned-media-image-hint",
+        "pc-media-source-uploaded",
+        "remove-from-catalog-body",
+        "removing-title",
+        "save-data-file-hint",
+        "soundtrack-owned-hint",
+        "soundtrack-upload-hint"
+      ]
+    },
+    "scan": {
+      "digest": "ac5ef56500265bfab9c5458e4420b30caf4d802f19fbf9a9fdb583ae945756e8",
+      "brandedKeys": ["scan-types-info"]
+    },
+    "settings": {
+      "digest": "32d6abacd584c2d1b32a06de823d7fb35853e6934b1e59c9efd5fbffba5d8680",
+      "brandedKeys": [
+        "config-file-parse-error-desc",
+        "device-auth-subheading",
+        "exclusions-tooltip",
+        "folder-alias-description",
+        "folder-mappings-tooltip-aliases",
+        "folder-mappings-tooltip-variants",
+        "romm-platform",
+        "romm-platform-header"
+      ]
+    },
+    "setup": {
+      "digest": "ef3372447698073e3e118ae67d3ea1d34b9a14b05e518c2ee6a83484fca65f3e",
+      "brandedKeys": [
+        "assign-folder",
+        "choose-platform",
+        "folders-description",
+        "platform-column"
+      ]
+    },
+    "storage": {
+      "digest": "a69cbeda4f11a2189c16f45b8a798c8885c29e7558610f5ed9b753f6c12f9f2d",
+      "brandedKeys": []
+    }
+  }
+}
