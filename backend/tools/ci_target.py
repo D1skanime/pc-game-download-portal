@@ -17,7 +17,7 @@ from phase34_fixtures import backend_command
 from phase34_fixtures import prepare as prepare_snapshot
 from phase34_fixtures import schema_commands
 
-ORIGIN = "https://github.com/D1skanime/pc-game-download-portal.git"
+ORIGIN = "https://github.com/D1skanime/zockarchive.git"
 
 
 def preflight():
@@ -27,7 +27,7 @@ def preflight():
     canonical = Path("/home/d1sk/pc-game-download-portal")
     if root != canonical and (
         os.environ.get("GITHUB_ACTIONS") != "true"
-        or os.environ.get("GITHUB_REPOSITORY") != "D1skanime/pc-game-download-portal"
+        or os.environ.get("GITHUB_REPOSITORY") != "D1skanime/zockarchive"
         or Path(os.environ.get("GITHUB_WORKSPACE", "/")).resolve() != root
     ):
         raise RuntimeError("unverified CI workspace")
