@@ -46,7 +46,10 @@ function resolveComponent(
   );
 }
 
-async function loadDlc(params: Record<string, unknown>, forceFresh = false) {
+async function loadDlc(
+  params: Record<string, unknown>,
+  forceFresh = false,
+): Promise<boolean> {
   const current = ++generation;
   const retainView = forceFresh && state.value === "ready";
   if (!retainView) {
@@ -59,7 +62,7 @@ async function loadDlc(params: Record<string, unknown>, forceFresh = false) {
   const componentId = parseSafeRouteId(params.component);
   if (romId === null || componentId === null) {
     state.value = "unavailable";
-    return;
+    return false;
   }
 
   try {
@@ -67,32 +70,34 @@ async function loadDlc(params: Record<string, unknown>, forceFresh = false) {
       !forceFresh && romsStore.currentRom?.id === romId
         ? romsStore.currentRom
         : (await romApi.getRom({ romId })).data;
-    if (current !== generation) return;
+    if (current !== generation) return false;
     if (parent.id !== romId) {
       state.value = "unavailable";
-      return;
+      return false;
     }
 
     const selectedComponent = resolveComponent(parent, componentId);
     if (!selectedComponent) {
       state.value = "unavailable";
-      return;
+      return false;
     }
 
     if (forceFresh) romsStore.setCurrentRom(parent);
     parentRom.value = parent;
     component.value = selectedComponent;
     state.value = "ready";
+    return true;
   } catch (error) {
-    if (current !== generation) return;
+    if (current !== generation) return false;
     console.error(error);
     if (!retainView) state.value = "unavailable";
     else snackbar.error(t("common.error"));
+    return false;
   }
 }
 
 async function refreshDlc() {
-  await loadDlc(route.params, true);
+  return await loadDlc(route.params, true);
 }
 
 void loadDlc(route.params);
@@ -118,6 +123,7 @@ onBeforeRouteUpdate(async (to) => {
     v-else-if="state === 'ready' && parentRom && component"
     :parent="parentRom"
     :component="component"
+    :refresh="refreshDlc"
     @refresh="refreshDlc"
   />
 

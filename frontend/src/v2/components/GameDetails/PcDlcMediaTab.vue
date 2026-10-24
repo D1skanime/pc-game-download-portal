@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { RCarousel, RDropzone, REmptyState, RSelect } from "@v2/lib";
-import { computed, onMounted, ref } from "vue";
+import { RBtn, RCarousel, RDropzone, REmptyState, RSelect } from "@v2/lib";
+import { computed, nextTick, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   PcComponentOwnedMediaSchema,
@@ -19,16 +19,25 @@ import { romApi as api } from "@/v2/data/adapters/legacy/services/api/rom";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ romId: number; component: PcComponentSchema }>();
-const emit = defineEmits<{ (event: "refresh"): void }>();
+const props = defineProps<{
+  romId: number;
+  component: PcComponentSchema;
+  refresh: () => Promise<boolean>;
+}>();
 const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const canEdit = useCan("rom.edit", { kind: "rom", id: props.romId });
-const media = ref<PcComponentOwnedMediaSchema[]>([]);
-const loading = ref(true);
+const media = computed(() => props.component.owned_media ?? []);
 const uploading = ref(false);
 const placing = ref(false);
+const deleting = ref(false);
+const needsRefresh = ref(false);
+const recovering = ref(false);
+const busy = computed(
+  () =>
+    uploading.value || placing.value || deleting.value || needsRefresh.value,
+);
 const role = ref<RomComponentOwnedMediaRole>("screenshot");
 const roles: RomComponentOwnedMediaRole[] = [
   "cover",
@@ -83,22 +92,34 @@ function closeLightbox() {
   lightboxOpen.value = false;
 }
 
-async function load(initial = false) {
-  if (initial) loading.value = true;
+// Mutations stay serialized until the parent's version and owned media are canonical.
+async function reconcile() {
   try {
-    media.value = (await api.get<PcComponentOwnedMediaSchema[]>(endpoint)).data;
+    const refreshed = await props.refresh();
+    needsRefresh.value = !refreshed;
+    if (refreshed) await nextTick();
+    return refreshed;
   } catch (error) {
     console.error(error);
+    needsRefresh.value = true;
     snackbar.error(t("common.error"));
+    return false;
+  }
+}
+
+async function retryReconciliation() {
+  if (recovering.value) return;
+  recovering.value = true;
+  try {
+    await reconcile();
   } finally {
-    loading.value = false;
+    recovering.value = false;
   }
 }
 
 async function upload(files: File[]) {
   const file = files[0];
-  if (!file || !componentVersion.value || !canEdit.value || uploading.value)
-    return;
+  if (!file || !componentVersion.value || !canEdit.value || busy.value) return;
   uploading.value = true;
   try {
     const body = new FormData();
@@ -106,9 +127,7 @@ async function upload(files: File[]) {
     body.append("role", role.value);
     body.append("expected_version", componentVersion.value);
     await api.post(endpoint, body);
-    await load();
-    emit("refresh");
-    snackbar.success(t("common.upload"));
+    if (await reconcile()) snackbar.success(t("common.upload"));
   } catch (error) {
     console.error(error);
     snackbar.error(t("common.error"));
@@ -129,7 +148,7 @@ function hasPlacement(item: PcComponentOwnedMediaSchema) {
 }
 
 async function togglePlacement(item: PcComponentOwnedMediaSchema) {
-  if (!componentVersion.value || !canEdit.value || placing.value) return;
+  if (!componentVersion.value || !canEdit.value || busy.value) return;
   placing.value = true;
   try {
     if (hasPlacement(item)) {
@@ -141,8 +160,7 @@ async function togglePlacement(item: PcComponentOwnedMediaSchema) {
         expected_version: componentVersion.value,
       });
     }
-    await load();
-    emit("refresh");
+    await reconcile();
   } catch (error) {
     console.error(error);
     snackbar.error(t("common.error"));
@@ -152,22 +170,21 @@ async function togglePlacement(item: PcComponentOwnedMediaSchema) {
 }
 
 async function remove(mediaId: number) {
-  if (!componentVersion.value) return;
-  if (!(await confirm({ title: t("common.delete"), tone: "danger" }))) return;
+  if (!componentVersion.value || !canEdit.value || busy.value) return;
+  deleting.value = true;
   try {
+    if (!(await confirm({ title: t("common.delete"), tone: "danger" }))) return;
     await api.delete(`${endpoint}/${mediaId}`, {
       params: { expected_version: componentVersion.value },
     });
-    await load();
-    emit("refresh");
-    snackbar.success(t("rom.pc-media-deleted"));
+    if (await reconcile()) snackbar.success(t("rom.pc-media-deleted"));
   } catch (error) {
     console.error(error);
     snackbar.error(t("common.error"));
+  } finally {
+    deleting.value = false;
   }
 }
-
-onMounted(() => load(true));
 </script>
 
 <template>
@@ -189,7 +206,7 @@ onMounted(() => load(true));
     <RDropzone
       ref="dropzone"
       overlay
-      :disabled="uploading || !componentVersion || !canEdit"
+      :disabled="busy || !componentVersion || !canEdit"
       accept="image/jpeg,image/png,image/webp"
       :input-label="t('common.upload')"
       :release-label="t('common.dropzone-drag-over')"
@@ -199,15 +216,24 @@ onMounted(() => load(true));
         <MediaUploadControl
           :available="canEdit"
           :loading="uploading"
-          :disabled="uploading || placing || !componentVersion"
+          :disabled="busy || !componentVersion"
           :label="t('common.upload')"
           :hint="t('common.dropzone-hint')"
           @upload="dropzone?.open()"
         />
       </header>
-      <p v-if="loading">{{ t("common.loading") }}</p>
+      <div v-if="needsRefresh" role="alert" class="d-flex align-center ga-3">
+        <span>{{ t("common.error") }}</span>
+        <RBtn
+          :loading="recovering"
+          :disabled="recovering"
+          :aria-label="t('common.try-again')"
+          @click="retryReconciliation"
+          >{{ t("common.try-again") }}</RBtn
+        >
+      </div>
       <REmptyState
-        v-else-if="filteredMedia.length === 0"
+        v-if="filteredMedia.length === 0"
         :title="t('rom.artwork-empty')"
       />
       <ul
@@ -248,7 +274,7 @@ onMounted(() => load(true));
                     ? t('rom.remove-from-overview')
                     : t('rom.add-to-overview')
                 "
-                :disabled="!componentVersion || placing"
+                :disabled="!componentVersion || busy"
                 :loading="placing"
                 @click="togglePlacement(item)"
               />
@@ -257,7 +283,7 @@ onMounted(() => load(true));
                 tone="danger"
                 :caption="t('common.delete')"
                 :label="t('common.delete')"
-                :disabled="!componentVersion || placing"
+                :disabled="!componentVersion || busy"
                 @click="remove(item.id)"
               />
             </div>

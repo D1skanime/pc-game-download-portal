@@ -6,6 +6,7 @@ import PcDlcMediaTab from "./PcDlcMediaTab.vue";
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
+  refresh: vi.fn(),
   post: vi.fn(),
   delete: vi.fn(),
   open: vi.fn(),
@@ -60,23 +61,33 @@ vi.mock("@v2/lib", () => ({
   }),
 }));
 const endpoint = "/roms/24/pc-components/20/media";
-const component = {
-  id: 20,
-  updated_at: "2026-10-24T10:00:00Z",
-} as PcComponentSchema;
 const media = {
   id: 7,
-  role: "screenshot",
-  origin: "provider",
+  role: "screenshot" as const,
+  origin: "provider" as const,
   provider: "steam",
-  placements: [{ media_id: 7, position: 0 }],
+  provider_media_id: "7",
+  mime_type: "image/png",
+  owned_path: "fixture/shot.png",
+  created_at: "2026-10-24T10:00:00Z",
+  updated_at: "2026-10-24T10:00:00Z",
+  placements: [{ id: 1, media_id: 7, position: 0 }],
 };
-function render() {
-  return mount(PcDlcMediaTab, { props: { romId: 24, component } });
+const component: PcComponentSchema = {
+  id: 20,
+  kind: "dlc",
+  relative_path: "DLC/fixture",
+  manifest_members: [],
+  updated_at: "2026-10-24T10:00:00Z",
+  owned_media: [media],
+};
+function render(refresh = mocks.refresh) {
+  return mount(PcDlcMediaTab, { props: { romId: 24, component, refresh } });
 }
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.editable = true;
+  mocks.refresh.mockResolvedValue(true);
   mocks.get.mockResolvedValue({ data: [media] });
   mocks.post.mockResolvedValue({ data: {} });
   mocks.delete.mockResolvedValue({ data: {} });
@@ -90,7 +101,7 @@ describe("DLC media presentation preserves component capabilities", () => {
     expect(button.attributes("aria-pressed")).toBe("true");
     expect(button.find('[data-icon="mdi-crown-outline"]').exists()).toBe(true);
     expect(button.find(".za-shot__check").exists()).toBe(true);
-    expect(wrapper.get(".za-shot__badge").text()).toBe(
+    expect(wrapper.find(".za-shot__badge").text()).toBe(
       "rom.screenshots-overview-position:1",
     );
     expect(wrapper.findAll(".za-shot__actions button")).toHaveLength(2);
@@ -100,7 +111,7 @@ describe("DLC media presentation preserves component capabilities", () => {
       `${endpoint}/7/placement`,
       { params: { expected_version: component.updated_at } },
     );
-    expect(wrapper.emitted("refresh")).toHaveLength(1);
+    expect(mocks.refresh).toHaveBeenCalledTimes(1);
   });
   it("opens one existing picker and posts one file to the nested endpoint", async () => {
     const wrapper = render();
@@ -116,7 +127,7 @@ describe("DLC media presentation preserves component capabilities", () => {
     expect(body.get("media")).toBe(file);
     expect(body.get("role")).toBe("screenshot");
     expect(body.get("expected_version")).toBe(component.updated_at);
-    expect(wrapper.emitted("refresh")).toHaveLength(1);
+    expect(mocks.refresh).toHaveBeenCalledTimes(1);
   });
   it("keeps read-only media previewable without editing or upload actions", async () => {
     mocks.editable = false;
@@ -153,25 +164,80 @@ describe("DLC media presentation preserves component capabilities", () => {
     await flushPromises();
   });
 
-  it("keeps the existing card mounted during media reconciliation", async () => {
-    const wrapper = render();
-    await flushPromises();
-    const card = wrapper.get(".za-shot").element;
-    let release!: (value: { data: (typeof media)[] }) => void;
-    mocks.get.mockImplementationOnce(
+  it("keeps the existing card mounted during canonical reconciliation", async () => {
+    let release!: (ok: boolean) => void;
+    const refresh = vi.fn(
       () =>
-        new Promise((resolve) => {
+        new Promise<boolean>((resolve) => {
           release = resolve;
         }),
     );
+    const wrapper = render(refresh);
+    await flushPromises();
+    const card = wrapper.get(".za-shot").element;
     await wrapper
       .get('[aria-label="rom.remove-from-overview"]')
       .trigger("click");
     await flushPromises();
-    expect(wrapper.get(".za-shot").element).toBe(card);
-    release({ data: [media] });
+    expect(wrapper.find(".za-shot").element).toBe(card);
+    release(true);
     await flushPromises();
-    expect(wrapper.get(".za-shot").element).toBe(card);
+    expect(wrapper.find(".za-shot").element).toBe(card);
+  });
+
+  it("keeps edits blocked until the canonical parent version settles", async () => {
+    let release!: (ok: boolean) => void;
+    const refresh = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const wrapper = render(refresh);
+    await flushPromises();
+    await wrapper
+      .get('[aria-label="rom.remove-from-overview"]')
+      .trigger("click");
+    await flushPromises();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(
+      wrapper
+        .get('[aria-label="rom.remove-from-overview"]')
+        .attributes("disabled"),
+    ).toBeDefined();
+    expect(wrapper.findComponent({ name: "RDropzone" }).props("disabled")).toBe(
+      true,
+    );
+    release(true);
+    await flushPromises();
+    expect(
+      wrapper
+        .get('[aria-label="rom.remove-from-overview"]')
+        .attributes("disabled"),
+    ).toBeUndefined();
+  });
+
+  it("retains a blocked editor and retries only reconciliation after a failed canonical read", async () => {
+    mocks.refresh.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const wrapper = render();
+    await flushPromises();
+    await wrapper
+      .get('[aria-label="rom.remove-from-overview"]')
+      .trigger("click");
+    await flushPromises();
+    expect(wrapper.find('[aria-label="common.try-again"]').exists()).toBe(true);
+    expect(
+      wrapper
+        .get('[aria-label="rom.remove-from-overview"]')
+        .attributes("disabled"),
+    ).toBeDefined();
+    await wrapper.get('[aria-label="common.try-again"]').trigger("click");
+    await flushPromises();
+    expect(mocks.refresh).toHaveBeenCalledTimes(2);
+    expect(mocks.delete).toHaveBeenCalledTimes(1);
+    expect(wrapper.find('[aria-label="common.try-again"]').exists()).toBe(
+      false,
+    );
   });
 
   it("preserves deletion confirmation and does not mutate after cancellation", async () => {

@@ -980,7 +980,7 @@ test("DLC placement survives media-to-overview navigation without a page reload"
   ).toBe(1);
 });
 
-test("DLC selection preserves card node, dimensions, filter and scroll during delayed reconciliation", async ({
+test("DLC selection preserves card node, dimensions and scroll during delayed reconciliation", async ({
   page,
 }) => {
   const state = await open(page, { dlc: true, count: 50 });
@@ -1005,8 +1005,8 @@ test("DLC selection preserves card node, dimensions, filter and scroll during de
     .getByRole("button", { name: "Add to overview", exact: true })
     .click();
   await expect(
-    first.getByRole("button", { name: "Remove from overview", exact: true }),
-  ).toBeVisible();
+    first.getByRole("button", { name: "Add to overview", exact: true }),
+  ).toBeDisabled();
   expect(await handle!.evaluate((el) => el.isConnected)).toBe(true);
   await expect(page.locator('[data-testid="pc-dlc-loading"]')).toHaveCount(0);
   release();
@@ -1022,4 +1022,48 @@ test("DLC selection preserves card node, dimensions, filter and scroll during de
   expect(
     Math.abs((await panel.evaluate((el) => el.scrollTop)) - scroll),
   ).toBeLessThanOrEqual(1);
+});
+
+test("DLC failed canonical read blocks writes and retries without replaying the mutation", async ({
+  page,
+}) => {
+  const state = await open(page, { dlc: true, count: 3 });
+  const target = page.locator(".pc-dlc-media .za-shot").nth(1);
+  const initialVersion = state.rom.components![0].updated_at;
+  state.refreshFailure = true;
+  await target
+    .getByRole("button", { name: "Add to overview", exact: true })
+    .click();
+  const retry = page
+    .locator(".pc-dlc-media")
+    .getByRole("button", { name: "Try again", exact: true });
+  await expect(retry).toBeVisible();
+  await expect(
+    target.getByRole("button", { name: "Add to overview", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.locator(".pc-dlc-media .za-media-upload__button"),
+  ).toBeDisabled();
+  const placements = () =>
+    state.mutations.filter((mutation) => mutation.path.endsWith("/placement"));
+  expect(placements()).toHaveLength(1);
+  expect(placements()[0].body?.expected_version).toBe(initialVersion);
+  const canonicalVersion = state.rom.components![0].updated_at;
+  expect(canonicalVersion).not.toBe(initialVersion);
+  state.refreshFailure = false;
+  await retry.click();
+  await expect(
+    target.getByRole("button", { name: "Remove from overview", exact: true }),
+  ).toBeEnabled();
+  expect(placements()).toHaveLength(1);
+  await target
+    .getByRole("button", { name: "Remove from overview", exact: true })
+    .click();
+  await expect(
+    target.getByRole("button", { name: "Add to overview", exact: true }),
+  ).toBeEnabled();
+  expect(placements()).toHaveLength(2);
+  expect(
+    new URLSearchParams(placements()[1].query).get("expected_version"),
+  ).toBe(canonicalVersion);
 });

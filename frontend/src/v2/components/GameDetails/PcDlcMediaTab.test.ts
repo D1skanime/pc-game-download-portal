@@ -63,9 +63,9 @@ describe("PcDlcMediaTab", () => {
     expect(source).toContain("item.role === role.value");
   });
 
-  it("refreshes local media before reporting deletion success", () => {
+  it("awaits canonical reconciliation before reporting deletion success", () => {
     expect(source).toMatch(
-      /await api\.delete[\s\S]+await load\(\)[\s\S]+emit\("refresh"\)[\s\S]+pc-media-deleted/,
+      /await api\.delete[\s\S]+await reconcile\(\)[\s\S]+pc-media-deleted/,
     );
   });
 });

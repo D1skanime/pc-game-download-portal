@@ -391,6 +391,10 @@ export async function mountGallery(
     if (options.dlc && path.startsWith("/api/roms/1/pc-components/20/media")) {
       const component = state.rom.components![0];
       const items = component.owned_media!;
+      if (req.method() !== "GET")
+        component.updated_at = new Date(
+          Date.parse(component.updated_at!) + 1000,
+        ).toISOString();
       if (path.endsWith("/media") && req.method() === "GET") return json(items);
       const id = Number(path.split("/")[7]);
       if (path.endsWith("/placement")) {
