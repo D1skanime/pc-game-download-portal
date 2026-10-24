@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: milestone
-status: executing
-stopped_at: Completed 38-08-PLAN.md; ready for independent review and 38-09
+status: awaiting_human_review
+stopped_at: Phase38 source implementation independently reviewed; cutover and exact-source CI outcomes recorded separately
 last_updated: "2026-10-24T19:19:09.243Z"
 last_activity: 2026-10-24
 progress:
@@ -25,10 +25,16 @@ See: .planning/PROJECT.md (updated 2026-08-31)
 
 ## Current Position
 
-Phase:38 (zockarchive-product-and-repository-rebranding) - EXECUTING
-Plan: 9 of 9; ready for independent review, same-ID cutover and exact-source full CI
-Status: Ready to execute
-Last activity: 2026-10-24
+Phase:38 (zockarchive-product-and-repository-rebranding)
+Plan:9 of9; source implementation complete and independently reviewed
+Status: Human review pending; external delivery/acceptance outcomes are separate receipts
+Last activity:2026-10-24
+
+The source includes the reviewed read-only cutover verifier and required complete-checkout
+host-contract CI job. All16 SQL shards, the host Actions job and actual same-ID cutover
+must be verified independently. Their final observed results belong to ignored
+38-CUTOVER.md,38-09-SUMMARY.md and evidence/cutover/validation.json, not an advance
+claim in this frozen source status. No main merge or deployment is authorized.
 
 ## Phase38 owned integration proof
 
